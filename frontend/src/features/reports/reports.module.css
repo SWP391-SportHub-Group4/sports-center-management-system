@@ -85,3 +85,682 @@
   margin: 0;
   padding: 0;
 }
+
+.reportToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.reportLead {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.appliedPeriod {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--court-800);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.appliedPeriod small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.toolbarActions,
+.filterActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.toolbarActions :global(.btn),
+.filterActions :global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.reportTabs {
+  min-width: 0;
+}
+.reportTabs [role="tablist"] {
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 8px 0;
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  overflow: visible;
+  background: var(--bg-surface-sunken);
+}
+.reportTabs [role="tab"] {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 88px;
+  padding: 16px 20px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--text-body);
+  font: 600 0.875rem / 1.5 var(--font-body);
+  text-align: start;
+  white-space: normal;
+  transition:
+    background-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 200ms ease-out;
+}
+.reportTabs [role="tab"]:hover {
+  color: var(--court-800);
+  background: var(--court-50);
+}
+.reportTabs [role="tab"][aria-selected="true"] {
+  z-index: 1;
+  margin-bottom: -1px;
+  border-color: var(--border-subtle);
+  border-bottom-color: var(--bg-surface);
+  background: var(--bg-surface);
+  color: var(--court-800);
+}
+.reportTabs [role="tab"]::before {
+  position: absolute;
+  content: "";
+  inset: 0 16px auto;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--court-700);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.reportTabs [role="tab"][aria-selected="true"]::before {
+  opacity: 1;
+}
+.reportTabs [role="tab"][aria-selected="true"]::after {
+  position: absolute;
+  content: "";
+  inset: auto 0 -1px;
+  height: 2px;
+  background: var(--bg-surface);
+}
+.reportTabs [role="tab"][aria-selected="true"] svg {
+  color: var(--court-700);
+}
+.reportTabs [data-tab-indicator] {
+  z-index: 0;
+  border: 1px solid var(--border-subtle);
+  border-bottom-color: var(--bg-surface);
+  border-radius: 8px 8px 0 0;
+  background: var(--bg-surface);
+  will-change: transform;
+}
+.reportTabs [data-tab-indicator]::before {
+  position: absolute;
+  content: "";
+  inset: 0 16px auto;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--court-700);
+}
+.reportTabs [data-tab-indicator]::after {
+  position: absolute;
+  content: "";
+  inset: auto 0 -1px;
+  height: 2px;
+  background: var(--bg-surface);
+}
+.reportTabs [data-indicator-ready="true"] [role="tab"][aria-selected="true"] {
+  background: transparent;
+  border-color: transparent;
+}
+.reportTabs [data-indicator-ready="true"] [role="tab"]::before,
+.reportTabs [data-indicator-ready="true"] [role="tab"]::after {
+  opacity: 0;
+}
+.reportTabs [role="tab"]:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--focus-ring);
+}
+.reportTabs [role="tabpanel"] {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0 0 12px 12px;
+  background: var(--bg-surface);
+}
+.dashboardViewport {
+  min-width: 0;
+  overflow: clip;
+  transition: height 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dashboardMeasure {
+  display: flow-root;
+  min-width: 0;
+  padding: 4px;
+}
+.dashboardView {
+  min-width: 0;
+}
+@keyframes reportDataEnter {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.reportTabs .analysisPanel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  animation: reportDataEnter 180ms ease-out both;
+}
+.reportTabs .tabContent > .analysisPanel ~ .analysisPanel {
+  padding-top: 24px;
+  border-top: 1px solid var(--border-subtle);
+}
+.reportTabs .reconciliation :global(.card) {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+.reportTabs .reconciliation :global(.card__head),
+.reportTabs .reconciliation :global(.card__body) {
+  padding-inline: 0;
+}
+.tabLabel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
+  transition: transform 180ms ease-out;
+}
+.tabLabel > span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.tabLabel svg {
+  flex: none;
+  color: var(--court-700);
+  transition:
+    color 200ms ease-out,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reportTabs [role="tab"][aria-selected="true"] .tabLabel svg {
+  transform: translateY(-1px) scale(1.07);
+}
+.reportTabs [role="tab"]:active .tabLabel {
+  transform: translateY(1px);
+}
+.tabContent {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.scopeNotice {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--court-200);
+  border-radius: 8px;
+  background: var(--court-50);
+  color: var(--court-800);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+.filterPanel {
+  min-width: 0;
+  padding: 20px 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+.filterPanel .filterForm {
+  display: grid;
+  gap: 20px;
+  margin: 0;
+}
+.filterToolbar,
+.filterFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.filterFooter > .pendingFilters {
+  color: var(--warning-text);
+}
+.filterTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-strong);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.filterTitle svg {
+  color: var(--court-700);
+}
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.presets button {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 0.75rem / 1.5 var(--font-body);
+  cursor: pointer;
+  transition:
+    background 160ms ease-out,
+    color 160ms ease-out;
+}
+.presets button:hover {
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+}
+.presets button[aria-pressed="true"] {
+  background: var(--court-100);
+  color: var(--court-800);
+}
+.presets button:focus-visible,
+.records > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.filterPanel .filterGrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 16px;
+}
+.filterPanel .filterGrid input,
+.filterPanel .filterGrid select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+.filterFooter {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.filterFooter > p,
+.panelHeading p,
+.chartNote,
+.empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+.analysisPanel {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+.panelHeading h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 600 1rem / 1.4 var(--font-body);
+}
+.panelHeading p {
+  max-width: 90ch;
+  margin-top: 8px;
+}
+.reportMetrics {
+  display: grid;
+  grid-template-columns: repeat(var(--metric-columns), minmax(0, 1fr));
+  gap: 0;
+  padding-block: 4px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.reportMetrics :global(.stat) {
+  min-width: 0;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.reportMetrics :global(.stat:first-child) {
+  padding-inline-start: 0;
+}
+.reportMetrics :global(.stat:last-child) {
+  padding-inline-end: 0;
+}
+.reportMetrics :global(.stat + .stat) {
+  border-inline-start: 1px solid var(--border-subtle);
+}
+.reportMetrics :global(.stat__label) {
+  min-height: 40px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.reportMetrics :global(.stat__value) {
+  margin-block: 8px;
+  color: var(--court-800);
+  font: 600 1.625rem / 1.3 var(--font-body);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.reportMetrics :global(.stat__hint) {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.collectionCharts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 32px;
+}
+.chartSection {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-width: 0;
+}
+.chartSection h3,
+.currentBalance h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 600 0.875rem / 1.5 var(--font-body);
+}
+.collectionCharts > .chartSection + .chartSection {
+  padding-inline-start: 32px;
+  border-inline-start: 1px solid var(--border-subtle);
+}
+.singleChart {
+  min-width: 0;
+}
+.sportChart,
+.sportChart ul {
+  display: grid;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sportBarHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.875rem;
+}
+.sportBarHeading strong {
+  font-weight: 500;
+}
+.sportBarHeading > span {
+  color: var(--court-800);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.sportTrack {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--bg-surface-sunken);
+}
+.sportTrack > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--court-700);
+}
+.sportChart li > p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.chartNote {
+  font-size: 0.75rem;
+}
+.records {
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.records > summary {
+  min-height: 44px;
+  padding-block: 12px;
+  color: var(--court-800);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.records > summary > span {
+  margin-inline-start: 12px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.records[open] > summary {
+  margin-bottom: 12px;
+}
+.records :global(.table-wrap) {
+  max-width: 100%;
+  margin: 0;
+}
+.occupancyCell {
+  display: grid;
+  gap: 6px;
+  min-width: 72px;
+}
+.occupancyCell strong {
+  color: var(--court-800);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.occupancyCell progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--court-700);
+}
+.currentBalance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.currentBalance > div:first-child {
+  flex: 1;
+  min-width: min(100%, 220px);
+}
+.currentBalance p {
+  max-width: 64ch;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.65;
+}
+.currentBalance :global(.stat) {
+  max-width: 320px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.currentBalance :global(.stat__label) {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.currentBalance :global(.stat__value) {
+  color: var(--text-strong);
+  font: 600 1.625rem / 1.4 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.reconciliation :global(.card) {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+.reconciliation :global(.card__head h2) {
+  font: 600 1rem / 1.4 var(--font-body);
+}
+@media (max-width: 1000px) {
+  .reportMetrics :global(.stat) {
+    padding-inline: 16px;
+  }
+  .reportMetrics :global(.stat__value) {
+    font-size: 1.375rem;
+  }
+}
+@media (max-width: 800px) {
+  .reportMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 0;
+  }
+  .reportMetrics :global(.stat:nth-child(odd)) {
+    padding-inline-start: 0;
+    border-inline-start: 0;
+  }
+  .reportMetrics :global(.stat:nth-child(even)) {
+    padding-inline-end: 0;
+  }
+  .collectionCharts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .collectionCharts > .chartSection + .chartSection {
+    padding: 24px 0 0;
+    border-inline-start: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+@media (max-width: 520px) {
+  .page,
+  .tabContent {
+    gap: 16px;
+  }
+  .filterPanel,
+  .analysisPanel {
+    padding: 16px;
+  }
+  .reportToolbar {
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .toolbarActions {
+    width: 100%;
+    gap: 8px;
+  }
+  .reportTabs [role="tablist"] {
+    gap: 4px;
+    padding: 6px 6px 0;
+  }
+  .reportTabs [role="tab"] {
+    min-height: 76px;
+    padding: 12px 4px;
+    font-size: 0.75rem;
+  }
+  .reportTabs [role="tab"]::before {
+    inset-inline: 8px;
+  }
+  .reportTabs [data-tab-indicator]::before {
+    inset-inline: 8px;
+  }
+  .tabLabel {
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+  .tabLabel svg {
+    width: 18px;
+    height: 18px;
+  }
+  .reportTabs [role="tabpanel"] {
+    padding: 16px;
+  }
+  .filterToolbar {
+    align-items: flex-start;
+  }
+  .presets {
+    width: 100%;
+  }
+  .presets button {
+    min-height: 44px;
+    padding-inline: 10px;
+  }
+  .filterFooter > p {
+    font-size: 0.75rem;
+  }
+  .filterActions {
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .reportMetrics {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .reportMetrics :global(.stat) {
+    padding: 0;
+    border-inline-start: 0;
+  }
+  .reportMetrics :global(.stat + .stat) {
+    padding-top: 16px;
+    border-inline-start: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .reportMetrics :global(.stat__label) {
+    min-height: 0;
+  }
+  .records > summary > span {
+    display: block;
+    margin-inline-start: 16px;
+  }
+  .currentBalance :global(.stat) {
+    max-width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .presets button,
+  .reportTabs [role="tab"] {
+    transition: none;
+  }
+  .dashboardViewport,
+  .reportTabs [role="tab"]::before,
+  .tabLabel,
+  .tabLabel svg {
+    transition: none;
+  }
+  .dashboardView,
+  .reportTabs .analysisPanel {
+    animation: none;
+  }
+  .reportTabs [role="tab"][aria-selected="true"] .tabLabel svg,
+  .reportTabs [role="tab"]:active .tabLabel {
+    transform: none;
+  }
+}

@@ -1,5 +1,18 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## M06 class opening decision — 18 October 2026
+
+See [confirmed policy and implementation](Class-Opening-Decision.md). Existing threshold/respond/waive/cancel/reschedule endpoints are reused. Public class responses add boolean `openingConfirmed` without exposing costs or break-even counts. Only Met/Waived classes advance to teaching; late unconfirmed openings require a Manager decision or deferral. Response settings allow 1–48 hours and reviews at least 72 hours ahead, with a 24-hour pre-opening margin. Rescheduling an unconfirmed planned first session updates its opening date/review deadline and cannot cut into an existing response window. Attendance can return 409 `class_opening_not_confirmed`; retroactive waiver returns 409 `threshold_opening_time_passed`; invalid reschedule returns 409 `threshold_response_window_conflict`.
+
+## Incident recovery with manual scheduling — 18 October 2026
+
+Manager-only: POST `/api/class-sessions/{id}/incident`. The automatic slot-search UI and suggestions endpoint have been removed at the user's request. Manager enters the replacement time, room and Coach manually; save commands validate conflicts. Existing scheduling and incident routes are reused; ordinary past edits remain blocked. Historical class incidents can be reported with whole-session replacements, immutable facts and retry deduplication. See [M03/M04 contract, scope and verification](Incident-Session-Recovery.md).
+
+
+## Coach–Member assignment lifecycle update — 18 October 2026
+
+M02 reuses the existing relationship search/create/end routes. Manual creation now requires a confirmed enrollment in a Published/InProgress course led by that Coach (409 `relationship_requires_active_class`). Every relationship source ends automatically when its last supporting course/enrollment ends. Responses add `endReason` and `activeClasses: [{classId,className}]`; ended records remain historical. See [lifecycle and transaction details](Coach-Member-Relationship-Lifecycle.md). No new HTTP endpoints are added.
+
 ## Staff activation and audit policy update — 14 October 2026
 
 The current policy is documented in [UsersController](../backend/SportHub.Administration/Api/UsersController.cs) and [AuditLogsController](../backend/SportHub.Administration/Api/AuditLogsController.cs). It supersedes account-only Admin audit restrictions. Staff links expire at account creation + 24 hours. Admin reads Manager/Admin/Coach/System events; Manager reads Manager/Receptionist/Coach/Member events, using immutable event-time roles. `GET /api/audit-logs` accepts an optional canonical `actorRole`; all filters and the action catalogue are scoped server-side. Responses add `actorRole` and user invitation metadata (`activationExpiresAtUtc`, `activationResendAvailableAtUtc`). Member activation also stays 24 hours.
@@ -46,8 +59,12 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 | POST | `/api/manager/classes/{classId}/enrollment/open` | Manager; mở lại, xóa lý do đóng. Member đã ghi danh nhận thông báo + email “đã xử lý xong”. |
 | GET | `/api/members/me/class-holds` | Member; danh sách hold lớp còn hiệu lực của chính Member: `[{classId,invoiceId,expiresAtUtc}]` (Active, chưa hết hạn, có invoice). UI dùng để hiện “Hoàn tất thanh toán” cho lớp đã đóng tuyển sinh sau khi Member giữ chỗ; hold vẫn thanh toán được tới `expiresAtUtc`. |
 | POST | `/api/manager/notices` | Manager; body hiện có, thêm header `Idempotency-Key` UUID. Cùng Manager/key/payload nhận cùng noticeId và không tạo thêm outbox; đổi payload trả 409 `notice_idempotency_conflict`. Client cũ không có key vẫn được hỗ trợ. |
-| GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; `{noticeId,delivery}`. Manager khác nhận 404. |
+| GET | `/api/manager/notices` | Manager; lịch sử của chính mình, query `search` theo tiêu đề, `fromDate`/`toDate` theo ngày Việt Nam (bao gồm hai đầu), `page`/`pageSize` (tối đa 50). Trả `PagedResult` với tiêu đề, người gửi, thời điểm, số người nhận và kênh đã chọn; mới nhất trước, tie-break bằng noticeId. |
+| GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; giữ `{noticeId,delivery}`, thêm `subject,message,createdAtUtc,senderName,recipientCount,sendInApp,sendEmail,isLegacy`. Manager khác nhận 404. |
+| GET | `/api/manager/notices/{noticeId}/recipients` | Manager đã gửi; phân trang `page`/`pageSize` (tối đa 50). Mỗi người có `userId,name,email,inApp,emailDelivery`; mỗi kênh có `status,retryCount,sentAt,lastAttemptAt`, hoặc null khi không có bản ghi. Không trả payload email hay lỗi kỹ thuật của SMTP. Manager khác nhận 404. |
 | GET | `/api/manager/notices/by-key/{key}` | Manager đã gửi; phục hồi receipt sau timeout/F5, chờ transaction gửi cùng key hoàn tất. |
+
+Migration `AddManualNoticeHistory` tạo `manual_notice_records`. Lần gửi mới lưu nguyên văn nội dung và snapshot tên/email người nhận/người gửi trong cùng transaction với audit/outbox; thay hồ sơ sau này không đổi lịch sử. Khôi phục lịch sử cũ từ audit `SEND_MANUAL_NOTICE` và outbox ManualNotice: tiêu đề/ngày gửi/người gửi, người nhận còn có dữ liệu và nội dung in-app nếu còn; không giải mã email. Bản cũ có `isLegacy=true`, `message=null` nếu không khôi phục được, tên có thể lấy từ hồ sơ hiện tại. Không gửi lại thông báo trong migration. `recipientCount` là số người; `delivery.total` và các trạng thái đếm theo từng kênh, không phải số người. `Read` của chuông không chứng minh email đã được mở.
 | GET | `/api/manager/incidents/{incidentId}/notifications` | Manager; delivery tổng các notice IncidentResolution của rental thuộc incident. |
 | GET | `/api/manager/incidents?page=1&pageSize=20` | Manager; danh sách sự cố đã ghi nhận, mới nhất trước, paging (pageSize 1–100). Mọi Manager xem được; trả `{items,page,pageSize,totalCount}`. |
 | GET | `/api/manager/incidents/{incidentId}` | Manager; chi tiết `{incidentId,scope,roomId,roomName,startAtUtc,endAtUtc,reason,resolutionSummary,createdAtUtc}`; 404 `incident_not_found` khi không tồn tại. Trang Incident dùng bảng cuộn để chọn sự cố và mở chi tiết/trạng thái gửi thông báo. |
@@ -625,6 +642,8 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 
 Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2; lỗi trung tâm theo phần ngày chưa dùng; vé Gym 1 ngày không hoàn), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
 
+Membership theo BR-91 tính cả ngày đầu/cuối: `TotalDays = EndDate − StartDate + 1`, `RemainingDays = clamp(EndDate − RefundRequestedDate + 1, 0, TotalDays)`, theo ngày Việt Nam. "Đã dùng quá mức" ở Membership là đã qua hơn 1/3 thời hạn, không tính số lần tới Gym hoặc số buổi còn lại. Gói gia hạn chưa bắt đầu vẫn được xét hoàn chuẩn tối đa 50%; gói Expired/Cancelled không có điểm hoàn. Khi duyệt, dùng ngày tạo yêu cầu, không thay bằng ngày duyệt. Ngoại lệ Center Fault cần lý do và căn cứ, hoàn theo phần ngày chưa dùng; đóng Gym tạm thời để sửa chữa xử lý gia hạn theo BR-130, không phải căn cứ hoàn.
+
 Manager không nhập số điểm tùy ý, chỉ chọn center-fault có lý do rồi server tính lại. PostgreSQL gate cho refund/cap/concurrency/rollback và migration upgrade đã qua; xem evidence.
 
 ## Phần I — P1.09 Ngưỡng hoàn vốn và phản hồi
@@ -761,9 +780,9 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 
 | Verb | Route | Hợp đồng / authority |
 |---|---|---|
-| GET | `/api/member-support-requests/queue?status&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/CLOSED. |
+| GET | `/api/member-support-requests/queue?status&search&assignedToUserId&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/CLOSED. Search tối đa 200 ký tự trong subject/description/tên/email Member, không phân biệt hoa thường. Response đọc thêm memberName/memberEmail/assignedToName hiện tại. |
 | GET | `/api/member-support-requests/assignees` | FrontDesk; Receptionist/CenterManager đang Active. |
-| POST | `/api/member-support-requests/{id}/assign`, `/progress`, `/close` | FrontDesk; khóa dòng `FOR UPDATE`, ghi audit. Progress/close yêu cầu đã phân công; yêu cầu CLOSED trả 409 `support_request_closed`. Mọi nhân viên FrontDesk đều thao tác được, không giới hạn theo người được giao (chủ đích). |
+| POST | `/api/member-support-requests/{id}/assign`, `/progress`, `/close` | FrontDesk; khóa dòng `FOR UPDATE`, ghi audit. Progress/close yêu cầu đã phân công. CLOSED chặn assign/progress với 409 `support_request_closed`; close lặp trả 200 kết quả cũ, không đổi kết quả/audit. Mọi nhân viên FrontDesk đều thao tác được, không giới hạn theo người được giao (FR-22). |
 | GET | `/api/users`, `/api/users/{userId}` | Receptionist luôn bị ép `role=Member`; xem chi tiết tài khoản khác Member trả 404. |
 | GET | `/api/front-desk/payment-reconciliation?memberId&page&pageSize` | FrontDesk; gồm thanh toán đã xác minh chưa cấp dịch vụ và giao dịch chờ xác minh, kể cả sau khi hold hết hạn. |
 | POST | `/api/front-desk/payment-reconciliation/{invoiceId}/retry` | FrontDesk; thử cấp lại dịch vụ hoặc xác minh với cổng; ghi audit `FRONT_DESK_PAYMENT_RECONCILIATION_RETRY`. |

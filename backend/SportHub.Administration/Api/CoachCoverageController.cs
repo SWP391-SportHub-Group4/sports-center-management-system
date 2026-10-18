@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Domain.Entities;
@@ -20,7 +22,8 @@ namespace SportHub.Administration.Api;
 /// <summary>Live coverage queue. A locked coach remains visible until future sessions and active relationships are handled.</summary>
 [ApiController, Authorize(Policy = SportHubPolicies.CenterManager), Route("api/manager/coach-coverage")]
 public sealed class CoachCoverageController(ISportHubDbContext db, CourseValidator validator,
-    IAuditWriter audit, INotificationWriter notifications, IUserAccessReader users) : ControllerBase
+    IAuditWriter audit, INotificationWriter notifications, IUserAccessReader users,
+    ICoachRelationshipRegistrar relationships, SportHub.BuildingBlocks.SharedKernel.Time.IClock clock) : ControllerBase
 {
     [HttpPost("{coachId:guid}/classes/{classId:int}/reassign-main")]
     public async Task<IActionResult> ReassignMain(Guid coachId, int classId,
@@ -43,17 +46,23 @@ public sealed class CoachCoverageController(ISportHubDbContext db, CourseValidat
         cls.CoachId = request.ReplacementCoachId;
         cls.Version++;
         audit.Write(new AuditEntry(User.RequireUserId(), "REASSIGN_LOCKED_MAIN_COACH", nameof(Class),
-            classId.ToString(), OldValue: coachId.ToString(),
-            NewValue: request.ReplacementCoachId.ToString(), Reason: request.Reason.Trim()));
-        var message = $"You are now the main coach for course {cls.Name}. Review its sessions; individual session assignments may still need updating.";
-        notifications.Queue(new NotificationRequest(request.ReplacementCoachId,
-            NotificationEvents.CoachCoverageRequired, message));
+            classId.ToString(), OldValue: JsonSerializer.Serialize(new { coachId }),
+            NewValue: JsonSerializer.Serialize(new { coachId = request.ReplacementCoachId }), Reason: request.Reason.Trim()));
         var replacement = await users.GetAsync(request.ReplacementCoachId, ct);
-        if (replacement is not null)
-            notifications.QueueEmail(new EmailNotificationRequest(request.ReplacementCoachId, replacement.Email,
-                NotificationEvents.CoachCoverageRequired, Guid.NewGuid(), "SportHub - Main coach assignment",
-                "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+        var formerAccess = await users.GetAsync(coachId, ct);
+        var message = $"Course {cls.Name}: main coach changed from {formerAccess?.FullName ?? former.Email} to {replacement?.FullName ?? request.ReplacementCoachId.ToString()}. "
+            + $"Reason: {request.Reason.Trim()}. Existing enrollment remains valid. Individual session times, rooms and teaching assignments are unchanged; review the session schedule for any separate updates.";
         await db.SaveChangesAsync(ct);
+        var memberIds = await db.Set<Enrollment>().Where(e => e.ClassId == classId && e.Status == EnrollmentStatus.Confirmed)
+            .Select(e => e.MemberId).Distinct().OrderBy(id => id).ToListAsync(ct);
+        await new ClassScheduleEffects(db, users, notifications, audit, clock)
+            .NotifyRecipientsAsync(memberIds.Concat(new[] { coachId, request.ReplacementCoachId }),
+                NotificationEvents.CoachCoverageRequired, Guid.NewGuid(), message, ct);
+        foreach (var memberId in memberIds)
+            await relationships.EnsureClassBasedAsync(request.ReplacementCoachId, memberId, classId, ct);
+        await db.SaveChangesAsync(ct);
+        await relationships.ReconcileAsync(null, coachId, User.RequireUserId(),
+            "No remaining active courses after main coach reassignment.", ct);
         await tx.CommitAsync(ct);
         return NoContent();
     }

@@ -4,7 +4,13 @@ import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { AsyncSection, Dialog, Field, Table } from "@/components/ui";
+import {
+  AsyncSection,
+  Dialog,
+  Field,
+  Table,
+  StatusChip,
+} from "@/components/ui";
 import { FilterBar } from "@/components/data";
 import { useUrlQuery } from "@/lib/useUrlQuery";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -141,9 +147,14 @@ export function RoomTypesManager() {
           )}
         </Dialog>
       )}
+      <p className="small muted">
+        Discontinuing a room type blocks new class and court bookings in all its
+        rooms. Existing bookings stay in place. Reactivating the type keeps
+        individually stopped rooms inactive.
+      </p>
       <AsyncSection state={state}>
         {(rows) => (
-          <Table headers={[l.roomType, l.sports, ""]}>
+          <Table headers={[l.roomType, l.sports, l.status, ""]}>
             {rows
               .filter((r) =>
                 r.name
@@ -163,6 +174,11 @@ export function RoomTypesManager() {
                       .join(", ")}
                   </td>
                   <td>
+                    <StatusChip
+                      value={r.isActive !== false ? "ACTIVE" : "INACTIVE"}
+                    />
+                  </td>
+                  <td>
                     <div className="btn-row">
                       <button
                         className="btn btn--secondary"
@@ -177,6 +193,30 @@ export function RoomTypesManager() {
                       >
                         {l.edit}
                       </button>
+                      <ConfirmRecordAction
+                        label={
+                          r.isActive !== false ? "Discontinue" : "Reactivate"
+                        }
+                        title={
+                          r.isActive !== false
+                            ? "Discontinue room type"
+                            : "Reactivate room type"
+                        }
+                        description={
+                          r.isActive !== false
+                            ? "New bookings will be blocked in all rooms of this type. Existing bookings and each room’s own status stay unchanged."
+                            : "Rooms of this type can accept new bookings again if they are individually active."
+                        }
+                        recordName={r.name}
+                        requireReason
+                        onConfirm={(reason) =>
+                          api.post(
+                            `/api/manager/room-types/${r.roomTypeId}/${r.isActive !== false ? "discontinue" : "reactivate"}`,
+                            { reason },
+                          )
+                        }
+                        onCompleted={state.reload}
+                      />
                       <ConfirmRecordAction
                         label={t.recordActions.delete}
                         title={t.recordActions.deleteRoomType}

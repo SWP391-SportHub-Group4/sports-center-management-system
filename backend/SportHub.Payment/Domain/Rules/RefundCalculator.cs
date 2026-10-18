@@ -19,11 +19,14 @@ public static class RefundCalculator
         DateOnly requestDateVietnam,
         bool centerFault = false)
     {
-        var totalDays = endDate.DayNumber - startDate.DayNumber;
+        // BR-91 uses Vietnam calendar dates, including both the first and last day.
+        var totalDays = endDate.DayNumber - startDate.DayNumber + 1;
         if (totalDays <= 0) return 0;
-        var remainingDays = Math.Clamp(endDate.DayNumber - requestDateVietnam.DayNumber, 0, totalDays);
+        // A prepaid renewal can start in the future; its unused share cannot exceed the full term.
+        var remainingDays = Math.Clamp(endDate.DayNumber - requestDateVietnam.DayNumber + 1, 0, totalDays);
         // Lỗi trung tâm chỉ hoàn phần chưa dùng (Source of Truth §Hoàn trả), không hoàn 100% giá trị đã dùng.
-        if (centerFault) return PointsForRatio(itemPaidVnd, 100m * remainingDays / totalDays);
+        if (centerFault)
+            return PointsForRatio(decimal.Floor(itemPaidVnd * remainingDays / totalDays), 100);
         return remainingDays * 3 >= totalDays * 2
             ? PointsForRatio(itemPaidVnd, 50)
             : 0;

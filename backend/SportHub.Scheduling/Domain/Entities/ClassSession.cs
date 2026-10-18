@@ -32,4 +32,7 @@ public class ClassSession
     public Guid? RescheduledFromSessionId { get; set; }
 
     public bool IsMakeup { get; set; }
+
+    /// <summary>Immutable incident report, including original facts and the replacement link. Never clears attendance.</summary>
+    public string? IncidentReportJson { get; set; }
 }

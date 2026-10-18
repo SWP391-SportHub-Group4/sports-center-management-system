@@ -268,7 +268,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     {
         var sportIds = sports.Select(s => s.SportId).ToList();
         var links = await db.Set<SportRoomType>().AsNoTracking().Where(l => sportIds.Contains(l.SportId)).ToListAsync(ct);
-        var rooms = await db.Set<Room>().AsNoTracking().Where(r => r.IsActive && r.RoomTypeId != null).ToListAsync(ct);
+        var rooms = await db.Set<Room>().AsNoTracking().Where(r => r.IsActive && r.RoomTypeId != null
+            && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive)).ToListAsync(ct);
         var hours = await db.Set<RoomOpeningHour>().AsNoTracking().Select(h => h.RoomId).Distinct().ToListAsync(ct);
         var rates = await db.Set<CourtRate>().AsNoTracking().Where(r => r.IsActive).ToListAsync(ct);
 

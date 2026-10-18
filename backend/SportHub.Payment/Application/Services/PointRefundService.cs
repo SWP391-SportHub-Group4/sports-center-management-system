@@ -178,7 +178,9 @@ public sealed class PointRefundService(
         var paid = await GetRemainingItemPaidVndAsync(invoice, item, cancellationToken);
         var points = await CalculatePointsAsync(item, paid, VietnamTime.TodayLocal(clock), false, cancellationToken, now);
         if (points <= 0)
-            throw new ConflictException("refund_points_zero", "Refund points zero.");
+            throw new ConflictException("refund_points_zero", isClass
+                ? "No refundable points remain for this class."
+                : "Standard membership refunds require at least two thirds of the term remaining and refundable paid value. Eligibility is based on elapsed calendar days, not gym visits.");
         var subject = isClass ? "class enrollment" : "membership";
         var reason = actorUserId == invoice.MemberId
             ? $"Member cancelled {subject}."
@@ -210,6 +212,32 @@ public sealed class PointRefundService(
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return await GetOneAsync(adjustment.AdjustmentId, cancellationToken);
+    }
+
+    public async Task<RefundApprovalQuote> ApprovalQuoteAsync(Guid adjustmentId, bool centerFault,
+        Guid managerUserId, CancellationToken ct)
+    {
+        var adjustment = await db.Set<PaymentAdjustment>().AsNoTracking()
+            .SingleOrDefaultAsync(x => x.AdjustmentId == adjustmentId, ct)
+            ?? throw new NotFoundException("adjustment_not_found", "Refund request not found.");
+        if (adjustment.Type != PaymentAdjustmentType.Refund || adjustment.InvoiceItemId is null)
+            throw new ConflictException("legacy_refund_not_supported", "Legacy refund not supported.");
+        if (adjustment.Status != PaymentAdjustmentStatus.Requested)
+            throw new ConflictException("refund_already_resolved", "Refund already resolved.");
+        if (adjustment.RequestedByUserId == managerUserId)
+            throw new ForbiddenException("cannot_approve_own_request", "Cannot approve own request.");
+        var invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync(x => x.InvoiceId == adjustment.InvoiceId, ct);
+        if (!InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
+            throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
+        var item = await db.Set<InvoiceItem>().AsNoTracking().SingleAsync(x => x.ItemId == adjustment.InvoiceItemId, ct);
+        await EnsureNotDayPassAsync(item, ct);
+        await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, ct);
+        var paid = await GetRemainingItemPaidVndAsync(invoice, item, ct);
+        var requestDate = DateOnly.FromDateTime(VietnamTime.ToLocal(adjustment.CreatedAt));
+        var points = await CalculatePointsAsync(item, paid, requestDate, centerFault, ct, adjustment.CreatedAt);
+        // Use the same whole-point rounding as approval, including small paid amounts.
+        var maxPercent = Enumerable.Range(0, 101).Last(p => RefundCalculator.PointsForRatio(paid, p) <= points);
+        return new RefundApprovalQuote(points, paid, maxPercent, centerFault);
     }
 
     public async Task<PaymentAdjustmentResponse> ApproveAsync(Guid adjustmentId,
@@ -320,7 +348,7 @@ public sealed class PointRefundService(
                 var facts = await memberships.GetFactsAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, ct)
                     ?? throw new ConflictException("refund_entitlement_not_found", "Refund entitlement not found.");
                 if (facts.PackageId == DayPass.PackageId) return 0;
-                if (!facts.IsActive && !centerFault) return 0;
+                if (!facts.IsActive) return 0;
                 return RefundCalculator.MembershipPoints(paidVnd, facts.StartDate, facts.EndDate,
                     requestDate, centerFault);
             }
@@ -353,7 +381,7 @@ public sealed class PointRefundService(
         if (item.ItemType != InvoiceItemType.Membership) return;
         var facts = await memberships.GetFactsAsync(item.ItemId, item.MemberPackageId ?? item.RelatedEntityId, ct);
         if (facts?.PackageId == DayPass.PackageId)
-            throw new ConflictException("day_pass_non_refundable", "Gym day pass is not refundable.");
+            throw new ConflictException("day_pass_non_refundable", "Gym day passes cannot be refunded as points.");
     }
 
     private async Task CancelEntitlementAsync(InvoiceItem item, string reason, bool centerFault, Guid actorId, CancellationToken ct)

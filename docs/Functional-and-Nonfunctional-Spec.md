@@ -52,7 +52,7 @@ FE chọn dịch vụ → BE kiểm quyền/giá/sức chứa/lịch, tạo invo
 ### 2.4 AI và hỗ trợ
 
 - Coach có thể yêu cầu AI gợi ý workout; Coach kiểm tra và quyết định trước khi lưu. Member AI assistant chỉ đọc context SportHub được phép; API key và lời gọi provider ở backend. Các tác vụ ghi DB vẫn qua API nghiệp vụ và authorization. Nếu provider chưa cấu hình, endpoint tương ứng trả lỗi cấu hình, không coi AI là nguồn quyết định quyền. [AI API](../backend/SportHub.AI/Api/AiController.cs), [Coach AI API](../backend/SportHub.AI/Api/ClassTeachingAiController.cs).
-- Yêu cầu hỗ trợ hiện được Receptionist/Manager ghi nhận cho Member, tiếp nhận, phân công, cập nhật tiến độ và đóng qua API FrontDesk; chưa có API tự gửi yêu cầu dành riêng cho Member. [API hỗ trợ](../backend/SportHub.Identity/Api/MemberSupportRequestsController.cs).
+- Yêu cầu hỗ trợ được Receptionist/Manager ghi nhận cho Member, phân công/chuyển, cập nhật tiến độ và đóng qua API FrontDesk và workspace riêng `/receptionist/support`, `/manager/support`. Mọi FrontDesk được xử lý yêu cầu của người khác (FR-22); giữ cập nhật mới nhất và audit quá trình. Chưa có API tự gửi yêu cầu dành riêng cho Member. [Quy trình hỗ trợ](Member-Support-Workflow.md).
 
 ## 3. Nonfunctional requirements — cấu hình và thời gian **đang có trong code**
 

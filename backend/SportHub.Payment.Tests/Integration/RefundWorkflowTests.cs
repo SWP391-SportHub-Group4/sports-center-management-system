@@ -151,8 +151,10 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(1, ledgerCount);
     }
 
-    [Fact]
-    public async Task Manager_cannot_approve_more_than_the_membership_rule_allows()
+    [Theory]
+    [InlineData(51)]
+    [InlineData(100)]
+    public async Task Manager_cannot_approve_more_than_the_membership_rule_allows(int percent)
     {
         var fixture = await SeedPaidMembershipAsync();
         using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
@@ -163,19 +165,165 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         var request = (await created.Content.ReadFromJsonAsync<RefundResponse>())!;
 
         var excessive = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
-            new { reason = "Try to exceed the system-calculated amount", percent = 100 });
+            new { reason = "Try to exceed the system-calculated amount", percent });
         Assert.Equal(HttpStatusCode.Conflict, excessive.StatusCode);
         Assert.Contains("refund_exceeds_system_limit", await excessive.Content.ReadAsStringAsync());
         Assert.Equal(MemberPackageStatus.Active, await factory.QueryAsync(db => db.MemberPackages
             .Where(x => x.MemberPackageId == fixture.MemberPackageId).Select(x => x.Status).SingleAsync()));
         Assert.Equal(0, await factory.QueryAsync(db => db.Set<PointLedgerEntry>()
             .CountAsync(x => x.ReferenceType == "PaymentAdjustment" && x.ReferenceId == request.AdjustmentId)));
+        Assert.Equal(PaymentAdjustmentStatus.Requested, await factory.QueryAsync(db => db.PaymentAdjustments
+            .Where(x => x.AdjustmentId == request.AdjustmentId).Select(x => x.Status).SingleAsync()));
+        Assert.Equal(0, await factory.QueryAsync(db => db.Set<PointWallet>()
+            .Where(x => x.OwnerUserId == fixture.MemberId).SumAsync(x => x.AvailablePoints)));
+    }
+
+    [Theory]
+    [InlineData(25, 250)]
+    [InlineData(50, 500)]
+    public async Task Manager_can_approve_at_or_below_the_quoted_limit(int percent, int expectedPoints)
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        using var manager = factory.CreateApiClient(fixture.ManagerId, UserRole.CenterManager);
+        var created = await member.PostAsJsonAsync("/api/refunds",
+            new { invoiceItemId = fixture.InvoiceItemId, reason = "Membership refund review" });
+        created.EnsureSuccessStatusCode();
+        var request = (await created.Content.ReadFromJsonAsync<RefundResponse>())!;
+        var quoteUrl = $"/api/refunds/{request.AdjustmentId}/approval-quote";
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync(quoteUrl)).StatusCode);
+        var quote = await manager.GetFromJsonAsync<JsonElement>(quoteUrl);
+        Assert.Equal(500, quote.GetProperty("systemCalculatedPoints").GetInt32());
+        Assert.Equal(1_000_000m, quote.GetProperty("remainingPaidVnd").GetDecimal());
+        Assert.Equal(50, quote.GetProperty("maxPercent").GetInt32());
+        var centerQuote = await manager.GetFromJsonAsync<JsonElement>(quoteUrl + "?centerFault=true");
+        Assert.True(centerQuote.GetProperty("centerFault").GetBoolean());
+        Assert.Equal(890, centerQuote.GetProperty("systemCalculatedPoints").GetInt32());
+        Assert.Equal(89, centerQuote.GetProperty("maxPercent").GetInt32());
+        var approved = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
+            new { reason = "Approve within the calculated limit", percent });
+        approved.EnsureSuccessStatusCode();
+        Assert.Equal(expectedPoints, (await approved.Content.ReadFromJsonAsync<RefundResponse>())!.ApprovedPoints);
+        Assert.Equal(expectedPoints, await factory.QueryAsync(db => db.Set<PointWallet>()
+            .Where(x => x.OwnerUserId == fixture.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+    }
+
+    [Theory]
+    [InlineData(30, 30, 500)]
+    [InlineData(30, 0, 500)]
+    [InlineData(31, 30, 0)]
+    [InlineData(31, 0, 0)]
+    [InlineData(90, 30, 0)]
+    [InlineData(-10, 30, 500)]
+    public async Task Membership_standard_refund_uses_inclusive_term_not_gym_visits(
+        int elapsedDays, int remainingSessions, int expectedPoints)
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var start = today.AddDays(-elapsedDays);
+        await factory.QueryAsync(db => db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.StartDate, start)
+                .SetProperty(x => x.EndDate, start.AddDays(89))
+                .SetProperty(x => x.RemainingSessions, remainingSessions)));
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        using var manager = factory.CreateApiClient(fixture.ManagerId, UserRole.CenterManager);
+        var quote = await member.GetFromJsonAsync<JsonElement>($"/api/refunds/quote/{fixture.InvoiceItemId}");
+        Assert.Equal(expectedPoints, quote.GetProperty("systemCalculatedPoints").GetInt32());
+        if (expectedPoints == 0)
+        {
+            var cancellation = await member.PostAsJsonAsync("/api/refunds/membership-cancellations",
+                new { invoiceItemId = fixture.InvoiceItemId });
+            Assert.Equal(HttpStatusCode.Conflict, cancellation.StatusCode);
+            Assert.Contains("refund_points_zero", await cancellation.Content.ReadAsStringAsync());
+        }
+        var created = await member.PostAsJsonAsync("/api/refunds",
+            new { invoiceItemId = fixture.InvoiceItemId, reason = "Review the membership term" });
+        created.EnsureSuccessStatusCode();
+        var request = (await created.Content.ReadFromJsonAsync<RefundResponse>())!;
+        Assert.Equal(expectedPoints, request.SystemCalculatedPoints);
+        var reviewQuote = await manager.GetFromJsonAsync<JsonElement>($"/api/refunds/{request.AdjustmentId}/approval-quote");
+        Assert.Equal(expectedPoints, reviewQuote.GetProperty("systemCalculatedPoints").GetInt32());
+        var approved = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
+            new { reason = "Apply the standard term policy", percent = 50 });
+        Assert.Equal(expectedPoints > 0 ? HttpStatusCode.OK : HttpStatusCode.Conflict, approved.StatusCode);
+        if (expectedPoints == 0)
+            Assert.Contains("refund_exceeds_system_limit", await approved.Content.ReadAsStringAsync());
+        Assert.Equal(expectedPoints, await factory.QueryAsync(db => db.Set<PointWallet>()
+            .Where(x => x.OwnerUserId == fixture.MemberId).SumAsync(x => x.AvailablePoints)));
+        Assert.Equal(expectedPoints > 0 ? MemberPackageStatus.Cancelled : MemberPackageStatus.Active,
+            await factory.QueryAsync(db => db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
+                .Select(x => x.Status).SingleAsync()));
+    }
+
+    [Theory]
+    [InlineData(false, 500)]
+    [InlineData(true, 0)]
+    public async Task Center_fault_refunds_only_the_unused_inclusive_term_and_never_an_expired_package(
+        bool expired, int expectedPoints)
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        await factory.QueryAsync(db => db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.StartDate, today.AddDays(-45))
+                .SetProperty(x => x.EndDate, today.AddDays(44))
+                .SetProperty(x => x.Status, expired ? MemberPackageStatus.Expired : MemberPackageStatus.Active)));
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        using var manager = factory.CreateApiClient(fixture.ManagerId, UserRole.CenterManager);
+        var created = await member.PostAsJsonAsync("/api/refunds",
+            new { invoiceItemId = fixture.InvoiceItemId, reason = "Center permanently stopped providing the service" });
+        created.EnsureSuccessStatusCode();
+        var request = (await created.Content.ReadFromJsonAsync<RefundResponse>())!;
+        Assert.Equal(0, request.SystemCalculatedPoints); // 45/90 remaining is below the standard threshold.
+        var reviewQuote = await manager.GetFromJsonAsync<JsonElement>(
+            $"/api/refunds/{request.AdjustmentId}/approval-quote?centerFault=true");
+        Assert.Equal(expectedPoints, reviewQuote.GetProperty("systemCalculatedPoints").GetInt32());
+        var approved = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
+            new { reason = "Center permanently discontinued the service; 45 of 90 days remain", centerFault = true });
+        Assert.Equal(expired ? HttpStatusCode.Conflict : HttpStatusCode.OK, approved.StatusCode);
+        if (expired) Assert.Contains("refund_points_zero", await approved.Content.ReadAsStringAsync());
+        Assert.Equal(expectedPoints, await factory.QueryAsync(db => db.Set<PointWallet>()
+            .Where(x => x.OwnerUserId == fixture.MemberId).SumAsync(x => x.AvailablePoints)));
+    }
+
+    [Theory]
+    [InlineData(16, 500)] // 23:00 yesterday in Vietnam: exactly 60/90 remain.
+    [InlineData(18, 0)] // 01:00 today in Vietnam: only 59/90 remain.
+    public async Task Approval_uses_the_request_Vietnam_date_even_when_reviewed_later(int utcHour, int expectedPoints)
+    {
+        var fixture = await SeedPaidMembershipAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        await factory.QueryAsync(db => db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.StartDate, today.AddDays(-31))
+                .SetProperty(x => x.EndDate, today.AddDays(58))));
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        using var manager = factory.CreateApiClient(fixture.ManagerId, UserRole.CenterManager);
+        var created = await member.PostAsJsonAsync("/api/refunds",
+            new { invoiceItemId = fixture.InvoiceItemId, reason = "Review eligibility on the request date" });
+        created.EnsureSuccessStatusCode();
+        var request = (await created.Content.ReadFromJsonAsync<RefundResponse>())!;
+        var requestedAt = today.AddDays(-1).ToDateTime(new TimeOnly(utcHour, 0), DateTimeKind.Utc);
+        await factory.QueryAsync(db => db.PaymentAdjustments.Where(x => x.AdjustmentId == request.AdjustmentId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.CreatedAt, requestedAt)));
+        var quote = await manager.GetFromJsonAsync<JsonElement>($"/api/refunds/{request.AdjustmentId}/approval-quote");
+        Assert.Equal(expectedPoints, quote.GetProperty("systemCalculatedPoints").GetInt32());
+        var approved = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
+            new { reason = "Use the Vietnam date of the submitted request" });
+        Assert.Equal(expectedPoints > 0 ? HttpStatusCode.OK : HttpStatusCode.Conflict, approved.StatusCode);
+        Assert.Equal(expectedPoints, await factory.QueryAsync(db => db.Set<PointWallet>()
+            .Where(x => x.OwnerUserId == fixture.MemberId).SumAsync(x => x.AvailablePoints)));
     }
 
     [Fact]
     public async Task Day_pass_cannot_enter_any_point_refund_path()
     {
         var fixture = await SeedPaidMembershipAsync();
+        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
+        using var manager = factory.CreateApiClient(fixture.ManagerId, UserRole.CenterManager);
+        // Simulate a pending request from old/imported data before identifying the item as a day pass.
+        var created = await member.PostAsJsonAsync("/api/refunds",
+            new { invoiceItemId = fixture.InvoiceItemId, reason = "Pending request for review" });
+        created.EnsureSuccessStatusCode();
+        var pending = (await created.Content.ReadFromJsonAsync<RefundResponse>())!;
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
         await factory.QueryAsync(async db =>
         {
@@ -184,19 +332,31 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
                     .SetProperty(x => x.StartDate, today).SetProperty(x => x.EndDate, today));
             return 0;
         });
-        using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
         foreach (var response in new[]
         {
             await member.GetAsync($"/api/refunds/quote/{fixture.InvoiceItemId}"),
             await member.PostAsJsonAsync("/api/refunds",
                 new { invoiceItemId = fixture.InvoiceItemId, reason = "Request day-pass points" }),
             await member.PostAsJsonAsync("/api/refunds/membership-cancellations",
-                new { invoiceItemId = fixture.InvoiceItemId })
+                new { invoiceItemId = fixture.InvoiceItemId }),
+            await manager.GetAsync($"/api/refunds/{pending.AdjustmentId}/approval-quote?centerFault=true"),
+            await manager.PostAsJsonAsync($"/api/refunds/{pending.AdjustmentId}/approve",
+                new { reason = "Approve an imported day pass request", percent = 100, centerFault = false }),
+            await manager.PostAsJsonAsync($"/api/refunds/{pending.AdjustmentId}/approve",
+                new { reason = "Center fault cannot override the day pass restriction", percent = 100, centerFault = true })
         })
         {
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
             Assert.Contains("day_pass_non_refundable", await response.Content.ReadAsStringAsync());
         }
+        Assert.Equal(0, await factory.QueryAsync(db => db.Set<PointWallet>()
+            .Where(x => x.OwnerUserId == fixture.MemberId).SumAsync(x => x.AvailablePoints)));
+        Assert.Equal(0, await factory.QueryAsync(db => db.Set<PointLedgerEntry>()
+            .CountAsync(x => x.ReferenceType == "PaymentAdjustment" && x.ReferenceId == pending.AdjustmentId)));
+        Assert.Equal(MemberPackageStatus.Active, await factory.QueryAsync(db => db.MemberPackages
+            .Where(x => x.MemberPackageId == fixture.MemberPackageId).Select(x => x.Status).SingleAsync()));
+        Assert.Equal(PaymentAdjustmentStatus.Requested, await factory.QueryAsync(db => db.PaymentAdjustments
+            .Where(x => x.AdjustmentId == pending.AdjustmentId).Select(x => x.Status).SingleAsync()));
     }
 
     [Fact]
@@ -208,6 +368,9 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         await factory.QueryAsync(async db =>
         {
             var current = await db.MemberPackages.SingleAsync(x => x.MemberPackageId == fixture.MemberPackageId);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            current.StartDate = today.AddDays(-30);
+            current.EndDate = today.AddDays(59); // Exactly 60/90 calendar days remain.
             db.MemberPackages.Add(new MemberPackage
             {
                 MemberPackageId = renewalId, MemberId = fixture.MemberId, PackageId = current.PackageId,

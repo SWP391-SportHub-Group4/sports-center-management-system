@@ -67,6 +67,7 @@ const copy = {
     abandonKinds: {
       RESCHEDULE: "Session moved",
       CANCEL_WITH_MAKEUP: "Session cancelled for a makeup",
+      REVIEWED_COMPLETED: "Fully delivered session recorded",
       REMOVE_ROOM_BLOCK: "Room block removed",
     } as Record<string, string>,
     membersAffected: "Members affected",
@@ -87,7 +88,7 @@ const copy = {
     recipientCount: "Selected recipients",
     channels: "Delivery channels",
     localReview:
-      "This review uses the users and schedule already loaded in the browser. Server-side recipient preview and a notice history list are awaiting G07.",
+      "Review the selected recipients and delivery channels before sending.",
     audienceChanged:
       "The audience has changed. Select recipients again and review before sending.",
     noRecipients:
@@ -172,6 +173,7 @@ const copy = {
     abandonKinds: {
       RESCHEDULE: "Buổi bị dời",
       CANCEL_WITH_MAKEUP: "Buổi bị hủy để học bù",
+      REVIEWED_COMPLETED: "Đã ghi nhận buổi học đầy đủ",
       REMOVE_ROOM_BLOCK: "Khóa phòng bị gỡ",
     } as Record<string, string>,
     membersAffected: "Hội viên bị ảnh hưởng",
@@ -192,7 +194,7 @@ const copy = {
     recipientCount: "Người nhận đã chọn",
     channels: "Kênh gửi",
     localReview:
-      "Bản xem lại dùng danh sách người dùng và lịch đã tải trên trình duyệt. Preview người nhận phía server và danh sách lịch sử thông báo còn chờ G07.",
+      "Kiểm tra người nhận đã chọn và các kênh gửi trước khi gửi thông báo.",
     audienceChanged:
       "Nhóm người nhận đã thay đổi. Hãy chọn lại và xem lại trước khi gửi.",
     noRecipients:

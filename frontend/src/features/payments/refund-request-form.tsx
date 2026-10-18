@@ -31,6 +31,9 @@ export function RefundRequestForm({
     [item],
   );
   const f = t.finOps;
+  const membershipSelected = items.some(
+    (i) => i.itemId === item && i.itemType?.toUpperCase() === "MEMBERSHIP",
+  );
   if (!open)
     return (
       <section aria-label={l.refund}>
@@ -64,6 +67,9 @@ export function RefundRequestForm({
           ))}
         </select>
       </label>
+      {membershipSelected && (
+        <p className="muted">{f.membershipRefundPolicy}</p>
+      )}
       {quote.loading && item ? (
         <p>{l.loading}</p>
       ) : quote.error ? (
@@ -100,6 +106,8 @@ export function RefundRequestForm({
         className="btn btn--secondary"
         disabled={
           action.busy ||
+          quote.loading ||
+          !!quote.error ||
           !quote.data ||
           quote.data.systemCalculatedPoints <= 0 ||
           reason.trim().length < 3

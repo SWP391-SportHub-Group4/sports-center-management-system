@@ -548,6 +548,25 @@ public sealed class OperationsCompletionTests(
                                 x.Status ==
                                     ClassSessionStatus.Scheduled));
 
+                // M05 audit: the concurrent requests and subsequent retry above
+                // must not repeat either the member notice or per-session coach notices.
+                var memberNotices = await db.Notifications.Where(n =>
+                    n.UserId == member.UserId && n.SourceEventType == NotificationSourceEventType.ClassCancelled)
+                    .ToListAsync();
+                Assert.Equal(2, memberNotices.Count);
+                Assert.Single(memberNotices, n => n.Channel == NotificationChannel.InApp);
+                Assert.Single(memberNotices, n => n.Channel == NotificationChannel.Email);
+                Assert.Contains(expectedPoints.ToString(), memberNotices.Single(n => n.Channel == NotificationChannel.InApp).Message);
+                Assert.False(string.IsNullOrWhiteSpace(memberNotices.Single(n => n.Channel == NotificationChannel.Email).ProtectedEmailPayload));
+                var mainCoachId = await db.Classes.Where(c => c.ClassId == data.Id)
+                    .Select(c => c.CoachId).SingleAsync();
+                var coachNotices = await db.Notifications.Where(n =>
+                    n.UserId == mainCoachId && n.SourceEventType == NotificationSourceEventType.ScheduleChanged)
+                    .ToListAsync();
+                var cancelledSessions = partiallyProvided ? 2 : 3;
+                Assert.Equal(cancelledSessions, coachNotices.Count(n => n.Channel == NotificationChannel.InApp));
+                Assert.Equal(cancelledSessions, coachNotices.Count(n => n.Channel == NotificationChannel.Email));
+
                 Assert.Equal(
                     ThresholdResolutionStatus.Expired,
                     await db.Set<ThresholdResponse>()

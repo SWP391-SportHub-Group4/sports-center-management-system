@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import type { MemberSupportRequestDto } from "@/lib/types";
@@ -37,13 +37,15 @@ export function SupportRequestActions({
   const [busy, setBusy] = useState<"assign" | "progress" | "close" | null>(
     null,
   );
+  const lock = useRef(false);
 
   const [local, setLocal] = useState<SupportFeedback | null>(null);
   const feedback = liftedSet ? (lifted ?? null) : local;
   const onFeedback = liftedSet ?? setLocal;
 
   const assigneeName = request.assignedToUserId
-    ? (assignees.find((x) => x.userId === request.assignedToUserId)?.name ??
+    ? (request.assignedToName ??
+      assignees.find((x) => x.userId === request.assignedToUserId)?.name ??
       (vi ? "Nhân viên đã nghỉ" : "Former staff member"))
     : null;
 
@@ -52,6 +54,8 @@ export function SupportRequestActions({
     body: Record<string, string>,
     success: string,
   ) {
+    if (lock.current) return;
+    lock.current = true;
     setBusy(kind);
     onFeedback(null);
     try {
@@ -73,6 +77,7 @@ export function SupportRequestActions({
               : "Could not update this request.",
       });
     } finally {
+      lock.current = false;
       setBusy(null);
     }
   }
@@ -89,7 +94,15 @@ export function SupportRequestActions({
       </p>
       {request.progressNote && (
         <p className={styles.latest}>
-          <strong>{vi ? "Cập nhật gần nhất: " : "Latest update: "}</strong>
+          <strong>
+            {request.status === "CLOSED"
+              ? vi
+                ? "Kết quả xử lý: "
+                : "Resolution: "
+              : vi
+                ? "Cập nhật gần nhất: "
+                : "Latest update: "}
+          </strong>
           {request.progressNote}
         </p>
       )}
@@ -160,7 +173,9 @@ export function SupportRequestActions({
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={busy !== null || !request.assignedToUserId || !noteReady}
+              disabled={
+                busy !== null || !request.assignedToUserId || !noteReady
+              }
               onClick={() =>
                 act(
                   "progress",
@@ -180,7 +195,9 @@ export function SupportRequestActions({
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={busy !== null || !request.assignedToUserId || !noteReady}
+              disabled={
+                busy !== null || !request.assignedToUserId || !noteReady
+              }
               onClick={() =>
                 act(
                   "close",

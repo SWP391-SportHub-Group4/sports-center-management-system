@@ -13,4 +13,8 @@ public sealed record ClassSessionResponse(
     DateTime EndAtUtc,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     bool IsMakeup,
-    Guid? RescheduledFromSessionId);
+    Guid? RescheduledFromSessionId,
+    IncidentSessionReport? IncidentReport = null);
+
+public sealed record IncidentSessionReport(Guid FenceId, string Outcome, DateTime OccurredAtUtc,
+    DateTime RecordedAtUtc, Guid RecordedBy, string Reason, Guid? ReplacementSessionId);

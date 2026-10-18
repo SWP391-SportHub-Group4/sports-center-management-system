@@ -8,6 +8,7 @@ public class CoachMemberRelationshipConfiguration : IEntityTypeConfiguration<Coa
     public void Configure(EntityTypeBuilder<CoachMemberRelationship> builder)
     {
         builder.HasKey(e => e.RelationshipId);
+        builder.Property(e => e.EndReason).HasMaxLength(500);
 
         // Ràng buộc #7: không tạo trùng quan hệ Coach–Member đang ACTIVE
         // (partial unique index, RelationshipStatus.Active = 0).

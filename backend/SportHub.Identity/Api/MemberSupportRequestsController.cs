@@ -41,7 +41,10 @@ public sealed record MemberSupportRequestResponse(
     Guid? AssignedToUserId,
     string? ProgressNote,
     DateTime? UpdatedAt,
-    DateTime? ClosedAt);
+    DateTime? ClosedAt,
+    string? MemberName = null,
+    string? MemberEmail = null,
+    string? AssignedToName = null);
 
 public sealed record AssignSupportRequest(Guid AssigneeUserId);
 public sealed class UpdateSupportProgress
@@ -65,6 +68,17 @@ public sealed class MemberSupportRequestsController(
         x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
         x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
         x.ProgressNote, x.UpdatedAt, x.ClosedAt);
+
+    private IQueryable<MemberSupportRequestResponse> Project(IQueryable<MemberSupportRequest> query)
+        => query.Select(x => new MemberSupportRequestResponse(
+            x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
+            x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
+            x.ProgressNote, x.UpdatedAt, x.ClosedAt,
+            db.Set<UserAccount>().Where(u => u.UserId == x.MemberId)
+                .Select(u => u.Profile != null ? u.Profile.FullName : u.Email).FirstOrDefault(),
+            db.Set<UserAccount>().Where(u => u.UserId == x.MemberId).Select(u => u.Email).FirstOrDefault(),
+            db.Set<UserAccount>().Where(u => u.UserId == x.AssignedToUserId)
+                .Select(u => u.Profile != null ? u.Profile.FullName : u.Email).FirstOrDefault()));
 
     [HttpGet]
     public async Task<IActionResult> List(
@@ -91,13 +105,12 @@ public sealed class MemberSupportRequestsController(
             });
         }
 
-        var rows = await db
+        var rows = await Project(db
             .Set<MemberSupportRequest>()
             .AsNoTracking()
             .Where(x => x.MemberId == memberId)
             .OrderByDescending(x => x.CreatedAt)
-            .Take(50)
-            .Select(x => Map(x))
+            .Take(50))
             .ToListAsync(ct);
 
         return Ok(rows);
@@ -175,6 +188,8 @@ public sealed class MemberSupportRequestsController(
         };
 
         db.Set<MemberSupportRequest>().Add(entity);
+        audit.Write(new AuditEntry(User.RequireUserId(), "CREATE_SUPPORT_REQUEST", nameof(MemberSupportRequest),
+            entity.RequestId.ToString(), NewValue: JsonSerializer.Serialize(new { entity.MemberId, entity.Category, entity.Subject })));
 
         await db.SaveChangesAsync(ct);
 
@@ -183,7 +198,9 @@ public sealed class MemberSupportRequestsController(
 
     [HttpGet("queue")]
     public async Task<IActionResult> Queue([FromQuery] string? status = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery, MaxLength(200)] string? search = null, [FromQuery] Guid? assignedToUserId = null,
+        CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -195,11 +212,22 @@ public sealed class MemberSupportRequestsController(
                 throw new BadRequestException("support_status_invalid", "Invalid support request status.");
             query = query.Where(x => x.Status == value);
         }
+        if (assignedToUserId is not null)
+            query = query.Where(x => x.AssignedToUserId == assignedToUserId);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLowerInvariant();
+            query = query.Where(x => x.Subject.ToLower().Contains(term)
+                || x.Description.ToLower().Contains(term)
+                || db.Set<UserAccount>().Any(u => u.UserId == x.MemberId
+                    && (u.Email.ToLower().Contains(term)
+                        || (u.Profile != null && u.Profile.FullName.ToLower().Contains(term)))));
+        }
         return Ok(new PagedResult<MemberSupportRequestResponse>
         {
-            Items = await query.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+            Items = await Project(query.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
                 .ThenByDescending(x => x.RequestId).Skip((page - 1) * pageSize)
-                .Take(pageSize).Select(x => Map(x)).ToListAsync(ct),
+                .Take(pageSize)).ToListAsync(ct),
             TotalCount = await query.CountAsync(ct), Page = page, PageSize = pageSize
         });
     }

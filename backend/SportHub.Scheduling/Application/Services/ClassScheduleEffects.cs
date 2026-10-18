@@ -37,10 +37,21 @@ public sealed class ClassScheduleEffects(ISportHubDbContext db, IUserAccessReade
             await NotifyAsync(request.RequestedByUserId, NotificationEvents.ClassSessionChangeReviewed, request.RequestId,
                 $"{cls.Name} · Session {session.SessionNo}: {request.ReviewNote}", ct);
         }
-        var recipients = new[] { cls.CoachId, (Guid?)oldCoachId, nextCoachId }.Where(id => id.HasValue).Select(id => id!.Value).Distinct();
-        var eventId = Guid.NewGuid();
-        foreach (var coachId in recipients)
-            await NotifyAsync(coachId, NotificationEvents.ScheduleChanged, eventId, message, ct);
+        await NotifyCoachesAsync(cls, oldCoachId, nextCoachId, message, ct);
+    }
+
+    // Undo only sends corrections; it must not review unrelated pending requests.
+    public Task NotifyCoachesAsync(Class cls, Guid oldCoachId, Guid nextCoachId, string message,
+        CancellationToken ct, Guid? eventId = null)
+        => NotifyRecipientsAsync(new[] { cls.CoachId, (Guid?)oldCoachId, nextCoachId }
+            .Where(id => id.HasValue).Select(id => id!.Value), NotificationEvents.ScheduleChanged,
+            eventId ?? Guid.NewGuid(), message, ct);
+
+    public async Task NotifyRecipientsAsync(IEnumerable<Guid> recipients, string type, Guid eventId,
+        string message, CancellationToken ct)
+    {
+        foreach (var userId in recipients.Distinct())
+            await NotifyAsync(userId, type, eventId, message, ct);
     }
 
     private async Task NotifyAsync(Guid userId, string type, Guid source, string message, CancellationToken ct)

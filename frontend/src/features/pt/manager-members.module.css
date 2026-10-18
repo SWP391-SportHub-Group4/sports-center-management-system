@@ -45,3 +45,46 @@
     overflow-wrap: normal;
   }
 }
+.relationshipDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.relationshipActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .relationshipActions {
+    flex-shrink: 1;
+    justify-content: flex-start;
+  }
+}
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.sectionHeader h2 {
+  margin: 0;
+}
+.assignmentForm {
+  display: grid;
+  gap: var(--space-4);
+}
+.assignmentPreview {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}

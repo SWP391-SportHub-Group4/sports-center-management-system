@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -50,9 +50,9 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
 
   // Tải lại sau mỗi thao tác không được làm danh sách và thông báo biến mất.
   const [shown, setShown] = useState<MemberSupportRequestDto[] | null>(null);
-  const [notices, setNotices] = useState<Record<string, SupportFeedback | null>>(
-    {},
-  );
+  const [notices, setNotices] = useState<
+    Record<string, SupportFeedback | null>
+  >({});
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (requests.data) setShown(requests.data);
@@ -62,6 +62,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -77,6 +78,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
   };
 
   async function submit() {
+    if (submitting.current) return;
     if (!ready) {
       setError(
         vi
@@ -86,6 +88,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
       return;
     }
 
+    submitting.current = true;
     setBusy(true);
     setError(null);
     setSuccess(null);
@@ -114,6 +117,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
             : "Unable to record support request.",
       );
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -121,7 +125,9 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
   return (
     <section
       className={styles.panel}
-      aria-label={vi ? "Yêu cầu hỗ trợ của hội viên" : "Member support requests"}
+      aria-label={
+        vi ? "Yêu cầu hỗ trợ của hội viên" : "Member support requests"
+      }
     >
       <div className={styles.head}>
         <h3>{vi ? "Hỗ trợ hội viên" : "Member support"}</h3>
@@ -193,7 +199,10 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         </div>
 
         {error && (
-          <p className={`${styles.feedback} ${styles.feedbackError}`} role="alert">
+          <p
+            className={`${styles.feedback} ${styles.feedbackError}`}
+            role="alert"
+          >
             {error}
           </p>
         )}
@@ -216,10 +225,34 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
           )}
         </div>
 
+        {assignees.error && (
+          <p role="alert">
+            {vi
+              ? "Không thể tải danh sách nhân viên."
+              : "Could not load staff."}{" "}
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={assignees.reload}
+            >
+              {vi ? "Thử lại" : "Retry"}
+            </button>
+          </p>
+        )}
+
         {requests.loading && !shown ? (
           <p className={styles.empty}>{vi ? "Đang tải…" : "Loading…"}</p>
         ) : requests.error ? (
-          <p role="alert">{requests.error.message}</p>
+          <div role="alert">
+            <p>{requests.error.message}</p>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={requests.reload}
+            >
+              {vi ? "Thử lại" : "Retry"}
+            </button>
+          </div>
         ) : !recent.length ? (
           <p className={styles.empty}>
             {vi
@@ -237,6 +270,20 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
                 <p className={styles.meta}>
                   {categoryLabel(request.category)} ·{" "}
                   {formatDateTime(request.createdAt)}
+                  {request.updatedAt && (
+                    <>
+                      {" "}
+                      · {vi ? "Cập nhật" : "Updated"}{" "}
+                      {formatDateTime(request.updatedAt)}
+                    </>
+                  )}
+                  {request.closedAt && (
+                    <>
+                      {" "}
+                      · {vi ? "Đóng" : "Closed"}{" "}
+                      {formatDateTime(request.closedAt)}
+                    </>
+                  )}
                 </p>
                 <p className={styles.body}>{request.description}</p>
                 <SupportRequestActions
