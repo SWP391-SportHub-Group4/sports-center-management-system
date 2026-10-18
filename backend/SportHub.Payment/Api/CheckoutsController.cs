@@ -98,6 +98,22 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
     }
 
+    [HttpPost("cancel-reference")]
+    [EnableRateLimiting("checkout-write")]
+    public async Task<IActionResult> CancelReference([FromBody] CancelPaymentReferenceRequest request,
+        CancellationToken ct)
+    {
+        RequireBuyer();
+        var actorId = User.RequireUserId();
+        var fields = request.Fields ?? new Dictionary<string, string>();
+        var reference = fields.GetValueOrDefault("vnp_TxnRef") ?? string.Empty;
+        var checkout = await checkouts.FindByReferenceAsync(reference, actorId, ct);
+        // The return URL is attacker-controllable, so only a correctly signed cancel code is honoured.
+        if (!await reconciliation.RecordUserCancellationAsync(fields, checkout.InvoiceId, ct))
+            throw new ConflictException("payment_not_cancelled", "The gateway did not report a cancellation.");
+        return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
+    }
+
     [HttpGet("by-key")]
     public async Task<IActionResult> ByKey([FromQuery] string key, CancellationToken ct)
     {
@@ -172,3 +188,4 @@ public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
     DateTimeOffset StartUtc, DateTimeOffset EndUtc);
 
 public sealed record VerifyPaymentReferenceRequest(string Reference);
+public sealed record CancelPaymentReferenceRequest(Dictionary<string, string>? Fields);

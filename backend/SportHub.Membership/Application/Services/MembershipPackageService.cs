@@ -80,10 +80,12 @@ public sealed class MembershipPackageService(
         var package = await db.Set<MembershipPackage>().SingleOrDefaultAsync(p => p.PackageId == packageId, ct)
             ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
 
-        if (packageId == DayPass.PackageId)
-            throw new ConflictException("day_pass_fixed", "The Gym day pass price and duration are fixed.");
+        var isDayPass = packageId == DayPass.PackageId;
+        // The day pass keeps its one-day duration, but its price is managed like any other package.
+        if (isDayPass && request.DurationDays != DayPass.DurationDays)
+            throw new ConflictException("day_pass_duration_fixed", "The Gym day pass lasts exactly one day.");
 
-        Validate(request);
+        Validate(request, allowDayPassDuration: isDayPass);
 
         var before = Describe(package);
 
@@ -148,10 +150,10 @@ public sealed class MembershipPackageService(
         }
     }
 
-    private static void Validate(SaveMembershipPackageRequest request)
+    private static void Validate(SaveMembershipPackageRequest request, bool allowDayPassDuration = false)
     {
-        if (request.DurationDays == DayPass.DurationDays)
-            throw new BadRequestException("day_pass_fixed", "The one-day Gym pass is a fixed 50,000 VND product.");
+        if (request.DurationDays == DayPass.DurationDays && !allowDayPassDuration)
+            throw new BadRequestException("day_pass_fixed", "The one-day Gym pass is a reserved product.");
         if (request.Price <= 0 || request.Price % 1000 != 0)
             throw new BadRequestException("membership_price_invalid", "Membership price invalid.");
         if (request.SessionLimit is not null)

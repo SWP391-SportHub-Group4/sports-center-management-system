@@ -21,6 +21,7 @@ export function PaymentReturn({
   const [checkout, setCheckout] = useState<CheckoutDto | null>(null);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
+  const [cancelled, setCancelled] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [next, setNext] = useState("/payments/return");
   const id = checkout?.invoiceId;
@@ -65,6 +66,24 @@ export function PaymentReturn({
           );
         if (controller.signal.aborted) return;
         setCheckout(current);
+        setCancelled(false);
+        // VNPay reports a payer cancel with code 24. The backend only honours it when the
+        // return parameters carry a valid signature; otherwise fall through to normal verification.
+        if (reference && query.get("vnp_ResponseCode") === "24") {
+          try {
+            const closed = await api.post<CheckoutDto>(
+              "/api/checkouts/cancel-reference",
+              { fields: Object.fromEntries(query.entries()) },
+              { signal: controller.signal },
+            );
+            if (controller.signal.aborted) return;
+            setCheckout(closed);
+            setCancelled(true);
+            return;
+          } catch {
+            if (controller.signal.aborted) return;
+          }
+        }
         // The URL identifies the attempt only. Confirmation comes from the backend's signed QueryDR.
         if (
           reference &&
@@ -97,6 +116,7 @@ export function PaymentReturn({
     if (
       !id ||
       checking ||
+      cancelled ||
       !["AWAITING_PAYMENT", "PAID_PENDING_FULFILLMENT"].includes(phase ?? "")
     )
       return;
@@ -131,7 +151,7 @@ export function PaymentReturn({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [id, phase, checking]);
+  }, [id, phase, checking, cancelled]);
 
   const body = loading ? (
     <section className={styles.loading} aria-busy="true" role="status">
@@ -160,6 +180,7 @@ export function PaymentReturn({
         checkout={checkout}
         detail={detail.data}
         checking={checking}
+        cancelled={cancelled}
         error={error}
         onRefresh={() => setRefreshVersion((v) => v + 1)}
       />

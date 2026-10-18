@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Rental.Domain;
 
 namespace SportHub.Scheduling.Catalog.Application;
 
@@ -114,12 +115,34 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
 
         await occupancy.ReleaseAsync(OccupancySources.RoomBlock, blockId, ct);
         db.Set<RoomBlock>().Remove(block);
+        await RecordFenceStepAsync(block, actorUserId, ct);
 
         audit.Write(new AuditEntry(actorUserId, "DELETE_ROOM_BLOCK", nameof(RoomBlock), blockId.ToString(),
             OldValue: await DescribeAsync(block, ct)));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// Removing a block whose window lies inside an incident window the manager is holding is part of handling that incident,
+    /// so remember it: abandoning the incident puts the block back. Outside a held window nothing is recorded.
+    /// </summary>
+    private async Task RecordFenceStepAsync(RoomBlock block, Guid actorUserId, CancellationToken ct)
+    {
+        var fenceId = await db.Set<IncidentFence>().AsNoTracking()
+            .Where(f => f.Status == IncidentFenceStatus.Open && f.StartAtUtc < block.EndAtUtc && f.EndAtUtc > block.StartAtUtc
+                        && (f.Scope == IncidentScope.Center || f.RoomId == block.RoomId))
+            .OrderBy(f => f.CreatedAtUtc).Select(f => (Guid?)f.FenceId).FirstOrDefaultAsync(ct);
+        if (fenceId is null) return;
+        db.Set<IncidentFenceStep>().Add(new IncidentFenceStep
+        {
+            StepId = Guid.NewGuid(), FenceId = fenceId.Value, Kind = IncidentFenceStepKind.RemoveRoomBlock,
+            RoomBlockId = block.BlockId, BlockReason = block.Reason, BlockCreatedByUserId = block.CreatedByUserId,
+            BeforeStartUtc = block.StartAtUtc, BeforeEndUtc = block.EndAtUtc, BeforeRoomId = block.RoomId,
+            AfterStartUtc = block.StartAtUtc, AfterRoomId = block.RoomId,
+            ActorUserId = actorUserId, CreatedAtUtc = clock.UtcNow, State = IncidentFenceStepState.Applied
+        });
     }
 
     private static RoomBlockResponse ToResponse(RoomBlock b)

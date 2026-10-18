@@ -172,7 +172,7 @@ Dùng dữ liệu tạo ở Flow 1–2 trên **cùng môi trường deploy**. Me
 
 # Điểm cần nói rõ khi bị hỏi (chưa làm / chưa nghiệm thu)
 
-- Sự cố (G06): lịch sử/chi tiết và preview theo từng hội viên (kèm điểm hoàn dự kiến) đã có; fence giữ khung giờ chặn đặt mới trong lúc xử lý và danh sách “Incidents in progress” để làm tiếp/nhả đã có; nút “Abandon and undo” nhả khung giờ và trả các buổi đã dời/hủy-bù về như cũ (chỉ cho thay đổi làm khi đang giữ khung giờ); chưa hoàn tác việc gỡ room block.
+- Sự cố (G06): lịch sử/chi tiết và preview theo từng hội viên (kèm điểm hoàn dự kiến) đã có; fence giữ khung giờ chặn đặt mới trong lúc xử lý và danh sách “Incidents in progress” để làm tiếp/nhả đã có; nút “Abandon and undo” nhả khung giờ và trả các buổi đã dời/hủy-bù về như cũ và tạo lại room block thủ công đã gỡ (chỉ cho thay đổi làm khi đang giữ khung giờ; bước nào không còn an toàn, ví dụ slot đã bị chiếm, được giữ nguyên và báo lại).
 - Người dùng đã thử thanh toán VNPay thành công trên `main` trước merge. Cần thử lại trên bản deploy sau merge; chưa coi IPN lặp/đến muộn, QueryDR và cấp quyền lợi đúng một lần là đã nghiệm thu nếu chưa có bằng chứng riêng cho từng trường hợp. Docker local dùng ví điểm khi không có IPN công khai.
 - Không hoàn tiền mặt/chuyển khoản và không gọi VNPay Refund API (ngoài phạm vi): hoàn chỉ bằng điểm.
 - Báo cáo và export đã có mã nhưng chưa nghiệm thu trên dữ liệu lớn.

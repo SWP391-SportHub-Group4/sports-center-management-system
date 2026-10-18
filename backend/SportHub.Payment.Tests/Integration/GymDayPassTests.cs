@@ -83,7 +83,7 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Manager_cannot_change_or_discontinue_the_fixed_day_pass()
+    public async Task Manager_can_change_day_pass_price_but_not_duration_or_availability()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
@@ -91,7 +91,18 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         {
             name = DayPass.Name, price = 60_000, durationDays = 1
         });
-        Assert.Equal(HttpStatusCode.Conflict, update.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        Assert.Equal(60_000m, await factory.QueryAsync(db => db.MembershipPackages
+            .Where(x => x.PackageId == DayPass.PackageId).Select(x => x.Price).SingleAsync()));
+        var longer = await client.PutAsJsonAsync($"/api/membership-packages/{DayPass.PackageId}", new
+        {
+            name = DayPass.Name, price = 60_000, durationDays = 2
+        });
+        Assert.Equal(HttpStatusCode.Conflict, longer.StatusCode);
+        await client.PutAsJsonAsync($"/api/membership-packages/{DayPass.PackageId}", new
+        {
+            name = DayPass.Name, price = (int)DayPass.PriceVnd, durationDays = 1
+        });
         Assert.Equal(HttpStatusCode.Conflict,
             (await client.PostAsync($"/api/membership-packages/{DayPass.PackageId}/discontinue", null)).StatusCode);
     }

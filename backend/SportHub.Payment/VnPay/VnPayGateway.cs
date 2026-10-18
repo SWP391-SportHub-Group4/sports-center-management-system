@@ -58,6 +58,15 @@ public sealed class VnPayGateway(IOptions<VnPayOptions> options, HttpClient http
             response == "00" && status == "00", response, status, paidAtUtc);
     }
 
+    public string? VerifyCancellation(IReadOnlyDictionary<string, string> values)
+    {
+        RequireConfigured();
+        if (!VnPaySigner.Verify(values, _options.HashSecret) || Get(values, "vnp_TmnCode") != _options.TmnCode)
+            throw new BadRequestException("vnp_invalid_signature", "Vnp invalid signature.");
+        var reference = Get(values, "vnp_TxnRef");
+        return Get(values, "vnp_ResponseCode") == "24" && !string.IsNullOrWhiteSpace(reference) ? reference : null;
+    }
+
     public async Task<VerifiedPaymentResult?> QueryAsync(PaymentAttempt attempt, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

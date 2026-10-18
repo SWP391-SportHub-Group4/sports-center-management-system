@@ -67,6 +67,7 @@ const copy = {
     abandonKinds: {
       RESCHEDULE: "Session moved",
       CANCEL_WITH_MAKEUP: "Session cancelled for a makeup",
+      REMOVE_ROOM_BLOCK: "Room block removed",
     } as Record<string, string>,
     membersAffected: "Members affected",
     unnamedMember: "Member",
@@ -171,6 +172,7 @@ const copy = {
     abandonKinds: {
       RESCHEDULE: "Buổi bị dời",
       CANCEL_WITH_MAKEUP: "Buổi bị hủy để học bù",
+      REMOVE_ROOM_BLOCK: "Khóa phòng bị gỡ",
     } as Record<string, string>,
     membersAffected: "Hội viên bị ảnh hưởng",
     unnamedMember: "Hội viên",

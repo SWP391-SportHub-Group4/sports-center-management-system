@@ -1870,7 +1870,7 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("ck_point_credit_positive", "points > 0");
 
-                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
+                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\r\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\r\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_point_credit_separate_approver", "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id");
 
@@ -2781,9 +2781,9 @@ namespace SportHub.API.Migrations
 
                     b.ToTable("class_session_change_requests", null, t =>
                         {
-                            t.HasCheckConstraint("ck_class_change_status", "status IN ('PENDING','RESOLVED','REJECTED','WITHDRAWN')");
-
                             t.HasCheckConstraint("ck_class_absence_no_proposal", "type <> 'ABSENCE' OR (proposed_start_at_utc IS NULL AND proposed_end_at_utc IS NULL)");
+
+                            t.HasCheckConstraint("ck_class_change_status", "status IN ('PENDING','RESOLVED','REJECTED','WITHDRAWN')");
 
                             t.HasCheckConstraint("ck_class_change_type", "type IN ('ABSENCE','SUBSTITUTE','RESCHEDULE','CANCEL_WITH_MAKEUP')");
                         });
@@ -3404,6 +3404,15 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("before_start_utc");
 
+                    b.Property<Guid?>("BlockCreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("block_created_by_user_id");
+
+                    b.Property<string>("BlockReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("block_reason");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -3420,7 +3429,11 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("makeup_session_id");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid?>("RoomBlockId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("room_block_id");
+
+                    b.Property<Guid?>("SessionId")
                         .HasColumnType("uuid")
                         .HasColumnName("session_id");
 
@@ -3527,10 +3540,6 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("interest_id");
 
-                    b.Property<int>("RefundedPoints")
-                        .HasColumnType("integer")
-                        .HasColumnName("refunded_points");
-
                     b.Property<bool>("Active")
                         .HasColumnType("boolean")
                         .HasColumnName("active");
@@ -3546,6 +3555,10 @@ namespace SportHub.API.Migrations
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
                         .HasColumnName("member_id");
+
+                    b.Property<int>("RefundedPoints")
+                        .HasColumnType("integer")
+                        .HasColumnName("refunded_points");
 
                     b.Property<int>("SourceClassId")
                         .HasColumnType("integer")
@@ -3571,6 +3584,7 @@ namespace SportHub.API.Migrations
 
                     b.HasIndex("MemberId", "Active")
                         .HasDatabaseName("ix_course_interests_member_id_active");
+
                     b.HasIndex("SportId", "CancelledAtUtc")
                         .HasDatabaseName("ix_course_interests_sport_id_cancelled_at_utc");
 

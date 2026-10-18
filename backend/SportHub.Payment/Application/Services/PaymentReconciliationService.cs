@@ -21,6 +21,23 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         return "00";
     }
 
+    /// <summary>Records a signed "payer cancelled" return. Only a still-pending attempt without any
+    /// verified gateway event is closed, so a later retry creates a fresh VNPay reference.</summary>
+    public async Task<bool> RecordUserCancellationAsync(IReadOnlyDictionary<string, string> fields,
+        Guid invoiceId, CancellationToken ct)
+    {
+        var reference = gateway.VerifyCancellation(fields);
+        if (reference is null) return false;
+        var now = clock.UtcNow;
+        await db.Set<PaymentAttempt>().Where(x => x.VnpTxnRef == reference && x.InvoiceId == invoiceId
+                && x.Status == PaymentAttemptStatus.Pending
+                && !db.Set<VerifiedGatewayEvent>().Any(e => e.PaymentAttemptId == x.PaymentAttemptId))
+            .ExecuteUpdateAsync(x => x.SetProperty(a => a.Status, PaymentAttemptStatus.Failed)
+                .SetProperty(a => a.VerifiedResult, "Cancelled")
+                .SetProperty(a => a.VerifiedAtUtc, now), ct);
+        return true;
+    }
+
     public async Task<bool> ReconcileAttemptAsync(Guid attemptId, CancellationToken ct)
     {
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()

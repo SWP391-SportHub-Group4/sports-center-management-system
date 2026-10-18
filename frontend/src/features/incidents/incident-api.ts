@@ -52,7 +52,7 @@ export interface IncidentFence {
 
 export interface IncidentFenceStep {
   stepId: string;
-  kind: "RESCHEDULE" | "CANCEL_WITH_MAKEUP";
+  kind: "RESCHEDULE" | "CANCEL_WITH_MAKEUP" | "REMOVE_ROOM_BLOCK";
   className: string;
   sessionNo: number;
   beforeStartUtc: string;

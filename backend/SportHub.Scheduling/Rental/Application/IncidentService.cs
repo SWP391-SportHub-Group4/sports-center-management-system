@@ -339,13 +339,21 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         var now = clock.UtcNow;
         var rows = await (from step in db.Set<IncidentFenceStep>().AsNoTracking()
                           join session in db.Set<SportHub.Scheduling.Domain.Entities.ClassSession>().AsNoTracking()
-                              on step.SessionId equals session.SessionId
+                              on step.SessionId equals session.SessionId into sessionJoin
+                          from session in sessionJoin.DefaultIfEmpty()
                           join course in db.Set<SportHub.Scheduling.Domain.Entities.Class>().AsNoTracking()
-                              on session.ClassId equals course.ClassId
+                              on session.ClassId equals course.ClassId into courseJoin
+                          from course in courseJoin.DefaultIfEmpty()
+                          join room in db.Set<Room>().AsNoTracking() on step.BeforeRoomId equals room.RoomId
                           where step.FenceId == fenceId
                           orderby step.CreatedAtUtc
-                          select new { step, session.SessionNo, course.Name }).ToListAsync(ct);
-        return rows.Select(x => new IncidentFenceStepResponse(x.step.StepId, x.step.Kind.ToString(), x.Name, x.SessionNo,
+                          select new { step, SessionNo = (int?)session.SessionNo, Name = course.Name, RoomName = room.Name })
+            .ToListAsync(ct);
+        return rows.Select(x => new IncidentFenceStepResponse(x.step.StepId, x.step.Kind.ToString(),
+            x.step.Kind == IncidentFenceStepKind.RemoveRoomBlock
+                ? string.IsNullOrWhiteSpace(x.step.BlockReason) ? x.RoomName : $"{x.RoomName} - {x.step.BlockReason}"
+                : x.Name ?? string.Empty,
+            x.SessionNo ?? 0,
             x.step.BeforeStartUtc, x.step.AfterStartUtc, x.step.State.ToString(), x.step.UndoNote,
             x.step.State == IncidentFenceStepState.Applied && x.step.BeforeStartUtc > now)).ToList();
     }
@@ -373,7 +381,14 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             .OrderByDescending(s => s.CreatedAtUtc).Select(s => s.StepId).ToListAsync(ct);
         var undone = 0;
         foreach (var stepId in applied)
-            if ((await sessions.UndoIncidentStepAsync(stepId, managerId, ct)).Undone) undone++;
+        {
+            var isBlock = await db.Set<IncidentFenceStep>().AsNoTracking()
+                .AnyAsync(s => s.StepId == stepId && s.Kind == IncidentFenceStepKind.RemoveRoomBlock, ct);
+            var outcome = isBlock
+                ? await UndoRoomBlockRemovalAsync(stepId, managerId, ct)
+                : await sessions.UndoIncidentStepAsync(stepId, managerId, ct);
+            if (outcome.Undone) undone++;
+        }
 
         audit.Write(new AuditEntry(managerId, "ABANDON_INCIDENT_FENCE", nameof(IncidentFence), fenceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { steps = applied.Count, undone })));
@@ -382,6 +397,48 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 
         var left = (await ListFenceStepsAsync(fenceId, ct)).Where(s => s.State != nameof(IncidentFenceStepState.Undone)).ToList();
         return new IncidentAbandonResult(fenceId, undone, left);
+    }
+
+    /// <summary>Recreate a manual room block removed during the incident, under its original id, if its window is still free.</summary>
+    private async Task<SportHub.Scheduling.Application.Interfaces.SessionStepUndoOutcome> UndoRoomBlockRemovalAsync(Guid stepId, Guid actorUserId, CancellationToken ct)
+    {
+        var step = await db.Set<IncidentFenceStep>().SingleAsync(s => s.StepId == stepId, ct);
+        if (step.State == IncidentFenceStepState.Undone) return new(true, null);
+
+        async Task<SportHub.Scheduling.Application.Interfaces.SessionStepUndoOutcome> Fail(string note)
+        {
+            step.State = IncidentFenceStepState.UndoFailed;
+            step.UndoNote = note;
+            await db.SaveChangesAsync(ct);
+            return new(false, note);
+        }
+
+        if (step.BeforeEndUtc <= clock.UtcNow) return await Fail("The block time has already passed.");
+        var blockId = step.RoomBlockId!.Value;
+        if (!await db.Set<Room>().AnyAsync(r => r.RoomId == step.BeforeRoomId, ct))
+            return await Fail("The room no longer exists.");
+        if (await db.Set<RoomBlock>().AnyAsync(b => b.BlockId == blockId, ct))
+            return await Fail("The block already exists again, so it was left as it is.");
+
+        var reserved = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.RoomBlock, blockId,
+            step.BeforeRoomId, null, new DateTimeOffset(step.BeforeStartUtc, TimeSpan.Zero),
+            new DateTimeOffset(step.BeforeEndUtc, TimeSpan.Zero)), ct);
+        if (!reserved.Succeeded) return await Fail("The room is no longer free for the block's original time.");
+
+        db.Set<RoomBlock>().Add(new RoomBlock
+        {
+            BlockId = blockId, RoomId = step.BeforeRoomId, StartAtUtc = step.BeforeStartUtc, EndAtUtc = step.BeforeEndUtc,
+            Reason = step.BlockReason ?? string.Empty, CreatedByUserId = step.BlockCreatedByUserId ?? actorUserId
+        });
+        audit.Write(new AuditEntry(actorUserId, "UNDO_DELETE_ROOM_BLOCK", nameof(RoomBlock), blockId.ToString(),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new
+                { roomId = step.BeforeRoomId, startAtUtc = step.BeforeStartUtc, endAtUtc = step.BeforeEndUtc, reason = step.BlockReason }),
+            Reason: "Incident abandoned"));
+        step.State = IncidentFenceStepState.Undone;
+        step.UndoneAtUtc = clock.UtcNow;
+        step.UndoNote = null;
+        await db.SaveChangesAsync(ct);
+        return new(true, null);
     }
 
     private async Task<IncidentFenceResponse> ToFenceResponseAsync(IncidentFence fence, CancellationToken ct)

@@ -1,4 +1,5 @@
 "use client";
+import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -24,7 +25,7 @@ const empty: SavePackage = {
   sessionLimit: null,
 };
 export function MembershipManager() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const l = t.operations;
   const c = t.managerCatalog;
   const state = useApi((s) => catalogApi.packages(s), []);
@@ -78,10 +79,7 @@ export function MembershipManager() {
               id: "price",
               header: l.price,
               numeric: true,
-              cell: (p) =>
-                p.packageId === 50000
-                  ? `${formatMoney(p.price)} · ${language === "en" ? "fixed" : "cố định"}`
-                  : formatMoney(p.price),
+              cell: (p) => formatMoney(p.price),
             },
             { id: "durationDays", header: t.refactor.days, numeric: true },
             {
@@ -92,16 +90,16 @@ export function MembershipManager() {
               ),
             },
           ]}
-          actions={(p) =>
-            p.packageId === 50000 ? null : (
-              <>
-                <button
-                  className="btn btn--secondary btn--sm"
-                  disabled={mutation.busy}
-                  onClick={() => edit(p)}
-                >
-                  {l.edit}
-                </button>
+          actions={(p) => (
+            <>
+              <button
+                className="btn btn--secondary btn--sm"
+                disabled={mutation.busy}
+                onClick={() => edit(p)}
+              >
+                {l.edit}
+              </button>
+              {p.packageId !== DAY_PASS_PACKAGE_ID && (
                 <button
                   className="btn btn--ghost btn--sm"
                   disabled={mutation.busy}
@@ -112,9 +110,9 @@ export function MembershipManager() {
                 >
                   {p.isActive ? l.deactivate : l.activate}
                 </button>
-              </>
-            )
-          }
+              )}
+            </>
+          )}
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
       </Card>
@@ -166,8 +164,9 @@ export function MembershipManager() {
               <input
                 required
                 type="number"
-                min={2}
-                max={3650}
+                min={editor.id === DAY_PASS_PACKAGE_ID ? 1 : 2}
+                max={editor.id === DAY_PASS_PACKAGE_ID ? 1 : 3650}
+                readOnly={editor.id === DAY_PASS_PACKAGE_ID}
                 value={form.durationDays}
                 onChange={(e) =>
                   setForm({ ...form, durationDays: Number(e.target.value) })

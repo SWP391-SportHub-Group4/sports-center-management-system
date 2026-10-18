@@ -11,6 +11,7 @@ public sealed class IncidentFenceStepConfiguration : IEntityTypeConfiguration<In
         builder.ToTable("incident_fence_steps");
         builder.HasKey(x => x.StepId);
         builder.Property(x => x.UndoNote).HasMaxLength(300);
+        builder.Property(x => x.BlockReason).HasMaxLength(1000);
         builder.HasOne<IncidentFence>().WithMany().HasForeignKey(x => x.FenceId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(x => new { x.FenceId, x.CreatedAtUtc });
         // The journal lookup when a session changes.
