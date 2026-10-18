@@ -29,6 +29,21 @@ export interface IncidentDetails {
   reason: string;
   resolutionSummary: string;
   createdAtUtc: string;
+  sessionReports?:
+    | {
+        sessionId: string;
+        classId: number;
+        sessionNo: number;
+        className: string;
+        report: {
+          outcome: string;
+          occurredAtUtc: string;
+          recordedAtUtc: string;
+          reason: string;
+          replacementSessionId: string | null;
+        };
+      }[]
+    | null;
 }
 
 export interface IncidentFence {
@@ -52,7 +67,7 @@ export interface IncidentFence {
 
 export interface IncidentFenceStep {
   stepId: string;
-  kind: "RESCHEDULE" | "CANCEL_WITH_MAKEUP";
+  kind: "RESCHEDULE" | "CANCEL_WITH_MAKEUP" | "REVIEWED_COMPLETED";
   className: string;
   sessionNo: number;
   beforeStartUtc: string;

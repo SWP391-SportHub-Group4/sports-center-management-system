@@ -9,6 +9,7 @@ using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Application.Services;
 using SportHub.Training.Application.Commands;
 using SportHub.Training.Application.DTOs;
 using SportHub.Training.Application.Interfaces;
@@ -19,9 +20,8 @@ namespace SportHub.Training.Application.Services;
 /// <summary>
 /// Quan hệ huấn luyện Coach–Member — nền tảng phân quyền của BR-23 (ai được lập kế hoạch tập).
 ///
-/// Ai được tạo/kết thúc quan hệ KHÔNG có BR trực tiếp: quyết định C3 (CẦN DUYỆT) đặt quyền
-/// này ở Center Manager, khớp BR-14 ("phân công huấn luyện viên"). Coach KHÔNG tự tạo quan hệ
-/// với hội viên bất kỳ — làm vậy là tự cấp cho mình quyền đọc hồ sơ và ghi kế hoạch tập.
+/// Manager creates/ends assignments through the existing API. Every assignment requires a
+/// confirmed enrollment in a current class led by that coach, including manually assigned pairs.
 /// </summary>
 public sealed class CoachMemberRelationshipService(
     ISportHubDbContext db,
@@ -61,17 +61,17 @@ public sealed class CoachMemberRelationshipService(
         if (activeOnly)
         {
             query = query.Where(r => r.Status == RelationshipStatus.Active
-                && (r.SourceType != RelationshipSourceType.ClassBased
-                    || (r.ClassId != null && db.Set<Enrollment>().Any(e => e.MemberId == r.MemberId
+                    && db.Set<Enrollment>().Any(e => e.MemberId == r.MemberId
                         && e.Status == EnrollmentStatus.Confirmed && e.Class != null
                         && e.Class.CoachId == r.CoachId
-                        && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress)))));
+                        && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress)));
         }
 
         page = Math.Clamp(page, 1, 100_000);
         pageSize = Math.Clamp(pageSize <= 0 ? DefaultPageSize : pageSize, 1, MaximumPageSize);
-        return await query.OrderByDescending(r => r.StartedAt).ThenBy(r => r.RelationshipId)
+        var rows = await query.OrderByDescending(r => r.StartedAt).ThenBy(r => r.RelationshipId)
             .Skip((page - 1) * pageSize).Take(pageSize).Select(Projection()).ToListAsync(ct);
+        return await WithClassesAsync(rows, ct);
     }
 
     public async Task<CoachMemberRelationshipResponse> CreateAsync(
@@ -95,8 +95,25 @@ public sealed class CoachMemberRelationshipService(
                 "Class based is automatic.");
         }
 
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock_shared(105, 1)", ct);
+        // Take class locks before the pair lock, matching enrollment fulfillment's order.
+        // Cancellation, reassignment and lifecycle updates cannot remove our last class
+        // between validation and inserting the manual assignment.
+        var supportingClasses = await db.Set<Class>().FromSqlInterpolated($"""
+            SELECT c.* FROM classes c
+            WHERE c.coach_id = {request.CoachId}
+              AND c.status IN ({(int)ClassStatus.Published}, {(int)ClassStatus.InProgress})
+              AND EXISTS (SELECT 1 FROM enrollments e WHERE e.class_id = c.class_id
+                AND e.member_id = {request.MemberId} AND e.status = {(int)EnrollmentStatus.Confirmed})
+            ORDER BY c.class_id FOR SHARE OF c
+            """).AsNoTracking().ToListAsync(ct);
+        await LockPairAsync(request.CoachId, request.MemberId, ct);
         await EnsureRoleAsync(request.CoachId, UserRole.Coach, "coach_not_found", ct);
         await EnsureRoleAsync(request.MemberId, UserRole.Member, "member_not_found", ct);
+        if (supportingClasses.Count == 0 || !await CoachDataScope.CanReadMemberAsync(db, request.CoachId, request.MemberId, ct))
+            throw new ConflictException("relationship_requires_active_class",
+                "The coach and member must share a current course with confirmed enrollment.");
 
         // Ràng buộc #7 / BR-23: tối đa một quan hệ Active cho mỗi cặp. Partial unique index
         // trong DB là nơi chặn thật; kiểm ở đây để trả lỗi có nghĩa.
@@ -129,9 +146,10 @@ public sealed class CoachMemberRelationshipService(
             actorUserId, "CREATE_COACH_MEMBER_RELATIONSHIP", nameof(CoachMemberRelationship),
             relationship.RelationshipId.ToString(),
             NewValue: $"{{\"coachId\":\"{request.CoachId}\",\"memberId\":\"{request.MemberId}\","
-                      + $"\"sourceType\":\"{sourceType}\"}}"));
+                      + $"\"sourceType\":\"{sourceType}\"}}", Reason: request.Note?.Trim()));
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
         return await GetOneAsync(relationship.RelationshipId, ct);
     }
@@ -142,7 +160,11 @@ public sealed class CoachMemberRelationshipService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
+            throw new BadRequestException("relationship_end_reason_required", "Provide a reason with 3 to 500 characters.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var relationship = await db.Set<CoachMemberRelationship>()
+            .FromSqlInterpolated($"SELECT * FROM coach_member_relationships WHERE relationship_id = {relationshipId} FOR UPDATE")
             .SingleOrDefaultAsync(r => r.RelationshipId == relationshipId, ct)
             ?? throw new NotFoundException("relationship_not_found", "Relationship not found.");
 
@@ -153,15 +175,17 @@ public sealed class CoachMemberRelationshipService(
 
         relationship.Status = RelationshipStatus.Ended;
         relationship.EndedAt = clock.UtcNow;
+        relationship.EndReason = reason.Trim();
 
-        // Kế hoạch tập đã lập KHÔNG bị xoá: BR-25 cho hội viên xem lại kế hoạch của mình, và
-        // lịch sử huấn luyện là dữ liệu cần giữ. Chỉ chặn việc lập kế hoạch MỚI (BR-23).
+        // Preserve plans and training history. Ending this row does not cancel enrollment or
+        // change the schedule; current class assignments still govern class workspace access.
         audit.Write(new AuditEntry(
             actorUserId, "END_COACH_MEMBER_RELATIONSHIP", nameof(CoachMemberRelationship), relationshipId.ToString(),
             OldValue: $"{{\"status\":\"{RelationshipStatus.Active}\"}}",
-            NewValue: $"{{\"status\":\"{RelationshipStatus.Ended}\"}}"));
+            NewValue: $"{{\"status\":\"{RelationshipStatus.Ended}\"}}", Reason: reason.Trim()));
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
         return await GetOneAsync(relationshipId, ct);
     }
@@ -178,10 +202,14 @@ public sealed class CoachMemberRelationshipService(
         int classId,
         CancellationToken ct = default)
     {
-        var exists = await db.Set<CoachMemberRelationship>().AnyAsync(
-            r => r.CoachId == coachId && r.MemberId == memberId && r.Status == RelationshipStatus.Active, ct);
+        await LockPairAsync(coachId, memberId, ct);
+        var active = await db.Set<CoachMemberRelationship>().FromSqlInterpolated($"""
+            SELECT * FROM coach_member_relationships
+            WHERE coach_id = {coachId} AND member_id = {memberId} AND status = {(int)RelationshipStatus.Active}
+            FOR UPDATE
+            """).AsNoTracking().ToListAsync(ct);
 
-        if (exists)
+        if (active.Count > 0)
         {
             return;
         }
@@ -198,9 +226,50 @@ public sealed class CoachMemberRelationshipService(
         });
     }
 
+    private Task LockPairAsync(Guid coachId, Guid memberId, CancellationToken ct)
+        => db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({$"coach-member:{coachId}:{memberId}"}, 0))", ct);
+
+    public async Task ReconcileAsync(Guid? memberId, Guid? coachId, Guid? actorUserId, string reason,
+        CancellationToken cancellationToken = default)
+    {
+        // Callers persist their enrollment/class changes first. Row locks keep cleanup, manual ending
+        // and concurrent cleanup atomic; a second current class always keeps the pair alive.
+        await using var ownedTx = db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
+        var stale = await db.Set<CoachMemberRelationship>().FromSqlInterpolated($"""
+            SELECT r.* FROM coach_member_relationships r
+            WHERE r.status = {(int)RelationshipStatus.Active}
+              AND ({memberId}::uuid IS NULL OR r.member_id = {memberId})
+              AND ({coachId}::uuid IS NULL OR r.coach_id = {coachId})
+              AND NOT EXISTS (
+                SELECT 1 FROM enrollments e JOIN classes c ON c.class_id = e.class_id
+                WHERE e.member_id = r.member_id AND c.coach_id = r.coach_id
+                  AND e.status = {(int)EnrollmentStatus.Confirmed}
+                  AND c.status IN ({(int)ClassStatus.Published}, {(int)ClassStatus.InProgress}))
+            ORDER BY r.relationship_id FOR UPDATE OF r
+            """).ToListAsync(cancellationToken);
+        foreach (var row in stale)
+        {
+            await db.Entry(row).ReloadAsync(cancellationToken);
+            if (row.Status != RelationshipStatus.Active
+                || await CoachDataScope.CanReadMemberAsync(db, row.CoachId, row.MemberId, cancellationToken)) continue;
+            row.Status = RelationshipStatus.Ended;
+            row.EndedAt = clock.UtcNow;
+            row.EndReason = reason;
+            audit.Write(new AuditEntry(actorUserId ?? row.CoachId, "AUTO_END_COACH_MEMBER_RELATIONSHIP",
+                nameof(CoachMemberRelationship), row.RelationshipId.ToString(),
+                OldValue: "{\"status\":\"Active\"}", NewValue: "{\"status\":\"Ended\"}",
+                Reason: reason, IsSystem: actorUserId is null));
+        }
+        await db.SaveChangesAsync(cancellationToken);
+        if (ownedTx is not null) await ownedTx.CommitAsync(cancellationToken);
+    }
+
     private async Task EnsureRoleAsync(Guid userId, UserRole role, string errorCode, CancellationToken ct)
     {
-        var ok = await db.Set<UserAccount>().AnyAsync(u => u.UserId == userId && u.Role!.RoleName == role, ct);
+        var ok = await db.Set<UserAccount>().AnyAsync(u => u.UserId == userId && u.Role!.RoleName == role
+            && u.Status == UserStatus.Active, ct);
 
         if (!ok)
         {
@@ -209,9 +278,28 @@ public sealed class CoachMemberRelationshipService(
     }
 
     private async Task<CoachMemberRelationshipResponse> GetOneAsync(Guid relationshipId, CancellationToken ct)
-        => await db.Set<CoachMemberRelationship>().AsNoTracking()
+    {
+        var row = await db.Set<CoachMemberRelationship>().AsNoTracking()
                .Where(r => r.RelationshipId == relationshipId).Select(Projection()).SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("relationship_not_found", "Relationship not found.");
+        return (await WithClassesAsync([row], ct))[0];
+    }
+
+    private async Task<IReadOnlyList<CoachMemberRelationshipResponse>> WithClassesAsync(
+        IReadOnlyList<CoachMemberRelationshipResponse> rows, CancellationToken ct)
+    {
+        var memberIds = rows.Where(r => r.Status == nameof(RelationshipStatus.Active)).Select(r => r.MemberId).Distinct().ToArray();
+        var coachIds = rows.Select(r => r.CoachId).Distinct().ToArray();
+        var courses = await db.Set<Enrollment>().AsNoTracking()
+            .Where(e => memberIds.Contains(e.MemberId) && e.Status == EnrollmentStatus.Confirmed
+                && e.Class != null && e.Class.CoachId != null && coachIds.Contains(e.Class.CoachId.Value)
+                && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress))
+            .Select(e => new { e.MemberId, CoachId = e.Class!.CoachId!.Value, e.ClassId, ClassName = e.Class.Name })
+            .Distinct().OrderBy(e => e.ClassName).ToListAsync(ct);
+        return rows.Select(row => row with { ActiveClasses = courses
+            .Where(c => row.Status == nameof(RelationshipStatus.Active) && c.MemberId == row.MemberId && c.CoachId == row.CoachId)
+            .Select(c => new RelationshipClassResponse(c.ClassId, c.ClassName)).ToArray() }).ToArray();
+    }
 
     private static System.Linq.Expressions.Expression<Func<CoachMemberRelationship, CoachMemberRelationshipResponse>>
         Projection()
@@ -227,5 +315,7 @@ public sealed class CoachMemberRelationshipService(
             r.Class == null ? null : r.Class.Name,
             r.Status.ToString(),
             r.StartedAt,
-            r.EndedAt);
+            r.EndedAt,
+            r.EndReason,
+            null);
 }

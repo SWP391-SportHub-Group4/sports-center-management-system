@@ -193,6 +193,48 @@ public sealed class ThresholdExpiryTests(SchedulingApiFactory factory)
         });
     }
 
+    [Fact]
+    public async Task Final_cancellation_releases_unpaid_checkout_and_held_points_and_audits_once()
+    {
+        var c = await CourseTestData.CreateAsync(factory);
+        await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id).ExecuteUpdateAsync(u => u
+            .SetProperty(x => x.BreakEvenThreshold, 2).SetProperty(x => x.ThresholdDeadlineUtc, DateTime.UtcNow.AddMinutes(-1))));
+        var member = await BuyAsync(c.Id);
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
+        var deadline = await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
+            .Select(x => x.ThresholdResponseDeadlineUtc).SingleAsync());
+        var waiting = await factory.SeedUserAsync(UserRole.Member);
+        Guid invoiceId;
+        using (var scope = factory.Services.CreateScope()) {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            await using (var tx = await db.Database.BeginTransactionAsync()) {
+                await scope.ServiceProvider.GetRequiredService<IPointWalletService>().EarnAsync(new(waiting.UserId, 100, "TestCredit", Guid.NewGuid()));
+                await tx.CommitAsync();
+            }
+            var checkout = scope.ServiceProvider.GetRequiredService<CheckoutService>();
+            var payment = await checkout.CreateClassAsync(new(c.Id, null), Guid.NewGuid().ToString(), waiting.UserId, false, default);
+            invoiceId = payment.InvoiceId;
+            await scope.ServiceProvider.GetRequiredService<PointConfirmationService>().SelectSelfAsync(invoiceId, 50, waiting.UserId, default);
+            await checkout.StartPaymentAsync(invoiceId, waiting.UserId, false, "127.0.0.1", default);
+        }
+        for (var retry = 0; retry < 2; retry++) {
+            using var scope = factory.Services.CreateScope();
+            await ActivatorUtilities.CreateInstance<ThresholdResponseExpiryService>(scope.ServiceProvider,
+                new TestClock(deadline!.Value.AddSeconds(1))).ExpireAsync();
+        }
+        await factory.QueryAsync(async db => {
+            Assert.Equal(ClassStatus.Cancelled, await db.Classes.Where(x => x.ClassId == c.Id).Select(x => x.Status).SingleAsync());
+            var wallet = await db.PointWallets.SingleAsync(x => x.OwnerUserId == waiting.UserId);
+            Assert.Equal(100, wallet.AvailablePoints);
+            Assert.Equal(0, wallet.HeldPoints);
+            Assert.Equal(SportHub.Payment.Domain.Enums.InvoiceStatus.Void, await db.Invoices.Where(x => x.InvoiceId == invoiceId).Select(x => x.Status).SingleAsync());
+            Assert.Equal(1, await db.AuditLogs.CountAsync(a => a.TargetId == c.Id.ToString() && a.Action == "CANCEL_CLASS_BELOW_THRESHOLD"));
+            Assert.Equal(100, await db.PointWallets.Where(x => x.OwnerUserId == member).Select(x => x.AvailablePoints).SingleAsync());
+            return 0;
+        });
+    }
+
     private async Task<Guid> BuyAsync(int classId)
     {
         var member = await factory.SeedUserAsync(UserRole.Member);

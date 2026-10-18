@@ -31,7 +31,7 @@ public sealed class SystemSettingService(
         {
             [SystemSettingKeys.MembershipExpiryNoticeDays] = (1, 90),
             [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (3, 30),
-            [SystemSettingKeys.ClassThresholdResponseHours] = (1, 336),
+            [SystemSettingKeys.ClassThresholdResponseHours] = (1, 48),
             [SystemSettingKeys.HoldMinutes] = (CheckoutHoldPolicy.MinMinutes, CheckoutHoldPolicy.MaxMinutes),
             [SystemSettingKeys.PointsConfirmOtpMinutes] = (1, 15),
             [SystemSettingKeys.RentalSlotMinutes] = (30, 60),
@@ -76,7 +76,7 @@ public sealed class SystemSettingService(
                     throw new ConflictException("class_threshold_window_setting_invalid", "The related threshold setting is invalid.");
                 var days = key == SystemSettingKeys.ClassThresholdDaysBeforeStart ? parsed : other;
                 var hours = key == SystemSettingKeys.ClassThresholdResponseHours ? parsed : other;
-                if (days < 3 || days * 24 < hours + 24)
+                if (hours is < 1 or > 48 || days < 3 || days * 24 < hours + 24)
                     throw new BadRequestException("class_threshold_window_setting_invalid",
                         "Review at least three days before class and leave the full response window plus 24 hours to finalize it.");
             }

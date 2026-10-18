@@ -2,7 +2,12 @@
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
 
+
+M03/M04 cập nhật 18/10/2026: [Xử lý sự cố và bố trí buổi bù](Incident-Session-Recovery.md). Theo yêu cầu mới nhất, bỏ chức năng hệ thống tự tìm/đề xuất lịch. Manager nhập ngày giờ, phòng và HLV; hệ thống kiểm tra hợp lệ/xung đột khi lưu. Buổi bị gián đoạn/không diễn ra được học lại nguyên thời lượng; buổi đã học đủ chỉ ghi nhận. Giữ lịch sử, không tính phút bù, không chuyển lớp/hoàn điểm trong luồng này.
+
 ## 1. Thứ tự nguồn và cách giải quyết mâu thuẫn
+
+M06 xác nhận 18/10/2026: [Chốt lớp thiếu học viên](Class-Opening-Decision.md). Đánh giá trước ít nhất 72 giờ; phản hồi tối đa 48 giờ, kết thúc ít nhất 24 giờ trước buổi đầu. Đạt ngưỡng thì xác nhận ngay và giữ người còn ghi danh, kể cả chưa phản hồi; lựa chọn đã xử lý vẫn có hiệu lực. Hết hạn vẫn thiếu và chưa được Manager miễn ngưỡng có lý do/audit thì hủy/hoàn. Kiểm tra muộn phải chốt hoặc dời khai giảng, không để lớp chưa xác nhận tự bắt đầu. Thông báo trong hệ thống/email cho Member, Manager và HLV liên quan. Nội dung này thay thế cách đọc BR-120/UC hết hạn cũ rằng luôn hoàn người chưa phản hồi dù lớp đã đạt ngưỡng.
 
 **Quyết định đã xác nhận:** [Kích hoạt staff và quyền Audit log](api-contract.md#staff-activation-and-audit-policy-update--14-october-2026). Link staff hết hạn đúng `CreatedAt + 24 giờ`; gửi lại hoặc sửa email không đổi mốc này. Admin xem mọi log do Manager/Admin/Coach thực hiện và log hệ thống; Manager xem mọi log do Manager/Receptionist/Coach/Member thực hiện. Phạm vi dựa trên role được ghi tại thời điểm thao tác, không dựa role hiện tại của tài khoản.
 
@@ -23,6 +28,8 @@ Quyết định Flow 2/4 ngày 18/10/2026: Coach chỉ gửi báo vắng kèm l�
 Quyền đọc sau khi lớp hoàn thành: Member còn Enrollment Confirmed và `EndedAt == null` vẫn đọc lịch sử buổi, nội dung chung và bản ghi cá nhân của mình trong lớp Published/InProgress/Completed. Ghi danh kết thúc hoặc lớp Cancelled/Draft thì mất quyền nội dung. Coach chủ nhiệm chỉ được cấp quyền hồ sơ từ lớp Published/InProgress có ghi danh còn hiệu lực; dạy thay chỉ cấp quyền buổi được giao, không mở hồ sơ đầy đủ hoặc nội dung cả khóa. Quyền bàn giao đánh giá lớp trước phải dựa trên lớp chủ nhiệm hiện tại còn hợp lệ. Điều kiện có buổi tương lai chỉ áp dụng cho context AI/nhắc lịch Member, không áp dụng cho quyền xem lịch sử Completed.
 
 ## 2. Phạm vi và thuật ngữ
+
+M02 xác nhận 18/10/2026: [Vòng đời phân công Coach–Member](Coach-Member-Relationship-Lifecycle.md). Mọi nguồn phân công, kể cả Manager gán thủ công, tự kết thúc khi không còn ghi danh Confirmed trong lớp Published/InProgress do Coach đó phụ trách. Còn lớp chung khác thì giữ Active; học lại tạo bản ghi mới và giữ lịch sử. Tạo tay dùng API quan hệ hiện có và phải có lớp chung hợp lệ.
 
 | Thuật ngữ | Nghĩa thống nhất |
 |---|---|

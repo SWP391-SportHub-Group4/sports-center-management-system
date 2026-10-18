@@ -72,6 +72,9 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
 
         var now = clock.UtcNow;
 
+        var course = await db.Set<Class>().AsNoTracking().SingleAsync(c => c.ClassId == session.ClassId, ct);
+        await ClassOpeningGuard.RequireAsync(db, course, ct);
+
         if (now < SessionAttendanceWindow.OpensAt(session.StartAtUtc))
         {
             throw new BadRequestException("attendance_not_open", "Attendance not open.");

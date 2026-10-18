@@ -183,6 +183,7 @@ export function SessionEditor({
   onOutcome,
   showCloseButton = true,
   embedded = false,
+  beforeSave,
 }: {
   session: CourseSessionDto;
   sportId: number;
@@ -191,6 +192,7 @@ export function SessionEditor({
   onClose: () => void;
   showCloseButton?: boolean;
   embedded?: boolean;
+  beforeSave?: () => Promise<void>;
   onOutcome?: (
     status: "pending" | "succeeded" | "failed" | "unknown",
     message?: string,
@@ -271,6 +273,7 @@ export function SessionEditor({
               onOutcome?.("pending");
               const success = await mutation.run(async () => {
                 try {
+                  await beforeSave?.();
                   await api.post(
                     `/api/class-sessions/${session.sessionId}/${mode === "reschedule" ? "reschedule" : "cancel"}`,
                     mode === "reschedule"

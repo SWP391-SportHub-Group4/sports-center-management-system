@@ -70,6 +70,7 @@ export interface CourseDto {
   status: "PUBLISHED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   enrollmentOpen: boolean;
   thresholdResponseClosed?: boolean;
+  openingConfirmed?: boolean;
   firstSessionStartUtc: string | null;
   scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
 }
@@ -93,6 +94,7 @@ export interface CourseEnrollmentDto {
   numSessions: number;
   firstSessionStartUtc: string | null;
   classStatus: string;
+  coachId?: string | null;
   coachName?: string | null;
   roomName?: string | null;
   lastSessionEndUtc?: string | null;
@@ -477,6 +479,8 @@ export interface CoachMemberRelationshipDto {
   status: string;
   startedAt: string;
   endedAt: string | null;
+  endReason?: string | null;
+  activeClasses?: { classId: number; className: string }[];
 }
 
 export interface WorkoutPlanDto {

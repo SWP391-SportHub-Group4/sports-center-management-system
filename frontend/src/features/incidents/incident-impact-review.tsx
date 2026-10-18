@@ -20,17 +20,22 @@ import type {
   ManagerCourseDto,
   CourtScheduleEntryDto,
 } from "@/lib/types";
+import { IncidentSessionEditor } from "./incident-session-editor";
+import { incidentApi, type IncidentRequest } from "./incident-api";
 function ClassImpactEditor({
   id,
+  incident,
   onSaved,
   onClose,
   onOutcome,
 }: {
   id: string;
+  incident: IncidentRequest;
   onSaved: () => void;
   onClose: () => void;
   onOutcome: (status: StepStatus, message?: string) => void;
 }) {
+  const [openedAt] = useState(Date.now);
   const state = useApi(
     async (signal) => {
       const session = await api.get<CourseSessionDto>(
@@ -47,18 +52,31 @@ function ClassImpactEditor({
   );
   return (
     <AsyncSection state={state}>
-      {(data) => (
-        <SessionEditor
-          session={data.session}
-          sportId={data.sportId}
-          capacity={data.capacity}
-          onSaved={onSaved}
-          onClose={onClose}
-          showCloseButton={false}
-          embedded
-          onOutcome={onOutcome}
-        />
-      )}
+      {(data) =>
+        Date.parse(data.session.startAtUtc) <= openedAt ? (
+          <IncidentSessionEditor
+            session={data.session}
+            sportId={data.sportId}
+            incident={incident}
+            onSaved={onSaved}
+            onOutcome={onOutcome}
+          />
+        ) : (
+          <SessionEditor
+            session={data.session}
+            sportId={data.sportId}
+            capacity={data.capacity}
+            onSaved={onSaved}
+            onClose={onClose}
+            showCloseButton={false}
+            embedded
+            onOutcome={onOutcome}
+            beforeSave={async () => {
+              await incidentApi.openFence(incident);
+            }}
+          />
+        )
+      }
     </AsyncSection>
   );
 }
@@ -97,6 +115,7 @@ function groupMembers(members: AffectedMember[]) {
 
 export function IncidentImpactReview({
   preview,
+  incidentRequest,
   onRefresh,
   onCompleted,
   onResult,
@@ -104,6 +123,7 @@ export function IncidentImpactReview({
   disabled = false,
 }: {
   preview: IncidentPreviewDto;
+  incidentRequest: IncidentRequest;
   onRefresh: () => void;
   onCompleted?: (type: string, id: string) => void;
   onResult?: (
@@ -355,6 +375,7 @@ export function IncidentImpactReview({
             <ClassImpactEditor
               key={editing.id}
               id={editing.id}
+              incident={incidentRequest}
               onOutcome={(status, message) => {
                 setEditorBusy(status === "pending");
                 onResult?.("CLASS_SESSION", editing.id, status, message);

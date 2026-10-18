@@ -44,7 +44,6 @@ export function IncidentForm({
   const revision = useRef(0);
   const resolvePending = useRef(false);
   const impactsRef = useRef<HTMLElement>(null);
-  const [now, setNow] = useState(Date.now);
   const [steps, setSteps] = useState<IncidentStep[]>([]);
   const [scope, setScope] = useState(
     params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
@@ -83,9 +82,7 @@ export function IncidentForm({
       ? t.incidentHistory.invalidRange
       : endMs - startMs > 31 * 86400000
         ? t.incidentHistory.rangeTooLong
-        : endMs <= now
-          ? t.incidentHistory.endInPast
-          : null;
+        : null;
   const validDraft =
     hasValidDates &&
     !rangeError &&
@@ -124,7 +121,6 @@ export function IncidentForm({
     }
   }
   function clear() {
-    setNow(Date.now());
     revision.current++;
     setExtensionDays(null);
     setReview(null);
@@ -142,9 +138,6 @@ export function IncidentForm({
     }, "");
   }
   async function preview(final = false) {
-    const currentTime = Date.now();
-    setNow(currentTime);
-    if (endMs <= currentTime) return;
     if (!validDraft || (final && !validExtension)) return;
     const expectedRevision = revision.current;
     const body = {
@@ -304,8 +297,12 @@ export function IncidentForm({
           <Card title={l.impact} hint={t.incidentHistory.reviewHint}>
             <IncidentImpactReview
               preview={review.preview}
+              incidentRequest={review.body}
               onRefresh={() => preview()}
-              onResult={record}
+              onResult={(type, id, status, message) => {
+                record(type, id, status, message);
+                if (status !== "pending") onFencesChanged?.();
+              }}
               onEditingChange={(value) => {
                 setEditing(value);
                 setFinalReview(false);

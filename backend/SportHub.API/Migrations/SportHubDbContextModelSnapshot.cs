@@ -2630,6 +2630,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_makeup");
 
+                    b.Property<string>("IncidentReportJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("incident_report_json");
+
                     b.Property<Guid?>("RescheduledFromSessionId")
                         .HasColumnType("uuid")
                         .HasColumnName("rescheduled_from_session_id");
@@ -3712,6 +3716,11 @@ namespace SportHub.API.Migrations
                     b.Property<Guid>("CoachId")
                         .HasColumnType("uuid")
                         .HasColumnName("coach_id");
+
+                    b.Property<string>("EndReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("end_reason");
 
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("timestamp with time zone")

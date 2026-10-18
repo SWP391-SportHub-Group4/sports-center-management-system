@@ -26,7 +26,8 @@ public sealed record ClassPublicResponse(
     bool EnrollmentOpen,
     bool ThresholdResponseClosed,
     DateTime? FirstSessionStartUtc,
-    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules);
+    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules,
+    bool OpeningConfirmed = false);
 
 /// <summary>Khóa học cho Manager: đủ trường tài chính/ngưỡng/đồng thời.</summary>
 public sealed record ClassManagerResponse(

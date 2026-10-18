@@ -324,6 +324,293 @@ async function fillDraft(page: Page) {
     .click();
 }
 
+test("M05 coverage submits the chosen main coach and refreshes the queue", async ({
+  page,
+}) => {
+  let assigned = false;
+  let writes = 0;
+  await page.route("**/api/manager/coach-coverage**", async (route) => {
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toEqual({
+        replacementCoachId: coachId,
+        reason: "Replacement audit",
+      });
+      assigned = true;
+      writes++;
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({
+      json: assigned
+        ? []
+        : [
+            {
+              coachId: memberId,
+              coachName: "Locked coach",
+              coachEmail: "locked@example.com",
+              affectedClasses: 1,
+              futureSessions: 1,
+              activeRelationships: 1,
+              mainClasses: [{ classId: 1, name: course.name, sportId: 3 }],
+              sessions: [],
+            },
+          ],
+    });
+  });
+  await page.goto("/manager/coach-coverage");
+  await page
+    .getByLabel(en.operations.coach, { exact: true })
+    .selectOption(coachId);
+  await page.getByLabel("Reason", { exact: true }).fill("Replacement audit");
+  await page
+    .getByRole("button", { name: "Reassign main coach", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("No locked coaches");
+  await page.reload();
+  await expect(page.getByRole("status")).toContainText("No locked coaches");
+  expect(writes).toBe(1);
+});
+
+test("M05 course cancellation previews before confirming and cannot repeat after refresh", async ({
+  page,
+}) => {
+  let cancelled = false;
+  let writes = 0;
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        status: cancelled ? "CANCELLED" : "PUBLISHED",
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/cancellation-preview", (route) =>
+    route.fulfill({
+      json: {
+        canCancel: true,
+        previewToken: "audit-preview",
+        totalSessions: 2,
+        sessionsNotProvided: 2,
+        confirmedCount: 1,
+        activeHoldCount: 0,
+        refundPoints: 100,
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/cancel", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      reason: "Cancellation audit",
+      previewToken: "audit-preview",
+    });
+    cancelled = true;
+    writes++;
+    return route.fulfill({ json: {} });
+  });
+  await page.goto("/manager/classes/1?tab=overview");
+  const section = page.locator("#course-cancellation");
+  await section
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Cancellation audit");
+  await section
+    .getByRole("button", {
+      name: en.operations.cancellationPreview,
+      exact: true,
+    })
+    .click();
+  expect(writes).toBe(0);
+  await section
+    .getByRole("button", { name: en.operations.confirm, exact: true })
+    .click();
+  await expect(section).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText("Cancelled", { exact: true })).toBeVisible();
+  expect(writes).toBe(1);
+});
+
+test("M05 incident abandon reviews changes and displays steps that could not be undone", async ({
+  page,
+}) => {
+  let abandoned = false;
+  let writes = 0;
+  const step = {
+    stepId: sessionId,
+    kind: "RESCHEDULE",
+    className: course.name,
+    sessionNo: 1,
+    beforeStartUtc: session.startAtUtc,
+    afterStartUtc: "2030-10-03T14:00:00Z",
+    state: "APPLIED",
+    undoNote: null,
+    canUndo: true,
+  };
+  await page.route("**/api/manager/incidents/fences", (route) =>
+    route.fulfill({
+      json: abandoned
+        ? []
+        : [
+            {
+              fenceId: noticeId,
+              scope: "ROOM",
+              roomId: 7,
+              roomName: "Court A",
+              reason: "Audit incident",
+              startAtUtc: session.startAtUtc,
+              endAtUtc: session.endAtUtc,
+              createdAtUtc: "2030-10-01T00:00:00Z",
+              expiresAtUtc: "2030-10-03T15:00:00Z",
+              isExpired: false,
+              remainingImpacts: 0,
+              affectedMemberCount: 1,
+              canResolve: true,
+              appliedSteps: 1,
+            },
+          ],
+    }),
+  );
+  await page.route(
+    `**/api/manager/incidents/fences/${noticeId}/steps`,
+    (route) => route.fulfill({ json: [step] }),
+  );
+  await page.route(
+    `**/api/manager/incidents/fences/${noticeId}/abandon`,
+    (route) => {
+      abandoned = true;
+      writes++;
+      return route.fulfill({
+        json: {
+          fenceId: noticeId,
+          undone: 0,
+          notUndone: [
+            {
+              ...step,
+              state: "UNDO_FAILED",
+              canUndo: false,
+              undoNote:
+                "The original room or coach is no longer free at that time.",
+            },
+          ],
+        },
+      });
+    },
+  );
+  await page.goto("/manager/incidents");
+  await page
+    .getByRole("button", { name: "Abandon and undo", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText(course.name, { exact: false })).toBeVisible();
+  expect(writes).toBe(0);
+  await dialog
+    .getByRole("button", { name: "Abandon and undo", exact: true })
+    .click();
+  await expect(dialog).toContainText("0 changes undone.");
+  await expect(dialog).toContainText("no longer free");
+  await dialog
+    .getByRole("button", { name: en.common.close, exact: true })
+    .last()
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Abandon and undo", exact: true }),
+  ).toHaveCount(0);
+  expect(writes).toBe(1);
+});
+
+for (const late of [false, true]) {
+  test(`M06 Manager handles ${late ? "missed opening" : "response deadline and waiver"}`, async ({
+    page,
+  }) => {
+    let waivers = 0;
+    await page.route("**/api/manager/classes/1", (route) =>
+      route.fulfill({
+        json: {
+          ...course,
+          status: "PUBLISHED",
+          thresholdStatus: waivers ? "WAIVED_BY_MANAGER" : "AT_RISK",
+          firstSessionStartUtc: late
+            ? "2020-10-01T02:00:00Z"
+            : "2030-10-03T11:00:00Z",
+          thresholdResponseDeadlineUtc: late ? null : "2030-10-02T11:00:00Z",
+        },
+      }),
+    );
+    await page.route("**/api/manager/classes/1/threshold/waive", (route) => {
+      expect(route.request().postDataJSON()).toEqual({
+        reason: "Run this class with fewer members",
+      });
+      waivers++;
+      return route.fulfill({ status: 204 });
+    });
+    await page.goto("/manager/classes/1?tab=threshold");
+    await expect(page.getByText(/Review at least 72 hours/)).toBeVisible();
+    await page
+      .getByLabel(en.operations.reason, { exact: true })
+      .fill("Run this class with fewer members");
+    const waive = page.getByRole("button", {
+      name: en.operations.waive,
+      exact: true,
+    });
+    if (late) {
+      await expect(waive).toBeDisabled();
+      await expect(
+        page.getByText(/planned opening has passed without confirmation/),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Move the first session" }),
+      ).toHaveAttribute("href", "/manager/classes/1?tab=sessions");
+    } else {
+      await expect(
+        page.getByText(/refunds remaining enrollments/),
+      ).toBeVisible();
+      await waive.click();
+      await expect(waive).toBeDisabled();
+      expect(waivers).toBe(1);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page
+        .locator("main")
+        .last()
+        .evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: `test-results/m06-manager-${late}.png`,
+      fullPage: true,
+    });
+  });
+}
+
+test("M06 public course distinguishes enrollment from confirmation to run", async ({
+  page,
+}) => {
+  let confirmed = false;
+  await page.route("**/api/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        status: "PUBLISHED",
+        enrollmentOpen: true,
+        firstSessionStartUtc: "2030-10-03T11:00:00Z",
+        openingConfirmed: confirmed,
+      },
+    }),
+  );
+  await page.route("**/api/classes/1/public-sessions", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.goto("/courses/1");
+  await expect(
+    page.getByText("Opening not confirmed", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/center is reviewing enrollment/)).toBeVisible();
+  confirmed = true;
+  await page.reload();
+  await expect(
+    page.getByText("Confirmed to run", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Opening not confirmed", { exact: true }),
+  ).toHaveCount(0);
+});
+
 test("class quick views survive reload and reset pagination", async ({
   page,
 }) => {
@@ -1015,8 +1302,8 @@ test("incident invalid periods and whitespace reasons never reach preview", asyn
   await expect(review).toBeDisabled();
   await fillIncidentDateTime(page, en.operations.start, "2020-10-03T18:00");
   await fillIncidentDateTime(page, en.operations.end, "2020-10-03T21:00");
-  await expect(page.getByText(en.incidentHistory.endInPast)).toBeVisible();
-  await expect(review).toBeDisabled();
+  await expect(page.getByText(en.incidentHistory.endInPast)).toHaveCount(0);
+  await expect(review).toBeEnabled();
   await fillIncidentDateTime(page, en.operations.start, "2030-10-03T18:00");
   await fillIncidentDateTime(page, en.operations.end, "2030-10-03T21:00");
   await page.getByLabel(en.operations.reason, { exact: true }).fill("   ");

@@ -103,8 +103,13 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
             await refunds.CreditAsync(new(member.InvoiceItemId, 100, $"Course {classId} cancelled: {request.Reason.Trim()}", member.EnrollmentId,
                 current.SessionsNotProvided, current.TotalSessions), ct);
             await enrollments.CancelAsync(member.InvoiceItemId, EnrollmentEndReason.CancelledByCenter, ct);
-            notifications.Queue(new(member.MemberId, NotificationEvents.ClassCancelled,
-                $"Course {course.Name} was cancelled; {member.RefundPoints} points were returned to your wallet. {request.Reason.Trim()}", member.EnrollmentId));
+            var message = $"Course {course.Name} was cancelled; {member.RefundPoints} points were returned to your wallet. {request.Reason.Trim()}";
+            notifications.Queue(new(member.MemberId, NotificationEvents.ClassCancelled, message, member.EnrollmentId));
+            var recipient = await users.GetAsync(member.MemberId, ct);
+            if (recipient is not null)
+                notifications.QueueEmail(new(member.MemberId, recipient.Email, NotificationEvents.ClassCancelled,
+                    member.EnrollmentId, "SportHub - Course cancelled",
+                    "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
         }
         // Entitlement services update counts using SQL; reload before saving the class.
         await db.Entry(course).ReloadAsync(ct);

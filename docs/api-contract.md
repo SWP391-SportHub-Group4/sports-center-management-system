@@ -1,5 +1,18 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## M06 class opening decision — 18 October 2026
+
+See [confirmed policy and implementation](Class-Opening-Decision.md). Existing threshold/respond/waive/cancel/reschedule endpoints are reused. Public class responses add boolean `openingConfirmed` without exposing costs or break-even counts. Only Met/Waived classes advance to teaching; late unconfirmed openings require a Manager decision or deferral. Response settings allow 1–48 hours and reviews at least 72 hours ahead, with a 24-hour pre-opening margin. Rescheduling an unconfirmed planned first session updates its opening date/review deadline and cannot cut into an existing response window. Attendance can return 409 `class_opening_not_confirmed`; retroactive waiver returns 409 `threshold_opening_time_passed`; invalid reschedule returns 409 `threshold_response_window_conflict`.
+
+## Incident recovery with manual scheduling — 18 October 2026
+
+Manager-only: POST `/api/class-sessions/{id}/incident`. The automatic slot-search UI and suggestions endpoint have been removed at the user's request. Manager enters the replacement time, room and Coach manually; save commands validate conflicts. Existing scheduling and incident routes are reused; ordinary past edits remain blocked. Historical class incidents can be reported with whole-session replacements, immutable facts and retry deduplication. See [M03/M04 contract, scope and verification](Incident-Session-Recovery.md).
+
+
+## Coach–Member assignment lifecycle update — 18 October 2026
+
+M02 reuses the existing relationship search/create/end routes. Manual creation now requires a confirmed enrollment in a Published/InProgress course led by that Coach (409 `relationship_requires_active_class`). Every relationship source ends automatically when its last supporting course/enrollment ends. Responses add `endReason` and `activeClasses: [{classId,className}]`; ended records remain historical. See [lifecycle and transaction details](Coach-Member-Relationship-Lifecycle.md). No new HTTP endpoints are added.
+
 ## Staff activation and audit policy update — 14 October 2026
 
 The current policy is documented in [UsersController](../backend/SportHub.Administration/Api/UsersController.cs) and [AuditLogsController](../backend/SportHub.Administration/Api/AuditLogsController.cs). It supersedes account-only Admin audit restrictions. Staff links expire at account creation + 24 hours. Admin reads Manager/Admin/Coach/System events; Manager reads Manager/Receptionist/Coach/Member events, using immutable event-time roles. `GET /api/audit-logs` accepts an optional canonical `actorRole`; all filters and the action catalogue are scoped server-side. Responses add `actorRole` and user invitation metadata (`activationExpiresAtUtc`, `activationResendAvailableAtUtc`). Member activation also stays 24 hours.

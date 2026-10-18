@@ -38,9 +38,20 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     }
 
     public async Task<IncidentDetailsResponse> GetAsync(Guid incidentId, CancellationToken ct = default)
-        => await HistoryQuery(db.Set<IncidentNotice>().AsNoTracking().Where(x => x.IncidentId == incidentId))
+    {
+        var details = await HistoryQuery(db.Set<IncidentNotice>().AsNoTracking().Where(x => x.IncidentId == incidentId))
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("incident_not_found", "Incident not found.");
+        var scope = Enum.Parse<IncidentScope>(details.Scope);
+        var rows = await (from step in db.Set<IncidentFenceStep>().AsNoTracking()
+            join fence in db.Set<IncidentFence>().AsNoTracking() on step.FenceId equals fence.FenceId
+            join session in db.Set<ClassSession>().AsNoTracking() on step.SessionId equals session.SessionId
+            where fence.Scope == scope && fence.RoomId == details.RoomId
+                && fence.StartAtUtc == details.StartAtUtc && fence.EndAtUtc == details.EndAtUtc && session.IncidentReportJson != null
+            select new { session.SessionId, session.ClassId, session.SessionNo, session.Class!.Name, session.IncidentReportJson }).Distinct().ToListAsync(ct);
+        return details with { SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
+            ClassSessionService.ReadIncidentReport(r.IncidentReportJson)!)).ToList() };
+    }
 
     private IQueryable<IncidentDetailsResponse> HistoryQuery(IQueryable<IncidentNotice> query)
         => from incident in query
@@ -48,7 +59,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
            from room in rooms.DefaultIfEmpty()
            select new IncidentDetailsResponse(incident.IncidentId, incident.Scope.ToString(), incident.RoomId,
                room == null ? null : room.Name, incident.StartAtUtc, incident.EndAtUtc,
-               incident.Reason, incident.ResolutionSummary, incident.CreatedAtUtc);
+               incident.Reason, incident.ResolutionSummary, incident.CreatedAtUtc, null);
 
     public async Task<NotificationDelivery> DeliveryAsync(Guid incidentId, CancellationToken ct = default)
     {
@@ -144,6 +155,8 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
         EnsureResolvable(firstImpacts);
         var rentalIds = firstImpacts.Where(x => x.SourceType == nameof(OccupancySourceType.CourtRental))
             .Select(x => x.SourceId).Distinct().ToList();
+        if (shape.EndUtc <= clock.UtcNow && rentalIds.Count > 0)
+            throw new ConflictException("past_rental_requires_review", "This historical incident also affects court rentals. Review those rentals separately; no automatic historical refunds were made.");
         var rentalRows = await db.Set<CourtRental>().Where(x => rentalIds.Contains(x.CourtRentalId))
             .OrderBy(x => x.InvoiceId).ThenBy(x => x.CourtRentalId).ToListAsync(ct);
         if (rentalRows.Count != rentalIds.Count)
@@ -308,7 +321,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     {
         var fence = await db.Set<IncidentFence>().SingleOrDefaultAsync(f => f.FenceId == fenceId, ct)
             ?? throw new NotFoundException("incident_fence_not_found", "Incident fence not found.");
-        if (fence.Status != IncidentFenceStatus.Open || fence.EndAtUtc <= clock.UtcNow)
+        if (fence.Status != IncidentFenceStatus.Open)
             throw new ConflictException("incident_fence_closed", "This incident is no longer being handled.");
         fence.ExpiresAtUtc = clock.UtcNow + FenceLifetime;
         audit.Write(new AuditEntry(managerId, "EXTEND_INCIDENT_FENCE", nameof(IncidentFence), fenceId.ToString(),
@@ -397,7 +410,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             ? await db.Set<Room>().AsNoTracking().Where(x => x.RoomId == id).Select(x => x.Name).SingleOrDefaultAsync(ct)
             : null;
         var expired = fence.Status == IncidentFenceStatus.Open
-            && (fence.ExpiresAtUtc <= clock.UtcNow || fence.EndAtUtc <= clock.UtcNow);
+            && fence.ExpiresAtUtc <= clock.UtcNow;
         var needsManual = impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
             or nameof(OccupancySourceType.RoomBlock));
         return new IncidentFenceResponse(fence.FenceId, fence.Scope.ToString(), fence.RoomId, roomName, fence.StartAtUtc,
@@ -432,7 +445,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             throw new BadRequestException("incident_reason_required", "Incident reason required.");
         var start = DateTime.SpecifyKind(request.StartAtUtc, DateTimeKind.Utc);
         var end = DateTime.SpecifyKind(request.EndAtUtc, DateTimeKind.Utc);
-        if (end <= start || end <= clock.UtcNow || end - start > TimeSpan.FromDays(31))
+        if (end <= start || end - start > TimeSpan.FromDays(31))
             throw new BadRequestException("invalid_incident_range", "Invalid incident range.");
         List<int> roomIds;
         int? roomId = request.RoomId;
@@ -485,7 +498,10 @@ public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.Wire
     int? MembershipExtensionDays = null);
 public sealed record IncidentDetailsResponse(Guid IncidentId,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
-    DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc);
+    DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc,
+    IReadOnlyList<IncidentSessionHistory>? SessionReports = null);
+public sealed record IncidentSessionHistory(Guid SessionId, int ClassId, int SessionNo, string ClassName,
+    SportHub.Scheduling.Application.DTOs.IncidentSessionReport Report);
 public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)
 {
     public IReadOnlyList<IncidentResolutionOption> ResolutionOptions => SourceType switch

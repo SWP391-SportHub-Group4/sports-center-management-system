@@ -1,5 +1,6 @@
 "use client";
 import { AsyncSection, Card } from "@/components/ui";
+import Link from "next/link";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
@@ -8,7 +9,13 @@ import { DeliveryStatus } from "./delivery-status";
 import styles from "./incident-history.module.css";
 
 export function IncidentDetailsView({ id }: { id: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
+  const outcomes: Record<string, string> = {
+    INTERRUPTED: vi ? "Buổi bị gián đoạn" : "Interrupted session",
+    NOT_HELD: vi ? "Buổi không diễn ra" : "Session not held",
+    COMPLETED_AS_PLANNED: vi ? "Đã học đầy đủ" : "Fully delivered",
+  };
   const l = t.managerOperations;
   const state = useApi((signal) => incidentApi.get(id, signal), [id]);
   return (
@@ -39,6 +46,31 @@ export function IncidentDetailsView({ id }: { id: string }) {
               </div>
             </dl>
             <p>{incident.resolutionSummary}</p>
+            {!!incident.sessionReports?.length && (
+              <section className="stack">
+                <h2>{vi ? "Kết quả xử lý buổi học" : "Session outcomes"}</h2>
+                {incident.sessionReports.map((row) => (
+                  <div key={row.sessionId}>
+                    <strong>
+                      {row.className} · #{row.sessionNo} ·{" "}
+                      {outcomes[row.report.outcome] ?? row.report.outcome}
+                    </strong>
+                    <p>
+                      {vi ? "Xảy ra" : "Occurred"}:{" "}
+                      {formatDateTime(row.report.occurredAtUtc)} ·{" "}
+                      {vi ? "Ghi nhận" : "Recorded"}:{" "}
+                      {formatDateTime(row.report.recordedAtUtc)}
+                    </p>
+                    <p>{row.report.reason}</p>
+                    {row.report.replacementSessionId && (
+                      <Link href={`/manager/classes/${row.classId}`}>
+                        {vi ? "Xem lịch học lại" : "View replacement schedule"}
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </section>
+            )}
           </Card>
           <DeliveryStatus incidentId={id} />
         </>
