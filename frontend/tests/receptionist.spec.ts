@@ -370,13 +370,7 @@ test("the selected Member follows the desk from check-in to sales and profile", 
 
   await page.getByLabel("Find a member").fill("Member A");
 
-  await page.waitForTimeout(300);
-
-  await page
-    .getByRole("button", {
-      name: /Member A/,
-    })
-    .click();
+  await page.getByRole("option", { name: /Member A/ }).click();
 
   await expect(
     page.getByRole("heading", {
@@ -464,10 +458,10 @@ test("no search result lets the front desk register a new member with an activat
 
   await page.getByLabel("Find a member").fill("Nobody");
 
-  await expect(page.getByText("No matching members found.")).toBeVisible();
+  await expect(page.getByText("No matching members.")).toBeVisible();
 
   await page
-    .getByRole("button", { name: "Register a new member", exact: true })
+    .getByRole("button", { name: "Register member", exact: true })
     .click();
 
   const dialog = page.getByRole("dialog");
