@@ -12,7 +12,7 @@ Mục tiêu là giảm thao tác cho Coach, giúp Manager chọn được phươ
 
 ## 2. Hiện trạng và phần cần bổ sung
 
-Hiện trạng dưới đây đối chiếu với code local ngày 17/10/2026, gồm các thay đổi chưa commit; không xác nhận bản deploy đã có hoặc đã nghiệm thu.
+Hiện trạng dưới đây được đối chiếu lại ngày 18/10/2026 theo commit `08728587`; không xác nhận bản deploy đã có hoặc đã nghiệm thu. Coach vẫn được sửa Pending; phương án chỉ cho rút chưa được áp dụng. Phần lọc lịch trống trong proposal là yêu cầu đề xuất, không mô tả selector hiện đã làm. Xem [hợp đồng yêu cầu vắng](Class-Session-Change-Requests.md).
 
 | Nội dung | Hiện trạng |
 |---|---|

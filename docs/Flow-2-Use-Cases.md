@@ -1,5 +1,7 @@
 # Flow 2 — Use Case Specifications
 
+**Đối chiếu bổ sung 18/10/2026, commit `08728587`:** UC-F2-42 vẫn có hiệu lực: Coach được sửa Pending theo điều kiện bên dưới, không phải chỉ được rút. UC-F2-45 hiện kiểm lịch rảnh khi lưu; dropdown chỉ lọc môn/Active, chưa lọc người rảnh. Xem [hợp đồng yêu cầu vắng](Class-Session-Change-Requests.md). Các UC là đặc tả và tiêu chí test, không phải kết quả đã Pass.
+
 3.3 Use Case Specifications
 Flow 2 Quản lý lớp học lịch và thuê sân
 Phạm vi: danh mục tài nguyên, khóa học, ghi danh, ngưỡng mở lớp, lịch dạy, điểm danh, yêu cầu điều chỉnh, thuê sân và sự cố vận hành. Đối chiếu code ngày 16/10/2026; đặc tả không phải báo cáo đã kiểm thử thành công.
@@ -515,7 +517,7 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Tác nhân | Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Yêu cầu PENDING; buổi tương lai Scheduled; snapshot còn khớp. |
-| Luồng chính | 1. Mở yêu cầu và kiểm tra ảnh hưởng.<br>2. Chọn phương án cuối cùng và ghi nhận xét 3–500 ký tự.<br>3. Kiểm tra coach đúng bộ môn, giờ hoạt động, phòng và lịch học viên.<br>4. Thực hiện thay coach, dời lịch hoặc hủy kèm học bù.<br>5. Cập nhật yêu cầu RESOLVED cùng lịch tài nguyên, audit và thông báo trong một giao dịch. |
+| Luồng chính | 1. Mở yêu cầu và kiểm tra ảnh hưởng.<br>2. Chọn phương án cuối cùng và ghi nhận xét 3–500 ký tự.<br>3. Chọn HLV Active, đúng môn, khác Coach xin vắng nếu đổi HLV. Dropdown hiện chưa lọc theo giờ rảnh.<br>4. Khi Confirm decision, backend kiểm lại chuyên môn, giờ hoạt động, phòng, lịch HLV và học viên; thực hiện thay coach, dời lịch hoặc hủy kèm học bù nếu hợp lệ.<br>5. Cập nhật yêu cầu RESOLVED cùng lịch tài nguyên, audit và thông báo trong một giao dịch. |
 | Luồng thay thế / ngoại lệ | a. Snapshot cũ: báo class_change_stale, không xử lý dựa trên lịch cũ.<br>b. Trùng lịch hoặc không có lịch bù hợp lệ: rollback, giữ PENDING.<br>c. Buổi đã diễn ra hoặc yêu cầu đã kết thúc: không phê duyệt.<br>Nếu Manager đã đổi buổi trực tiếp, request cũ đã tự đóng và không thể approve lại. Nếu approve hợp lệ từ request, trạng thái vẫn Approved/RESOLVED, không bị cơ chế tự đóng ghi đè. |
 | Hậu điều kiện | Lịch thay đổi thành công; yêu cầu hiển thị Approved; các bên được thông báo. |
 
