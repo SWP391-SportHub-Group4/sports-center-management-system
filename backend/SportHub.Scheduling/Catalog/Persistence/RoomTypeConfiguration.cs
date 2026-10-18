@@ -10,6 +10,7 @@ public class RoomTypeConfiguration : IEntityTypeConfiguration<RoomType>
     {
         builder.ToTable("room_types");
         builder.HasKey(e => e.RoomTypeId);
+        builder.Property(e => e.IsActive).HasDefaultValue(true);
         builder.Property(e => e.Name).HasColumnType("citext").IsRequired();
         builder.HasIndex(e => e.Name).IsUnique();
 

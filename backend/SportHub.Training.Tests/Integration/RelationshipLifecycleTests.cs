@@ -203,6 +203,12 @@ public sealed class RelationshipLifecycleTests(TrainingApiFactory factory)
         {
             var course = await db.Classes.SingleAsync(c => c.ClassId == pair.ClassIds[0]);
             var start = DateTime.UtcNow.AddHours(-2);
+            // Published courses need pricing/threshold facts before the lifecycle job
+            // evaluates opening. Keep this fixture valid without bypassing that evaluation.
+            course.CostAmount = course.Price;
+            course.BreakEvenThreshold = 1;
+            course.ThresholdDeadlineUtc = start.AddDays(-3);
+            course.StartDate = DateOnly.FromDateTime(start.AddHours(7));
             db.ClassSessions.Add(new ClassSession { SessionId = Guid.NewGuid(), ClassId = course.ClassId,
                 SessionNo = 1, CoachId = pair.CoachId, RoomId = course.DefaultRoomId, StartAtUtc = start,
                 EndAtUtc = start.AddHours(1), Status = ClassSessionStatus.Scheduled });
@@ -214,6 +220,9 @@ public sealed class RelationshipLifecycleTests(TrainingApiFactory factory)
             .Invoke(job, [scope.ServiceProvider, CancellationToken.None])!;
         Assert.Equal(ClassStatus.Completed, await factory.QueryAsync(db => db.Classes
             .Where(c => c.ClassId == pair.ClassIds[0]).Select(c => c.Status).SingleAsync()));
+        Assert.Equal(SportHub.Scheduling.Threshold.Domain.ThresholdStatus.Met,
+            await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == pair.ClassIds[0])
+                .Select(c => c.ThresholdStatus).SingleAsync()));
         Assert.Equal(RelationshipStatus.Ended, await factory.QueryAsync(db => db.CoachMemberRelationships
             .Where(r => r.RelationshipId == pair.RelationshipId).Select(r => r.Status).SingleAsync()));
     }

@@ -15,7 +15,7 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit)
         var links = (await db.Set<SportRoomType>().AsNoTracking().ToListAsync(ct))
             .ToLookup(l => l.RoomTypeId, l => l.SportId);
 
-        return types.Select(t => new RoomTypeResponse(t.RoomTypeId, t.Name, links[t.RoomTypeId].OrderBy(x => x).ToList())).ToList();
+        return types.Select(t => new RoomTypeResponse(t.RoomTypeId, t.Name, links[t.RoomTypeId].OrderBy(x => x).ToList(), t.IsActive)).ToList();
     }
 
     public async Task<RoomTypeResponse> CreateAsync(SaveRoomTypeRequest request, Guid actorUserId, CancellationToken ct = default)
@@ -124,6 +124,28 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit)
         var sportIds = await db.Set<SportRoomType>().AsNoTracking()
             .Where(l => l.RoomTypeId == roomTypeId).Select(l => l.SportId).OrderBy(x => x).ToListAsync(ct);
 
-        return new RoomTypeResponse(type.RoomTypeId, type.Name, sportIds);
+        return new RoomTypeResponse(type.RoomTypeId, type.Name, sportIds, type.IsActive);
+    }
+
+    public async Task<RoomTypeResponse> SetActiveAsync(int roomTypeId, bool active, string reason,
+        Guid actorUserId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
+            throw new BadRequestException("room_type_reason_required", "Enter a reason from 3 to 500 characters.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var type = await db.Set<RoomType>().FromSqlInterpolated(
+            $"SELECT * FROM room_types WHERE room_type_id = {roomTypeId} FOR UPDATE").SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("room_type_not_found", "Room type not found.");
+        if (type.IsActive != active)
+        {
+            type.IsActive = active;
+            audit.Write(new AuditEntry(actorUserId, active ? "REACTIVATE_ROOM_TYPE" : "DISCONTINUE_ROOM_TYPE",
+                nameof(RoomType), roomTypeId.ToString(),
+                OldValue: System.Text.Json.JsonSerializer.Serialize(new { type.Name, isActive = !active }),
+                NewValue: System.Text.Json.JsonSerializer.Serialize(new { type.Name, isActive = active }), Reason: reason.Trim()));
+            await db.SaveChangesAsync(ct);
+        }
+        await tx.CommitAsync(ct);
+        return await GetAsync(roomTypeId, ct);
     }
 }

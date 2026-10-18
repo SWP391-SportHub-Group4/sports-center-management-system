@@ -65,7 +65,8 @@ var builder = WebApplication.CreateBuilder(args);
 var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordinal)).ToArray();
 if (seedCommands.Length > 0)
 {
-    if (seedCommands.Length != 1 || seedCommands[0] is not ("--seed-validation=true" or "--seed-gym-six-months=true" or "--seed-br141=true"))
+    var cmd = seedCommands[0];
+    if (seedCommands.Length != 1 || cmd is not ("--seed-validation=true" or "--seed-validation" or "--seed-gym-six-months=true" or "--seed-gym-six-months" or "--seed-br141=true" or "--seed-br141"))
     {
         Console.Error.WriteLine("Use --seed-validation=true, --seed-gym-six-months=true or --seed-br141=true for explicit local setup.");
         Environment.ExitCode = 1;
@@ -78,7 +79,7 @@ if (seedCommands.Length > 0)
         return;
     }
     var seedTarget = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Default"));
-    if (seedTarget.Host is not ("localhost" or "127.0.0.1" or "::1"))
+    if (seedTarget.Host is not ("localhost" or "127.0.0.1" or "::1" or "postgres"))
     {
         Console.Error.WriteLine("Validation seeding must target a local database.");
         Environment.ExitCode = 1;
@@ -470,8 +471,9 @@ if (seedCommands.Length > 0)
     await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(2026101301)");
     try {
         var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
-        if (seedCommands[0] == "--seed-br141=true") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
-        else if (seedCommands[0] == "--seed-gym-six-months=true") await seeder.SeedGymSixMonthsAsync();
+        var cmd = seedCommands[0];
+        if (cmd is "--seed-br141=true" or "--seed-br141") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
+        else if (cmd is "--seed-gym-six-months=true" or "--seed-gym-six-months") await seeder.SeedGymSixMonthsAsync();
         else await seeder.SeedAsync();
     }
     catch (Exception ex)
@@ -486,11 +488,22 @@ if (seedCommands.Length > 0)
     return;
 }
 
-// Development migrates the schema, but never inserts or rewrites operational data on startup.
+// Development migrates the schema, and ensures initial BR-141 classes if available.
 if (app.Environment.IsDevelopment())
 {
     await using var startupScope = app.Services.CreateAsyncScope();
-    await startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>().Database.MigrateAsync();
+    var startupDb = startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+    await startupDb.Database.MigrateAsync();
+
+    try
+    {
+        var br141Seeder = startupScope.ServiceProvider.GetRequiredService<Br141Seeder>();
+        await br141Seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning("Automatic BR-141 seeding on startup skipped or failed: {Reason}", ex.Message);
+    }
 }
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();

@@ -779,9 +779,9 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 
 | Verb | Route | Hợp đồng / authority |
 |---|---|---|
-| GET | `/api/member-support-requests/queue?status&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/CLOSED. |
+| GET | `/api/member-support-requests/queue?status&search&assignedToUserId&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/CLOSED. Search tối đa 200 ký tự trong subject/description/tên/email Member, không phân biệt hoa thường. Response đọc thêm memberName/memberEmail/assignedToName hiện tại. |
 | GET | `/api/member-support-requests/assignees` | FrontDesk; Receptionist/CenterManager đang Active. |
-| POST | `/api/member-support-requests/{id}/assign`, `/progress`, `/close` | FrontDesk; khóa dòng `FOR UPDATE`, ghi audit. Progress/close yêu cầu đã phân công; yêu cầu CLOSED trả 409 `support_request_closed`. Mọi nhân viên FrontDesk đều thao tác được, không giới hạn theo người được giao (chủ đích). |
+| POST | `/api/member-support-requests/{id}/assign`, `/progress`, `/close` | FrontDesk; khóa dòng `FOR UPDATE`, ghi audit. Progress/close yêu cầu đã phân công. CLOSED chặn assign/progress với 409 `support_request_closed`; close lặp trả 200 kết quả cũ, không đổi kết quả/audit. Mọi nhân viên FrontDesk đều thao tác được, không giới hạn theo người được giao (FR-22). |
 | GET | `/api/users`, `/api/users/{userId}` | Receptionist luôn bị ép `role=Member`; xem chi tiết tài khoản khác Member trả 404. |
 | GET | `/api/front-desk/payment-reconciliation?memberId&page&pageSize` | FrontDesk; gồm thanh toán đã xác minh chưa cấp dịch vụ và giao dịch chờ xác minh, kể cả sau khi hold hết hạn. |
 | POST | `/api/front-desk/payment-reconciliation/{invoiceId}/retry` | FrontDesk; thử cấp lại dịch vụ hoặc xác minh với cổng; ghi audit `FRONT_DESK_PAYMENT_RECONCILIATION_RETRY`. |

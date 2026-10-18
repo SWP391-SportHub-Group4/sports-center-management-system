@@ -14,6 +14,9 @@ export interface MemberSupportRequestDto {
   status: string;
   createdAt: string;
   assignedToUserId: string | null;
+  memberName?: string | null;
+  memberEmail?: string | null;
+  assignedToName?: string | null;
   progressNote: string | null;
   updatedAt: string | null;
   closedAt: string | null;
@@ -614,6 +617,7 @@ export interface RoomTypeDto {
   roomTypeId: number;
   name: string;
   sportIds: number[];
+  isActive: boolean;
 }
 export interface OpeningHourDto {
   dayOfWeek: number;

@@ -2212,6 +2212,12 @@ namespace SportHub.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RoomTypeId"));
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("citext")
@@ -2230,16 +2236,19 @@ namespace SportHub.API.Migrations
                         new
                         {
                             RoomTypeId = 1,
+                            IsActive = true,
                             Name = "Gym room"
                         },
                         new
                         {
                             RoomTypeId = 3,
+                            IsActive = true,
                             Name = "Badminton court"
                         },
                         new
                         {
                             RoomTypeId = 4,
+                            IsActive = true,
                             Name = "Basketball court"
                         });
                 });

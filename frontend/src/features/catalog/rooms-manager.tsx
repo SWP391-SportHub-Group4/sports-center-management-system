@@ -364,6 +364,12 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                   <td>{r.capacity}</td>
                   <td>
                     <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
+                    {types.data?.find((x) => x.roomTypeId === r.roomTypeId)
+                      ?.isActive === false && (
+                      <p className="small muted">
+                        Bookings blocked by room type
+                      </p>
+                    )}
                   </td>
                   <td>
                     <div className="btn-row">

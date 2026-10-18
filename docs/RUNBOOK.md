@@ -147,6 +147,8 @@ Member và staff là hai loại tài khoản tách biệt: không đổi Member 
 
 # 4. Bàn giao triển khai và nghiệm thu
 
+Hỗ trợ Member (hạng 5): build lại cả backend/frontend bằng `docker compose up -d --build backend frontend`. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới. Xem [quy trình và các ca nghiệm thu](Member-Support-Workflow.md).
+
 Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở trên chỉ hướng dẫn chạy local.
 
 ### Phần đã chuẩn bị trong repo

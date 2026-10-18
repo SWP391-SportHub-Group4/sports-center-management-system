@@ -55,7 +55,8 @@ public sealed class SportCatalogReader(ISportHubDbContext db) : ISportCatalogRea
         => await db.Set<Room>()
             .AsNoTracking()
             .Where(r => r.RoomId == roomId)
-            .Select(r => new RoomInfo(r.RoomId, r.Name, r.RoomTypeId, r.IsActive, r.Capacity))
+            .Select(r => new RoomInfo(r.RoomId, r.Name, r.RoomTypeId,
+                r.IsActive && (r.RoomTypeId == null || db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive)), r.Capacity))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<bool> IsRoomCompatibleAsync(int roomId, int sportId, CancellationToken cancellationToken = default)
@@ -63,6 +64,7 @@ public sealed class SportCatalogReader(ISportHubDbContext db) : ISportCatalogRea
                   join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
                   join sport in db.Set<Sport>().AsNoTracking() on link.SportId equals sport.SportId
                   where room.RoomId == roomId && room.IsActive && sport.SportId == sportId && sport.IsActive
+                      && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
                   select 1)
             .AnyAsync(cancellationToken);
 

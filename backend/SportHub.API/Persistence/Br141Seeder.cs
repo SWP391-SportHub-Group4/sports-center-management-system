@@ -99,6 +99,8 @@ public sealed class Br141Seeder(SportHubDbContext db, IClassService classes, IPa
                 if (!room.IsActive || !await db.Set<SportRoomType>().AnyAsync(x => x.SportId == sport.SportId
                         && x.RoomTypeId == room.RoomTypeId, ct))
                     throw new InvalidOperationException($"Room '{plan.Room}' is inactive or incompatible. Review it in facility management; the seed does not change existing rooms.");
+                if (!await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == room.RoomTypeId && t.IsActive, ct))
+                    throw new InvalidOperationException($"Room type for '{plan.Room}' is discontinued. Reactivate it in management before seeding.");
                 rooms[plan.Code] = room;
                 coaches[plan.Code] = await EnsureCoachAsync(plan.CoachEmail, sport.SportId, ct);
                 // An existing rate, including an intentionally disabled one, belongs to the manager.

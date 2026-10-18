@@ -37,6 +37,7 @@ public sealed partial class CourtRentalService
         var rooms = await (from room in db.Set<Room>().AsNoTracking()
                            join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
                            where room.IsActive && link.SportId == sportId
+                               && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
                            select new { room.RoomId, room.Name, room.RoomTypeId }).Distinct().OrderBy(r => r.Name).ToListAsync(ct);
         var ids = rooms.Select(r => r.RoomId).ToList();
         var typeIds = rooms.Select(r => r.RoomTypeId).ToList();

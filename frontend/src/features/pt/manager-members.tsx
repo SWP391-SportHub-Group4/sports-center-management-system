@@ -28,6 +28,7 @@ import { EndRelationshipDialog } from "./end-relationship-dialog";
 import {
   PendingMemberPanel,
   RegisterMemberDialog,
+  MemberSupportRequests,
 } from "@/features/receptionist";
 
 /** Danh sách hội viên của Manager và đăng ký Member tại quầy. */
@@ -367,6 +368,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
           )}
         </div>
       </Tabs>
+      {member.data && <MemberSupportRequests memberId={memberId} />}
       {assigning && member.data && (
         <AssignCoachDialog
           member={member.data}

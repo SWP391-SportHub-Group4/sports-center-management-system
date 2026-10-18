@@ -37,6 +37,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var room = await (from r in db.Set<Room>().AsNoTracking()
                           join link in db.Set<SportRoomType>().AsNoTracking() on r.RoomTypeId equals link.RoomTypeId
                           where r.RoomId == request.RoomId && r.IsActive && link.SportId == request.SportId
+                              && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive)
                           select r).SingleOrDefaultAsync(cancellationToken)
             ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
         if (room.RoomTypeId is not int roomTypeId)
@@ -181,6 +182,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var room = await db.Set<Room>().AsNoTracking().SingleOrDefaultAsync(x => x.RoomId == rental.RoomId, cancellationToken);
         var sportActive = await db.Set<Sport>().AsNoTracking().AnyAsync(x => x.SportId == rental.SportId && x.IsActive, cancellationToken);
         if (room is null || !room.IsActive || !sportActive) return false;
+        if (room.RoomTypeId is int typeId && !await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == typeId && t.IsActive, cancellationToken)) return false;
         var result = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.CourtRental, courtRentalId,
             rental.RoomId, null,
             new DateTimeOffset(DateTime.SpecifyKind(rental.StartAtUtc, DateTimeKind.Utc)),
