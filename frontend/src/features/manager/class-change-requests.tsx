@@ -4,13 +4,12 @@ import { ArrowRight, Check, RefreshCw } from "lucide-react";
 import { Drawer } from "@/components/primitives";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { catalogApi } from "@/features/catalog";
-import type { CoachAdminDto, Paged } from "@/lib/types";
 import {
   classChangeApi,
   changeTypeLabel,
@@ -242,6 +241,30 @@ function ReviewDrawer({
   const [coach, setCoach] = useState("");
   const [room, setRoom] = useState(String(r.originalRoomId));
   const [dirty, setDirty] = useState(false);
+  const duration =
+    Date.parse(r.originalEndAtUtc) - Date.parse(r.originalStartAtUtc);
+  let startUtc: string | null = null;
+  try {
+    startUtc =
+      type === "SUBSTITUTE"
+        ? r.originalStartAtUtc
+        : start
+          ? vietnamUtc(start)
+          : null;
+  } catch {
+    /* Incomplete datetime input has no available candidates. */
+  }
+  const endUtc =
+    startUtc && duration > 0 && Number.isFinite(Date.parse(startUtc))
+      ? new Date(Date.parse(startUtc) + duration).toISOString()
+      : null;
+  const slotKey = `${r.sessionId}:${r.sportId}:${startUtc}:${endUtc}`;
+  const needsCoaches =
+    r.status === "PENDING" &&
+    !!type &&
+    type !== "REJECT" &&
+    !!startUtc &&
+    !!endUtc;
   const rooms = useApi(
     (signal) =>
       r.status === "PENDING" ? catalogApi.rooms(signal) : Promise.resolve([]),
@@ -249,22 +272,38 @@ function ReviewDrawer({
   );
   const coaches = useApi(
     async (signal) => {
-      if (r.status !== "PENDING") return [];
-      const all: CoachAdminDto[] = [];
-      let page = 1;
-      while (true) {
-        const data = await api.get<Paged<CoachAdminDto>>(
-          "/api/manager/coaches",
-          { signal, query: { sportId: r.sportId, page, pageSize: 100 } },
-        );
-        all.push(...data.items);
-        if (!data.items.length || all.length >= data.totalCount) break;
-        page++;
-      }
-      return all.filter((c) => c.status === "ACTIVE" && c.userId !== r.coachId);
+      const items = needsCoaches
+        ? await api.get<{ coachId: string; fullName: string }[]>(
+            "/api/availability/coaches",
+            {
+              signal,
+              query: {
+                sportId: r.sportId,
+                startUtc,
+                endUtc,
+                excludeSessionId: r.sessionId,
+              },
+            },
+          )
+        : [];
+      return { slotKey, items };
     },
-    [r.status, r.sportId, r.coachId],
+    [needsCoaches, slotKey],
   );
+  const candidates =
+    coaches.data?.slotKey === slotKey ? coaches.data.items : [];
+  const availabilityReady =
+    needsCoaches &&
+    !coaches.loading &&
+    !coaches.error &&
+    coaches.data?.slotKey === slotKey;
+  const currentAvailable = candidates.some((c) => c.coachId === r.coachId);
+  const alternatives = candidates.filter((c) => c.coachId !== r.coachId);
+  const selectedCoach = coach || (type === "SUBSTITUTE" ? "" : r.coachId);
+  const validCoach =
+    availabilityReady &&
+    candidates.some((c) => c.coachId === selectedCoach) &&
+    (type !== "SUBSTITUTE" || selectedCoach !== r.coachId);
   const cancel = () => {
     if (
       !action.busy &&
@@ -277,20 +316,28 @@ function ReviewDrawer({
   };
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!type || lock.current) return;
+    if (!type || lock.current || (type !== "REJECT" && !validCoach)) return;
     lock.current = true;
     try {
-      const saved = await action.run(() =>
-        type === "REJECT"
-          ? classChangeApi.reject(r.requestId, note.trim())
-          : classChangeApi.resolve(r.requestId, {
-              type,
-              reviewNote: note.trim(),
-              startAtUtc: type === "SUBSTITUTE" ? null : vietnamUtc(start),
-              roomId: room ? Number(room) : null,
-              coachId: coach || null,
-            }),
-      );
+      const saved = await action.run(async () => {
+        try {
+          return await (type === "REJECT"
+            ? classChangeApi.reject(r.requestId, note.trim())
+            : classChangeApi.resolve(r.requestId, {
+                type,
+                reviewNote: note.trim(),
+                startAtUtc: type === "SUBSTITUTE" ? null : startUtc,
+                roomId: room ? Number(room) : null,
+                coachId: coach || null,
+              }));
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 409) {
+            setCoach("");
+            coaches.reload();
+          }
+          throw error;
+        }
+      });
       if (saved) onSaved();
     } finally {
       lock.current = false;
@@ -371,12 +418,25 @@ function ReviewDrawer({
                         : "New start"}
                     <input
                       type="datetime-local"
+                      aria-label={
+                        type === "CANCEL_WITH_MAKEUP"
+                          ? vi
+                            ? "Giờ bắt đầu buổi bù"
+                            : "Makeup start"
+                          : vi
+                            ? "Giờ bắt đầu mới"
+                            : "New start"
+                      }
+                      aria-describedby="request-target-time-help"
                       required
                       value={start}
                       disabled={action.busy}
-                      onChange={(e) => setStart(e.target.value)}
+                      onChange={(e) => {
+                        setStart(e.target.value);
+                        setCoach("");
+                      }}
                     />
-                    <small>
+                    <small id="request-target-time-help">
                       {vi
                         ? "Giờ Việt Nam; thời lượng giữ nguyên. Buổi bù phải sau buổi cuối của khóa."
                         : "Vietnam time; duration stays unchanged. Makeup must follow the course’s final session."}
@@ -386,33 +446,76 @@ function ReviewDrawer({
                 <label>
                   {vi ? "Coach thực hiện" : "Assigned coach"}
                   <select
-                    value={coach}
+                    aria-label={vi ? "Coach thực hiện" : "Assigned coach"}
+                    aria-describedby="request-coach-availability-help"
+                    value={validCoach ? coach : ""}
                     required={type === "SUBSTITUTE"}
-                    disabled={action.busy || coaches.loading || !!coaches.error}
+                    disabled={
+                      action.busy ||
+                      !availabilityReady ||
+                      (type === "SUBSTITUTE" && !alternatives.length)
+                    }
                     onChange={(e) => setCoach(e.target.value)}
                   >
-                    <option value="">
+                    <option
+                      value=""
+                      disabled={type === "SUBSTITUTE" || !currentAvailable}
+                    >
                       {type === "SUBSTITUTE"
                         ? vi
                           ? "Chọn Coach dạy thay"
                           : "Select substitute coach"
                         : vi
                           ? "Giữ Coach hiện tại"
-                          : "Keep current coach"}
+                          : currentAvailable
+                            ? "Keep current coach"
+                            : "Current coach unavailable"}
                     </option>
-                    {coaches.data?.map((c) => (
-                      <option key={c.userId} value={c.userId}>
+                    {alternatives.map((c) => (
+                      <option key={c.coachId} value={c.coachId}>
                         {c.fullName}
                       </option>
                     ))}
                   </select>
-                  <small>
+                  <small id="request-coach-availability-help">
                     {vi
-                      ? "Coach đang hoạt động và có chuyên môn phù hợp. Hệ thống kiểm lịch trống khi lưu."
-                      : "Active coaches with matching specialty. Availability is rechecked on save."}
+                      ? "Chỉ HLV đang hoạt động, đúng môn và rảnh toàn bộ khung giờ. Hệ thống kiểm lại khi xác nhận."
+                      : "Active coaches available for this entire session, with matching specialty. Availability is rechecked on confirmation."}
                   </small>
                 </label>
                 <Feedback error={coaches.error?.message} />
+                <p className={styles.hint} role="status">
+                  {!needsCoaches
+                    ? "Choose a valid start time to check coach availability."
+                    : coaches.loading ||
+                        (coaches.data?.slotKey !== slotKey && !coaches.error)
+                      ? "Checking available coaches…"
+                      : coaches.error
+                        ? "Coach availability could not be loaded. Retry before confirming."
+                        : type === "SUBSTITUTE" && !alternatives.length
+                          ? "No available coaches for this session. Choose Reschedule or Cancel & makeup."
+                          : !candidates.length
+                            ? "No available coaches for this time. Choose a different time or resolution."
+                            : !coach &&
+                                type !== "SUBSTITUTE" &&
+                                !currentAvailable
+                              ? "The current coach is unavailable at this time. Select another available coach."
+                              : `${type === "SUBSTITUTE" ? alternatives.length : candidates.length} available coach(s) · ${formatDateTime(startUtc!)} – ${formatDateTime(endUtc!)}`}
+                </p>
+                {needsCoaches && (
+                  <button
+                    type="button"
+                    className="btn btn--quiet btn--sm"
+                    disabled={action.busy || coaches.loading}
+                    onClick={() => {
+                      setCoach("");
+                      coaches.reload();
+                    }}
+                  >
+                    <RefreshCw size={15} aria-hidden="true" /> Refresh
+                    availability
+                  </button>
+                )}
                 {type !== "SUBSTITUTE" && (
                   <label>
                     {vi ? "Sân / phòng" : "Court / room"}
@@ -465,8 +568,7 @@ function ReviewDrawer({
                   action.busy ||
                   !type ||
                   note.trim().length < 3 ||
-                  (type === "SUBSTITUTE" &&
-                    (coaches.loading || !!coaches.error)) ||
+                  (type !== "REJECT" && !validCoach) ||
                   (type !== "SUBSTITUTE" &&
                     type !== "REJECT" &&
                     (rooms.loading || !!rooms.error))

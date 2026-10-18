@@ -6,7 +6,7 @@ Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **v�
 
 ## Điều hướng
 
-- **Schedule**: chọn buổi mở ngăn chi tiết rộng 760px trên desktop; mobile vừa màn hình. Các tab: Plan, Attendance, Homework, Request. Tab xuống hàng khi cần, không phải kéo ngang. Record nằm trong Attendance. Request cho gửi/sửa/rút yêu cầu đến Manager, không tự hủy buổi. Form Coach chỉ nhập Reason; Manager chọn phương án. Chi tiết: [Yêu cầu vắng buổi học](Class-Session-Change-Requests.md).
+- **Schedule**: chọn buổi mở ngăn chi tiết rộng 760px trên desktop; mobile vừa màn hình. Các tab: Plan, Attendance, Homework, Request. Tab xuống hàng khi cần, không phải kéo ngang. Record nằm trong Attendance. Request cho gửi/rút yêu cầu đến Manager, không tự hủy buổi. Yêu cầu đã gửi chỉ đọc, không sửa; Pending có thể rút. Form tạo mới chỉ nhập Reason; Manager chọn phương án. Chi tiết: [Yêu cầu vắng buổi học](Class-Session-Change-Requests.md).
 - **Lớp học**: trang chi tiết toàn màn hình gồm Học viên / Students, Giáo án / Plans, Thông báo / Notices; gửi thông báo chung tại đây. Giao bài tập được thực hiện trong chi tiết buổi học đã kết thúc.
 - **Học viên**: danh sách gộp từ các lớp Published/InProgress đang phân công; mỗi học viên xuất hiện một lần. Tìm tên/email, lọc môn, mở hồ sơ toàn màn hình `/coach/members/{memberId}`. Trong hồ sơ chọn môn và lớp; lớp duy nhất được chọn tự động. Kế hoạch cá nhân cố định học viên/lớp; giáo án chung chỉ đọc trong hồ sơ học viên.
 

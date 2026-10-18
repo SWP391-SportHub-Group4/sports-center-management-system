@@ -26,21 +26,20 @@ const pendingRequest = () => ({
   resultSessionId: null,
 });
 
-test("coach edits a pending request in its detail without creating another request", async ({
+test("coach can only withdraw a pending request without editing its details", async ({
   page,
 }) => {
   await coachFixture(page, [3]);
   let current = pendingRequest();
-  let updates = 0;
+  let withdrawals = 0;
   await page.route("**/api/coaches/me/teaching/change-requests**", (route) => {
-    if (route.request().method() === "PUT") {
-      const body = route.request().postDataJSON();
-      expect(body.requestId).toBe(current.requestId);
+    expect(route.request().method()).not.toBe("PUT");
+    if (route.request().method() === "POST") {
       expect(route.request().url()).toContain(
-        `/change-requests/${current.requestId}`,
+        `/change-requests/${current.requestId}/withdraw`,
       );
-      current = { ...current, ...body };
-      updates++;
+      current = { ...current, status: "WITHDRAWN" };
+      withdrawals++;
       return route.fulfill({ json: current });
     }
     return route.fulfill({
@@ -48,47 +47,32 @@ test("coach edits a pending request in its detail without creating another reque
     });
   });
   await page.goto("/coach/change-requests");
+  await expect(
+    page.getByRole("button", { name: "Edit pending request", exact: true }),
+  ).toHaveCount(0);
+  await page.setViewportSize({ width: 320, height: 900 });
   await page
-    .getByRole("button", { name: "Edit pending request", exact: true })
+    .getByRole("button", { name: "Withdraw request", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", {
-    name: "Edit pending request",
-    exact: true,
-  });
-  await expect(
-    dialog.getByRole("textbox", { name: "Reason", exact: true }),
-  ).toHaveValue(current.reason);
-  await dialog
-    .getByRole("textbox", { name: "Reason", exact: true })
-    .fill("Updated availability for this lesson");
-  await dialog
-    .getByRole("button", { name: "Save changes", exact: true })
+  await page
+    .getByRole("button", { name: "Confirm withdrawal", exact: true })
     .click();
-  await expect(dialog).toHaveCount(0);
   await expect(
-    page.getByText(
-      "Changes saved. Your request is still pending Manager review.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  expect(updates).toBe(1);
+    page.getByRole("button", { name: "Withdraw request", exact: true }),
+  ).toHaveCount(0);
+  expect(withdrawals).toBe(1);
   await page.reload();
   await expect(
     page
       .getByRole("region", { name: "Request details", exact: true })
       .getByText(current.reason, { exact: true }),
   ).toBeVisible();
-  await page.setViewportSize({ width: 320, height: 900 });
-  await page
-    .getByRole("button", { name: "Edit pending request", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(321);
 });
 
-test("closed requests and past sessions do not offer editing", async ({
+test("requests never offer editing and only Pending requests offer withdrawal", async ({
   page,
 }) => {
   await coachFixture(page, [3]);
@@ -109,16 +93,19 @@ test("closed requests and past sessions do not offer editing", async ({
     await expect(
       page.getByRole("button", { name: "Edit pending request", exact: true }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Withdraw request", exact: true }),
+    ).toHaveCount(status === "PENDING" ? 1 : 0);
   }
 });
 
-test("editing reconciles a request closed by Manager while its dialog is open", async ({
+test("withdrawal reconciles a request already closed by Manager", async ({
   page,
 }) => {
   await coachFixture(page, [3]);
   const current = pendingRequest();
   await page.route("**/api/coaches/me/teaching/change-requests**", (route) => {
-    if (route.request().method() === "PUT") {
+    if (route.request().method() === "POST") {
       current.status = "WITHDRAWN";
       current.resolutionType = "SCHEDULE_UPDATED";
       current.reviewNote =
@@ -137,20 +124,11 @@ test("editing reconciles a request closed by Manager while its dialog is open", 
   });
   await page.goto("/coach/change-requests");
   await page
-    .getByRole("button", { name: "Edit pending request", exact: true })
+    .getByRole("button", { name: "Withdraw request", exact: true })
     .click();
   await page
-    .getByRole("dialog")
-    .getByRole("textbox", { name: "Reason", exact: true })
-    .fill("Updated reason before review");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(
-    page.getByText(
-      "This request can no longer be edited. The latest status has been loaded.",
-      { exact: true },
-    ),
-  ).toBeVisible();
+    .getByRole("button", { name: "Confirm withdrawal", exact: true })
+    .click();
   await expect(
     page.getByText(current.reviewNote!, { exact: true }),
   ).toBeVisible();

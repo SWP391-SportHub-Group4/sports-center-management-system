@@ -12,18 +12,18 @@ Mục tiêu là giảm thao tác cho Coach, giúp Manager chọn được phươ
 
 ## 2. Hiện trạng và phần cần bổ sung
 
-Hiện trạng dưới đây được đối chiếu lại ngày 18/10/2026 theo commit `08728587`; không xác nhận bản deploy đã có hoặc đã nghiệm thu. Coach vẫn được sửa Pending; phương án chỉ cho rút chưa được áp dụng. Phần lọc lịch trống trong proposal là yêu cầu đề xuất, không mô tả selector hiện đã làm. Xem [hợp đồng yêu cầu vắng](Class-Session-Change-Requests.md).
+Cập nhật theo quyết định người dùng ngày 18/10/2026: Coach không được sửa yêu cầu đã gửi, chỉ được rút Pending. Quy tắc này và bộ lọc lịch trống đã được triển khai trên nhánh `feat/member-coach-workflows`; không xác nhận bản deploy đã cập nhật.
 
 | Nội dung | Hiện trạng |
 |---|---|
 | Coach gửi Request absence, chỉ nhập Reason | Đã có trong code local |
-| Gửi/sửa Absence trước buổi ít nhất 6 giờ; rút Pending | Đã có trong code local |
+| Gửi Absence trước buổi ít nhất 6 giờ; chỉ rút Pending, không sửa | Đã có trong code local |
 | Manager chọn cách xử lý và xác nhận | Đã có trong code local |
 | Hiển thị Request outcome và lưu kết quả tại thời điểm xử lý | Đã có trong code local; cần migration tương ứng |
-| Coach selector tại màn xử lý request lọc đúng môn, Active, khác Coach xin vắng | Đã có |
-| Coach selector lọc thêm lịch trống trước khi lựa chọn | **Chưa tích hợp tại màn xử lý request**; hiện kiểm tra xung đột khi lưu |
+| Coach selector lọc đúng môn, Active, khác Coach xin vắng và rảnh toàn khoảng | Đã có |
+| Coach selector lọc thêm lịch trống trước khi lựa chọn | Đã tích hợp theo giờ gốc/giờ mới; backend vẫn kiểm lại khi lưu |
 | Khóa transaction và kiểm tra Pending khi ghi | Đã có |
-| Kiểm tra Version để Manager không xác nhận nội dung Coach vừa sửa | **Chưa có; đề xuất bổ sung** |
+| Nội dung yêu cầu sau khi gửi | Bất biến; không còn nhánh Coach sửa khi Manager đang duyệt |
 
 ## 3. Luồng của Coach
 
@@ -34,9 +34,9 @@ Hiện trạng dưới đây được đối chiếu lại ngày 18/10/2026 theo
 5. Yêu cầu có trạng thái **Pending**; lịch được phân công vẫn có hiệu lực khi chưa có quyết định.
 6. Theo dõi tại menu avatar/tên → **Requests** hoặc trong chi tiết buổi học.
 
-Coach không phải chọn người dạy thay hoặc đề xuất lịch bù. Coach được **Edit pending request** khi còn đủ hạn và được **Withdraw request** khi yêu cầu còn Pending.
+Coach không phải chọn người dạy thay hoặc đề xuất lịch bù. Coach chỉ được **Withdraw request** khi yêu cầu còn Pending, không có Edit pending request. Nếu rút rồi gửi lý do mới, hệ thống tạo yêu cầu mới khi còn đủ điều kiện, giữ nguyên lịch sử bản cũ.
 
-Gửi hoặc sửa Absence phải trước giờ bắt đầu ít nhất **6 giờ**, tính theo thời gian server. Đúng mốc 6 giờ được phép. Trường hợp dưới 6 giờ, giao diện hướng dẫn liên hệ Manager trực tiếp; Manager xử lý lịch theo quyền hiện có. Mốc này không buộc Manager phải quyết định trước 6 giờ: yêu cầu đã gửi đúng hạn vẫn có thể được xử lý khi buổi chưa bắt đầu và còn hợp lệ.
+Gửi Absence mới phải trước giờ bắt đầu ít nhất **6 giờ**, tính theo thời gian server. Đúng mốc 6 giờ được phép. Yêu cầu đã gửi không được sửa; rút chỉ cần Pending, không áp hạn gửi 6 giờ. Trường hợp dưới 6 giờ, giao diện hướng dẫn liên hệ Manager trực tiếp; Manager xử lý lịch theo quyền hiện có. Mốc này không buộc Manager phải quyết định trước 6 giờ: yêu cầu đã gửi đúng hạn vẫn có thể được xử lý khi buổi chưa bắt đầu và còn hợp lệ.
 
 ## 4. Luồng của Center Manager
 
@@ -55,7 +55,7 @@ Gửi hoặc sửa Absence phải trước giờ bắt đầu ít nhất **6 gi�
 5. Nhấn **Confirm decision**.
 6. Hệ thống kiểm tra lại phiên bản, trạng thái, quyền và tài nguyên; cập nhật lịch, request, audit và hàng đợi thông báo trong cùng transaction.
 
-## 5. Bổ sung lọc Coach dạy thay theo lịch trống
+## 5. Lọc Coach dạy thay theo lịch trống — đã tích hợp local
 
 ### 5.1. Điều kiện xuất hiện trong danh sách
 
@@ -89,29 +89,24 @@ Hệ thống đã có:
 GET /api/availability/coaches?sportId=...&startUtc=...&endUtc=...
 ```
 
-API trả danh sách Coach Active, đúng môn và không có occupancy chồng khung giờ. Đề xuất dùng API này cho màn chọn dạy thay, kết hợp loại Coach xin vắng khỏi kết quả, thay cách lấy toàn bộ Coach của môn.
+API trả danh sách Coach Active, đúng môn và không có occupancy chồng khung giờ. Màn chọn dạy thay đã dùng API này, kết hợp loại Coach xin vắng khỏi kết quả, thay cách lấy toàn bộ Coach của môn.
 
-Với **Reschedule** hoặc **Cancel & makeup**, lịch trống cần được tính theo thời gian mới. Khi dời một buổi và giữ Coach hiện tại, cần hỗ trợ loại chính occupancy của buổi đang sửa khỏi phép kiểm tra; API danh sách Coach còn trống hiện chưa nhận `excludeSessionId`. Có thể mở rộng API hoặc dùng cơ chế kiểm tra slot hiện có, nhưng không được loại lịch của các buổi khác. Phần này cần được xử lý trước khi dùng cùng selector cho mọi phương án.
+Với **Reschedule** hoặc **Cancel & makeup**, lịch trống cần được tính theo thời gian mới. Khi dời một buổi và giữ Coach hiện tại, cần hỗ trợ loại chính occupancy của buổi đang sửa khỏi phép kiểm tra; API danh sách Coach còn trống đã nhận `excludeSessionId`, kiểm đúng buổi Scheduled/cùng môn và chỉ loại occupancy của nguồn đó, không loại lịch khác. Màn xử lý đã dùng chung cho dạy thay, dời và học bù.
 
 Danh sách Coach còn trống là gợi ý tại thời điểm tải. Khi xác nhận, backend vẫn phải kiểm tra lại và giữ ràng buộc chống trùng ở DB.
 
 ## 6. Xử lý thao tác đồng thời
 
-Tôi đề xuất bổ sung **Version** cho request, bên cạnh khóa dữ liệu và kiểm tra Pending đã có.
+Nội dung yêu cầu đã gửi bất biến; không còn trường hợp Coach sửa lý do trong lúc Manager đọc. Các thao tác rút/duyệt/từ chối và đổi lịch trực tiếp khóa dữ liệu, kiểm Pending lại trong transaction. Không khóa request suốt thời gian form mở.
 
-- Mỗi lần sửa hoặc thay đổi trạng thái thành công tăng Version.
-- Form gửi kèm phiên bản mà người dùng đã xem.
-- Sau khi khóa dữ liệu trong transaction, backend kiểm tra Version trước khi cập nhật.
-- Khác phiên bản: trả **409 Conflict**, không thực hiện thay đổi lịch hoặc ghi đè nội dung.
-
-| Thao tác hoàn tất trước | Thao tác đến sau được xử lý thế nào |
+| Thao tác hoàn tất trước | Thao tác đến sau |
 |---|---|
-| Manager duyệt/từ chối | Coach không sửa/rút được; tải lại Request outcome |
-| Coach rút | Manager không xử lý được; hiện This request has been withdrawn. |
-| Coach sửa lý do | Manager phải xem bản mới rồi xác nhận lại; hiện This request has changed. Review the latest details. |
-| Manager đổi lịch trực tiếp | Pending tự đóng; form cũ không được tiếp tục ghi |
+| Manager duyệt/từ chối | Coach rút bị chặn 409 class_change_not_pending; tải lại kết quả |
+| Coach rút | Manager không duyệt lại được; tải lại trạng thái |
+| Manager đổi lịch trực tiếp | Request tự đóng; xác nhận rút/duyệt cũ bị chặn |
+| Thay đổi lịch bị xung đột | Transaction rollback, lịch và Pending giữ nguyên |
 
-Giao diện giữ phần nhập chưa gửi để người dùng đối chiếu khi phù hợp, nhưng không tự gửi lại quyết định trên phiên bản mới. Chỉ khóa dữ liệu trong lúc lưu, không khóa request suốt thời gian người dùng mở form.
+Quy tắc này không thêm Version vào hợp đồng request. Nếu sau này cần optimistic concurrency cho phương án Manager, đó là thay đổi riêng; không mô tả Version như tính năng hiện có.
 
 ## 7. Nội dung kết quả xử lý
 

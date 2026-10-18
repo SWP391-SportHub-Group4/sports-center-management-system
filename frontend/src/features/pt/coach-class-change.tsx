@@ -43,8 +43,8 @@ export function CoachClassChanges({
   const now = useNow(1000);
   const [form, setForm] = useState(false);
   const [reason, setReason] = useState("");
-  const [initialReason, setInitialReason] = useState("");
-  const dirty = form && reason !== initialReason;
+  const pending = state.data?.items.find((r) => r.status === "PENDING");
+  const dirty = form && !pending && reason !== "";
   useEffect(() => {
     onStateChange?.({ dirty, busy: action.busy });
     return () => onStateChange?.({ dirty: false, busy: false });
@@ -59,14 +59,11 @@ export function CoachClassChanges({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   const requestId = useRef<string | null>(null);
-  const pending = state.data?.items.find((r) => r.status === "PENDING");
-  const [editingId, setEditingId] = useState<string | null>(null);
   const absenceOpen =
     !!session && Date.parse(session.startAtUtc) - now >= 6 * 3600000;
   function openForm() {
-    setEditingId(pending?.requestId ?? null);
-    setReason(pending?.reason ?? "");
-    setInitialReason(pending?.reason ?? "");
+    if (pending) return;
+    setReason("");
     requestId.current = null;
     setForm(true);
   }
@@ -79,28 +76,27 @@ export function CoachClassChanges({
   };
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!session || !eligible || !absenceOpen || lock.current) return;
+    if (!session || !eligible || !absenceOpen || pending || lock.current)
+      return;
     lock.current = true;
     try {
       const saved = await action.run(
         async () => {
           requestId.current ??= crypto.randomUUID();
           const body = {
-            requestId: editingId ?? requestId.current,
+            requestId: requestId.current,
             type: "ABSENCE" as const,
             reason: reason.trim(),
             proposedStartAtUtc: null,
             proposedEndAtUtc: null,
           };
           try {
-            return await (editingId
-              ? classChangeApi.update(editingId, body)
-              : classChangeApi.create(session.sessionId, body));
+            return await classChangeApi.create(session.sessionId, body);
           } catch (error) {
             if (
               error instanceof ApiError &&
               [
-                "class_change_not_pending",
+                "class_change_pending",
                 "class_change_stale",
                 "session_not_assigned",
                 "session_not_editable",
@@ -115,9 +111,7 @@ export function CoachClassChanges({
         },
         vi
           ? "Đã gửi yêu cầu đến Center Manager."
-          : editingId
-            ? "Changes saved. Your request is still pending Manager review."
-            : "Request sent to your Center Manager.",
+          : "Request sent to your Center Manager.",
       );
       if (saved) {
         setForm(false);
@@ -183,28 +177,29 @@ export function CoachClassChanges({
       {eligible &&
         !state.loading &&
         !state.error &&
+        !pending &&
         !form &&
         !!state.data?.totalCount && (
           <div className={styles.changeAction}>
             <button
               type="button"
-              className={pending ? "btn" : "btn btn--secondary"}
+              className="btn btn--secondary"
               onClick={openForm}
               disabled={action.busy || !absenceOpen}
             >
               <CalendarClock size={18} aria-hidden="true" />
-              {pending ? "Edit pending request" : "Request absence"}
+              Request absence
             </button>
           </div>
         )}
-      {form && eligible && (
+      {pending && (
+        <p className={styles.hint} role="status">
+          Your request is awaiting Manager review. Submitted requests cannot be
+          edited; you can withdraw it below.
+        </p>
+      )}
+      {form && eligible && !pending && (
         <form className={styles.form} onSubmit={submit}>
-          {pending && pending.type !== "ABSENCE" && (
-            <p className={styles.hint}>
-              Saving converts this earlier request to an absence request. Your
-              Manager will choose the resolution.
-            </p>
-          )}
           <label>
             {vi ? "Lý do" : "Reason"}
             <textarea
@@ -232,9 +227,7 @@ export function CoachClassChanges({
                   : "Sending…"
                 : vi
                   ? "Gửi yêu cầu"
-                  : editingId
-                    ? "Save changes"
-                    : "Send request"}
+                  : "Send request"}
             </button>
             <button
               type="button"
@@ -336,7 +329,7 @@ export function CoachClassChanges({
                     <p>{r.reason}</p>
                   </div>
                   <RequestOutcome request={r} />
-                  {r.status === "PENDING" && (!session || eligible) && (
+                  {r.status === "PENDING" && (
                     <button
                       type="button"
                       className="btn btn--quiet btn--sm"
@@ -355,10 +348,27 @@ export function CoachClassChanges({
                         try {
                           if (
                             await action.run(
-                              () => classChangeApi.withdraw(r.requestId),
+                              async () => {
+                                try {
+                                  return await classChangeApi.withdraw(
+                                    r.requestId,
+                                  );
+                                } catch (error) {
+                                  if (
+                                    error instanceof ApiError &&
+                                    (error.status === 404 ||
+                                      error.code === "class_change_not_pending")
+                                  ) {
+                                    state.reload();
+                                    onChanged?.();
+                                  }
+                                  throw error;
+                                }
+                              },
                               vi ? "Đã rút yêu cầu." : "Request withdrawn.",
                             )
                           ) {
+                            setForm(false);
                             state.reload();
                             onChanged?.();
                           }
