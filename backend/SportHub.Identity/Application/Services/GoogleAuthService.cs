@@ -108,6 +108,11 @@ public sealed class GoogleAuthService(
 
             await SaveOrConflictAsync(ct);
 
+            // Tài khoản do quầy tạo (hoặc tạo trước đó) lần đầu liên kết Google: cũng lấy ảnh Google làm ảnh
+            // đầu tiên. Chỉ khi chưa có ảnh; đăng nhập sau không đồng bộ lại.
+            if (owner.Role?.RoleName is UserRole.Member or UserRole.Coach && owner.Profile?.AvatarUrl is null)
+                await TryImportAvatarAsync(owner.UserId, identity.Picture, ct);
+
             return await SignInAsync(owner, isNewAccount: false, ct);
         }
 
@@ -131,18 +136,20 @@ public sealed class GoogleAuthService(
 
         user.Role = role;
 
-        if (!string.IsNullOrWhiteSpace(identity.Picture))
-        {
-            try { await avatars.ImportGooglePictureAsync(user.UserId, identity.Picture, ct); }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Account creation must still succeed if Cloudinary is unavailable.
-                // Import is intentionally attempted only once, at account creation.
-                logger.LogWarning(ex, "Could not import initial Google avatar for user {UserId}", user.UserId);
-            }
-        }
+        await TryImportAvatarAsync(user.UserId, identity.Picture, ct);
 
         return await SignInAsync(user, isNewAccount: true, ct);
+    }
+
+    /// <summary>Nhập ảnh Google làm ảnh đầu tiên; lỗi lưu trữ không được làm hỏng đăng nhập.</summary>
+    private async Task TryImportAvatarAsync(Guid userId, string? pictureUrl, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(pictureUrl)) return;
+        try { await avatars.ImportGooglePictureAsync(userId, pictureUrl, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not import initial Google avatar for user {UserId}", userId);
+        }
     }
 
     private Task<UserExternalLogin?> FindByGoogleSubjectAsync(string subject, CancellationToken ct)

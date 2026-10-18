@@ -18,6 +18,8 @@ export function SalesDesk() {
   const params = useSearchParams();
   const { member, setMember } = useDeskMember();
   const tab = params.get("tab") === "courses" ? "courses" : "membership";
+  const planParam = Number(params.get("plan"));
+  const initialPlan = Number.isInteger(planParam) && planParam > 0 ? planParam : null;
 
   return (
     <div className={styles.work}>
@@ -44,7 +46,11 @@ export function SalesDesk() {
               {tab === "courses" ? (
                 <CoursePurchase key={member.userId} memberId={member.userId} />
               ) : (
-                <PlanSales key={member.userId} member={member} />
+                <PlanSales
+                  key={`${member.userId}-${initialPlan ?? ""}`}
+                  member={member}
+                  initialPlan={initialPlan}
+                />
               )}
             </div>
           </Tabs>

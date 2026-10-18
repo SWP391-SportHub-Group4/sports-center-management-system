@@ -117,6 +117,7 @@ function CheckoutFlow({
   const retryKey = useRef<string | null>(null);
   const key = useRef<string | null>(null);
   const alive = useRef(true);
+  const [dismissedOtp, setDismissedOtp] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<CounterConfirmation | null>(
     null,
   );
@@ -657,7 +658,21 @@ function CheckoutFlow({
                   {wallet.error.message}
                 </p>
               )}
-              {confirmation && (
+              {confirmation && dismissedOtp === confirmation.confirmationId && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setDismissedOtp(null)}
+                >
+                  {t.refactor.otp}
+                </Button>
+              )}
+              {confirmation && dismissedOtp !== confirmation.confirmationId && (
+                <Dialog
+                  title={t.refactor.otp}
+                  description={t.checkout.otpDialogHint}
+                  size="sm"
+                  onClose={() => setDismissedOtp(confirmation.confirmationId)}
+                >
                 <CounterPointConfirmation
                   confirmation={confirmation}
                   code={code}
@@ -713,6 +728,7 @@ function CheckoutFlow({
                     })
                   }
                 />
+                </Dialog>
               )}
             </section>
           )}

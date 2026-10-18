@@ -1,0 +1,121 @@
+/* Thanh tìm hội viên ghim dưới thanh điều hướng; luôn trong tầm tay khi cuộn. */
+.bar {
+  position: sticky;
+  top: var(--desk-bar-top, 72px);
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 6px 16px -10px rgb(0 0 0 / 0.28);
+}
+.field {
+  position: relative;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.icon {
+  position: absolute;
+  top: 50%;
+  left: var(--space-4);
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 calc(var(--space-6) + 40px) 0 calc(var(--space-4) + 26px);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+}
+.kbd {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  transform: translateY(-50%);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+.action {
+  gap: var(--space-2);
+  min-height: 48px;
+}
+.error {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+
+.results {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: 0 14px 28px -12px rgb(0 0 0 / 0.35);
+}
+.result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.result[data-active] {
+  background: var(--color-primary-soft);
+}
+.who {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.who strong {
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.who span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.note {
+  padding: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.scan {
+  display: grid;
+  gap: var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .bar {
+    position: static;
+  }
+  .kbd {
+    display: none;
+  }
+  .action {
+    flex: 1 1 auto;
+  }
+}

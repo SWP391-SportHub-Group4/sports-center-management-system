@@ -18,6 +18,50 @@ import { AvatarImage } from "@/components/AvatarImage";
 
 const MIN_KEYWORD_LENGTH = 2;
 
+/** Đổi mã QR/Barcode hội viên thành hội viên; lỗi trả về dạng câu đọc được, không ném. */
+export async function resolveMemberCode(
+  text: string,
+  language: string,
+): Promise<{ member?: UserAdminDto; error?: string }> {
+  const en = language === "en";
+  if (!isMemberCode(text)) {
+    return {
+      error: en
+        ? "This QR is not a member code. Ask the member to open their code in SportHub."
+        : "Mã QR này không phải mã hội viên. Hãy yêu cầu Member mở mã trong SportHub.",
+    };
+  }
+  try {
+    // Server xác thực chữ ký và hạn của mã rồi mới trả về memberId.
+    const { memberId } = await api.post<{ memberId: string }>(
+      "/api/members/checkin-code/resolve",
+      { code: text.trim() },
+    );
+    const found = await api.get<UserAdminDto>(`/api/users/${memberId}`);
+    if (found.role !== "MEMBER") {
+      return {
+        error: en
+          ? "This code does not belong to a member."
+          : "Mã này không thuộc hội viên.",
+      };
+    }
+    return { member: found };
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "checkin_code_expired") {
+      return {
+        error: en
+          ? "This check-in code has expired. Ask the member to open today's code."
+          : "Mã check-in đã hết hạn. Hãy yêu cầu Member mở mã hôm nay.",
+      };
+    }
+    return {
+      error: en
+        ? "Member not found or lookup failed."
+        : "Không tìm thấy hội viên hoặc tra cứu thất bại.",
+    };
+  }
+}
+
 /**
  * Ô tìm và chọn hội viên cho các thao tác tại quầy (bán gói, đăng ký hộ, Gym check-in).
  * Hỗ trợ tự động focus, quét mã QR/Barcode nhanh và xác nhận bằng phím Enter.
@@ -48,50 +92,9 @@ export function MemberPicker({
 
   const handleScan = useCallback(
     async (text: string) => {
-      const en = language === "en";
-      if (!isMemberCode(text)) {
-        setScanError(
-          en
-            ? "This QR is not a member code. Ask the member to open their code in SportHub."
-            : "Mã QR này không phải mã hội viên. Hãy yêu cầu Member mở mã trong SportHub.",
-        );
-        return;
-      }
-      try {
-        // Server xác thực chữ ký và hạn của mã rồi mới trả về memberId.
-        const { memberId } = await api.post<{ memberId: string }>(
-          "/api/members/checkin-code/resolve",
-          { code: text.trim() },
-        );
-        const found = await api.get<UserAdminDto>(`/api/users/${memberId}`);
-        if (found.role !== "MEMBER") {
-          setScanError(
-            en
-              ? "This code does not belong to a member."
-              : "Mã này không thuộc hội viên.",
-          );
-          return;
-        }
-        setScanError(null);
-        onChange(found);
-      } catch (error) {
-        if (
-          error instanceof ApiError &&
-          error.code === "checkin_code_expired"
-        ) {
-          setScanError(
-            en
-              ? "This check-in code has expired. Ask the member to open today's code."
-              : "Mã check-in đã hết hạn. Hãy yêu cầu Member mở mã hôm nay.",
-          );
-          return;
-        }
-        setScanError(
-          en
-            ? "Member not found or lookup failed."
-            : "Không tìm thấy hội viên hoặc tra cứu thất bại.",
-        );
-      }
+      const result = await resolveMemberCode(text, language);
+      setScanError(result.error ?? null);
+      if (result.member) onChange(result.member);
     },
     [language, onChange],
   );

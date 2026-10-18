@@ -14,6 +14,9 @@ import { InvoiceList } from "@/features/payments";
 import type { Paged, UserAdminDto } from "@/lib/types";
 import { useDeskMember } from "./desk-context";
 import { GymVisits, MemberWallet } from "./front-desk";
+import { MemberCancellations } from "./member-cancellations";
+import { MemberSupportRequests } from "./member-support-requests";
+import type { MemberPackageDto } from "@/lib/types";
 import { RegisterMemberDialog } from "./register-member";
 import { SelectedMemberPanel } from "./selected-member";
 import styles from "./desk.module.css";
@@ -82,42 +85,45 @@ export function MemberList() {
                   {rows.map((m) => (
                     <tr key={m.userId}>
                       <td>
-                        <AvatarImage
-                          name={m.fullName || m.email}
-                          avatarUrl={m.avatarUrl}
-                          size={32}
-                        />{" "}
-                        {m.fullName || m.email}
+                        <span className={styles.person}>
+                          <AvatarImage
+                            name={m.fullName || m.email}
+                            avatarUrl={m.avatarUrl}
+                            size={32}
+                          />
+                          <span>{m.fullName || m.email}</span>
+                        </span>
                       </td>
                       <td>
                         {m.email}
                         {m.phone ? ` · ${m.phone}` : ""}
                       </td>
-                      <td>
-                        <StatusChip value={m.status} />
-                        {m.activationPending && (
-                          <>
-                            {" "}
+                      <td className={styles.statusCell}>
+                        <span className={styles.statusStack}>
+                          <StatusChip value={m.status} />
+                          {m.activationPending && (
                             <StatusChip
                               value="PENDING_ACTIVATION"
                               tone="warning"
                               label={l.pendingActivation}
                             />
-                          </>
-                        )}
+                          )}
+                        </span>
                       </td>
-                      <td>
-                        <ReportAvatarButton
-                          targetUserId={m.userId}
-                          avatarUrl={m.avatarUrl}
-                        />
-                        <Link
-                          className="btn btn--secondary btn--sm"
-                          href={`/receptionist/members/${m.userId}`}
-                          onClick={() => setMember(m)}
-                        >
-                          {l.openProfile}
-                        </Link>
+                      <td className={styles.actionsCell}>
+                        <span className={styles.rowActions}>
+                          <ReportAvatarButton
+                            targetUserId={m.userId}
+                            avatarUrl={m.avatarUrl}
+                          />
+                          <Link
+                            className="btn btn--secondary btn--sm"
+                            href={`/receptionist/members/${m.userId}`}
+                            onClick={() => setMember(m)}
+                          >
+                            {l.openProfile}
+                          </Link>
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -189,6 +195,7 @@ export function MemberProfile({ memberId }: { memberId: string }) {
         key={current.userId}
         member={current}
         showProfileLink={false}
+        withExtras={false}
         onChange={(next) => {
           setMember(next);
           router.push(
@@ -205,7 +212,7 @@ export function MemberProfile({ memberId }: { memberId: string }) {
         onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
       >
         <div className={styles.tabsBody}>
-          {tab === "overview" && <OverviewHint />}
+          {tab === "overview" && <Overview memberId={current.userId} />}
           {tab === "visits" && <GymVisits memberId={current.userId} />}
           {tab === "wallet" && (
             <>
@@ -222,7 +229,22 @@ export function MemberProfile({ memberId }: { memberId: string }) {
   );
 }
 
-function OverviewHint() {
-  const { t } = useLanguage();
-  return <p className={styles.hint}>{t.frontDesk.nextAction}</p>;
+function Overview({ memberId }: { memberId: string }) {
+  const packages = useApi(
+    (signal) =>
+      api.get<MemberPackageDto[]>(`/api/members/${memberId}/packages`, {
+        signal,
+      }),
+    [memberId],
+  );
+  return (
+    <>
+      <MemberCancellations
+        memberId={memberId}
+        packages={packages.data ?? []}
+        onChanged={packages.reload}
+      />
+      <MemberSupportRequests memberId={memberId} />
+    </>
+  );
 }

@@ -304,15 +304,9 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
 
   await page.goto("/receptionist/attendance");
 
-  await page.getByLabel("Class").selectOption("7");
+  await page.getByLabel("Class session").selectOption(sessionId);
 
-  await page.getByLabel("Session").selectOption(sessionId);
-
-  await expect(
-    page.getByRole("row", {
-      name: /Member A.*Present.*Absent/,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("row", { name: /Member A/ })).toBeVisible();
 
   await page
     .getByRole("button", {
@@ -326,6 +320,36 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
     .toEqual({
       status: "PRESENT",
     });
+});
+
+test("attendance can move to the next day when the selected day has no sessions", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/court-schedule?*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          sourceType: "CLASS_SESSION",
+          sourceId: sessionId,
+          classId: 7,
+          title: "Badminton group",
+          roomId: 3,
+          status: "SCHEDULED",
+          startAtUtc: "2030-10-04T02:30:00Z",
+          endAtUtc: "2030-10-04T04:00:00Z",
+        },
+      ],
+    }),
+  );
+
+  await page.goto("/receptionist/attendance");
+  await expect(
+    page.getByText("No class sessions are scheduled for 03/10/2030."),
+  ).toBeVisible();
+  await expect(page.getByText("Nearby class days:")).toHaveCount(0);
+  await page.getByRole("button", { name: "Next day" }).click();
+  await page.getByLabel("Class session").selectOption(sessionId);
+  await expect(page.getByText("Member A")).toBeVisible();
 });
 
 test("the selected Member follows the desk from check-in to sales and profile", async ({
@@ -460,11 +484,7 @@ test("attendance deep link opens the right class session and explains a closed w
     `/receptionist/attendance?date=2030-10-03&session=${sessionId}`,
   );
 
-  await expect(
-    page.getByRole("row", {
-      name: /Member A.*Present.*Absent/,
-    }),
-  ).toBeVisible();
+  await expect(page.getByRole("row", { name: /Member A/ })).toBeVisible();
 
   await expect(page.getByText("0 of 1 recorded")).toBeVisible();
 });

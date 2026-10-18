@@ -7,13 +7,19 @@ import { useApi } from "@/lib/useApi";
 import { formatDateTime } from "@/lib/format";
 import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import styles from "./ops.module.css";
-import { SupportRequestActions, type SupportAssignee } from "./support-request-actions";
+import {
+  SupportRequestActions,
+  type SupportAssignee,
+  type SupportFeedback,
+} from "./support-request-actions";
 
 export function SupportQueue() {
   const assignees = useApi((signal) =>
     api.get<SupportAssignee[]>("/api/member-support-requests/assignees", { signal }), []);
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
+  // Tải lại hàng đợi không được làm mất thông báo kết quả của thao tác vừa làm.
+  const [notices, setNotices] = useState<Record<string, SupportFeedback | null>>({});
   const queue = useApi((signal) => api.get<Paged<MemberSupportRequestDto>>(
     "/api/member-support-requests/queue", { signal, query: { status, page, pageSize: 20 } }),
   [status, page]);
@@ -31,6 +37,8 @@ export function SupportQueue() {
       <p className="small muted">{request.category} · {formatDateTime(request.createdAt)} · <Link href={`/receptionist/members/${request.memberId}`}>Member profile</Link></p>
       <p>{request.description}</p>
       <SupportRequestActions request={request} assignees={assignees.data ?? []}
+        feedback={notices[request.requestId] ?? null}
+        onFeedback={next => setNotices(all => ({ ...all, [request.requestId]: next }))}
         onChanged={queue.reload} />
     </article>)}
     {queue.data && <div className={styles.row}>

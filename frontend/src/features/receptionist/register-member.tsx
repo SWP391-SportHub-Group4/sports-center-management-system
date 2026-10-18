@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useNow } from "@/lib/useApi";
 import { Dialog, Field } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
@@ -142,6 +143,11 @@ export function PendingMemberPanel({
   const l = t.frontDesk;
   const s = t.staffWork;
   const mutation = useMutation();
+  const now = useNow(1000);
+  const resendAt = member.activationResendAvailableAtUtc
+    ? Date.parse(member.activationResendAvailableAtUtc)
+    : 0;
+  const cooldown = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const [changing, setChanging] = useState(false);
   const [email, setEmail] = useState("");
   const [reason, setReason] = useState("");
@@ -158,7 +164,7 @@ export function PendingMemberPanel({
         <button
           type="button"
           className="btn btn--secondary btn--sm"
-          disabled={mutation.busy}
+          disabled={mutation.busy || cooldown > 0}
           onClick={() =>
             void mutation.run(async () => {
               onChange(
@@ -169,7 +175,9 @@ export function PendingMemberPanel({
             })
           }
         >
-          {l.resendActivation}
+          {cooldown > 0
+            ? `${l.resendActivation} (${cooldown}s)`
+            : l.resendActivation}
         </button>
         <button
           type="button"

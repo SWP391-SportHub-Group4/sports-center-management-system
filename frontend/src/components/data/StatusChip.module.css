@@ -17,8 +17,9 @@
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-normal);
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-align: center;
 }
 

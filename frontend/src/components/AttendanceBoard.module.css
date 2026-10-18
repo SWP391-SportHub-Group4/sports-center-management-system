@@ -1,0 +1,330 @@
+.board {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.55fr);
+  gap: 16px 24px;
+  align-items: end;
+}
+.dateControl,
+.sessionControl {
+  min-width: 0;
+}
+.dateControl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.controlLabel {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-body);
+}
+.dateActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+}
+.iconButton,
+.todayButton,
+.calendarControl {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--ink-900);
+  cursor: pointer;
+}
+.iconButton {
+  width: 44px;
+}
+.todayButton {
+  padding: 0 12px;
+  font-weight: 600;
+}
+.selectedDate {
+  min-width: 96px;
+  white-space: nowrap;
+  text-align: center;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.calendarControl {
+  position: relative;
+  width: 44px;
+  overflow: hidden;
+}
+.calendarControl input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.calendarControl input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.calendarControl:focus-within {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+.iconButton:hover,
+.todayButton:hover,
+.calendarControl:hover {
+  background: var(--ice);
+}
+.iconButton:disabled,
+.todayButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.emptyDay {
+  margin-top: 14px;
+  color: var(--ink-700);
+}
+.emptyDay p {
+  margin: 0;
+}
+.prompt {
+  padding: 26px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--ink-500);
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.summaryItem {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.summaryLabel {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ink-500);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.summaryValue {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+}
+.open {
+  color: #096742;
+  background: #e8f7ee;
+}
+.upcoming {
+  color: #825200;
+  background: #fff4dc;
+}
+.closed {
+  color: #8a2424;
+  background: #fcebea;
+}
+.progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin-top: 10px;
+  accent-color: var(--brand-500);
+}
+.windowNotice {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  color: var(--ink-700);
+}
+.tableToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+}
+.searchBox {
+  position: relative;
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+.searchBox svg {
+  position: absolute;
+  top: 13px;
+  left: 12px;
+  color: var(--ink-500);
+  pointer-events: none;
+}
+.searchBox input {
+  padding-left: 38px;
+}
+.filters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.filter {
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-700);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.filter:hover {
+  background: var(--surface-alt);
+}
+.filterActive {
+  border-color: var(--sky);
+  background: var(--ice);
+  color: var(--navy);
+  font-weight: 700;
+}
+.member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+.member span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.member small {
+  color: var(--ink-500);
+  font-size: 0.75rem;
+}
+.confirmed {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--ice);
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.attendanceState {
+  font-weight: 600;
+}
+.actionGroup {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+.actionButton {
+  min-width: 80px;
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-700);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.actionButton:hover:not(:disabled) {
+  background: #fff;
+}
+.actionButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.presentSelected,
+.presentSelected:hover:not(:disabled) {
+  background: #e0f5e9;
+  color: #096742;
+}
+.absentSelected,
+.absentSelected:hover:not(:disabled) {
+  background: #fce5e5;
+  color: #a02828;
+}
+.rowError {
+  margin: 5px 0 0;
+  color: #a02828;
+  font-size: 0.78rem;
+}
+.noRows {
+  margin: 0;
+  padding: 20px 18px;
+  color: var(--ink-500);
+}
+@media (max-width: 1000px) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .summary {
+    grid-template-columns: 1fr;
+  }
+  .tableToolbar {
+    align-items: stretch;
+  }
+  .searchBox {
+    max-width: none;
+    flex-basis: 100%;
+  }
+  .filters {
+    width: 100%;
+  }
+  .filter {
+    flex: 1 1 auto;
+  }
+}
+@media (max-width: 480px) {
+  .dateActions {
+    flex-wrap: wrap;
+    height: auto;
+  }
+  .selectedDate {
+    order: -1;
+    flex-basis: 100%;
+    text-align: left;
+  }
+}
