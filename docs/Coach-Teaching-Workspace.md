@@ -8,6 +8,7 @@ Phạm vi được chủ sản phẩm xác nhận: triển khai giao diện **v�
 
 - **Schedule**: chọn buổi mở ngăn chi tiết rộng 760px trên desktop; mobile vừa màn hình. Các tab: Plan, Attendance, Homework, Request. Tab xuống hàng khi cần, không phải kéo ngang. Record nằm trong Attendance. Request cho gửi/rút yêu cầu đến Manager, không tự hủy buổi. Yêu cầu đã gửi chỉ đọc, không sửa; Pending có thể rút. Form tạo mới chỉ nhập Reason; Manager chọn phương án. Chi tiết: [Yêu cầu vắng buổi học](Class-Session-Change-Requests.md).
 - **Lớp học**: trang chi tiết toàn màn hình gồm Học viên / Students, Giáo án / Plans, Thông báo / Notices; gửi thông báo chung tại đây. Giao bài tập được thực hiện trong chi tiết buổi học đã kết thúc.
+- **HLV dạy thay**: mở buổi được giao từ Schedule. Khi truy cập URL chi tiết lớp, giao diện chỉ hiện **Substitute sessions** và nút mở từng buổi được giao, không mở màn quản lý cả khóa. Trong buổi chỉ có Plan / Attendance / Homework / Request; không có liên kết xem lộ trình cả khóa, hồ sơ sức khỏe hay lịch sử học viên. Trình soạn chỉ chọn được buổi đang mở. Khi mất phân công, API chặn ngay các request tiếp theo; nội dung đang mở được kiểm tra lại khi quay lại tab và mỗi 30 giây.
 - **Học viên**: danh sách gộp từ các lớp Published/InProgress đang phân công; mỗi học viên xuất hiện một lần. Tìm tên/email, lọc môn, mở hồ sơ toàn màn hình `/coach/members/{memberId}`. Trong hồ sơ chọn môn và lớp; lớp duy nhất được chọn tự động. Kế hoạch cá nhân cố định học viên/lớp; giáo án chung chỉ đọc trong hồ sơ học viên.
 
 ### Bàn giao tiến độ cùng môn
@@ -53,7 +54,7 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; giáo án 
 | GET | `/api/coaches/me/teaching/students/{memberId}/history?classId=&page=1` | Đánh giá cùng môn từ lớp trước, chỉ đọc, 20 mục/trang; quyền dựa trên lớp hiện tại |
 | GET | `/api/coaches/me/teaching/students/{memberId}/history/classes?classId=&page=1&search=` | Nhóm lớp từ toàn bộ lịch sử hợp lệ; 8 lớp/trang, số đánh giá, điểm trung bình và ngày đánh giá gần nhất |
 | GET | `/api/coaches/me/teaching/classes/{classId}/members?memberId=&sessionId=` | Coach chính: học viên Confirmed và hồ sơ tóm tắt. Coach dạy thay: bắt buộc sessionId được giao, không trả mục tiêu/trình độ/ghi chú sức khỏe; điểm danh chỉ của buổi đó |
-| GET | `/api/coaches/me/teaching/classes/{classId}/records?page=1&memberId=` | Paged, 100 mục/trang, mới nhất trước; memberId tùy chọn trả bản ghi của học viên và PLAN chung đúng lớp |
+| GET | `/api/coaches/me/teaching/classes/{classId}/records?page=1&memberId=&sessionId=` | Paged, 100 mục/trang, mới nhất trước. HLV dạy thay bắt buộc sessionId đúng buổi đang được giao và chưa bị hủy; chỉ trả bản ghi của buổi đó, không trả PLAN cả khóa. Coach chính có thể bỏ sessionId để đọc cả lớp; khi chọn buổi trả bản ghi buổi đó và PLAN cả khóa. memberId tùy chọn giới hạn học viên |
 | POST | `/api/coaches/me/teaching/classes/{classId}/records` | Tạo nội dung, retry idempotent; HLV dạy thay bắt buộc sessionId đúng buổi mình dạy, không được tạo nội dung cấp cả khóa |
 | PUT | `/api/coaches/me/teaching/classes/{classId}/records/{recordId}` | Sửa PLAN/RESULT của chính coach, kiểm version, giữ scope và kiểm lại assignment buổi/lớp như POST |
 | PUT | `/api/coaches/me/teaching/sessions/{sessionId}/attendance/{enrollmentId}` | `{status: PRESENT hoặc ABSENT}`, đúng coach của buổi |
@@ -61,6 +62,8 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; giáo án 
 | GET | `/api/members/me/classes/{classId}/teaching-records?page=1` | Member đã ghi danh, nội dung chung hoặc cá nhân của chính mình |
 
 Body ghi: `recordId`, `kind`, `title` (160 ký tự), `content` (8.000 ký tự), `sessionId?`, `memberId?`, `score?`, `dueAtUtc?`, `version`. `dueAtUtc` giữ lại để tương thích hợp đồng cũ; HOMEWORK luôn lưu null, không nhập hay áp dụng hạn nộp cứng.
+
+Quyền đọc `members` và `records` được kiểm tra ở API, không dựa vào việc ẩn nút: HLV dạy thay thiếu `sessionId` nhận `403 session_scope_required`; buổi khác lớp, đã bị hủy hoặc đã giao cho HLV khác nhận `403 session_not_assigned`. Lớp không còn Published/InProgress nhận `403 class_access_ended`. Danh sách/chi tiết học viên và hồ sơ sức khỏe vẫn chỉ dựa trên phân công Coach chính; ghi danh phải Confirmed và `EndedAt == null`. Roster, bản ghi cá nhân và thao tác ghi không sử dụng ghi danh đã kết thúc. Quyền đọc dữ liệu giảng dạy độc lập với thông tin lớp/lịch được công khai cho mọi người xem trước khi mua. Không thay đổi schema DB.
 
 ## AI và vận hành
 

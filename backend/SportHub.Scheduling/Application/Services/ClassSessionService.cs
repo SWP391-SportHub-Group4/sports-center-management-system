@@ -73,7 +73,7 @@ public sealed class ClassSessionService(
                              join a in db.Set<Attendance>().AsNoTracking().Where(x => x.SessionId == sessionId)
                                  on e.EnrollmentId equals a.EnrollmentId into att
                              from a in att.DefaultIfEmpty()
-                             where e.Status == EnrollmentStatus.Confirmed || (restrictToCoachId == null && a != null)
+                             where (e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null) || (restrictToCoachId == null && a != null)
                              orderby e.EnrolledAt
                              select new { e.EnrollmentId, e.MemberId, e.Status, AttStatus = (AttendanceStatus?)a!.Status, AttAt = (DateTime?)a.RecordedAt })
             .ToListAsync(ct);

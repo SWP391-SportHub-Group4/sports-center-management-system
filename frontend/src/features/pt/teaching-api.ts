@@ -128,6 +128,7 @@ export const teachingApi = {
     signal?: AbortSignal,
     member = false,
     memberId?: string,
+    sessionId?: string,
   ) => {
     const path = member
       ? `/api/members/me/classes/${classId}/teaching-records`
@@ -136,7 +137,7 @@ export const teachingApi = {
     for (let page = 1; ; page++) {
       const data = await api.get<Paged<TeachingRecord>>(path, {
         signal,
-        query: { page, ...(member ? {} : { memberId }) },
+        query: { page, ...(member ? {} : { memberId, sessionId }) },
       });
       result.push(...data.items);
       if (result.length >= data.totalCount || data.items.length === 0)

@@ -65,7 +65,7 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
             throw new ConflictException("session_cancelled", "Session cancelled.");
         }
 
-        if (enrollment.Status != EnrollmentStatus.Confirmed)
+        if (enrollment.Status != EnrollmentStatus.Confirmed || enrollment.EndedAt != null)
         {
             throw new ConflictException("enrollment_not_active", "Enrollment not active.");
         }

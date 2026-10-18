@@ -454,7 +454,13 @@ export function TeachingDetail({
           member?.memberId,
           session?.sessionId,
         ),
-        teachingApi.records(course.classId, signal, false, member?.memberId),
+        teachingApi.records(
+          course.classId,
+          signal,
+          false,
+          member?.memberId,
+          session?.sessionId,
+        ),
         ptApi.classSessions(course.classId, signal),
         session
           ? ptApi.roster(session.sessionId, signal)
@@ -599,7 +605,11 @@ export function TeachingDetail({
                 classId={course.classId}
                 kind={editor.kind}
                 members={members}
-                sessions={sessions.filter((s) => s.coachId === user?.userId)}
+                sessions={sessions.filter(
+                  (s) =>
+                    s.coachId === user?.userId &&
+                    (!substitute || s.sessionId === session?.sessionId),
+                )}
                 sessionId={
                   editor.existing
                     ? (editor.existing.sessionId ?? undefined)

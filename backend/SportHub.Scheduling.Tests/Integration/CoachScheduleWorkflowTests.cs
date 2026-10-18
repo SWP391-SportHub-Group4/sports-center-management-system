@@ -184,7 +184,7 @@ public sealed class CoachScheduleWorkflowTests(SchedulingApiFactory factory)
         var visible = await client.GetFromJsonAsync<System.Text.Json.JsonElement[]>($"api/classes/{c.Id}/sessions");
         Assert.Single(visible!);
         Assert.Equal(assigned.SessionId, visible![0].GetProperty("sessionId").GetGuid());
-        var records = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"api/coaches/me/teaching/classes/{c.Id}/records");
+        var records = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"api/coaches/me/teaching/classes/{c.Id}/records?sessionId={assigned.SessionId}");
         Assert.Equal(1, records.GetProperty("items").GetArrayLength());
         Assert.Equal("Assigned session", records.GetProperty("items")[0].GetProperty("title").GetString());
     }
