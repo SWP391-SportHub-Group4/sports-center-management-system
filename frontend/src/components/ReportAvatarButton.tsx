@@ -4,6 +4,8 @@ import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
+import { Dialog } from "@/components/ui";
+import styles from "./ReportAvatarButton.module.css";
 
 export function ReportAvatarButton({
   targetUserId,
@@ -18,7 +20,8 @@ export function ReportAvatarButton({
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
   if (
     !user ||
     user.role === "Member" ||
@@ -26,65 +29,99 @@ export function ReportAvatarButton({
     !avatarUrl
   )
     return null;
+
+  function close() {
+    if (busy) return;
+    setOpen(false);
+    setError("");
+  }
+
   return (
-    <span>
+    <>
       <button
         type="button"
         className="btn btn--ghost btn--sm"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          setSent(false);
+          setOpen(true);
+        }}
       >
         {vi ? "Báo cáo ảnh" : "Report photo"}
       </button>
-      {open && (
-        <form
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (busy) return;
-            setBusy(true);
-            setMessage("");
-            try {
-              await api.post("/api/avatars/reports", {
-                targetUserId,
-                reason: reason.trim(),
-              });
-              setMessage(
-                vi
-                  ? "Đã gửi báo cáo cho Manager."
-                  : "Report sent to the manager.",
-              );
-              setOpen(false);
-              setReason("");
-            } catch (cause) {
-              setMessage(
-                cause instanceof Error ? cause.message : String(cause),
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <label>
-            {vi
-              ? "Vì sao ảnh này không phù hợp?"
-              : "Why is this photo inappropriate?"}
-            <textarea
-              value={reason}
-              maxLength={500}
-              minLength={10}
-              required
-              onChange={(event) => setReason(event.target.value)}
-            />
-          </label>
-          <button
-            className="btn btn--sm"
-            disabled={busy || reason.trim().length < 10}
-            type="submit"
-          >
-            {vi ? "Gửi báo cáo" : "Send report"}
-          </button>
-        </form>
+      {sent && (
+        <span className={styles.sent} role="status">
+          {vi ? "Đã gửi báo cáo cho Manager." : "Report sent to the manager."}
+        </span>
       )}
-      {message && <span role="status">{message}</span>}
-    </span>
+      {open && (
+        <Dialog
+          title={vi ? "Báo cáo ảnh đại diện" : "Report profile photo"}
+          description={
+            vi
+              ? "Manager sẽ xem xét ảnh này. Hãy nêu rõ lý do."
+              : "A manager will review this photo. Say what is wrong with it."
+          }
+          onClose={close}
+        >
+          <form
+            className={styles.form}
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (busy) return;
+              setBusy(true);
+              setError("");
+              try {
+                await api.post("/api/avatars/reports", {
+                  targetUserId,
+                  reason: reason.trim(),
+                });
+                setSent(true);
+                setOpen(false);
+                setReason("");
+              } catch (cause) {
+                setError(
+                  cause instanceof Error ? cause.message : String(cause),
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <label className={styles.label}>
+              {vi
+                ? "Vì sao ảnh này không phù hợp?"
+                : "Why is this photo inappropriate?"}
+              <textarea
+                value={reason}
+                rows={4}
+                maxLength={500}
+                minLength={10}
+                required
+                onChange={(event) => setReason(event.target.value)}
+              />
+              <span className={styles.count}>{reason.trim().length}/500</span>
+            </label>
+            {error && <p role="alert">{error}</p>}
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={busy}
+                onClick={close}
+              >
+                {vi ? "Hủy" : "Cancel"}
+              </button>
+              <button
+                className="btn"
+                disabled={busy || reason.trim().length < 10}
+                type="submit"
+              >
+                {vi ? "Gửi báo cáo" : "Send report"}
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </>
   );
 }

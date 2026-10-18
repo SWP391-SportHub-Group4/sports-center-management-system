@@ -1,20 +1,37 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api, ApiError } from "@/lib/apiClient";
-
 import { useApi } from "@/lib/useApi";
-
+import { useLanguage } from "@/lib/language";
+import { formatDateTime } from "@/lib/format";
+import { StatusChip } from "@/components/ui";
 import type { MemberSupportRequestDto } from "@/lib/types";
 
-import { formatDateTime } from "@/lib/format";
 import {
   SupportRequestActions,
   type SupportAssignee,
+  type SupportFeedback,
 } from "./support-request-actions";
+import styles from "./support.module.css";
+
+type Category = MemberSupportRequestDto["category"];
+
+/** Chip chọn nhanh; mã gửi lên vẫn là danh mục của API. */
+const CHIPS: { value: Category; en: string; vi: string }[] = [
+  { value: "MEMBERSHIP", en: "Check-in issue", vi: "Lỗi check-in" },
+  { value: "GENERAL", en: "Locker request", vi: "Yêu cầu tủ đồ" },
+  { value: "CLASS", en: "Class", vi: "Lớp học" },
+  { value: "PAYMENT", en: "Payment query", vi: "Thanh toán" },
+  { value: "OTHER", en: "Feedback / incident", vi: "Góp ý / sự cố" },
+];
+
+const RECENT_LIMIT = 5;
 
 export function MemberSupportRequests({ memberId }: { memberId: string }) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
   const assignees = useApi(
     (signal) =>
       api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
@@ -26,35 +43,48 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     (signal) =>
       api.get<MemberSupportRequestDto[]>("/api/member-support-requests", {
         signal,
-        query: {
-          memberId,
-        },
+        query: { memberId },
       }),
     [memberId],
   );
 
-  const [category, setCategory] = useState("GENERAL");
+  // Tải lại sau mỗi thao tác không được làm danh sách và thông báo biến mất.
+  const [shown, setShown] = useState<MemberSupportRequestDto[] | null>(null);
+  const [notices, setNotices] = useState<
+    Record<string, SupportFeedback | null>
+  >({});
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (requests.data) setShown(requests.data);
+  }, [requests.data]);
 
+  const [category, setCategory] = useState<Category>("MEMBERSHIP");
   const [subject, setSubject] = useState("");
-
   const [description, setDescription] = useState("");
-
   const [busy, setBusy] = useState(false);
-
-  const [error, setError] = useState<string | null>(null);
-
-  const [success, setSuccess] = useState<string | null>(null);
   const submitting = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const ready = subject.trim().length >= 3 && description.trim().length >= 3;
+  const recent = [...(shown ?? [])]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, RECENT_LIMIT);
+
+  const categoryLabel = (value: string) => {
+    const chip = CHIPS.find((c) => c.value === value);
+    if (chip) return vi ? chip.vi : chip.en;
+    return value;
+  };
 
   async function submit() {
     if (submitting.current) return;
-    const trimmedSubject = subject.trim();
-
-    const trimmedDescription = description.trim();
-
-    if (trimmedSubject.length < 3 || trimmedDescription.length < 3) {
-      setError("Subject and description must contain at least 3 characters.");
-
+    if (!ready) {
+      setError(
+        vi
+          ? "Tiêu đề và mô tả cần ít nhất 3 ký tự."
+          : "Subject and description must contain at least 3 characters.",
+      );
       return;
     }
 
@@ -67,25 +97,25 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
       await api.post("/api/member-support-requests", {
         memberId,
         category,
-        subject: trimmedSubject,
-        description: trimmedDescription,
+        subject: subject.trim(),
+        description: description.trim(),
       });
-
       setSubject("");
       setDescription("");
-      setCategory("GENERAL");
-
-      setSuccess("Support request recorded successfully.");
-
+      setSuccess(
+        vi
+          ? "Đã ghi nhận yêu cầu hỗ trợ."
+          : "Support request recorded successfully.",
+      );
       requests.reload();
     } catch (e) {
-      if (e instanceof ApiError) {
-        setError(e.message);
-      } else if (e instanceof Error) {
-        setError(e.message);
-      } else {
-        setError("Unable to record support request.");
-      }
+      setError(
+        e instanceof ApiError || e instanceof Error
+          ? e.message
+          : vi
+            ? "Không thể ghi nhận yêu cầu."
+            : "Unable to record support request.",
+      );
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -94,124 +124,124 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
 
   return (
     <section
-      className="card"
-      style={{
-        marginTop: "16px",
-        padding: "16px",
-        display: "grid",
-        gap: "14px",
-      }}
-      aria-label="Member support requests"
+      className={styles.panel}
+      aria-label={
+        vi ? "Yêu cầu hỗ trợ của hội viên" : "Member support requests"
+      }
     >
-      <div>
-        <h3
-          style={{
-            marginTop: 0,
-            marginBottom: "4px",
-          }}
-        >
-          Member support
-        </h3>
-
-        <p className="small muted">
-          Record a request reported by the selected member at the front desk.
+      <div className={styles.head}>
+        <h3>{vi ? "Hỗ trợ hội viên" : "Member support"}</h3>
+        <p>
+          {vi
+            ? "Ghi lại yêu cầu mà hội viên đang chọn báo tại quầy."
+            : "Record a request the selected member raised at the desk."}
         </p>
       </div>
 
-      <label
-        style={{
-          display: "grid",
-          gap: "6px",
-        }}
-      >
-        <span>Category</span>
+      <div className={styles.form}>
+        <fieldset className={styles.chips}>
+          <legend>{vi ? "Loại yêu cầu" : "Request type"}</legend>
+          {CHIPS.map((chip) => (
+            <button
+              key={chip.value}
+              type="button"
+              className={styles.chip}
+              aria-pressed={category === chip.value}
+              disabled={busy}
+              onClick={() => setCategory(chip.value)}
+            >
+              {vi ? chip.vi : chip.en}
+            </button>
+          ))}
+        </fieldset>
 
-        <select
-          value={category}
-          disabled={busy}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="GENERAL">General</option>
+        <label className={styles.field}>
+          {vi ? "Tiêu đề" : "Subject"}
+          <input
+            value={subject}
+            maxLength={200}
+            disabled={busy}
+            placeholder={vi ? "Tóm tắt ngắn" : "Short summary"}
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </label>
 
-          <option value="MEMBERSHIP">Membership</option>
+        <label className={styles.field}>
+          {vi ? "Mô tả" : "Description"}
+          <textarea
+            rows={3}
+            maxLength={2000}
+            value={description}
+            disabled={busy}
+            placeholder={
+              vi ? "Hội viên cần hỗ trợ điều gì?" : "What does the member need?"
+            }
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <span className={styles.counter}>{description.length}/2000</span>
+        </label>
 
-          <option value="CLASS">Class</option>
+        <div className={styles.submitRow}>
+          <button
+            type="button"
+            className="btn"
+            disabled={busy || !ready}
+            onClick={submit}
+          >
+            {busy
+              ? vi
+                ? "Đang ghi nhận…"
+                : "Recording…"
+              : vi
+                ? "Ghi nhận yêu cầu"
+                : "Record support request"}
+          </button>
+        </div>
 
-          <option value="PAYMENT">Payment</option>
-
-          <option value="OTHER">Other</option>
-        </select>
-      </label>
-
-      <label
-        style={{
-          display: "grid",
-          gap: "6px",
-        }}
-      >
-        <span>Subject</span>
-
-        <input
-          value={subject}
-          maxLength={200}
-          disabled={busy}
-          placeholder="Short summary"
-          onChange={(e) => setSubject(e.target.value)}
-        />
-      </label>
-
-      <label
-        style={{
-          display: "grid",
-          gap: "6px",
-        }}
-      >
-        <span>Description</span>
-
-        <textarea
-          rows={4}
-          maxLength={2000}
-          value={description}
-          disabled={busy}
-          placeholder="Describe the member's request"
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </label>
-
-      {error && <p role="alert">{error}</p>}
-
-      {success && <p role="status">{success}</p>}
-
-      <div>
-        <button
-          type="button"
-          className="btn"
-          disabled={
-            busy || subject.trim().length < 3 || description.trim().length < 3
-          }
-          onClick={submit}
-        >
-          {busy ? "Recording..." : "Record support request"}
-        </button>
+        {error && (
+          <p
+            className={`${styles.feedback} ${styles.feedbackError}`}
+            role="alert"
+          >
+            {error}
+          </p>
+        )}
+        {success && (
+          <p className={styles.feedback} role="status">
+            {success}
+          </p>
+        )}
       </div>
 
-      <div>
-        <h4>Recent requests</h4>
+      <div className={styles.recent}>
+        <div className={styles.recentHead}>
+          <h4>{vi ? "Yêu cầu gần đây" : "Recent requests"}</h4>
+          {(shown?.length ?? 0) > RECENT_LIMIT && (
+            <span>
+              {vi
+                ? `${RECENT_LIMIT} mới nhất trên ${shown?.length}`
+                : `Latest ${RECENT_LIMIT} of ${shown?.length}`}
+            </span>
+          )}
+        </div>
+
         {assignees.error && (
           <p role="alert">
-            Could not load staff.{" "}
+            {vi
+              ? "Không thể tải danh sách nhân viên."
+              : "Could not load staff."}{" "}
             <button
               type="button"
               className="btn btn--secondary btn--sm"
               onClick={assignees.reload}
             >
-              Retry staff
+              {vi ? "Thử lại" : "Retry"}
             </button>
           </p>
         )}
 
-        {requests.loading ? (
-          <p className="small muted">Loading…</p>
+        {requests.loading && !shown ? (
+          <p className={styles.empty}>{vi ? "Đang tải…" : "Loading…"}</p>
         ) : requests.error ? (
           <div role="alert">
             <p>{requests.error.message}</p>
@@ -220,60 +250,54 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
               className="btn btn--secondary btn--sm"
               onClick={requests.reload}
             >
-              Retry requests
+              {vi ? "Thử lại" : "Retry"}
             </button>
           </div>
-        ) : !requests.data?.length ? (
-          <p className="small muted">No support requests recorded.</p>
+        ) : !recent.length ? (
+          <p className={styles.empty}>
+            {vi
+              ? "Chưa có yêu cầu hỗ trợ nào."
+              : "No support requests recorded."}
+          </p>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: "8px",
-            }}
-          >
-            {requests.data.map((request) => (
-              <article
-                key={request.requestId}
-                style={{
-                  padding: "12px",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "12px",
-                  }}
-                >
+          <ul className={styles.requests}>
+            {recent.map((request) => (
+              <li key={request.requestId} className={styles.request}>
+                <div className={styles.requestTop}>
                   <strong>{request.subject}</strong>
-
-                  <span className="small">{request.status}</span>
+                  <StatusChip value={request.status} />
                 </div>
-
-                <p className="small muted">
-                  {request.category}
-                  {" · "}
+                <p className={styles.meta}>
+                  {categoryLabel(request.category)} ·{" "}
                   {formatDateTime(request.createdAt)}
                   {request.updatedAt && (
-                    <> · Updated {formatDateTime(request.updatedAt)}</>
+                    <>
+                      {" "}
+                      · {vi ? "Cập nhật" : "Updated"}{" "}
+                      {formatDateTime(request.updatedAt)}
+                    </>
                   )}
                   {request.closedAt && (
-                    <> · Closed {formatDateTime(request.closedAt)}</>
+                    <>
+                      {" "}
+                      · {vi ? "Đóng" : "Closed"}{" "}
+                      {formatDateTime(request.closedAt)}
+                    </>
                   )}
                 </p>
-
-                <p>{request.description}</p>
+                <p className={styles.body}>{request.description}</p>
                 <SupportRequestActions
                   request={request}
                   assignees={assignees.data ?? []}
+                  feedback={notices[request.requestId] ?? null}
+                  onFeedback={(next) =>
+                    setNotices((all) => ({ ...all, [request.requestId]: next }))
+                  }
                   onChanged={requests.reload}
                 />
-              </article>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </section>

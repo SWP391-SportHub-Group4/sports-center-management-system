@@ -6,10 +6,11 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime } from "@/lib/format";
 import type { MemberSupportRequestDto, Paged } from "@/lib/types";
-import styles from "./support.module.css";
+import styles from "./support-queue.module.css";
 import {
   SupportRequestActions,
   type SupportAssignee,
+  type SupportFeedback,
 } from "./support-request-actions";
 
 export function SupportQueue({
@@ -32,6 +33,9 @@ export function SupportQueue({
   const [applied, setApplied] = useState(filters);
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
+  const [feedback, setFeedback] = useState<
+    Record<string, SupportFeedback | null>
+  >({});
   const queue = useApi(
     (signal) =>
       api.get<Paged<MemberSupportRequestDto>>(
@@ -41,7 +45,7 @@ export function SupportQueue({
     [applied, page],
   );
   return (
-    <section className={styles.panel} aria-label="Support requests">
+    <section className={`card ${styles.panel}`} aria-label="Support requests">
       <div className={styles.header}>
         <div>
           <h2>Support requests</h2>
@@ -179,6 +183,13 @@ export function SupportQueue({
           <SupportRequestActions
             request={request}
             assignees={assignees.data ?? []}
+            feedback={feedback[request.requestId] ?? null}
+            onFeedback={(next) =>
+              setFeedback((previous) => ({
+                ...previous,
+                [request.requestId]: next,
+              }))
+            }
             onChanged={() => {
               setNotice("Request updated.");
               queue.reload();

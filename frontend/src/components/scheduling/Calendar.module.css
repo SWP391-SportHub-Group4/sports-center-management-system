@@ -75,12 +75,20 @@
   gap: var(--space-1);
 }
 
-.todayDot {
-  display: block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+.day[data-today="true"] {
+  border-color: var(--color-primary);
+}
+.day[data-today="true"] .dayHeader {
   background: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
+  color: var(--color-on-primary);
+}
+.day[data-today="true"] .dayHeader .muted {
+  color: inherit;
+}
+.listDay[data-today="true"] .listDayTitle {
+  color: var(--color-primary);
 }
 
 .event[data-cancelled="true"] {
@@ -231,4 +239,8 @@
     border-right: 0;
     border-bottom: 1px solid var(--border-subtle);
   }
+}
+
+.day[data-today="true"] .todayDot {
+  display: none;
 }

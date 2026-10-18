@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
+import { useLanguage } from "@/lib/language";
 import type { MemberSupportRequestDto } from "@/lib/types";
 import styles from "./support.module.css";
 
@@ -12,72 +13,113 @@ export type SupportAssignee = {
   role: string;
 };
 
+export type SupportFeedback = { tone: "ok" | "error"; text: string };
+
+/** Gán/chuyển người xử lý, ghi tiến độ hoặc đóng yêu cầu; mỗi thao tác báo kết quả ngay dưới nút. */
 export function SupportRequestActions({
   request,
   assignees,
+  feedback: lifted,
+  onFeedback: liftedSet,
   onChanged,
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
+  /** Kết quả thao tác gần nhất; do danh sách giữ để không mất khi danh sách tải lại. */
+  feedback?: SupportFeedback | null;
+  onFeedback?: (feedback: SupportFeedback | null) => void;
   onChanged: () => void;
 }) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
   const [assigneeId, setAssigneeId] = useState(request.assignedToUserId ?? "");
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"assign" | "progress" | "close" | null>(
+    null,
+  );
   const lock = useRef(false);
 
-  async function act(path: string, body: Record<string, string>) {
+  const [local, setLocal] = useState<SupportFeedback | null>(null);
+  const feedback = liftedSet ? (lifted ?? null) : local;
+  const onFeedback = liftedSet ?? setLocal;
+
+  const assigneeName = request.assignedToUserId
+    ? (request.assignedToName ??
+      assignees.find((x) => x.userId === request.assignedToUserId)?.name ??
+      (vi ? "Nhân viên đã nghỉ" : "Former staff member"))
+    : null;
+
+  async function act(
+    kind: "assign" | "progress" | "close",
+    body: Record<string, string>,
+    success: string,
+  ) {
     if (lock.current) return;
     lock.current = true;
-    setBusy(true);
-    setError(null);
+    setBusy(kind);
+    onFeedback(null);
     try {
       await api.post(
-        `/api/member-support-requests/${request.requestId}/${path}`,
+        `/api/member-support-requests/${request.requestId}/${kind}`,
         body,
       );
       setNote("");
+      onFeedback({ tone: "ok", text: success });
       onChanged();
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Could not update this request.",
-      );
+      onFeedback({
+        tone: "error",
+        text:
+          e instanceof Error
+            ? e.message
+            : vi
+              ? "Không thể cập nhật yêu cầu này."
+              : "Could not update this request.",
+      });
     } finally {
       lock.current = false;
-      setBusy(false);
+      setBusy(null);
     }
   }
 
+  const closed = request.status === "CLOSED";
+  const noteReady = note.trim().length >= 3;
+  const chosen = assignees.find((x) => x.userId === assigneeId);
+
   return (
-    <div className={styles.actions}>
-      <p className="small muted">
-        Assigned:{" "}
-        {request.assignedToUserId
-          ? request.assignedToName ||
-            assignees.find((x) => x.userId === request.assignedToUserId)
-              ?.name ||
-            "Former staff member"
-          : "Unassigned"}
+    <div className={styles.manage}>
+      <p className={styles.assignee}>
+        <span>{vi ? "Người xử lý" : "Assigned to"}</span>
+        <strong>{assigneeName ?? (vi ? "Chưa gán" : "Unassigned")}</strong>
       </p>
       {request.progressNote && (
-        <p className={styles.message}>
-          {request.status === "CLOSED" ? "Resolution" : "Latest update"}:{" "}
+        <p className={styles.latest}>
+          <strong>
+            {request.status === "CLOSED"
+              ? vi
+                ? "Kết quả xử lý: "
+                : "Resolution: "
+              : vi
+                ? "Cập nhật gần nhất: "
+                : "Latest update: "}
+          </strong>
           {request.progressNote}
         </p>
       )}
-      {request.status !== "CLOSED" && (
-        <details open>
-          <summary>Manage request</summary>
-          <div className={styles.editor}>
-            <label>
-              Assign to
+
+      {!closed && (
+        <>
+          <div className={styles.assignRow}>
+            <label className={styles.field}>
+              {vi ? "Gán cho" : "Assign to"}
               <select
                 value={assigneeId}
-                disabled={busy}
+                disabled={busy !== null}
                 onChange={(e) => setAssigneeId(e.target.value)}
               >
-                <option value="">Choose staff</option>
+                <option value="">
+                  {vi ? "Chọn nhân viên" : "Choose staff"}
+                </option>
                 {assignees.map((x) => (
                   <option key={x.userId} value={x.userId}>
                     {x.name} ({x.role})
@@ -87,47 +129,103 @@ export function SupportRequestActions({
             </label>
             <button
               type="button"
-              className="btn btn--secondary btn--sm"
-              disabled={busy || !assigneeId}
-              onClick={() => act("assign", { assigneeUserId: assigneeId })}
+              className="btn btn--secondary"
+              disabled={busy !== null || !assigneeId}
+              onClick={() =>
+                act(
+                  "assign",
+                  { assigneeUserId: assigneeId },
+                  vi
+                    ? `Đã gán yêu cầu cho ${chosen?.name ?? "nhân viên"}.`
+                    : `Request assigned to ${chosen?.name ?? "staff member"}.`,
+                )
+              }
             >
-              Assign / transfer
+              {busy === "assign"
+                ? vi
+                  ? "Đang gán…"
+                  : "Assigning…"
+                : vi
+                  ? "Gán / chuyển"
+                  : "Assign / transfer"}
             </button>
-            <label>
-              Progress or resolution
-              <textarea
-                value={note}
-                maxLength={1000}
-                disabled={busy}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </label>
-            <div className={styles.row}>
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm"
-                disabled={
-                  busy || !request.assignedToUserId || note.trim().length < 3
-                }
-                onClick={() => act("progress", { note: note.trim() })}
-              >
-                Update progress
-              </button>
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm"
-                disabled={
-                  busy || !request.assignedToUserId || note.trim().length < 3
-                }
-                onClick={() => act("close", { resolution: note.trim() })}
-              >
-                Close request
-              </button>
-            </div>
           </div>
-        </details>
+
+          <label className={styles.field}>
+            {vi ? "Tiến độ hoặc kết quả xử lý" : "Progress or resolution"}
+            <textarea
+              rows={3}
+              value={note}
+              maxLength={1000}
+              disabled={busy !== null}
+              placeholder={
+                request.assignedToUserId
+                  ? ""
+                  : vi
+                    ? "Gán người xử lý trước khi ghi tiến độ."
+                    : "Assign someone before adding progress."
+              }
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <span className={styles.counter}>{note.length}/1000</span>
+          </label>
+          <div className={styles.buttons}>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={
+                busy !== null || !request.assignedToUserId || !noteReady
+              }
+              onClick={() =>
+                act(
+                  "progress",
+                  { note: note.trim() },
+                  vi ? "Đã cập nhật tiến độ." : "Progress updated.",
+                )
+              }
+            >
+              {busy === "progress"
+                ? vi
+                  ? "Đang lưu…"
+                  : "Saving…"
+                : vi
+                  ? "Cập nhật tiến độ"
+                  : "Update progress"}
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={
+                busy !== null || !request.assignedToUserId || !noteReady
+              }
+              onClick={() =>
+                act(
+                  "close",
+                  { resolution: note.trim() },
+                  vi ? "Đã đóng yêu cầu." : "Request closed.",
+                )
+              }
+            >
+              {busy === "close"
+                ? vi
+                  ? "Đang đóng…"
+                  : "Closing…"
+                : vi
+                  ? "Đóng yêu cầu"
+                  : "Close request"}
+            </button>
+          </div>
+        </>
       )}
-      {error && <p role="alert">{error}</p>}
+
+      {feedback && (
+        <p
+          className={`${styles.feedback} ${feedback.tone === "error" ? styles.feedbackError : ""}`}
+          role={feedback.tone === "error" ? "alert" : "status"}
+        >
+          {feedback.text}
+        </p>
+      )}
     </div>
   );
 }

@@ -3,7 +3,13 @@
 import { Button } from "@/components/primitives";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StatusChip } from "@/components/ui";
-import { addDaysIso, formatDate, formatTime, todayIso } from "@/lib/format";
+import {
+  addDaysIso,
+  formatDate,
+  formatTime,
+  mondayOfIso,
+  todayIso,
+} from "@/lib/format";
 import type {
   CalendarEvent,
   CalendarLabels,
@@ -52,8 +58,11 @@ export function Calendar({
   const now = useNow();
   const today = vietnamDateIso(new Date(now).toISOString());
 
+  // Tuần luôn chạy Thứ Hai – Chủ Nhật; chọn một ngày thì hiện cả tuần chứa ngày đó.
+  const start = view === "day" ? date : mondayOfIso(date);
+
   const days = Array.from({ length: rangeDays }, (_, index) =>
-    addDaysIso(date, index),
+    addDaysIso(start, index),
   );
 
   const byDay = new Map<string, CalendarEvent[]>();
@@ -77,7 +86,7 @@ export function Calendar({
   }
 
   const move = (direction: -1 | 1) =>
-    onDateChange(addDaysIso(date, direction * rangeDays));
+    onDateChange(addDaysIso(start, direction * rangeDays));
 
   return (
     <section className={styles.calendar} aria-label={labels.eventDetails}>

@@ -109,7 +109,57 @@
   align-items: center;
 }
 .actions :global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: 48px;
+}
+.tip {
+  display: inline-flex;
+}
+.identity {
+  display: grid;
+  gap: var(--space-1);
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.nameRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.lockBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--danger-solid);
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+.selectedLocked {
+  border-color: var(--danger-solid);
+}
+.factOk dd {
+  color: var(--success-text);
+}
+.expiring {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--warning-solid);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-weight: var(--weight-semibold);
+}
+.expiring span {
+  flex: 1 1 auto;
 }
 .note {
   margin: 0;
@@ -175,4 +225,33 @@
 /* Inside a dialog the form fills the dialog body so its inputs line up with the header and description. */
 .dialogForm:global(.form) {
   max-width: none;
+}
+
+/* Bảng hội viên: cột Trạng thái và thao tác không bị bóp, tên và liên hệ nhường chỗ */
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.statusCell {
+  width: 1%;
+  white-space: nowrap;
+}
+.statusStack {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.actionsCell {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }

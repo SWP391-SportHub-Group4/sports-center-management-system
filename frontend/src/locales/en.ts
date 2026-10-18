@@ -1508,6 +1508,8 @@ export const en = {
   },
 
   checkout: {
+    otpDialogHint:
+      "Ask the member for the 6-digit code emailed to them. Points are only used once the code is verified.",
     title: "Checkout",
     stepService: "Your order",
     stepPoints: "Points",

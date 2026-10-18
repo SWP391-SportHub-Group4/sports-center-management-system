@@ -201,11 +201,17 @@ function MemberWork({
   if (mode === "gym") return <GymVisits memberId={member.userId} />;
   return <PlanSales member={member} />;
 }
-export function PlanSales({ member }: { member: UserAdminDto }) {
+export function PlanSales({
+  member,
+  initialPlan = null,
+}: {
+  member: UserAdminDto;
+  initialPlan?: number | null;
+}) {
   const memberId = member.userId;
   const { t } = useLanguage();
   const l = t.operations;
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(initialPlan);
   const catalog = useApi(
     (s) =>
       api.get<MembershipPackageDto[]>("/api/membership-packages", {

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 
-import { addDaysIso, todayIso } from "@/lib/format";
+import { addDaysIso, mondayOfIso, todayIso } from "@/lib/format";
 
 import { AsyncSection, Field } from "@/components/ui";
 
@@ -56,7 +56,9 @@ export function CourtCalendar({
 
   const range = planningLayout
     ? planningRange(date, view)
-    : { start: date, days: view === "day" ? 1 : 7 };
+    : view === "day"
+      ? { start: date, days: 1 }
+      : { start: mondayOfIso(date), days: 7 };
 
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
 
@@ -229,6 +231,7 @@ export function CourtCalendar({
                 day: t.calendar.day,
                 week: t.calendar.week,
                 list: t.calendar.list,
+                weekdays: t.mSchedule.weekdays,
                 previous: t.calendar.previous,
                 today: t.calendar.today,
                 next: t.calendar.next,

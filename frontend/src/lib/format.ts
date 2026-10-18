@@ -79,6 +79,13 @@ export function addDaysIso(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Thứ Hai của tuần chứa `isoDate` (tuần Thứ Hai – Chủ Nhật). */
+export function mondayOfIso(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return addDaysIso(isoDate, -((weekday + 6) % 7));
+}
+
 export function vietnamLocalToUtcIso(
   dateIso: string,
   timeHhmm: string,
