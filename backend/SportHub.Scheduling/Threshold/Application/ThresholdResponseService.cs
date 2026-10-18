@@ -238,9 +238,7 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         var difference = targetQuote.Price - sourceValue;
         if (difference <= 0 || difference % 1_000 != 0)
             throw new ConflictException("transfer_difference_invalid", "Transfer difference invalid.");
-        var holdMinutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
-        if (holdMinutes is < 1 or > 1440)
-            throw new ConflictException("hold_setting_invalid", "Hold setting invalid.");
+        var holdMinutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         var expires = clock.UtcNow.AddMinutes(holdMinutes);
         var responseDeadline = response.DeadlineUtc;
         if (expires > responseDeadline) expires = responseDeadline;

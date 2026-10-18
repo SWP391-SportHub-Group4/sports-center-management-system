@@ -34,7 +34,7 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 ## Capabilities and Constraints
 
 - **Danh mục môn và cơ sở vật chất**: Manager tự thêm/sửa môn (phạm vi sản phẩm: Gym, Cầu lông, Bóng rổ), phòng/sân, giờ hoạt động, khóa sân và giá thuê theo khung giờ.
-- **Ghi danh khóa học có giữ chỗ**: Checkout lớp giữ chỗ 15 phút; sĩ số không bao giờ vượt trần dù nhiều người đặt đồng thời.
+- **Ghi danh khóa học có giữ chỗ**: Checkout lớp giữ chỗ tối đa theo cấu hình Manager (10–30 phút, mặc định 15); hạn thực tế hiện trên đơn và có thể sớm hơn trước buổi đầu. Sĩ số không bao giờ vượt trần dù nhiều người đặt đồng thời.
 - **Ngưỡng hoàn vốn**: Lớp chốt trước khai giảng N ngày; nếu dưới ngưỡng, học viên nhận email chọn chuyển lớp hoặc hoàn điểm trong thời hạn; Manager có thể miễn ngưỡng có lý do.
 - **Ví điểm và split payment**: Một hóa đơn có thể trả bằng điểm + VNPay-QR (ví dụ 300.000đ = 200 điểm + 100.000đ). Receptionist thanh toán thay Member bắt buộc có OTP email của Member (5 phút, tối đa 5 lần sai).
 - **Hoàn trả chỉ bằng điểm**: Không hoàn tiền mặt/chuyển khoản, không hoàn qua cổng thanh toán; Manager duyệt yêu cầu hoàn điểm.

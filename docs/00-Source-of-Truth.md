@@ -14,9 +14,9 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, 
 
 Mã nguồn/controller/configuration xác định hành vi đã triển khai, không tự thay thế yêu cầu nghiệp vụ. Khi thiết kế và mã khác nhau, ghi gap cùng evidence; không tuyên bố hoàn thành chỉ vì đã có trong tài liệu. SRS Word là tài liệu yêu cầu tổng quan; các mô tả chi tiết chưa đồng bộ phải đọc theo phạm vi và thiết kế hiện hành.
 
-Phần mở rộng được chủ sản phẩm xác nhận: [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md). Coach được phân công có thể soạn giáo án, điểm danh đúng buổi, lưu kết quả/nhận xét, gửi bài tập/thông báo và dùng AI gợi ý.
+Phạm vi Flow 4 được chủ sản phẩm xác nhận ngày 18/10/2026: không quản lý dịch vụ PT 1:1. Coach của lớp cầu lông/bóng rổ được phân công có thể tạo workout plan, ghi workout result/nhận xét, giao homework, gửi thông báo và điểm danh đúng buổi. AI gợi ý cho Coach thuộc Flow 5; Coach kiểm tra trước khi lưu nội dung. Các quy tắc PT cũ trong Business Rules và SRS chỉ còn giá trị tham khảo lịch sử, không áp dụng cho phạm vi hiện hành. Xem [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md).
 
-Phần mở rộng: [Coach yêu cầu thay đổi buổi học nhóm](Class-Session-Change-Requests.md), Manager xử lý hoặc từ chối; Coach không tự hủy/đổi lịch. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction.
+Quyết định Flow 2/4 ngày 18/10/2026: Coach chỉ gửi báo vắng kèm lý do cho buổi được phân công và có thể rút báo vắng khi còn Pending; Coach không sửa báo vắng hoặc tự chọn dạy thay/dời lịch/học bù. Center Manager liên hệ Coach khác khi cần, rồi quyết định phương án và kiểm tra lại chuyên môn/lịch trống trước khi lưu. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction. Xem [yêu cầu vắng buổi học](Class-Session-Change-Requests.md).
 
 ## 2. Phạm vi và thuật ngữ
 
@@ -46,7 +46,7 @@ Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Requ
 | User/Membership | Identity, OTP, account/profile, Membership Gym, renewal/check-in |
 | Class/Schedule | Môn/phòng/giá, lớp nhiều buổi, hold/enrollment, threshold, occupancy, rental, incident |
 | Payment/Report | Invoice snapshot, checkout, VNPay/điểm, reconciliation, refund điểm, báo cáo |
-| Training/Attendance | Plan/result/đánh giá theo lớp, điểm danh lớp bởi Receptionist |
+| Training/Attendance | Plan/result/đánh giá và homework theo lớp; Receptionist hoặc Coach được phân công điểm danh đúng buổi |
 | AI workout | Gợi ý cho Coach trong phạm vi học viên được giao |
 | AI assistant | Member context chat; Manager xếp lịch/tạo nháp là phần chưa triển khai |
 
@@ -60,6 +60,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam, kèm mã check-in do server ký và cấp, chỉ có hiệu lực trong ngày; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
 - Giá/thời hạn/quyền lợi đã mua dùng snapshot, không tính lại khi sửa catalog.
 - Enrollment theo khóa; attendance theo enrollment/session; lớp nhóm Present/Absent.
+- JWT xác định danh tính và role của Coach; `classId`/`sessionId` xác định tài nguyên được yêu cầu. Backend đối chiếu Coach từ JWT với Coach được phân công cho lớp/buổi trước khi cấp quyền. `sessionId` không phải mã xác thực hay giá trị thay thế JWT.
 - ReservedCount bao gồm chỗ giữ và đã xác nhận; ConfirmedCount <= ReservedCount <= Capacity.
 - Ghi lịch phải đi qua occupancy trong transaction, không chỉ kiểm availability ở UI.
 - TotalAmount = PointsApplied × 1.000 + CashAmount; backend quyết định amount, không nhận client làm nguồn giá.
@@ -71,6 +72,8 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Member và staff là hai loại tài khoản tách biệt (BR-142): không chuyển Member thành staff hay ngược lại (409 `member_staff_role_change_not_allowed`); muốn làm staff phải dùng email khác. Chỉ SystemAdministrator tạo tài khoản staff (kể cả Coach kèm chuyên môn, BR-96) và đó là bước duy nhất tạo Coach; staff nhận email kích hoạt để tự đặt mật khẩu. Manager chỉ sửa hồ sơ Coach. Đổi role chỉ giữa các role staff; Coach chỉ rời vai trò khi không còn lớp, lịch tương lai hay quan hệ huấn luyện Active. Email chưa được xác minh là của đúng người khi tạo (Admin nhập email một lần, gõ sai thì sửa); tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
 - Manager duyệt theo quyền; SystemAdministrator không mặc nhiên có quyền nghiệp vụ; Coach chỉ đọc dữ liệu được phân công.
 - Checkout (A15, đã triển khai): hai cột, tóm tắt hiển thị tổng/điểm/tiền còn lại đúng số server; đồng hồ giữ chỗ tính từ `expiresAtUtc − serverNowUtc` và không reset khi reload; hết giờ thì dừng thao tác và tải lại, FE không "release slot"; quay lại tab thì tải lại ví và đơn; return từ cổng thanh toán không chứng minh đã thu. Route `/checkout/[invoiceId]`; tài chính Member ở `/member/finance?tab=wallet|invoices`, chi tiết `/member/invoices/[id]` (route cũ `/member/wallet`, `/member/invoices` chuyển hướng).
+- `hold.minutes` do Manager cấu hình trong khoảng **10–30 phút**, mặc định **15 phút**; áp dụng cho checkout lớp, thuê sân, mua gói và chuyển lớp có phần chênh. Giá trị mới chỉ tác động checkout được tạo sau khi đổi; hạn đã ghi trên checkout/payment attempt hiện có không đổi. Hạn thực tế có thể sớm hơn khi sát giờ bắt đầu lớp/sân hoặc hạn trả lời chuyển lớp; Member xem `expiresAtUtc` của đơn thay vì suy từ mức cấu hình.
+- Member có Enrollment Confirmed, `EndedAt` rỗng vẫn đọc lịch sử buổi, giáo án, homework và kết quả của chính mình khi lớp Completed. Ghi danh kết thúc hoặc lớp Cancelled/Draft thì thu hồi quyền nội dung; Coach chủ nhiệm mất quyền hồ sơ học viên khi lớp Completed hoặc ghi danh kết thúc.
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
 - “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
 - Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập, báo cáo sau đăng tải do Manager xử lý; chi tiết tại [Avatar-Cloudinary](Avatar-Cloudinary.md).

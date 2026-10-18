@@ -43,7 +43,7 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; giáo án 
 - Email homework dùng `ClassTeachingUpdated` và `recordId` làm nguồn, payload được mã hóa, lưu cùng transaction và gửi bằng EmailDispatchService hiện có. POST retry không thêm email; SMTP lỗi được thử lại theo cơ chế outbox. Cần cấu hình SMTP thật để email đến hộp thư; chế độ demo chỉ ghi log.
 
 - UUID do client tạo giúp POST retry không tạo trùng nội dung/thông báo; PUT khác version trả 409. API ghi audit cho thao tác tạo/sửa.
-- Member chỉ xem nội dung chung và nội dung cá nhân của mình trong lớp đã ghi danh, tại Schedule → chi tiết lớp. Thông báo liên kết tới trang này.
+- Member chỉ xem nội dung chung và nội dung cá nhân của mình khi ghi danh Confirmed, `EndedAt` rỗng và lớp Published/InProgress/Completed, tại Schedule → chi tiết lớp. Lớp Completed vẫn đọc được lịch sử; ghi danh kết thúc hoặc lớp Cancelled/Draft thì bị chặn. Thông báo liên kết tới trang này.
 
 ## Hợp đồng API
 

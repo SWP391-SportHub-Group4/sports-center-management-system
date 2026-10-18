@@ -1,7 +1,7 @@
 # Proposal cải tiến quy trình yêu cầu vắng của Coach
 
-**Ngày:** 17/10/2026  
-**Trạng thái:** Dự thảo để nhóm review  
+**Ngày:** 17/10/2026
+**Trạng thái:** Phạm vi đã chốt ngày 18/10/2026; xem [Source of Truth](00-Source-of-Truth.md). Các mục còn thiếu trong code thuộc phần Khôi đang xử lý.
 **Phạm vi:** Coach cầu lông, Coach bóng rổ và Center Manager.
 
 ## 1. Đề xuất của tôi
@@ -24,6 +24,7 @@ Cập nhật theo quyết định người dùng ngày 18/10/2026: Coach không 
 | Coach selector lọc thêm lịch trống trước khi lựa chọn | Đã tích hợp theo giờ gốc/giờ mới; backend vẫn kiểm lại khi lưu |
 | Khóa transaction và kiểm tra Pending khi ghi | Đã có |
 | Nội dung yêu cầu sau khi gửi | Bất biến; không còn nhánh Coach sửa khi Manager đang duyệt |
+| Chặn tạo request đề xuất phương án từ client cũ | Quy tắc mục tiêu trên develop; backend còn nhận loại cũ để tương thích, chưa thay đổi trong lần merge này |
 
 ## 3. Luồng của Coach
 
@@ -41,7 +42,7 @@ Gửi Absence mới phải trước giờ bắt đầu ít nhất **6 giờ**, t
 ## 4. Luồng của Center Manager
 
 1. Vào **Activity calendar → Class change requests**.
-2. Mở yêu cầu Pending, xem buổi học, Coach, lý do và phiên bản mới nhất.
+2. Mở yêu cầu Pending, xem buổi học, Coach và lý do đã gửi.
 3. Chọn **Decision**:
 
 | Lựa chọn | Kết quả |
@@ -53,7 +54,7 @@ Gửi Absence mới phải trước giờ bắt đầu ít nhất **6 giờ**, t
 
 4. Nhập các thông tin cần thiết và **Decision reason / feedback to Coach**.
 5. Nhấn **Confirm decision**.
-6. Hệ thống kiểm tra lại phiên bản, trạng thái, quyền và tài nguyên; cập nhật lịch, request, audit và hàng đợi thông báo trong cùng transaction.
+6. Hệ thống kiểm tra lại trạng thái Pending, quyền và tài nguyên; cập nhật lịch, request, audit và hàng đợi thông báo trong cùng transaction.
 
 ## 5. Lọc Coach dạy thay theo lịch trống — đã tích hợp local
 

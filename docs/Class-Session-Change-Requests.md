@@ -1,6 +1,6 @@
 # Yêu cầu vắng buổi học của Coach
 
-Phần mở rộng được chủ sản phẩm xác nhận ngày 11/10/2026, dùng chung cho lớp cầu lông và bóng rổ. Coach gửi đề xuất, Center Manager quyết định. Giữ nguyên quyền thay đổi lịch của Manager theo BR-14 và hủy kèm học bù theo BR-54.
+Phần mở rộng được chủ sản phẩm xác nhận ngày 11/10/2026 và chốt lại ngày 18/10/2026, dùng chung cho lớp cầu lông và bóng rổ. Coach chỉ báo vắng một buổi kèm lý do hoặc rút báo vắng Pending; Center Manager quyết định phương án. Giữ nguyên quyền thay đổi lịch của Manager theo BR-14 và hủy kèm học bù theo BR-54.
 
 **Quyết định cập nhật 18/10/2026:** yêu cầu đã gửi không được sửa. Coach chỉ gửi yêu cầu mới hoặc rút yêu cầu còn Pending. FE không có Edit pending request; backend đã gỡ PUT sửa và UpdateAsync. Giữ nguyên endpoint withdraw. Manager dùng API availability theo đúng giờ buổi/giờ mới, chỉ hiển thị HLV Active, đúng môn, rảnh toàn khoảng và khác HLV xin vắng khi dạy thay. Có loading/error/retry/empty; đổi giờ xóa lựa chọn cũ. excludeSessionId chỉ bỏ occupancy của đúng buổi Scheduled cùng môn; không bỏ lịch khác. Backend kiểm lại khi xác nhận, xung đột giữ Pending và tải lại danh sách.
 
@@ -30,7 +30,7 @@ Phần mở rộng được chủ sản phẩm xác nhận ngày 11/10/2026, dù
 
 Danh sách trả `{items,page,pageSize:50,totalCount}`. Trạng thái wire: `PENDING`, `RESOLVED`, `REJECTED`, `WITHDRAWN`.
 
-Create body của giao diện mới: `{requestId,type:"ABSENCE",reason,proposedStartAtUtc:null,proposedEndAtUtc:null}`. `requestId` là UUID do client tạo và giữ khi retry; cùng UUID/nội dung trả bản cũ, nội dung khác trả 409. Absence không chấp nhận đề xuất giờ (`absence_proposal_not_allowed`). Lý do 3–500 ký tự. Các loại cũ `SUBSTITUTE`, `RESCHEDULE`, `CANCEL_WITH_MAKEUP` vẫn được API hỗ trợ để tương thích client cũ, với validation cũ (hủy phải trước 6 giờ); giao diện Coach mới không tạo các loại này.
+Create body của giao diện Coach: `{requestId,type:"ABSENCE",reason,proposedStartAtUtc:null,proposedEndAtUtc:null}`. `requestId` là UUID do client tạo và giữ khi retry; cùng UUID/nội dung trả bản cũ, nội dung khác trả 409. Absence không chấp nhận đề xuất giờ (`absence_proposal_not_allowed`). Lý do 3–500 ký tự. Các bản ghi `SUBSTITUTE`, `RESCHEDULE`, `CANCEL_WITH_MAKEUP` đã lưu trước đây vẫn đọc được để giữ lịch sử. Quy tắc mục tiêu trên develop chỉ cho tạo mới ABSENCE; backend hiện vẫn nhận các loại cũ từ client cũ với validation trước đây. Đây là khoảng trống riêng chưa được thay đổi trong lần merge này, không phải quyền sửa yêu cầu đã gửi.
 
 Không có API cập nhật nội dung yêu cầu. `PUT /api/coaches/me/teaching/change-requests/{requestId}` đã bị gỡ; với URL hợp lệ trùng GET route, PUT nhận 405 Method Not Allowed. Rút vẫn dùng POST `.../{requestId}/withdraw`, kiểm owner và Pending trong transaction; không áp dụng hạn gửi 6 giờ cho rút. Nếu Manager đã xử lý trước, rút trả 409 `class_change_not_pending`, UI tải lại trạng thái mới. Gửi lại cùng requestId với nội dung khác vẫn bị chặn bởi idempotency, không phải cách sửa yêu cầu.
 

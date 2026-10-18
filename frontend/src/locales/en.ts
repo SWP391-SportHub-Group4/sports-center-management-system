@@ -949,7 +949,7 @@ export const en = {
     },
     holdMinutes: {
       label: "Checkout hold (minutes)",
-      hint: "Maximum time to hold a place and complete payment.",
+      hint: "Set 10–30 minutes (default 15). New checkouts only; the exact expiry may be earlier near a class or court start.",
     },
     expiryDays: {
       label: "Membership expiry notice (days)",

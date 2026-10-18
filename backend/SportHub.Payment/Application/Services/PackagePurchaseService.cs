@@ -53,7 +53,7 @@ public sealed class PackagePurchaseService(
             }
         }
         var now = clock.UtcNow;
-        var holdMinutes = await settings.GetIntAsync(SystemSettingKeys.HoldMinutes, ct);
+        var holdMinutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(

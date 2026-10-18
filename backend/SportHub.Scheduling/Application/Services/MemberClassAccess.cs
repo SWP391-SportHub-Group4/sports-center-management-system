@@ -16,7 +16,12 @@ public static class MemberClassAccess
 
     public static async Task RequireAsync(ISportHubDbContext db, Guid memberId, int classId, DateTime now, CancellationToken ct)
     {
-        if (!await Current(db, memberId, now).AnyAsync(e => e.ClassId == classId, ct))
+        // Members retain their own course history after the final session. Current()
+        // remains narrower for reminders and AI context that need an ongoing class.
+        if (!await db.Set<Enrollment>().AnyAsync(e => e.ClassId == classId && e.MemberId == memberId
+                && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null
+                && (e.Class!.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress
+                    || e.Class.Status == ClassStatus.Completed), ct))
             throw new ForbiddenException("class_access_ended", "Class access has ended or you are not currently enrolled.");
     }
 }

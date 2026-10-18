@@ -68,7 +68,7 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/membership-packages/public` | Anonymous, chỉ catalog active; endpoint quản trị/auth cũ giữ chính sách riêng. |
 | GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public chỉ Published. |
 | GET | `/api/classes/{classId}/public-sessions` | Anonymous, chỉ khóa Published, lịch buổi/room/coach không có roster/attendance. |
-| GET | `/api/members/me/classes/{classId}/sessions` | Member có ghi danh còn hiệu lực (`Confirmed`, chưa `EndedAt`) trong khóa Published/InProgress; ngược lại 403 `class_not_enrolled`. Không trả roster. |
+| GET | `/api/members/me/classes/{classId}/sessions` | Member có ghi danh còn hiệu lực (`Confirmed`, chưa `EndedAt`) trong khóa Published/InProgress/Completed (xem lại lịch sử sau khi lớp kết thúc); khóa Cancelled/Draft hoặc ghi danh đã kết thúc trả 403 `class_access_ended`. Không trả roster. |
 | GET | `/api/coaches?sportId=` | Member/Receptionist/Manager: Coach active cùng specialty (`sportId`), chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
 | GET | `/api/checkouts/by-key?key=`, `/api/checkouts/by-reference?reference=` | Recovery timeout/return theo invoice của beneficiary hoặc initiator; kiểm scope lại. Query VNPay không là chứng cứ Paid. |
 | POST | `/api/checkouts/{invoiceId}/confirm-points` | Xác nhận cash=0, invoice lock, ownership, hold còn hạn, không reconciliation/verified pending; idempotent Paid, không tạo gateway attempt. |
@@ -88,7 +88,9 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 
 ## API bổ sung cho Coach lớp nhóm
 
-Xem [Coach Teaching Workspace](Coach-Teaching-Workspace.md#hợp-đồng-api): endpoint được giới hạn theo lớp/buổi được phân công, hỗ trợ lưu giáo án, kết quả, bài tập/thông báo, điểm danh và Gemini suggestion. Member có feed theo lớp đã ghi danh. Có migration `AddClassTeachingWorkspace`; extension này được chủ sản phẩm xác nhận cho phép Coach ghi điểm danh lớp nhóm qua route mới.
+Xem [Coach Teaching Workspace](Coach-Teaching-Workspace.md#hợp-đồng-api): endpoint được giới hạn theo lớp/buổi được phân công, hỗ trợ lưu giáo án, kết quả, bài tập/thông báo, điểm danh và Gemini suggestion. Coach chủ nhiệm chỉ đọc hồ sơ học viên Confirmed của lớp Published/InProgress; HLV dạy thay chỉ đọc roster và bản ghi của buổi được giao. Member có feed khi Enrollment Confirmed, `EndedAt` rỗng và lớp Published/InProgress/Completed, kể cả sau buổi cuối; lớp Cancelled/Draft hoặc ghi danh đã kết thúc bị chặn. Có migration `AddClassTeachingWorkspace`; extension này được chủ sản phẩm xác nhận cho phép Coach ghi điểm danh lớp nhóm qua route mới.
+
+`hold.minutes` cho checkout mới: Manager đặt số nguyên **10–30**, mặc định **15**. Hạn lưu trên checkout/attempt hiện có là snapshot, không thay đổi khi Manager cập nhật setting. Lớp, sân và chuyển lớp có thể cắt hạn sớm theo giờ bắt đầu hoặc deadline nghiệp vụ; client dùng `expiresAtUtc` trả về, không tự cộng số phút cấu hình.
 
 ## Quy ước wire và dữ liệu
 
@@ -594,7 +596,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 
 | Verb | Path | Actor | Hành vi |
 |---|---|---|---|
-| POST | `api/checkouts/membership`, `api/checkouts/class`, `api/checkouts/pt` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. |
+| POST | `api/checkouts/membership`, `api/checkouts/class` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. PT 1:1 không thuộc phạm vi hiện hành. |
 | GET | `api/checkouts/{invoiceId}` | Chủ invoice hoặc staff | Trạng thái chu kỳ checkout hiện tại. |
 | POST | `api/checkouts/verify-reference` | Chủ checkout hoặc staff | Body `{reference}` lấy từ `vnp_TxnRef` trên Return URL. Backend kiểm ownership rồi gọi QueryDR cho đúng attempt; chỉ phản hồi VNPay đã xác minh mới cập nhật payment. Trả CheckoutResponse mới nhất. Rate limited. |
 | POST | `api/checkouts/{invoiceId}/attempts` | Chủ invoice hoặc staff | Tạo/đọc PaymentAttempt snapshot tiền/điểm và URL VNPay; 100% điểm hoàn tất ngay, không tạo attempt VNPay 0đ. |
@@ -717,7 +719,7 @@ Coach-list availability also accepts excludeSessionId: it must identify a Schedu
 
 ## Coach yêu cầu thay đổi buổi học lớp nhóm
 
-Contract, payload, trạng thái, quyền và transaction cho các API `/api/coaches/me/teaching/.../change-requests` và `/api/manager/class-session-change-requests` được mô tả tại [Yêu cầu thay đổi buổi học](Class-Session-Change-Requests.md). Coach gửi/rút yêu cầu, Manager quyết định phương án và áp dụng đổi lịch/học bù nguyên tử; không cấp quyền tự hủy buổi cho Coach. Migration: `20261011025932_AddClassSessionChangeRequests`.
+Phạm vi đã chốt: Coach chỉ gửi báo vắng `{type:"ABSENCE",reason}` và rút báo vắng `PENDING`; không có thao tác sửa báo vắng hoặc đề xuất phương án từ Coach trên giao diện hiện hành. Center Manager chọn dạy thay, dời lịch hoặc hủy kèm học bù, kiểm tra lại Coach thay đang Active, đúng chuyên môn và còn trống trong toàn bộ buổi trước khi lưu. JWT xác định Coach thao tác; `sessionId` là ID buổi để kiểm tra phân công. Lịch và trạng thái yêu cầu cập nhật nguyên tử. Các API yêu cầu hiện có và dữ liệu lịch sử loại cũ được mô tả tại [Yêu cầu vắng buổi học](Class-Session-Change-Requests.md). PUT sửa yêu cầu đã được gỡ. Quy tắc develop yêu cầu chặn cả việc tạo mới bằng loại đề xuất cũ từ mọi client; backend còn nhận các loại đó để tương thích, là khoảng trống riêng chưa xử lý trong lần merge này. Migration nền: `20261011025932_AddClassSessionChangeRequests`.
 
 Policy update, 2026-10-18: submitted Coach requests are immutable. The edit button/form, client update method, service UpdateAsync and PUT route have been removed. PUT to the existing GET request URL returns 405 Method Not Allowed. The owner may still POST `.../{id}/withdraw` while Pending, without the six-hour creation deadline. An already handled request returns `409 class_change_not_pending`; another owner’s request returns `404 class_change_not_found`. Creating a different request after withdrawal requires a new requestId and valid creation conditions; historical content is never rewritten.
 
@@ -746,7 +748,7 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 
 - `CheckoutResponse.isDayPass` is computed from the invoice's membership item. It survives refresh/recovery and makes the checkout show the same-day/non-refundable terms before payment, including direct `/checkout/{invoiceId}` entry.
 - `GET /api/invoices/{invoiceId}/receipt.pdf` remains authenticated and owner scoped for Members. Billing details and confirmed payment results now expose **Download invoice**.
-- Member sessions and teaching records require Confirmed enrollment, no `endedAt`, Published/InProgress class and at least one non-cancelled lesson whose end is in the future. Ended access returns `403 class_access_ended`; enrollment/financial history remains independent. Open Member class views recheck permission on focus and every 30 seconds.
+- Member sessions and teaching records require Confirmed enrollment, no `endedAt`, and a Published/InProgress/Completed class. A Member may read their own lesson history after the final session or when the class is Completed. Ended enrollment or a Cancelled/Draft class returns `403 class_access_ended`; enrollment/financial history remains independent. Open Member class views recheck permission on focus and every 30 seconds. The narrower ongoing-class query for reminders and AI context still requires a future non-cancelled lesson.
 - The one-minute Member communication job creates bell reminders at the 24-hour and 1-hour windows. It skips cancelled lessons, inactive enrollments and reminder windows preceding enrollment. Unique `(session,member,start,hours)` receipts and transaction-scoped worker locks prevent duplicate outbox writes across replicas/restarts. Rescheduled starts have fresh reminder identities.
 - Manager draft create/update accepts nullable `continuationOfClassId`, validated against an earlier class in the same sport. Draft editor exposes **Next cohort of (optional)**. Course interest notices link to class purchase details; encrypted email uses `Frontend:BaseUrl`.
 - Member AI receives the current user's health profile, permitted course/individual lesson plans, recent assessments/coach comments, homework/notices, attendance summary and enrolled upcoming lessons. Bounded context includes source IDs/dates and truncation flags. It excludes other students and ended-class content. Provider continuation IDs are accepted only when an own successful interaction has the same current enrollment scope; otherwise a fresh context starts.

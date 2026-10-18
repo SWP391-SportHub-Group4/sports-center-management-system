@@ -178,8 +178,8 @@ test("Operating settings translate descriptions and preserve drafts without chan
   await page.route("**/api/system-settings/hold.minutes", (route) => {
     writes++;
     expect(route.request().method()).toBe("PUT");
-    expect(route.request().postDataJSON()).toEqual({ value: "20" });
-    rows[0].value = "20";
+    expect(route.request().postDataJSON()).toEqual({ value: "25" });
+    rows[0].value = "25";
     return route.fulfill({ json: rows[0] });
   });
   await page.goto("/manager/settings");
@@ -194,13 +194,26 @@ test("Operating settings translate descriptions and preserve drafts without chan
   });
   await expect(fixed).toHaveValue("60");
   await expect(fixed).toHaveAttribute("readonly", "");
+  const holdInput = page.getByLabel(en.settingFields.holdMinutes.label, {
+    exact: true,
+  });
+  const holdSave = page
+    .getByRole("row")
+    .filter({ has: holdInput })
+    .getByRole("button", { name: en.operations.save, exact: true });
+  await expect(holdInput).toHaveAttribute("min", "10");
+  await expect(holdInput).toHaveAttribute("max", "30");
+  await holdInput.fill("9");
+  await expect(holdSave).toBeDisabled();
+  await holdInput.fill("31");
+  await expect(holdSave).toBeDisabled();
   await page
     .getByLabel(en.settingFields.holdMinutes.label, { exact: true })
-    .fill("20");
+    .fill("25");
   await assertEnglishOnlyShell(page);
   await expect(
     page.getByLabel(en.settingFields.holdMinutes.label, { exact: true }),
-  ).toHaveValue("20");
+  ).toHaveValue("25");
   await expect(
     page.getByText(en.settingFields.holdMinutes.hint, { exact: true }),
   ).toBeVisible();

@@ -265,8 +265,8 @@ export function CourseDetail({
           !enrollments.error && (
             <p className={styles.policy}>
               {vi
-                ? "Giữ chỗ 15 phút sau khi tạo đơn."
-                : "Your place is held for 15 minutes after creating an order."}
+                ? "Thời hạn giữ chỗ cụ thể sẽ hiện khi tạo đơn."
+                : "The exact hold expiry is shown when you create your order."}
             </p>
           )}
       </aside>
