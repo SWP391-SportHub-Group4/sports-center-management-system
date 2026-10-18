@@ -138,10 +138,14 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
 
     /// <summary>Coach nội bộ Active có chuyên môn môn này và không bị chiếm lịch trong khoảng (bất kể phòng).</summary>
     public async Task<IReadOnlyList<FreeCoachResponse>> FreeCoachesAsync(
-        int sportId, DateTime startUtc, DateTime endUtc, CancellationToken ct = default)
+        int sportId, DateTime startUtc, DateTime endUtc, CancellationToken ct = default, Guid? excludeSessionId = null)
     {
         ValidateSlot(startUtc, endUtc);
         await EnsureSportActiveAsync(sportId, ct);
+        if (excludeSessionId.HasValue && !await db.Set<ClassSession>().AsNoTracking()
+                .AnyAsync(s => s.SessionId == excludeSessionId && s.Class!.SportId == sportId
+                    && s.Status == ClassSessionStatus.Scheduled, ct))
+            throw new BadRequestException("invalid_preview_session", "Invalid preview session.");
 
         var start = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
         var end = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
@@ -153,7 +157,8 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
         }
 
         var busy = (await db.Set<CoachOccupancy>().AsNoTracking()
-                .Where(o => o.IsActive && candidates.Contains(o.CoachId) && o.StartAtUtc < end && o.EndAtUtc > start)
+                .Where(o => o.IsActive && candidates.Contains(o.CoachId) && o.StartAtUtc < end && o.EndAtUtc > start
+                    && !(excludeSessionId.HasValue && o.SourceType == OccupancySourceType.ClassSession && o.SourceId == excludeSessionId))
                 .Select(o => o.CoachId)
                 .Distinct()
                 .ToListAsync(ct))

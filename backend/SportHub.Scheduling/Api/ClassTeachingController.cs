@@ -37,7 +37,7 @@ public sealed class ClassTeachingController(ClassTeachingService teaching, IAtte
     [HttpGet("classes/{classId:int}/members")]
     public async Task<IActionResult> Members(int classId, CancellationToken ct, [FromQuery] Guid? memberId = null, [FromQuery] Guid? sessionId = null) => Ok(await teaching.MembersAsync(classId, User.RequireUserId(), ct, memberId, sessionId));
     [HttpGet("classes/{classId:int}/records")]
-    public async Task<IActionResult> Records(int classId, [FromQuery] int page = 1, CancellationToken ct = default, [FromQuery] Guid? memberId = null) => Ok(await teaching.RecordsAsync(classId, User.RequireUserId(), false, page, ct, memberId));
+    public async Task<IActionResult> Records(int classId, [FromQuery] int page = 1, CancellationToken ct = default, [FromQuery] Guid? memberId = null, [FromQuery] Guid? sessionId = null) => Ok(await teaching.RecordsAsync(classId, User.RequireUserId(), false, page, ct, memberId, sessionId));
     [HttpPost("classes/{classId:int}/records")]
     public async Task<IActionResult> Create(int classId, TeachingWriteRequest request, CancellationToken ct) => Ok(await teaching.SaveAsync(classId, User.RequireUserId(), request, false, ct));
     [HttpPut("classes/{classId:int}/records/{recordId:guid}")]

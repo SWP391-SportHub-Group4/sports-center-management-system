@@ -31,8 +31,9 @@ public class AvailabilityController(AvailabilityService availability) : Controll
     [Authorize(Policy = SportHubPolicies.StaffRead)]
     [HttpGet("api/availability/coaches")]
     public async Task<IActionResult> FreeCoaches(
-        [FromQuery] int sportId, [FromQuery] DateTime startUtc, [FromQuery] DateTime endUtc, CancellationToken ct)
-        => Ok(await availability.FreeCoachesAsync(sportId, startUtc, endUtc, ct));
+        [FromQuery] int sportId, [FromQuery] DateTime startUtc, [FromQuery] DateTime endUtc, CancellationToken ct,
+        [FromQuery] Guid? excludeSessionId = null)
+        => Ok(await availability.FreeCoachesAsync(sportId, startUtc, endUtc, ct, excludeSessionId));
 
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("api/availability/rooms/{roomId:int}/busy")]

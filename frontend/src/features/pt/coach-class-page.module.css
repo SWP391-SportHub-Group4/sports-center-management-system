@@ -6,6 +6,29 @@
 .classPage > :global(.btn) {
   justify-self: start;
 }
+.sessionList {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.sessionList li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+.sessionList li > div {
+  display: grid;
+  flex: 1 1 240px;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .classOverview {
   --sport-bg: var(--color-primary-soft);
   --sport-ink: var(--color-primary-soft-text);

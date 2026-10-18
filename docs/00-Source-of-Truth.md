@@ -4,7 +4,7 @@ SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, 
 
 ## 1. Thứ tự nguồn và cách giải quyết mâu thuẫn
 
-**Quyết định đã xác nhận:** [Kích hoạt staff và quyền Audit log](Admin-Activation-and-Audit.md). Link staff hết hạn đúng `CreatedAt + 24 giờ`; gửi lại hoặc sửa email không đổi mốc này. Admin xem mọi log do Manager/Admin/Coach thực hiện và log hệ thống; Manager xem mọi log do Manager/Receptionist/Coach/Member thực hiện. Phạm vi dựa trên role được ghi tại thời điểm thao tác, không dựa role hiện tại của tài khoản.
+**Quyết định đã xác nhận:** [Kích hoạt staff và quyền Audit log](api-contract.md#staff-activation-and-audit-policy-update--14-october-2026). Link staff hết hạn đúng `CreatedAt + 24 giờ`; gửi lại hoặc sửa email không đổi mốc này. Admin xem mọi log do Manager/Admin/Coach thực hiện và log hệ thống; Manager xem mọi log do Manager/Receptionist/Coach/Member thực hiện. Phạm vi dựa trên role được ghi tại thời điểm thao tác, không dựa role hiện tại của tài khoản.
 
 1. Yêu cầu trực tiếp đã xác nhận của chủ sản phẩm, bao gồm phạm vi ba môn (Gym, cầu lông, bóng rổ) và vé Gym 1 ngày.
 2. [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx): quy tắc nghiệp vụ cụ thể.
@@ -17,6 +17,10 @@ Mã nguồn/controller/configuration xác định hành vi đã triển khai, kh
 Phạm vi Flow 4 được chủ sản phẩm xác nhận ngày 18/10/2026: không quản lý dịch vụ PT 1:1. Coach của lớp cầu lông/bóng rổ được phân công có thể tạo workout plan, ghi workout result/nhận xét, giao homework, gửi thông báo và điểm danh đúng buổi. AI gợi ý cho Coach thuộc Flow 5; Coach kiểm tra trước khi lưu nội dung. Các quy tắc PT cũ trong Business Rules và SRS chỉ còn giá trị tham khảo lịch sử, không áp dụng cho phạm vi hiện hành. Xem [Không gian giảng dạy Coach lớp nhóm](Coach-Teaching-Workspace.md).
 
 Quyết định Flow 2/4 ngày 18/10/2026: Coach chỉ gửi báo vắng kèm lý do cho buổi được phân công và có thể rút báo vắng khi còn Pending; Coach không sửa báo vắng hoặc tự chọn dạy thay/dời lịch/học bù. Center Manager liên hệ Coach khác khi cần, rồi quyết định phương án và kiểm tra lại chuyên môn/lịch trống trước khi lưu. Thay đổi lịch và cập nhật yêu cầu trong cùng transaction. Xem [yêu cầu vắng buổi học](Class-Session-Change-Requests.md).
+
+Đối chiếu code `06683826`: giao diện Coach chỉ tạo ABSENCE; thao tác sửa và API PUT đã gỡ. Backend tạo request còn nhận các loại đề xuất cũ để tương thích client; đây là gap COACH-01 trong [thiết kế §13.2](Center-Management-System-Design-v3.md#132-chức-năng-và-contract-còn-thiếu), không thay đổi quyết định nghiệp vụ chỉ báo vắng. Ba loại SUBSTITUTE/RESCHEDULE/CANCEL_WITH_MAKEUP vẫn là phương án xử lý hợp lệ của Manager.
+
+Quyền đọc sau khi lớp hoàn thành: Member còn Enrollment Confirmed và `EndedAt == null` vẫn đọc lịch sử buổi, nội dung chung và bản ghi cá nhân của mình trong lớp Published/InProgress/Completed. Ghi danh kết thúc hoặc lớp Cancelled/Draft thì mất quyền nội dung. Coach chủ nhiệm chỉ được cấp quyền hồ sơ từ lớp Published/InProgress có ghi danh còn hiệu lực; dạy thay chỉ cấp quyền buổi được giao, không mở hồ sơ đầy đủ hoặc nội dung cả khóa. Quyền bàn giao đánh giá lớp trước phải dựa trên lớp chủ nhiệm hiện tại còn hợp lệ. Điều kiện có buổi tương lai chỉ áp dụng cho context AI/nhắc lịch Member, không áp dụng cho quyền xem lịch sử Completed.
 
 ## 2. Phạm vi và thuật ngữ
 
@@ -76,7 +80,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Member có Enrollment Confirmed, `EndedAt` rỗng vẫn đọc lịch sử buổi, giáo án, homework và kết quả của chính mình khi lớp Completed. Ghi danh kết thúc hoặc lớp Cancelled/Draft thì thu hồi quyền nội dung; Coach chủ nhiệm mất quyền hồ sơ học viên khi lớp Completed hoặc ghi danh kết thúc.
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
 - “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
-- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập, báo cáo sau đăng tải do Manager xử lý; chi tiết tại [Avatar-Cloudinary](Avatar-Cloudinary.md).
+- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập, báo cáo sau đăng tải do Manager xử lý; chi tiết tại [Avatar Cloudinary](api-contract.md#avatar-cloudinary--apiavatars).
 
 ## 5. Quy ước kỹ thuật
 
@@ -101,5 +105,5 @@ The product uses English only. Public pages, authenticated screens, validation a
 
 ## 6. Theo dõi phần chưa hoàn thành
 
-Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**: payment đã có mã nhưng sandbox thật chưa nghiệm thu; callback public cần kiểm tra/sửa; Manager AI, chờ đợt sau và các API hỗ trợ frontend còn thiếu.
+Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**. Payment, callback public và chờ đợt sau đã có mã nhưng còn nghiệm thu tích hợp/staging theo từng mục; Manager AI và các API hỗ trợ frontend theo trạng thái riêng trong bảng. COACH-01 ghi rõ validation tạo request cũ còn được chấp nhận ở backend. Có tài liệu hoặc code không đồng nghĩa đã nghiệm thu thành công.
 

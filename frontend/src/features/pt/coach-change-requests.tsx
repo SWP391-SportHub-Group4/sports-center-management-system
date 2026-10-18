@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Pencil,
   RefreshCw,
   Send,
   Users,
@@ -17,7 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { AsyncSection, Feedback } from "@/components/ui";
-import { useApi, useAction, useNow } from "@/lib/useApi";
+import { useApi, useAction } from "@/lib/useApi";
+import { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatTime } from "@/lib/format";
 import {
@@ -27,7 +27,6 @@ import {
   type ClassChangeRequest,
   type ClassChangeType,
 } from "./class-change-api";
-import { PendingRequestEditor } from "./pending-request-editor";
 import { RequestOutcome } from "./request-outcome";
 import styles from "./coach-change-requests.module.css";
 
@@ -44,9 +43,6 @@ export function CoachChangeRequests() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
-  const [editing, setEditing] = useState<ClassChangeRequest | null>(null);
-  const [editMessage, setEditMessage] = useState("");
-  const now = useNow(1000);
   const detailRef = useRef<HTMLElement>(null);
   const lock = useRef(false);
   const action = useAction();
@@ -75,7 +71,21 @@ export function CoachChangeRequests() {
     lock.current = true;
     try {
       const result = await action.run(
-        () => classChangeApi.withdraw(request.requestId),
+        async () => {
+          try {
+            return await classChangeApi.withdraw(request.requestId);
+          } catch (error) {
+            if (
+              error instanceof ApiError &&
+              (error.status === 404 ||
+                error.code === "class_change_not_pending")
+            ) {
+              setConfirmWithdraw(false);
+              state.reload();
+            }
+            throw error;
+          }
+        },
         vi
           ? "Đã rút yêu cầu. Lịch dạy vẫn giữ nguyên."
           : "Request withdrawn. Your teaching schedule is unchanged.",
@@ -124,7 +134,6 @@ export function CoachChangeRequests() {
         </button>
       </div>
       <Feedback error={action.error} success={action.success} />
-      {editMessage && <p role="status">{editMessage}</p>}
       <AsyncSection state={state}>
         {(data) => {
           const selected =
@@ -323,31 +332,12 @@ export function CoachChangeRequests() {
                 )}
                 {selected.status === "PENDING" && (
                   <footer className={styles.detailFooter}>
-                    {!confirmWithdraw &&
-                      Date.parse(selected.originalStartAtUtc) - now >=
-                        6 * 3600000 && (
-                        <button
-                          type="button"
-                          className="btn"
-                          disabled={action.busy}
-                          onClick={() => {
-                            setEditMessage("");
-                            setEditing(selected);
-                          }}
-                        >
-                          <Pencil size={17} aria-hidden="true" />
-                          Edit pending request
-                        </button>
-                      )}
-                    {!confirmWithdraw &&
-                      Date.parse(selected.originalStartAtUtc) > now &&
-                      Date.parse(selected.originalStartAtUtc) - now <
-                        6 * 3600000 && (
-                        <p className={styles.hint} role="status">
-                          Editing closes 6 hours before class. Contact your
-                          Manager directly for urgent changes.
-                        </p>
-                      )}
+                    {!confirmWithdraw && (
+                      <p className={styles.hint}>
+                        Submitted requests cannot be edited. You can withdraw
+                        this request while it is pending.
+                      </p>
+                    )}
                     {confirmWithdraw ? (
                       <div className={styles.confirmation}>
                         <p>
@@ -398,25 +388,6 @@ export function CoachChangeRequests() {
           );
         }}
       </AsyncSection>
-      {editing && (
-        <PendingRequestEditor
-          key={editing.requestId}
-          request={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            setEditMessage(
-              "Changes saved. Your request is still pending Manager review.",
-            );
-            state.reload();
-          }}
-          onUnavailable={(message) => {
-            setEditing(null);
-            setEditMessage(message);
-            state.reload();
-          }}
-        />
-      )}
     </div>
   );
 }

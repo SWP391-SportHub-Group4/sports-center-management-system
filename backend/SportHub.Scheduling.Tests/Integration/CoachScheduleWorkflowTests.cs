@@ -90,7 +90,7 @@ public sealed class CoachScheduleWorkflowTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Pending_request_can_be_edited_and_direct_reschedule_closes_it_with_notifications()
+    public async Task Pending_request_cannot_be_edited_and_direct_reschedule_closes_it_with_notifications()
     {
         var c = await CourseTestData.CreateAsync(factory);
         var s = (await CourseTestData.SessionsAsync(factory, c.Id))[0];
@@ -100,14 +100,16 @@ public sealed class CoachScheduleWorkflowTests(SchedulingApiFactory factory)
         var input = new CreateClassChangeRequest(id, "SUBSTITUTE", "Unavailable for this lesson");
         Assert.Equal(HttpStatusCode.OK, (await coach.PostAsJsonAsync($"api/coaches/me/teaching/sessions/{s.SessionId}/change-requests", input)).StatusCode);
         var edited = await coach.PutAsJsonAsync($"api/coaches/me/teaching/change-requests/{id}", input with { Reason = "Updated availability details" });
-        Assert.True(edited.IsSuccessStatusCode, await edited.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, edited.StatusCode);
+        Assert.Equal(input.Reason, await factory.QueryAsync(db => db.Set<ClassSessionChangeRequest>().Where(r => r.RequestId == id).Select(r => r.Reason).SingleAsync()));
         Assert.Equal(HttpStatusCode.OK, (await manager.PostAsJsonAsync($"api/class-sessions/{s.SessionId}/reschedule", new { startAtUtc = s.StartAtUtc.AddHours(2), reason = "Room unavailable due to incident" })).StatusCode);
         var request = await factory.QueryAsync(db => db.Set<ClassSessionChangeRequest>().AsNoTracking().SingleAsync(r => r.RequestId == id));
         Assert.Equal("WITHDRAWN", request.Status);
         Assert.Equal("SCHEDULE_UPDATED", request.ResolutionType);
         Assert.Equal(c.ManagerId, request.ReviewedByUserId);
         Assert.Contains("automatically", request.ReviewNote);
-        Assert.Equal(HttpStatusCode.Conflict, (await coach.PutAsJsonAsync($"api/coaches/me/teaching/change-requests/{id}", input)).StatusCode);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await coach.PutAsJsonAsync($"api/coaches/me/teaching/change-requests/{id}", input)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await coach.PostAsync($"api/coaches/me/teaching/change-requests/{id}/withdraw", null)).StatusCode);
         foreach (var channel in new[] { NotificationChannel.InApp, NotificationChannel.Email })
             Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == c.CoachId && n.Channel == channel && n.SourceEventType == NotificationSourceEventType.ScheduleChanged)));
     }
@@ -182,7 +184,7 @@ public sealed class CoachScheduleWorkflowTests(SchedulingApiFactory factory)
         var visible = await client.GetFromJsonAsync<System.Text.Json.JsonElement[]>($"api/classes/{c.Id}/sessions");
         Assert.Single(visible!);
         Assert.Equal(assigned.SessionId, visible![0].GetProperty("sessionId").GetGuid());
-        var records = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"api/coaches/me/teaching/classes/{c.Id}/records");
+        var records = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"api/coaches/me/teaching/classes/{c.Id}/records?sessionId={assigned.SessionId}");
         Assert.Equal(1, records.GetProperty("items").GetArrayLength());
         Assert.Equal("Assigned session", records.GetProperty("items")[0].GetProperty("title").GetString());
     }

@@ -20,9 +20,6 @@ public sealed class CoachClassSessionChangeRequestsController(ClassSessionChange
     public async Task<IActionResult> Get(Guid id, CancellationToken ct) => Ok(await service.GetAsync(id, User.RequireUserId(), ct));
     [HttpPost("change-requests/{id:guid}/withdraw")]
     public async Task<IActionResult> Withdraw(Guid id, CancellationToken ct) => Ok(await service.WithdrawAsync(id, User.RequireUserId(), ct));
-    [HttpPut("change-requests/{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, CreateClassChangeRequest request, CancellationToken ct)
-        => Ok(await service.UpdateAsync(id, User.RequireUserId(), request, ct));
 }
 
 [ApiController]

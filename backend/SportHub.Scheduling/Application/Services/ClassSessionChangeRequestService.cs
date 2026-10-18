@@ -197,34 +197,6 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         return await GetAsync(id, coachId, ct);
     }
 
-    public async Task<ClassChangeResponse> UpdateAsync(Guid id, Guid coachId, CreateClassChangeRequest input, CancellationToken ct)
-    {
-        var reason = Reason(input.Reason);
-        if (input.RequestId != id || !ValidRequestType(input.Type))
-            throw new BadRequestException("class_change_invalid", "Class change invalid.");
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var (r, s) = await LockRequestAsync(id, coachId, ct);
-        var actor = await users.GetAsync(coachId, ct);
-        if (s.CoachId != coachId || actor is not { IsActive: true, Role: "Coach" })
-            throw new ForbiddenException("session_not_assigned", "Session not assigned.");
-        EnsureEditable(s);
-        if (s.StartAtUtc != r.OriginalStartAtUtc || s.EndAtUtc != r.OriginalEndAtUtc || s.RoomId != r.OriginalRoomId)
-            throw new ConflictException("class_change_stale", "Class change stale.");
-        ValidateProposal(s, input);
-        r.Type = input.Type; r.Reason = reason;
-        r.ProposedStartAtUtc = input.ProposedStartAtUtc; r.ProposedEndAtUtc = input.ProposedEndAtUtc;
-        var managers = await db.Set<UserAccount>().Where(u => u.Status == UserStatus.Active && u.Role!.RoleName == UserRole.CenterManager)
-            .Select(u => u.UserId).ToListAsync(ct);
-        // Each edit is a new notification event; requestId is already used by the creation event's unique outbox key.
-        var updateEventId = Guid.NewGuid();
-        foreach (var manager in managers)
-            notifications.Queue(new(manager, NotificationEvents.ClassSessionChangeRequested,
-                $"{actor.FullName} updated the {(input.Type == "ABSENCE" ? "absence" : "change")} request for session {s.SessionNo} · {s.Class!.Name}. Reason: {reason}", updateEventId));
-        WriteAudit(coachId, "UPDATE", r);
-        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
-        return await GetAsync(id, coachId, ct);
-    }
-
     public async Task<ClassChangeResponse> ReviewAsync(Guid id, Guid managerId, ResolveClassChangeRequest? input, string? rejection, CancellationToken ct)
     {
         var note = Reason(input?.ReviewNote ?? rejection);

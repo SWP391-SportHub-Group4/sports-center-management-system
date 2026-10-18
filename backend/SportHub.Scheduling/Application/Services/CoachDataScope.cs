@@ -12,7 +12,7 @@ public static class CoachDataScope
     public static IQueryable<Enrollment> Enrollments(ISportHubDbContext db, Guid coachId)
     {
         var classes = Classes(db, coachId);
-        return db.Set<Enrollment>().AsNoTracking().Where(e => e.Status == EnrollmentStatus.Confirmed
+        return db.Set<Enrollment>().AsNoTracking().Where(e => e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null
             && classes.Any(c => c.ClassId == e.ClassId));
     }
 

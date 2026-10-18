@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -14,7 +14,13 @@ import { AsyncSection, StatusChip } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
 import { useLanguage } from "@/lib/language";
 import { useApi } from "@/lib/useApi";
-import { formatDate, formatMoney } from "@/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatTime,
+  formatMoney,
+} from "@/lib/format";
+import { useAuth } from "@/lib/auth";
 import type { CourseDto } from "@/lib/types";
 import { ptApi } from "./api";
 import { PtPage } from "./ui";
@@ -30,6 +36,7 @@ export function CoachClassPage({
   initialTab: "students" | "plans";
 }) {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const vi = language === "vi";
   const state = useApi((signal) => ptApi.classes(signal), [classId]);
   return (
@@ -43,12 +50,16 @@ export function CoachClassPage({
       <AsyncSection state={state}>
         {(classes) => {
           const course = classes.find((item) => item.classId === classId);
-          return course ? (
-            <ClassContent
-              key={`${classId}-${initialTab}`}
-              course={course}
-              initialTab={initialTab}
-            />
+          return course && user ? (
+            course.coachId === user.userId ? (
+              <ClassContent
+                key={`${classId}-${initialTab}`}
+                course={course}
+                initialTab={initialTab}
+              />
+            ) : (
+              <SubstituteSessions course={course} coachId={user.userId} />
+            )
           ) : (
             <section className={styles.empty}>
               <h2>{vi ? "Không tìm thấy lớp học" : "Class not found"}</h2>
@@ -65,6 +76,104 @@ export function CoachClassPage({
         }}
       </AsyncSection>
     </PtPage>
+  );
+}
+
+/** A substitute assignment never opens the whole-class management surface. */
+function SubstituteSessions({
+  course,
+  coachId,
+}: {
+  course: CourseDto;
+  coachId: string;
+}) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const editing = useRef({ dirty: false, busy: false });
+  const state = useApi(
+    async (signal) => {
+      const sessions = await ptApi.classSessions(course.classId, signal);
+      return sessions.filter(
+        (session) =>
+          session.coachId === coachId && !/cancel/i.test(session.status),
+      );
+    },
+    [course.classId, coachId],
+  );
+  return (
+    <div className={styles.classPage}>
+      <Link
+        className="btn btn--quiet"
+        href="/coach"
+        onClick={(event) => {
+          if (
+            editing.current.busy ||
+            (editing.current.dirty &&
+              !window.confirm("Discard your unsaved changes?"))
+          )
+            event.preventDefault();
+        }}
+      >
+        <ArrowLeft size={18} aria-hidden="true" /> Back to schedule
+      </Link>
+      <AsyncSection state={state}>
+        {(sessions) => {
+          const session = sessions.find((item) => item.sessionId === selected);
+          return session ? (
+            <TeachingDetail
+              key={session.sessionId}
+              selection={{ course, session }}
+              fullPage
+              onEditingStateChange={(value) => {
+                editing.current = value;
+              }}
+              onClose={() => {
+                editing.current = { dirty: false, busy: false };
+                setSelected(null);
+                state.reload();
+              }}
+            />
+          ) : (
+            <section
+              className={styles.empty}
+              aria-label="Assigned substitute sessions"
+            >
+              <h2>Substitute sessions</h2>
+              <p>
+                Open an assigned lesson to view its plan, students and
+                attendance. Class-wide plans and student profiles are managed by
+                the class coach.
+              </p>
+              <ul className={styles.sessionList}>
+                {sessions.map((item) => (
+                  <li key={item.sessionId}>
+                    <div>
+                      <strong>Session {item.sessionNo}</strong>
+                      <span>
+                        {formatDateTime(item.startAtUtc)}–
+                        {formatTime(item.endAtUtc)} · {item.roomName}
+                      </span>
+                    </div>
+                    <StatusChip value={item.status} />
+                    <button
+                      className="btn btn--secondary btn--sm"
+                      type="button"
+                      onClick={() => setSelected(item.sessionId)}
+                    >
+                      Open session {item.sessionNo}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {!sessions.length && (
+                <p role="status">
+                  No substitute sessions are currently assigned to you.
+                </p>
+              )}
+            </section>
+          );
+        }}
+      </AsyncSection>
+    </div>
   );
 }
 

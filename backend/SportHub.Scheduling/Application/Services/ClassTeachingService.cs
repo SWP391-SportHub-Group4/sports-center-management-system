@@ -35,7 +35,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         if (page < 1 || page > 10000 || search?.Length > 150)
             throw new BadRequestException("invalid_student_query", "Invalid student search or page.");
         var classes = CurrentClasses(coachId);
-        var enrollments = db.Set<Enrollment>().AsNoTracking().Where(e => e.Status == EnrollmentStatus.Confirmed
+        var enrollments = db.Set<Enrollment>().AsNoTracking().Where(e => e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null
             && classes.Any(c => c.ClassId == e.ClassId) && (!sportId.HasValue || e.Class!.SportId == sportId));
         var query = db.Set<UserAccount>().AsNoTracking().Where(u => enrollments.Any(e => e.MemberId == u.UserId));
         if (!string.IsNullOrWhiteSpace(search)) {
@@ -59,7 +59,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
     {
         await RequireCoachAsync(coachId, ct);
         var classes = CurrentClasses(coachId);
-        var contexts = await db.Set<Enrollment>().AsNoTracking().Where(e => e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed
+        var contexts = await db.Set<Enrollment>().AsNoTracking().Where(e => e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null
             && classes.Any(c => c.ClassId == e.ClassId))
             .Select(e => new { e.ClassId, ClassName = e.Class!.Name, e.Class.SportId, SportName = e.Class.Sport!.Name }).Distinct().OrderBy(c => c.ClassName).ToListAsync(ct);
         if (contexts.Count == 0) throw new ForbiddenException("student_not_assigned", "You are not currently assigned to this student.");
@@ -72,7 +72,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         await RequireCoachAsync(coachId, ct);
         var current = await CurrentClasses(coachId).SingleOrDefaultAsync(c => c.ClassId == classId, ct)
             ?? throw new ForbiddenException("class_not_assigned", "You are not currently assigned to this class.");
-        if (!await db.Set<Enrollment>().AnyAsync(e => e.ClassId == classId && e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed, ct))
+        if (!await db.Set<Enrollment>().AnyAsync(e => e.ClassId == classId && e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null, ct))
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
         var previousClasses = db.Set<Enrollment>().Where(e => e.MemberId == memberId && e.ClassId != classId
             && e.Class!.SportId == current.SportId && e.Class.StartDate <= current.StartDate).Select(e => e.ClassId);
@@ -157,21 +157,38 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         return cls;
     }
 
-    public async Task<object> RecordsAsync(int classId, Guid actorId, bool member, int page, CancellationToken ct, Guid? memberId = null)
+    private async Task RequireTeachingSessionAsync(Class cls, Guid coachId, Guid? sessionId, CancellationToken ct)
     {
+        var substitute = cls.CoachId != coachId;
+        if (substitute && !sessionId.HasValue)
+            throw new ForbiddenException("session_scope_required", "Substitute coaches must open their assigned session.");
+        if (sessionId.HasValue && !await db.Set<ClassSession>().AnyAsync(s => s.SessionId == sessionId
+                && s.ClassId == cls.ClassId
+                && (!substitute || (s.CoachId == coachId && s.Status != ClassSessionStatus.Cancelled)), ct))
+            throw new ForbiddenException("session_not_assigned", "This session is not available to you.");
+    }
+
+    public async Task<object> RecordsAsync(int classId, Guid actorId, bool member, int page, CancellationToken ct, Guid? memberId = null, Guid? sessionId = null)
+    {
+        Class? cls = null;
         if (member) {
             await MemberClassAccess.RequireAsync(db, actorId, classId, clock.UtcNow, ct);
-        } else await RequireClassAsync(classId, actorId, ct);
-        if (!member && memberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed, ct))
+        } else {
+            cls = await RequireClassAsync(classId, actorId, ct);
+            await RequireTeachingSessionAsync(cls, actorId, sessionId, ct);
+        }
+        if (!member && memberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed && x.EndedAt == null, ct))
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
         if (page < 1 || page > 10000) throw new BadRequestException("invalid_page", "Invalid page.");
         var query = db.Set<ClassTeachingRecord>().AsNoTracking().Where(x => x.ClassId == classId);
         if (!member) {
-            var primary = await CoachDataScope.Classes(db, actorId).AnyAsync(c => c.ClassId == classId, ct);
+            var primary = cls!.CoachId == actorId;
             query = query.Where(r => r.MemberId == null || db.Set<Enrollment>().Any(e => e.ClassId == classId
-                && e.MemberId == r.MemberId && e.Status == EnrollmentStatus.Confirmed));
+                && e.MemberId == r.MemberId && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null));
             if (!primary) query = query.Where(r => r.SessionId != null && db.Set<ClassSession>().Any(s => s.SessionId == r.SessionId
                 && s.CoachId == actorId && s.Status != ClassSessionStatus.Cancelled));
+            if (sessionId.HasValue) query = query.Where(r => r.SessionId == sessionId
+                || (primary && r.SessionId == null && r.Kind == "PLAN"));
         }
         if (member) query = query.Where(x => x.MemberId == null || x.MemberId == actorId);
         else if (memberId.HasValue) query = query.Where(x => x.MemberId == memberId || (x.MemberId == null && x.Kind == "PLAN"));
@@ -185,15 +202,15 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
     {
         var cls = await RequireClassAsync(classId, coachId, ct);
         var substitute = cls.CoachId != coachId;
-        if (substitute && (!sessionId.HasValue || !await db.Set<ClassSession>().AnyAsync(s => s.SessionId == sessionId
-                && s.ClassId == classId && s.CoachId == coachId && s.Status != ClassSessionStatus.Cancelled, ct)))
-            throw new ForbiddenException("session_scope_required", "Substitute coaches must open students from their assigned session.");
-        var ids = await db.Set<Enrollment>().Where(x => x.ClassId == classId && x.Status == EnrollmentStatus.Confirmed && (!memberId.HasValue || x.MemberId == memberId))
+        await RequireTeachingSessionAsync(cls, coachId, sessionId, ct);
+        var ids = await db.Set<Enrollment>().Where(x => x.ClassId == classId && x.Status == EnrollmentStatus.Confirmed && x.EndedAt == null && (!memberId.HasValue || x.MemberId == memberId))
             .Select(x => x.MemberId).Distinct().ToListAsync(ct);
         if (memberId.HasValue && ids.Count == 0)
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
-        var profiles = await db.Set<MemberTrainingProfile>().AsNoTracking().Where(x => ids.Contains(x.MemberId)).ToDictionaryAsync(x => x.MemberId, ct);
+        var profiles = substitute ? new Dictionary<Guid, MemberTrainingProfile>()
+            : await db.Set<MemberTrainingProfile>().AsNoTracking().Where(x => ids.Contains(x.MemberId)).ToDictionaryAsync(x => x.MemberId, ct);
         var attendance = await db.Set<Attendance>().AsNoTracking().Where(x => x.Enrollment!.ClassId == classId && ids.Contains(x.Enrollment.MemberId)
+            && x.Enrollment.Status == EnrollmentStatus.Confirmed && x.Enrollment.EndedAt == null
             && (!substitute || x.SessionId == sessionId))
             .Select(x => new { x.Enrollment!.MemberId, x.Status }).ToListAsync(ct);
         var members = new List<TeachingMember>();
@@ -228,7 +245,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             throw new BadRequestException("homework_session_required", "Homework must belong to the lesson that has ended.");
         if (kind != "RESULT" && request.Score.HasValue)
             throw new BadRequestException("score_result_only", "Assessment belongs to a session result.");
-        if (request.MemberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == request.MemberId && x.Status == EnrollmentStatus.Confirmed, ct))
+        if (request.MemberId.HasValue && !await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.MemberId == request.MemberId && x.Status == EnrollmentStatus.Confirmed && x.EndedAt == null, ct))
             throw new ForbiddenException("member_not_in_class", "Student is not registered in this class.");
         int? homeworkSessionNo = null;
         if (request.SessionId.HasValue) {
@@ -266,7 +283,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         if (existing == null && kind is "NOTICE" or "HOMEWORK") {
             var recipients = await (from enrollment in db.Set<Enrollment>()
                 join account in db.Set<UserAccount>() on enrollment.MemberId equals account.UserId
-                where enrollment.ClassId == classId && enrollment.Status == EnrollmentStatus.Confirmed
+                where enrollment.ClassId == classId && enrollment.Status == EnrollmentStatus.Confirmed && enrollment.EndedAt == null
                     && (request.MemberId == null || enrollment.MemberId == request.MemberId)
                 select new { account.UserId, account.Email }).Distinct().ToListAsync(ct);
             var emailBody = kind == "HOMEWORK"
