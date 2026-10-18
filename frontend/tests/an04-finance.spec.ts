@@ -53,6 +53,16 @@ async function managerFixture(page: Page, exportsRows: unknown[] = []) {
       return json({ ...refund, status: "COMPLETED" });
     }
     if (path === "/api/refunds") return json(paged([refund]));
+    if (path.endsWith("/approval-quote")) {
+      const centerFault =
+        new URL(request.url()).searchParams.get("centerFault") === "true";
+      return json({
+        systemCalculatedPoints: centerFault ? 600 : 300,
+        remainingPaidVnd: 600000,
+        maxPercent: centerFault ? 100 : 50,
+        centerFault,
+      });
+    }
     if (path === "/api/invoices") return json(paged([]));
     if (path === "/api/reports/exports") return json(paged(exportsRows));
     if (path === "/api/reports/revenue")
@@ -108,7 +118,7 @@ test("refund queue shows a readable request, never raw ids, and needs a reason t
   await page.goto("/manager/finance?tab=refunds");
   await expect(page.getByText("INV-0042")).toBeVisible();
   await expect(page.getByText("Requested by Alice")).toBeVisible();
-  await expect(page.getByText(/300 .*300,000/)).toBeVisible();
+  await expect(page.getByText(/300 .*300,000/).first()).toBeVisible();
   await expect(page.getByText(itemId)).toHaveCount(0);
   await expect(
     page.getByText(/Cash and card refunds are not available/),
@@ -122,6 +132,47 @@ test("refund queue shows a readable request, never raw ids, and needs a reason t
   expect(calls[0].body).toEqual({
     reason: "Policy confirmed",
     centerFault: false,
+  });
+});
+
+test("refund approval blocks excess and fractional percent and refreshes the center-fault cap", async ({
+  page,
+}) => {
+  const calls = await managerFixture(page);
+  await page.goto("/manager/finance?tab=refunds");
+  const percent = page.getByRole("spinbutton", {
+    name: "Lower refund percent (optional)",
+  });
+  const approve = page.getByRole("button", { name: "Approve", exact: true });
+  await page.getByLabel("Review reason").fill("Policy confirmed");
+  await expect(percent).toHaveAttribute("max", "50");
+  for (const invalid of ["51", "100", "25.5", "-1", "0"]) {
+    await percent.fill(invalid);
+    await expect(approve).toBeDisabled();
+  }
+  expect(calls).toHaveLength(0);
+  await percent.fill("50");
+  await expect(approve).toBeEnabled();
+  await percent.fill("25");
+  await expect(
+    page.getByText(/Calculated by the system: 150 points/),
+  ).toBeVisible();
+  await expect(approve).toBeEnabled();
+  await page.getByLabel("Review reason").fill("Short");
+  await expect(approve).toBeDisabled();
+  await page.getByLabel("Review reason").fill("Policy confirmed");
+  await page.getByRole("checkbox", { name: /center fault/i }).check();
+  await expect(percent).toHaveValue("");
+  await expect(percent).toHaveAttribute("max", "100");
+  await page.getByRole("checkbox", { name: /center fault/i }).uncheck();
+  await expect(percent).toHaveAttribute("max", "50");
+  await percent.fill("25");
+  await approve.click();
+  await expect.poll(() => calls.length).toBe(1);
+  expect(calls[0].body).toEqual({
+    reason: "Policy confirmed",
+    centerFault: false,
+    percent: 25,
   });
 });
 
@@ -245,81 +296,141 @@ test("Manager exports identify members by name for revenue and rental reports", 
   }
 });
 
-test("a member asks for a refund only after opening the form and is told nothing is returned yet", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("sporthub.accessToken", "member-token");
-    localStorage.setItem("sporthub_lang", "en");
-  });
-  const posts: unknown[] = [];
-  const summary = {
-    invoiceId,
-    invoiceNumber: "INV-0042",
-    memberName: "Alice",
-    memberEmail: "a@example.com",
-    totalAmount: 300000,
-    pointsSpent: 0,
-    cashAmount: 300000,
-    outstanding: 0,
-    status: "PAID",
-    fulfillmentOutcome: "FULFILLED",
-    reconciliationRequired: false,
-    issuedAt: "2030-10-01T00:00:00Z",
-  };
-  await page.route("**/api/**", async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    const json = (body: unknown) => route.fulfill({ json: body });
-    if (path === "/api/users/me")
-      return json({
-        userId: memberId,
-        email: "a@example.com",
-        fullName: "Alice",
-        role: "MEMBER",
-        sportIds: [],
+for (const scenario of ["eligible", "dayPass", "overused"] as const) {
+  const dayPass = scenario === "dayPass";
+  const overused = scenario === "overused";
+  test(
+    dayPass
+      ? "a day pass shows its non-refundable reason and cannot submit a refund"
+      : overused
+        ? "an overused membership explains the time threshold and cannot submit a standard refund"
+        : "a member asks for a refund only after opening the form and is told nothing is returned yet",
+    async ({ page }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem("sporthub.accessToken", "member-token");
+        localStorage.setItem("sporthub_lang", "en");
       });
-    if (path === `/api/invoices/${invoiceId}`)
-      return json({
-        summary,
-        items: [
-          {
-            itemId,
-            description: "Badminton course",
-            quantity: 1,
-            unitPrice: 300000,
-            lineAmount: 300000,
-          },
-        ],
-        payments: [],
-        adjustments: [],
+      const posts: unknown[] = [];
+      const summary = {
+        invoiceId,
+        invoiceNumber: "INV-0042",
+        memberName: "Alice",
+        memberEmail: "a@example.com",
+        totalAmount: 300000,
+        pointsSpent: 0,
+        cashAmount: 300000,
+        outstanding: 0,
+        status: "PAID",
+        fulfillmentOutcome: "FULFILLED",
+        reconciliationRequired: false,
+        issuedAt: "2030-10-01T00:00:00Z",
+      };
+      await page.route("**/api/**", async (route) => {
+        const request = route.request();
+        const path = new URL(request.url()).pathname;
+        const json = (body: unknown) => route.fulfill({ json: body });
+        if (path === "/api/users/me")
+          return json({
+            userId: memberId,
+            email: "a@example.com",
+            fullName: "Alice",
+            role: "MEMBER",
+            sportIds: [],
+          });
+        if (path === `/api/invoices/${invoiceId}`)
+          return json({
+            summary,
+            items: [
+              {
+                itemId,
+                itemType: dayPass || overused ? "MEMBERSHIP" : "CLASS_PACKAGE",
+                description: dayPass
+                  ? "Gym day pass"
+                  : overused
+                    ? "Gym membership"
+                    : "Badminton course",
+                quantity: 1,
+                unitPrice: 300000,
+                lineAmount: 300000,
+              },
+            ],
+            payments: [],
+            adjustments: [],
+          });
+        if (path === `/api/refunds/quote/${itemId}`)
+          return dayPass
+            ? route.fulfill({
+                status: 409,
+                json: {
+                  error: "day_pass_non_refundable",
+                  message: "Gym day passes cannot be refunded as points.",
+                },
+              })
+            : json({ systemCalculatedPoints: overused ? 0 : 300 });
+        if (path === "/api/refunds" && request.method() === "POST") {
+          posts.push(request.postDataJSON());
+          return json({ ok: true });
+        }
+        if (path.includes("notifications"))
+          return json(path.endsWith("unread-count") ? { count: 0 } : []);
+        return json([]);
       });
-    if (path === `/api/refunds/quote/${itemId}`)
-      return json({ systemCalculatedPoints: 300 });
-    if (path === "/api/refunds" && request.method() === "POST") {
-      posts.push(request.postDataJSON());
-      return json({ ok: true });
-    }
-    if (path.includes("notifications"))
-      return json(path.endsWith("unread-count") ? { count: 0 } : []);
-    return json([]);
-  });
-  await page.goto(`/member/invoices/${invoiceId}`);
-  await expect(
-    page.getByRole("combobox", { name: "Request refund to wallet" }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "Request a refund" }).click();
-  await page
-    .getByRole("combobox", { name: "Request refund to wallet" })
-    .selectOption(itemId);
-  await expect(page.getByText(/Estimated refund: 300 points/)).toBeVisible();
-  await page.getByLabel("Reason", { exact: true }).fill("Cannot attend");
-  await page
-    .getByRole("button", { name: "Request refund to wallet", exact: true })
-    .click();
-  await expect.poll(() => posts.length).toBe(1);
-  expect(posts[0]).toEqual({ invoiceItemId: itemId, reason: "Cannot attend" });
-  await expect(
-    page.getByText(/No points are returned until the center approves it/),
-  ).toBeVisible();
-});
+      await page.goto(`/member/invoices/${invoiceId}`);
+      await expect(
+        page.getByRole("combobox", { name: "Request refund to wallet" }),
+      ).toHaveCount(0);
+      await page.getByRole("button", { name: "Request a refund" }).click();
+      await page
+        .getByRole("combobox", { name: "Request refund to wallet" })
+        .selectOption(itemId);
+      if (dayPass) {
+        await expect(
+          page.getByRole("alert").filter({ hasText: "Gym day passes" }),
+        ).toHaveText("Gym day passes cannot be refunded as points.");
+        await page
+          .getByLabel("Reason", { exact: true })
+          .fill("Request day pass refund");
+        await expect(
+          page.getByRole("button", {
+            name: "Request refund to wallet",
+            exact: true,
+          }),
+        ).toBeDisabled();
+        expect(posts).toHaveLength(0);
+        return;
+      }
+      if (overused) {
+        await expect(
+          page.getByText(en.finOps.membershipRefundPolicy),
+        ).toBeVisible();
+        await expect(page.getByText(en.finOps.refundNothing)).toBeVisible();
+        await page
+          .getByLabel("Reason", { exact: true })
+          .fill("I never visited the gym");
+        await expect(
+          page.getByRole("button", {
+            name: "Request refund to wallet",
+            exact: true,
+          }),
+        ).toBeDisabled();
+        expect(posts).toHaveLength(0);
+        return;
+      }
+      await expect(
+        page.getByText(/Estimated refund: 300 points/),
+      ).toBeVisible();
+      await page.getByLabel("Reason", { exact: true }).fill("Cannot attend");
+      await page
+        .getByRole("button", { name: "Request refund to wallet", exact: true })
+        .click();
+      await expect.poll(() => posts.length).toBe(1);
+      expect(posts[0]).toEqual({
+        invoiceItemId: itemId,
+        reason: "Cannot attend",
+      });
+      await expect(
+        page.getByText(/No points are returned until the center approves it/),
+      ).toBeVisible();
+    },
+  );
+}

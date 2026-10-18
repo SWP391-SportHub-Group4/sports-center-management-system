@@ -39,7 +39,7 @@ export function RefundCancelDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const now = useNow();
@@ -182,7 +182,13 @@ export function RefundCancelDialog({
               <div>
                 <dt>{tx("Mức hoàn", "Refund rate")}</dt>
                 <dd>
-                  {kind === "gym" ? (noRefund ? "0%" : "50%") : `${percent}%`}
+                  {quote.loading || quote.error || points === undefined
+                    ? "—"
+                    : kind === "gym"
+                      ? noRefund
+                        ? "0%"
+                        : "50%"
+                      : `${percent}%`}
                 </dd>
               </div>
               <div>
@@ -192,15 +198,7 @@ export function RefundCancelDialog({
             </dl>
             <p className={styles.hint}>
               {kind === "gym"
-                ? noRefund
-                  ? tx(
-                      "Đã dùng quá 1/3 thời hạn nên không còn được hoàn điểm.",
-                      "More than a third of the term is used, so no points are returned.",
-                    )
-                  : tx(
-                      "Còn từ 2/3 thời hạn trở lên nên hoàn 50%. Điểm hoàn vào ví, không hoàn tiền mặt.",
-                      "At least two thirds of the term remain, so 50% is returned as wallet points, never cash.",
-                    )
+                ? t.finOps.membershipRefundPolicy
                 : percent === 100
                   ? tx(
                       "Hủy từ 5 ngày trở lên trước buổi đầu được hoàn 100%.",
@@ -217,7 +215,13 @@ export function RefundCancelDialog({
               <button
                 type="button"
                 className="btn btn--danger"
-                disabled={action.busy || !quote.data || noRefund}
+                disabled={
+                  action.busy ||
+                  quote.loading ||
+                  !!quote.error ||
+                  !quote.data ||
+                  noRefund
+                }
                 onClick={cancel}
               >
                 {tx("Xác nhận hủy", "Confirm cancellation")}

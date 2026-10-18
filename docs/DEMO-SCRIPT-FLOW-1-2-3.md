@@ -1,5 +1,7 @@
 # SportHub — Kịch bản demo Flow 1 + Flow 2 + Flow 3
 
+Lưu ý thiết lập: ứng dụng chính hỗ trợ `--seed-br141=true` theo [RUNBOOK](RUNBOOK.md#321-dữ-liệu-dev-seed-lớp-br-141-và-reset). Các hướng dẫn `--seed-demo-flow12=true` bên dưới thuộc fixture cũ trong project test, không phải lệnh hiện có của API chính. Không có seed demo tự động khi khởi động.
+
 Môi trường demo dự kiến là bản deploy từ `main` **sau khi merge code mới và triển khai lại**. Ba flow phải dùng cùng một môi trường và database; thay mọi URL `localhost` bên dưới bằng URL deploy khi diễn tập trên bản deploy. Docker local là phương án dự phòng dùng ví điểm, không dùng để chứng minh IPN VNPay công khai.
 Thời lượng: ~32 phút (Flow 1 ~10 phút, Flow 2 ~11 phút, Flow 3 ~11 phút). Ba flow nối tiếp nhau: dữ liệu Member mua ở Flow 1–2 (gói Gym, lớp, thuê sân) chính là hóa đơn để demo thanh toán, hoàn điểm và báo cáo ở Flow 3.
 
@@ -176,7 +178,7 @@ Dùng dữ liệu tạo ở Flow 1–2 trên **cùng môi trường deploy**. Me
 - Người dùng đã thử thanh toán VNPay thành công trên `main` trước merge. Cần thử lại trên bản deploy sau merge; chưa coi IPN lặp/đến muộn, QueryDR và cấp quyền lợi đúng một lần là đã nghiệm thu nếu chưa có bằng chứng riêng cho từng trường hợp. Docker local dùng ví điểm khi không có IPN công khai.
 - Không hoàn tiền mặt/chuyển khoản và không gọi VNPay Refund API (ngoài phạm vi): hoàn chỉ bằng điểm.
 - Báo cáo và export đã có mã nhưng chưa nghiệm thu trên dữ liệu lớn.
-- Lịch cố định BR141 chưa có test tự động (chỉ có seeder).
+- Lịch cố định BR141 có `Br141SeederTests` kiểm tra lệnh seed thật, lịch/occupancy và retry trên PostgreSQL. Lệnh ứng dụng chính là `--seed-br141=true`; các lệnh demo fixture khác trong tài liệu này không phải lệnh được ứng dụng chính hỗ trợ.
 - Đóng/mở tuyển sinh (G13): đã có test tích hợp `EnrollmentClosureTests` (hold còn hiệu lực hoàn tất sau khi đóng, người mới bị từ chối, mở lại khi payment đang chờ, thông báo). Chưa có test hold hết hạn sau khi đóng và chưa xem UI trên trình duyệt thật.
 - Chưa có bằng chứng nghiệm thu E2E trên bản deploy sau merge cho một số mục (G02, G05, G12); cần diễn tập lại trước buổi demo.
 

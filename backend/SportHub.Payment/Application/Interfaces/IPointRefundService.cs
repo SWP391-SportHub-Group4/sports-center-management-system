@@ -11,6 +11,7 @@ public interface IPointRefundService
     Task<PagedResult<PaymentAdjustmentResponse>> SearchMineAsync(Guid memberUserId, string? status,
         int page, int pageSize, CancellationToken cancellationToken = default);
     Task<int> QuoteAsync(Guid invoiceItemId, Guid actorUserId, bool canRequestForAnotherUser, CancellationToken ct);
+    Task<RefundApprovalQuote> ApprovalQuoteAsync(Guid adjustmentId, bool centerFault, Guid managerUserId, CancellationToken ct);
     Task<PaymentAdjustmentResponse> RequestAsync(Guid invoiceItemId, string reason, Guid actorUserId,
         bool canRequestForAnotherUser, CancellationToken cancellationToken = default);
     Task<PaymentAdjustmentResponse> CancelClassEnrollmentAsync(Guid invoiceItemId, Guid actorUserId,
@@ -22,3 +23,5 @@ public interface IPointRefundService
     Task<PaymentAdjustmentResponse> RejectAsync(Guid adjustmentId, string reason, Guid managerUserId,
         CancellationToken cancellationToken = default);
 }
+
+public sealed record RefundApprovalQuote(int SystemCalculatedPoints, decimal RemainingPaidVnd, int MaxPercent, bool CenterFault);

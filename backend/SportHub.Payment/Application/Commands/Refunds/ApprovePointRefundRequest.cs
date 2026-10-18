@@ -6,7 +6,7 @@ public sealed class ApprovePointRefundRequest
 {
     public bool CenterFault { get; set; }
 
-    /// <summary>Ngoại lệ do Manager quyết định (ví dụ Coach dạy chưa đạt): % giá trị thực trả được hoàn, thay cho mức theo quy tắc.</summary>
+    /// <summary>Optional percentage of the remaining paid value; cannot exceed the system-calculated points.</summary>
     [Range(0, 100)]
     public int? Percent { get; set; }
 

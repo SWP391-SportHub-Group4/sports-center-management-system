@@ -85,6 +85,28 @@ Trên lịch Member, sau khi hủy thuê sân thành công, thẻ chuyển ngay 
 
 Seed lịch lớp cố định (Bóng rổ và Cầu lông 01 T2/4/6 07:00-09:00, 02 T3/5/7 14:00-16:00) và bảng giá thuê sân (Cầu lông 100.000, Bóng rổ 200.000 đồng/giờ) là lệnh riêng, idempotent, không chạy lúc khởi động:
 
+Ứng dụng chính dùng `Br141Seeder`, không gọi bộ coach/demo trong project test. Cần đã áp dụng migration và có một Center Manager Active. Seeder bổ sung các HLV còn thiếu bằng mật khẩu cấu hình `Seed:Password` (ít nhất 12 ký tự, có chữ hoa/thường, số và ký tự đặc biệt); không đổi mật khẩu, hồ sơ, chuyên môn hoặc trạng thái tài khoản đã có. Tài khoản HLV có sẵn phải Active, có CoachProfile và chuyên môn đúng môn.
+
+Từ gốc repository trên PowerShell:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+# Đặt Seed__Password qua cấu hình local/user-secrets hoặc biến môi trường trước khi tạo HLV còn thiếu.
+dotnet run --project backend/SportHub.API --no-launch-profile -- --seed-br141=true
+```
+
+Nếu cần chỉ định database local khác, thêm `"--ConnectionStrings:Default=Host=localhost;Port=<port>;Database=<db>;Username=<user>;Password=<password>"`. Lệnh chỉ chấp nhận Development và host local, kiểm tra migration trước khi ghi, khóa các lệnh seed chạy đồng thời, ghi tên database/host/port rồi kết thúc sau khi seed. Không tạo hóa đơn, ghi danh, điểm danh hoặc điểm ví.
+
+Mỗi lớp mới có 12 buổi, thời lượng 120 phút, khai giảng vào Thứ Hai/Thứ Ba đầu tiên cách ngày seed ít nhất 8 ngày; sau publish được mở tuyển sinh. Chạy lại giữ nguyên mọi lớp đã tồn tại theo 4 mã `BR141-*`, kể cả lớp đã đổi tên/giá, đóng tuyển sinh hoặc đã kết thúc; không tự tạo đợt học kế tiếp. Sân chỉ được thêm khi chưa có; giờ mở cửa sân có sẵn và bảng giá có sẵn (kể cả giá đã ngừng) được giữ nguyên.
+
+Với baseline cầu lông 90 phút, chỉ nâng lên 120 khi môn chưa có lớp nào. Nếu đã có lớp hoặc cấu hình khác, lệnh dừng để Manager rà cấu hình. Xung đột lịch sân/HLV, sân không tương thích/không hoạt động, giờ đóng cửa hoặc sức chứa quá thấp đều được báo trước khi tạo lớp. Publish vẫn kiểm tra lại trong transaction; nếu có xung đột mới phát sinh đồng thời và để lại Draft, Manager cần xem và xử lý Draft trong quản lý lớp trước khi seed lại. Không tự đổi lịch hay xóa booking để nhường chỗ.
+
+Kiểm tra sau seed: `/manager/classes` và danh sách lớp cho Member có đủ bốn lớp; mỗi lớp có 12 buổi đúng lịch. Lịch sân chặn thuê trùng các buổi này, khung ngoài lớp vẫn có thể cho thuê theo cấu hình hiện tại. Test tự động:
+
+```powershell
+dotnet test backend/SportHub.Scheduling.Tests --filter "FullyQualifiedName~Br141SeederTests"
+```
+
 ```bash
 cd backend/SportHub.API
 ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-br141=true
@@ -92,14 +114,9 @@ ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-br141=true
 
 Lệnh in `database '...' trên '...'` trước khi ghi. Viết `--seed-br141=true` (có giá trị): nếu viết `--seed-br141` đứng một mình rồi tới `--ConnectionStrings:Default=...`, .NET dùng tham số kế tiếp làm giá trị của cờ và chuỗi kết nối bị bỏ qua. Biến môi trường `ConnectionStrings__Default` cũng không dùng được để đổi DB vì `.env` ở gốc repo được nạp và ghi đè; với `dotnet ef` dùng `--connection`.
 
-Seed dữ liệu demo Flow 1 + Flow 2 (lệnh riêng, idempotent, gọi luôn seed BR-141): ba Member demo `demo.member1..3@sporthub.vn` (mật khẩu `Sporthub@123`) mỗi người 3.000 điểm, Member 1 có gói Gym đang hoạt động, và lớp `DEMO-SMALL-01` chỉ 2 chỗ để demo không bán vượt sĩ số. Cần đã có Manager, Receptionist, Coach roster và gói Membership (seed dev mặc định).
+Phần demo Flow 1 + Flow 2 bên dưới là tài liệu fixture cũ trong project test. Ứng dụng chính không hỗ trợ `--seed-demo-flow12=true`; không dùng lệnh đó để thiết lập dữ liệu vận hành. Dữ liệu fixture: ba Member demo `demo.member1..3@sporthub.vn` mỗi người 3.000 điểm, Member 1 có gói Gym đang hoạt động và lớp `DEMO-SMALL-01` chỉ 2 chỗ. Startup ứng dụng chính không chạy seed demo.
 
-```bash
-cd backend/SportHub.API
-ASPNETCORE_ENVIRONMENT=Development dotnet run -- --seed-demo-flow12=true
-```
-
-Cùng quy tắc với `--seed-br141`: viết cờ có giá trị, lệnh in tên database trước khi ghi, và dùng `--ConnectionStrings:Default=...` để trỏ vào DB khác (ví dụ DB trong Docker publish ở cổng `POSTGRES_PORT`). Chạy lại không nhân bản dữ liệu và không cộng điểm lần hai. Kịch bản demo: [DEMO-SCRIPT-FLOW-1-2-3.md](DEMO-SCRIPT-FLOW-1-2-3.md).
+Các fixture cũ chỉ phục vụ database test cô lập. Kịch bản tham khảo: [DEMO-SCRIPT-FLOW-1-2-3.md](DEMO-SCRIPT-FLOW-1-2-3.md); dữ liệu Member/giao dịch trên môi trường chạy thật cần được tạo qua các luồng nghiệp vụ.
 
 Reset dữ liệu dev (giữ tài khoản và cấu hình, xóa mọi dữ liệu phát sinh): sao lưu rồi chạy [reset-dev-data.sql](../backend/scripts/reset-dev-data.sql); đầu file có lệnh `pg_dump`/`psql` mẫu. Script chỉ chạy trên database tên `sporthub` và tạm tắt trigger chặn TRUNCATE của sổ điểm.
 

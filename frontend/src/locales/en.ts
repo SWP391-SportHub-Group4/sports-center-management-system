@@ -1953,7 +1953,16 @@ export const en = {
     approvedPts: "Approved: {points} points",
     reviewHelp: "A reason is required and is saved with the decision.",
     centerFaultHelp:
-      "Tick when the center caused the problem. The system recalculates the refund.",
+      "Use only when another problem prevents the center from providing the service. Temporary Gym closures for repairs are compensated by extending the membership, not a refund. State the reason and supporting facts; membership refunds cover only the unused calendar days.",
+    membershipRefundPolicy:
+      "Standard Gym membership refunds are capped at 50% of the amount paid when at least two thirds of the term remain. Eligibility uses Vietnam calendar dates, including the first and last day, not the number of gym visits. Below that threshold or after expiry, no standard refund applies.",
+    refundPercent: "Lower refund percent (optional)",
+    refundPercentHelp:
+      "Percent of the remaining paid value, up to {max}%. Leave blank to use the system amount.",
+    refundByPolicy: "By policy",
+    refundPercentInvalid: "Enter a whole percent within the system limit.",
+    refundDetailedReason:
+      "Provide at least 10 characters when changing the percent or selecting center fault.",
     balanceAfter: "Balance after adjustment",
     walletSearch: "Find a member",
     reportsTabsLabel: "Report sections",

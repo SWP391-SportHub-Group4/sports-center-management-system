@@ -61,6 +61,31 @@ LoadRootEnvIfPresent();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Reject invalid seed targets before requiring unrelated production integrations or opening a database.
+var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordinal)).ToArray();
+if (seedCommands.Length > 0)
+{
+    if (seedCommands.Length != 1 || seedCommands[0] is not ("--seed-validation=true" or "--seed-gym-six-months=true" or "--seed-br141=true"))
+    {
+        Console.Error.WriteLine("Use --seed-validation=true, --seed-gym-six-months=true or --seed-br141=true for explicit local setup.");
+        Environment.ExitCode = 1;
+        return;
+    }
+    if (!builder.Environment.IsDevelopment())
+    {
+        Console.Error.WriteLine("Validation seeding is only available in Development.");
+        Environment.ExitCode = 1;
+        return;
+    }
+    var seedTarget = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Default"));
+    if (seedTarget.Host is not ("localhost" or "127.0.0.1" or "::1"))
+    {
+        Console.Error.WriteLine("Validation seeding must target a local database.");
+        Environment.ExitCode = 1;
+        return;
+    }
+}
+
 builder.Services.AddDbContext<SportHubDbContext>(options =>
     options
         .UseNpgsql(builder.Configuration.GetConnectionString("Default"))
@@ -424,30 +449,35 @@ builder.Services.AddControllers()
 builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<SystemValidationSeeder>();
+builder.Services.AddScoped<Br141Seeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
 
-if (args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal)))
+if (seedCommands.Length > 0)
 {
-    var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordinal)).ToArray();
-    if (seedCommands.Length != 1 || seedCommands[0] is not ("--seed-validation=true" or "--seed-gym-six-months=true"))
-        throw new InvalidOperationException("Use --seed-validation=true or --seed-gym-six-months=true for explicit local setup.");
-    if (!app.Environment.IsDevelopment())
-        throw new InvalidOperationException("Validation seeding is only available in Development.");
     var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-    if (target.Host is not ("localhost" or "127.0.0.1" or "::1"))
-        throw new InvalidOperationException("Validation seeding must target a local database.");
+    app.Logger.LogInformation("Seed target: database '{Database}' on '{Host}:{Port}'.", target.Database, target.Host, target.Port);
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
     if ((await db.Database.GetPendingMigrationsAsync()).Any())
-        throw new InvalidOperationException("Apply pending migrations before seeding. The seed command never changes the database schema.");
+    {
+        app.Logger.LogError("Apply pending migrations before seeding. The seed command never changes the database schema.");
+        Environment.ExitCode = 1;
+        return;
+    }
     await db.Database.OpenConnectionAsync();
     await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(2026101301)");
     try {
         var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
-        if (seedCommands[0] == "--seed-gym-six-months=true") await seeder.SeedGymSixMonthsAsync();
+        if (seedCommands[0] == "--seed-br141=true") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
+        else if (seedCommands[0] == "--seed-gym-six-months=true") await seeder.SeedGymSixMonthsAsync();
         else await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError("Seed failed: {Reason}", ex.Message);
+        Environment.ExitCode = 1;
     }
     finally {
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_unlock(2026101301)");

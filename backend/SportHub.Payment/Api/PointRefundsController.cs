@@ -68,6 +68,12 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
     }
 
     [Authorize(Policy = SportHubPolicies.RefundApprove)]
+    [HttpGet("{adjustmentId:guid}/approval-quote")]
+    public async Task<IActionResult> ApprovalQuote(Guid adjustmentId, [FromQuery] bool centerFault = false,
+        CancellationToken cancellationToken = default)
+        => Ok(await refunds.ApprovalQuoteAsync(adjustmentId, centerFault, User.RequireUserId(), cancellationToken));
+
+    [Authorize(Policy = SportHubPolicies.RefundApprove)]
     [HttpPost("{adjustmentId:guid}/approve")]
     public async Task<IActionResult> Approve(Guid adjustmentId, [FromBody] ApprovePointRefundRequest request,
         CancellationToken cancellationToken)

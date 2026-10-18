@@ -7,6 +7,15 @@ public sealed class PointRefundCalculatorTests
     [Theory]
     [InlineData("2026-01-01", "2026-12-31", "2026-05-02", 500)]
     [InlineData("2026-01-01", "2026-12-31", "2026-05-03", 0)]
+    [InlineData("2026-01-01", "2026-03-31", "2026-01-31", 500)] // Exactly 60/90 days remain.
+    [InlineData("2026-01-01", "2026-03-31", "2026-02-01", 0)] // Only 59/90 days remain.
+    [InlineData("2026-01-01", "2026-03-31", "2025-12-15", 500)] // Prepaid future term.
+    [InlineData("2026-01-01", "2026-03-31", "2026-01-01", 500)]
+    [InlineData("2026-01-01", "2026-03-31", "2026-03-31", 0)]
+    [InlineData("2026-01-01", "2026-03-31", "2026-04-01", 0)]
+    [InlineData("2028-02-01", "2028-02-29", "2028-02-10", 500)]
+    [InlineData("2028-02-01", "2028-02-29", "2028-02-11", 0)]
+    [InlineData("2026-01-02", "2026-01-01", "2026-01-01", 0)]
     public void Membership_uses_two_thirds_boundary_and_returns_points(
         string start, string end, string request, int expected)
     {
@@ -42,12 +51,21 @@ public sealed class PointRefundCalculatorTests
     }
 
     [Fact]
+    public void Center_fault_rounds_the_unused_value_without_losing_an_exact_point_to_a_repeating_percentage()
+        => Assert.Equal(1, RefundCalculator.MembershipPoints(3_000,
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 3), new DateOnly(2026, 1, 3), centerFault: true));
+
+    [Fact]
     public void Center_fault_refunds_only_the_unused_share_and_fractional_vnd_is_floored_to_points()
     {
         Assert.Equal(1_000, RefundCalculator.MembershipPoints(1_000_999,
             new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), new DateOnly(2026, 1, 1), centerFault: true));
         Assert.Equal(500, RefundCalculator.MembershipPoints(1_000_000,
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 6), centerFault: true));
+        Assert.Equal(545, RefundCalculator.MembershipPoints(1_000_000,
             new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 11), new DateOnly(2026, 1, 6), centerFault: true));
+        Assert.Equal(100, RefundCalculator.MembershipPoints(1_000_000,
+            new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 10), centerFault: true));
         Assert.Equal(0, RefundCalculator.MembershipPoints(1_000_000,
             new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 11), new DateOnly(2026, 2, 1), centerFault: true));
         Assert.Equal(499, RefundCalculator.PointsForRatio(999_999, 50));

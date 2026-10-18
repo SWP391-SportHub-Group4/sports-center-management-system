@@ -637,6 +637,8 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 
 Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2; lỗi trung tâm theo phần ngày chưa dùng; vé Gym 1 ngày không hoàn), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
 
+Membership theo BR-91 tính cả ngày đầu/cuối: `TotalDays = EndDate − StartDate + 1`, `RemainingDays = clamp(EndDate − RefundRequestedDate + 1, 0, TotalDays)`, theo ngày Việt Nam. "Đã dùng quá mức" ở Membership là đã qua hơn 1/3 thời hạn, không tính số lần tới Gym hoặc số buổi còn lại. Gói gia hạn chưa bắt đầu vẫn được xét hoàn chuẩn tối đa 50%; gói Expired/Cancelled không có điểm hoàn. Khi duyệt, dùng ngày tạo yêu cầu, không thay bằng ngày duyệt. Ngoại lệ Center Fault cần lý do và căn cứ, hoàn theo phần ngày chưa dùng; đóng Gym tạm thời để sửa chữa xử lý gia hạn theo BR-130, không phải căn cứ hoàn.
+
 Manager không nhập số điểm tùy ý, chỉ chọn center-fault có lý do rồi server tính lại. PostgreSQL gate cho refund/cap/concurrency/rollback và migration upgrade đã qua; xem evidence.
 
 ## Phần I — P1.09 Ngưỡng hoàn vốn và phản hồi
