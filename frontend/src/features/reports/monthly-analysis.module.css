@@ -1,0 +1,700 @@
+.dashboard {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  color: var(--text-body);
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.title h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 600 1.625rem / 1.25 var(--font-body);
+  letter-spacing: -0.025em;
+}
+.title p,
+.panelHeader p,
+.periodNote,
+.definition,
+.chartFootnote,
+.emptyNote {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.actions :global(.btn) {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+}
+.period {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--court-800);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.periodNote {
+  margin: -12px 0 0;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+.metric {
+  min-width: 0;
+  padding: 24px;
+}
+.metric + .metric {
+  border-inline-start: 1px solid var(--border-subtle);
+}
+.metric :global(.stat),
+.points :global(.stat) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.metric :global(.stat__label) {
+  min-height: 40px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.metric :global(.stat__value) {
+  color: var(--court-800);
+  font: 650 1.75rem / 1.2 var(--font-body);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.metric p {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.primaryGrid,
+.secondaryGrid {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.primaryGrid {
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+}
+.secondaryGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+.panelHeader h3,
+.pointsIntro h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 600 1rem / 1.4 var(--font-body);
+}
+.panelHeader p {
+  max-width: 68ch;
+}
+.chartLegend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+.chartLegend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.chartLegend i,
+.sourceList i {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.cashKey,
+.confirmedSegment {
+  background: var(--court-700);
+}
+.netKey {
+  background: var(--wood-500);
+}
+.holdKey,
+.heldSegment {
+  background: var(--wood-400);
+}
+.availableKey {
+  background: var(--chalk-200);
+}
+.unit {
+  margin-inline-start: auto;
+}
+.trend {
+  display: grid;
+  gap: 16px;
+}
+.plot {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+.yAxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 224px;
+  padding-block: 6px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+.plotBody {
+  position: relative;
+  min-width: 0;
+}
+.plotBody svg {
+  display: block;
+  width: 100%;
+  height: 240px;
+  overflow: visible;
+}
+.gridLine {
+  stroke: var(--border-subtle);
+  stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+}
+.zeroLine {
+  stroke: var(--chalk-600);
+  vector-effect: non-scaling-stroke;
+}
+.future {
+  fill: var(--bg-surface-sunken);
+  opacity: 0.65;
+}
+.area {
+  fill: var(--court-100);
+  opacity: 0.6;
+}
+.cashLine,
+.netLine {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.cashLine {
+  stroke: var(--court-700);
+}
+.netLine {
+  stroke: var(--wood-500);
+  stroke-dasharray: 5 5;
+  stroke-width: 2;
+}
+.cursor {
+  stroke: var(--chalk-500);
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+.dot {
+  fill: var(--court-700);
+  stroke: var(--bg-surface);
+  stroke-width: 2;
+}
+.xAxis {
+  position: relative;
+  height: 22px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.xAxis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+.inspection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--bg-surface-sunken);
+  font-size: 0.8125rem;
+}
+.inspection strong {
+  color: var(--court-800);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+.inspection small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+.daySelector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.daySelector input {
+  flex-basis: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  accent-color: var(--court-700);
+  cursor: pointer;
+}
+.daySelector input:focus-visible,
+.sourceList button:focus-visible,
+.detailLink:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.mix {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 24px;
+}
+.donut {
+  display: grid;
+  place-items: center;
+  width: 184px;
+  height: 184px;
+  max-width: 100%;
+  border-radius: 50%;
+}
+.donutHole {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 140px;
+  height: 140px;
+  padding: 16px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  text-align: center;
+}
+.donutHole strong {
+  color: var(--court-800);
+  font-size: 1.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.donutHole span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.sourceList,
+.occupancyList,
+.memberBars {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.sourceList li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.sourceList button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: start;
+  cursor: pointer;
+  transition: background 160ms ease-out;
+}
+.sourceList button:hover,
+.sourceList button[aria-pressed="true"] {
+  background: var(--bg-surface-sunken);
+}
+.sourceList button > span {
+  flex: 1;
+  min-width: 0;
+}
+.sourceList small,
+.barHeading small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.sourceList strong {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.enrollment,
+.membership {
+  display: grid;
+  gap: 24px;
+}
+.occupancyList,
+.memberBars {
+  display: grid;
+  gap: 24px;
+}
+.barHeading,
+.memberHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 0.875rem;
+}
+.barHeading > strong {
+  color: var(--court-800);
+  font-size: 1.25rem;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.stackedBar {
+  display: flex;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--chalk-200);
+}
+.stackedBar span {
+  display: block;
+  height: 100%;
+}
+.stackedBar span + span {
+  border-inline-start: 2px solid var(--bg-surface);
+}
+.barCaption {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.memberHeading strong {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.memberTrack {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--bg-surface-sunken);
+  overflow: hidden;
+}
+.memberTrack span {
+  display: block;
+  height: 100%;
+  width: var(--bar-width);
+  border-radius: inherit;
+}
+.chartFootnote {
+  margin: 0;
+  font-size: 0.75rem;
+}
+.detailLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: auto;
+  padding-top: 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+.ledger {
+  padding: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+.points {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.pointsIntro {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pointsIntro p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.pointRate {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.pointStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pointMetric {
+  min-width: 0;
+  padding-inline: 24px;
+}
+.pointMetric:first-child {
+  padding-inline-start: 0;
+}
+.pointMetric:last-child {
+  padding-inline-end: 0;
+}
+.pointMetric + .pointMetric {
+  border-inline-start: 1px solid var(--border-subtle);
+}
+.points :global(.stat__label),
+.points :global(.stat__hint) {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.points :global(.stat__label) {
+  min-height: 40px;
+}
+.points :global(.stat__value) {
+  margin-block: 8px;
+  color: var(--text-strong);
+  font: 600 1.75rem / 1.3 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.pointUsed :global(.stat__value) {
+  color: var(--court-700);
+}
+.pointRefunded :global(.stat__value) {
+  color: var(--info-text);
+}
+.pointMovement {
+  display: grid;
+  grid-template-columns: auto repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 16px 24px;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.pointMovement figcaption,
+.pointComparison > span,
+.pointEmpty {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.pointComparison {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.pointComparison > span {
+  flex: none;
+}
+.pointTrack {
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-surface-sunken);
+}
+.pointTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+.pointEmpty {
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.definition {
+  margin: 0;
+  max-width: 100ch;
+  font-size: 0.75rem;
+}
+.errorNotice {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.emptyNote {
+  margin: 0;
+  padding-block: 12px;
+}
+.skeleton {
+  display: inline-block;
+  width: 72%;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--bg-surface-sunken);
+}
+@media (max-width: 1100px) {
+  .primaryGrid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  }
+  .metric {
+    padding: 20px;
+  }
+  .metric :global(.stat__value) {
+    font-size: 1.5rem;
+  }
+}
+@media (max-width: 850px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metric:nth-child(3) {
+    border-inline-start: 0;
+  }
+  .metric:nth-child(n + 3) {
+    border-top: 1px solid var(--border-subtle);
+  }
+  .primaryGrid,
+  .secondaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mix {
+    grid-template-columns: 184px minmax(0, 1fr);
+    align-items: center;
+    gap: 32px;
+  }
+}
+@media (max-width: 520px) {
+  .dashboard,
+  .primaryGrid,
+  .secondaryGrid {
+    gap: 16px;
+  }
+  .toolbar {
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .title h2 {
+    font-size: 1.375rem;
+  }
+  .actions {
+    width: 100%;
+    gap: 8px;
+  }
+  .period {
+    flex-basis: 100%;
+    margin-bottom: 4px;
+  }
+  .periodNote {
+    margin: 0;
+    font-size: 0.75rem;
+  }
+  .metric {
+    padding: 16px 12px;
+  }
+  .metric :global(.stat__value) {
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+  }
+  .panel,
+  .ledger {
+    padding: 16px;
+  }
+  .plot {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .inspection > span {
+    flex-basis: 100%;
+  }
+  .mix {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .pointStats {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .pointMetric {
+    padding-inline: 0;
+  }
+  .pointMetric + .pointMetric {
+    border-inline-start: 0;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 16px;
+  }
+  .points :global(.stat__label) {
+    min-height: 0;
+  }
+  .pointMovement {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .pointComparison > span {
+    width: 68px;
+  }
+  .chartLegend {
+    gap: 8px 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sourceList button {
+    transition: none;
+  }
+}

@@ -1,6 +1,12 @@
 "use client";
 
-import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import styles from "./Tabs.module.css";
 
 export interface TabItem {
@@ -16,6 +22,8 @@ export interface TabsProps {
   ariaLabel: string;
   /** Nội dung của tab đang chọn. Chỉ tab đang chọn được render. */
   children: ReactNode;
+  /** Opt in to a shared moving selection surface; other tab groups keep their existing behavior. */
+  animatedIndicator?: boolean;
 }
 
 /**
@@ -28,13 +36,71 @@ export function Tabs({
   onChange,
   ariaLabel,
   children,
+  animatedIndicator = false,
 }: TabsProps) {
   const base = useId();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const glide = useRef<Animation | null>(null);
   const active = Math.max(
     0,
     tabs.findIndex((tab) => tab.id === value),
   );
+
+  useEffect(() => () => glide.current?.cancel(), [animatedIndicator]);
+  useEffect(() => {
+    if (!animatedIndicator) return;
+    const list = listRef.current;
+    const indicator = indicatorRef.current;
+    const button = refs.current[active];
+    if (!list || !indicator || !button) return;
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const position = (animate: boolean) => {
+      const previous = getComputedStyle(indicator).transform;
+      const ready = list.dataset.indicatorReady === "true";
+      glide.current?.cancel();
+      const target = `translate3d(${button.offsetLeft}px, ${button.offsetTop}px, 0)`;
+      indicator.style.width = `${button.offsetWidth}px`;
+      indicator.style.height = `${button.offsetHeight + 1}px`;
+      indicator.style.transform = target;
+      list.dataset.indicatorReady = "true";
+      if (
+        animate &&
+        ready &&
+        !preference.matches &&
+        typeof indicator.animate === "function"
+      ) {
+        glide.current = indicator.animate(
+          [
+            { transform: previous === "none" ? target : previous },
+            { transform: target },
+          ],
+          { duration: 340, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+        );
+      }
+    };
+    position(true);
+    let width = list.clientWidth;
+    let height = list.clientHeight;
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            if (width === list.clientWidth && height === list.clientHeight)
+              return;
+            width = list.clientWidth;
+            height = list.clientHeight;
+            position(false);
+          });
+    observer?.observe(list);
+    const onPreference = () => position(false);
+    preference.addEventListener("change", onPreference);
+    return () => {
+      observer?.disconnect();
+      preference.removeEventListener("change", onPreference);
+    };
+  }, [active, animatedIndicator]);
 
   function onKeyDown(event: KeyboardEvent, index: number) {
     const last = tabs.length - 1;
@@ -60,7 +126,20 @@ export function Tabs({
 
   return (
     <div>
-      <div className={styles.list} role="tablist" aria-label={ariaLabel}>
+      <div
+        ref={listRef}
+        className={styles.list}
+        role="tablist"
+        aria-label={ariaLabel}
+      >
+        {animatedIndicator && (
+          <span
+            ref={indicatorRef}
+            className={styles.indicator}
+            data-tab-indicator=""
+            aria-hidden="true"
+          />
+        )}
         {tabs.map((tab, index) => (
           <button
             key={tab.id}

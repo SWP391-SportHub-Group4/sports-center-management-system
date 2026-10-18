@@ -1,14 +1,30 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import {
+  ArrowUpRight,
+  BarChart3,
+  CalendarDays,
+  Download,
+  GraduationCap,
+  RefreshCw,
+  RotateCcw,
+  SlidersHorizontal,
+  UsersRound,
+} from "lucide-react";
 import { AsyncSection, Card, Field, Stat } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
+import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatDate, formatMoney, formatPoints } from "@/lib/format";
+import {
+  addDaysIso,
+  formatDate,
+  formatMoney,
+  formatPoints,
+} from "@/lib/format";
 import { vietnamLocal } from "@/lib/vietnam-time";
 import type { SportDto, UserAdminDto } from "@/lib/types";
 import { MemberPicker } from "@/components/MemberPicker";
@@ -19,6 +35,8 @@ import { ReconciliationPanel } from "./reconciliation-panel";
 import { ClassEnrollmentReport } from "./class-enrollment-report";
 import { CourtRentalReport } from "./court-rental-report";
 import { ReportExportPanel, ReportTypeSelect } from "./report-export-panel";
+import { CashTrend, MembershipBars } from "./monthly-analysis-charts";
+import { ReportMetrics, ReportPanel } from "./report-visuals";
 import styles from "./reports.module.css";
 
 function initialFilters(): ReportFilters {
@@ -38,23 +56,54 @@ export function ReportFilterForm({
   onApply,
   scope = "dimensions",
   children,
+  selectedMember,
 }: {
   initial: ReportFilters;
-  onApply: (filters: ReportFilters) => void;
+  onApply: (filters: ReportFilters, member?: UserAdminDto | null) => void;
   scope?: "dimensions" | "rentals" | "classes" | "period";
   children?: ReactNode;
+  selectedMember?: UserAdminDto | null;
 }) {
   const { t } = useLanguage();
   const l = t.staffWork;
   const [draft, setDraft] = useState(initial);
-  const [member, setMember] = useState<UserAdminDto | null>(null);
-  const [error, setError] = useState(false);
-  const sports = useApi(
-    (signal) => api.get<SportDto[]>("/api/manager/sports", { signal }),
-    [],
+  const [member, setMember] = useState<UserAdminDto | null>(
+    selectedMember?.userId === initial.memberId ? selectedMember : null,
   );
+  const [error, setError] = useState(false);
+  const [appliedNotice, setAppliedNotice] = useState(false);
+  const now = useNow();
+  const today = vietnamLocal(new Date(now).toISOString()).slice(0, 10);
+  const monthStart = `${today.slice(0, 8)}01`;
+  const lastMonthEnd = addDaysIso(monthStart, -1);
+  const presets = [
+    { label: "This month", from: monthStart, to: today },
+    {
+      label: "Last month",
+      from: `${lastMonthEnd.slice(0, 8)}01`,
+      to: lastMonthEnd,
+    },
+    { label: "Last 30 days", from: addDaysIso(today, -29), to: today },
+  ];
+  const preset = presets.findIndex(
+    (p) => p.from === draft.fromDate && p.to === draft.toDate,
+  );
+  const sports = useApi(
+    (signal) =>
+      scope === "period"
+        ? Promise.resolve([] as SportDto[])
+        : api.get<SportDto[]>("/api/manager/sports", { signal }),
+    [scope],
+  );
+  const changed =
+    draft.fromDate !== initial.fromDate ||
+    draft.toDate !== initial.toDate ||
+    (scope !== "period" && draft.sportId !== initial.sportId) ||
+    (scope === "dimensions" && draft.source !== initial.source) ||
+    (["dimensions", "rentals"].includes(scope) &&
+      draft.memberId !== initial.memberId);
   return (
-    <Card>
+    <section className={styles.filterPanel} aria-label="Report filters">
       <form
         className={`form ${styles.filterForm}`}
         onSubmit={(event) => {
@@ -66,16 +115,45 @@ export function ReportFilterForm({
             return;
           }
           setError(false);
-          onApply({
+          const applied = {
             ...draft,
             sportId: scope === "period" ? "" : draft.sportId,
             source: scope === "dimensions" ? draft.source : "",
             memberId: ["dimensions", "rentals"].includes(scope)
               ? draft.memberId
               : "",
-          });
+          };
+          setDraft(applied);
+          if (!applied.memberId) setMember(null);
+          onApply(applied, applied.memberId ? member : null);
+          setAppliedNotice(true);
         }}
       >
+        <div className={styles.filterToolbar}>
+          <span className={styles.filterTitle}>
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            Filters
+          </span>
+          <div
+            className={styles.presets}
+            role="group"
+            aria-label="Date presets"
+          >
+            {presets.map((p, index) => (
+              <button
+                key={p.label}
+                type="button"
+                aria-pressed={preset === index}
+                onClick={() => {
+                  setDraft({ ...draft, fromDate: p.from, toDate: p.to });
+                  setError(false);
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         {children}
         <div className={styles.filterGrid}>
           <Field label={l.from}>
@@ -156,28 +234,183 @@ export function ReportFilterForm({
           )}
         </div>
         {error && <p role="alert">{l.dateRange}</p>}
-        <button className="btn">{l.apply}</button>
+        <div className={styles.filterFooter}>
+          <p
+            role="status"
+            className={changed ? styles.pendingFilters : undefined}
+          >
+            {changed
+              ? "Changes not applied. Press Apply to update the report."
+              : appliedNotice
+                ? "Filters applied. Showing the selected report."
+                : "Choose a period, refine the selection, then apply."}
+          </p>
+          <div className={styles.filterActions}>
+            <button
+              className="btn btn--ghost"
+              type="button"
+              onClick={() => {
+                const next = {
+                  fromDate: monthStart,
+                  toDate: today,
+                  sportId: "",
+                  source: "",
+                  memberId: "",
+                };
+                setDraft(next);
+                setMember(null);
+                setError(false);
+                onApply(next, null);
+                setAppliedNotice(true);
+              }}
+            >
+              <RotateCcw size={15} aria-hidden="true" />
+              Reset
+            </button>
+            <button className="btn" type="submit">
+              {l.apply}
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
       </form>
-    </Card>
+    </section>
   );
 }
 
 const REPORT_TABS = ["revenue", "rentals", "classes", "members"] as const;
 type ReportTab = (typeof REPORT_TABS)[number];
 
-function RevenueTab({ filters: f }: { filters: ReportFilters }) {
-  const dimensions = useApi((signal) => reportsApi.dimensions(f, signal), [f]);
+function ReportDashboardView({
+  active,
+  children,
+}: {
+  active: ReportTab;
+  children: ReactNode;
+}) {
+  const measure = useRef<HTMLDivElement>(null);
+  const view = useRef<HTMLDivElement>(null);
+  const previousTab = useRef(active);
+  const [height, setHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const node = measure.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      setHeight(node.getBoundingClientRect().height);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const previous = previousTab.current;
+    previousTab.current = active;
+    const node = view.current;
+    if (previous === active || !node || typeof node.animate !== "function")
+      return;
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (preference.matches) return;
+    const direction =
+      REPORT_TABS.indexOf(active) > REPORT_TABS.indexOf(previous) ? 1 : -1;
+    const animation = node.animate(
+      [
+        {
+          opacity: 0.55,
+          transform: `translate3d(${direction * 14}px, 3px, 0)`,
+        },
+        { opacity: 1, transform: "translate3d(0, 0, 0)" },
+      ],
+      { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+    const onPreference = () => {
+      if (preference.matches) animation.cancel();
+    };
+    preference.addEventListener("change", onPreference);
+    return () => {
+      animation.cancel();
+      preference.removeEventListener("change", onPreference);
+    };
+  }, [active]);
+  return (
+    <div
+      className={styles.dashboardViewport}
+      style={height === null ? undefined : { height }}
+    >
+      <div ref={measure} className={styles.dashboardMeasure}>
+        <div key={active} ref={view} className={styles.dashboardView}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CenterWideRevenue({ filters: f }: { filters: ReportFilters }) {
   const summary = useApi((signal) => reportsApi.summary(f, signal), [f]);
   return (
     <>
-      <AsyncSection state={dimensions}>
-        {(report) => <RevenueSummary report={report} />}
-      </AsyncSection>
+      <ReportPanel
+        title="Cash flow for selected dates"
+        description="All sports, sources and members for the selected dates. Additional filters are cleared in this view."
+      >
+        <AsyncSection state={summary}>
+          {(report) => (
+            <>
+              <ReportMetrics
+                items={[
+                  {
+                    label: "Cash collected (VND)",
+                    value: formatMoney(report.totalCollected),
+                    hint: "Successful cash collections",
+                  },
+                  {
+                    label: "Net revenue (VND)",
+                    value: formatMoney(report.netRevenue),
+                    hint: "Cash collected less completed cash refunds",
+                  },
+                  {
+                    label: "Cash refunded (VND)",
+                    value: formatMoney(report.totalRefunded),
+                    hint: "Completed cash refunds in this period",
+                  },
+                  {
+                    label: "Successful payments",
+                    value: report.paymentCount,
+                    hint: "Payment count, not enrollment count",
+                  },
+                ]}
+              />
+              <CashTrend report={report} />
+            </>
+          )}
+        </AsyncSection>
+      </ReportPanel>
       <AsyncSection state={summary}>
         {(report) => <PointsReport report={report} />}
       </AsyncSection>
-      <ReconciliationPanel filters={f} />
+      <div className={styles.reconciliation}>
+        <ReconciliationPanel key={`${f.fromDate}-${f.toDate}`} filters={f} />
+      </div>
     </>
+  );
+}
+
+function RevenueTab({ filters: f }: { filters: ReportFilters }) {
+  const dimensions = useApi((signal) => reportsApi.dimensions(f, signal), [f]);
+  const hasDimensionFilters = Boolean(f.sportId || f.source || f.memberId);
+  return (
+    <div className={styles.tabContent}>
+      {hasDimensionFilters && (
+        <p className={styles.scopeNotice} role="status">
+          Showing collections for the selected filters. Clear sport, source and
+          member filters to also see center-wide daily cash flow, the points
+          ledger and reconciliation.
+        </p>
+      )}
+      <AsyncSection state={dimensions}>
+        {(report) => <RevenueSummary report={report} />}
+      </AsyncSection>
+      {!hasDimensionFilters && <CenterWideRevenue filters={f} />}
+    </div>
   );
 }
 function RentalsTab({ filters: f }: { filters: ReportFilters }) {
@@ -203,30 +436,38 @@ function MembersTab({ filters: f }: { filters: ReportFilters }) {
   const { t } = useLanguage();
   const membership = useApi((signal) => reportsApi.membership(f, signal), [f]);
   return (
-    <Card title={t.staffWork.membership}>
+    <ReportPanel
+      title="Membership activity"
+      description={`Accounts and purchases from ${formatDate(f.fromDate)} to ${formatDate(f.toDate)}. Active Gym members are measured at the end of the selected period.`}
+    >
       <AsyncSection state={membership}>
         {(report) => (
-          <div className="stats-grid">
-            <Stat label={t.staffWork.newMembers} value={report.newMembers} />
-            <Stat
-              label={t.staffWork.purchasingMembers}
-              value={report.membersPurchasingMembershipInPeriod}
+          <>
+            <ReportMetrics
+              items={[
+                { label: t.staffWork.newMembers, value: report.newMembers },
+                {
+                  label: t.staffWork.purchasingMembers,
+                  value: report.membersPurchasingMembershipInPeriod,
+                },
+                {
+                  label: t.staffWork.dayPassesSold,
+                  value: report.dayPassesSold ?? 0,
+                },
+                {
+                  label: t.staffWork.activeMembers.replace(
+                    "{date}",
+                    formatDate(f.toDate),
+                  ),
+                  value: report.activeMembersAtPeriodEnd,
+                },
+              ]}
             />
-            <Stat
-              label={t.staffWork.dayPassesSold}
-              value={report.dayPassesSold ?? 0}
-            />
-            <Stat
-              label={t.staffWork.activeMembers.replace(
-                "{date}",
-                formatDate(f.toDate),
-              )}
-              value={report.activeMembersAtPeriodEnd}
-            />
-          </div>
+            <MembershipBars report={report} asOfDate={f.toDate} />
+          </>
         )}
       </AsyncSection>
-    </Card>
+    </ReportPanel>
   );
 }
 
@@ -235,45 +476,94 @@ export function Reports() {
   const { t } = useLanguage();
   const f = t.finOps;
   const [filters, setFilters] = useState(initialFilters);
+  const [member, setMember] = useState<UserAdminDto | null>(null);
   const { values, setValues } = useUrlQuery(
     { tab: "revenue" },
     { tab: choiceQuery([...REPORT_TABS], "revenue") },
   );
   const tab = values.tab as ReportTab;
   const labels: Record<ReportTab, string> = {
-    revenue: f.tabRevenue,
-    rentals: f.tabRentals,
-    classes: f.tabClasses,
-    members: f.tabMembers,
+    revenue: "Revenue",
+    rentals: "Courts",
+    classes: "Classes",
+    members: "Members",
+  };
+  const icons = {
+    revenue: BarChart3,
+    rentals: CalendarDays,
+    classes: GraduationCap,
+    members: UsersRound,
   };
   return (
-    <>
+    <div className={styles.page}>
+      <header className={styles.reportToolbar}>
+        <div>
+          <p className={styles.reportLead}>
+            Explore collections, class enrollment and membership.
+          </p>
+          <span className={styles.appliedPeriod}>
+            <CalendarDays size={16} aria-hidden="true" />
+            {formatDate(filters.fromDate)} – {formatDate(filters.toDate)}
+            <small>UTC+7</small>
+          </span>
+        </div>
+        <div className={styles.toolbarActions}>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={() => setFilters({ ...filters })}
+          >
+            <RefreshCw size={16} aria-hidden="true" />
+            Refresh
+          </button>
+          <Link className="btn" href="/manager/reports/exports">
+            <Download size={16} aria-hidden="true" />
+            {f.exportsLink}
+          </Link>
+        </div>
+      </header>
       <ReportFilterForm
+        key={tab}
         initial={filters}
-        onApply={setFilters}
+        onApply={(next, selected) => {
+          setFilters(next);
+          setMember(selected ?? null);
+        }}
+        selectedMember={member}
         scope={
           tab === "revenue" ? "dimensions" : tab === "members" ? "period" : tab
         }
       />
-      <div className="btn-row">
-        <Link className="btn btn--secondary" href="/manager/reports/exports">
-          {f.exportsLink}
-        </Link>
+      <div className={styles.reportTabs}>
+        <Tabs
+          animatedIndicator
+          tabs={REPORT_TABS.map((id) => {
+            const Icon = icons[id];
+            return {
+              id,
+              label: (
+                <span className={styles.tabLabel}>
+                  <Icon size={21} aria-hidden="true" />
+                  <span>{labels[id]}</span>
+                </span>
+              ),
+            };
+          })}
+          value={tab}
+          ariaLabel={f.reportsTabsLabel}
+          onChange={(id) => setValues({ tab: id })}
+        >
+          <ReportDashboardView active={tab}>
+            <div className={styles.tabContent}>
+              {tab === "revenue" && <RevenueTab filters={filters} />}
+              {tab === "rentals" && <RentalsTab filters={filters} />}
+              {tab === "classes" && <ClassesTab filters={filters} />}
+              {tab === "members" && <MembersTab filters={filters} />}
+            </div>
+          </ReportDashboardView>
+        </Tabs>
       </div>
-      <Tabs
-        tabs={REPORT_TABS.map((id) => ({ id, label: labels[id] }))}
-        value={tab}
-        ariaLabel={f.reportsTabsLabel}
-        onChange={(id) => setValues({ tab: id })}
-      >
-        <div className="stack">
-          {tab === "revenue" && <RevenueTab filters={filters} />}
-          {tab === "rentals" && <RentalsTab filters={filters} />}
-          {tab === "classes" && <ClassesTab filters={filters} />}
-          {tab === "members" && <MembersTab filters={filters} />}
-        </div>
-      </Tabs>
-    </>
+    </div>
   );
 }
 
