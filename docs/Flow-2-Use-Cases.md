@@ -4,11 +4,13 @@
 
 3.3 Use Case Specifications
 Flow 2 Quản lý lớp học lịch và thuê sân
-Phạm vi: danh mục tài nguyên, khóa học, ghi danh, ngưỡng mở lớp, lịch dạy, điểm danh, yêu cầu điều chỉnh, thuê sân và sự cố vận hành. Đối chiếu code ngày 16/10/2026; đặc tả không phải báo cáo đã kiểm thử thành công.
+Phạm vi: danh mục tài nguyên, khóa học, ghi danh, ngưỡng mở lớp, lịch dạy, điểm danh, yêu cầu điều chỉnh, thuê sân và sự cố vận hành. Cập nhật quyền nội dung và request theo code `06683826` ngày 18/10/2026; đặc tả không phải báo cáo đã kiểm thử thành công.
 Mã UC-F2 là mã phân rã trong Flow 2, đối chiếu UC-07, UC-08, UC-09 và UC-10 của SRS. Thanh toán gọi UC-15, hoàn theo yêu cầu gọi UC-16 của Flow 3. Kế hoạch tập luyện, đánh giá và hồ sơ sức khỏe thuộc Flow 4/5; PT, Yoga và GroupX không thuộc phạm vi hiện tại.
 Quy ước chung: thời gian lưu UTC, hiển thị UTC+7; backend kiểm tra quyền và dữ liệu tại thời điểm ghi. 1 điểm = 1.000 VND; hoàn trả bằng điểm, không trả tiền mặt. Giao dịch lặp phải idempotent. Thông báo qua outbox không làm rollback nghiệp vụ khi gửi email lỗi.
 Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_Report_SRS.docx (UC-07 đến UC-10); Center-Management-System-Design-v3.md; api-contract.md; Class-Session-Change-Requests.md. Khi khác nhau, ưu tiên phạm vi đã xác nhận và Business Rules theo 00-Source-of-Truth.md. BR-122 quy định hoàn trước khai giảng 100% nếu còn ít nhất 5 ngày, 50% nếu dưới 5 ngày; không dùng mô tả 100% chung trong SRS cũ.
 Cập nhật 16/10/2026: đã có UI chờ đợt lớp sau, quản lý Course interests, rút Pending trong Requests, nhắc lịch và tự đóng yêu cầu khi Manager đổi buổi trực tiếp. Email cần SMTP để kiểm chứng delivery. Các use case tự động dùng tác vụ hệ thống làm tác nhân khởi phát.
+
+Đối chiếu 18/10/2026: Member còn ghi danh hợp lệ vẫn xem lịch sử lớp Completed (UC-F2-20), trong khi quyền Coach chỉ dựa trên lớp Published/InProgress và đúng phạm vi buổi/lớp. UI Coach chỉ tạo ABSENCE; backend còn nhận các loại tạo mới cũ theo gap COACH-01, không mô tả chặn mọi client như một chức năng đã hoàn tất. Xem [thiết kế §13.2](Center-Management-System-Design-v3.md#132-chức-năng-và-contract-còn-thiếu).
 
 
 
@@ -237,7 +239,7 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; chỉ xem dữ liệu thuộc tài khoản. |
 | Luồng chính | 1. Mở My Schedule hoặc danh sách đăng ký.<br>2. Xem lớp, buổi học và lượt thuê đã xác nhận.<br>3. Chọn buổi để xem thời gian, địa điểm và thông tin liên quan.<br>4. Mở lộ trình khóa từ buổi học tương ứng khi có quyền.<br>Mở account menu → Billing → chi tiết hóa đơn → Download invoice để tải PDF có xác thực (tham chiếu thanh toán Flow 3). |
-| Luồng thay thế / ngoại lệ | a. Không có lịch: hiển thị trống.<br>b. Lịch dự kiến phải phân biệt với lịch đã đăng ký.<br>c. Truy cập đăng ký của Member khác: từ chối.<br>Hết ghi danh hoặc lớp kết thúc: vẫn xem lịch sử đăng ký/tài chính của mình; nội dung lớp và API Member sessions/teaching-records trả class_access_ended. Không dùng lịch sử ghi danh để mở nội dung đã mất quyền. |
+| Luồng thay thế / ngoại lệ | a. Không có lịch: hiển thị trống.<br>b. Lịch dự kiến phải phân biệt với lịch đã đăng ký.<br>c. Truy cập đăng ký hoặc bản ghi cá nhân của Member khác: từ chối.<br>d. Lớp Completed hoặc đã hết các buổi nhưng Enrollment vẫn Confirmed và EndedAt rỗng: Member tiếp tục xem lịch sử buổi, giáo án chung, homework/notice chung và bản ghi cá nhân của mình; không bắt buộc còn buổi tương lai.<br>e. Ghi danh đã kết thúc/không Confirmed hoặc lớp Cancelled/Draft: API Member sessions/teaching-records trả 403 class_access_ended. Lịch sử đăng ký/tài chính của chính mình vẫn được giữ; hóa đơn hoặc chuông/URL cũ không khôi phục quyền nội dung. |
 | Hậu điều kiện | Lịch hiển thị dữ liệu thật; không thay đổi đăng ký. |
 
 ### UC-F2-21 — Đăng ký khóa học và giữ chỗ
@@ -427,7 +429,7 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Tác nhân | Coach |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Coach ACTIVE; có phân công bộ môn phù hợp. |
-| Luồng chính | 1. Mở Teaching Schedule hoặc Classes.<br>2. Xem các buổi thuộc phạm vi phụ trách theo thời gian.<br>3. Chọn buổi để xem lịch, phòng, lớp và học viên.<br>4. Mở thông tin khóa tương ứng từ buổi học. |
+| Luồng chính | 1. Mở Schedule hoặc Classes.<br>2. Xem các buổi thuộc phạm vi phụ trách theo thời gian.<br>3. Chọn buổi để xem lịch, phòng, lớp và học viên.<br>4. Coach chủ nhiệm mở thông tin cả khóa; Coach dạy thay chỉ mở buổi được giao. Nếu truy cập URL lớp dưới quyền dạy thay, hiện Substitute sessions để chọn buổi, không mở màn quản lý cả khóa. |
 | Luồng thay thế / ngoại lệ | a. Coach chỉ thấy lớp Published/InProgress đang thuộc phân công chủ nhiệm hoặc buổi dạy thay hợp lệ.<br>b. Coach chủ nhiệm xem các buổi của lớp; Coach dạy thay chỉ xem buổi không Cancelled được giao mình.<br>c. Lớp Completed/Cancelled hoặc phân công không hợp lệ: không cấp quyền từ lịch sử quan hệ cũ. |
 | Hậu điều kiện | Coach nắm lịch dạy thật; không thay đổi lịch. |
 
@@ -439,7 +441,7 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Có quyền xem lớp; coach đang phụ trách lớp tương ứng. |
 | Luồng chính | 1. Chọn lớp cụ thể.<br>2. Hệ thống trả danh sách ghi danh hợp lệ của lớp.<br>3. Chọn học viên để xem thông tin cơ bản trong phạm vi cho phép.<br>4. Hiển thị nội dung theo đúng lớp và bộ môn đang chọn. |
-| Luồng thay thế / ngoại lệ | a. Chỉ học viên Confirmed xuất hiện trong roster Coach; học viên thôi học không còn là học viên hiện tại.<br>b. Coach dạy thay phải truyền đúng sessionId, chỉ đọc roster buổi được giao; mục tiêu/kinh nghiệm/ghi chú sức khỏe bị lược bỏ.<br>c. Phân công buổi không cấp quyền Students, Health profile, Learning history hoặc AI hồ sơ đầy đủ. |
+| Luồng thay thế / ngoại lệ | a. Chỉ học viên Confirmed và EndedAt rỗng xuất hiện trong roster Coach; học viên thôi học không còn là học viên hiện tại.<br>b. Coach dạy thay phải truyền đúng sessionId cho GET members và records; thiếu buổi trả 403 session_scope_required, buổi sai lớp/khác HLV/đã Cancelled trả 403 session_not_assigned. Chỉ đọc roster và bản ghi buổi được giao; mục tiêu/kinh nghiệm/ghi chú sức khỏe bị lược bỏ, không trả PLAN cả khóa.<br>c. Phân công buổi không cấp quyền Students, Health profile, Learning history hoặc AI hồ sơ đầy đủ. |
 | Hậu điều kiện | Danh sách đúng lớp và quyền truy cập; thông tin không bị lẫn giữa bộ môn. |
 
 ### UC-F2-39 — Ghi điểm danh buổi học

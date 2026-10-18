@@ -59,11 +59,13 @@ Migration `AddClassTeachingWorkspace` thêm `class_teaching_records`; giáo án 
 | PUT | `/api/coaches/me/teaching/classes/{classId}/records/{recordId}` | Sửa PLAN/RESULT của chính coach, kiểm version, giữ scope và kiểm lại assignment buổi/lớp như POST |
 | PUT | `/api/coaches/me/teaching/sessions/{sessionId}/attendance/{enrollmentId}` | `{status: PRESENT hoặc ABSENT}`, đúng coach của buổi |
 | POST | `/api/coaches/me/teaching/classes/{classId}/suggestion` | `{memberId?, goal, level, language}` → `{content, provider, model}` |
-| GET | `/api/members/me/classes/{classId}/teaching-records?page=1` | Member đã ghi danh, nội dung chung hoặc cá nhân của chính mình |
+| GET | `/api/members/me/classes/{classId}/teaching-records?page=1` | Member có Enrollment Confirmed, EndedAt rỗng và lớp Published/InProgress/Completed; đọc nội dung chung hoặc cá nhân của chính mình, kể cả lịch sử sau buổi cuối |
 
 Body ghi: `recordId`, `kind`, `title` (160 ký tự), `content` (8.000 ký tự), `sessionId?`, `memberId?`, `score?`, `dueAtUtc?`, `version`. `dueAtUtc` giữ lại để tương thích hợp đồng cũ; HOMEWORK luôn lưu null, không nhập hay áp dụng hạn nộp cứng.
 
-Quyền đọc `members` và `records` được kiểm tra ở API, không dựa vào việc ẩn nút: HLV dạy thay thiếu `sessionId` nhận `403 session_scope_required`; buổi khác lớp, đã bị hủy hoặc đã giao cho HLV khác nhận `403 session_not_assigned`. Lớp không còn Published/InProgress nhận `403 class_access_ended`. Danh sách/chi tiết học viên và hồ sơ sức khỏe vẫn chỉ dựa trên phân công Coach chính; ghi danh phải Confirmed và `EndedAt == null`. Roster, bản ghi cá nhân và thao tác ghi không sử dụng ghi danh đã kết thúc. Quyền đọc dữ liệu giảng dạy độc lập với thông tin lớp/lịch được công khai cho mọi người xem trước khi mua. Không thay đổi schema DB.
+Quyền đọc `members` và `records` được kiểm tra ở API, không dựa vào việc ẩn nút: HLV dạy thay thiếu `sessionId` nhận `403 session_scope_required`; dùng buổi khác lớp, đã bị hủy hoặc đã giao cho HLV khác nhận `403 session_not_assigned`. Với API Coach, lớp không còn Published/InProgress nhận `403 class_access_ended`. Danh sách/chi tiết học viên và hồ sơ sức khỏe vẫn chỉ dựa trên phân công Coach chính; ghi danh phải Confirmed và `EndedAt == null`. Roster, bản ghi cá nhân và thao tác ghi không sử dụng ghi danh đã kết thúc. Đánh giá lớp trước chỉ đọc qua lớp chủ nhiệm hiện tại đủ điều kiện, không mở lại quyền quản lý lớp cũ.
+
+Với API Member, lớp Completed vẫn cho đọc lịch sử nếu Enrollment còn Confirmed và EndedAt rỗng; không yêu cầu buổi tương lai. Ghi danh kết thúc/không Confirmed hoặc lớp Cancelled/Draft mới thu hồi quyền nội dung. Quyền đọc lịch sử không cấp quyền roster, bản ghi riêng của học viên khác hay context AI/nhắc lịch của lớp đã kết thúc. Thông tin lớp/lịch công khai trước khi mua có hợp đồng riêng. Không thay đổi schema DB.
 
 ## AI và vận hành
 

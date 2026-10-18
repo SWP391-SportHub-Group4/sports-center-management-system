@@ -30,7 +30,11 @@ Phần mở rộng được chủ sản phẩm xác nhận ngày 11/10/2026 và 
 
 Danh sách trả `{items,page,pageSize:50,totalCount}`. Trạng thái wire: `PENDING`, `RESOLVED`, `REJECTED`, `WITHDRAWN`.
 
-Create body của giao diện Coach: `{requestId,type:"ABSENCE",reason,proposedStartAtUtc:null,proposedEndAtUtc:null}`. `requestId` là UUID do client tạo và giữ khi retry; cùng UUID/nội dung trả bản cũ, nội dung khác trả 409. Absence không chấp nhận đề xuất giờ (`absence_proposal_not_allowed`). Lý do 3–500 ký tự. Các bản ghi `SUBSTITUTE`, `RESCHEDULE`, `CANCEL_WITH_MAKEUP` đã lưu trước đây vẫn đọc được để giữ lịch sử. Quy tắc mục tiêu trên develop chỉ cho tạo mới ABSENCE; backend hiện vẫn nhận các loại cũ từ client cũ với validation trước đây. Đây là khoảng trống riêng chưa được thay đổi trong lần merge này, không phải quyền sửa yêu cầu đã gửi.
+Create body của giao diện Coach: `{requestId,type:"ABSENCE",reason,proposedStartAtUtc:null,proposedEndAtUtc:null}`. `requestId` là UUID do client tạo và giữ khi retry; cùng UUID/nội dung trả bản cũ, nội dung khác trả 409. Absence không chấp nhận đề xuất giờ (`absence_proposal_not_allowed`). Lý do 3–500 ký tự.
+
+**Hành vi API hiện tại:** `ClassSessionChangeRequestService.ValidRequestType` còn chấp nhận ABSENCE và ba loại đề xuất cũ SUBSTITUTE/RESCHEDULE/CANCEL_WITH_MAKEUP, với validation tương ứng. Việc API nhận các loại đó không cho Coach tự thay đổi lịch; Manager vẫn phải xử lý. Lịch sử loại cũ được giữ nguyên và Pending vẫn có thể rút.
+
+**Quy tắc chưa triển khai đầy đủ — COACH-01:** chỉ cho Coach tạo mới ABSENCE từ mọi client, không chỉ từ UI hiện hành. Cần siết validation tạo mới ở backend, giữ đọc lịch sử/rút Pending và ba phương án quyết định của Manager. Xem [thiết kế §13.2](Center-Management-System-Design-v3.md#132-chức-năng-và-contract-còn-thiếu). Không mô tả gap này là API PUT sửa: PUT đã được gỡ.
 
 Không có API cập nhật nội dung yêu cầu. `PUT /api/coaches/me/teaching/change-requests/{requestId}` đã bị gỡ; với URL hợp lệ trùng GET route, PUT nhận 405 Method Not Allowed. Rút vẫn dùng POST `.../{requestId}/withdraw`, kiểm owner và Pending trong transaction; không áp dụng hạn gửi 6 giờ cho rút. Nếu Manager đã xử lý trước, rút trả 409 `class_change_not_pending`, UI tải lại trạng thái mới. Gửi lại cùng requestId với nội dung khác vẫn bị chặn bởi idempotency, không phải cách sửa yêu cầu.
 

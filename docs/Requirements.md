@@ -37,7 +37,7 @@ Requirement gốc chỉ có bốn vai trò (Manager, Coach, Member, Receptionist
 
 Member và staff là hai loại tài khoản tách biệt: không chuyển Member thành staff hay ngược lại. Người muốn làm staff dùng một email khác; SystemAdministrator tạo tài khoản staff, kể cả Coach kèm chuyên môn (nhận email kích hoạt để tự đặt mật khẩu); Manager chỉ sửa hồ sơ Coach. Chỉ đổi role giữa các role staff, và Coach chỉ rời vai trò khi không còn lớp, lịch hay quan hệ huấn luyện đang hoạt động. Email chưa được xác minh là của đúng người khi tạo (Admin nhập email một lần, gõ sai thì sửa); tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
 
-Tài khoản staff do Admin tạo mà chưa kích hoạt sau 24 giờ được tự xóa để giải phóng email. Gửi lại link hoặc sửa email không kéo dài hạn này; Member và tài khoản seed/hệ thống không bị xóa. Xem [chi tiết xử lý và kiểm tra](Staff-Invitation-Expiry.md).
+Tài khoản staff do Admin tạo mà chưa kích hoạt sau 24 giờ được tự xóa để giải phóng email. Gửi lại link hoặc sửa email không kéo dài hạn này; Member và tài khoản seed/hệ thống không bị xóa. Xem [service xử lý hết hạn](../backend/SportHub.Administration/Application/Services/StaffInvitationExpiryService.cs).
 
 Theo yêu cầu xác nhận 13/10/2026, không được đổi role của tài khoản đang là SystemAdministrator, bao gồm chính mình và Admin khác. Các tài khoản nhân sự khác vẫn được đổi role theo quy tắc hiện có, kể cả nâng lên Admin; sau khi trở thành Admin thì không được hạ role. Quy tắc khóa/mở khóa tài khoản không thay đổi.
 
@@ -68,7 +68,7 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 - `TotalAmount = PointsApplied × 1.000 + CashAmount`; người dùng chọn điểm trước, không tự trừ khi mở trang.
 - Backend xác minh IPN/QueryDR trước khi ghi payment/cấp quyền lợi; return chỉ hiển thị. Thanh toán bằng toàn điểm không tạo attempt VNPay.
 - Hoàn trả chỉ bằng điểm theo item, quyền lợi đã dùng và cap hệ thống; không double credit khi retry. Hoàn chuẩn Membership Gym tối đa 50% khi còn từ 2/3 thời hạn; sự cố tạm thời của trung tâm không phải căn cứ hoàn (BR-91, BR-130).
-- Ngưỡng lớp hỗ trợ chuyển/hoàn điểm; yêu cầu “chờ đợt sau” là hoàn 100% điểm + lưu nguyện vọng nhận thông báo, chưa có implementation.
+- Ngưỡng lớp hỗ trợ chuyển/hoàn điểm; “chờ đợt sau” hoàn 100% giá trị còn đủ điều kiện bằng điểm + lưu nguyện vọng nhận tin khi có đợt lớp mới phù hợp, không giữ chỗ hoặc tự ghi danh. Đã có mã API/UI; còn nghiệm thu staging theo G02 trong thiết kế.
 - Incident preview và resolve recheck lịch; lớp xử lý phương án riêng trước bước cuối, không giả toàn luồng là một transaction.
 - Sự cố ảnh hưởng Gym (BR-130): email cho Member có Membership Active; Membership được gia hạn thêm số ngày Gym đóng cửa sửa chữa; buổi lớp bù vào lịch tiếp theo (BR-54); lượt thuê sân hoàn 100% bằng điểm. Đã triển khai (INC-01 trong thiết kế).
 - AI chỉ hỗ trợ; thao tác ghi qua command có xác nhận, authorization và kiểm nghiệp vụ.
@@ -82,5 +82,7 @@ Nghiệm thu cần test concurrency PostgreSQL, role/ownership negative cases, c
 ## 6. Phân biệt yêu cầu và implementation
 
 Tài liệu này nêu yêu cầu, không tuyên bố tất cả chức năng đã hoàn thành. Payment/checkout/wallet/VNPay adapter đã có mã; sandbox thật chưa được nghiệm thu trong đợt rà soát. Danh sách gap chi tiết, evidence và tiêu chí đóng nằm tại **mục 13 của [thiết kế](Center-Management-System-Design-v3.md)**.
+
+**Đối chiếu triển khai 18/10/2026 (`06683826`):** các điều kiện đọc lịch sử Member và giới hạn quyền chủ nhiệm/dạy thay đã có trong API; HLV dạy thay đọc members/records bằng sessionId đúng buổi được giao, không có quyền hồ sơ đầy đủ từ phân công đó. Giao diện Coach chỉ gửi ABSENCE và rút Pending; PUT sửa đã gỡ. Yêu cầu chỉ nhận ABSENCE khi tạo mới từ mọi client chưa đạt ở backend vì còn nhận loại đề xuất cũ; xem COACH-01 trong [thiết kế §13.2](Center-Management-System-Design-v3.md#132-chức-năng-và-contract-còn-thiếu). Đây là khoảng trống triển khai, không đổi yêu cầu đã chốt.
 
 Quy tắc chi tiết theo [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx); quy ước và cách xử lý mâu thuẫn theo [SSOT](00-Source-of-Truth.md).

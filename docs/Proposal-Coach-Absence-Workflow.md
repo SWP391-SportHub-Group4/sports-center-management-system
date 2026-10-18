@@ -24,7 +24,7 @@ Cập nhật theo quyết định người dùng ngày 18/10/2026: Coach không 
 | Coach selector lọc thêm lịch trống trước khi lựa chọn | Đã tích hợp theo giờ gốc/giờ mới; backend vẫn kiểm lại khi lưu |
 | Khóa transaction và kiểm tra Pending khi ghi | Đã có |
 | Nội dung yêu cầu sau khi gửi | Bất biến; không còn nhánh Coach sửa khi Manager đang duyệt |
-| Chặn tạo request đề xuất phương án từ client cũ | Quy tắc mục tiêu trên develop; backend còn nhận loại cũ để tương thích, chưa thay đổi trong lần merge này |
+| Chặn tạo request đề xuất phương án từ client cũ | Chưa triển khai đầy đủ: backend còn nhận loại cũ; theo dõi COACH-01 trong [thiết kế §13.2](Center-Management-System-Design-v3.md#132-chức-năng-và-contract-còn-thiếu). UI chỉ tạo ABSENCE, PUT sửa đã gỡ; lịch sử và quyết định Manager giữ nguyên. |
 
 ## 3. Luồng của Coach
 
