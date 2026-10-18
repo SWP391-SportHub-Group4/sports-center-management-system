@@ -4,6 +4,7 @@ using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Identity;
+using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
@@ -17,7 +18,7 @@ namespace SportHub.Scheduling.Threshold.Application;
 public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefundCreditService refunds,
     ICheckoutLifecycleService checkouts,
     IClassEnrollmentFulfillment classes, IOccupancyService occupancy, INotificationWriter notifications,
-    IUserAccessReader users, IClock clock)
+    IUserAccessReader users, IClock clock, IAuditWriter audit)
 {
     public async Task<int> ExpireAsync(CancellationToken ct = default)
     {
@@ -91,6 +92,11 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             return false;
         }
 
+        var holds = await db.Set<SeatHold>().Where(h => h.ClassId == classId && h.Status == SeatHoldStatus.Active)
+            .OrderBy(h => h.HoldId).ToListAsync(ct);
+        foreach (var invoiceId in holds.Where(h => h.InvoiceId.HasValue).Select(h => h.InvoiceId!.Value).Distinct().Order())
+            await checkouts.ReleaseForSystemAsync(invoiceId, "ThresholdCancelled", ct);
+
         foreach (var enrollment in active)
         {
             if (enrollment.InvoiceItemId is not Guid itemId) continue;
@@ -119,6 +125,9 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             response.ResolvedAtUtc = clock.UtcNow;
         }
 
+        foreach (var hold in holds.Where(h => h.InvoiceId is null))
+            await classes.ReleaseAsync(hold.HoldId, ct);
+
         // Cancellation has acquired the class row lock after the invoice/wallet locks.
         // Also lock an empty class, and recheck concurrent waivers or newly confirmed seats.
         await db.Database.ExecuteSqlInterpolatedAsync(
@@ -140,6 +149,11 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
         }
         entity.Status = ClassStatus.Cancelled;
         entity.Version++;
+        // System events retain a real affected account reference (audit FK),
+        // with SYSTEM as the recorded actor role, as in payment system events.
+        audit.Write(new AuditEntry(entity.CoachId!.Value, "CANCEL_CLASS_BELOW_THRESHOLD", nameof(Class), classId.ToString(),
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { status = "Cancelled", threshold = entity.BreakEvenThreshold }),
+            Reason: "Member response deadline passed without enough confirmed enrollments or Manager waiver.", IsSystem: true));
         var staffIds = await db.Set<UserAccount>().AsNoTracking()
             .Where(x => x.Status == UserStatus.Active && x.Role!.RoleName == UserRole.CenterManager)
             .Select(x => x.UserId).ToListAsync(ct);

@@ -233,6 +233,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
         if (cls.Status is ClassStatus.Draft or ClassStatus.Cancelled)
             throw new ConflictException("class_not_active", "This class is not active.");
         var kind = request.Kind?.Trim().ToUpperInvariant();
+        if (kind is "RESULT" or "HOMEWORK") await ClassOpeningGuard.RequireAsync(db, cls, ct);
         // Homework is optional practice before the next lesson, without a fixed due date.
         if (kind == "HOMEWORK") request = request with { DueAtUtc = null };
         var title = request.Title?.Trim() ?? "";

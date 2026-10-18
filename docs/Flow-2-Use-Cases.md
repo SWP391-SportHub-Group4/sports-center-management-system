@@ -411,12 +411,14 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 
 ### UC-F2-36 — Xử lý hết hạn phản hồi và kết luận mở lớp
 
+Cập nhật M06 theo yêu cầu đã xác nhận: phải xét lớp Met/Waived trước khi hoàn; nếu đã được xác nhận mở thì giữ người chưa phản hồi. Chỉ hủy và hoàn người còn ghi danh khi hết hạn vẫn thiếu và không có miễn ngưỡng. Không cho lớp chưa được chốt tự khai giảng. Chi tiết [quy tắc 72–48–24 giờ](Class-Opening-Decision.md).
+
 | Mục | Nội dung |
 |---|---|
 | Tác nhân | Hệ thống |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Cửa sổ phản hồi đã kết thúc; khóa chưa được kết luận. |
-| Luồng chính | 1. Tìm phản hồi chưa hoàn tất.<br>2. Tự hoàn 100% phần còn được hoàn cho người không phản hồi theo quy tắc.<br>3. Giải phóng hold chuyển lớp quá hạn và xử lý checkout liên quan.<br>4. Đếm lại đăng ký xác nhận và kiểm tra quyết định miễn ngưỡng.<br>5. Hủy lớp nếu vẫn thiếu ngưỡng và không có miễn ngưỡng.<br>6. Gửi thông báo kết quả. |
+| Luồng chính | 1. Kiểm tra lớp đã đạt ngưỡng hoặc được miễn ngưỡng; nếu có thì giữ ghi danh, không tự hoàn người chưa phản hồi.<br>2. Nếu vẫn thiếu và không có miễn ngưỡng: hủy lớp, hoàn 100% phần còn được hoàn cho người còn ghi danh.<br>3. Giải phóng hold chuyển lớp và checkout/điểm giữ chưa thanh toán.<br>4. Gửi thông báo kết quả cho Member, Manager và HLV liên quan. |
 | Luồng thay thế / ngoại lệ | a. Không hoàn hai lần cho lựa chọn đã thực hiện.<br>b. Thanh toán đến muộn phải đi qua fulfillment/bù hoàn, không bỏ qua.<br>c. Lỗi một giao dịch không được để trạng thái đăng ký/điểm lệch nhau. |
 | Hậu điều kiện | Phản hồi hết hạn được kết thúc; khóa có kết luận; không còn hold không hợp lệ. |
 

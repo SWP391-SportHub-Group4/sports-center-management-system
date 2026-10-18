@@ -11,8 +11,8 @@ using SportHub.Training.Application.Services;
 namespace SportHub.Training.Api;
 
 /// <summary>
-/// Quan hệ huấn luyện. Tạo/kết thúc là quyền của Center Manager (quyết định C3 — CẦN DUYỆT,
-/// BR không nói rõ); HLV và hội viên chỉ xem quan hệ của chính mình.
+/// Manager creates/ends assignments using the existing routes; a confirmed current shared
+/// course is required. Unsupported pairs of every source type end automatically.
 /// </summary>
 [ApiController]
 [Authorize]

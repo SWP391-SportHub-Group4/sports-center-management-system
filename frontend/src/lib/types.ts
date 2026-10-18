@@ -14,6 +14,9 @@ export interface MemberSupportRequestDto {
   status: string;
   createdAt: string;
   assignedToUserId: string | null;
+  memberName?: string | null;
+  memberEmail?: string | null;
+  assignedToName?: string | null;
   progressNote: string | null;
   updatedAt: string | null;
   closedAt: string | null;
@@ -70,6 +73,7 @@ export interface CourseDto {
   status: "PUBLISHED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
   enrollmentOpen: boolean;
   thresholdResponseClosed?: boolean;
+  openingConfirmed?: boolean;
   firstSessionStartUtc: string | null;
   scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
 }
@@ -93,6 +97,7 @@ export interface CourseEnrollmentDto {
   numSessions: number;
   firstSessionStartUtc: string | null;
   classStatus: string;
+  coachId?: string | null;
   coachName?: string | null;
   roomName?: string | null;
   lastSessionEndUtc?: string | null;
@@ -477,6 +482,8 @@ export interface CoachMemberRelationshipDto {
   status: string;
   startedAt: string;
   endedAt: string | null;
+  endReason?: string | null;
+  activeClasses?: { classId: number; className: string }[];
 }
 
 export interface WorkoutPlanDto {
@@ -610,6 +617,7 @@ export interface RoomTypeDto {
   roomTypeId: number;
   name: string;
   sportIds: number[];
+  isActive: boolean;
 }
 export interface OpeningHourDto {
   dayOfWeek: number;

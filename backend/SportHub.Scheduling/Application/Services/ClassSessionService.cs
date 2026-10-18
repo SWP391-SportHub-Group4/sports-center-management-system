@@ -21,7 +21,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// (lịch cũ giữ nguyên nếu lịch mới xung đột), giữ nguyên ghi danh và báo cho học viên. Đổi lịch không tự hoàn tiền: số buổi
 /// thực cung cấp luôn là NumSessions nhờ buổi bù.
 /// </summary>
-public sealed class ClassSessionService(
+public sealed partial class ClassSessionService(
     ISportHubDbContext db,
     CourseValidator validator,
     IOccupancyService occupancy,
@@ -29,7 +29,8 @@ public sealed class ClassSessionService(
     IUserAccessReader users,
     INotificationWriter notifications,
     IAuditWriter audit,
-    IClock clock) : IClassSessionService
+    IClock clock,
+    SportHub.BuildingBlocks.Abstractions.Training.ICoachRelationshipRegistrar relationships) : IClassSessionService
 {
     private static readonly TimeSpan AttendanceGrace = SessionAttendanceWindow.CorrectionWindow;
     private readonly ClassScheduleEffects scheduleEffects = new(db, users, notifications, audit, clock);
@@ -138,7 +139,14 @@ public sealed class ClassSessionService(
         var session = await LockAndLoadAsync(sessionId, ct);
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
 
-        EnsureEditable(session, cls);
+        // An unconfirmed class never started teaching. After downtime its expired
+        // planned session may be deferred, while actual teaching history stays immutable.
+        var deferredOpening = cls.Status == ClassStatus.Published && session.Status == ClassSessionStatus.Scheduled
+            && cls.ThresholdStatus is SportHub.Scheduling.Threshold.Domain.ThresholdStatus.NotEvaluated
+                or SportHub.Scheduling.Threshold.Domain.ThresholdStatus.AtRisk
+            && !await db.Set<Attendance>().AnyAsync(a => a.SessionId == sessionId, ct)
+            && !await db.Set<ClassTeachingRecord>().AnyAsync(r => r.SessionId == sessionId, ct);
+        if (!deferredOpening) EnsureEditable(session, cls);
 
         var start = DateTime.SpecifyKind(request.StartAtUtc, DateTimeKind.Utc);
         var end = start + (session.EndAtUtc - session.StartAtUtc);
@@ -151,8 +159,17 @@ public sealed class ClassSessionService(
         var roomId = request.RoomId ?? session.RoomId;
         var coachId = request.CoachId ?? session.CoachId;
 
+        // The class/session locks also serialize simultaneous identical requests.
+        // Reaching the same target again is not another schedule-change event.
+        if (start == session.StartAtUtc && end == session.EndAtUtc
+            && roomId == session.RoomId && coachId == session.CoachId)
+        {
+            if (tx != null) await tx.CommitAsync(ct);
+            return await GetAsync(sessionId, null, ct);
+        }
+
         await ValidateTargetAsync(cls, roomId, coachId, start, end, ct);
-        await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct);
+        await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct, sessionId);
 
         var before = Describe(session);
 
@@ -172,6 +189,8 @@ public sealed class ClassSessionService(
         session.EndAtUtc = end;
         session.RoomId = roomId;
         session.CoachId = coachId;
+
+        await UpdateOpeningScheduleAsync(cls, sessionId, oldStart, start, ct);
 
         audit.Write(new AuditEntry(actorUserId, "RESCHEDULE_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
             OldValue: before, NewValue: Describe(session), Reason: request.Reason.Trim()));
@@ -193,15 +212,20 @@ public sealed class ClassSessionService(
 
     // ---------------------------------------------------------------- Hủy + bù
 
-    public async Task<ClassSessionResponse> CancelWithMakeupAsync(
+    public Task<ClassSessionResponse> CancelWithMakeupAsync(
         Guid sessionId, CancelSessionRequest request, Guid actorUserId, CancellationToken ct = default)
+        => CancelWithMakeupCoreAsync(sessionId, request, actorUserId, ct);
+
+    private async Task<ClassSessionResponse> CancelWithMakeupCoreAsync(
+        Guid sessionId, CancelSessionRequest request, Guid actorUserId, CancellationToken ct, Guid? incidentFenceId = null)
     {
         await using var tx = db.Database.CurrentTransaction == null ? await db.Database.BeginTransactionAsync(ct) : null;
 
         var session = await LockAndLoadAsync(sessionId, ct);
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
 
-        EnsureEditable(session, cls);
+        if (incidentFenceId is null) EnsureEditable(session, cls);
+        var previousStatus = session.Status;
 
         var makeup = request.Makeup;
         var start = DateTime.SpecifyKind(makeup.StartAtUtc, DateTimeKind.Utc);
@@ -227,7 +251,7 @@ public sealed class ClassSessionService(
         var coachId = makeup.CoachId ?? session.CoachId;
 
         await ValidateTargetAsync(cls, roomId, coachId, start, end, ct);
-        await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct);
+        await EnsureNoMemberConflictAsync(cls.ClassId, start, end, ct, sessionId);
 
         var nextNo = await db.Set<ClassSession>().Where(s => s.ClassId == cls.ClassId).MaxAsync(s => s.SessionNo, ct) + 1;
 
@@ -262,9 +286,9 @@ public sealed class ClassSessionService(
         }
 
         await RecordFenceStepAsync(IncidentFenceStepKind.CancelWithMakeup, session, session.StartAtUtc, session.EndAtUtc,
-            session.RoomId, session.CoachId, newSession.SessionId, start, roomId, coachId, actorUserId, ct);
+            session.RoomId, session.CoachId, newSession.SessionId, start, roomId, coachId, actorUserId, ct, incidentFenceId);
         audit.Write(new AuditEntry(actorUserId, "CANCEL_CLASS_SESSION", nameof(ClassSession), sessionId.ToString(),
-            OldValue: JsonSerializer.Serialize(new { status = ClassSessionStatus.Scheduled.ToString() }),
+            OldValue: JsonSerializer.Serialize(new { status = previousStatus.ToString() }),
             NewValue: JsonSerializer.Serialize(new { status = ClassSessionStatus.Cancelled.ToString(), makeupSessionId = newSession.SessionId }),
             Reason: request.Reason.Trim()));
 
@@ -288,10 +312,10 @@ public sealed class ClassSessionService(
     /// </summary>
     private async Task RecordFenceStepAsync(IncidentFenceStepKind kind, ClassSession session, DateTime beforeStart,
         DateTime beforeEnd, int beforeRoom, Guid beforeCoach, Guid? makeupSessionId, DateTime afterStart, int afterRoom,
-        Guid afterCoach, Guid actorUserId, CancellationToken ct)
+        Guid afterCoach, Guid actorUserId, CancellationToken ct, Guid? requestedFenceId = null)
     {
         var fenceId = await db.Set<IncidentFence>().AsNoTracking()
-            .Where(f => f.Status == IncidentFenceStatus.Open && f.StartAtUtc < beforeEnd && f.EndAtUtc > beforeStart
+            .Where(f => (!requestedFenceId.HasValue || f.FenceId == requestedFenceId) && f.Status == IncidentFenceStatus.Open && f.StartAtUtc < beforeEnd && f.EndAtUtc > beforeStart
                         && (f.Scope == IncidentScope.Center || f.RoomId == beforeRoom))
             .OrderBy(f => f.CreatedAtUtc).Select(f => (Guid?)f.FenceId).FirstOrDefaultAsync(ct);
         if (fenceId is null) return;
@@ -337,14 +361,20 @@ public sealed class ClassSessionService(
             if (!moved.Succeeded) return await Fail("The original room or coach is no longer free at that time.");
 
             var movedFrom = session.StartAtUtc;
+            var departedCoach = session.CoachId;
+            var departedRoom = session.RoomId;
             session.StartAtUtc = step.BeforeStartUtc;
             session.EndAtUtc = step.BeforeEndUtc;
             session.RoomId = step.BeforeRoomId;
             session.CoachId = step.BeforeCoachId;
+            await UpdateOpeningScheduleAsync(cls, session.SessionId, movedFrom, session.StartAtUtc, ct);
             audit.Write(new AuditEntry(actorUserId, "UNDO_RESCHEDULE_CLASS_SESSION", nameof(ClassSession),
                 session.SessionId.ToString(), NewValue: Describe(session), Reason: "Incident abandoned"));
-            await NotifyEnrolledAsync(cls, Guid.NewGuid(),
-                $"Session {session.SessionNo} of course {cls.Name} is back at {Local(session.StartAtUtc)} (it had been moved to {Local(movedFrom)}). The earlier change was cancelled.", ct);
+            var message = $"Session {session.SessionNo} of course {cls.Name} is back at {Local(session.StartAtUtc)} (it had been moved to {Local(movedFrom)}). The earlier change was cancelled. "
+                + await RestorationDetailsAsync(departedCoach, session.CoachId, departedRoom, session.RoomId, ct);
+            var eventId = Guid.NewGuid();
+            await NotifyEnrolledAsync(cls, eventId, message, ct);
+            await scheduleEffects.NotifyCoachesAsync(cls, departedCoach, session.CoachId, message, ct, eventId);
         }
         else
         {
@@ -364,8 +394,11 @@ public sealed class ClassSessionService(
             session.Status = ClassSessionStatus.Scheduled;
             audit.Write(new AuditEntry(actorUserId, "UNDO_CANCEL_CLASS_SESSION", nameof(ClassSession),
                 session.SessionId.ToString(), NewValue: Describe(session), Reason: "Incident abandoned"));
-            await NotifyEnrolledAsync(cls, Guid.NewGuid(),
-                $"Session {session.SessionNo} of course {cls.Name} will go ahead as originally planned at {Local(session.StartAtUtc)}. The makeup on {Local(makeup.StartAtUtc)} was cancelled.", ct);
+            var message = $"Session {session.SessionNo} of course {cls.Name} will go ahead as originally planned at {Local(session.StartAtUtc)}. The makeup on {Local(makeup.StartAtUtc)} was cancelled. "
+                + await RestorationDetailsAsync(makeup.CoachId, session.CoachId, makeup.RoomId, session.RoomId, ct);
+            var eventId = Guid.NewGuid();
+            await NotifyEnrolledAsync(cls, eventId, message, ct);
+            await scheduleEffects.NotifyCoachesAsync(cls, makeup.CoachId, session.CoachId, message, ct, eventId);
         }
 
         step.State = IncidentFenceStepState.Undone;
@@ -424,7 +457,7 @@ public sealed class ClassSessionService(
     }
 
     /// <summary>Dời/bù có thể làm học viên đã ghi danh bị trùng buổi của khóa khác — báo Manager, không tự xử lý.</summary>
-    private async Task EnsureNoMemberConflictAsync(int classId, DateTime start, DateTime end, CancellationToken ct)
+    private async Task EnsureNoMemberConflictAsync(int classId, DateTime start, DateTime end, CancellationToken ct, Guid? excludeSessionId = null)
     {
         var now = clock.UtcNow;
         var bookings = db.Set<Enrollment>().Where(e => e.Status == EnrollmentStatus.Confirmed)
@@ -434,17 +467,53 @@ public sealed class ClassSessionService(
         var members = bookings.Where(e => e.ClassId == classId).Select(e => e.MemberId);
 
         var affected = await (from e in bookings
-                              where e.ClassId != classId && members.Contains(e.MemberId)
+                              where members.Contains(e.MemberId)
                               join s in db.Set<ClassSession>().AsNoTracking() on e.ClassId equals s.ClassId
-                              where s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc < end && s.EndAtUtc > start
+                              where s.SessionId != excludeSessionId && s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc < end && s.EndAtUtc > start
                               select e.MemberId).Distinct().CountAsync(ct);
 
-        if (affected > 0)
+        var rentalConflict = await db.Set<CourtRental>().AnyAsync(r => members.Contains(r.MemberId)
+            && (r.Status == CourtRentalStatus.Confirmed || r.Status == CourtRentalStatus.PendingPayment)
+            && r.StartAtUtc < end && r.EndAtUtc > start, ct);
+        if (affected > 0 || rentalConflict)
         {
             throw new ConflictException(
                 "member_schedule_conflict",
                 "Member schedule conflict.");
         }
+    }
+
+    private async Task UpdateOpeningScheduleAsync(Class cls, Guid sessionId, DateTime oldStart, DateTime newStart, CancellationToken ct)
+    {
+        if (cls.Status != ClassStatus.Published || oldStart == newStart) return;
+        var otherFirst = await db.Set<ClassSession>().Where(s => s.ClassId == cls.ClassId
+            && s.SessionId != sessionId && s.Status != ClassSessionStatus.Cancelled)
+            .MinAsync(s => (DateTime?)s.StartAtUtc, ct);
+        var before = otherFirst.HasValue && otherFirst < oldStart ? otherFirst.Value : oldStart;
+        var after = otherFirst.HasValue && otherFirst < newStart ? otherFirst.Value : newStart;
+        if (before == after) return;
+        if (cls.ThresholdStatus == SportHub.Scheduling.Threshold.Domain.ThresholdStatus.AtRisk
+            && cls.ThresholdResponseDeadlineUtc is DateTime responseEnd && after < responseEnd.AddHours(24))
+            throw new ConflictException("threshold_response_window_conflict", "The first session must remain at least 24 hours after the member response deadline.");
+        cls.StartDate = DateOnly.FromDateTime(VietnamTime.ToLocal(after));
+        if (cls.ThresholdResponseDeadlineUtc is null)
+        {
+            cls.ThresholdDeadlineUtc = cls.ThresholdDeadlineUtc?.Add(after - before);
+            if (cls.ThresholdStatus == SportHub.Scheduling.Threshold.Domain.ThresholdStatus.AtRisk)
+                cls.ThresholdStatus = SportHub.Scheduling.Threshold.Domain.ThresholdStatus.NotEvaluated;
+        }
+        cls.Version++;
+    }
+
+    private async Task<string> RestorationDetailsAsync(Guid departedCoach, Guid restoredCoach,
+        int departedRoom, int restoredRoom, CancellationToken ct)
+    {
+        var oldName = (await users.GetAsync(departedCoach, ct))?.FullName ?? departedCoach.ToString();
+        var newName = (await users.GetAsync(restoredCoach, ct))?.FullName ?? restoredCoach.ToString();
+        var roomNames = await db.Set<Room>().AsNoTracking()
+            .Where(r => r.RoomId == departedRoom || r.RoomId == restoredRoom)
+            .ToDictionaryAsync(r => r.RoomId, r => r.Name, ct);
+        return $"Coach: {oldName} → {newName}. Room: {roomNames.GetValueOrDefault(departedRoom, departedRoom.ToString())} → {roomNames.GetValueOrDefault(restoredRoom, restoredRoom.ToString())}. Reason: incident abandoned. Enrollment remains valid; follow the restored session schedule.";
     }
 
     private async Task NotifyEnrolledAsync(Class cls, Guid sourceId, string message, CancellationToken ct)
@@ -502,7 +571,8 @@ public sealed class ClassSessionService(
             r.Session.SessionId, r.Session.ClassId, r.ClassName, r.Session.SessionNo, r.Session.RoomId, r.RoomName,
             r.Session.CoachId, names.TryGetValue(r.Session.CoachId, out var n) ? n : null,
             DateTime.SpecifyKind(r.Session.StartAtUtc, DateTimeKind.Utc), DateTime.SpecifyKind(r.Session.EndAtUtc, DateTimeKind.Utc),
-            r.Session.Status.ToString(), r.Session.IsMakeup, r.Session.RescheduledFromSessionId)).ToList();
+            r.Session.Status.ToString(), r.Session.IsMakeup, r.Session.RescheduledFromSessionId,
+            ReadIncidentReport(r.Session.IncidentReportJson))).ToList();
     }
 
     private static string Local(DateTime utc)

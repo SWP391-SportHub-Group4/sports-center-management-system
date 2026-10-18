@@ -67,7 +67,13 @@ public sealed class SaveSportServiceRequest
 
 // --- Room type ---
 
-public sealed record RoomTypeResponse(int RoomTypeId, string Name, IReadOnlyList<int> SportIds);
+public sealed record RoomTypeResponse(int RoomTypeId, string Name, IReadOnlyList<int> SportIds, bool IsActive = true);
+
+public sealed class SetRoomTypeStatusRequest
+{
+    [Required, MinLength(3), MaxLength(500)]
+    public string Reason { get; set; } = string.Empty;
+}
 
 public sealed class SaveRoomTypeRequest
 {

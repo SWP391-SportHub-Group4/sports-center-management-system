@@ -398,7 +398,7 @@ public sealed class ClassService(
 
         var thresholdDays = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdDaysBeforeStart, ct);
         var responseHours = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdResponseHours, ct);
-        if (thresholdDays < 3 || thresholdDays * 24 < responseHours + 24)
+        if (responseHours is < 1 or > 48 || thresholdDays < 3 || thresholdDays * 24 < responseHours + 24)
             throw new ConflictException("class_threshold_window_setting_invalid",
                 "The threshold review must start at least three days before class and allow the full member response period plus 24 hours for the final decision.");
 
@@ -608,7 +608,9 @@ public sealed class ClassService(
             r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now,
             r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [],
+            r.Class.ThresholdStatus is ThresholdStatus.Met or ThresholdStatus.WaivedByManager
+                || r.Class.Status is ClassStatus.InProgress or ClassStatus.Completed
         )).ToList();
     }
 

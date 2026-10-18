@@ -15,7 +15,7 @@ import {
   Pagination,
 } from "@/features/operations";
 import type { UserAdminDto, Paged, CourtScheduleEntryDto } from "@/lib/types";
-export function ManualNoticeForm() {
+export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
   const { t } = useLanguage();
   const l = t.operations;
   const c = useOperationsCopy();
@@ -111,6 +111,7 @@ export function ManualNoticeForm() {
         });
       if (!validReceiptId(response.noticeId)) throw new Error(c.invalidReceipt);
       setSentId(response.noticeId);
+      onSent?.();
       setRecoveryKey("");
       setUncertain(false);
       window.history.replaceState(null, "", `?noticeId=${response.noticeId}`);
@@ -484,7 +485,15 @@ export function ManualNoticeForm() {
         <MutationFeedback mutation={mutation} />
         {sentId && <p role="status">{t.wireStatus.SENT}</p>}
         {sentId && (
-          <DeliveryStatus path={`/api/manager/notices/${sentId}`} receipt />
+          <>
+            <Link
+              className="btn btn--secondary"
+              href={`/manager/notices/${sentId}`}
+            >
+              {t.manualNotices.openDetails}
+            </Link>
+            <DeliveryStatus path={`/api/manager/notices/${sentId}`} receipt />
+          </>
         )}
         {uncertain && (
           <>

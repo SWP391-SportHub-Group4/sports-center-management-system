@@ -8,7 +8,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { AsyncSection, Card, Field, StatusChip, Table } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { Pagination } from "@/features/operations";
@@ -23,11 +23,20 @@ import { trainingStyles as styles } from "@/features/training";
 import { MemberHealthProfile } from "./member-health-profile";
 import { AvatarImage } from "@/components/AvatarImage";
 import { ReportAvatarButton } from "@/components/ReportAvatarButton";
+import { AssignCoachDialog } from "./assign-coach-dialog";
+import { EndRelationshipDialog } from "./end-relationship-dialog";
+import {
+  PendingMemberPanel,
+  RegisterMemberDialog,
+  MemberSupportRequests,
+} from "@/features/receptionist";
 
-/** Danh sách hội viên của Manager (Q12). Chỉ xem, mở hồ sơ vận hành. */
+/** Danh sách hội viên của Manager và đăng ký Member tại quầy. */
 export function ManagerMemberList() {
   const { t } = useLanguage();
   const l = t.ptOps;
+  const router = useRouter();
+  const [registering, setRegistering] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [debounced, setDebounced] = useState("");
   const [page, setPage] = useState(1);
@@ -49,7 +58,18 @@ export function ManagerMemberList() {
   );
   return (
     <div>
-      <Card title={l.members}>
+      <Card
+        title={l.members}
+        actions={
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setRegistering(true)}
+          >
+            {t.frontDesk.openRegistration}
+          </button>
+        }
+      >
         <div className={listStyles.search}>
           <Field label={l.findMember}>
             <input
@@ -90,7 +110,15 @@ export function ManagerMemberList() {
                           {m.phone ? ` · ${m.phone}` : ""}
                         </td>
                         <td>
-                          <StatusChip value={m.status} />
+                          {m.activationPending ? (
+                            <StatusChip
+                              value="PENDING_ACTIVATION"
+                              tone="warning"
+                              label={t.frontDesk.pendingActivation}
+                            />
+                          ) : (
+                            <StatusChip value={m.status} />
+                          )}
                         </td>
                         <td>
                           <ReportAvatarButton
@@ -120,6 +148,15 @@ export function ManagerMemberList() {
           }}
         </AsyncSection>
       </Card>
+      {registering && (
+        <RegisterMemberDialog
+          onClose={() => setRegistering(false)}
+          onCreated={(member) => {
+            setRegistering(false);
+            router.push(`/manager/members/${member.userId}`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -128,6 +165,8 @@ type TabId = "overview" | "invoices" | "health";
 
 /** Hồ sơ vận hành của hội viên (Q12): Membership, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
 export function ManagerMemberProfile({ memberId }: { memberId: string }) {
+  const [assigning, setAssigning] = useState(false);
+  const [ending, setEnding] = useState<CoachMemberRelationshipDto | null>(null);
   const { t, language } = useLanguage();
   const l = t.ptOps;
   const router = useRouter();
@@ -163,31 +202,48 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
       </Link>
       <AsyncSection state={member}>
         {(m) => (
-          <section
-            className={styles.summary}
-            aria-label={m.fullName || m.email}
-          >
-            <div>
-              <AvatarImage
-                name={m.fullName || m.email}
-                avatarUrl={m.avatarUrl}
-                size={64}
+          <>
+            <section
+              className={styles.summary}
+              aria-label={m.fullName || m.email}
+            >
+              <div>
+                <AvatarImage
+                  name={m.fullName || m.email}
+                  avatarUrl={m.avatarUrl}
+                  size={64}
+                />
+                <p className={styles.coachName}>{m.fullName || m.email}</p>
+                <ReportAvatarButton
+                  targetUserId={m.userId}
+                  avatarUrl={m.avatarUrl}
+                />
+                <p className={styles.muted}>
+                  {m.email}
+                  {m.phone ? ` · ${m.phone}` : ""}
+                </p>
+              </div>
+              <div className={styles.next}>
+                {m.activationPending ? (
+                  <StatusChip
+                    value="PENDING_ACTIVATION"
+                    tone="warning"
+                    label={t.frontDesk.pendingActivation}
+                  />
+                ) : (
+                  <StatusChip value={m.status} />
+                )}
+                <p className={styles.muted}>{l.readOnlyNote}</p>
+              </div>
+            </section>
+            {m.activationPending && (
+              <PendingMemberPanel
+                key={m.userId}
+                member={m}
+                onChange={() => member.reload()}
               />
-              <p className={styles.coachName}>{m.fullName || m.email}</p>
-              <ReportAvatarButton
-                targetUserId={m.userId}
-                avatarUrl={m.avatarUrl}
-              />
-              <p className={styles.muted}>
-                {m.email}
-                {m.phone ? ` · ${m.phone}` : ""}
-              </p>
-            </div>
-            <div className={styles.next}>
-              <StatusChip value={m.status} />
-              <p className={styles.muted}>{l.readOnlyNote}</p>
-            </div>
-          </section>
+            )}
+          </>
         )}
       </AsyncSection>
       <Tabs
@@ -236,7 +292,17 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                 </AsyncSection>
               </section>
               <section className={styles.section}>
-                <h2>{l.pairs}</h2>
+                <div className={listStyles.sectionHeader}>
+                  <h2>{l.pairs}</h2>
+                  <button
+                    type="button"
+                    className="btn btn--sm"
+                    disabled={!member.data || member.data.status !== "ACTIVE"}
+                    onClick={() => setAssigning(true)}
+                  >
+                    {language === "vi" ? "Phân công HLV" : "Assign coach"}
+                  </button>
+                </div>
                 <AsyncSection
                   state={pairs}
                   isEmpty={(rows) => !pagedItems(rows).length}
@@ -246,10 +312,52 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                     <ul className={styles.list}>
                       {pagedItems(rows).map((p) => (
                         <li key={p.relationshipId}>
-                          <div>
+                          <div className={listStyles.relationshipDetails}>
                             <strong>{p.coachName}</strong>
+                            <span>
+                              {p.sourceType === "ASSIGNED_BY_MANAGER"
+                                ? "Assigned by Manager"
+                                : "Class assignment"}
+                            </span>
+                            {p.status === "ACTIVE" ? (
+                              (p.activeClasses ?? []).map((course) => (
+                                <Link
+                                  key={course.classId}
+                                  href={`/manager/classes/${course.classId}`}
+                                >
+                                  {course.className}
+                                </Link>
+                              ))
+                            ) : (
+                              <>
+                                {p.endedAt && (
+                                  <span>Ended {formatDateTime(p.endedAt)}</span>
+                                )}
+                                <span>
+                                  {p.endReason ?? "End reason not recorded."}
+                                </span>
+                              </>
+                            )}
                           </div>
-                          <StatusChip value={p.status} />
+                          <div className={listStyles.relationshipActions}>
+                            <StatusChip value={p.status} />
+                            {p.status === "ACTIVE" && (
+                              <button
+                                type="button"
+                                className="btn btn--secondary btn--sm"
+                                aria-label={
+                                  language === "vi"
+                                    ? `Kết thúc quan hệ với ${p.coachName}`
+                                    : `End relationship with ${p.coachName}`
+                                }
+                                onClick={() => setEnding(p)}
+                              >
+                                {language === "vi"
+                                  ? "Kết thúc quan hệ"
+                                  : "End relationship"}
+                              </button>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -260,6 +368,27 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
           )}
         </div>
       </Tabs>
+      {member.data && <MemberSupportRequests memberId={memberId} />}
+      {assigning && member.data && (
+        <AssignCoachDialog
+          member={member.data}
+          onClose={() => setAssigning(false)}
+          onCreated={() => {
+            setAssigning(false);
+            pairs.reload();
+          }}
+        />
+      )}
+      {ending && (
+        <EndRelationshipDialog
+          relationship={ending}
+          onClose={() => setEnding(null)}
+          onEnded={() => {
+            setEnding(null);
+            pairs.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

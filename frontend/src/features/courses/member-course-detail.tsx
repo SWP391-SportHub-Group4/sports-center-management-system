@@ -13,6 +13,7 @@ import { LockKeyhole } from "lucide-react";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatMoney } from "@/lib/format";
 import { courseApi } from "./api";
+import { CourseOpeningStatus } from "./opening-status";
 import styles from "./member-course-detail.module.css";
 import { useCourseEnrollments } from "./use-course-enrollments";
 import { useClassHolds } from "./use-class-holds";
@@ -131,6 +132,7 @@ export function CourseDetail({
             )}
           </div>
           <Heading>{course.name}</Heading>
+          <CourseOpeningStatus course={course} />
         </header>
         <CourseSticker sport={course.sportName} compact />
         <dl className={styles.facts}>

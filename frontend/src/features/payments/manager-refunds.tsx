@@ -14,6 +14,12 @@ import { financeStyles as styles } from "@/features/finance";
 
 const VND_PER_POINT = 1000;
 const VIEWS = ["REQUESTED", "COMPLETED", "REJECTED", ""] as const;
+type ApprovalQuote = {
+  systemCalculatedPoints: number;
+  remainingPaidVnd: number;
+  maxPercent: number;
+  centerFault: boolean;
+};
 
 function RefundCard({
   r,
@@ -22,7 +28,7 @@ function RefundCard({
   r: PaymentAdjustmentDto;
   reload: () => void;
 }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const l = t.staffWork;
   const f = t.finOps;
   const { user } = useAuth();
@@ -32,8 +38,47 @@ function RefundCard({
   const mutation = useMutation();
   const canReview =
     r.status === "REQUESTED" && r.requestedByUserId !== user?.userId;
+  const quote = useApi(
+    (signal) =>
+      canReview
+        ? api.get<ApprovalQuote>(
+            `/api/refunds/${r.adjustmentId}/approval-quote`,
+            {
+              signal,
+              query: { centerFault },
+            },
+          )
+        : Promise.resolve(null),
+    [canReview, r.adjustmentId, centerFault],
+  );
+  const currentQuote =
+    !quote.loading && !quote.error && quote.data?.centerFault === centerFault
+      ? quote.data
+      : null;
+  const customPercent = percent.trim() !== "";
+  const percentValue = Number(percent);
+  const percentInvalid =
+    customPercent &&
+    (!Number.isInteger(percentValue) ||
+      percentValue < 0 ||
+      percentValue > (currentQuote?.maxPercent ?? 0));
+  const previewPoints = currentQuote
+    ? customPercent
+      ? Math.floor(
+          Math.floor((currentQuote.remainingPaidVnd * percentValue) / 100) /
+            VND_PER_POINT,
+        )
+      : currentQuote.systemCalculatedPoints
+    : 0;
+  const approvalDisabled =
+    mutation.busy ||
+    !currentQuote ||
+    percentInvalid ||
+    previewPoints <= 0 ||
+    reason.trim().length < (centerFault || customPercent ? 10 : 3);
 
   async function review(approve: boolean) {
+    if (approve && approvalDisabled) return;
     const ok = await mutation.run(() =>
       api.post(
         `/api/refunds/${r.adjustmentId}/${approve ? "approve" : "reject"}`,
@@ -49,6 +94,7 @@ function RefundCard({
       ),
     );
     if (ok) reload();
+    else if (approve) quote.reload();
   }
 
   return (
@@ -72,8 +118,15 @@ function RefundCard({
         <div>
           <dt>{l.systemCap}</dt>
           <dd>
-            {formatPoints(r.systemCalculatedPoints)} (
-            {formatMoney(r.systemCalculatedPoints * VND_PER_POINT)})
+            {formatPoints(
+              currentQuote?.systemCalculatedPoints ?? r.systemCalculatedPoints,
+            )}{" "}
+            (
+            {formatMoney(
+              (currentQuote?.systemCalculatedPoints ??
+                r.systemCalculatedPoints) * VND_PER_POINT,
+            )}
+            )
           </dd>
         </div>
         {r.status !== "REQUESTED" && (
@@ -106,33 +159,60 @@ function RefundCard({
             <input
               type="checkbox"
               checked={centerFault}
-              onChange={(e) => setCenterFault(e.target.checked)}
+              onChange={(e) => {
+                setCenterFault(e.target.checked);
+                setPercent("");
+              }}
             />
             {l.centerFault}
           </label>
           <p className={styles.muted}>{f.centerFaultHelp}</p>
           <Field
-            label={
-              language === "vi"
-                ? "Hoàn theo % thấp hơn mức hệ thống (tùy chọn)"
-                : "Lower refund percent (optional; cannot exceed the system cap)"
-            }
+            label={f.refundPercent}
+            hint={f.refundPercentHelp.replace(
+              "{max}",
+              String(currentQuote?.maxPercent ?? 0),
+            )}
           >
             <input
               type="number"
               min={0}
-              max={100}
-              step={5}
+              max={currentQuote?.maxPercent ?? 0}
+              step={1}
+              disabled={!currentQuote || mutation.busy}
+              aria-invalid={percentInvalid}
               inputMode="numeric"
               value={percent}
-              placeholder={language === "vi" ? "Theo quy tắc" : "By policy"}
+              placeholder={f.refundByPolicy}
               onChange={(e) => setPercent(e.target.value)}
             />
           </Field>
+          {quote.loading && <p role="status">{t.refactor.loading}</p>}
+          {quote.error && <p role="alert">{quote.error.message}</p>}
+          {quote.error && (
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={quote.reload}
+            >
+              {t.common.retry}
+            </button>
+          )}
+          {percentInvalid && <p role="alert">{f.refundPercentInvalid}</p>}
+          {currentQuote && !percentInvalid && (
+            <p className={styles.muted}>
+              {f.systemCalc
+                .replace("{points}", formatPoints(previewPoints))
+                .replace("{vnd}", formatMoney(previewPoints * VND_PER_POINT))}
+            </p>
+          )}
+          {(centerFault || customPercent) && (
+            <p className={styles.muted}>{f.refundDetailedReason}</p>
+          )}
           <div className={styles.actions}>
             <button
               className="btn"
-              disabled={mutation.busy || reason.trim().length < 3}
+              disabled={approvalDisabled}
               onClick={() => review(true)}
             >
               {l.approve}

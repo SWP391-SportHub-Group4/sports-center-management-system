@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Threshold.Application;
+using SportHub.Scheduling.Threshold.Domain;
 
 namespace SportHub.API.Jobs;
 
@@ -22,13 +25,23 @@ public sealed class ClassStatusJob(IServiceProvider services, ILogger<ClassStatu
     {
         var db = scopedServices.GetRequiredService<SportHubDbContext>();
         var now = scopedServices.GetRequiredService<IClock>().UtcNow;
+        // Recover missed threshold work before advancing the time-based lifecycle.
+        await scopedServices.GetRequiredService<IClassThresholdService>().EvaluateDueAsync(ct);
+        await scopedServices.GetRequiredService<ThresholdResponseExpiryService>().ExpireAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 1)", ct);
 
         var completedSessions = await db.ClassSessions
-            .Where(s => s.Status == ClassSessionStatus.Scheduled && s.EndAtUtc <= now)
+            .Where(s => s.Status == ClassSessionStatus.Scheduled && s.EndAtUtc <= now
+                && (s.Class!.Status == ClassStatus.InProgress
+                    || s.Class.Status == ClassStatus.Published
+                        && (s.Class.ThresholdStatus == ThresholdStatus.Met
+                            || s.Class.ThresholdStatus == ThresholdStatus.WaivedByManager)))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassSessionStatus.Completed), ct);
 
         var started = await db.Classes
             .Where(c => c.Status == ClassStatus.Published
+                        && (c.ThresholdStatus == ThresholdStatus.Met || c.ThresholdStatus == ThresholdStatus.WaivedByManager)
                         && c.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.InProgress), ct);
 
@@ -37,6 +50,11 @@ public sealed class ClassStatusJob(IServiceProvider services, ILogger<ClassStatu
                         && c.Sessions.Any(s => s.Status == ClassSessionStatus.Completed)
                         && !c.Sessions.Any(s => s.Status == ClassSessionStatus.Scheduled))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.Completed), ct);
+
+        // Also repairs old manual/class assignments with no remaining confirmed class.
+        await scopedServices.GetRequiredService<ICoachRelationshipRegistrar>().ReconcileAsync(null, null, null,
+            "No remaining active courses after course completion or assignment cleanup.", ct);
+        await tx.CommitAsync(ct);
 
         if (completedSessions + started + finished > 0)
         {

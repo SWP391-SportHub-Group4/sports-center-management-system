@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { api, ApiError } from "@/lib/apiClient";
 
@@ -9,11 +9,19 @@ import { useApi } from "@/lib/useApi";
 import type { MemberSupportRequestDto } from "@/lib/types";
 
 import { formatDateTime } from "@/lib/format";
-import { SupportRequestActions, type SupportAssignee } from "./support-request-actions";
+import {
+  SupportRequestActions,
+  type SupportAssignee,
+} from "./support-request-actions";
 
 export function MemberSupportRequests({ memberId }: { memberId: string }) {
-  const assignees = useApi((signal) =>
-    api.get<SupportAssignee[]>("/api/member-support-requests/assignees", { signal }), []);
+  const assignees = useApi(
+    (signal) =>
+      api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
+        signal,
+      }),
+    [],
+  );
   const requests = useApi(
     (signal) =>
       api.get<MemberSupportRequestDto[]>("/api/member-support-requests", {
@@ -36,8 +44,10 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const [success, setSuccess] = useState<string | null>(null);
+  const submitting = useRef(false);
 
   async function submit() {
+    if (submitting.current) return;
     const trimmedSubject = subject.trim();
 
     const trimmedDescription = description.trim();
@@ -48,6 +58,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
       return;
     }
 
+    submitting.current = true;
     setBusy(true);
     setError(null);
     setSuccess(null);
@@ -76,6 +87,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         setError("Unable to record support request.");
       }
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -185,11 +197,32 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
 
       <div>
         <h4>Recent requests</h4>
+        {assignees.error && (
+          <p role="alert">
+            Could not load staff.{" "}
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={assignees.reload}
+            >
+              Retry staff
+            </button>
+          </p>
+        )}
 
         {requests.loading ? (
           <p className="small muted">Loading…</p>
         ) : requests.error ? (
-          <p role="alert">{requests.error.message}</p>
+          <div role="alert">
+            <p>{requests.error.message}</p>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={requests.reload}
+            >
+              Retry requests
+            </button>
+          </div>
         ) : !requests.data?.length ? (
           <p className="small muted">No support requests recorded.</p>
         ) : (
@@ -224,11 +257,20 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
                   {request.category}
                   {" · "}
                   {formatDateTime(request.createdAt)}
+                  {request.updatedAt && (
+                    <> · Updated {formatDateTime(request.updatedAt)}</>
+                  )}
+                  {request.closedAt && (
+                    <> · Closed {formatDateTime(request.closedAt)}</>
+                  )}
                 </p>
 
                 <p>{request.description}</p>
-                <SupportRequestActions request={request} assignees={assignees.data ?? []}
-                  onChanged={requests.reload} />
+                <SupportRequestActions
+                  request={request}
+                  assignees={assignees.data ?? []}
+                  onChanged={requests.reload}
+                />
               </article>
             ))}
           </div>

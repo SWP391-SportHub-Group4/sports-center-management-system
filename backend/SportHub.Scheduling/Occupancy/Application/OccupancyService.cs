@@ -6,6 +6,7 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Scheduling.Rental.Domain;
 using SportHub.Scheduling.Occupancy.Domain;
+using SportHub.Scheduling.Catalog.Domain;
 
 namespace SportHub.Scheduling.Occupancy.Application;
 
@@ -68,6 +69,12 @@ public sealed class OccupancyService(ISportHubDbContext db, IClock clock) : IOcc
         // itself is applied, so they are exempt.
         if (request.RoomId is int fencedRoomId && type != OccupancySourceType.RoomBlock)
         {
+            // Share-lock the type until the caller transaction commits. Discontinuing
+            // a type takes an exclusive row lock, serializing with all new reservations.
+            var roomTypes = await db.Set<RoomType>().FromSqlInterpolated($"SELECT t.* FROM room_types t JOIN rooms r ON r.room_type_id = t.room_type_id WHERE r.room_id = {fencedRoomId} FOR SHARE OF t, r")
+                .AsNoTracking().ToListAsync(ct);
+            if (roomTypes.Any(t => !t.IsActive))
+                throw new ConflictException("room_type_inactive", "This room type is discontinued. Choose another room.");
             var now = clock.UtcNow;
             if (await db.Set<IncidentFence>().AsNoTracking().AnyAsync(f => f.Status == IncidentFenceStatus.Open
                     && f.ExpiresAtUtc > now && f.StartAtUtc < end && f.EndAtUtc > start

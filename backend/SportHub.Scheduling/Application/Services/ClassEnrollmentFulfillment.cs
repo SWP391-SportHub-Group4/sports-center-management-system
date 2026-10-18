@@ -181,6 +181,9 @@ public sealed class ClassEnrollmentFulfillment(
         }
 
         await thresholds.ConfirmIfMetAsync(hold.ClassId, cancellationToken);
+        if (sourceEnrollmentId is not null)
+            await coachRelationships.ReconcileAsync(hold.MemberId, null, null,
+                "No remaining active courses after class transfer.", cancellationToken);
 
         return enrollment.EnrollmentId;
     }
@@ -295,6 +298,11 @@ public sealed class ClassEnrollmentFulfillment(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        // A transfer confirms its destination before reconciling, so a same-coach transfer
+        // keeps the existing assignment instead of manufacturing a gap in its history.
+        if (endReason != EnrollmentEndReason.TransferredOut)
+            await coachRelationships.ReconcileAsync(enrollment.MemberId, null, null,
+                "No remaining active courses after enrollment ended.", cancellationToken);
     }
 
     public async Task<ClassRefundFacts?> GetRefundFactsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default)

@@ -4,6 +4,7 @@ namespace SportHub.Scheduling.Catalog.Domain;
 public class RoomType
 {
     public int RoomTypeId { get; set; }
+    public bool IsActive { get; set; } = true;
 
     public string Name { get; set; } = string.Empty; // unique không phân biệt hoa/thường
 }

@@ -36,4 +36,14 @@ public class RoomTypesController(RoomTypeService roomTypes) : ControllerBase
         await roomTypes.DeleteAsync(roomTypeId, User.RequireUserId(), ct);
         return NoContent();
     }
+
+    [Authorize(Policy = SportHubPolicies.CatalogManage)]
+    [HttpPost("api/manager/room-types/{roomTypeId:int}/discontinue")]
+    public async Task<IActionResult> Discontinue(int roomTypeId, [FromBody] SetRoomTypeStatusRequest request, CancellationToken ct)
+        => Ok(await roomTypes.SetActiveAsync(roomTypeId, false, request.Reason, User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.CatalogManage)]
+    [HttpPost("api/manager/room-types/{roomTypeId:int}/reactivate")]
+    public async Task<IActionResult> Reactivate(int roomTypeId, [FromBody] SetRoomTypeStatusRequest request, CancellationToken ct)
+        => Ok(await roomTypes.SetActiveAsync(roomTypeId, true, request.Reason, User.RequireUserId(), ct));
 }

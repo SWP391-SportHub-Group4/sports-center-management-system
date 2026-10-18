@@ -2,6 +2,7 @@
 import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { courseApi } from "./api";
+import { CourseOpeningStatus } from "./opening-status";
 import { useState } from "react";
 import { ChevronDown, LockKeyhole, SlidersHorizontal } from "lucide-react";
 import { useUrlQuery } from "@/lib/useUrlQuery";
@@ -289,6 +290,7 @@ export function CourseCatalog({
                   data-registration={registration}
                 >
                   <div className={styles.courseHead}>
+                    <CourseOpeningStatus course={c} compact />
                     <span
                       className={tags.sport}
                       data-sport={sportTone(c.sportName)}

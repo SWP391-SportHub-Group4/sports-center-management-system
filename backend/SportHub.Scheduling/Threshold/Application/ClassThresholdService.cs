@@ -49,6 +49,9 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             || entity.ThresholdStatus is ThresholdStatus.WaivedByManager or ThresholdStatus.Met)
             throw new ConflictException("class_threshold_not_waivable", "Class threshold not waivable.");
         var old = entity.ThresholdStatus;
+        if (await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId
+            && s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= clock.UtcNow, cancellationToken))
+            throw new ConflictException("threshold_opening_time_passed", "Move the unconfirmed opening to a future time or cancel the course before approving it to run.");
         entity.ThresholdStatus = ThresholdStatus.WaivedByManager;
         entity.Version++;
         audit.Write(new AuditEntry(managerUserId, "WAIVE_CLASS_THRESHOLD", nameof(Class), classId.ToString(),
@@ -95,7 +98,8 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
     {
         var now = clock.UtcNow;
         var ids = await db.Set<Class>().AsNoTracking()
-            .Where(x => x.Status == ClassStatus.Published && x.ThresholdDeadlineUtc <= now
+            .Where(x => x.Status == ClassStatus.Published
+                && (x.ThresholdDeadlineUtc <= now || x.Sessions.Any(s => s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc <= now))
                 && x.ThresholdStatus != ThresholdStatus.WaivedByManager
                 && (x.ThresholdStatus == ThresholdStatus.NotEvaluated || x.ThresholdStatus == ThresholdStatus.AtRisk))
             .OrderBy(x => x.ClassId).Select(x => x.ClassId).Take(100).ToListAsync(cancellationToken);
@@ -106,7 +110,9 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT class_id FROM classes WHERE class_id = {id} FOR UPDATE", cancellationToken);
             var entity = await db.Set<Class>().SingleAsync(x => x.ClassId == id, cancellationToken);
-            if (entity.Status != ClassStatus.Published || entity.ThresholdDeadlineUtc > clock.UtcNow
+            if (entity.Status != ClassStatus.Published
+                || entity.ThresholdDeadlineUtc > clock.UtcNow
+                    && !await db.Set<ClassSession>().AnyAsync(s => s.ClassId == id && s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc <= clock.UtcNow, cancellationToken)
                 || entity.ThresholdStatus == ThresholdStatus.WaivedByManager)
             {
                 await tx.RollbackAsync(cancellationToken);
@@ -132,7 +138,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
                 || (entity.ThresholdStatus == ThresholdStatus.AtRisk && entity.ThresholdResponseDeadlineUtc is null))
             {
                 var responseHours = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdResponseHours, cancellationToken);
-                if (responseHours is < 1 or > 336)
+                if (responseHours is < 1 or > 48)
                     throw new ConflictException("class_threshold_response_setting_invalid", "Class threshold response setting invalid.");
                 var firstStart = await db.Set<ClassSession>().Where(x => x.ClassId == id && x.Status == ClassSessionStatus.Scheduled)
                     .MinAsync(x => (DateTime?)x.StartAtUtc, cancellationToken);
@@ -150,6 +156,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
                     await NotifyStaffAsync(entity,
                         $"Course {entity.Name} is below its enrollment threshold, and a full {responseHours}-hour response window cannot end 24 hours before the first session. Decide now whether to waive the threshold, cancel the course, or move its start date. Members have not been offered a shortened response window.",
                         NotificationEvents.ClassThresholdAtRisk, cancellationToken);
+                    await NotifyLateMembersAsync(entity, cancellationToken);
                 }
                 if (!canOpenResponseWindow)
                 {
@@ -175,6 +182,22 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             await tx.CommitAsync(cancellationToken);
         }
         return changed;
+    }
+
+    private async Task NotifyLateMembersAsync(Class entity, CancellationToken ct)
+    {
+        var memberIds = await db.Set<Enrollment>().Where(e => e.ClassId == entity.ClassId
+            && e.Status == EnrollmentStatus.Confirmed).Select(e => e.MemberId).Distinct().ToListAsync(ct);
+        var eventId = Guid.NewGuid();
+        var message = $"Course {entity.Name} has not been confirmed to run. There is not enough time for the member response window before opening. The Manager must confirm, defer or cancel the course; check your notifications and schedule for the decision. Your enrollment remains recorded.";
+        foreach (var memberId in memberIds)
+        {
+            var recipient = await users.GetAsync(memberId, ct);
+            if (recipient is null) continue;
+            notifications.Queue(new(memberId, NotificationEvents.ClassThresholdAtRisk, message, eventId));
+            notifications.QueueEmail(new(memberId, recipient.Email, NotificationEvents.ClassThresholdAtRisk,
+                eventId, "SportHub - Course awaiting opening decision", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+        }
     }
 
     private async Task NotifyConfirmedAsync(Class entity, CancellationToken ct)
@@ -205,7 +228,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             }
         }
         await NotifyStaffAsync(entity,
-            $"Course {entity.Name} has met its enrollment threshold and is confirmed to run.",
+            $"Course {entity.Name} is confirmed to run{(entity.ThresholdStatus == ThresholdStatus.WaivedByManager ? " by Manager waiver" : " after meeting its enrollment threshold")}.",
             NotificationEvents.ClassThresholdConfirmed, ct, includeCoach: false);
     }
 

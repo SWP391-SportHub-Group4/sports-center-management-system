@@ -12,4 +12,8 @@ public sealed record CoachMemberRelationshipResponse(
     string? ClassName,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime StartedAt,
-    DateTime? EndedAt);
+    DateTime? EndedAt,
+    string? EndReason = null,
+    IReadOnlyList<RelationshipClassResponse>? ActiveClasses = null);
+
+public sealed record RelationshipClassResponse(int ClassId, string ClassName);

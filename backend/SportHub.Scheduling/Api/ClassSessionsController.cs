@@ -33,6 +33,11 @@ public class ClassSessionsController(
         => Ok(await attendance.MarkAsync(sessionId, enrollmentId, request, User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("{sessionId:guid}/incident")]
+    public async Task<IActionResult> ReportIncident(Guid sessionId, [FromBody] ReportSessionIncidentRequest request, CancellationToken ct)
+        => Ok(await sessions.ReportIncidentAsync(sessionId, request, User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpPost("{sessionId:guid}/reschedule")]
     public async Task<IActionResult> Reschedule(Guid sessionId, [FromBody] RescheduleSessionRequest request, CancellationToken ct)
         => Ok(await sessions.RescheduleAsync(sessionId, request, User.RequireUserId(), ct));

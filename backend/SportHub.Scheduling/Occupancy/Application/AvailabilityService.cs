@@ -52,6 +52,8 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
         else
         {
             if (!room.IsActive) reasons.Add("room_inactive");
+            if (room.RoomTypeId != null && !await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == room.RoomTypeId && t.IsActive, ct))
+                reasons.Add("room_type_inactive");
             if (!await db.Set<SportRoomType>().AsNoTracking().AnyAsync(
                     l => l.RoomTypeId == room.RoomTypeId && l.SportId == sportId, ct))
                 reasons.Add("room_incompatible");
@@ -103,6 +105,7 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
         var rooms = await (from room in db.Set<Room>().AsNoTracking()
                            join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
                            where room.IsActive && link.SportId == sportId
+                               && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
                            select room).ToListAsync(ct);
 
         if (rooms.Count == 0)

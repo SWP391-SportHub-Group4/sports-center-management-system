@@ -14,6 +14,7 @@ public class ClassSessionConfiguration : IEntityTypeConfiguration<ClassSession>
         });
 
         builder.HasKey(e => e.SessionId);
+        builder.Property(e => e.IncidentReportJson).HasColumnType("jsonb");
 
         builder.HasOne(e => e.Class)
             .WithMany(c => c.Sessions)
