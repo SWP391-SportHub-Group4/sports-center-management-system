@@ -151,6 +151,85 @@ public sealed class IncidentUndoTests(SchedulingApiFactory factory)
         Assert.Equal(session.StartAtUtc.AddHours(3), (await CourseTestData.SessionsAsync(factory, course.Id))[0].StartAtUtc);
     }
 
+    private static Task<SportHub.Scheduling.Catalog.Application.RoomBlockResponse> CreateBlock(
+        SchedulingApiFactory factory, CourseData course, DateTime start, DateTime end)
+        => CourseTestData.RunAsync<SportHub.Scheduling.Catalog.Application.RoomBlockService,
+            SportHub.Scheduling.Catalog.Application.RoomBlockResponse>(factory, svc => svc.CreateAsync(new()
+            {
+                RoomId = course.RoomId, StartAtUtc = start, EndAtUtc = end, Reason = "Court maintenance"
+            }, course.ManagerId));
+
+    private static Task<int> DeleteBlock(SchedulingApiFactory factory, CourseData course, Guid blockId)
+        => CourseTestData.RunAsync<SportHub.Scheduling.Catalog.Application.RoomBlockService, int>(factory, async svc =>
+        {
+            await svc.DeleteAsync(blockId, course.ManagerId);
+            return 0;
+        });
+
+    [Fact]
+    public async Task Abandoning_recreates_a_room_block_removed_while_the_window_was_held()
+    {
+        var (course, session, _) = await SetupAsync();
+        var start = session.StartAtUtc.AddHours(3);
+        var end = session.EndAtUtc.AddHours(3);
+        var block = await CreateBlock(factory, course, start, end);
+        var fence = await WithIncidents(factory, s => s.OpenFenceAsync(
+            new("Room", course.RoomId, start, end, "Handle incident"), course.ManagerId));
+        await DeleteBlock(factory, course, block.BlockId);
+        Assert.False(await factory.QueryAsync(db => db.Set<SportHub.Scheduling.Catalog.Domain.RoomBlock>()
+            .AnyAsync(b => b.BlockId == block.BlockId)));
+
+        var step = Assert.Single(await WithIncidents(factory, s => s.ListFenceStepsAsync(fence.FenceId)));
+        Assert.Equal("RemoveRoomBlock", step.Kind);
+        Assert.True(step.CanUndo);
+
+        var result = await WithIncidents(factory, s => s.AbandonFenceAsync(fence.FenceId, course.ManagerId));
+
+        Assert.Equal(1, result.Undone);
+        Assert.Empty(result.NotUndone);
+        var restored = await factory.QueryAsync(db => db.Set<SportHub.Scheduling.Catalog.Domain.RoomBlock>()
+            .SingleAsync(b => b.BlockId == block.BlockId));
+        Assert.Equal(course.RoomId, restored.RoomId);
+        Assert.Equal(start, restored.StartAtUtc);
+        Assert.Equal(end, restored.EndAtUtc);
+        Assert.Equal("Court maintenance", restored.Reason);
+        Assert.Null(restored.IncidentId);
+        Assert.True(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == block.BlockId
+            && o.IsActive && o.StartAtUtc == start)));
+    }
+
+    [Fact]
+    public async Task A_removed_room_block_is_reported_not_forced_when_its_slot_was_taken()
+    {
+        var (course, session, _) = await SetupAsync();
+        var start = session.StartAtUtc.AddHours(3);
+        var end = session.EndAtUtc.AddHours(3);
+        var block = await CreateBlock(factory, course, start, end);
+        var fence = await WithIncidents(factory, s => s.OpenFenceAsync(
+            new("Room", course.RoomId, start, end, "Handle incident"), course.ManagerId));
+        await DeleteBlock(factory, course, block.BlockId);
+        // Another block is placed in the freed slot before the manager gives up.
+        await CreateBlock(factory, course, start, end);
+
+        var result = await WithIncidents(factory, s => s.AbandonFenceAsync(fence.FenceId, course.ManagerId));
+
+        Assert.Equal(0, result.Undone);
+        Assert.Contains("no longer free", Assert.Single(result.NotUndone).UndoNote);
+        Assert.False(await factory.QueryAsync(db => db.Set<SportHub.Scheduling.Catalog.Domain.RoomBlock>()
+            .AnyAsync(b => b.BlockId == block.BlockId)));
+    }
+
+    [Fact]
+    public async Task Removing_a_room_block_without_a_held_window_is_not_journaled()
+    {
+        var (course, session, _) = await SetupAsync();
+        var block = await CreateBlock(factory, course, session.StartAtUtc.AddHours(3), session.EndAtUtc.AddHours(3));
+        await DeleteBlock(factory, course, block.BlockId);
+
+        Assert.False(await factory.QueryAsync(db => db.Set<IncidentFenceStep>()
+            .AnyAsync(s => s.RoomBlockId == block.BlockId)));
+    }
+
     [Fact]
     public async Task Abandoning_a_resolved_or_already_released_incident_is_refused()
     {

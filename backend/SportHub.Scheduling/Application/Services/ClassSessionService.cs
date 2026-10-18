@@ -343,7 +343,7 @@ public sealed partial class ClassSessionService(
             return new(false, note);
         }
 
-        var session = await LockAndLoadAsync(step.SessionId, ct);
+        var session = await LockAndLoadAsync(step.SessionId!.Value, ct);
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
         if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
             return await Fail("The course is no longer running.");

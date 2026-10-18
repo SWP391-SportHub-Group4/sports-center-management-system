@@ -275,12 +275,16 @@ function StepList({
       {steps.map((step) => (
         <li key={step.stepId}>
           <strong>
-            {step.className} · #{step.sessionNo}
+            {step.kind === "REMOVE_ROOM_BLOCK"
+              ? step.className
+              : `${step.className} · #${step.sessionNo}`}
           </strong>{" "}
           {c.abandonKinds[step.kind] ?? step.kind}:{" "}
-          {c.abandonMoved
-            .replace("{from}", formatDateTime(step.beforeStartUtc))
-            .replace("{to}", formatDateTime(step.afterStartUtc))}
+          {step.kind === "REMOVE_ROOM_BLOCK"
+            ? formatDateTime(step.beforeStartUtc)
+            : c.abandonMoved
+                .replace("{from}", formatDateTime(step.beforeStartUtc))
+                .replace("{to}", formatDateTime(step.afterStartUtc))}
           {!step.canUndo && step.state === "APPLIED" && (
             <p className="small muted">{c.abandonPast}</p>
           )}

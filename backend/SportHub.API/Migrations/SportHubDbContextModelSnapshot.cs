@@ -1935,7 +1935,7 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("ck_point_credit_positive", "points > 0");
 
-                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
+                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\r\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\r\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_point_credit_separate_approver", "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id");
 
@@ -3482,6 +3482,15 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("before_start_utc");
 
+                    b.Property<Guid?>("BlockCreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("block_created_by_user_id");
+
+                    b.Property<string>("BlockReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("block_reason");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -3498,7 +3507,11 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("makeup_session_id");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid?>("RoomBlockId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("room_block_id");
+
+                    b.Property<Guid?>("SessionId")
                         .HasColumnType("uuid")
                         .HasColumnName("session_id");
 

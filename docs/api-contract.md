@@ -276,7 +276,7 @@ Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tạ
 
 ### Vé Gym 1 ngày (day pass) và mã check-in
 
-- Vé ngày là gói Membership cố định `packageId = 50000`, 50.000đ, 1 ngày, seed bằng migration `GymDayPass`. Mua qua `POST api/checkouts/membership` như gói thường. Manager sửa hoặc ngừng gói trả 409 `day_pass_fixed`.
+- Vé ngày là gói Membership `packageId = 50000`, 1 ngày, seed mặc định 50.000đ bằng migration `GymDayPass`. Mua qua `POST api/checkouts/membership` như gói thường. Manager sửa được giá/tên/mô tả qua `PUT api/membership-packages/50000`; đổi thời hạn trả 409 `day_pass_duration_fixed`, ngừng bán trả 409 `day_pass_fixed`.
 - Hiệu lực: bắt đầu và kết thúc đúng ngày thanh toán thành công theo giờ Việt Nam (không cộng dồn với gói dài). Đã có vé hôm nay mà mua thêm trả 409 `day_pass_already_active`. Gym đang đóng cửa vì sự cố (mọi phòng Gym bị block) trả 409 `gym_closed_today`.
 - Thanh toán xong: thông báo và email "SportHub - Your Gym day pass" nhắc vé và mã check-in chỉ dùng trong ngày.
 - Check-in: `POST api/gym-checkins/self` (Member tự check-in, cùng điều kiện có gói Active) hoặc `POST api/gym-checkins` (lễ tân check-in hộ). Mã QR do server cấp và ký: Member gọi `GET api/members/me/checkin-code` (`{code, expiresAtUtc}`, mã dạng `SPORTHUB-CODE:{memberId}.{exp}.{chữ ký}`, hết hạn 00:00 giờ Việt Nam hôm sau, client không tự dựng được); lễ tân/Manager (policy `FrontDesk`) quét mã rồi gọi `POST api/members/checkin-code/resolve` (`{code}`) nhận `{memberId}`; mã giả/sai chữ ký trả 400 `checkin_code_invalid`, mã hết hạn 409 `checkin_code_expired`. Mã chỉ định danh Member; quyền vào Gym vẫn do check-in kiểm gói Active hôm nay.
@@ -616,6 +616,7 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | POST | `api/checkouts/membership`, `api/checkouts/class` | Member, Receptionist, Manager | Bắt buộc `Idempotency-Key`; staff chỉ định `targetMemberId`, Member chỉ mua cho mình. Trả CheckoutResponse với invoice/cycle/hạn/số tiền. PT 1:1 không thuộc phạm vi hiện hành. |
 | GET | `api/checkouts/{invoiceId}` | Chủ invoice hoặc staff | Trạng thái chu kỳ checkout hiện tại. |
 | POST | `api/checkouts/verify-reference` | Chủ checkout hoặc staff | Body `{reference}` lấy từ `vnp_TxnRef` trên Return URL. Backend kiểm ownership rồi gọi QueryDR cho đúng attempt; chỉ phản hồi VNPay đã xác minh mới cập nhật payment. Trả CheckoutResponse mới nhất. Rate limited. |
+| POST | `api/checkouts/cancel-reference` | Chủ checkout hoặc staff | Body `{fields}` là toàn bộ query của Return URL. Backend kiểm ownership và chữ ký VNPay; chỉ khi `vnp_ResponseCode=24` (khách hủy) mới đóng attempt `Pending` (chưa có verified event) thành `Failed/Cancelled` để lần thanh toán sau tạo `vnp_TxnRef` mới. Hóa đơn vẫn `Issued` đến khi hết hạn. Sai chữ ký → 400, mã khác 24 → 409. Rate limited. |
 | POST | `api/checkouts/{invoiceId}/attempts` | Chủ invoice hoặc staff | Tạo/đọc PaymentAttempt snapshot tiền/điểm và URL VNPay; 100% điểm hoàn tất ngay, không tạo attempt VNPay 0đ. |
 | POST | `api/checkouts/{invoiceId}/cancel`, `.../retry` | Chủ invoice hoặc staff | Hủy nhả hold; retry sau hết hạn cấp invoice/cycle mới và `Idempotency-Key` mới. |
 | GET | `api/payments/vnpay/return`, `api/payments/vnpay/ipn` | Public (VNPay) | Return chỉ đọc; IPN xác minh chữ ký/tham chiếu/số tiền rồi lưu event và thực hiện fulfillment. |

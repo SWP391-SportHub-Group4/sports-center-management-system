@@ -34,6 +34,14 @@ public sealed class MockPaymentGateway : IPaymentGateway
             TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), vn));
     }
 
+    public string? VerifyCancellation(IReadOnlyDictionary<string, string> values)
+    {
+        if (!VnPaySigner.Verify(values, _secret)
+            || !values.TryGetValue("vnp_TmnCode", out var merchant) || merchant != "DEV-MOCK")
+            throw new BadRequestException("mock_payment_invalid", "Mock payment invalid.");
+        return values.GetValueOrDefault("vnp_ResponseCode") == "24" ? values.GetValueOrDefault("vnp_TxnRef") : null;
+    }
+
     public IReadOnlyDictionary<string, string> BuildCallback(string reference, decimal amountVnd, bool success)
     {
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,

@@ -22,7 +22,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
         if (!catalog.IsActive) throw new ConflictException("membership_package_discontinued", "Membership package discontinued.");
         if (packageId == DayPass.PackageId &&
-            (catalog.Price != DayPass.PriceVnd || catalog.DurationDays != DayPass.DurationDays || catalog.SessionLimit is not null))
+            (catalog.DurationDays != DayPass.DurationDays || catalog.SessionLimit is not null))
             throw new ConflictException("day_pass_invalid", "Gym day pass configuration is invalid.");
         if (catalog.Price <= 0 || catalog.Price % 1000 != 0)
             throw new ConflictException("membership_price_invalid", "Membership price invalid.");

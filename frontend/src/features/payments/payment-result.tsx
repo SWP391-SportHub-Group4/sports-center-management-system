@@ -22,12 +22,14 @@ export function PaymentResult({
   checkout,
   detail,
   checking = false,
+  cancelled = false,
   error = "",
   onRefresh,
 }: {
   checkout: CheckoutDto;
   detail?: InvoiceDetailDto | null;
   checking?: boolean;
+  cancelled?: boolean;
   error?: string;
   onRefresh: () => void;
 }) {
@@ -39,33 +41,38 @@ export function PaymentResult({
   const compensated = phase === "COMPENSATED";
   const review = phase === "RECONCILIATION_REQUIRED";
   const expired = phase === "VOID";
-  const pending = !complete && !compensated && !review && !expired;
+  const pending =
+    !complete && !compensated && !review && !expired && !cancelled;
   const title = complete
     ? "Payment successful"
-    : compensated
-      ? "Payment returned as points"
-      : review
-        ? "Your payment is under review"
-        : expired && !checking
-          ? "This checkout has expired"
-          : paid
-            ? "Payment received"
-            : "Confirming your payment";
-  const description = complete
-    ? checkout.kind === "COURT_RENTAL"
-      ? "Your court booking is confirmed. Your next session is waiting in My schedule."
-      : checkout.kind === "CLASS"
-        ? "You're registered. Your classes and lesson details are ready in My schedule."
-        : "Your membership is active. You're ready for your next workout."
-    : compensated
-      ? "This purchase could not be completed. The payment has been credited to your SportHub points wallet."
-      : review
-        ? "Our team needs to check this transaction. You can follow its status in your invoice."
-        : expired && !checking
-          ? "The reservation window has ended. If you completed payment, check again to confirm its final status."
-          : paid
-            ? "Your payment is confirmed. We're finishing your booking and will update this page automatically."
-            : "We're checking the final result with VNPay. This page updates automatically while confirmation is pending.";
+    : cancelled
+      ? "Payment cancelled"
+      : compensated
+        ? "Payment returned as points"
+        : review
+          ? "Your payment is under review"
+          : expired && !checking
+            ? "This checkout has expired"
+            : paid
+              ? "Payment received"
+              : "Confirming your payment";
+  const description = cancelled
+    ? "You cancelled this payment on VNPay and nothing was charged. Your order is still open, so you can pay again before it expires."
+    : complete
+      ? checkout.kind === "COURT_RENTAL"
+        ? "Your court booking is confirmed. Your next session is waiting in My schedule."
+        : checkout.kind === "CLASS"
+          ? "You're registered. Your classes and lesson details are ready in My schedule."
+          : "Your membership is active. You're ready for your next workout."
+      : compensated
+        ? "This purchase could not be completed. The payment has been credited to your SportHub points wallet."
+        : review
+          ? "Our team needs to check this transaction. You can follow its status in your invoice."
+          : expired && !checking
+            ? "The reservation window has ended. If you completed payment, check again to confirm its final status."
+            : paid
+              ? "Your payment is confirmed. We're finishing your booking and will update this page automatically."
+              : "We're checking the final result with VNPay. This page updates automatically while confirmation is pending.";
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (complete) heading.current?.focus({ preventScroll: true });
@@ -129,6 +136,14 @@ export function PaymentResult({
             View points wallet
             <ArrowRight size={18} aria-hidden="true" />
           </Link>
+        ) : cancelled ? (
+          <Link
+            href={`/checkout/${checkout.invoiceId}`}
+            className={buttonClass({ size: "lg", className: styles.primary })}
+          >
+            Pay again
+            <ArrowRight size={18} aria-hidden="true" />
+          </Link>
         ) : (
           <Button
             size="lg"
@@ -154,15 +169,17 @@ export function PaymentResult({
           >
             {complete
               ? "Confirmed"
-              : compensated
-                ? "Credited"
-                : review
-                  ? "Under review"
-                  : expired
-                    ? "Expired"
-                    : paid
-                      ? "Received"
-                      : "Pending"}
+              : cancelled
+                ? "Cancelled"
+                : compensated
+                  ? "Credited"
+                  : review
+                    ? "Under review"
+                    : expired
+                      ? "Expired"
+                      : paid
+                        ? "Received"
+                        : "Pending"}
           </span>
         </div>
         <p className={styles.invoiceLabel}>Invoice</p>
@@ -222,7 +239,7 @@ export function PaymentResult({
             <ShieldCheck size={16} aria-hidden="true" />
             Payment confirmed by SportHub
           </p>
-        ) : (
+        ) : cancelled ? null : (
           <p className={styles.caution}>
             If you have completed payment, wait for confirmation before making
             another payment.
