@@ -67,7 +67,7 @@ export function CourseHistory({ classId }: { classId: number }) {
   );
   return (
     <>
-      <p>{t.managerOperations.historyHint}</p>
+      <p className="small muted">{t.managerOperations.historyHint}</p>
       <ApiTable
         state={state}
         caption={t.managerOperations.history}
@@ -97,15 +97,6 @@ export function CourseHistory({ classId }: { classId: number }) {
             header: t.staffWork.action,
             cell: (r) => (
               <span className={styles.nowrap}>{actionName(r.action)}</span>
-            ),
-          },
-          {
-            id: "targetId",
-            header: t.staffWork.entity,
-            cell: (r) => (
-              <span className={styles.nowrap}>
-                {h.class} #{r.targetId}
-              </span>
             ),
           },
           {

@@ -102,7 +102,7 @@ for (const manager of [false, true]) {
     await expect(
       table.getByRole("button", { name: /View details:/ }),
     ).toHaveCount(1);
-    await expect(table.locator('[data-label="Affected record"]')).toHaveText(
+    await expect(table.locator('[data-label="Target"]')).toHaveText(
       "Sport",
     );
     await expect(table).not.toContainText(/Current name|None|SECRET|db3d195a/);

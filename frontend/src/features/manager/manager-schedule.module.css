@@ -5,6 +5,29 @@
   gap: var(--space-4);
   flex-wrap: wrap;
 }
+.sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sections :global(.btn) {
+  margin: 0;
+  min-height: 44px;
+}
+.sections :global(.btn[aria-pressed="true"]) {
+  background: var(--bg-inverse);
+  color: var(--text-on-inverse);
+  border-color: var(--bg-inverse);
+}
+.weekToolbar
+  .viewNavigation
+  :global(button.btn.btn--secondary[aria-pressed="true"]:not(:disabled)) {
+  background: var(--bg-inverse);
+  color: var(--text-on-inverse);
+  border-color: var(--bg-inverse);
+}
 .weekToolbar > :global(.field) {
   width: 300px;
   max-width: 100%;
@@ -28,6 +51,20 @@
 }
 .filters {
   margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.requestPanel {
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.requestPanel :global([data-status]) {
+  align-self: start;
+}
+.filters > :global([role="group"]) {
+  margin-bottom: 0;
 }
 .filters summary {
   cursor: pointer;

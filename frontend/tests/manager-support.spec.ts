@@ -15,6 +15,7 @@ async function install(page: Page, role = "CENTER_MANAGER") {
     error: false,
     reject: false,
     empty: false,
+    multiple: false,
   };
   const queries: URL[] = [];
   const writes: { path: string; body: Record<string, string> }[] = [];
@@ -92,7 +93,25 @@ async function install(page: Page, role = "CENTER_MANAGER") {
           json: { error: "unavailable", message: "Support unavailable" },
         });
       return json({
-        items: state.empty ? [] : [row],
+        items: state.empty
+          ? []
+          : state.multiple
+            ? [
+                row,
+                {
+                  ...row,
+                  requestId: "44444444-4444-4444-8444-444444444444",
+                  subject: "Court booking question",
+                  memberName: "Member Binh",
+                  memberEmail: "binh@example.com",
+                  category: "CLASS",
+                  status: "OPEN",
+                  assignedToUserId: null,
+                  assignedToName: null,
+                  progressNote: null,
+                },
+              ]
+            : [row],
         totalCount: state.empty ? 0 : 21,
         page: Number(url.searchParams.get("page")),
         pageSize: 20,
@@ -129,21 +148,27 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await expect(
     page.getByRole("button", { name: "Close request", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Manage", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Assign to", exact: true })
     .selectOption(staff);
   await page.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(
-    page.getByText("Assigned: Desk handler", { exact: true }),
+    page
+      .locator("p")
+      .filter({ has: page.getByText("Assigned to", { exact: true }) })
+      .getByText("Desk handler", { exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Progress or resolution").fill("Checking the account");
+  await page
+    .getByRole("textbox", { name: /^Progress or resolution/ })
+    .fill("Checking the account");
   await page.getByRole("button", { name: "Update progress" }).click();
   await expect(
     page.getByText("Latest update: Checking the account"),
   ).toBeVisible();
-  await expect(page.getByText("in progress", { exact: true })).toBeVisible();
-  await page.getByRole("searchbox", { name: "Search requests" }).focus();
+  await expect(
+    page.getByRole("heading", { name: /Help with membership.*IN PROGRESS/ }),
+  ).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search", exact: true }).focus();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: info.outputPath("manager-support-desktop.png"),
@@ -163,10 +188,13 @@ test("manager assigns, records progress and closes with resolution in its worksp
       (x) => x.impact === "serious" || x.impact === "critical",
     ),
   ).toEqual([]);
-  await page.getByLabel("Progress or resolution").fill("Membership corrected");
+  await page
+    .getByRole("textbox", { name: /^Progress or resolution/ })
+    .fill("Membership corrected");
   await page
     .getByRole("button", { name: "Close request", exact: true })
     .click();
+  expect(writes.some((write) => write.path.endsWith("/close"))).toBe(false);
   await page.getByRole("button", { name: "Confirm close" }).click();
   await expect(
     page.getByText("Resolution: Membership corrected"),
@@ -190,11 +218,14 @@ test("manager filters on the server, pages, retries and sees empty results", asy
   await page.goto("/manager/support");
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get("page")).toBe("2");
-  await page.getByLabel("Search requests").fill(" Member An ");
-  await page.getByRole("button", { name: "Assigned", exact: true }).click();
+  await page.getByLabel("Search", { exact: true }).fill(" Member An ");
+  await page
+    .getByRole("combobox", { name: "Status", exact: true })
+    .selectOption("ASSIGNED");
   await page
     .getByRole("combobox", { name: "Assigned staff", exact: true })
     .selectOption(staff);
+  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("search"))
     .toBe("Member An");
@@ -210,6 +241,30 @@ test("manager filters on the server, pages, retries and sees empty results", asy
   await expect(page.getByText(/No requests match these filters/)).toBeVisible();
 });
 
+test("assigned-to-me filter toggles the server query and resets pagination", async ({
+  page,
+}) => {
+  const { queries } = await install(page);
+  await page.goto("/manager/support");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get("page")).toBe("2");
+  const mine = page.getByRole("button", {
+    name: "Assigned to me",
+    exact: true,
+  });
+  await mine.click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("assignedToUserId"))
+    .toBe(staff);
+  await expect(mine).toHaveAttribute("aria-pressed", "true");
+  expect(queries.at(-1)?.searchParams.get("page")).toBe("1");
+  await mine.click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("assignedToUserId") || null)
+    .toBeNull();
+  await expect(mine).toHaveAttribute("aria-pressed", "false");
+});
+
 test("a conflict retains the draft and refresh displays the closed result", async ({
   page,
 }) => {
@@ -217,15 +272,17 @@ test("a conflict retains the draft and refresh displays the closed result", asyn
   state.assigned = staff;
   state.status = "ASSIGNED";
   await page.goto("/manager/support");
-  await page.getByLabel("Progress or resolution").fill("Do not lose this note");
+  await page
+    .getByRole("textbox", { name: /^Progress or resolution/ })
+    .fill("Do not lose this note");
   state.reject = true;
   await page.getByRole("button", { name: "Update progress" }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "Support request is closed." }),
   ).toBeVisible();
-  await expect(page.getByLabel("Progress or resolution")).toHaveValue(
-    "Do not lose this note",
-  );
+  await expect(
+    page.getByRole("textbox", { name: /^Progress or resolution/ }),
+  ).toHaveValue("Do not lose this note");
   state.status = "CLOSED";
   state.note = "Closed by another staff member";
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
@@ -241,9 +298,12 @@ test("manager records a request from a member profile", async ({ page }) => {
     name: "Member support requests",
     exact: true,
   });
+  await support
+    .getByRole("button", { name: "Locker request", exact: true })
+    .click();
   await support.getByLabel("Subject", { exact: true }).fill("Membership help");
   await support
-    .getByLabel("Description", { exact: true })
+    .getByLabel(/^Description/)
     .fill("Please check the expiry date.");
   await support.getByRole("button", { name: "Record support request" }).click();
   await expect(
@@ -255,6 +315,63 @@ test("manager records a request from a member profile", async ({ page }) => {
     subject: "Membership help",
     description: "Please check the expiry date.",
   });
+});
+
+test("request details retain unsent notes when switching requests and refreshing", async ({
+  page,
+}) => {
+  const { state } = await install(page);
+  state.status = "ASSIGNED";
+  state.assigned = staff;
+  state.multiple = true;
+  await page.goto("/manager/support");
+  await page
+    .getByRole("textbox", { name: /^Progress or resolution/ })
+    .fill("Keep this unfinished progress note");
+  await page
+    .getByRole("button", {
+      name: "View request: Court booking question",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Collapse request: Court booking question",
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await page
+    .getByRole("button", {
+      name: "View request: Help with membership",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: /^Progress or resolution/ }),
+  ).toHaveValue("Keep this unfinished progress note");
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: /^Progress or resolution/ }),
+  ).toBeEnabled();
+  await expect(
+    page.getByRole("textbox", { name: /^Progress or resolution/ }),
+  ).toHaveValue("Keep this unfinished progress note");
+});
+
+test("receptionist queue keeps member links in its own workspace", async ({
+  page,
+}) => {
+  await install(page, "RECEPTIONIST");
+  await page.goto("/receptionist/support");
+  await expect(
+    page.getByRole("link", { name: "Member An · an@example.com" }),
+  ).toHaveAttribute("href", `/receptionist/members/${id}`);
+  await expect(
+    page.getByRole("link", { name: "Record a request" }),
+  ).toHaveAttribute("href", "/receptionist/members");
+  await expect(
+    page.getByRole("button", { name: "Assign", exact: true }),
+  ).toBeVisible();
 });
 
 test("member cannot enter manager support", async ({ page }) => {

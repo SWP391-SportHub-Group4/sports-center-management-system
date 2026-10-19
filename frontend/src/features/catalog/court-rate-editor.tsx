@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
-import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import { AsyncSection, Field, StatusChip } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import type { CourtRateDto } from "@/lib/types";
 import { catalogApi, type SaveRate } from "./api";
 import {
+  CatalogPanel,
   ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
@@ -19,6 +20,7 @@ import {
 } from "./manager-shared";
 import styles from "./manager-catalog.module.css";
 const empty = {
+  roomId: "",
   roomTypeId: "",
   sportId: "",
   daysOfWeek: ["MON"],
@@ -35,6 +37,7 @@ export function CourtRateEditor() {
   const state = useApi((s) => catalogApi.rates(s), []);
   const types = useApi((s) => catalogApi.roomTypes(s), []);
   const sports = useApi((s) => catalogApi.sports(s, true), []);
+  const rooms = useApi((s) => catalogApi.rooms(s), []);
   const filters = useCatalogFilters();
   const mutation = useMutation();
   const [form, setForm] = useState(empty);
@@ -54,6 +57,7 @@ export function CourtRateEditor() {
     setForm(
       r
         ? {
+            roomId: r.roomId ? String(r.roomId) : "",
             roomTypeId: String(r.roomTypeId),
             sportId: r.sportId === null ? "" : String(r.sportId),
             daysOfWeek: r.daysOfWeek.split(",").map((x) => x.trim()),
@@ -74,9 +78,26 @@ export function CourtRateEditor() {
     !sports.error;
   return (
     <>
-      <Card
-        title={l.rates}
-        hint={c.ratesHint}
+      <CatalogPanel
+        filters={
+          <CatalogFilters
+            filters={filters}
+            extra={[
+              {
+                id: "roomType",
+                label: l.roomType,
+                kind: "select",
+                options: [
+                  { value: "", label: l.all },
+                  ...(types.data ?? []).map((r) => ({
+                    value: String(r.roomTypeId),
+                    label: r.name,
+                  })),
+                ],
+              },
+            ]}
+          />
+        }
         actions={
           <button
             className="btn"
@@ -99,25 +120,10 @@ export function CourtRateEditor() {
           {() => null}
         </AsyncSection>
         <AsyncSection state={sports}>{() => null}</AsyncSection>
-        <CatalogFilters
-          filters={filters}
-          extra={[
-            {
-              id: "roomType",
-              label: l.roomType,
-              kind: "select",
-              options: [
-                { value: "", label: l.all },
-                ...(types.data ?? []).map((r) => ({
-                  value: String(r.roomTypeId),
-                  label: r.name,
-                })),
-              ],
-            },
-          ]}
-        />
+
         <CatalogTable
           state={state}
+          visibleRowActions={3}
           filters={filters}
           caption={l.rates}
           getRowId={(r) => String(r.rateId)}
@@ -125,13 +131,26 @@ export function CourtRateEditor() {
             (r) =>
               matchesCatalog(
                 r,
-                roomName(r.roomTypeId) + " " + sportName(r.sportId),
+                roomName(r.roomTypeId) +
+                  " " +
+                  sportName(r.sportId) +
+                  " " +
+                  (rooms.data?.find((x) => x.roomId === r.roomId)?.name ?? ""),
                 filters.values,
               ) &&
               (!filters.values.roomType ||
                 String(r.roomTypeId) === filters.values.roomType),
           )}
           columns={[
+            {
+              id: "roomId",
+              header: t.rentalCourtSetup.scope,
+              cell: (r) =>
+                r.roomId
+                  ? (rooms.data?.find((x) => x.roomId === r.roomId)?.name ??
+                    `#${r.roomId}`)
+                  : t.rentalCourtSetup.allCourts,
+            },
             {
               id: "roomTypeId",
               header: l.roomType,
@@ -150,14 +169,18 @@ export function CourtRateEditor() {
             {
               id: "daysOfWeek",
               header: l.day,
-              cell: (r) => (
-                <span className={styles.rateDays}>
-                  {r.daysOfWeek
-                    .split(",")
-                    .map((day) => l.weekdays[codes.indexOf(day.trim())] ?? day)
-                    .join(", ")}
-                </span>
-              ),
+              cell: (r) => {
+                const days = r.daysOfWeek.split(",").map((day) => day.trim());
+                return (
+                  <span className={styles.rateDays}>
+                    {codes.every((day) => days.includes(day))
+                      ? c.allWeek
+                      : days
+                          .map((day) => l.weekdays[codes.indexOf(day)] ?? day)
+                          .join(", ")}
+                  </span>
+                );
+              },
             },
             {
               id: "window",
@@ -187,7 +210,7 @@ export function CourtRateEditor() {
             },
           ]}
           actions={(r) => (
-            <div className="btn-row">
+            <>
               <button
                 className="btn btn--secondary btn--sm"
                 disabled={!ready || mutation.busy}
@@ -214,11 +237,11 @@ export function CourtRateEditor() {
                 onConfirm={() => catalogApi.deleteRate(r.rateId)}
                 onCompleted={state.reload}
               />
-            </div>
+            </>
           )}
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
-      </Card>
+      </CatalogPanel>
       {editor && (
         <CatalogFormDialog
           title={editor.id === null ? c.createRate : c.editRate}
@@ -239,6 +262,7 @@ export function CourtRateEditor() {
             const body: SaveRate = {
               ...form,
               roomTypeId: Number(form.roomTypeId),
+              roomId: form.roomId ? Number(form.roomId) : null,
               sportId: form.sportId ? Number(form.sportId) : null,
             };
             if (
@@ -255,7 +279,12 @@ export function CourtRateEditor() {
                 required
                 value={form.roomTypeId}
                 onChange={(e) =>
-                  setForm({ ...form, roomTypeId: e.target.value, sportId: "" })
+                  setForm({
+                    ...form,
+                    roomTypeId: e.target.value,
+                    sportId: "",
+                    roomId: "",
+                  })
                 }
               >
                 <option value="">—</option>
@@ -264,6 +293,21 @@ export function CourtRateEditor() {
                     {r.name}
                   </option>
                 ))}
+              </select>
+            </Field>
+            <Field label={t.rentalCourtSetup.scope}>
+              <select
+                value={form.roomId}
+                onChange={(e) => setForm({ ...form, roomId: e.target.value })}
+              >
+                <option value="">{t.rentalCourtSetup.allCourts}</option>
+                {(rooms.data ?? [])
+                  .filter((r) => r.roomTypeId === Number(form.roomTypeId))
+                  .map((r) => (
+                    <option key={r.roomId} value={r.roomId}>
+                      {r.name}
+                    </option>
+                  ))}
               </select>
             </Field>
             <Field label={l.sport}>
@@ -370,6 +414,7 @@ export function CourtRateEditor() {
           onConfirm={async () => {
             // Court-rate API has no separate activation endpoint: send the complete existing contract.
             const body: SaveRate = {
+              roomId: activity.roomId ?? null,
               roomTypeId: activity.roomTypeId,
               sportId: activity.sportId,
               daysOfWeek: activity.daysOfWeek.split(",").map((x) => x.trim()),

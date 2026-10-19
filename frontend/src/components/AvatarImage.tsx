@@ -1,3 +1,4 @@
+import Image from "next/image";
 import styles from "./avatar.module.css";
 
 export function AvatarImage({
@@ -18,7 +19,11 @@ export function AvatarImage({
       style={{ width: size, height: size }}
       aria-label={name}
     >
-      {avatarUrl ? <img src={avatarUrl} alt="" loading="lazy" /> : initial}
+      {avatarUrl ? (
+        <Image src={avatarUrl} alt="" width={size} height={size} unoptimized />
+      ) : (
+        initial
+      )}
     </span>
   );
 }

@@ -1,0 +1,232 @@
+.attendanceTable {
+  min-width: 0;
+}
+.attendanceMember {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.attendanceMember > :first-child {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.attendanceMember > :last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 768px) {
+  .attendanceTable :global(table) {
+    table-layout: fixed;
+  }
+  .attendanceTable :global(th:nth-child(2)),
+  .attendanceTable :global(th:nth-child(3)),
+  .attendanceTable :global(td:nth-child(2)),
+  .attendanceTable :global(td:nth-child(3)) {
+    width: 144px;
+  }
+  .attendanceTable :global(th) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+}
+.seatSummary {
+  --seat-enrolled: #4ade80;
+  --seat-held: #e9bf32;
+  --seat-available: #c4c9ce;
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  margin: 0;
+  padding-block: var(--space-2);
+}
+.headerSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-6);
+}
+.headerSummary > dl {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+.headerSummary > figure {
+  gap: var(--space-4);
+}
+.headerSummary .donut {
+  flex-basis: 144px;
+  width: 144px;
+  height: 144px;
+}
+.donut {
+  position: relative;
+  flex: 0 0 160px;
+  width: 160px;
+  height: 160px;
+}
+.donut svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.donut circle {
+  fill: none;
+  stroke-width: 15;
+}
+.track {
+  stroke: var(--seat-available);
+}
+.enrolled {
+  stroke: var(--seat-enrolled);
+  background: var(--seat-enrolled);
+}
+.held {
+  stroke: var(--seat-held);
+  background: var(--seat-held);
+}
+.available {
+  stroke: var(--seat-available);
+  background: var(--seat-available);
+}
+.donutLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.donutLabel strong {
+  font-size: var(--text-3xl);
+  color: #000;
+  font-variant-numeric: tabular-nums;
+}
+.donutLabel strong span {
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: inherit;
+}
+.seatSummary figcaption {
+  width: min(100%, 280px);
+  min-width: 0;
+}
+.seatSummary h3 {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  margin: 0 0 var(--space-4);
+}
+.legend {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+.legend > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+.legend dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+.legend dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.enrollmentStatus,
+.thresholdNotice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.enrollmentStatus p,
+.thresholdNotice p {
+  margin: var(--space-2) 0 0;
+}
+.enrollmentLabel {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.enrollmentLabel > span {
+  max-width: 65ch;
+}
+.sectionToolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.sectionToolbar label {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.sectionToolbar select {
+  min-width: 220px;
+}
+@media (max-width: 800px) {
+  .headerSummary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .headerSummary > dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .headerSummary .donut {
+    flex-basis: 128px;
+    width: 128px;
+    height: 128px;
+  }
+  .page :global([role="tab"]) {
+    flex: 1;
+    padding-inline: var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .seatSummary {
+    gap: var(--space-4);
+  }
+  .donut {
+    flex-basis: 128px;
+    width: 128px;
+    height: 128px;
+  }
+  .legend > div {
+    gap: var(--space-2);
+  }
+  .seatSummary h3 {
+    margin-bottom: var(--space-3);
+  }
+  .sectionToolbar label,
+  .sectionToolbar select {
+    width: 100%;
+    min-width: 0;
+  }
+}

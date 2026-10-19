@@ -135,6 +135,34 @@ for (const full of [false, true]) {
     await page
       .getByRole("button", { name: en.operations.review, exact: true })
       .click();
+    const impacts = page.getByRole("dialog", {
+      name: en.operations.impact,
+      exact: true,
+    });
+    await expect(impacts).toBeVisible();
+    await expect(impacts).toHaveCSS("animation-name", /impactOpen/);
+    await expect(impacts).toContainText(en.operations.classSession);
+    await page.screenshot({
+      path: `test-results/incident-impacts-desktop-${full}.png`,
+      animations: "disabled",
+    });
+    await page.keyboard.press("Escape");
+    await expect(impacts).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: en.operations.review, exact: true }),
+    ).toBeFocused();
+    await page
+      .getByRole("button", { name: en.operations.review, exact: true })
+      .click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(impacts).toBeVisible();
+    expect(
+      await impacts.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: `test-results/incident-impacts-mobile-${full}.png`,
+      animations: "disabled",
+    });
     await page
       .getByRole("button", { name: en.operations.edit, exact: true })
       .click();
@@ -175,5 +203,35 @@ for (const full of [false, true]) {
     ).toBeVisible();
     expect(reports).toBe(1);
     expect(searches).toBe(0);
+    await impacts
+      .getByRole("button", { name: en.managerOperations.recheck, exact: true })
+      .click();
+    const finalReview = page.getByRole("dialog", {
+      name: en.managerOperations.resolveReview,
+      exact: true,
+    });
+    await expect(finalReview).toBeVisible();
+    await expect(impacts).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await page.screenshot({
+      path: `test-results/incident-final-review-${full}.png`,
+      animations: "disabled",
+    });
+    await expect(
+      finalReview.getByRole("button", {
+        name: en.managerOperations.finalResolve,
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await finalReview
+      .getByRole("button", {
+        name: en.incidentHistory.backToImpacts,
+        exact: true,
+      })
+      .click();
+    await expect(finalReview).toHaveCount(0);
+    await expect(impacts).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 }

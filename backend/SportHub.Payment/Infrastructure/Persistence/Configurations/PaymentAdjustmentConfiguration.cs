@@ -67,7 +67,7 @@ public class PaymentAdjustmentConfiguration : IEntityTypeConfiguration<PaymentAd
             OR (completed_at_utc IS NOT NULL
                 AND completed_by_user_id IS NOT NULL
                 AND refund_method IS NOT NULL)
-            """));
+            """.ReplaceLineEndings("\n")));
 
         // Ngày hiệu lực tiền tệ phải có ở mọi bản ghi Completed, kể cả Discount/Correction —
         // BR-43 quy kỳ báo cáo theo ngày này.

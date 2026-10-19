@@ -4,7 +4,7 @@ import { CourseInterests } from "@/features/courses";
 
 export default function Page() {
   return (
-    <OperationsPage title="courses">
+    <OperationsPage title="courses" heading="interests">
       <CourseInterests manager />
     </OperationsPage>
   );

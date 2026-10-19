@@ -5,6 +5,10 @@
   min-width: 0;
 }
 
+.actionCode {
+  overflow-wrap: anywhere;
+}
+
 .compact :global(.card) :global(table) :global(tbody) :global(td),
 .compact :global(.card) :global(table) :global(tbody) :global(th) {
   vertical-align: top;

@@ -123,10 +123,15 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
             }
         }
 
+        if (request.RoomId is int roomId && !await db.Set<Room>().AnyAsync(
+                r => r.RoomId == roomId && r.RoomTypeId == request.RoomTypeId, ct))
+            throw new BadRequestException("rental_room_incompatible", "Choose a court belonging to this room type.");
+
         if (request.IsActive)
         {
             var others = await db.Set<CourtRate>().AsNoTracking()
-                .Where(r => r.IsActive && r.RoomTypeId == request.RoomTypeId && (existingId == null || r.RateId != existingId))
+                .Where(r => r.IsActive && r.RoomTypeId == request.RoomTypeId && r.RoomId == request.RoomId
+                    && (existingId == null || r.RateId != existingId))
                 .ToListAsync(ct);
 
             var clash = others.FirstOrDefault(o =>
@@ -143,6 +148,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
         }
 
         rate.RoomTypeId = request.RoomTypeId;
+        rate.RoomId = request.RoomId;
         rate.SportId = request.SportId;
         rate.DaysOfWeek = string.Join(",", days);
         rate.StartTimeLocal = start;
@@ -178,9 +184,12 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
             ? await db.Set<Sport>().AsNoTracking().Where(s => s.SportId == sportId)
                 .Select(s => s.Name).SingleOrDefaultAsync(ct)
             : null;
+        var roomName = r.RoomId is int roomId
+            ? await db.Set<Room>().AsNoTracking().Where(room => room.RoomId == roomId).Select(room => room.Name).SingleOrDefaultAsync(ct)
+            : null;
         return JsonSerializer.Serialize(new
         {
-            roomTypeId = r.RoomTypeId, roomTypeName, sportId = r.SportId, sportName,
+            roomId = r.RoomId, roomName, roomTypeId = r.RoomTypeId, roomTypeName, sportId = r.SportId, sportName,
             days = r.DaysOfWeek,
             startTimeLocal = r.StartTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
             endTimeLocal = r.EndTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
@@ -192,5 +201,5 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
         => new(r.RateId, r.RoomTypeId, r.SportId, r.DaysOfWeek,
             r.StartTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
             r.EndTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
-            r.PricePerHour, r.IsActive);
+            r.PricePerHour, r.IsActive, r.RoomId);
 }

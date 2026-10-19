@@ -16,6 +16,11 @@ namespace SportHub.Scheduling.Api;
 [Route("api/rooms")]
 public class RoomsController(IRoomService rooms) : ControllerBase
 {
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("rental")]
+    public async Task<IActionResult> CreateRental([FromBody] CreateRentalCourtRequest request, CancellationToken ct)
+        => StatusCode(StatusCodes.Status201Created, await rooms.CreateRentalAsync(request, User.RequireUserId(), ct));
+
     [Authorize(Policy = SportHubPolicies.StaffRead)]
     [HttpGet]
     public async Task<IActionResult> GetAll(CancellationToken ct) => Ok(await rooms.GetAllAsync(ct));

@@ -42,6 +42,9 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
                    ?? throw new BadRequestException("sport_code_invalid", "Sport code invalid.");
         var name = request.Name.Trim();
         var services = ValidateServices(code, request.Services);
+        var roomTypeName = request.CreateRoomType ? request.RoomTypeName?.Trim() : null;
+        if (request.CreateRoomType && (string.IsNullOrWhiteSpace(roomTypeName) || roomTypeName.Length > 100))
+            throw new BadRequestException("invalid_room_type_name", "Enter a room type name between 1 and 100 characters.");
 
         if (await db.Set<Sport>().AnyAsync(s => s.Code == code, ct))
         {
@@ -65,6 +68,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var ordered = await LockAndListSportsAsync(ct);
+        if (roomTypeName is not null && await db.Set<RoomType>().AnyAsync(t => t.Name == roomTypeName, ct))
+            throw new ConflictException("room_type_name_taken", "This room type name is already used. Choose another name.");
         ordered.Add(sport);
         AssignSortOrders(ordered);
 
@@ -73,6 +78,18 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         audit.Write(new AuditEntry(actorUserId, "CREATE_SPORT", nameof(Sport), sport.SportId.ToString(),
             NewValue: Describe(sport)));
+        if (roomTypeName is not null)
+        {
+            var roomType = new RoomType { Name = roomTypeName, IsActive = true };
+            db.Set<RoomType>().Add(roomType);
+            await db.SaveChangesAsync(ct);
+            db.Set<SportRoomType>().Add(new() { RoomTypeId = roomType.RoomTypeId, SportId = sport.SportId });
+            audit.Write(new AuditEntry(actorUserId, "CREATE_ROOM_TYPE", nameof(RoomType), roomType.RoomTypeId.ToString(),
+                NewValue: System.Text.Json.JsonSerializer.Serialize(new { name = roomTypeName })));
+            audit.Write(new AuditEntry(actorUserId, "SET_ROOM_TYPE_SPORTS", nameof(RoomType), roomType.RoomTypeId.ToString(),
+                OldValue: System.Text.Json.JsonSerializer.Serialize(new { name = roomTypeName, sportIds = Array.Empty<int>() }),
+                NewValue: System.Text.Json.JsonSerializer.Serialize(new { name = roomTypeName, sportIds = new[] { sport.SportId } })));
+        }
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
@@ -81,6 +98,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
     public async Task<SportResponse> UpdateAsync(int sportId, SaveSportRequest request, Guid actorUserId, CancellationToken ct = default)
     {
+        if (request.CreateRoomType)
+            throw new BadRequestException("room_type_creation_only", "Create a linked room type when creating a new sport, or use Room types to manage existing sports.");
         var sport = await FindAsync(sportId, ct);
 
         if (!string.IsNullOrWhiteSpace(request.Code)
@@ -289,7 +308,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
                 if (!sportRooms.Any(r => hours.Contains(r.RoomId))) missing.Add("opening_hours");
 
                 if (service.ServiceType == SportServiceType.CourtRental
-                    && !rates.Any(r => roomTypeIds.Contains(r.RoomTypeId) && (r.SportId == null || r.SportId == sport.SportId)))
+                    && !rates.Any(r => roomTypeIds.Contains(r.RoomTypeId) && (r.SportId == null || r.SportId == sport.SportId)
+                        && (r.RoomId == null || sportRooms.Any(room => room.RoomId == r.RoomId))))
                 {
                     missing.Add("court_rate");
                 }

@@ -14,6 +14,7 @@ public class CourtRateConfiguration : IEntityTypeConfiguration<CourtRate>
             t.HasCheckConstraint("ck_court_rates_range", "end_time_local > start_time_local");
         });
         builder.HasKey(e => e.RateId);
+        builder.HasOne<Room>().WithMany().HasForeignKey(e => e.RoomId).OnDelete(DeleteBehavior.Cascade);
         builder.Property(e => e.DaysOfWeek).IsRequired();
         builder.Property(e => e.PricePerHour).HasPrecision(18, 0);
 

@@ -103,19 +103,6 @@ export function AdminOverview() {
   }
   return (
     <div className="stack">
-      <Card title={l.shortcuts} hint={t.staffWork.accountHint}>
-        <div className="btn-row">
-          <Link className="btn" href="/admin/users?create=1">
-            {t.staffWork.staffCreate}
-          </Link>
-          <Link className="btn btn--secondary" href="/admin/users">
-            {t.staffWork.users}
-          </Link>
-          <Link className="btn btn--secondary" href="/admin/audit-log">
-            {t.staffWork.adminAudit}
-          </Link>
-        </div>
-      </Card>
       <Card
         title={l.statusTitle}
         hint={l.statusHint}

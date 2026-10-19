@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import { AsyncSection, Field, StatusChip } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import type { SportDto, SportServiceType } from "@/lib/types";
 import { catalogApi, type SaveSport } from "./api";
 import {
+  CatalogPanel,
   ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
@@ -24,6 +25,8 @@ const SERVICE_TYPES: SportServiceType[] = [
 ];
 const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS"];
 interface FormState {
+  createRoomType: boolean;
+  roomTypeName: string;
   code: string;
   name: string;
   description: string;
@@ -33,6 +36,8 @@ interface FormState {
   defaultMaxCapacity: number;
 }
 const empty: FormState = {
+  createRoomType: false,
+  roomTypeName: "",
   code: "",
   name: "",
   enabled: {
@@ -78,6 +83,8 @@ export function SportsManager() {
     setForm(
       row
         ? {
+            createRoomType: false,
+            roomTypeName: "",
             name: row.name,
             code: row.code,
             enabled: Object.fromEntries(
@@ -96,9 +103,8 @@ export function SportsManager() {
   };
   return (
     <>
-      <Card
-        title={l.sports}
-        hint={c.sportsHint}
+      <CatalogPanel
+        filters={<CatalogFilters filters={filters} />}
         actions={
           <button
             className="btn"
@@ -109,7 +115,6 @@ export function SportsManager() {
           </button>
         }
       >
-        <CatalogFilters filters={filters} />
         <CatalogTable
           state={state}
           filters={filters}
@@ -195,7 +200,7 @@ export function SportsManager() {
           )}
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
-      </Card>
+      </CatalogPanel>
       {editor && (
         <CatalogFormDialog
           title={editor.id === null ? c.createSport : c.editSport}
@@ -207,6 +212,12 @@ export function SportsManager() {
             const body: SaveSport = {
               ...(editor.id === null
                 ? { code: form.code.trim().toLowerCase() }
+                : {}),
+              ...(editor.id === null && form.createRoomType
+                ? {
+                    createRoomType: true,
+                    roomTypeName: form.roomTypeName.trim(),
+                  }
                 : {}),
               name: form.name.trim(),
               description: form.description,
@@ -231,6 +242,7 @@ export function SportsManager() {
             ) {
               setEditor(null);
               state.reload();
+              if (editor.id === null && form.createRoomType) types.reload();
             }
           }}
         >
@@ -300,6 +312,44 @@ export function SportsManager() {
               />
             </Field>
           </div>
+          {editor.id === null && (
+            <div className={styles.linkedRoomType}>
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={form.createRoomType}
+                  aria-controls="new-sport-room-type"
+                  aria-describedby="new-sport-room-type-hint"
+                  onChange={(e) =>
+                    setForm({ ...form, createRoomType: e.target.checked })
+                  }
+                />
+                {c.createLinkedRoomType}
+              </label>
+              <p id="new-sport-room-type-hint" className="small muted">
+                {c.createLinkedRoomTypeHint}
+              </p>
+              <div id="new-sport-room-type" hidden={!form.createRoomType}>
+                {form.createRoomType && (
+                  <Field
+                    label={c.linkedRoomTypeName}
+                    required
+                    hint={c.linkedRoomTypeNameHint}
+                  >
+                    <input
+                      required
+                      maxLength={100}
+                      pattern=".*\S.*"
+                      value={form.roomTypeName}
+                      onChange={(e) =>
+                        setForm({ ...form, roomTypeName: e.target.value })
+                      }
+                    />
+                  </Field>
+                )}
+              </div>
+            </div>
+          )}
           <fieldset className={styles.days}>
             <legend>{l.services}</legend>
             {visibleServices.map((type) => (

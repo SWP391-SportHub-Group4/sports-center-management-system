@@ -4,6 +4,7 @@ import { ArrowRight, Check, RefreshCw } from "lucide-react";
 import { Drawer } from "@/components/primitives";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
+import managerStyles from "./manager-schedule.module.css";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -57,7 +58,7 @@ export function ManagerClassChangeRequests({
   );
   return (
     <section
-      className={styles.panel}
+      className={`${styles.panel} ${managerStyles.requestPanel}`}
       aria-label={
         vi ? "Yêu cầu thay đổi lịch lớp" : "Class schedule change requests"
       }

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import { CourtIcon, type CourtIconName } from "./CourtIcon";
 import s from "./brand.module.css";
@@ -60,7 +61,14 @@ export function AccountMenu({
       >
         <span className={s.avatar} aria-hidden="true">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className={s.avatarPhoto} />
+            <Image
+              src={avatarUrl}
+              alt=""
+              width={36}
+              height={36}
+              className={s.avatarPhoto}
+              unoptimized
+            />
           ) : (
             name.trim().charAt(0).toUpperCase() || "?"
           )}
