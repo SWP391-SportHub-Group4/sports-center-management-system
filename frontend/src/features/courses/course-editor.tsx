@@ -273,11 +273,15 @@ export function CourseEditor({
   }
 
   return (
-    <Card title={course ? l.edit : l.create}>
-      <ol className={styles.steps}>
+    <Card>
+      <ol className={styles.steps} aria-label={t.classWorkspace.setupProgress}>
         {[m.contentStep, m.scheduleStep, m.pricingStep, m.reviewStep].map(
           (label, index) => (
-            <li key={label} aria-current={step === index ? "step" : undefined}>
+            <li
+              key={label}
+              aria-current={step === index ? "step" : undefined}
+              data-complete={index < step || undefined}
+            >
               {index + 1}. {label}
             </li>
           ),

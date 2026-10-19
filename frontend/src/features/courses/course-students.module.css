@@ -1,0 +1,88 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.filters button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.filters button[aria-pressed="true"] {
+  background: var(--bg-inverse);
+  color: var(--text-on-inverse);
+}
+.filters button:hover:not([aria-pressed="true"]) {
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+}
+.filters button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.filters button span {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+}
+.studentTable {
+  min-width: 0;
+}
+.workspace {
+  min-width: 0;
+}
+@media (max-width: 480px) {
+  .workspace :global(.card__head) {
+    gap: var(--space-2);
+  }
+  .filters {
+    gap: var(--space-1);
+  }
+  .filters button {
+    padding-inline: var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .workspace :global(.card__head .btn) {
+    padding-inline: var(--space-2);
+    font-size: var(--text-sm);
+  }
+}
+.empty {
+  padding: var(--space-6) var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+.holdHint {
+  margin: 0;
+  max-width: 72ch;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+@media (min-width: 768px) {
+  .studentTable :global(table) {
+    table-layout: fixed;
+  }
+  .studentTable :global(th) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+  .studentTable :global(th:nth-child(2)) {
+    width: 150px;
+  }
+  .studentTable :global(th:nth-child(3)) {
+    width: 190px;
+  }
+  .studentTable :global(th:nth-child(4)) {
+    width: 150px;
+  }
+}

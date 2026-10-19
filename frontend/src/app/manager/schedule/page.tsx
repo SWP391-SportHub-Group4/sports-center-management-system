@@ -6,7 +6,7 @@ export default function Page() {
   const { t } = useLanguage();
   return (
     <AppShell
-      title={t.managerOperations.schedule}
+      title={t.classWorkspace.schedule}
       allow={["CenterManager"]}
       operationalLayout
     >

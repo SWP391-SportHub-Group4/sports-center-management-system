@@ -1,6 +1,9 @@
 "use client";
+import studentStyles from "./course-students.module.css";
+import detailStyles from "./course-detail.module.css";
+import { EnrollmentSummary } from "./enrollment-summary";
 import { UserAvatar } from "@/components/UserAvatar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -34,6 +37,7 @@ const tabIds = [
   "holds",
   "threshold",
   "history",
+  "management",
 ];
 function Roster({ sessionId }: { sessionId: string }) {
   const { t } = useLanguage();
@@ -47,33 +51,37 @@ function Roster({ sessionId }: { sessionId: string }) {
   return (
     <AsyncSection state={state}>
       {(data) => (
-        <Table
-          headers={[
-            t.operations.member,
-            t.operations.status,
-            t.operations.attendance,
-          ]}
-        >
-          {data.entries.map((r) => (
-            <tr key={r.enrollmentId}>
-              <td>
-                <UserAvatar
-                  userId={r.memberId}
-                  name={r.memberName}
-                  size={28}
-                  report
-                />{" "}
-                {r.memberName}
-              </td>
-              <td>
-                <StatusChip value={r.enrollmentStatus} />
-              </td>
-              <td>
-                <StatusChip value={r.attendanceStatus} />
-              </td>
-            </tr>
-          ))}
-        </Table>
+        <div className={detailStyles.attendanceTable}>
+          <Table
+            headers={[
+              t.operations.member,
+              t.operations.status,
+              t.operations.attendance,
+            ]}
+          >
+            {data.entries.map((r) => (
+              <tr key={r.enrollmentId}>
+                <td>
+                  <div className={detailStyles.attendanceMember}>
+                    <UserAvatar
+                      userId={r.memberId}
+                      name={r.memberName}
+                      size={28}
+                      report
+                    />
+                    <span>{r.memberName}</span>
+                  </div>
+                </td>
+                <td>
+                  <StatusChip value={r.enrollmentStatus} />
+                </td>
+                <td>
+                  <StatusChip value={r.attendanceStatus} />
+                </td>
+              </tr>
+            ))}
+          </Table>
+        </div>
       )}
     </AsyncSection>
   );
@@ -86,6 +94,22 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
     { tab: "overview" },
     { tab: choiceQuery(tabIds, "overview") },
   );
+  const [cancelling, setCancelling] = useState(false);
+  const [managementView, setManagementView] = useState("enrollment");
+  const activeTab =
+    values.tab === "holds"
+      ? "students"
+      : ["threshold", "history"].includes(values.tab)
+        ? "management"
+        : values.tab;
+  const managementSection = ["threshold", "history"].includes(values.tab)
+    ? values.tab
+    : managementView;
+  useEffect(() => {
+    if (window.location.hash !== "#course-cancellation") return;
+    const frame = requestAnimationFrame(() => setCancelling(true));
+    return () => cancelAnimationFrame(frame);
+  }, [values.tab]);
   const [publishing, setPublishing] = useState(false);
   const [session, setSession] = useState<CourseSessionDto | null>(null);
   const [roster, setRoster] = useState("");
@@ -140,20 +164,10 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
   function goToCancellation() {
     setCancelReasonSeed(closeReason.trim());
     setClosing(false);
-    requestAnimationFrame(() => {
-      const target = document.getElementById("course-cancellation");
-      target?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-        block: "start",
-      });
-      // The dialog that held focus is gone; hand focus to the section the manager asked for.
-      target?.focus({ preventScroll: true });
-    });
+    setCancelling(true);
   }
   return (
-    <>
+    <div className={`${styles.classDetail} ${detailStyles.page}`}>
       <Link className="btn btn--ghost" href="/manager/classes">
         {m.backToList}
       </Link>
@@ -161,7 +175,8 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
         {(c) => (
           <>
             <Card
-              title={`${c.code} · ${c.name}`}
+              title={c.name}
+              hint={c.code}
               actions={
                 <>
                   <StatusChip value={c.status} />
@@ -181,72 +196,57 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                       </button>
                     </>
                   )}
+                  <Link
+                    className={
+                      c.status === "DRAFT" ? "btn btn--secondary" : "btn"
+                    }
+                    href={`/manager/schedule?classId=${classId}`}
+                  >
+                    {t.classWorkspace.viewSchedule}
+                  </Link>
                   <button className="btn btn--ghost" onClick={reload}>
                     {l.refresh}
                   </button>
                 </>
               }
             >
-              <p>
-                {c.sportName} · {c.coachName ?? "—"} · {c.roomName}
-              </p>
-              <dl className={styles.summary}>
-                <div>
-                  <dt>{l.confirmed}</dt>
-                  <dd>
-                    {c.confirmedCount}/{c.capacity}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{l.held}</dt>
-                  <dd>{c.activeHoldCount}</dd>
-                </div>
-                <div>
-                  <dt>{l.availableSeats}</dt>
-                  <dd>{c.availableSeats}</dd>
-                </div>
-                <div>
-                  <dt>{l.threshold}</dt>
-                  <dd>
-                    {c.breakEvenThreshold ?? Math.ceil(c.costAmount / c.price)}{" "}
-                    · <StatusChip value={c.thresholdStatus} />
-                  </dd>
-                </div>
-              </dl>
+              <div className={detailStyles.headerSummary}>
+                <dl className={styles.classMeta}>
+                  <div>
+                    <dt>{l.sport}</dt>
+                    <dd>{c.sportName}</dd>
+                  </div>
+                  <div>
+                    <dt>{l.coach}</dt>
+                    <dd>{c.coachName ?? t.managerAudit.nameUnavailable}</dd>
+                  </div>
+                  <div>
+                    <dt>{l.room}</dt>
+                    <dd>{c.roomName}</dd>
+                  </div>
+                </dl>
+                <EnrollmentSummary course={c} />
+              </div>
             </Card>
             <Tabs
               ariaLabel={l.details}
-              tabs={tabIds.map((id) => ({
-                id,
-                label:
-                  m[
-                    `${id === "students" ? "students" : id}Tab` as
-                      | "overviewTab"
-                      | "sessionsTab"
-                      | "studentsTab"
-                      | "holdsTab"
-                      | "thresholdTab"
-                      | "historyTab"
-                  ],
-              }))}
-              value={values.tab}
+              tabs={[
+                { id: "overview", label: m.overviewTab },
+                { id: "sessions", label: m.sessionsTab },
+                { id: "students", label: m.studentsTab },
+                { id: "management", label: t.classWorkspace.management },
+              ]}
+              value={activeTab}
               onChange={(tab) => setValues({ tab })}
             >
               {values.tab === "overview" && (
                 <div className="stack">
-                  <Card title={m.overviewTab}>
+                  <Card title={t.classWorkspace.information}>
                     <dl className={styles.summary}>
                       {[
                         [l.price, formatMoney(c.price)],
-                        [l.cost, formatMoney(c.costAmount)],
                         [l.numSessions, String(c.numSessions)],
                         [l.startDate, c.startDate],
-                        [m.created, formatDateTime(c.createdAt)],
-                        [
-                          m.published,
-                          c.publishedAt ? formatDateTime(c.publishedAt) : "—",
-                        ],
-                        [m.version, String(c.version)],
                       ].map(([label, value]) => (
                         <div key={label}>
                           <dt>{label}</dt>
@@ -254,75 +254,52 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                         </div>
                       ))}
                     </dl>
-                    <p>{m.holdHint}</p>
-                    <section className={styles.enrollment}>
+                    <div className={detailStyles.enrollmentStatus}>
                       <div>
-                        <h3>{m.enrollmentTitle}</h3>
-                        <strong>
-                          {c.enrollmentOpen
-                            ? m.enrollmentOpen
-                            : m.enrollmentClosed}
-                        </strong>
-
-                        <p className="small muted">
-                          {c.enrollmentOpen
-                            ? m.enrollmentOpenHint
-                            : m.enrollmentClosedHint}
+                        <span className="muted">{m.enrollmentTitle}</span>
+                        <p>
+                          <strong>
+                            {c.enrollmentOpen
+                              ? m.enrollmentOpen
+                              : m.enrollmentClosed}
+                          </strong>
                         </p>
-                        {!c.enrollmentOpen && c.enrollmentClosedAtUtc && (
-                          <p className="small muted">
-                            {m.enrollmentClosedSince.replace(
-                              "{when}",
-                              formatDateTime(c.enrollmentClosedAtUtc),
-                            )}
-                            {c.enrollmentClosedReason &&
-                              ` · ${m.enrollmentClosedReason}: ${c.enrollmentClosedReason}`}
-                          </p>
-                        )}
-                        {!c.enrollmentOpen && c.enrollmentClosedReason && (
-                          <p className="small muted">{m.reopenNotifiesHint}</p>
-                        )}
                       </div>
-
-                      {c.status === "PUBLISHED" && (
-                        <button
-                          type="button"
-                          className={
-                            c.enrollmentOpen ? "btn btn--secondary" : "btn"
-                          }
-                          disabled={enrollmentBusy}
-                          onClick={() =>
-                            c.enrollmentOpen
-                              ? setClosing(true)
-                              : c.enrollmentClosedReason && c.confirmedCount > 0
-                                ? setReopening(true)
-                                : void setEnrollmentOpen(true)
-                          }
-                        >
-                          {enrollmentBusy
-                            ? t.common.loading
-                            : c.enrollmentOpen
-                              ? m.closeEnrollment
-                              : m.reopenEnrollment}
-                        </button>
-                      )}
-                      {enrollmentError && (
-                        <p role="alert" className="error">
-                          {enrollmentError}
-                        </p>
-                      )}
-                    </section>
-                  </Card>
-                  {!["CANCELLED", "COMPLETED"].includes(c.status) && (
-                    <div id="course-cancellation" tabIndex={-1}>
-                      <CourseCancellation
-                        key={cancelReasonSeed}
-                        classId={classId}
-                        initialReason={cancelReasonSeed}
-                        onSaved={reload}
-                      />
+                      <button
+                        className="btn btn--ghost"
+                        onClick={() => {
+                          setManagementView("enrollment");
+                          setValues({ tab: "management" });
+                        }}
+                      >
+                        {t.classWorkspace.manageEnrollment}
+                      </button>
                     </div>
-                  )}
+                    {!["MET", "WAIVED_BY_MANAGER"].includes(
+                      c.thresholdStatus,
+                    ) &&
+                      c.status === "PUBLISHED" && (
+                        <div className={detailStyles.thresholdNotice}>
+                          <div>
+                            <strong>{l.threshold}</strong>
+                            <p>
+                              {c.confirmedCount} /{" "}
+                              {c.breakEvenThreshold ??
+                                (c.price > 0
+                                  ? Math.ceil(c.costAmount / c.price)
+                                  : 0)}{" "}
+                              <StatusChip value={c.thresholdStatus} />
+                            </p>
+                          </div>
+                          <button
+                            className="btn btn--secondary"
+                            onClick={() => setValues({ tab: "threshold" })}
+                          >
+                            {t.classWorkspace.reviewThreshold}
+                          </button>
+                        </div>
+                      )}
+                  </Card>
                 </div>
               )}
               {values.tab === "sessions" && (
@@ -354,7 +331,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                                   className="btn btn--secondary"
                                   onClick={() => setRoster(s.sessionId)}
                                 >
-                                  {l.roster}
+                                  {l.attendance}
                                 </button>
                                 {s.status === "SCHEDULED" &&
                                   !["CANCELLED", "COMPLETED"].includes(
@@ -383,44 +360,189 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   </AsyncSection>
                 </Card>
               )}
-              {values.tab === "students" && (
+              {activeTab === "students" && (
                 <CourseOperations
-                  key={`students-${revision}`}
+                  key={values.tab + revision}
                   classId={classId}
-                  kind="enrollments"
+                  kind={values.tab === "holds" ? "holds" : "enrollments"}
+                  toolbar={
+                    <div
+                      className={studentStyles.filters}
+                      role="group"
+                      aria-label={t.classWorkspace.studentFilter}
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={values.tab !== "holds"}
+                        onClick={() => setValues({ tab: "students" })}
+                      >
+                        {t.classWorkspace.enrolledLabel}{" "}
+                        <span>{c.confirmedCount}</span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={values.tab === "holds"}
+                        onClick={() => setValues({ tab: "holds" })}
+                      >
+                        {m.holdsTab} <span>{c.activeHoldCount}</span>
+                      </button>
+                    </div>
+                  }
                 />
               )}
-              {values.tab === "holds" && (
-                <>
-                  <p>{m.holdHint}</p>
-                  <CourseOperations
-                    key={`holds-${revision}`}
-                    classId={classId}
-                    kind="holds"
-                  />
-                </>
-              )}
-              {values.tab === "threshold" && (
+              {activeTab === "management" && (
                 <div className="stack">
-                  <ThresholdPanel
-                    key={`${c.version}-${revision}`}
-                    course={c}
-                    onSaved={reload}
-                  />
-                  <CourseOperations
-                    key={`responses-${revision}`}
-                    classId={classId}
-                    kind="threshold-responses"
-                  />
-                  <p className="small muted" role="status">
-                    {m.interestGap}
-                  </p>
+                  <div className={detailStyles.sectionToolbar}>
+                    <label>
+                      {t.classWorkspace.management}
+                      <select
+                        value={managementSection}
+                        onChange={(e) => {
+                          setManagementView(e.target.value);
+                          setValues({ tab: "management" });
+                        }}
+                      >
+                        <option value="enrollment">{m.enrollmentTitle}</option>
+                        <option value="threshold">{m.thresholdTab}</option>
+                        <option value="history">{m.historyTab}</option>
+                      </select>
+                    </label>
+                    {!["CANCELLED", "COMPLETED"].includes(c.status) && (
+                      <details className={detailStyles.moreActions}>
+                        <summary>{t.classWorkspace.moreActions}</summary>
+                        <button
+                          className="btn btn--ghost"
+                          onClick={() => setCancelling(true)}
+                        >
+                          {t.classWorkspace.cancelClass}
+                        </button>
+                      </details>
+                    )}
+                  </div>
+                  {managementSection === "enrollment" && (
+                    <Card title={m.enrollmentTitle}>
+                      <section className={styles.enrollment}>
+                        <div>
+                          <strong>
+                            {c.enrollmentOpen
+                              ? m.enrollmentOpen
+                              : m.enrollmentClosed}
+                          </strong>
+
+                          <p className="small muted">
+                            {c.enrollmentOpen
+                              ? m.enrollmentOpenHint
+                              : m.enrollmentClosedHint}
+                          </p>
+                          {!c.enrollmentOpen && c.enrollmentClosedAtUtc && (
+                            <p className="small muted">
+                              {m.enrollmentClosedSince.replace(
+                                "{when}",
+                                formatDateTime(c.enrollmentClosedAtUtc),
+                              )}
+                              {c.enrollmentClosedReason &&
+                                ` · ${m.enrollmentClosedReason}: ${c.enrollmentClosedReason}`}
+                            </p>
+                          )}
+                          {!c.enrollmentOpen && c.enrollmentClosedReason && (
+                            <p className="small muted">
+                              {m.reopenNotifiesHint}
+                            </p>
+                          )}
+                        </div>
+
+                        {c.status === "PUBLISHED" && (
+                          <button
+                            type="button"
+                            className={
+                              c.enrollmentOpen ? "btn btn--secondary" : "btn"
+                            }
+                            disabled={enrollmentBusy}
+                            onClick={() =>
+                              c.enrollmentOpen
+                                ? setClosing(true)
+                                : c.enrollmentClosedReason &&
+                                    c.confirmedCount > 0
+                                  ? setReopening(true)
+                                  : void setEnrollmentOpen(true)
+                            }
+                          >
+                            {enrollmentBusy
+                              ? t.common.loading
+                              : c.enrollmentOpen
+                                ? m.closeEnrollment
+                                : m.reopenEnrollment}
+                          </button>
+                        )}
+                        {enrollmentError && (
+                          <p role="alert" className="error">
+                            {enrollmentError}
+                          </p>
+                        )}
+                      </section>
+                    </Card>
+                  )}
+                  {managementSection === "threshold" && (
+                    <>
+                      <ThresholdPanel
+                        key={c.version + "-" + revision}
+                        course={c}
+                        onSaved={reload}
+                      />
+                      <CourseOperations
+                        key={"responses-" + revision}
+                        classId={classId}
+                        kind="threshold-responses"
+                      />
+                    </>
+                  )}
+                  {managementSection === "history" && (
+                    <>
+                      <dl className={detailStyles.auditMeta}>
+                        <div>
+                          <dt>{m.created}</dt>
+                          <dd>{formatDateTime(c.createdAt)}</dd>
+                        </div>
+                        <div>
+                          <dt>{m.published}</dt>
+                          <dd>
+                            {c.publishedAt
+                              ? formatDateTime(c.publishedAt)
+                              : "?"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{m.version}</dt>
+                          <dd>{c.version}</dd>
+                        </div>
+                      </dl>
+                      <CourseHistory
+                        key={"history-" + revision}
+                        classId={classId}
+                      />
+                    </>
+                  )}
                 </div>
               )}
-              {values.tab === "history" && (
-                <CourseHistory key={`history-${revision}`} classId={classId} />
-              )}
             </Tabs>
+            {cancelling && (
+              <Dialog
+                title={t.classWorkspace.cancelClass}
+                onClose={() => setCancelling(false)}
+                size="lg"
+              >
+                <CourseCancellation
+                  key={cancelReasonSeed}
+                  classId={classId}
+                  embedded
+                  initialReason={cancelReasonSeed}
+                  onSaved={() => {
+                    setCancelling(false);
+                    reload();
+                  }}
+                />
+              </Dialog>
+            )}
             {publishing && (
               <Dialog
                 title={l.publish}
@@ -568,13 +690,17 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
               </Dialog>
             )}
             {roster && (
-              <Dialog title={l.roster} size="lg" onClose={() => setRoster("")}>
+              <Dialog
+                title={l.attendance}
+                size="lg"
+                onClose={() => setRoster("")}
+              >
                 <Roster sessionId={roster} />
               </Dialog>
             )}
           </>
         )}
       </AsyncSection>
-    </>
+    </div>
   );
 }

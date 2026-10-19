@@ -104,7 +104,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
     { href: "/manager/avatar-reports", labelKey: "avatarReports" },
-    { href: "/manager/schedule", labelKey: "courtSchedule" },
+    { href: "/manager/schedule", labelKey: "activitySchedule" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
     { href: "/manager/support", labelKey: "support" },
@@ -160,15 +160,10 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/membership-plans",
       ],
     ],
+    ["classesScheduling", ["/manager/classes", "/manager/schedule"]],
     [
-      "operations",
-      [
-        "/manager/classes",
-        "/manager/schedule",
-        "/manager/incidents",
-        "/manager/notices",
-        "/manager/support",
-      ],
+      "supportCommunications",
+      ["/manager/incidents", "/manager/notices", "/manager/support"],
     ],
     [
       "people",
@@ -442,7 +437,7 @@ export function AppFrame({
       </a>
       <header className={shell.header} data-scrolled={scrolled || undefined}>
         <div
-          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""}`}
+          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""} ${user.role === "CenterManager" ? styles.managerHeader : ""}`}
         >
           <Link href={root} className={shell.brandGroup}>
             <span className={shell.brandLogo}>

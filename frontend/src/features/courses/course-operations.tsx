@@ -1,4 +1,7 @@
 "use client";
+import styles from "./course-students.module.css";
+import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import { pagedItems } from "@/lib/paged";
 import { useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
@@ -33,8 +36,10 @@ type Row = {
 export function CourseOperations({
   classId,
   kind,
+  toolbar,
 }: {
   classId: number;
+  toolbar?: ReactNode;
   kind?: "holds" | "enrollments" | "threshold-responses";
 }) {
   return (
@@ -43,7 +48,12 @@ export function CourseOperations({
         ? [kind]
         : (["holds", "enrollments", "threshold-responses"] as const)
       ).map((kind) => (
-        <OperationsRows key={kind} classId={classId} kind={kind} />
+        <OperationsRows
+          key={kind}
+          classId={classId}
+          kind={kind}
+          toolbar={toolbar}
+        />
       ))}
     </>
   );
@@ -51,9 +61,11 @@ export function CourseOperations({
 function OperationsRows({
   classId,
   kind,
+  toolbar,
 }: {
   classId: number;
   kind: "holds" | "enrollments" | "threshold-responses";
+  toolbar?: ReactNode;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -69,89 +81,152 @@ function OperationsRows({
     [classId, kind, page],
   );
   return (
-    <Card
-      title={
-        kind === "holds"
-          ? l.held
-          : kind === "enrollments"
-            ? l.enrollments
-            : l.thresholdResponses
-      }
-    >
-      <button className="btn btn--ghost" onClick={state.reload}>
-        {l.refresh}
-      </button>
-      <AsyncSection state={state}>
-        {(data) => (
-          <>
-            <Table
-              headers={[l.member, l.status, l.deadline, l.choice, l.invoices]}
-            >
-              {pagedItems(data).map((row) => (
-                <tr key={row.holdId ?? row.enrollmentId ?? row.responseId}>
-                  <td>{row.memberName}</td>
-                  <td>
-                    <StatusChip
-                      value={row.status ?? row.resolutionStatus ?? ""}
-                    />
-                  </td>
-                  <td>
-                    {row.expiresAtUtc || row.deadlineUtc || row.enrolledAt
-                      ? formatDateTime(
-                          (row.expiresAtUtc ??
-                            row.deadlineUtc ??
-                            row.enrolledAt)!,
-                        )
-                      : "—"}
-                  </td>
-                  <td>
-                    {row.choice ? <StatusChip value={row.choice} /> : "—"}
-                    {row.targetClassId && (
-                      <>
-                        {" "}
-                        · <CourseName id={row.targetClassId} />
-                      </>
-                    )}
-                  </td>
-                  <td>
-                    {(row.invoiceId ||
-                      row.additionalInvoiceId ||
-                      row.invoiceItemId) && (
-                      <button
-                        className="btn btn--secondary"
-                        disabled={mutation.busy}
-                        onClick={async () => {
-                          const id = row.invoiceId ?? row.additionalInvoiceId;
-                          if (id) setInvoiceId(id);
-                          else
-                            await mutation.run(async () => {
-                              const result = await api.get<InvoiceDetailDto>(
-                                `/api/invoices/by-item/${row.invoiceItemId}`,
-                              );
-                              setInvoiceId(result.summary.invoiceId);
-                            }, "");
-                        }}
-                      >
-                        {l.details}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </Table>
-            <Pagination
-              page={page}
-              count={data.totalCount}
-              onChange={setPage}
-            />
-          </>
+    <div className={toolbar ? styles.workspace : undefined}>
+      <Card
+        title={
+          toolbar ??
+          (kind === "holds"
+            ? l.held
+            : kind === "enrollments"
+              ? l.enrollments
+              : l.thresholdResponses)
+        }
+        actions={
+          <button
+            className="btn btn--ghost"
+            onClick={state.reload}
+            disabled={state.loading}
+          >
+            {l.refresh}
+          </button>
+        }
+      >
+        {kind === "holds" && toolbar && (
+          <p className={styles.holdHint}>{t.managerOperations.holdHint}</p>
         )}
-      </AsyncSection>
-      <MutationFeedback mutation={mutation} />
-      {invoiceId && (
-        <InvoiceDetail key={invoiceId} invoiceId={invoiceId} staff />
-      )}
-    </Card>
+        <AsyncSection state={state}>
+          {(data) => (
+            <>
+              {pagedItems(data).length === 0 ? (
+                <p className={styles.empty} role="status">
+                  {kind === "holds"
+                    ? t.classWorkspace.noActiveHolds
+                    : kind === "enrollments"
+                      ? t.classWorkspace.noStudents
+                      : l.empty}
+                </p>
+              ) : (
+                <div
+                  className={
+                    kind === "threshold-responses"
+                      ? undefined
+                      : styles.studentTable
+                  }
+                >
+                  <Table
+                    headers={[
+                      kind === "threshold-responses"
+                        ? l.member
+                        : t.classWorkspace.student,
+                      l.status,
+                      kind === "enrollments"
+                        ? t.classWorkspace.enrolledOn
+                        : kind === "holds"
+                          ? t.classWorkspace.expiresAt
+                          : l.deadline,
+                      ...(kind === "threshold-responses" ? [l.choice] : []),
+                      l.invoices,
+                    ]}
+                  >
+                    {pagedItems(data).map((row) => (
+                      <tr
+                        key={row.holdId ?? row.enrollmentId ?? row.responseId}
+                      >
+                        <td>{row.memberName}</td>
+                        <td>
+                          <StatusChip
+                            value={row.status ?? row.resolutionStatus ?? ""}
+                          />
+                        </td>
+                        <td>
+                          {row.expiresAtUtc || row.deadlineUtc || row.enrolledAt
+                            ? formatDateTime(
+                                (row.expiresAtUtc ??
+                                  row.deadlineUtc ??
+                                  row.enrolledAt)!,
+                              )
+                            : "—"}
+                        </td>
+                        {kind === "threshold-responses" && (
+                          <td>
+                            {row.choice ? (
+                              <StatusChip value={row.choice} />
+                            ) : (
+                              "—"
+                            )}
+                            {row.targetClassId && (
+                              <>
+                                {" "}
+                                · <CourseName id={row.targetClassId} />
+                              </>
+                            )}
+                          </td>
+                        )}
+                        <td>
+                          {row.invoiceId ||
+                          row.additionalInvoiceId ||
+                          row.invoiceItemId ? (
+                            <button
+                              className="btn btn--secondary"
+                              disabled={mutation.busy}
+                              onClick={async () => {
+                                const id =
+                                  row.invoiceId ?? row.additionalInvoiceId;
+                                if (id) setInvoiceId(id);
+                                else
+                                  await mutation.run(async () => {
+                                    const result =
+                                      await api.get<InvoiceDetailDto>(
+                                        `/api/invoices/by-item/${row.invoiceItemId}`,
+                                      );
+                                    setInvoiceId(result.summary.invoiceId);
+                                  }, "");
+                              }}
+                            >
+                              {t.checkout.viewInvoice}
+                            </button>
+                          ) : (
+                            <span className="muted">&mdash;</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+                </div>
+              )}
+              {data.totalCount > 20 && (
+                <Pagination
+                  page={page}
+                  count={data.totalCount}
+                  onChange={setPage}
+                />
+              )}
+            </>
+          )}
+        </AsyncSection>
+        <MutationFeedback mutation={mutation} />
+        {invoiceId &&
+          createPortal(
+            <InvoiceDetail
+              key={invoiceId}
+              invoiceId={invoiceId}
+              staff
+              onClose={() => setInvoiceId("")}
+            />,
+            document.body,
+          )}
+      </Card>
+    </div>
   );
 }
 interface CancellationPreview {
@@ -167,11 +242,13 @@ export function CourseCancellation({
   classId,
   onSaved,
   initialReason = "",
+  embedded = false,
 }: {
   classId: number;
   onSaved: () => void;
   /** Pre-fills the reason, e.g. the incident the manager just described while closing enrollment. */
   initialReason?: string;
+  embedded?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -180,7 +257,7 @@ export function CourseCancellation({
   const revision = useRef(0);
   const mutation = useMutation();
   return (
-    <Card title={l.cancel}>
+    <CancellationContainer embedded={embedded} title={l.cancel}>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -243,6 +320,22 @@ export function CourseCancellation({
         </>
       )}
       <MutationFeedback mutation={mutation} />
-    </Card>
+    </CancellationContainer>
+  );
+}
+
+function CancellationContainer({
+  embedded,
+  title,
+  children,
+}: {
+  embedded: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return embedded ? (
+    <div className="stack">{children}</div>
+  ) : (
+    <Card title={title}>{children}</Card>
   );
 }
