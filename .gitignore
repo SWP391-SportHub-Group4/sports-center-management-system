@@ -5,6 +5,7 @@ backend/**/obj/
 
 ## Env
 .env
+/ai-service/.env
 
 ## Node / Next.js
 frontend/node_modules/

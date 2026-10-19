@@ -29,22 +29,31 @@ async function setup(page: Page) {
       read = true;
       return route.fulfill({ status: 204 });
     }
-    if (path === "/api/notifications")
+    if (
+      [
+        "/api/notifications",
+        "/api/notifications/inbox",
+        "/api/notifications/notice-1",
+      ].includes(path)
+    ) {
+      const item = {
+        notificationId: "notice-1",
+        sourceEventType: "MANUAL_NOTICE",
+        sourceEntityId: null,
+        message: "Gym hours update",
+        status: read ? "READ" : "SENT",
+        sentAt: `${today}T01:00:00Z`,
+      };
+      const items =
+        read && url.searchParams.get("unreadOnly") === "true" ? [] : [item];
       return route.fulfill({
-        json:
-          read && url.searchParams.get("unreadOnly") === "true"
-            ? []
-            : [
-                {
-                  notificationId: "notice-1",
-                  sourceEventType: "MANUAL_NOTICE",
-                  sourceEntityId: null,
-                  message: "Gym hours update",
-                  status: read ? "READ" : "SENT",
-                  sentAt: `${today}T01:00:00Z`,
-                },
-              ],
+        json: path.endsWith("/inbox")
+          ? { items, totalCount: items.length, page: 1, pageSize: 25 }
+          : path.endsWith("/notice-1")
+            ? item
+            : items,
       });
+    }
     if (path === "/api/members/me/schedule")
       return route.fulfill({
         json: [
@@ -364,10 +373,29 @@ test("notification read is persisted and unknown source has no fabricated link",
   await expect(
     page.getByRole("main").getByRole("link", { name: "Details" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Mark as read", exact: true }).click();
-  await expect(page.getByText("You're all caught up.")).toBeVisible();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: /Gym hours update/ })
+    .click();
+  const reader = page.getByRole("region", {
+    name: "Message reader",
+    exact: true,
+  });
+  await expect(
+    reader.getByText("Gym hours update", { exact: true }),
+  ).toBeVisible();
+  await expect(reader.getByText("Read", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Messages", exact: true })
+      .getByText(/caught up/),
+  ).toBeVisible();
   await page.getByRole("tab", { name: "All", exact: true }).click();
-  await expect(page.getByText("Gym hours update")).toBeVisible();
+  await expect(
+    page
+      .getByRole("list", { name: "Notifications", exact: true })
+      .getByText("Gym hours update"),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Mark as read", exact: true }),
   ).toHaveCount(0);
@@ -387,18 +415,21 @@ for (const entry of ["bell", "list"] as const) {
       }
       if (path.endsWith("unread-count"))
         return route.fulfill({ json: { count: read ? 0 : 1 } });
+      const item = {
+        notificationId: "package-notice",
+        sourceEventType: "PACKAGE_EXPIRING",
+        sourceEntityId: "package-1",
+        actionUrl: "/member/services",
+        message: "Your membership is expiring soon",
+        status: read ? "READ" : "SENT",
+        sentAt: "2026-10-08T10:00:00Z",
+      };
       return route.fulfill({
-        json: [
-          {
-            notificationId: "package-notice",
-            sourceEventType: "PACKAGE_EXPIRING",
-            sourceEntityId: "package-1",
-            actionUrl: "/member/services",
-            message: "Your membership is expiring soon",
-            status: read ? "READ" : "SENT",
-            sentAt: "2026-10-08T10:00:00Z",
-          },
-        ],
+        json: path.endsWith("/inbox")
+          ? { items: [item], totalCount: 1, page: 1, pageSize: 25 }
+          : path.endsWith("/package-notice")
+            ? item
+            : [item],
       });
     });
     await page.goto("/notifications");
@@ -416,6 +447,16 @@ for (const entry of ["bell", "list"] as const) {
         .getByRole("link", { name: /Your membership is expiring soon/ })
         .click();
     }
+    await expect(page).toHaveURL(/\/notifications\?message=package-notice$/);
+    const reader = page.getByRole("region", {
+      name: "Message reader",
+      exact: true,
+    });
+    await expect(
+      reader.getByText("Your membership is expiring soon", { exact: true }),
+    ).toBeVisible();
+    await expect(reader.getByText("Read", { exact: true })).toBeVisible();
+    await reader.getByRole("link", { name: "Open to take action" }).click();
     await expect(page).toHaveURL(/\/member\/services$/);
     expect(read).toBe(true);
   });
@@ -424,17 +465,17 @@ test("empty notification list does not claim 100 messages", async ({
   page,
 }) => {
   await setup(page);
-  await page.route("**/api/notifications?**", (route) =>
-    route.fulfill({ json: [] }),
+  await page.route("**/api/notifications/inbox?**", (route) =>
+    route.fulfill({
+      json: { items: [], totalCount: 0, page: 1, pageSize: 25 },
+    }),
   );
   await page.goto("/notifications");
-  await expect(
-    page.getByText("You don't have any notifications yet."),
-  ).toBeVisible();
+  await expect(page.getByText("Your inbox is ready")).toBeVisible();
   await expect(page.getByText(/latest 100 notifications/i)).toHaveCount(0);
 
   await page.getByRole("tab", { name: "Unread" }).click();
-  await expect(page.getByText("You're all caught up.")).toBeVisible();
+  await expect(page.getByText(/caught up/)).toBeVisible();
 });
 
 test("course details reject IDs outside own enrollments", async ({ page }) => {
@@ -536,9 +577,16 @@ test("failed notification mutation keeps message unread", async ({ page }) => {
     route.fulfill({ status: 500, json: { title: "Unable to mark read" } }),
   );
   await page.goto("/notifications?tab=unread");
-  await page.getByRole("button", { name: "Mark as read", exact: true }).click();
+  await page
+    .getByRole("main")
+    .getByRole("link", { name: /Gym hours update/ })
+    .click();
   await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
-  await expect(page.getByText("Gym hours update")).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Message reader", exact: true })
+      .getByText("Gym hours update", { exact: true }),
+  ).toBeVisible();
 });
 
 test("Discover stays in Member shell through list and course details", async ({

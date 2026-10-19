@@ -27,7 +27,11 @@
 }
 
 .panel {
-  --notification-hover: color-mix(in srgb, var(--color-primary) 14%, var(--bg-surface));
+  --notification-hover: color-mix(
+    in srgb,
+    var(--color-primary) 14%,
+    var(--bg-surface)
+  );
   position: absolute;
   right: 0;
   top: calc(100% + 12px);
@@ -41,7 +45,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.28);
-  z-index: 40;
+  z-index: var(--z-dropdown);
 }
 .header {
   display: flex;
@@ -126,9 +130,23 @@ a.item:hover .action {
   background: var(--color-primary);
 }
 .message {
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-size: var(--text-sm);
   line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.preview {
+  min-width: 0;
+}
+.subject {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .item time {
