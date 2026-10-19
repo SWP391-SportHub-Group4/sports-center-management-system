@@ -612,7 +612,10 @@ test.beforeEach(async ({ page }) => {
         notes: null,
         updatedAt: "2026-10-01T00:00:00Z",
       };
-    else if (path === "/api/notifications")
+    else if (
+      path === "/api/notifications" ||
+      path === "/api/notifications/inbox"
+    ) {
       json = [
         {
           notificationId: "notification-1",
@@ -623,7 +626,9 @@ test.beforeEach(async ({ page }) => {
           sentAt: "2026-10-01T00:00:00Z",
         },
       ];
-    else if (path.endsWith("/unread-count")) json = { count: 1 };
+      if (path.endsWith("/inbox"))
+        json = { items: json, totalCount: 1, page: 1, pageSize: 25 };
+    } else if (path.endsWith("/unread-count")) json = { count: 1 };
     await route.fulfill({ json });
   });
 });
@@ -862,7 +867,21 @@ test("notification links resolve to real Member views", async ({ page }) => {
     name: /Your class schedule changed\./,
   });
   await expect(notice).toBeVisible({ timeout: 15000 });
-  await expect(notice).toHaveAttribute("href", "/member/schedule");
+  await expect(notice).toHaveAttribute(
+    "href",
+    "/notifications?message=notification-1",
+  );
+  await notice.click();
+  const reader = page.getByRole("region", {
+    name: "Message reader",
+    exact: true,
+  });
+  await expect(
+    reader.getByText("Your class schedule changed.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    reader.getByRole("link", { name: "Review schedule change" }),
+  ).toHaveAttribute("href", "/member/schedule");
 });
 for (const width of [320, 768, 1024, 1280, 1360, 1440])
   test(`Member routes fit ${width}px`, async ({ page }) => {

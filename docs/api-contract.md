@@ -382,9 +382,15 @@ Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatars
 | Verb | Path |
 |---|---|
 | GET | `api/notifications` |
+| GET | `api/notifications/inbox?unreadOnly=false&search=&page=1&pageSize=25` |
+| GET | `api/notifications/{notificationId:guid}` |
 | GET | `api/notifications/unread-count` |
 | POST | `api/notifications/{notificationId:guid}/read` |
 | POST | `api/notifications/read-all` |
+
+Inbox and detail are available to every authenticated role and return only the current user's InApp messages; email/OTP payloads are never exposed. Inbox returns `{items,totalCount,page,pageSize}`, newest first; `page` is 1–100000, `pageSize` is 1–50 and `search` is at most 150 characters. Search matches message text and the subject of a linked manual notice. The original list endpoint retains its latest-100 behavior for the bell preview. Notification DTOs additionally include nullable `title` and `senderName` from a referenced manual notice's send-time record; system events use the UI's event label and SportHub sender. Detail returns 404 for missing, other-user or non-InApp IDs. Reading detail does not change its status; the UI sends the existing read command after opening it.
+
+The bell opens `/notifications?message=<notificationId>` for all messages, including those without `actionUrl`. The inbox presents full text before a separate related-action link, constrained to the recipient's role workspace. Unread/read state is persisted through the existing commands and synchronized with the bell; a failed read receipt leaves the message readable and offers retry. Browser Back/Forward restores the selected message, filter, search and page. No migration is required.
 
 ### InvoicesController — `api`
 

@@ -14,7 +14,12 @@ public sealed record NotificationResponse(
     string Message,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
     DateTime? SentAt,
-    string? ActionUrl = null);
+    string? ActionUrl = null,
+    string? Title = null,
+    string? SenderName = null);
+
+public sealed record NotificationInboxPage(IReadOnlyList<NotificationResponse> Items,
+    int TotalCount, int Page, int PageSize);
 
 public sealed class NotificationService(ISportHubDbContext db, IClock clock, INotificationActionReader actions) : INotificationService
 {
@@ -42,10 +47,65 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock, INo
                 n.SourceEntityId,
                 n.Message,
                 n.Status.ToString(),
-                n.SentAt, null))
+                n.SentAt, null, null, null))
             .ToListAsync(ct);
+        return await WithDetailsAsync(userId, rows, ct);
+    }
+
+    public async Task<NotificationInboxPage> GetInboxAsync(Guid userId, bool unreadOnly,
+        string? search, int page, int pageSize, CancellationToken ct = default)
+    {
+        if (page is < 1 or > 100_000 || pageSize is < 1 or > 50 || search?.Length > 150)
+            throw new BadRequestException("notification_filter_invalid", "Choose a valid page and a search of up to 150 characters.");
+
+        var query = db.Set<Domain.Entities.Notification>().AsNoTracking()
+            .Where(n => n.UserId == userId && n.Channel == NotificationChannel.InApp);
+        if (unreadOnly) query = query.Where(n => n.Status != NotificationStatus.Read);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLowerInvariant();
+            query = query.Where(n => n.Message.ToLower().Contains(term)
+                || n.SourceEventType == NotificationSourceEventType.ManualNotice
+                    && db.Set<Domain.Entities.ManualNoticeRecord>().Any(m => m.NoticeId == n.SourceEntityId
+                        && m.Subject.ToLower().Contains(term)));
+        }
+        var count = await query.CountAsync(ct);
+        var rows = await query.OrderByDescending(n => n.SentAt ?? DateTime.MinValue)
+            .ThenByDescending(n => n.NotificationId).Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(n => new NotificationResponse(n.NotificationId, n.SourceEventType.ToString(),
+                n.SourceEntityId, n.Message, n.Status.ToString(), n.SentAt, null, null, null))
+            .ToListAsync(ct);
+        return new(await WithDetailsAsync(userId, rows, ct), count, page, pageSize);
+    }
+
+    public async Task<NotificationResponse> GetAsync(Guid userId, Guid notificationId, CancellationToken ct = default)
+    {
+        var row = await db.Set<Domain.Entities.Notification>().AsNoTracking()
+            .Where(n => n.UserId == userId && n.NotificationId == notificationId && n.Channel == NotificationChannel.InApp)
+            .Select(n => new NotificationResponse(n.NotificationId, n.SourceEventType.ToString(),
+                n.SourceEntityId, n.Message, n.Status.ToString(), n.SentAt, null, null, null))
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("notification_not_found", "Notification not found.");
+        return (await WithDetailsAsync(userId, [row], ct))[0];
+    }
+
+    private async Task<IReadOnlyList<NotificationResponse>> WithDetailsAsync(Guid userId,
+        IReadOnlyList<NotificationResponse> rows, CancellationToken ct)
+    {
         var destinations = await actions.GetMemberActionsAsync(userId, rows, ct);
-        return rows.Select(n => n with { ActionUrl = destinations.GetValueOrDefault(n.NotificationId) }).ToList();
+        // Read only subjects/senders of manual notices referenced by this user's own in-app messages.
+        var manualIds = rows.Where(n => n.SourceEventType == nameof(NotificationSourceEventType.ManualNotice)
+            && n.SourceEntityId.HasValue).Select(n => n.SourceEntityId!.Value).Distinct().ToArray();
+        var notices = await db.Set<Domain.Entities.ManualNoticeRecord>().AsNoTracking()
+            .Where(m => manualIds.Contains(m.NoticeId))
+            .Select(m => new { m.NoticeId, m.Subject, m.SenderName }).ToDictionaryAsync(m => m.NoticeId, ct);
+        return rows.Select(n =>
+        {
+            var manual = n.SourceEventType == nameof(NotificationSourceEventType.ManualNotice)
+                && n.SourceEntityId.HasValue ? notices.GetValueOrDefault(n.SourceEntityId.Value) : null;
+            return n with { ActionUrl = destinations.GetValueOrDefault(n.NotificationId),
+                Title = manual?.Subject, SenderName = manual?.SenderName };
+        }).ToList();
     }
 
     // Pending cũng tính là chưa đọc: ở MVP thông báo InApp hiển thị ngay khi có trong DB,

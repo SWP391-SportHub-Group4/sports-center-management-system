@@ -1,34 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useLanguage } from "@/lib/language";
-import { useAuth } from "@/lib/auth";
 import { useEffect, useId, useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
 import { IconBell } from "@/components/icons";
 import {
-  memberNotificationHref,
-  notificationActionLabel,
-  notificationsApi,
+  notificationInboxHref,
+  notificationPresentation,
   type NotificationDto,
 } from "@/features/member/notifications-api";
 
 import styles from "./NotificationBell.module.css";
 
 /**
- * Hộp thư trong ứng dụng (BR-33). MVP chỉ có kênh InApp hoạt động thật (SSOT §1.3), nên
- * "nhận thông báo" chính là đọc bảng notifications qua API.
+ * In-app preview shared by all roles. Every message opens the inbox reader;
+ * the reader persists read receipts and offers any related business action separately.
  *
  * Poll 60 giây thay vì SignalR: thông báo ở đây là nhắc hạn gói và báo đổi lịch — chậm một
  * phút không ảnh hưởng gì, và một kết nối realtime chỉ để làm việc đó là chi phí thừa.
  */
 export function NotificationBell() {
-  const { t, language } = useLanguage();
-  const router = useRouter();
-  const { user } = useAuth();
+  const { t } = useLanguage();
   const [actionError, setActionError] = useState("");
   const panelId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -104,24 +99,7 @@ export function NotificationBell() {
   };
 
   const count = unread.data?.count ?? 0;
-  const list = items.data ?? [];
-
-  async function openItem(item: NotificationDto, href: string) {
-    if (busy) return;
-    setBusy(true);
-    setActionError("");
-    try {
-      if (item.status !== "READ")
-        await notificationsApi.read(item.notificationId);
-      window.dispatchEvent(new Event("sporthub:notifications-read"));
-      setOpen(false);
-      router.push(href);
-    } catch (e) {
-      setActionError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const list = (items.data ?? []).slice(0, 6);
 
   return (
     <div className="bell" ref={containerRef}>
@@ -168,56 +146,25 @@ export function NotificationBell() {
             ) : list.length === 0 ? (
               <p className="state">{t.refactor.empty}</p>
             ) : (
-              list.map((item) => {
-                const href =
-                  user?.role === "Member"
-                    ? memberNotificationHref(item)
-                    : item.actionUrl?.startsWith(
-                          user?.role === "CenterManager"
-                            ? "/manager/"
-                            : user?.role === "Coach"
-                              ? "/coach/"
-                              : "/__no_role__/",
-                        )
-                      ? item.actionUrl
-                      : null;
-                const content = (
-                  <>
-                    <span className={styles.dot} aria-hidden="true" />
-                    <span>
-                      <span className={styles.message}>{item.message}</span>
-                      <time>{formatDateTime(item.sentAt)}</time>
-                      {href && (
-                        <span className={styles.action}>
-                          {notificationActionLabel(item, language)} →
-                        </span>
-                      )}
-                    </span>
-                  </>
-                );
-                return href ? (
-                  <Link
-                    key={item.notificationId}
-                    className={styles.item}
-                    data-unread={item.status !== "READ"}
-                    href={href}
-                    onNavigate={(event) => {
-                      event.preventDefault();
-                      void openItem(item, href);
-                    }}
-                  >
-                    {content}
-                  </Link>
-                ) : (
-                  <div
-                    key={item.notificationId}
-                    className={styles.item}
-                    data-unread={item.status !== "READ"}
-                  >
-                    {content}
-                  </div>
-                );
-              })
+              list.map((item) => (
+                <Link
+                  key={item.notificationId}
+                  className={styles.item}
+                  data-unread={item.status !== "READ"}
+                  href={notificationInboxHref(item)}
+                  onClick={() => setOpen(false)}
+                >
+                  <span className={styles.dot} aria-hidden="true" />
+                  <span className={styles.preview}>
+                    <strong className={styles.subject}>
+                      {notificationPresentation(item).title}
+                    </strong>
+                    <span className={styles.message}>{item.message}</span>
+                    <time>{formatDateTime(item.sentAt)}</time>
+                    <span className={styles.action}>Read message →</span>
+                  </span>
+                </Link>
+              ))
             )}
           </div>
           <Link
@@ -225,7 +172,7 @@ export function NotificationBell() {
             href="/notifications"
             onClick={() => setOpen(false)}
           >
-            {t.memberPages.viewAll}
+            Open inbox
           </Link>
         </section>
       )}

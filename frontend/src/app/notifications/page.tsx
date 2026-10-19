@@ -3,17 +3,15 @@ import { MemberShell } from "@/components/MemberShell";
 import { AppShell } from "@/components/AppShell";
 import { MemberNotifications } from "@/features/member/notifications";
 import { useAuth } from "@/lib/auth";
-import { useLanguage } from "@/lib/language";
 export default function Page() {
-  const { t } = useLanguage();
   const { user } = useAuth();
   return user?.role === "Member" ? (
-    <MemberShell title={t.refactor.notifications}>
-      <MemberNotifications />
+    <MemberShell title="Inbox">
+      <MemberNotifications key={user.userId} />
     </MemberShell>
   ) : (
     <AppShell
-      title={t.refactor.notifications}
+      title="Inbox"
       allow={[
         "Member",
         "Coach",
@@ -22,7 +20,7 @@ export default function Page() {
         "SystemAdministrator",
       ]}
     >
-      <MemberNotifications />
+      <MemberNotifications key={user?.userId} />
     </AppShell>
   );
 }
