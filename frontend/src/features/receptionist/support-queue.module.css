@@ -1,100 +1,133 @@
 .panel {
-  padding: var(--space-5);
   display: grid;
   gap: var(--space-4);
   min-width: 0;
 }
-.header,
-.row {
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.search {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.toolbar select {
+  flex: 0 1 220px;
+  min-width: 0;
+}
+.toolbar :global(.btn),
+.toolbar input,
+.toolbar select {
+  min-height: 44px;
+}
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.tab {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.tab:hover {
+  border-color: var(--color-primary);
+}
+.tab[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  font-weight: var(--weight-semibold);
+}
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.list {
+  display: grid;
+  gap: var(--space-4);
+}
+.request {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  overflow-wrap: anywhere;
+}
+.request[data-status="CLOSED"] {
+  background: var(--bg-surface-sunken);
+  border-color: transparent;
+}
+.request[data-status="CLOSED"] h3 {
+  color: var(--text-muted);
+}
+.emptyState {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
+  color: var(--text-muted);
+}
+.emptyState p {
+  margin: 0;
+}
+.request p,
+.request h3 {
+  margin: 0;
+}
+.requestHead {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
 }
-.header {
-  justify-content: space-between;
+.requestHead h3 {
+  font-size: var(--text-lg);
+  color: var(--text-strong);
 }
-.header h2,
-.header h3,
-.header p {
-  margin: 0;
-}
-.header > div {
-  display: grid;
-  gap: var(--space-2);
-}
-.header > .row {
+.meta {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
-.header a,
-.request {
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-.filters {
-  display: grid;
-  grid-template-columns: minmax(180px, 2fr) repeat(2, minmax(140px, 1fr)) auto;
-  gap: var(--space-3);
-  align-items: end;
-}
-.filters label,
-.actions label {
-  display: grid;
-  gap: var(--space-2);
-}
-.request {
-  border-top: 1px solid var(--border-subtle);
-  padding-top: var(--space-4);
-  display: grid;
-  gap: var(--space-3);
-}
-.request p {
-  margin: 0;
+.meta a {
+  font-weight: var(--weight-semibold);
 }
 .message {
   white-space: pre-wrap;
   max-width: 75ch;
+  color: var(--text-body);
 }
 .status {
-  display: inline-block;
-  padding: 2px var(--space-2);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
   background: var(--color-primary-soft);
   color: var(--color-primary-soft-text);
-  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-transform: capitalize;
 }
-.actions {
-  display: grid;
-  gap: var(--space-3);
-  max-width: 700px;
+.status[data-status="CLOSED"] {
+  background: var(--bg-surface-sunken);
+  color: var(--text-muted);
 }
-.actions details > summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-.actions details[open] > summary {
-  margin-bottom: var(--space-3);
-}
-.editor {
-  display: grid;
-  gap: var(--space-3);
-}
-.actions input,
-.actions select,
-.actions textarea {
-  width: 100%;
-  min-width: 0;
-}
-@media (max-width: 800px) {
-  .filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 520px) {
-  .panel {
-    padding: var(--space-3);
-  }
-  .filters {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
 }

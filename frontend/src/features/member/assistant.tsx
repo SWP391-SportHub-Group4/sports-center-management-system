@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useUrlQuery } from "@/lib/useUrlQuery";
 import { useEffect, useRef, useState } from "react";
 import { Drawer } from "@/components/primitives";
-import { IconSparkles } from "@/components/icons";
 import { api, ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatTime, todayIso } from "@/lib/format";
@@ -321,9 +321,6 @@ export function AssistantButton() {
   return (
     <>
       <div className={styles.launcher}>
-        <Link href="/member/workout-suggestions" className={styles.workoutShortcut}>
-          AI Workout Suggestions
-        </Link>
         <button
           type="button"
           className={styles.launcherButton}
@@ -333,8 +330,14 @@ export function AssistantButton() {
           title={t.assistant.open}
           onClick={() => setOpen(true)}
         >
-          <IconSparkles size={22} aria-hidden="true" />
-          <span aria-hidden="true">AI</span>
+          <Image
+            src="/sporthub/mascot-wolf-full.png"
+            alt=""
+            width={112}
+            height={168}
+            className={styles.launcherMascot}
+            aria-hidden="true"
+          />
         </button>
       </div>
       {open && <AssistantDrawer onClose={() => setOpen(false)} />}

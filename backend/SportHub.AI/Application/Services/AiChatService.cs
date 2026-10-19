@@ -90,7 +90,7 @@ public sealed class AiChatService(
         {
             providerResponse =
                 await provider.AskAsync(
-                    SportHubAssistantSystemPrompt.Content,
+                    SportHubAssistantSystemPrompt.ForQuestion(question),
                     context,
                     question,
                     previousInteractionId,

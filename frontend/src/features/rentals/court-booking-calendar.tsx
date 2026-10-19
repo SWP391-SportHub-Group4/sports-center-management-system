@@ -50,7 +50,13 @@ type Selection = CourtCalendarSlot & {
   date: string;
 };
 
-export function CourtBookingCalendar() {
+export function CourtBookingCalendar({
+  memberId,
+  memberName,
+}: {
+  memberId?: string;
+  memberName?: string;
+} = {}) {
   const { language } = useLanguage();
   const vi = language === "vi";
   const text = (viText: string, enText: string) => (vi ? viText : enText);
@@ -126,9 +132,9 @@ export function CourtBookingCalendar() {
   const day = useApi(
     (signal) =>
       sport && policy.data
-        ? rentalApi.calendar(sport.sportId, date, 1, signal)
+        ? rentalApi.calendar(sport.sportId, date, 1, signal, memberId)
         : Promise.resolve(null),
-    [sport?.sportId, date, !!policy.data],
+    [sport?.sportId, date, !!policy.data, memberId],
   );
   const reload = day.reload;
   const onPaid = useCallback(
@@ -202,6 +208,7 @@ export function CourtBookingCalendar() {
         </div>
         <CheckoutPanel
           modal
+          memberId={memberId}
           key={`${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`}
           intent={{
             kind: "court-rental",
@@ -210,6 +217,7 @@ export function CourtBookingCalendar() {
               roomId: selected.roomId,
               startUtc: selected.startUtc,
               endUtc: selected.endUtc,
+              ...(memberId ? { targetMemberId: memberId } : {}),
             },
           }}
           onPaid={onPaid}
@@ -218,6 +226,9 @@ export function CourtBookingCalendar() {
             title: text("Thanh toán đặt sân", "Court booking payment"),
             submitLabel: text("Thanh toán", "Pay"),
             items: [
+              ...(memberName
+                ? [{ label: text("Hội viên", "Member"), value: memberName }]
+                : []),
               { label: text("Môn", "Sport"), value: selected.sportName },
               { label: text("Sân", "Court"), value: selected.roomName },
               {
@@ -248,17 +259,27 @@ export function CourtBookingCalendar() {
             <h2>{text("Đặt sân thành công", "Court booked successfully")}</h2>
             <p>
               {text(
-                "Thanh toán đã được xác nhận. Lượt thuê sân đã có trong lịch của bạn.",
-                "Payment is confirmed. Your court booking is now in your schedule.",
+                memberName
+                  ? `Thanh toán đã được xác nhận. Sân đã được đặt cho ${memberName}.`
+                  : "Thanh toán đã được xác nhận. Lượt thuê sân đã có trong lịch của bạn.",
+                memberName
+                  ? `Payment is confirmed. The court is booked for ${memberName}.`
+                  : "Payment is confirmed. Your court booking is now in your schedule.",
               )}
             </p>
-            <Link href="/member/schedule">
-              {text("Xem lịch của tôi", "View my schedule")}
+            <Link
+              href={
+                memberId ? "/receptionist/court-schedule" : "/member/schedule"
+              }
+            >
+              {memberId
+                ? text("Xem lịch sân", "View court schedule")
+                : text("Xem lịch của tôi", "View my schedule")}
             </Link>
           </div>
         </section>
       )}
-      {values.checkout && !selected && !paid && (
+      {values.checkout && !memberId && !selected && !paid && (
         <section className={styles.resume}>
           <h3>{text("Tiếp tục thanh toán sân", "Resume court payment")}</h3>
           <CheckoutPanel

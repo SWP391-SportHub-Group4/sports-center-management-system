@@ -270,14 +270,12 @@
 }
 
 .refundArea > section {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-5);
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
 }
 
 .refundArea p {
-  flex: 1 1 100%;
   margin: 0;
   max-width: 65ch;
   line-height: var(--leading-relaxed);
@@ -285,7 +283,7 @@
 
 .refundArea label {
   display: grid;
-  flex: 1 1 100%;
+  justify-self: stretch;
   min-width: 0;
   margin: 0;
   gap: var(--space-2);

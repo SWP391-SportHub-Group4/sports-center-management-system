@@ -129,10 +129,11 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await expect(
     page.getByRole("button", { name: "Close request", exact: true }),
   ).toBeDisabled();
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Assign to", exact: true })
     .selectOption(staff);
-  await page.getByRole("button", { name: "Assign / transfer" }).click();
+  await page.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(
     page.getByText("Assigned: Desk handler", { exact: true }),
   ).toBeVisible();
@@ -141,10 +142,8 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await expect(
     page.getByText("Latest update: Checking the account"),
   ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*IN PROGRESS/ }),
-  ).toBeVisible();
-  await page.getByRole("textbox", { name: "Search", exact: true }).focus();
+  await expect(page.getByText("in progress", { exact: true })).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search requests" }).focus();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: info.outputPath("manager-support-desktop.png"),
@@ -168,6 +167,7 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await page
     .getByRole("button", { name: "Close request", exact: true })
     .click();
+  await page.getByRole("button", { name: "Confirm close" }).click();
   await expect(
     page.getByText("Resolution: Membership corrected"),
   ).toBeVisible();
@@ -190,14 +190,11 @@ test("manager filters on the server, pages, retries and sees empty results", asy
   await page.goto("/manager/support");
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get("page")).toBe("2");
-  await page.getByLabel("Search", { exact: true }).fill(" Member An ");
-  await page
-    .getByRole("combobox", { name: "Status", exact: true })
-    .selectOption("ASSIGNED");
+  await page.getByLabel("Search requests").fill(" Member An ");
+  await page.getByRole("button", { name: "Assigned", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Assigned staff", exact: true })
     .selectOption(staff);
-  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("search"))
     .toBe("Member An");

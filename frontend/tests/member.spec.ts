@@ -146,6 +146,52 @@ test("Member experience: waiting for a cohort submits the refund choice and can 
   ).toBeVisible();
 });
 
+test("Course interests sits with service navigation and opens the tracked cohort", async ({
+  page,
+}) => {
+  await page.route("**/api/members/me/course-interests", (route) =>
+    route.fulfill({
+      json: [
+        {
+          interestId: "interest-1",
+          sourceClassName: "Badminton course",
+          sportName: "Badminton",
+          active: true,
+          refundedPoints: 100,
+          createdAtUtc: new Date().toISOString(),
+          notifications: [],
+        },
+      ],
+    }),
+  );
+  await page.goto("/member/services");
+  await expect(
+    page.getByRole("button", { name: "Course interests" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "My services" }).click();
+  const interestsButton = page.getByRole("button", {
+    name: "Course interests",
+  });
+  await expect(interestsButton).toBeVisible();
+  const nav = await page
+    .getByRole("navigation", { name: "Services pages" })
+    .boundingBox();
+  const button = await interestsButton.boundingBox();
+  expect(nav).not.toBeNull();
+  expect(button).not.toBeNull();
+  expect(Math.abs(nav!.y - button!.y)).toBeLessThan(24);
+  await interestsButton.click();
+  await expect(page).toHaveURL(/tab=interests/);
+  expect(new URL(page.url()).searchParams.get("view")).toBe("owned");
+  await expect(
+    page.getByRole("heading", { name: "Course interests" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Badminton course" }),
+  ).toBeVisible();
+  await expect(interestsButton).toHaveCount(0);
+});
+
 test("Member experience: successful payment downloads the authenticated invoice PDF", async ({
   page,
 }) => {

@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { CameraQrScanner } from "@/components/CameraQrScanner";
+import { resolveMemberCode } from "@/components/MemberPicker";
 import { api } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
 import {
   todayIso,
-  formatMoney,
   formatTime,
 } from "@/lib/format";
-import { AsyncSection, Card, StatusChip } from "@/components/ui";
+import { AsyncSection, Dialog, StatusChip } from "@/components/ui";
 import { UserAvatar } from "@/components/UserAvatar";
 import {
   MutationFeedback,
@@ -24,6 +25,7 @@ import type {
   CourtScheduleEntryDto,
   InvoiceSummaryDto,
   Paged,
+  UserAdminDto,
 } from "@/lib/types";
 import { useDeskMember } from "./desk-context";
 import { DeskSearchBar } from "./desk-search-bar";
@@ -62,7 +64,7 @@ export function RegistrationHint() {
 
 const RENTAL_LOOKAHEAD_MS = 2 * 60 * 60 * 1000;
 
-/** Quầy hôm nay (H01): thanh tìm ghim đầu trang, hội viên đang chọn ở vùng thao tác, vận hành trực tiếp ở cột bên. */
+/** Quầy hôm nay (H01): thanh tìm ghim đầu trang, dải việc cần xử lý, rồi lưới 3 cột vừa một màn hình (quét/hội viên | lớp hôm nay | Gym + thuê sân), mỗi panel tự cuộn. */
 export function ReceptionDashboard() {
   const { language, t } = useLanguage();
   const vi = language === "vi";
@@ -82,7 +84,15 @@ export function ReceptionDashboard() {
     (signal) =>
       api.get<Paged<InvoiceSummaryDto>>("/api/invoices", {
         signal,
-        query: { status: "ISSUED", page: 1, pageSize: 6 },
+        query: { status: "ISSUED", page: 1, pageSize: 1 },
+      }),
+    [],
+  );
+  const forgotten = useApi(
+    (signal) =>
+      api.get<Paged<unknown>>("/api/gym-checkins/inside", {
+        signal,
+        query: { staleOnly: true, page: 1, pageSize: 1 },
       }),
     [],
   );
@@ -90,205 +100,263 @@ export function ReceptionDashboard() {
   const roomName = (id: number | null) =>
     rooms.data?.find((room) => room.roomId === id)?.name ?? null;
 
+  const sessions = (schedule.data ?? [])
+    .filter((r) => r.sourceType === "CLASS_SESSION")
+    .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
+  const rentals = (schedule.data ?? [])
+    .filter(
+      (r) =>
+        r.sourceType === "COURT_RENTAL" &&
+        !/CANCEL/i.test(r.status) &&
+        Date.parse(r.endAtUtc) > now &&
+        Date.parse(r.startAtUtc) < now + RENTAL_LOOKAHEAD_MS,
+    )
+    .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
+  const liveCount = sessions.filter(
+    (s) => Date.parse(s.startAtUtc) <= now && now < Date.parse(s.endAtUtc),
+  ).length;
+  const forgottenCount = forgotten.data?.totalCount ?? 0;
+  const invoiceCount = invoices.data?.totalCount ?? 0;
+  const [forgottenOpen, setForgottenOpen] = useState(false);
+
   return (
     <>
-      <DeskSearchBar />
+      <DeskSearchBar showScan={false} />
 
-      <div className={styles.desk}>
-        <div className={styles.work}>
-          {member ? (
+      <nav
+        className={styles.strip}
+        aria-label={vi ? "Việc cần xử lý" : "Needs attention"}
+      >
+        {invoiceCount > 0 && (
+          <Link href="/receptionist/invoices" className={styles.chip}>
+            {l.openInvoices}
+            <span className={styles.badge}>{invoiceCount}</span>
+          </Link>
+        )}
+        {forgottenCount > 0 && (
+          <button
+            type="button"
+            className={styles.chip}
+            onClick={() => setForgottenOpen(true)}
+          >
+            {vi ? "Quên check-out" : "Forgotten check-outs"}
+            <span className={styles.badge}>{forgottenCount}</span>
+          </button>
+        )}
+        <Link href="/receptionist/support" className={styles.quiet}>
+          {vi ? "Yêu cầu hỗ trợ" : "Support requests"}
+        </Link>
+        <Link
+          href="/receptionist/payment-reconciliation"
+          className={styles.quiet}
+        >
+          {vi ? "Thanh toán chưa hoàn tất" : "Unfulfilled payments"}
+        </Link>
+        {forgottenCount === 0 && (
+          <button
+            type="button"
+            className={styles.quiet}
+            onClick={() => setForgottenOpen(true)}
+          >
+            {vi ? "Quên check-out" : "Forgotten check-outs"}
+          </button>
+        )}
+      </nav>
+
+      <div className={styles.ops}>
+        {member ? (
+          <div className={styles.areaMain}>
             <SelectedMemberPanel
               key={member.userId}
               member={member}
               onChange={setMember}
             />
-          ) : (
-            <Card title={l.findMember}>
-              <p className={styles.hint}>
+          </div>
+        ) : (
+          <section className={`${styles.panel} ${styles.areaMain}`}>
+            <header className={styles.panelHead}>
+              <h2>{vi ? "Quét mã check-in" : "Scan check-in code"}</h2>
+            </header>
+            <div className={styles.panelBody}>
+              <DeskScan onFound={setMember} />
+              <p className={styles.empty}>
                 {vi
-                  ? "Dùng thanh tìm phía trên (Ctrl + K hoặc F2) để chọn hội viên, hoặc quét mã QR của họ."
-                  : "Use the search bar above (Ctrl + K or F2) to pick a member, or scan their QR code."}
+                  ? "Hoặc gõ tên, SĐT, email ở ô tìm kiếm phía trên (Ctrl + K)."
+                  : "Or type a name, phone or email in the search above (Ctrl + K)."}
               </p>
-              <RegistrationHint />
-            </Card>
-          )}
-        </div>
+            </div>
+          </section>
+        )}
 
-        <div className={styles.status}>
-          <Card title={l.sessionsToday}>
-            <AsyncSection state={schedule}>
-              {(rows) => {
-                const sessions = rows
-                  .filter((r) => r.sourceType === "CLASS_SESSION")
-                  .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
-                if (!sessions.length)
-                  return <p className={styles.hint}>{l.noSessionsToday}</p>;
-                return (
-                  <ol className={styles.timeline}>
-                    {sessions.map((s) => {
-                      const live =
-                        Date.parse(s.startAtUtc) <= now &&
-                        now < Date.parse(s.endAtUtc);
-                      const done = Date.parse(s.endAtUtc) <= now;
-                      return (
-                        <li
-                          key={s.sourceId}
-                          className={styles.slot}
-                          data-live={live || undefined}
-                          data-done={done || undefined}
-                        >
-                          <time className={styles.slotTime}>
-                            {formatTime(s.startAtUtc)}
-                            <span>{formatTime(s.endAtUtc)}</span>
-                          </time>
-                          <div className={styles.slotBody}>
-                            <strong>{s.title}</strong>
-                            <span>
-                              {[roomName(s.roomId), s.coachName]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </span>
-                            <span className={styles.slotMeta}>
-                              <ClassSeats classId={s.classId} />
-                              {live && (
-                                <StatusChip
-                                  value="LIVE"
-                                  tone="success"
-                                  label={vi ? "Đang diễn ra" : "In progress"}
-                                />
-                              )}
-                            </span>
-                          </div>
-                          <Link
-                            className="btn btn--secondary btn--sm"
-                            href={`/receptionist/attendance?date=${today}&session=${s.sourceId}`}
-                          >
-                            {vi ? "Mở danh sách & điểm danh" : "Open roster & attendance"}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                );
-              }}
-            </AsyncSection>
-          </Card>
-
-          <Card title={l.insideNow}>
-            <GymInside />
-          </Card>
-
-          <Card title={vi ? "Thuê sân sắp tới (2 giờ)" : "Court rentals, next 2 hours"}>
-            <AsyncSection state={schedule}>
-              {(rows) => {
-                const upcoming = rows
-                  .filter(
-                    (r) =>
-                      r.sourceType === "COURT_RENTAL" &&
-                      !/CANCEL/i.test(r.status) &&
-                      Date.parse(r.endAtUtc) > now &&
-                      Date.parse(r.startAtUtc) < now + RENTAL_LOOKAHEAD_MS,
-                  )
-                  .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
-                if (!upcoming.length)
-                  return (
-                    <p className={styles.hint}>
-                      {vi
-                        ? "Không có lượt thuê sân trong 2 giờ tới."
-                        : "No court rentals in the next 2 hours."}
-                    </p>
-                  );
-                return (
-                  <ul className={styles.list}>
-                    {upcoming.map((r) => (
-                      <li key={r.sourceId}>
-                        <div>
-                          <strong>
-                            {formatTime(r.startAtUtc)} – {formatTime(r.endAtUtc)}
-                            {roomName(r.roomId) ? ` · ${roomName(r.roomId)}` : ""}
-                          </strong>
-                          <span>{r.memberName ?? r.title}</span>
-                        </div>
-                        {Date.parse(r.startAtUtc) <= now && (
-                          <StatusChip
-                            value="LIVE"
-                            tone="success"
-                            label={vi ? "Đang dùng" : "In use"}
-                          />
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                );
-              }}
-            </AsyncSection>
-            <p className={styles.more}>
-              <Link href="/receptionist/court-schedule">
-                {vi ? "Xem lịch sân đầy đủ" : "Open the full court schedule"}
-              </Link>
-            </p>
-          </Card>
-
-          <Card title={vi ? "Khách quên check-out" : "Forgotten Gym check-outs"}>
-            <ForgottenGymVisits />
-          </Card>
-
-          <Card title={vi ? "Việc cần theo dõi" : "Desk follow-up"}>
-            <ul className={styles.links}>
-              <li>
-                <Link href="/receptionist/support">
-                  {vi ? "Hàng đợi yêu cầu hỗ trợ" : "Support request queue"}
-                </Link>
-              </li>
-              <li>
-                <Link href="/receptionist/payment-reconciliation">
-                  {vi
-                    ? "Thanh toán đã trả nhưng chưa hoàn tất"
-                    : "Paid but not fulfilled payments"}
-                </Link>
-              </li>
-            </ul>
-          </Card>
-
-          <Card title={l.openInvoices}>
-            <AsyncSection state={invoices}>
-              {(data) => {
-                const rows = pagedItems(data);
-                if (!rows.length)
-                  return <p className={styles.hint}>{l.noOpenInvoices}</p>;
-                return (
-                  <ul className={styles.list}>
-                    {rows.map((i) => (
-                      <li key={i.invoiceId}>
-                        <div>
-                          <span className="row">
-                            <UserAvatar
-                              userId={i.memberId}
-                              name={i.memberName}
-                              size={32}
-                            />
-                            <strong>{i.memberName}</strong>
-                          </span>
+        <div className={styles.side}>
+        <DeskPanel
+          title={l.sessionsToday}
+          badge={
+            liveCount > 0 ? (
+              <StatusChip
+                value="LIVE"
+                tone="success"
+                label={
+                  vi ? `${liveCount} đang diễn ra` : `${liveCount} in progress`
+                }
+              />
+            ) : null
+          }
+        >
+          <AsyncSection state={schedule}>
+            {() =>
+              !sessions.length ? (
+                <p className={styles.empty}>{l.noSessionsToday}</p>
+              ) : (
+                <ol className={styles.rows}>
+                  {sessions.map((s) => {
+                    const live =
+                      Date.parse(s.startAtUtc) <= now &&
+                      now < Date.parse(s.endAtUtc);
+                    const done = Date.parse(s.endAtUtc) <= now;
+                    return (
+                      <li
+                        key={s.sourceId}
+                        className={styles.row}
+                        data-live={live || undefined}
+                        data-done={done || undefined}
+                      >
+                        <time className={styles.time}>
+                          <strong>{formatTime(s.startAtUtc)}</strong>
+                          <span>– {formatTime(s.endAtUtc)}</span>
+                        </time>
+                        <div className={styles.rowBody}>
+                          <strong>{s.title}</strong>
                           <span>
-                            {i.invoiceNumber} · {formatMoney(i.totalAmount)}
+                            {[roomName(s.roomId), s.coachName]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </span>
+                          <ClassSeats classId={s.classId} />
                         </div>
                         <Link
-                          className="btn btn--secondary btn--sm"
-                          href={`/receptionist/invoices?invoiceId=${i.invoiceId}`}
+                          className={`btn btn--sm ${live ? "btn--primary" : "btn--secondary"}`}
+                          href={`/receptionist/attendance?date=${today}&session=${s.sourceId}`}
                         >
-                          {t.operations.details}
+                          {vi ? "Điểm danh" : "Attendance"}
                         </Link>
                       </li>
-                    ))}
-                  </ul>
-                );
-              }}
-            </AsyncSection>
-          </Card>
+                    );
+                  })}
+                </ol>
+              )
+            }
+          </AsyncSection>
+        </DeskPanel>
+
+        <DeskPanel title={l.insideNow}>
+          <GymInside />
+        </DeskPanel>
+
+        <DeskPanel
+          title={vi ? "Thuê sân trong 2 giờ tới" : "Court rentals, next 2 hours"}
+          footer={
+            <Link href="/receptionist/court-schedule">
+              {vi ? "Xem lịch sân đầy đủ" : "Open the full court schedule"}
+            </Link>
+          }
+        >
+          <AsyncSection state={schedule}>
+            {() =>
+              !rentals.length ? (
+                <p className={styles.empty}>
+                  {vi
+                    ? "Không có lượt thuê sân trong 2 giờ tới."
+                    : "No court rentals in the next 2 hours."}
+                </p>
+              ) : (
+                <ul className={styles.rows}>
+                  {rentals.map((r) => (
+                    <li key={r.sourceId} className={styles.row}>
+                      <time className={styles.time}>
+                        <strong>{formatTime(r.startAtUtc)}</strong>
+                        <span>– {formatTime(r.endAtUtc)}</span>
+                      </time>
+                      <div className={styles.rowBody}>
+                        <strong>{r.memberName ?? r.title}</strong>
+                        <span>{roomName(r.roomId) ?? ""}</span>
+                      </div>
+                      {Date.parse(r.startAtUtc) <= now && (
+                        <StatusChip
+                          value="LIVE"
+                          tone="success"
+                          label={vi ? "Đang dùng" : "In use"}
+                        />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+          </AsyncSection>
+        </DeskPanel>
         </div>
       </div>
+
+      {forgottenOpen && (
+        <Dialog
+          title={vi ? "Khách quên check-out" : "Forgotten Gym check-outs"}
+          size="md"
+          onClose={() => {
+            setForgottenOpen(false);
+            forgotten.reload();
+          }}
+        >
+          <ForgottenGymVisits />
+        </Dialog>
+      )}
     </>
+  );
+}
+
+function DeskScan({ onFound }: { onFound: (member: UserAdminDto) => void }) {
+  const { language } = useLanguage();
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className={styles.scan}>
+      <CameraQrScanner
+        onScan={async (text) => {
+          const result = await resolveMemberCode(text, language);
+          if (result.member) onFound(result.member);
+          else setError(result.error ?? null);
+        }}
+      />
+      {error && (
+        <p className={styles.scanError} role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DeskPanel({
+  title,
+  badge,
+  footer,
+  className,
+  children,
+}: {
+  title: string;
+  badge?: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`${styles.panel} ${className ?? ""}`}>
+      <header className={styles.panelHead}>
+        <h2>{title}</h2>
+        {badge}
+      </header>
+      <div className={styles.panelBody}>{children}</div>
+      {footer && <footer className={styles.panelFoot}>{footer}</footer>}
+    </section>
   );
 }
 
@@ -341,8 +409,9 @@ function GymInside() {
             : all;
           return (
             <>
-              <p className={styles.count}>
-                {l.insideCount.replace("{n}", String(data.totalCount))}
+              <p className={styles.bigCount}>
+                <strong>{data.totalCount}</strong>
+                <span>{vi ? "đang tập" : "inside"}</span>
               </p>
               {all.length > 3 && (
                 <input
@@ -357,24 +426,22 @@ function GymInside() {
                 />
               )}
               {!all.length ? (
-                <p className={styles.hint}>{l.insideEmpty}</p>
+                <p className={styles.empty}>{l.insideEmpty}</p>
               ) : !rows.length ? (
-                <p className={styles.hint}>
+                <p className={styles.empty}>
                   {vi ? "Không có ai khớp." : "Nobody matches."}
                 </p>
               ) : (
-                <ul className={styles.list}>
+                <ul className={styles.rows}>
                   {rows.map((row) => (
-                    <li key={row.checkInId}>
-                      <div>
-                        <span className="row">
-                          <UserAvatar
-                            userId={row.memberId}
-                            name={row.memberName}
-                            size={32}
-                          />
-                          <strong>{row.memberName}</strong>
-                        </span>
+                    <li key={row.checkInId} className={styles.row}>
+                      <UserAvatar
+                        userId={row.memberId}
+                        name={row.memberName}
+                        size={32}
+                      />
+                      <div className={styles.rowBody}>
+                        <strong>{row.memberName}</strong>
                         <span>
                           {vi ? "Vào lúc " : "In since "}
                           {formatTime(row.checkInTime)}
@@ -395,7 +462,7 @@ function GymInside() {
                             state.reload();
                         }}
                       >
-                        {vi ? "Check-out nhanh" : "Quick check-out"}
+                        {vi ? "Check-out" : "Check out"}
                       </button>
                     </li>
                   ))}

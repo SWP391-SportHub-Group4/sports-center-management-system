@@ -3,7 +3,7 @@ namespace SportHub.AI.Prompts;
 public static class SportHubAssistantSystemPrompt
 {
     public const string Version =
-        "sporthub-assistant-v3";
+        "sporthub-assistant-v4";
 
     public const string Content = """
 You are the SportHub AI Assistant.
@@ -30,4 +30,38 @@ Rules:
 14. Reply in the same language as the user's latest question. For short questions, use the language of the actual words in the question, not the language of SPORT_HUB_CONTEXT or previous answers. If the latest question contains both Vietnamese and English, prefer Vietnamese when it contains Vietnamese question wording; otherwise use the dominant language. Keep official proper names, course titles, sports names and system identifiers unchanged, but explain them in the response language.
 15. Format replies for a small chat screen: short paragraphs, one concise heading when useful, and numbered steps for a workout. Avoid excessively long introductions or repeated disclaimers. Use Markdown **bold** for short labels only; never output raw Markdown syntax as plain text.
 """;
+
+    public static string ForQuestion(string question)
+    {
+        // The context may contain Vietnamese names and notes even when the member asks in English.
+        // Give Gemini an explicit instruction for the current turn instead of relying on it to
+        // infer the response language from a large mixed-language prompt.
+        var language = DetectQuestionLanguage(question);
+        return language switch
+        {
+            "en" => Content + "\nCURRENT RESPONSE LANGUAGE: English. Write the entire answer, including headings and explanations, in English. Keep proper names unchanged. The language of SPORT_HUB_CONTEXT and earlier replies must not change this.\n",
+            "vi" => Content + "\nCURRENT RESPONSE LANGUAGE: Vietnamese. Write the entire answer, including headings and explanations, in Vietnamese. Keep proper names unchanged. The language of SPORT_HUB_CONTEXT and earlier replies must not change this.\n",
+            _ => Content
+        };
+    }
+
+    private static string? DetectQuestionLanguage(string question)
+    {
+        if (System.Text.RegularExpressions.Regex.IsMatch(question,
+            "[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            return "vi";
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(question,
+            @"\b(hom|nay|toi|ban|lich|lop|goi|tap|khong|khi|nao|bao|gio)\b",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            return "vi";
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(question,
+            @"\b(what|when|where|who|why|how|do|does|did|can|could|should|would|is|are|my|today|tomorrow|please|tell|show)\b",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            return "en";
+
+        return null;
+    }
 }

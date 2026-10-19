@@ -1357,6 +1357,33 @@ test("rental cancellation uses the server refund quote and does not create a ref
   expect(cancelled).toBe(1);
 });
 
+test("rental cancellation notice changes when the free refund window passes", async ({
+  page,
+}) => {
+  await session(page, "MEMBER");
+  await page.route(`**/api/court-rentals/${rentalId}`, (route) =>
+    route.fulfill({
+      json: {
+        rental: { ...rental, startAtUtc: "2030-10-03T00:00:10Z" },
+        roomName: "Court A",
+        sportName: "Badminton",
+        blocks: [],
+        cancelReason: null,
+        cancelledAtUtc: null,
+        refundPoints: 0,
+      },
+    }),
+  );
+  await page.goto(`/member/schedule?rental=${rentalId}`);
+  await page.getByRole("button", { name: "Cancel rental" }).click();
+  const notice = page.getByRole("dialog").locator("[data-refund]");
+  await expect(notice).toHaveAttribute("data-refund", "yes");
+
+  const clientNow = await page.evaluate(() => Date.now());
+  await page.clock.setFixedTime(new Date(clientNow + 11_000));
+  await expect(notice).toHaveAttribute("data-refund", "no");
+});
+
 test("system administrator direct catalog URL never mounts manager data requests", async ({
   page,
 }) => {
