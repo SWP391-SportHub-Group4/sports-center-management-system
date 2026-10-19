@@ -5,9 +5,14 @@
 }
 .controls {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.55fr);
-  gap: 16px 24px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 16px 28px;
   align-items: end;
+}
+.sessionControl :global(.field) {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
 }
 .dateControl,
 .sessionControl {
@@ -28,7 +33,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 44px;
+  min-height: 44px;
 }
 .iconButton,
 .todayButton,
@@ -58,9 +63,11 @@
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
-.calendarControl {
+.dateActions .calendarControl {
+  display: inline-flex;
   position: relative;
   width: 44px;
+  margin: 0;
   overflow: hidden;
 }
 .calendarControl input {
@@ -99,6 +106,26 @@
 .emptyDay p {
   margin: 0;
 }
+.nextSessionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-700);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.nextSessionButton:hover {
+  text-decoration: underline;
+}
+.nextSessionButton:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 3px;
+}
 .prompt {
   padding: 26px;
   border: 1px dashed var(--line);
@@ -108,20 +135,24 @@
 }
 .summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-.summaryItem {
-  min-width: 0;
-  padding: 16px;
+  grid-template-columns:
+    minmax(120px, 0.65fr) minmax(320px, 2.2fr) minmax(170px, 1fr)
+    minmax(160px, 1fr);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
 }
+.summaryItem {
+  min-width: 0;
+  padding: 14px 18px;
+}
+.summaryItem + .summaryItem {
+  border-left: 1px solid var(--line);
+}
 .summaryLabel {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
   color: var(--ink-500);
   font-size: 0.76rem;
   font-weight: 700;
@@ -132,9 +163,11 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  flex-wrap: wrap;
   font-size: 0.95rem;
   overflow-wrap: anywhere;
+}
+.summaryValue svg {
+  flex: 0 0 auto;
 }
 .status {
   display: inline-flex;
@@ -291,7 +324,13 @@
 }
 @media (max-width: 1000px) {
   .summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(120px, 0.65fr) minmax(0, 2fr);
+  }
+  .summaryItem:nth-child(3) {
+    border-left: 0;
+  }
+  .summaryItem:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
   }
 }
 @media (max-width: 900px) {
@@ -300,9 +339,6 @@
   }
 }
 @media (max-width: 720px) {
-  .summary {
-    grid-template-columns: 1fr;
-  }
   .tableToolbar {
     align-items: stretch;
   }
@@ -315,6 +351,15 @@
   }
   .filter {
     flex: 1 1 auto;
+  }
+}
+@media (max-width: 620px) {
+  .summary {
+    grid-template-columns: 1fr;
+  }
+  .summaryItem + .summaryItem {
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 }
 @media (max-width: 480px) {

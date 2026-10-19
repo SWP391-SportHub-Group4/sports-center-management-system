@@ -1,9 +1,10 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
+import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import styles from "./support-queue.module.css";
@@ -12,6 +13,14 @@ import {
   type SupportAssignee,
   type SupportFeedback,
 } from "./support-request-actions";
+
+const STATUSES = [
+  ["", "All"],
+  ["OPEN", "Open"],
+  ["ASSIGNED", "Assigned"],
+  ["IN_PROGRESS", "In progress"],
+  ["CLOSED", "Closed"],
+] as const;
 
 export function SupportQueue({
   workspace = "receptionist",
@@ -25,105 +34,111 @@ export function SupportQueue({
       }),
     [],
   );
-  const [filters, setFilters] = useState({
-    status: "",
-    search: "",
-    assignedToUserId: "",
-  });
-  const [applied, setApplied] = useState(filters);
+  const { user } = useAuth();
+  const [status, setStatus] = useState("");
+  const [assignedToUserId, setAssignedToUserId] = useState("");
+  const [search, setSearch] = useState("");
+  const [term, setTerm] = useState("");
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
   const [feedback, setFeedback] = useState<
     Record<string, SupportFeedback | null>
   >({});
+
+  // Lọc áp dụng ngay khi đổi; ô tìm kiếm chờ người dùng ngừng gõ.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setTerm(search.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const queue = useApi(
     (signal) =>
       api.get<Paged<MemberSupportRequestDto>>(
         "/api/member-support-requests/queue",
-        { signal, query: { ...applied, page, pageSize: 20 } },
+        {
+          signal,
+          query: { status, assignedToUserId, search: term, page, pageSize: 20 },
+        },
       ),
-    [applied, page],
+    [status, assignedToUserId, term, page],
   );
+
   return (
-    <section className={`card ${styles.panel}`} aria-label="Support requests">
-      <div className={styles.header}>
-        <div>
-          <h2>Support requests</h2>
-          <p className="small muted">
-            Assign a staff member, record progress, and close resolved requests.
-          </p>
-        </div>
-        <div className={styles.row}>
-          <Link className="btn btn--secondary" href={`/${workspace}/members`}>
-            Record a request
-          </Link>
+    <section className={styles.panel} aria-label="Support requests">
+      <div className={styles.toolbar}>
+        <input
+          type="search"
+          className={styles.search}
+          aria-label="Search requests"
+          value={search}
+          maxLength={200}
+          placeholder="Search subject, member name or email"
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          aria-label="Assigned staff"
+          value={assignedToUserId}
+          onChange={(e) => {
+            setAssignedToUserId(e.target.value);
+            setPage(1);
+          }}
+        >
+          <option value="">All staff</option>
+          {assignees.data?.map((x) => (
+            <option key={x.userId} value={x.userId}>
+              {x.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={queue.loading}
+          onClick={() => {
+            queue.reload();
+            assignees.reload();
+          }}
+        >
+          Refresh
+        </button>
+        <Link className="btn" href={`/${workspace}/members`}>
+          Record a request
+        </Link>
+      </div>
+      <div className={styles.tabs} role="group" aria-label="Status">
+        {STATUSES.map(([value, label]) => (
           <button
+            key={value}
             type="button"
-            className="btn btn--secondary"
-            disabled={queue.loading}
+            className={styles.tab}
+            aria-pressed={status === value}
             onClick={() => {
-              queue.reload();
-              assignees.reload();
+              setStatus(value);
+              setPage(1);
             }}
           >
-            Refresh
+            {label}
           </button>
-        </div>
+        ))}
+        {user && (
+          <button
+            type="button"
+            className={styles.tab}
+            aria-pressed={assignedToUserId === user.userId}
+            onClick={() => {
+              setAssignedToUserId(
+                assignedToUserId === user.userId ? "" : user.userId,
+              );
+              setPage(1);
+            }}
+          >
+            Assigned to me
+          </button>
+        )}
       </div>
-      <p className="small muted">
-        To record a new request, open the member’s profile. Receptionists and
-        managers can handle requests assigned to any staff member.
-      </p>
-      <form
-        className={`${styles.filters} form-grid`}
-        onSubmit={(e) => {
-          e.preventDefault();
-          setPage(1);
-          setApplied({ ...filters, search: filters.search.trim() });
-        }}
-      >
-        <label>
-          Search
-          <input
-            value={filters.search}
-            maxLength={200}
-            placeholder="Subject, member name or email"
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          />
-        </label>
-        <label>
-          Status
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            <option value="OPEN">Open</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN_PROGRESS">In progress</option>
-            <option value="CLOSED">Closed</option>
-          </select>
-        </label>
-        <label>
-          Assigned staff
-          <select
-            value={filters.assignedToUserId}
-            onChange={(e) =>
-              setFilters({ ...filters, assignedToUserId: e.target.value })
-            }
-          >
-            <option value="">All staff</option>
-            {assignees.data?.map((x) => (
-              <option key={x.userId} value={x.userId}>
-                {x.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" className="btn">
-          Apply filters
-        </button>
-      </form>
       {notice && <p role="status">{notice}</p>}
       {assignees.error && (
         <p role="alert">
@@ -151,73 +166,96 @@ export function SupportQueue({
         </div>
       )}
       {queue.data?.items.length === 0 && (
-        <p>
-          No requests match these filters. Change the filters or open a member’s
-          profile to record a request.
-        </p>
+        <div className={styles.emptyState}>
+          <p>No support requests match your filters.</p>
+          {(status || assignedToUserId || search) && (
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => {
+                setStatus("");
+                setAssignedToUserId("");
+                setSearch("");
+              }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
       )}
-      {queue.data?.items.map((request) => (
-        <article key={request.requestId} className={styles.request}>
-          <div className={styles.header}>
-            <h3>
-              {request.subject}{" "}
-              <span className={styles.status}>
-                {request.status.replaceAll("_", " ")}
+      <div className={styles.list}>
+        {queue.data?.items.map((request) => (
+          <article
+            key={request.requestId}
+            className={styles.request}
+            data-status={request.status}
+          >
+            <div className={styles.requestHead}>
+              <h3>{request.subject}</h3>
+              <span className={styles.status} data-status={request.status}>
+                {request.status.replaceAll("_", " ").toLowerCase()}
               </span>
-            </h3>
-            <Link href={`/${workspace}/members/${request.memberId}`}>
-              {request.memberName || "Member profile"}
-              {request.memberEmail ? ` · ${request.memberEmail}` : ""}
-            </Link>
-          </div>
-          <p className="small muted">
-            {request.category} · Created {formatDateTime(request.createdAt)}
-            {request.updatedAt && (
-              <> · Updated {formatDateTime(request.updatedAt)}</>
+            </div>
+            <p className={styles.meta}>
+              <Link href={`/${workspace}/members/${request.memberId}`}>
+                {request.memberName || "Member profile"}
+                {request.memberEmail ? ` · ${request.memberEmail}` : ""}
+              </Link>
+              <span>{request.category}</span>
+              <span>{formatDateTime(request.createdAt)}</span>
+              {request.closedAt && (
+                <span>Closed {formatDateTime(request.closedAt)}</span>
+              )}
+            </p>
+            {request.description.trim() !== request.subject.trim() && (
+              <p className={styles.message}>{request.description}</p>
             )}
-            {request.closedAt && (
-              <> · Closed {formatDateTime(request.closedAt)}</>
-            )}
-          </p>
-          <p className={styles.message}>{request.description}</p>
-          <SupportRequestActions
-            request={request}
-            assignees={assignees.data ?? []}
-            feedback={feedback[request.requestId] ?? null}
-            onFeedback={(next) =>
-              setFeedback((previous) => ({
-                ...previous,
-                [request.requestId]: next,
-              }))
-            }
-            onChanged={() => {
-              setNotice("Request updated.");
-              queue.reload();
-            }}
-          />
-        </article>
-      ))}
-      {queue.data && (
-        <nav className={styles.row} aria-label="Support request pages">
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-          >
-            Previous
-          </button>
+            <SupportRequestActions
+              collapsible
+              request={request}
+              assignees={assignees.data ?? []}
+              feedback={feedback[request.requestId] ?? null}
+              onFeedback={(next) =>
+                setFeedback((previous) => ({
+                  ...previous,
+                  [request.requestId]: next,
+                }))
+              }
+              onChanged={() => {
+                setNotice("Request updated.");
+                queue.reload();
+              }}
+            />
+          </article>
+        ))}
+      </div>
+      {queue.data && queue.data.totalCount > 0 && (
+        <nav className={styles.pager} aria-label="Support request pages">
           <span>
-            Page {page} · {queue.data.totalCount} requests
+            Showing {(page - 1) * 20 + 1}–
+            {Math.min(page * 20, queue.data.totalCount)} of{" "}
+            {queue.data.totalCount}
           </span>
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            disabled={page * 20 >= queue.data.totalCount}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </button>
+          {queue.data.totalCount > 20 && (
+            <>
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                disabled={page * 20 >= queue.data.totalCount}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </button>
+            </>
+          )}
         </nav>
       )}
     </section>

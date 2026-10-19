@@ -52,10 +52,32 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         if (!RoomOpeningHourService.Covers(opening, startLocal, endLocal))
             throw new ConflictException("rental_outside_opening_hours", "Rental outside opening hours.");
 
+        await EnsureNoMemberClassConflictAsync(request, cancellationToken);
+
         var rates = await db.Set<CourtRate>().AsNoTracking().Where(x => x.IsActive && x.RoomTypeId == roomTypeId
             && (x.SportId == null || x.SportId == request.SportId)).ToListAsync(cancellationToken);
         return CourtRateCalculator.Calculate(rates, request.SportId, request.StartUtc,
             request.EndUtc - request.StartUtc, slotMinutes);
+    }
+
+    /// <summary>Member không thể thuê sân đúng giờ đang có buổi học (đã ghi danh hoặc đang giữ chỗ) của khóa nhóm.</summary>
+    private async Task EnsureNoMemberClassConflictAsync(CourtRentalRequest request, CancellationToken cancellationToken)
+    {
+        await SportHub.Scheduling.Application.Services.MemberScheduleLock.AcquireAsync(db, request.MemberId, cancellationToken);
+        var start = request.StartUtc.UtcDateTime;
+        var end = request.EndUtc.UtcDateTime;
+        var now = clock.UtcNow;
+        var classIds = db.Set<Enrollment>().AsNoTracking()
+            .Where(e => e.MemberId == request.MemberId && e.Status == EnrollmentStatus.Confirmed)
+            .Select(e => e.ClassId)
+            .Union(db.Set<SeatHold>().AsNoTracking()
+                .Where(h => h.MemberId == request.MemberId && h.Status == SeatHoldStatus.Active && h.ExpiresAtUtc > now)
+                .Select(h => h.ClassId));
+        var conflict = await db.Set<ClassSession>().AsNoTracking().AnyAsync(s =>
+            classIds.Contains(s.ClassId) && s.Status != ClassSessionStatus.Cancelled
+            && s.StartAtUtc < end && s.EndAtUtc > start, cancellationToken);
+        if (conflict)
+            throw new ConflictException("member_schedule_conflict", "Member schedule conflict.");
     }
 
     public async Task<Guid> ReserveAsync(Guid invoiceId, CourtRentalRequest request, DateTimeOffset holdExpiresAtUtc,

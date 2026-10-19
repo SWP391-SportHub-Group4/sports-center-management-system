@@ -52,19 +52,23 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
-    [Authorize(Roles = SportHubRoleNames.Member)]
     [HttpPost("court-rental")]
     [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> CourtRental([FromBody] CourtRentalCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
+        RequireMemberBuyer();
         if (string.IsNullOrWhiteSpace(key) || key.Length > 120)
             throw new BadRequestException("idempotency_key_required", "Idempotency key required.");
-        // Chủ lượt thuê luôn là Member đã xác thực; giá và owner không nhận từ client.
-        var memberId = User.RequireUserId();
+        var actorId = User.RequireUserId();
+        var staff = IsStaff();
+        var memberId = staff ? request.TargetMemberId ?? throw new BadRequestException(
+            "target_member_required", "Target member required.") : actorId;
+        if (!staff && request.TargetMemberId is Guid target && target != actorId)
+            throw new ForbiddenException("target_member_forbidden", "Target member forbidden.");
         var command = new SportHub.BuildingBlocks.Abstractions.Scheduling.CourtRentalRequest(
             memberId, request.SportId, request.RoomId, request.StartUtc, request.EndUtc);
-        var result = await checkouts.CreateCourtRentalAsync(command, key, memberId, ct);
+        var result = await checkouts.CreateCourtRentalAsync(command, key, actorId, ct, staff);
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
@@ -185,7 +189,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
 }
 
 public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
-    DateTimeOffset StartUtc, DateTimeOffset EndUtc);
+    DateTimeOffset StartUtc, DateTimeOffset EndUtc, Guid? TargetMemberId = null);
 
 public sealed record VerifyPaymentReferenceRequest(string Reference);
 public sealed record CancelPaymentReferenceRequest(Dictionary<string, string>? Fields);

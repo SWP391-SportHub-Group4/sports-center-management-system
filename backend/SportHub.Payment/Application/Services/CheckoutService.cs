@@ -83,7 +83,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
                 return await CreateClassAsync(new ClassCheckoutRequest(classId, target),
                     idempotencyKey, actorId, isFrontDesk, ct);
             case "CourtRental" when old.ResourceHoldId is Guid rentalId:
-                return await CreateCourtRentalAsync(await rentals.GetForRetryAsync(rentalId, ct), idempotencyKey, actorId, ct);
+                return await CreateCourtRentalAsync(await rentals.GetForRetryAsync(rentalId, ct), idempotencyKey, actorId, ct, isFrontDesk);
             default:
                 throw new ConflictException("checkout_kind_unsupported", "Checkout kind unsupported.");
         }
@@ -153,30 +153,30 @@ public sealed class CheckoutService(ISportHubDbContext db,
     }
 
     public async Task<CheckoutResponse> CreateCourtRentalAsync(CourtRentalRequest request, string idempotencyKey,
-        Guid actorId, CancellationToken ct)
+        Guid actorId, CancellationToken ct, bool isFrontDesk = false)
     {
-        if (request.MemberId != actorId)
+        if (request.MemberId != actorId && !isFrontDesk)
             throw new ForbiddenException("rental_owner_mismatch", "Rental owner mismatch.");
         RequireKey(idempotencyKey);
         var now = clock.UtcNow;
         var minutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT user_id FROM user_accounts WHERE user_id = {actorId} FOR UPDATE", ct);
+            $"SELECT user_id FROM user_accounts WHERE user_id = {request.MemberId} FOR UPDATE", ct);
         var existing = await db.Set<CheckoutSession>().AsNoTracking()
             .Where(x => x.IdempotencyKey == idempotencyKey && x.Kind == "CourtRental")
             .Join(db.Set<Invoice>().AsNoTracking(), s => s.InvoiceId, i => i.InvoiceId,
                 (s, i) => new { Session = s, Invoice = i }).SingleOrDefaultAsync(ct);
         if (existing is not null)
         {
-            if (existing.Invoice.MemberId != actorId || existing.Session.ResourceHoldId is not Guid existingRentalId)
+            if (existing.Invoice.MemberId != request.MemberId || existing.Session.ResourceHoldId is not Guid existingRentalId)
                 throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             var priorRequest = await rentals.GetForRetryAsync(existingRentalId, ct);
             if (priorRequest.SportId != request.SportId || priorRequest.RoomId != request.RoomId
                 || priorRequest.StartUtc != request.StartUtc || priorRequest.EndUtc != request.EndUtc)
                 throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             await tx.CommitAsync(ct);
-            return await GetAsync(existing.Invoice.InvoiceId, actorId, false, ct);
+            return await GetAsync(existing.Invoice.InvoiceId, actorId, isFrontDesk, ct);
         }
         var quote = await rentals.QuoteAsync(request, ct);
         var expiry = new DateTimeOffset(now.AddMinutes(minutes), TimeSpan.Zero);
@@ -186,7 +186,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var invoice = new Invoice
         {
             InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
-            MemberId = actorId, IssuedByUserId = actorId, TotalAmount = quote.TotalPrice,
+            MemberId = request.MemberId, IssuedByUserId = actorId, TotalAmount = quote.TotalPrice,
             CashAmount = quote.TotalPrice, CheckoutCycleId = Guid.NewGuid(), CheckoutRevision = 1,
             HoldExpiresAtUtc = expiry.UtcDateTime, Status = InvoiceStatus.Issued, IssuedAt = now
         };

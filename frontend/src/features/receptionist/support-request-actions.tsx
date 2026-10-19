@@ -13,6 +13,14 @@ export type SupportAssignee = {
   role: string;
 };
 
+function roleLabel(role: string) {
+  return role
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export type SupportFeedback = { tone: "ok" | "error"; text: string };
 
 /** Gán/chuyển người xử lý, ghi tiến độ hoặc đóng yêu cầu; mỗi thao tác báo kết quả ngay dưới nút. */
@@ -22,6 +30,7 @@ export function SupportRequestActions({
   feedback: lifted,
   onFeedback: liftedSet,
   onChanged,
+  collapsible = false,
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
@@ -29,7 +38,11 @@ export function SupportRequestActions({
   feedback?: SupportFeedback | null;
   onFeedback?: (feedback: SupportFeedback | null) => void;
   onChanged: () => void;
+  /** Danh sách dài: ẩn biểu mẫu xử lý sau nút "Xử lý" để mỗi yêu cầu chỉ chiếm vài dòng. */
+  collapsible?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const { language } = useLanguage();
   const vi = language === "vi";
   const [assigneeId, setAssigneeId] = useState(request.assignedToUserId ?? "");
@@ -88,10 +101,22 @@ export function SupportRequestActions({
 
   return (
     <div className={styles.manage}>
-      <p className={styles.assignee}>
-        <span>{vi ? "Người xử lý" : "Assigned to"}</span>
-        <strong>{assigneeName ?? (vi ? "Chưa gán" : "Unassigned")}</strong>
-      </p>
+      <div className={styles.manageHead}>
+        <p className={styles.assignee}>
+          <span>{vi ? "Người xử lý" : "Assigned to"}</span>
+          <strong>{assigneeName ?? (vi ? "Chưa gán" : "Unassigned")}</strong>
+        </p>
+        {collapsible && !closed && (
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            aria-expanded={expanded}
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? (vi ? "Thu gọn" : "Hide") : vi ? "Xử lý" : "Manage"}
+          </button>
+        )}
+      </div>
       {request.progressNote && (
         <p className={styles.latest}>
           <strong>
@@ -107,7 +132,7 @@ export function SupportRequestActions({
         </p>
       )}
 
-      {!closed && (
+      {!closed && (!collapsible || expanded) && (
         <>
           <div className={styles.assignRow}>
             <label className={styles.field}>
@@ -122,7 +147,7 @@ export function SupportRequestActions({
                 </option>
                 {assignees.map((x) => (
                   <option key={x.userId} value={x.userId}>
-                    {x.name} ({x.role})
+                    {x.name} ({roleLabel(x.role)})
                   </option>
                 ))}
               </select>
@@ -146,8 +171,8 @@ export function SupportRequestActions({
                   ? "Đang gán…"
                   : "Assigning…"
                 : vi
-                  ? "Gán / chuyển"
-                  : "Assign / transfer"}
+                  ? "Gán"
+                  : "Assign"}
             </button>
           </div>
 
@@ -162,12 +187,17 @@ export function SupportRequestActions({
                 request.assignedToUserId
                   ? ""
                   : vi
-                    ? "Gán người xử lý trước khi ghi tiến độ."
-                    : "Assign someone before adding progress."
+                    ? "Gán người xử lý trước."
+                    : "Assign someone first."
               }
               onChange={(e) => setNote(e.target.value)}
             />
-            <span className={styles.counter}>{note.length}/1000</span>
+            <span className={styles.counter}>
+              {vi
+                ? "Ghi tiến độ để cập nhật, hoặc kết quả cuối cùng để đóng."
+                : "Write a progress note to update, or a final resolution to close."}{" "}
+              {note.length}/1000
+            </span>
           </label>
           <div className={styles.buttons}>
             <button
@@ -192,28 +222,50 @@ export function SupportRequestActions({
                   ? "Cập nhật tiến độ"
                   : "Update progress"}
             </button>
-            <button
-              type="button"
-              className="btn btn--secondary"
-              disabled={
-                busy !== null || !request.assignedToUserId || !noteReady
-              }
-              onClick={() =>
-                act(
-                  "close",
-                  { resolution: note.trim() },
-                  vi ? "Đã đóng yêu cầu." : "Request closed.",
-                )
-              }
-            >
-              {busy === "close"
-                ? vi
-                  ? "Đang đóng…"
-                  : "Closing…"
-                : vi
-                  ? "Đóng yêu cầu"
-                  : "Close request"}
-            </button>
+            {confirmClose ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  disabled={busy !== null}
+                  onClick={() => setConfirmClose(false)}
+                >
+                  {vi ? "Hủy" : "Cancel"}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy !== null}
+                  onClick={async () => {
+                    await act(
+                      "close",
+                      { resolution: note.trim() },
+                      vi ? "Đã đóng yêu cầu." : "Request closed.",
+                    );
+                    setConfirmClose(false);
+                  }}
+                >
+                  {busy === "close"
+                    ? vi
+                      ? "Đang đóng…"
+                      : "Closing…"
+                    : vi
+                      ? "Xác nhận đóng"
+                      : "Confirm close"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={
+                  busy !== null || !request.assignedToUserId || !noteReady
+                }
+                onClick={() => setConfirmClose(true)}
+              >
+                {vi ? "Đóng yêu cầu" : "Close request"}
+              </button>
+            )}
           </div>
         </>
       )}
