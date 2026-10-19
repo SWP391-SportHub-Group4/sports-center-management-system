@@ -102,32 +102,43 @@ export function MemberServiceHub() {
                   "Chọn môn, ngày và giờ để tìm sân trống.",
                   "Choose a sport, date and time to find a court.",
                 )
-              : view === "owned"
+              : values.tab === "interests" && view === "owned"
                 ? tx(
-                    "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
-                    "What you own, when it expires and how you used it.",
+                    "Theo dõi các khóa học bạn muốn được báo khi mở lớp tiếp theo.",
+                    "Track the courses you asked to hear about when the next cohort opens.",
                   )
-                : tx(
-                    "Chọn gói phù hợp, thanh toán xong dùng ngay.",
-                    "Pick a package, pay and start right away.",
-                  )}
+                : view === "owned"
+                  ? tx(
+                      "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
+                      "What you own, when it expires and how you used it.",
+                    )
+                  : tx(
+                      "Chọn gói phù hợp, thanh toán xong dùng ngay.",
+                      "Pick a package, pay and start right away.",
+                    )}
           </p>
         </div>
-        <button
-          type="button"
-          className="btn btn--quiet"
-          onClick={() =>
-            setValues({ ...RESET, view: "owned", tab: "interests" })
-          }
-        >
-          Course interests
-        </button>
-        <SubNav
-          view={view}
-          onChange={goView}
-          vi={vi}
-          label={tx("Trang dịch vụ", "Services pages")}
-        />
+        <div className={styles.introActions}>
+          <SubNav
+            view={view}
+            onChange={goView}
+            vi={vi}
+            label={tx("Trang dịch vụ", "Services pages")}
+          />
+          {view === "owned" &&
+            values.tab !== "interests" &&
+            !values.responseId && (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() =>
+                  setValues({ ...RESET, view: "owned", tab: "interests" })
+                }
+              >
+                Course interests
+              </button>
+            )}
+        </div>
       </header>
       <Suspense fallback={<Loading />}>
         {booking ? (

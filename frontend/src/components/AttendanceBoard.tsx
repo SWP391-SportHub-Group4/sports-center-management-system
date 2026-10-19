@@ -64,6 +64,62 @@ export function AttendanceBoard({
       ),
     [date, coachOnly],
   );
+  const allSessions = (sessions.data ?? []).filter(
+    (entry) =>
+      entry.sourceType === "CLASS_SESSION" && entry.status !== "CANCELLED",
+  );
+  const daySessions = allSessions
+    .filter((entry) => vietnamLocal(entry.startAtUtc).slice(0, 10) === date)
+    .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
+  const nextSessions = useApi(
+    async (signal) => {
+      if (
+        sessions.loading ||
+        sessions.error ||
+        !sessions.data ||
+        daySessions.length
+      )
+        return [];
+
+      const path = coachOnly
+        ? "/api/coaches/me/court-schedule"
+        : "/api/manager/court-schedule";
+      for (let offset = 1; offset <= 60; offset += 30) {
+        const entries = await api.get<CourtScheduleEntryDto[]>(path, {
+          signal,
+          query: {
+            fromDate: addDaysIso(date, offset),
+            toDate: addDaysIso(date, offset + 29),
+          },
+        });
+        const upcoming = entries
+          .filter(
+            (entry) =>
+              entry.sourceType === "CLASS_SESSION" &&
+              entry.status !== "CANCELLED",
+          )
+          .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
+        if (upcoming.length) return upcoming;
+      }
+      return [];
+    },
+    [
+      date,
+      coachOnly,
+      sessions.loading,
+      sessions.error,
+      sessions.data,
+      daySessions.length,
+    ],
+  );
+  const nextDate = nextSessions.data?.length
+    ? vietnamLocal(nextSessions.data[0].startAtUtc).slice(0, 10)
+    : null;
+  const nextCount = nextDate
+    ? nextSessions.data!.filter(
+        (entry) => vietnamLocal(entry.startAtUtc).slice(0, 10) === nextDate,
+      ).length
+    : 0;
   const roster = useApi(
     (signal) =>
       sessionId
@@ -73,13 +129,6 @@ export function AttendanceBoard({
         : Promise.resolve(null),
     [sessionId],
   );
-  const allSessions = (sessions.data ?? []).filter(
-    (entry) =>
-      entry.sourceType === "CLASS_SESSION" && entry.status !== "CANCELLED",
-  );
-  const daySessions = allSessions
-    .filter((entry) => vietnamLocal(entry.startAtUtc).slice(0, 10) === date)
-    .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
   function chooseDate(next: string) {
     if (!next || next === date) return;
     setDate(next);
@@ -191,6 +240,17 @@ export function AttendanceBoard({
         {!sessions.loading && !sessions.error && daySessions.length === 0 && (
           <div className={styles.emptyDay} role="status">
             <p>No class sessions are scheduled for {formatDate(date)}.</p>
+            {nextDate && (
+              <button
+                type="button"
+                className={styles.nextSessionButton}
+                onClick={() => chooseDate(nextDate)}
+              >
+                Next class day: {formatDate(nextDate)} ({nextCount}{" "}
+                {nextCount === 1 ? "session" : "sessions"})
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            )}
           </div>
         )}
       </Card>
@@ -262,11 +322,13 @@ export function AttendanceBoard({
                       {l.attendanceWindow}
                     </span>
                     <strong className={styles.summaryValue}>
-                      <Clock3 size={17} aria-hidden="true" />{" "}
-                      {formatDate(data.attendanceOpensAtUtc)}{" "}
-                      {formatTime(data.attendanceOpensAtUtc)} –{" "}
-                      {formatDate(data.attendanceClosesAtUtc)}{" "}
-                      {formatTime(data.attendanceClosesAtUtc)}
+                      <Clock3 size={17} aria-hidden="true" />
+                      <span>
+                        {formatDate(data.attendanceOpensAtUtc)}{" "}
+                        {formatTime(data.attendanceOpensAtUtc)} –{" "}
+                        {formatDate(data.attendanceClosesAtUtc)}{" "}
+                        {formatTime(data.attendanceClosesAtUtc)}
+                      </span>
                     </strong>
                   </div>
                   <div className={styles.summaryItem}>

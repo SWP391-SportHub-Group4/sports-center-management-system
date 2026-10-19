@@ -31,10 +31,11 @@ export const rentalApi = {
     date: string,
     hours: number,
     signal?: AbortSignal,
+    targetMemberId?: string,
   ) =>
     api.get<CourtCalendarDay>("/api/court-rentals/calendar", {
       signal,
-      query: { sportId, date, hours },
+      query: { sportId, date, hours, targetMemberId },
     }),
   policy: (signal?: AbortSignal) =>
     api.get<CourtRentalPolicyDto>("/api/court-rentals/policy", { signal }),

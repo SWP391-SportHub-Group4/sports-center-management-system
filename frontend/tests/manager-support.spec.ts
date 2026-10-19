@@ -151,7 +151,7 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await page
     .getByRole("combobox", { name: "Assign to", exact: true })
     .selectOption(staff);
-  await page.getByRole("button", { name: "Assign / transfer" }).click();
+  await page.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(
     page
       .locator("p")
@@ -194,6 +194,8 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await page
     .getByRole("button", { name: "Close request", exact: true })
     .click();
+  expect(writes.some((write) => write.path.endsWith("/close"))).toBe(false);
+  await page.getByRole("button", { name: "Confirm close" }).click();
   await expect(
     page.getByText("Resolution: Membership corrected"),
   ).toBeVisible();
@@ -237,6 +239,30 @@ test("manager filters on the server, pages, retries and sees empty results", asy
   state.empty = true;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByText(/No requests match these filters/)).toBeVisible();
+});
+
+test("assigned-to-me filter toggles the server query and resets pagination", async ({
+  page,
+}) => {
+  const { queries } = await install(page);
+  await page.goto("/manager/support");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.searchParams.get("page")).toBe("2");
+  const mine = page.getByRole("button", {
+    name: "Assigned to me",
+    exact: true,
+  });
+  await mine.click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("assignedToUserId"))
+    .toBe(staff);
+  await expect(mine).toHaveAttribute("aria-pressed", "true");
+  expect(queries.at(-1)?.searchParams.get("page")).toBe("1");
+  await mine.click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("assignedToUserId") || null)
+    .toBeNull();
+  await expect(mine).toHaveAttribute("aria-pressed", "false");
 });
 
 test("a conflict retains the draft and refresh displays the closed result", async ({
@@ -344,7 +370,7 @@ test("receptionist queue keeps member links in its own workspace", async ({
     page.getByRole("link", { name: "Record a request" }),
   ).toHaveAttribute("href", "/receptionist/members");
   await expect(
-    page.getByRole("button", { name: "Assign / transfer" }),
+    page.getByRole("button", { name: "Assign", exact: true }),
   ).toBeVisible();
 });
 

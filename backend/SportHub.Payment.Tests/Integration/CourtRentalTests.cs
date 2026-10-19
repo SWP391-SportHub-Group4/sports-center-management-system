@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
@@ -8,6 +9,7 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Application.Services;
+using SportHub.Payment.Application.DTOs.Checkouts;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Rental.Application;
@@ -113,6 +115,53 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
             await db.SaveChangesAsync();
             var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(5)).AddHours(10);
             return new CourtRentalRequest(member.UserId, 3, room.RoomId, start, start.AddHours(1));
+        });
+    }
+
+    [Fact]
+    public async Task Receptionist_can_book_a_court_for_the_selected_member_only()
+    {
+        var rental = await SetupAsync();
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        var otherMember = await factory.SeedUserAsync(UserRole.Member);
+        using var desk = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        using var member = factory.CreateApiClient(otherMember.UserId, UserRole.Member);
+
+        Assert.Equal(HttpStatusCode.OK, (await desk.GetAsync("/api/court-rentals/policy")).StatusCode);
+        var localDate = DateOnly.FromDateTime(VietnamTime.ToLocal(rental.StartUtc.UtcDateTime));
+        var calendar = await desk.GetAsync($"/api/court-rentals/calendar?sportId={rental.SportId}&date={localDate:yyyy-MM-dd}&targetMemberId={rental.MemberId}");
+        Assert.Equal(HttpStatusCode.OK, calendar.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await desk.GetAsync(
+            $"/api/court-rentals/calendar?sportId={rental.SportId}&date={localDate:yyyy-MM-dd}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync(
+            $"/api/court-rentals/calendar?sportId={rental.SportId}&date={localDate:yyyy-MM-dd}&targetMemberId={rental.MemberId}")).StatusCode);
+
+        using var forged = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/court-rental")
+        {
+            Content = JsonContent.Create(new { rental.SportId, rental.RoomId, rental.StartUtc, rental.EndUtc,
+                TargetMemberId = rental.MemberId })
+        };
+        forged.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        Assert.Equal(HttpStatusCode.Forbidden, (await member.SendAsync(forged)).StatusCode);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/court-rental")
+        {
+            Content = JsonContent.Create(new { rental.SportId, rental.RoomId, rental.StartUtc, rental.EndUtc,
+                TargetMemberId = rental.MemberId })
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var response = await desk.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var checkout = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
+        Assert.NotNull(checkout);
+        Assert.Equal(rental.MemberId, checkout.BeneficiaryUserId);
+        Assert.Equal(receptionist.UserId, checkout.InitiatorUserId);
+        Assert.NotNull(checkout.ResourceHoldId);
+        await factory.QueryAsync(async db =>
+        {
+            var saved = await db.Set<CourtRental>().SingleAsync(x => x.CourtRentalId == checkout.ResourceHoldId);
+            Assert.Equal(rental.MemberId, saved.MemberId);
+            return 0;
         });
     }
 

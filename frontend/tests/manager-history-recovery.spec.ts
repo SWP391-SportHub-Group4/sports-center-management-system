@@ -9,7 +9,6 @@ const paged = (items: unknown[]) => ({
   page: 1,
   pageSize: 20,
 });
-const memberId = "33333333-3333-4333-8333-333333333333";
 const sessionId = "44444444-4444-4444-8444-444444444444";
 async function fixture(page: Page) {
   await page.addInitScript(() =>

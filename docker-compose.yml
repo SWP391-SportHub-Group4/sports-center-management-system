@@ -18,6 +18,17 @@ services:
       retries: 20
       start_period: 5s
 
+  ai-service:
+    build: ./ai-service
+    container_name: sporthub-ai
+    restart: unless-stopped
+    # Key đọc từ ai-service/.env (gitignored). Khi deploy, tạo file này trên server.
+    env_file:
+      - path: ./ai-service/.env
+        required: false
+    environment:
+      GEMINI_MODEL: ${Gemini__Model:-gemini-3.5-flash-lite}
+
   backend:
     build:
       context: ./backend
@@ -27,8 +38,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ai-service:
+        condition: service_started
     environment:
-      AiService__BaseUrl: ${AiService__BaseUrl:-http://host.docker.internal:8001}
+      AiService__BaseUrl: ${AiService__BaseUrl:-http://ai-service:8001}
       ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       JwtOptions__SecretKey: ${JwtOptions__SecretKey}
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:-http://localhost:3000}

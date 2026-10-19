@@ -156,7 +156,10 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Start isolated PostgreSQL and API
-        run: docker compose up -d --build postgres backend
+        run: |
+          # The AI container validates its key at startup; E2E never calls Gemini.
+          printf 'GEMINI_API_KEY=ci-only-unused-key\n' > ai-service/.env
+          docker compose up -d --build postgres backend
 
       - name: Wait for API health
         shell: bash

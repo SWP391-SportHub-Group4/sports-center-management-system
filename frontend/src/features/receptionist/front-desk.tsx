@@ -6,7 +6,14 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
-import { AsyncSection, Card, Field, Table, StatusChip } from "@/components/ui";
+import {
+  AsyncSection,
+  Card,
+  Dialog,
+  Field,
+  Table,
+  StatusChip,
+} from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
 import { useDeskMember } from "./desk-context";
 import { RegistrationHint } from "./dashboard";
@@ -261,42 +268,48 @@ export function PlanSales({
         </AsyncSection>
       </Card>
       {selectedPlan && (
-        <CheckoutPanel
-          key={selectedPlan.packageId}
-          memberId={memberId}
-          review={{
-            title: l.purchaseReview,
-            submitLabel: l.createInvoice,
-            items: [
-              { label: l.member, value: member.fullName || member.email },
-              { label: l.email, value: member.email },
-              { label: l.name, value: selectedPlan.name },
-              { label: l.price, value: formatMoney(selectedPlan.price) },
-              {
-                label: l.membershipDuration,
-                value: `${selectedPlan.durationDays} ${t.refactor.days}`,
+        <Dialog
+          title={`${selectedPlan.name} · ${member.fullName || member.email}`}
+          size="lg"
+          onClose={() => setSelected(null)}
+        >
+          <CheckoutPanel
+            key={selectedPlan.packageId}
+            memberId={memberId}
+            review={{
+              title: l.purchaseReview,
+              submitLabel: l.createInvoice,
+              items: [
+                { label: l.member, value: member.fullName || member.email },
+                { label: l.email, value: member.email },
+                { label: l.name, value: selectedPlan.name },
+                { label: l.price, value: formatMoney(selectedPlan.price) },
+                {
+                  label: l.membershipDuration,
+                  value: `${selectedPlan.durationDays} ${t.refactor.days}`,
+                },
+                ...(selectedPlan.durationDays === 1
+                  ? [
+                      {
+                        label: "Lưu ý trước khi thanh toán",
+                        value:
+                          "Vé Gym 1 ngày và mã check-in chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Hãy thông báo điều này cho Member trước khi thu tiền.",
+                      },
+                    ]
+                  : []),
+              ],
+            }}
+            intent={{
+              kind: "membership",
+              body: {
+                packageId: selectedPlan.packageId,
+                targetMemberId: memberId,
+                allowStacking: false,
               },
-              ...(selectedPlan.durationDays === 1
-                ? [
-                    {
-                      label: "Lưu ý trước khi thanh toán",
-                      value:
-                        "Vé Gym 1 ngày và mã check-in chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Hãy thông báo điều này cho Member trước khi thu tiền.",
-                    },
-                  ]
-                : []),
-            ],
-          }}
-          intent={{
-            kind: "membership",
-            body: {
-              packageId: selectedPlan.packageId,
-              targetMemberId: memberId,
-              allowStacking: false,
-            },
-          }}
-          onChange={packages.reload}
-        />
+            }}
+            onChange={packages.reload}
+          />
+        </Dialog>
       )}
     </>
   );

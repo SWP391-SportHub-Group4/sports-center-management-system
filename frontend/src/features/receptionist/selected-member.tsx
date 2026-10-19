@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Ban, CalendarClock, CircleCheck, Ticket } from "lucide-react";
+import { Ban, CalendarClock, CircleCheck } from "lucide-react";
 
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
-import { formatDate, formatMoney, formatTime, todayIso } from "@/lib/format";
+import { formatDate, formatTime, todayIso } from "@/lib/format";
 
 import { StatusChip } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -17,7 +17,6 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import type {
   GymCheckInDto,
   MemberPackageDto,
-  MembershipPackageDto,
   Paged,
   UserAdminDto,
 } from "@/lib/types";
@@ -117,20 +116,11 @@ export function SelectedMemberPanel({
       }),
     [memberId],
   );
-  const catalog = useApi(
-    (signal) =>
-      api.get<MembershipPackageDto[]>("/api/membership-packages", { signal }),
-    [],
-  );
-
   const usable = (packages.data ?? []).filter(
     (p) => p.status === "ACTIVE" && p.isUsable,
   );
   const dayPass = usable.find((p) => p.packageId === DAY_PASS_PACKAGE_ID);
   const membership = usable.find((p) => p.packageId !== DAY_PASS_PACKAGE_ID);
-  const dayPassPrice = catalog.data?.find(
-    (p) => p.packageId === DAY_PASS_PACKAGE_ID,
-  )?.price;
 
   const open = pagedItems(visits.data).find((v) => !v.checkOutTime);
   const ready = !packages.loading && !visits.loading;
@@ -241,7 +231,6 @@ export function SelectedMemberPanel({
   ];
 
   const sellHref = "/receptionist/sales";
-  const dayPassHref = `/receptionist/sales?tab=membership&plan=${DAY_PASS_PACKAGE_ID}`;
 
   return (
     <section
@@ -294,19 +283,21 @@ export function SelectedMemberPanel({
             {member.phone ? ` · ${member.phone}` : ""}
           </p>
 
+        </div>
+
+        <div className={styles.sideActions}>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={() => onChange(null)}
+          >
+            {vi ? "Đổi hội viên" : "Change member"}
+          </button>
           <ReportAvatarButton
             targetUserId={member.userId}
             avatarUrl={member.avatarUrl}
           />
         </div>
-
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          onClick={() => onChange(null)}
-        >
-          {vi ? "Đổi hội viên" : "Change member"}
-        </button>
       </div>
 
       {member.activationPending && (
@@ -374,14 +365,6 @@ export function SelectedMemberPanel({
                 : "Check in"}
           </button>
         </span>
-
-        {!locked && (
-          <Link className="btn btn--secondary" href={dayPassHref}>
-            <Ticket size={18} aria-hidden="true" />
-            {vi ? "Mua vé Gym 1 ngày" : "Buy Day Pass"}
-            {dayPassPrice !== undefined && ` · ${formatMoney(dayPassPrice)}`}
-          </Link>
-        )}
 
         {!locked && (
           <Link className="btn btn--secondary" href={sellHref}>

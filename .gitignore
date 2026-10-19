@@ -18,6 +18,9 @@ frontend/test-results/
 ## Python (ai/ reserved for future)
 ai/**/__pycache__/
 ai/**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.venv/
 
 ## OS / IDE
 .vs/

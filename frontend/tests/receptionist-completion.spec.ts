@@ -135,6 +135,7 @@ test("desk assigns, updates and closes support from the queue", async ({
   ).toBeVisible();
   await page.getByLabel("Progress or resolution").fill("Membership corrected");
   await page.getByRole("button", { name: "Close request" }).click();
+  await page.getByRole("button", { name: "Confirm close" }).click();
   await expect(
     page.getByRole("heading", { name: /Help with membership.*CLOSED/ }),
   ).toBeVisible();

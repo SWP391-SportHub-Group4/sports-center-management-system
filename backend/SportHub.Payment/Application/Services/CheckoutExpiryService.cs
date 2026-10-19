@@ -10,7 +10,14 @@ public sealed class CheckoutExpiryService(ISportHubDbContext db, PaymentFulfillm
     {
         var ids = await db.Set<Invoice>().AsNoTracking()
             .Where(x => x.Status == InvoiceStatus.Issued && x.CheckoutCycleId != null
-                && x.HoldExpiresAtUtc <= clock.UtcNow)
+                && x.HoldExpiresAtUtc <= clock.UtcNow
+                && db.Set<CheckoutSession>().Any(s => s.CheckoutSessionId == x.CheckoutCycleId)
+                && !db.Set<VerifiedGatewayEvent>().Any(e =>
+                    e.ProcessingStatus != "Failed" && e.ProcessingStatus != "Fulfilled"
+                    && e.ProcessingStatus != "Compensated" && db.Set<PaymentAttempt>()
+                        .Any(a => a.PaymentAttemptId == e.PaymentAttemptId && a.InvoiceId == x.InvoiceId)))
+            // Exclude protected invoices before Take; otherwise 100 stalled captures can
+            // prevent every later checkout from ever being released.
             .OrderBy(x => x.HoldExpiresAtUtc).Take(100).Select(x => x.InvoiceId).ToListAsync(ct);
         var count = 0;
         foreach (var id in ids)

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
+import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import styles from "./support-queue.module.css";
@@ -35,6 +36,7 @@ export function SupportQueue({
 }: {
   workspace?: "manager" | "receptionist";
 }) {
+  const { user } = useAuth();
   const assignees = useApi(
     (signal) =>
       api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
@@ -161,6 +163,22 @@ export function SupportQueue({
           </select>
         </label>
         <div className={styles.filterActions}>
+          {user && (
+            <button
+              type="button"
+              className="btn btn--secondary"
+              aria-pressed={applied.assignedToUserId === user.userId}
+              onClick={() =>
+                apply({
+                  ...filters,
+                  assignedToUserId:
+                    applied.assignedToUserId === user.userId ? "" : user.userId,
+                })
+              }
+            >
+              Assigned to me
+            </button>
+          )}
           <button type="submit" className="btn btn--secondary">
             Apply filters
           </button>
