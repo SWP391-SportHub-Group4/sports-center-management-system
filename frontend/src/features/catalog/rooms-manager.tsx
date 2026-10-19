@@ -29,6 +29,8 @@ import {
   matchesCatalog,
 } from "./manager-shared";
 import styles from "./manager-catalog.module.css";
+import { CreateRentalCourt } from "./create-rental-court";
+import type { RoomDto } from "@/lib/types";
 function Blocks({ roomId }: { roomId: number }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -223,8 +225,29 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
   const [id, setId] = useState<number | null>(null);
   const selected = detailId;
   const [editing, setEditing] = useState(false);
+  const [creatingRental, setCreatingRental] = useState(false);
+  const [createdRental, setCreatedRental] = useState<RoomDto | null>(null);
   return (
     <>
+      {creatingRental && (
+        <CreateRentalCourt
+          onCancel={() => setCreatingRental(false)}
+          onCreated={(room) => {
+            setCreatingRental(false);
+            setCreatedRental(room);
+            state.reload();
+            sports.reload();
+          }}
+        />
+      )}
+      {createdRental && (
+        <div className="alert alert--success" role="status">
+          <strong>{createdRental.name}</strong> {t.rentalCourtSetup.created}{" "}
+          <Link href="/manager/court-rates">
+            {t.rentalCourtSetup.viewPrices}
+          </Link>
+        </div>
+      )}
       {detailId && (
         <Link className="btn btn--ghost" href="/manager/facilities">
           {t.managerOperations.backToList}
@@ -309,95 +332,112 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           </label>
         </CatalogFormDialog>
       )}
-      <CatalogPanel
-        filters={!detailId ? <CatalogFilters filters={filters} /> : undefined}
-        actions={
-          !detailId ? (
-            <button
-              className="btn"
-              onClick={() => {
-                setId(null);
-                setForm(empty);
-                setEditing(true);
-                mutation.reset();
-              }}
-            >
-              {l.create}
-            </button>
-          ) : undefined
-        }
-      >
-        <CatalogTable
-          state={state}
-          visibleRowActions={3}
-          filters={filters}
-          caption={t.managerOperations.facilities}
-          rows={(state.data ?? []).filter((r) =>
-            detailId
-              ? r.roomId === detailId
-              : matchesCatalog(r, r.name, filters.values),
-          )}
-          getRowId={(r) => String(r.roomId)}
-          columns={[
-            { id: "name", header: l.room, rowHeader: true },
-            {
-              id: "roomTypeId",
-              header: l.roomType,
-              cell: (r) =>
-                types.data?.find((x) => x.roomTypeId === r.roomTypeId)?.name,
-            },
-            { id: "capacity", header: l.capacity, numeric: true },
-            {
-              id: "isActive",
-              header: l.status,
-              cell: (r) => (
-                <>
-                  <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
-                  {types.data?.find((x) => x.roomTypeId === r.roomTypeId)
-                    ?.isActive === false && (
-                    <p className="small muted">Bookings blocked by room type</p>
-                  )}
-                </>
-              ),
-            },
-          ]}
-          actions={(r) => (
-            <>
-              <button
-                className="btn btn--secondary btn--sm"
-                onClick={() => {
-                  setId(r.roomId);
-                  setForm({
-                    ...r,
-                    roomTypeId: r.roomTypeId ? String(r.roomTypeId) : "",
-                  });
-                  setEditing(true);
-                  mutation.reset();
-                }}
-              >
-                {l.edit}
-              </button>
-              <ConfirmRecordAction
-                label={t.recordActions.delete}
-                title={t.recordActions.deleteRoom}
-                description={t.recordActions.roomDescription}
-                recordName={r.name}
-                onConfirm={() => catalogApi.deleteRoom(r.roomId)}
-                onCompleted={() => {
-                  state.reload();
-                  if (detailId) router.push("/manager/training-rooms");
-                }}
-              />
-              <button
-                className="btn btn--ghost btn--sm"
-                onClick={() => router.push("/manager/facilities/" + r.roomId)}
-              >
-                {l.openingHours} / {l.blocks}
-              </button>
-            </>
-          )}
-        />
-      </CatalogPanel>
+      {!creatingRental && (
+        <CatalogPanel
+          filters={!detailId ? <CatalogFilters filters={filters} /> : undefined}
+          actions={
+            !detailId ? (
+              <>
+                <button
+                  className="btn"
+                  disabled={creatingRental}
+                  onClick={() => {
+                    setCreatingRental(true);
+                    setCreatedRental(null);
+                  }}
+                >
+                  {t.rentalCourtSetup.create}
+                </button>
+                <button
+                  className="btn btn--secondary"
+                  disabled={creatingRental}
+                  onClick={() => {
+                    setId(null);
+                    setForm(empty);
+                    setEditing(true);
+                    mutation.reset();
+                  }}
+                >
+                  {t.rentalCourtSetup.basicRoom}
+                </button>
+              </>
+            ) : undefined
+          }
+        >
+          <CatalogTable
+            state={state}
+            visibleRowActions={3}
+            filters={filters}
+            caption={t.managerOperations.facilities}
+            rows={(state.data ?? []).filter((r) =>
+              detailId
+                ? r.roomId === detailId
+                : matchesCatalog(r, r.name, filters.values),
+            )}
+            getRowId={(r) => String(r.roomId)}
+            columns={[
+              { id: "name", header: l.room, rowHeader: true },
+              {
+                id: "roomTypeId",
+                header: l.roomType,
+                cell: (r) =>
+                  types.data?.find((x) => x.roomTypeId === r.roomTypeId)?.name,
+              },
+              { id: "capacity", header: l.capacity, numeric: true },
+              {
+                id: "isActive",
+                header: l.status,
+                cell: (r) => (
+                  <>
+                    <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
+                    {types.data?.find((x) => x.roomTypeId === r.roomTypeId)
+                      ?.isActive === false && (
+                      <p className="small muted">
+                        Bookings blocked by room type
+                      </p>
+                    )}
+                  </>
+                ),
+              },
+            ]}
+            actions={(r) => (
+              <>
+                <button
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => {
+                    setId(r.roomId);
+                    setForm({
+                      ...r,
+                      roomTypeId: r.roomTypeId ? String(r.roomTypeId) : "",
+                    });
+                    setEditing(true);
+                    mutation.reset();
+                  }}
+                >
+                  {l.edit}
+                </button>
+                <ConfirmRecordAction
+                  label={t.recordActions.delete}
+                  title={t.recordActions.deleteRoom}
+                  description={t.recordActions.roomDescription}
+                  recordName={r.name}
+                  onConfirm={() => catalogApi.deleteRoom(r.roomId)}
+                  onCompleted={() => {
+                    state.reload();
+                    if (detailId) router.push("/manager/training-rooms");
+                  }}
+                />
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => router.push("/manager/facilities/" + r.roomId)}
+                >
+                  {l.openingHours} / {l.blocks}
+                </button>
+              </>
+            )}
+          />
+        </CatalogPanel>
+      )}
       {detailId &&
         state.data &&
         !state.data.some((r) => r.roomId === detailId) && (

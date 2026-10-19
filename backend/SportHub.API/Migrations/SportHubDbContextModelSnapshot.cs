@@ -1935,7 +1935,7 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("ck_point_credit_positive", "points > 0");
 
-                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\r\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\r\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
+                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_point_credit_separate_approver", "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id");
 
@@ -2098,6 +2098,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("numeric(18,0)")
                         .HasColumnName("price_per_hour");
 
+                    b.Property<int?>("RoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_id");
+
                     b.Property<int>("RoomTypeId")
                         .HasColumnType("integer")
                         .HasColumnName("room_type_id");
@@ -2112,6 +2116,9 @@ namespace SportHub.API.Migrations
 
                     b.HasKey("RateId")
                         .HasName("pk_court_rates");
+
+                    b.HasIndex("RoomId")
+                        .HasDatabaseName("ix_court_rates_room_id");
 
                     b.HasIndex("SportId")
                         .HasDatabaseName("ix_court_rates_sport_id");
@@ -4479,6 +4486,12 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.CourtRate", b =>
                 {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_court_rates_rooms_room_id");
+
                     b.HasOne("SportHub.Scheduling.Catalog.Domain.RoomType", null)
                         .WithMany()
                         .HasForeignKey("RoomTypeId")

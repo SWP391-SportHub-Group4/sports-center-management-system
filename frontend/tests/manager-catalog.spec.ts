@@ -384,6 +384,7 @@ test("court activation PUT preserves the whole existing rate; cancel never write
     path: "/api/manager/court-rates/91",
     method: "PUT",
     body: {
+      roomId: null,
       roomTypeId: 51,
       sportId: 41,
       daysOfWeek: ["MON", "TUE"],

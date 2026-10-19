@@ -53,9 +53,10 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             throw new ConflictException("rental_outside_opening_hours", "Rental outside opening hours.");
 
         var rates = await db.Set<CourtRate>().AsNoTracking().Where(x => x.IsActive && x.RoomTypeId == roomTypeId
-            && (x.SportId == null || x.SportId == request.SportId)).ToListAsync(cancellationToken);
+            && (x.SportId == null || x.SportId == request.SportId)
+            && (x.RoomId == null || x.RoomId == request.RoomId)).ToListAsync(cancellationToken);
         return CourtRateCalculator.Calculate(rates, request.SportId, request.StartUtc,
-            request.EndUtc - request.StartUtc, slotMinutes);
+            request.EndUtc - request.StartUtc, slotMinutes, request.RoomId);
     }
 
     public async Task<Guid> ReserveAsync(Guid invoiceId, CourtRentalRequest request, DateTimeOffset holdExpiresAtUtc,

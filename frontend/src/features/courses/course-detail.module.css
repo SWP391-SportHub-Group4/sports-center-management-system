@@ -165,6 +165,15 @@
 .thresholdNotice p {
   margin: var(--space-2) 0 0;
 }
+.enrollmentLabel {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.enrollmentLabel > span {
+  max-width: 65ch;
+}
 .sectionToolbar {
   display: flex;
   align-items: end;

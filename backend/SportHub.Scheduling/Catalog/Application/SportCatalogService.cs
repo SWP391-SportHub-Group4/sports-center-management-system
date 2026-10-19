@@ -289,7 +289,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
                 if (!sportRooms.Any(r => hours.Contains(r.RoomId))) missing.Add("opening_hours");
 
                 if (service.ServiceType == SportServiceType.CourtRental
-                    && !rates.Any(r => roomTypeIds.Contains(r.RoomTypeId) && (r.SportId == null || r.SportId == sport.SportId)))
+                    && !rates.Any(r => roomTypeIds.Contains(r.RoomTypeId) && (r.SportId == null || r.SportId == sport.SportId)
+                        && (r.RoomId == null || sportRooms.Any(room => room.RoomId == r.RoomId))))
                 {
                     missing.Add("court_rate");
                 }

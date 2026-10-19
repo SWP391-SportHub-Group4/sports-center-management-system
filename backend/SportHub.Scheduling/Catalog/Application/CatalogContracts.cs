@@ -145,10 +145,12 @@ public sealed record CourtRateResponse(
     string StartTimeLocal,
     string EndTimeLocal,
     decimal PricePerHour,
-    bool IsActive);
+    bool IsActive,
+    int? RoomId = null);
 
 public sealed class SaveCourtRateRequest
 {
+    public int? RoomId { get; set; }
     public int RoomTypeId { get; set; }
 
     /// <summary>Null = áp dụng mọi môn chơi được ở loại sân này.</summary>

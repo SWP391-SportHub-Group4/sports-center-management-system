@@ -7,6 +7,8 @@ import styles from "./MembershipAuditChanges.module.css";
 import { auditDisplayText } from "./audit-display";
 
 type Snapshot = Partial<{
+  roomId: number | null;
+  roomName: string;
   roomTypeId: number;
   roomTypeName: string;
   sportId: number | null;
@@ -19,8 +21,10 @@ type Snapshot = Partial<{
 }>;
 const dayCodes = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const dayOrder = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-type Key = "roomTypeId" | "sportId" | "days" | "window" | "price" | "active";
+type Key =
+  "roomId" | "roomTypeId" | "sportId" | "days" | "window" | "price" | "active";
 const fields: Key[] = [
+  "roomId",
   "roomTypeId",
   "sportId",
   "days",
@@ -45,13 +49,14 @@ function snapshot(raw: string | null): Snapshot {
         ? (wrapper.value as Record<string, unknown>)
         : wrapper;
     const result: Snapshot = {};
-    for (const key of ["roomTypeId", "sportId"] as const) {
+    for (const key of ["roomId", "roomTypeId", "sportId"] as const) {
       const value = data[key];
       if (typeof value === "number" && Number.isSafeInteger(value) && value > 0)
         result[key] = value;
     }
     if (data.sportId === null) result.sportId = null;
-    for (const key of ["roomTypeName", "sportName"] as const) {
+    if (data.roomId === null) result.roomId = null;
+    for (const key of ["roomName", "roomTypeName", "sportName"] as const) {
       if (typeof data[key] === "string" && data[key].trim())
         result[key] = data[key];
     }
@@ -120,6 +125,7 @@ export function CourtRateAuditChanges({
       : recorded(key, hasAfter ? after : before),
   );
   const labels: Record<Key, string> = {
+    roomId: t.rentalCourtSetup.scope,
     roomTypeId: t.operations.roomType,
     sportId: t.operations.sport,
     days: c.days,
@@ -133,6 +139,10 @@ export function CourtRateAuditChanges({
   const rawValue = (key: Key, data: Snapshot): string => {
     if (!recorded(key, data)) return l.notRecorded;
     switch (key) {
+      case "roomId":
+        return data.roomId === null
+          ? t.rentalCourtSetup.allCourts
+          : (data.roomName ?? `#${data.roomId}`);
       case "roomTypeId":
         return roomName(data) ?? `#${data.roomTypeId}`;
       case "sportId":
@@ -166,7 +176,7 @@ export function CourtRateAuditChanges({
           {c.rate}: {auditDisplayText(roomName(subject) ?? `#${row.targetId}`)}
         </strong>
       </p>
-      {(["roomTypeId", "sportId"] as const)
+      {(["roomId", "roomTypeId", "sportId"] as const)
         .filter(
           (key) =>
             comparison && equal(key, before, after) && recorded(key, after),

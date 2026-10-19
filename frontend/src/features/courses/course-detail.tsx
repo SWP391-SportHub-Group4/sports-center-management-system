@@ -258,7 +258,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     <div className={detailStyles.enrollmentStatus}>
                       <div>
                         <span className="muted">{m.enrollmentTitle}</span>
-                        <p>
+                        <p className={detailStyles.enrollmentLabel}>
                           <strong
                             className={managementStyles.enrollmentState}
                             data-open={c.enrollmentOpen}
@@ -267,6 +267,11 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                               ? m.enrollmentOpen
                               : m.enrollmentClosed}
                           </strong>
+                          {!c.enrollmentOpen && (
+                            <span className="small muted">
+                              {m.enrollmentClosedVisibilityHint}
+                            </span>
+                          )}
                         </p>
                       </div>
                       <button
@@ -423,11 +428,18 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     <Card title={m.enrollmentTitle}>
                       <section className={managementStyles.enrollment}>
                         <div>
-                          <strong>
-                            {c.enrollmentOpen
-                              ? m.enrollmentOpen
-                              : m.enrollmentClosed}
-                          </strong>
+                          <div className={detailStyles.enrollmentLabel}>
+                            <strong>
+                              {c.enrollmentOpen
+                                ? m.enrollmentOpen
+                                : m.enrollmentClosed}
+                            </strong>
+                            {!c.enrollmentOpen && (
+                              <span className="small muted">
+                                {m.enrollmentClosedVisibilityHint}
+                              </span>
+                            )}
+                          </div>
 
                           <p className="small muted">
                             {c.enrollmentOpen

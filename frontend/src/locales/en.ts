@@ -1,4 +1,52 @@
 export const en = {
+  rentalCourtSetup: {
+    title: "Create a rental court",
+    intro:
+      "Set up your court, opening hours and rental prices together. Members can book available times as soon as you save.",
+    details: "Court details",
+    hours: "Opening hours",
+    opens: "Opens",
+    closes: "Closes",
+    hoursHint:
+      "Vietnam time (UTC+7). Choose whole hours and at least one opening day.",
+    applyAll: "Apply hours to all days",
+    closed: "Closed",
+    pricing: "Rental pricing",
+    priceHint:
+      "Prices apply only to this court. Use multiples of 2,000 VND per hour to support 30-minute bookings.",
+    customPrices: "Use different prices by time of day",
+    from: "From",
+    to: "To",
+    addWindow: "Add a time window",
+    removeWindow: "Remove time window",
+    review: "Booking preview",
+    unnamed: "Your new court",
+    chooseSport: "Choose a sport",
+    chooseType: "Choose a compatible type",
+    daysWeek: "opening days per week",
+    localTime: "Vietnam time · UTC+7",
+    hour: "hour",
+    fromPrice: "From",
+    priceSync: "Prices are also saved to Court Rental Pricing.",
+    bookingHint:
+      "Members can book free times within the booking window. Court rental will be enabled for this sport.",
+    saveHint: "Court details, hours and prices are saved together.",
+    submit: "Create court & open for booking",
+    daysRequired: "Choose at least one opening day.",
+    invalidHours:
+      "Closing time must be after opening time for every opening day.",
+    priceCoverage:
+      "Cover every opening hour with a price. Remove overlapping windows and fill any gaps.",
+    noTypes:
+      "Add an active room type linked to an active sport before creating a rental court.",
+    created:
+      "is open for booking. Opening hours and rental prices have been saved.",
+    viewPrices: "View rental prices",
+    create: "Create rental court",
+    basicRoom: "Add room only",
+    allCourts: "All courts of this type",
+    scope: "Applies to",
+  },
   recordActions: {
     delete: "Delete",
     deleteRoom: "Delete room",
@@ -335,6 +383,8 @@ export const en = {
     enrollmentTitle: "Enrollment",
     enrollmentOpen: "Enrollment is open",
     enrollmentClosed: "Enrollment is closed",
+    enrollmentClosedVisibilityHint:
+      "Members will not see this class in the course catalog until enrollment is opened.",
     enrollmentOpenHint: "Members can reserve a seat and enroll in this course.",
     enrollmentClosedHint:
       "New members cannot reserve a seat. Checkouts that already hold a seat can still finish, and enrolled members keep their place.",

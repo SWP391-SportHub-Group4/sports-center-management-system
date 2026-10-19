@@ -1,5 +1,9 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Tạo sân cho thuê trọn gói — 19 October 2026
+
+Manager-only `POST /api/rooms/rental` lưu sân, giờ hoạt động, giá riêng và bật dịch vụ thuê trong một transaction. Court-rate request/response bổ sung `roomId` nullable; giá riêng được ưu tiên hơn giá chung theo loại sân. Xem [contract, validation và verification](Rental-Court-Setup.md).
+
 ## M06 class opening decision — 18 October 2026
 
 See [confirmed policy and implementation](Class-Opening-Decision.md). Existing threshold/respond/waive/cancel/reschedule endpoints are reused. Public class responses add boolean `openingConfirmed` without exposing costs or break-even counts. Only Met/Waived classes advance to teaching; late unconfirmed openings require a Manager decision or deferral. Response settings allow 1–48 hours and reviews at least 72 hours ahead, with a 24-hour pre-opening margin. Rescheduling an unconfirmed planned first session updates its opening date/review deadline and cannot cut into an existing response window. Attendance can return 409 `class_opening_not_confirmed`; retroactive waiver returns 409 `threshold_opening_time_passed`; invalid reschedule returns 409 `threshold_response_window_conflict`.

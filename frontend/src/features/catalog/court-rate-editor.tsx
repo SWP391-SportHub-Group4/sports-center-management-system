@@ -20,6 +20,7 @@ import {
 } from "./manager-shared";
 import styles from "./manager-catalog.module.css";
 const empty = {
+  roomId: "",
   roomTypeId: "",
   sportId: "",
   daysOfWeek: ["MON"],
@@ -36,6 +37,7 @@ export function CourtRateEditor() {
   const state = useApi((s) => catalogApi.rates(s), []);
   const types = useApi((s) => catalogApi.roomTypes(s), []);
   const sports = useApi((s) => catalogApi.sports(s, true), []);
+  const rooms = useApi((s) => catalogApi.rooms(s), []);
   const filters = useCatalogFilters();
   const mutation = useMutation();
   const [form, setForm] = useState(empty);
@@ -55,6 +57,7 @@ export function CourtRateEditor() {
     setForm(
       r
         ? {
+            roomId: r.roomId ? String(r.roomId) : "",
             roomTypeId: String(r.roomTypeId),
             sportId: r.sportId === null ? "" : String(r.sportId),
             daysOfWeek: r.daysOfWeek.split(",").map((x) => x.trim()),
@@ -128,13 +131,26 @@ export function CourtRateEditor() {
             (r) =>
               matchesCatalog(
                 r,
-                roomName(r.roomTypeId) + " " + sportName(r.sportId),
+                roomName(r.roomTypeId) +
+                  " " +
+                  sportName(r.sportId) +
+                  " " +
+                  (rooms.data?.find((x) => x.roomId === r.roomId)?.name ?? ""),
                 filters.values,
               ) &&
               (!filters.values.roomType ||
                 String(r.roomTypeId) === filters.values.roomType),
           )}
           columns={[
+            {
+              id: "roomId",
+              header: t.rentalCourtSetup.scope,
+              cell: (r) =>
+                r.roomId
+                  ? (rooms.data?.find((x) => x.roomId === r.roomId)?.name ??
+                    `#${r.roomId}`)
+                  : t.rentalCourtSetup.allCourts,
+            },
             {
               id: "roomTypeId",
               header: l.roomType,
@@ -246,6 +262,7 @@ export function CourtRateEditor() {
             const body: SaveRate = {
               ...form,
               roomTypeId: Number(form.roomTypeId),
+              roomId: form.roomId ? Number(form.roomId) : null,
               sportId: form.sportId ? Number(form.sportId) : null,
             };
             if (
@@ -262,7 +279,12 @@ export function CourtRateEditor() {
                 required
                 value={form.roomTypeId}
                 onChange={(e) =>
-                  setForm({ ...form, roomTypeId: e.target.value, sportId: "" })
+                  setForm({
+                    ...form,
+                    roomTypeId: e.target.value,
+                    sportId: "",
+                    roomId: "",
+                  })
                 }
               >
                 <option value="">—</option>
@@ -271,6 +293,21 @@ export function CourtRateEditor() {
                     {r.name}
                   </option>
                 ))}
+              </select>
+            </Field>
+            <Field label={t.rentalCourtSetup.scope}>
+              <select
+                value={form.roomId}
+                onChange={(e) => setForm({ ...form, roomId: e.target.value })}
+              >
+                <option value="">{t.rentalCourtSetup.allCourts}</option>
+                {(rooms.data ?? [])
+                  .filter((r) => r.roomTypeId === Number(form.roomTypeId))
+                  .map((r) => (
+                    <option key={r.roomId} value={r.roomId}>
+                      {r.name}
+                    </option>
+                  ))}
               </select>
             </Field>
             <Field label={l.sport}>
@@ -377,6 +414,7 @@ export function CourtRateEditor() {
           onConfirm={async () => {
             // Court-rate API has no separate activation endpoint: send the complete existing contract.
             const body: SaveRate = {
+              roomId: activity.roomId ?? null,
               roomTypeId: activity.roomTypeId,
               sportId: activity.sportId,
               daysOfWeek: activity.daysOfWeek.split(",").map((x) => x.trim()),
