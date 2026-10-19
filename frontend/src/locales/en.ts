@@ -1194,6 +1194,14 @@ export const en = {
     end: "End",
     price: "Price (VND)",
     cost: "Cost (VND)",
+    classPriceHint:
+      "Tuition each member pays for the entire course, including all sessions.",
+    classMinimumEnrollment: "Minimum enrollment to break even",
+    classCapacity: "Class capacity",
+    classSingleMember: "1 member",
+    classMemberCount: "{count} members",
+    classCostHint:
+      "Total cost to run the entire course, such as coach, room and equipment costs. Used to calculate the break-even threshold.",
     priceHour: "Price per hour (VND)",
     openingHours: "Opening hours",
     blocks: "Room blocks",

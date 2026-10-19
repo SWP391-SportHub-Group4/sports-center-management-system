@@ -222,7 +222,7 @@ export function ThresholdPanel({
                 {action === "pricing" && (
                   <>
                     <div className="form-grid">
-                      <Field label={l.price}>
+                      <Field label={l.price} hint={l.classPriceHint}>
                         <input
                           required
                           type="number"
@@ -232,7 +232,7 @@ export function ThresholdPanel({
                           onChange={(e) => setPrice(Number(e.target.value))}
                         />
                       </Field>
-                      <Field label={l.cost}>
+                      <Field label={l.cost} hint={l.classCostHint}>
                         <input
                           required
                           type="number"
