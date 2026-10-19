@@ -22,6 +22,7 @@ export function SupportRequestActions({
   feedback: lifted,
   onFeedback: liftedSet,
   onChanged,
+  layout = "profile",
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
@@ -29,6 +30,7 @@ export function SupportRequestActions({
   feedback?: SupportFeedback | null;
   onFeedback?: (feedback: SupportFeedback | null) => void;
   onChanged: () => void;
+  layout?: "profile" | "queue";
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -87,7 +89,9 @@ export function SupportRequestActions({
   const chosen = assignees.find((x) => x.userId === assigneeId);
 
   return (
-    <div className={styles.manage}>
+    <div
+      className={`${styles.manage} ${layout === "queue" ? styles.manageQueue : ""}`}
+    >
       <p className={styles.assignee}>
         <span>{vi ? "Người xử lý" : "Assigned to"}</span>
         <strong>{assigneeName ?? (vi ? "Chưa gán" : "Unassigned")}</strong>

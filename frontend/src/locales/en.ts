@@ -1824,7 +1824,7 @@ export const en = {
       classesScheduling: "Classes & Scheduling",
       supportCommunications: "Support & Communications",
       operations: "Operations",
-      people: "People",
+      people: "Account",
       finance: "Finance",
       system: "System",
       training: "Training",

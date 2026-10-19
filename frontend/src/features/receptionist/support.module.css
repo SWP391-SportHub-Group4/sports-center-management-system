@@ -173,6 +173,42 @@
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }
+.manageQueue {
+  border-top: 0;
+  padding-top: 0;
+}
+.manageQueue .field,
+.manageQueue .latest {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.manageQueue .field {
+  display: grid;
+  align-items: stretch;
+  gap: var(--space-2);
+  margin: 0;
+  width: 100%;
+}
+.manageQueue select,
+.manageQueue textarea {
+  width: 100%;
+  min-width: 0;
+}
+.manageQueue .assignRow {
+  grid-template-columns: minmax(0, 1fr);
+}
+.manageQueue .buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.manageQueue .buttons :global(.btn) {
+  white-space: normal;
+}
+@media (max-width: 400px) {
+  .manageQueue .buttons {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .assignee {
   display: flex;
   flex-wrap: wrap;
