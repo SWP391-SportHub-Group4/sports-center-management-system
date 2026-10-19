@@ -1531,8 +1531,10 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             });
     }
 
-    [Fact]
-    public async Task Member_cancelling_a_class_far_from_start_gets_full_points_and_frees_the_seat()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Member_cancelling_a_class_far_from_start_gets_full_points_and_frees_the_seat(bool makeupOnly)
     {
         var context = await SeedAsync();
 
@@ -1760,6 +1762,17 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                             x =>
                                 x.ItemId)
                         .SingleAsync());
+
+        if (makeupOnly)
+            await factory.QueryAsync(async db =>
+            {
+                await db.ClassSessions.Where(x => x.ClassId == classId)
+                    .ExecuteUpdateAsync(x => x.SetProperty(s => s.IsMakeup, true));
+                return 0;
+            });
+
+        Assert.Equal(HttpStatusCode.OK,
+            (await member.GetAsync($"/api/refunds/quote/{itemId}")).StatusCode);
 
         var stranger =
             await factory.SeedUserAsync(

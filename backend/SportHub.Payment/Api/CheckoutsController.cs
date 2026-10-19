@@ -102,6 +102,27 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
     }
 
+    [HttpPost("{invoiceId:guid}/verify-payment")]
+    [EnableRateLimiting("checkout-write")]
+    public async Task<IActionResult> VerifyPayment(Guid invoiceId, CancellationToken ct)
+    {
+        RequireBuyer();
+        var actorId = User.RequireUserId();
+        // Check ownership before looking up attempts or sending any request to VNPay.
+        await checkouts.GetAsync(invoiceId, actorId, IsStaff(), ct);
+        var attemptIds = await db.Set<PaymentAttempt>().AsNoTracking()
+            .Where(x => x.InvoiceId == invoiceId && (x.Status == PaymentAttemptStatus.Pending
+                || x.Status == PaymentAttemptStatus.Expired || x.Status == PaymentAttemptStatus.Failed))
+            .OrderByDescending(x => x.CreatedAt).Select(x => x.PaymentAttemptId).ToListAsync(ct);
+        if (attemptIds.Count == 0)
+            throw new NotFoundException("payment_attempt_not_found", "No VNPay payment attempt was found for this invoice.");
+
+        var verified = false;
+        foreach (var attemptId in attemptIds)
+            verified |= await reconciliation.ReconcileAttemptAsync(attemptId, ct);
+        return Ok(new { verified, checkout = await checkouts.GetAsync(invoiceId, actorId, IsStaff(), ct) });
+    }
+
     [HttpPost("cancel-reference")]
     [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> CancelReference([FromBody] CancelPaymentReferenceRequest request,

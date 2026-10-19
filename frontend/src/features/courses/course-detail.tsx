@@ -68,7 +68,6 @@ function Roster({ sessionId }: { sessionId: string }) {
                       userId={r.memberId}
                       name={r.memberName}
                       size={28}
-                      report
                     />
                     <span>{r.memberName}</span>
                   </div>

@@ -165,14 +165,11 @@ test("Course interests sits with service navigation and opens the tracked cohort
     }),
   );
   await page.goto("/member/services");
-  await expect(
-    page.getByRole("button", { name: "Course interests" }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "My services" }).click();
   const interestsButton = page.getByRole("button", {
     name: "Course interests",
   });
   await expect(interestsButton).toBeVisible();
+  await expect(interestsButton).toHaveAttribute("aria-pressed", "false");
   const nav = await page
     .getByRole("navigation", { name: "Services pages" })
     .boundingBox();
@@ -180,6 +177,9 @@ test("Course interests sits with service navigation and opens the tracked cohort
   expect(nav).not.toBeNull();
   expect(button).not.toBeNull();
   expect(Math.abs(nav!.y - button!.y)).toBeLessThan(24);
+  expect(button!.x).toBeLessThan(nav!.x);
+  await page.getByRole("button", { name: "My services" }).click();
+  await expect(interestsButton).toBeVisible();
   await interestsButton.click();
   await expect(page).toHaveURL(/tab=interests/);
   expect(new URL(page.url()).searchParams.get("view")).toBe("owned");
@@ -189,7 +189,10 @@ test("Course interests sits with service navigation and opens the tracked cohort
   await expect(
     page.getByRole("heading", { name: "Badminton course" }),
   ).toBeVisible();
-  await expect(interestsButton).toHaveCount(0);
+  await expect(interestsButton).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Explore packages" }).click();
+  await expect(interestsButton).toBeVisible();
+  await expect(interestsButton).toHaveAttribute("aria-pressed", "false");
 });
 
 test("Member experience: successful payment downloads the authenticated invoice PDF", async ({

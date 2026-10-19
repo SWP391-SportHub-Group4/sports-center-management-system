@@ -22,7 +22,7 @@ import type {
 import { trainingStyles as styles } from "@/features/training";
 import { MemberHealthProfile } from "./member-health-profile";
 import { AvatarImage } from "@/components/AvatarImage";
-import { ReportAvatarButton } from "@/components/ReportAvatarButton";
+import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
 import { AssignCoachDialog } from "./assign-coach-dialog";
 import { EndRelationshipDialog } from "./end-relationship-dialog";
 import {
@@ -121,10 +121,13 @@ export function ManagerMemberList() {
                           )}
                         </td>
                         <td>
-                          <ReportAvatarButton
-                            targetUserId={m.userId}
-                            avatarUrl={m.avatarUrl}
-                          />
+                          {m.avatarUrl && (
+                            <RemoveMemberAvatarButton
+                              memberId={m.userId}
+                              memberName={m.fullName || m.email}
+                              onRemoved={state.reload}
+                            />
+                          )}
                           <Link
                             className="btn btn--secondary btn--sm"
                             href={`/manager/members/${m.userId}`}
@@ -214,10 +217,13 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                   size={64}
                 />
                 <p className={styles.coachName}>{m.fullName || m.email}</p>
-                <ReportAvatarButton
-                  targetUserId={m.userId}
-                  avatarUrl={m.avatarUrl}
-                />
+                {m.avatarUrl && (
+                  <RemoveMemberAvatarButton
+                    memberId={m.userId}
+                    memberName={m.fullName || m.email}
+                    onRemoved={member.reload}
+                  />
+                )}
                 <p className={styles.muted}>
                   {m.email}
                   {m.phone ? ` · ${m.phone}` : ""}

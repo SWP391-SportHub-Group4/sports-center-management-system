@@ -93,7 +93,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Member có Enrollment Confirmed, `EndedAt` rỗng vẫn đọc lịch sử buổi, giáo án, homework và kết quả của chính mình khi lớp Completed. Ghi danh kết thúc hoặc lớp Cancelled/Draft thì thu hồi quyền nội dung; Coach chủ nhiệm mất quyền hồ sơ học viên khi lớp Completed hoặc ghi danh kết thúc.
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
 - “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
-- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập, báo cáo sau đăng tải do Manager xử lý; chi tiết tại [Avatar Cloudinary](api-contract.md#avatar-cloudinary--apiavatars).
+- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập; Center Manager có thể gỡ trực tiếp ảnh Member không phù hợp; chi tiết tại [Avatar Cloudinary](api-contract.md#avatar-cloudinary--apiavatars).
 
 ## 5. Quy ước kỹ thuật
 

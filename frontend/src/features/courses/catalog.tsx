@@ -338,7 +338,6 @@ export function CourseCatalog({
                               userId={c.coachId}
                               name={c.coachName}
                               size={28}
-                              report
                             />
                           )}{" "}
                           {c.coachId && c.coachName ? (
@@ -368,7 +367,6 @@ export function CourseCatalog({
                             userId={c.coachId}
                             name={c.coachName}
                             size={28}
-                            report
                           />
                         )}{" "}
                         {c.coachId && c.coachName ? (

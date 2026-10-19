@@ -421,7 +421,6 @@ export function AttendanceBoard({
                                 userId={entry.memberId}
                                 name={entry.memberName}
                                 size={36}
-                                report
                               />
                               <span>
                                 <strong>{entry.memberName}</strong>

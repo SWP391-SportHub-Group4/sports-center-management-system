@@ -1851,7 +1851,6 @@ export const en = {
       roomTypes: "Room types",
       rates: "Court Rental Pricing",
       coaches: "Coaches",
-      avatarReports: "Avatar reports",
       courtSchedule: "Court schedule",
       activitySchedule: "Activity schedule",
       incidents: "Incidents",
@@ -2322,6 +2321,8 @@ export const en = {
     renew: "See the next {sport} course",
   },
   apiErrors: {
+    memberScheduleConflict:
+      "This time overlaps a class or court booking already on the member's schedule. Choose a different time or class.",
     duplicateActivePackage:
       "This member already has a package of the same type that is active or awaiting payment.",
     networkError:
