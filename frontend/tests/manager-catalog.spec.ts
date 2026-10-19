@@ -163,6 +163,97 @@ const row = (page: Page, name: string) =>
     .filter({ has: page.getByRole("rowheader", { name, exact: true }) });
 const dialog = (page: Page) => page.getByRole("dialog");
 
+test("sport room-type opt-in requires a user name and is omitted when unchecked", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  await page.goto("/manager/sports");
+  await page.getByRole("button", { name: "Create sport", exact: true }).click();
+  const option = dialog(page).getByLabel("Create a room type with this sport", {
+    exact: true,
+  });
+  await expect(option).not.toBeChecked();
+  await expect(
+    dialog(page).getByLabel("Room type name", { exact: true }),
+  ).toHaveCount(0);
+  await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
+  await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
+  await option.check();
+  const typeName = dialog(page).getByLabel("Room type name", { exact: true });
+  await expect(typeName).toHaveValue("");
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+  expect(fixture.writes).toHaveLength(0);
+  await typeName.fill("Indoor volleyball court");
+  await option.uncheck();
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  expect(fixture.writes).toHaveLength(1);
+  expect(fixture.writes[0].body).not.toHaveProperty("roomTypeName");
+  expect(fixture.writes[0].body).not.toHaveProperty("createRoomType");
+});
+
+for (const width of [1440, 390])
+  test(`sport saves the chosen room type name and retains the form on error at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    const fixture = await setup(page, {
+      fail: 409,
+      code: "room_type_name_taken",
+    });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/manager/sports");
+    await page
+      .getByRole("button", { name: "Create sport", exact: true })
+      .click();
+    await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
+    await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
+    await dialog(page)
+      .getByLabel("Create a room type with this sport", { exact: true })
+      .check();
+    await dialog(page)
+      .getByLabel("Room type name", { exact: true })
+      .fill("Indoor volleyball court");
+    await dialog(page)
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
+    await expect(dialog(page).getByRole("alert")).toBeVisible();
+    await expect(
+      dialog(page).getByLabel("Room type name", { exact: true }),
+    ).toHaveValue("Indoor volleyball court");
+    expect(
+      await dialog(page).evaluate(
+        (node) => node.scrollWidth <= node.clientWidth,
+      ),
+    ).toBe(true);
+    const scan = await new AxeBuilder({ page })
+      .include('[role="dialog"]')
+      .analyze();
+    expect(scan.violations).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath(`sport-room-type-${width}.png`),
+      fullPage: true,
+    });
+    fixture.recover();
+    await dialog(page)
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
+    await expect(dialog(page)).toHaveCount(0);
+    expect(fixture.writes.at(-1)?.body).toMatchObject({
+      createRoomType: true,
+      roomTypeName: "Indoor volleyball court",
+    });
+    // Mobile renders catalog cards; check the edit-only behavior in the table layout.
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await row(page, "Volleyball")
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
+    await expect(
+      dialog(page).getByLabel("Create a room type with this sport", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  });
+
 test("sport creation uses service contract, reloads, and edits with immutable code", async ({
   page,
 }) => {

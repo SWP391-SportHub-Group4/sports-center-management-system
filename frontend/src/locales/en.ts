@@ -549,6 +549,12 @@ export const en = {
       "Review affected sessions and refund points before confirming cancellation.",
   },
   managerCatalog: {
+    createLinkedRoomType: "Create a room type with this sport",
+    createLinkedRoomTypeHint:
+      "Optional. Create a room or court type and link it to this sport when you save.",
+    linkedRoomTypeName: "Room type name",
+    linkedRoomTypeNameHint:
+      "Enter your own name. This creates a type, not a physical room or court.",
     ordinal: "No.",
     title: "Service & Facilities",
     allWeek: "All week",

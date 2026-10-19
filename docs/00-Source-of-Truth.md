@@ -2,6 +2,8 @@
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
 
+Catalog cập nhật 19/10/2026: form tạo Sport có tùy chọn tạo Room Type, mặc định tắt. Bật thì Manager tự nhập tên Room Type, hệ thống tạo và liên kết cùng Sport trong một transaction; tắt thì giữ nguyên hành vi tạo Sport và không thay đổi Room Type. Không tự đặt tên, không tạo sân vật lý. Chi tiết trong [API contract](api-contract.md).
+
 Flow 2 cập nhật 19/10/2026: Manager tạo sân cho thuê cùng giờ hoạt động và giá trong một lần lưu; mở thuê thành công thì Member đặt được các slot trống hợp lệ. Court Rental Pricing nhận giá riêng theo sân; giá chung theo loại sân vẫn được giữ. Xem [luồng tạo sân cho thuê](Rental-Court-Setup.md).
 
 
