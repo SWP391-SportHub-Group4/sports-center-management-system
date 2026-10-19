@@ -90,7 +90,9 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
 
         if (!string.IsNullOrWhiteSpace(targetEntity))
         {
-            query = query.Where(a => a.TargetEntity == targetEntity);
+            var term = targetEntity.Trim().ToLowerInvariant();
+            var pattern = "%" + term.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            query = query.Where(a => EF.Functions.Like(a.TargetEntity.ToLower(), pattern, "\\"));
         }
 
         if (fromUtc is not null)

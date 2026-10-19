@@ -123,6 +123,52 @@ public class ManagerAuditScopeTests(SportHubApiFactory factory)
     }
 
     [Theory]
+    [InlineData(UserRole.CenterManager)]
+    [InlineData(UserRole.SystemAdministrator)]
+    public async Task Target_search_matches_partial_text_without_case_sensitivity_and_preserves_scope(UserRole role)
+    {
+        var reader = await factory.SeedUserAsync($"target-search-{Guid.NewGuid():N}@example.com", null, role: role);
+        var actor = await factory.SeedUserAsync($"target-actor-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
+        var hiddenRole = role == UserRole.CenterManager ? UserRole.SystemAdministrator : UserRole.Member;
+        var hidden = await factory.SeedUserAsync($"target-hidden-{Guid.NewGuid():N}@example.com", null, role: hiddenRole);
+        var action = $"TARGET_SEARCH_{Guid.NewGuid():N}";
+        var entities = new[] { "CourtRate", "CourtRental", "Room", "Special_Resource", "SpecialXResource",
+            "Percent%Resource", "PercentXResource", @"Path\Resource", "PathXResource" };
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            foreach (var entity in entities)
+                db.AuditLogs.Add(new AuditLog { AuditId = Guid.NewGuid(), UserId = actor.UserId,
+                    ActorRole = "CENTER_MANAGER", Action = action, TargetEntity = entity,
+                    TargetId = Guid.NewGuid().ToString(), Timestamp = DateTime.UtcNow });
+            db.AuditLogs.Add(new AuditLog { AuditId = Guid.NewGuid(), UserId = hidden.UserId,
+                ActorRole = hiddenRole == UserRole.Member ? "MEMBER" : "SYSTEM_ADMINISTRATOR",
+                Action = action, TargetEntity = "CourtRate", TargetId = Guid.NewGuid().ToString(), Timestamp = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateApiClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(reader.UserId, role));
+        async Task<PagedResult<AuditLogResponse>> Search(string term, int page = 1)
+            => (await client.GetFromJsonAsync<PagedResult<AuditLogResponse>>(
+                $"api/audit-logs?action={action}&targetEntity={Uri.EscapeDataString(term)}&pageSize=1&page={page}"))!;
+
+        var first = await Search(" cOuRt ");
+        var second = await Search(" cOuRt ", 2);
+        Assert.Equal(2, first.TotalCount);
+        Assert.Equal(2, second.TotalCount);
+        Assert.NotEqual(Assert.Single(first.Items).AuditId, Assert.Single(second.Items).AuditId);
+        Assert.All(first.Items.Concat(second.Items), row => Assert.Equal(actor.UserId, row.UserId));
+        foreach (var term in new[] { "Rental", "Special_", "Percent%", @"Path\" })
+        {
+            var result = await Search(term);
+            Assert.Equal(1, result.TotalCount);
+            Assert.Contains(term, Assert.Single(result.Items).TargetEntity);
+        }
+        Assert.Empty((await Search("not-a-target")).Items);
+        Assert.Equal(entities.Length, (await Search(" ")).TotalCount);
+    }
+
+    [Theory]
     [InlineData(UserRole.Member)]
     [InlineData(UserRole.Coach)]
     [InlineData(UserRole.Receptionist)]

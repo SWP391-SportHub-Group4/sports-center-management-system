@@ -710,7 +710,7 @@ Report presentation: `pointsRedeemed` is the number of points spent in the selec
 
 ## Manager operations read contracts
 
-- `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Visibility uses event-time actor roles: Admin reads Manager/Admin/Coach/System events, Manager reads Manager/Receptionist/Coach/Member events. Member/Coach/Receptionist cannot gain audit access through this parameter.
+- `GET /api/audit-logs` accepts optional `targetId` together with `targetEntity` (the UI's Target filter). `targetEntity` uses case-insensitive substring matching with SQL `LIKE '%term%'`; surrounding whitespace is trimmed and `%`, `_`, and `\` in user input are treated literally. For example, `court` matches `CourtRate` and `CourtRental`. `targetId` remains an exact match. Both filters apply before pagination/count. Visibility uses event-time actor roles: Admin reads Manager/Admin/Coach/System events, Manager reads Manager/Receptionist/Coach/Member events. Member/Coach/Receptionist cannot gain audit access through these parameters.
 - `GET /api/manager/sports` service rows include the actual `offeringId`. The client must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
 - This adds no migration and implements no new G03/G06/G07/G13 command. Current incident preview/action/recheck/resolve remains a sequence of separate operations; timeout resolve requires reconciliation before a fresh attempt.
 

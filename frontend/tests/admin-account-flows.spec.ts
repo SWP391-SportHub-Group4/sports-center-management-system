@@ -121,7 +121,7 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   await assertEnglishOnlyShell(page);
   await expect(
     page.getByRole("heading", { name: "Admin overview", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.screenshot({
     path: "../output/admin-overview-live.png",
     fullPage: true,
@@ -140,13 +140,19 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   });
 });
 
-test("overview uses server totals and preserves status filters and create shortcut", async ({
+test("overview uses server totals and preserves status filters without the removed header and shortcuts", async ({
   page,
 }) => {
   await setup(page);
   const paths: string[] = [];
   page.on("request", (request) => paths.push(new URL(request.url()).pathname));
   await page.goto("/admin");
+  await expect(
+    page.getByRole("heading", { name: "Admin overview", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Account administration", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Active 137", exact: true }),
   ).toBeVisible();
@@ -183,12 +189,9 @@ test("overview uses server totals and preserves status filters and create shortc
     "BANNED",
   );
   await page.goto("/admin");
-  await page
-    .getByRole("link", { name: "Create staff account", exact: true })
-    .click();
   await expect(
-    page.getByRole("dialog", { name: "Create staff account", exact: true }),
-  ).toBeVisible();
+    page.getByRole("link", { name: "Create staff account", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("overview shows API failure without inventing zero totals", async ({

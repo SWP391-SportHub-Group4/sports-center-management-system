@@ -755,7 +755,7 @@ export const en = {
       "The five latest visible Manager, Administrator, Coach or system events.",
     recentEmpty: "No activity in your audit scope yet.",
     actor: "Performed by",
-    target: "Affected record",
+    target: "Target",
     targetAccountHint:
       "Account names and emails reflect their current information.",
     targetAccountDeleted: "Account no longer exists",

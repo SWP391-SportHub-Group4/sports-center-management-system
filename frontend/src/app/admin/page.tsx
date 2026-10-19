@@ -8,6 +8,7 @@ export default function Page() {
     <AppShell
       title={t.adminWork.overviewTitle}
       description={t.adminWork.overviewHint}
+      hidePageHeader
       allow={["SystemAdministrator"]}
       operationalLayout
     >
