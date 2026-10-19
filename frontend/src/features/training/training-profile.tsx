@@ -1,11 +1,11 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Sparkles, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { AsyncSection, Feedback, Field } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAction, useApi } from "@/lib/useApi";
-import { useLanguage } from "@/lib/language";
 import type { MemberTrainingProfileDto } from "@/lib/types";
 import { BmiCard } from "./health-profile-summary";
 import {
@@ -167,8 +167,7 @@ function ProfileForm({
   profile: MemberTrainingProfileDto | null;
   onSaved: () => void;
 }) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation for this feature
   const action = useAction();
   const [form, setForm] = useState<FormState>(() => fromProfile(profile));
   const [ack, setAck] = useState(false);
@@ -625,8 +624,7 @@ function ProfileForm({
 
 /** Members describe themselves; the centre no longer schedules measurements. The profile feeds coach and AI plans. */
 export function TrainingProfile() {
-  const { language } = useLanguage();
-  const vi = language === "vi";
+  const vi = false; // English-only presentation for this feature
   const state = useApi(
     async (signal) => ({
       profile: await api.get<MemberTrainingProfileDto | null>(
@@ -658,6 +656,20 @@ export function TrainingProfile() {
                     ? "Bạn chưa có hồ sơ. Mất khoảng 2 phút để hoàn thành."
                     : "You have no profile yet. It takes about 2 minutes."}
               </p>
+            )}
+            {profile?.isComplete && (
+              <section className={styles.card} aria-label="AI Workout Suggestions" style={{ marginBottom: 20 }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Sparkles size={18} aria-hidden="true" /> AI Workout Suggestions
+                </h3>
+                <p className={styles.note}>
+                  Generate personalized workouts using your saved fitness profile and recent activity.
+                  Save any profile changes below before requesting suggestions.
+                </p>
+                <Link href="/member/workout-suggestions" className="btn btn--secondary">
+                  Get AI Workout Suggestions <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </section>
             )}
             <ProfileForm profile={profile} onSaved={() => state.reload()} />
           </>

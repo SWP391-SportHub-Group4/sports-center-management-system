@@ -46,7 +46,7 @@ function ChatFormattedText({ text }: { text: string }) {
  * Câu trả lời là văn bản thuần (không render HTML). Có thể dừng khi đang chờ, thử lại khi lỗi, và mở cuộc trò chuyện mới.
  */
 export function AssistantDrawer({ onClose }: { onClose: () => void }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const l = t.assistant;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
@@ -197,7 +197,7 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
       <p className={styles.intro}>{l.intro}</p>
       {pathname === "/member/schedule" && (
         <p className={styles.intro}>
-          {language === "vi"
+          {false
             ? "Bạn vẫn có thể thao tác trên lịch khi trò chuyện ở màn hình lớn."
             : "You can keep using your calendar while chatting on a large screen."}
         </p>
@@ -252,15 +252,15 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
         <section
           className={styles.scheduleLinks}
           aria-label={
-            language === "vi" ? "Lịch từ hệ thống" : "Schedule from SportHub"
+            false ? "Lịch từ hệ thống" : "Schedule from SportHub"
           }
         >
           <h3>
-            {language === "vi" ? "Lịch từ hệ thống" : "Schedule from SportHub"}{" "}
+            {false ? "Lịch từ hệ thống" : "Schedule from SportHub"}{" "}
             · {formatDate(date)}
           </h3>
           <p className={styles.intro}>
-            {language === "vi"
+            {false
               ? "Các buổi được tải trực tiếp từ lịch của bạn, độc lập với câu trả lời AI."
               : "Sessions loaded directly from your calendar, independently of the AI answer."}
           </p>
@@ -322,7 +322,7 @@ export function AssistantButton() {
     <>
       <div className={styles.launcher}>
         <Link href="/member/workout-suggestions" className={styles.workoutShortcut}>
-          {t.assistant.open === "Open AI assistant" ? "Workout suggestions" : "Gợi ý bài tập"}
+          AI Workout Suggestions
         </Link>
         <button
           type="button"
