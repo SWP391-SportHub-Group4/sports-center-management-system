@@ -4,7 +4,7 @@ import { pagedItems } from "@/lib/paged";
 
 import { useEffect, useState } from "react";
 
-import { api } from "@/lib/apiClient";
+import { api, downloadFile } from "@/lib/apiClient";
 
 import { useApi } from "@/lib/useApi";
 
@@ -18,305 +18,90 @@ import { Card, StatusChip } from "@/components/ui";
 
 import { InvoiceDetail } from "./invoice-detail";
 
-function escapeHtml(value: unknown) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function csvValue(value: unknown) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
-}
-
+// Keep print/download on the same authoritative server-rendered PDF path used by email receipts.
 async function printInvoice(invoiceId: string) {
-  const printWindow = window.open("", "_blank", "width=900,height=700");
+  await downloadFile(`/api/invoices/${invoiceId}/receipt.pdf`, `SportHub-${invoiceId}.pdf`);
+}
 
-  if (!printWindow) {
-    throw new Error("The browser blocked the print window.");
+const localDate = (value: string | null | undefined) => value
+  ? new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+      timeZone: "Asia/Ho_Chi_Minh",
+    }).format(new Date(value))
+  : "";
+
+const statusLabel = (status: string) => {
+  switch (status.toUpperCase()) {
+    case "PAID": case "PAID_AFTER_RECONCILIATION": return "Paid";
+    case "ISSUED": return "Awaiting payment";
+    case "VOID": return "Void";
+    default: return status.replaceAll("_", " ");
   }
+};
 
-  printWindow.opener = null;
-
-  try {
-    const invoice = await api.get<InvoiceDetailDto>(
-      `/api/invoices/${invoiceId}`,
-    );
-
-    const rows = invoice.items
-      .map(
-        (item) => `
-            <tr>
-              <td>${escapeHtml(item.description)}</td>
-
-              <td style="text-align:right">
-                ${escapeHtml(item.quantity)}
-              </td>
-
-              <td style="text-align:right">
-                ${escapeHtml(formatMoney(item.unitPrice))}
-              </td>
-
-              <td style="text-align:right">
-                ${escapeHtml(formatMoney(item.lineAmount))}
-              </td>
-            </tr>
-          `,
-      )
-      .join("");
-
-    printWindow.document.write(`
-      <!doctype html>
-
-      <html>
-        <head>
-          <meta charset="utf-8" />
-
-          <title>
-            ${escapeHtml(invoice.summary.invoiceNumber)}
-          </title>
-
-          <style>
-            body {
-              font-family:
-                Arial,
-                sans-serif;
-              color: #111;
-              padding: 32px;
-            }
-
-            h1 {
-              margin-bottom: 4px;
-            }
-
-            .meta {
-              margin-bottom: 24px;
-              line-height: 1.6;
-            }
-
-            table {
-              width: 100%;
-              border-collapse:
-                collapse;
-              margin-top: 24px;
-            }
-
-            th,
-            td {
-              padding: 10px;
-              border-bottom:
-                1px solid #ddd;
-              text-align: left;
-            }
-
-            .summary {
-              margin-top: 24px;
-              margin-left: auto;
-              width: 320px;
-            }
-
-            .summary div {
-              display: flex;
-              justify-content:
-                space-between;
-              padding: 6px 0;
-            }
-
-            .total {
-              font-weight: bold;
-              font-size: 18px;
-              border-top:
-                1px solid #111;
-              margin-top: 8px;
-              padding-top: 12px;
-            }
-
-            .actions {
-              margin-bottom: 20px;
-            }
-
-            @media print {
-              .actions {
-                display: none;
-              }
-            }
-          </style>
-        </head>
-
-        <body>
-          <div class="actions">
-            <button
-              onclick="window.print()"
-            >
-              Print / Save as PDF
-            </button>
-          </div>
-
-          <h1>
-            SPORT<span
-              style="color:#087f8c"
-            >HUB</span>
-          </h1>
-
-          <h2>
-            Invoice
-            ${escapeHtml(invoice.summary.invoiceNumber)}
-          </h2>
-
-          <div class="meta">
-            <div>
-              Member:
-              <strong>
-                ${escapeHtml(invoice.summary.memberName)}
-              </strong>
-            </div>
-
-            <div>
-              Email:
-              ${escapeHtml(invoice.summary.memberEmail)}
-            </div>
-
-            <div>
-              Status:
-              ${escapeHtml(invoice.summary.status)}
-            </div>
-
-            <div>
-              Issued:
-              ${escapeHtml(invoice.summary.issuedAt)}
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  Description
-                </th>
-
-                <th
-                  style="text-align:right"
-                >
-                  Qty
-                </th>
-
-                <th
-                  style="text-align:right"
-                >
-                  Unit price
-                </th>
-
-                <th
-                  style="text-align:right"
-                >
-                  Amount
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-
-          <div class="summary">
-            <div>
-              <span>Total</span>
-
-              <strong>
-                ${escapeHtml(formatMoney(invoice.summary.totalAmount))}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Points spent
-              </span>
-
-              <span>
-                ${escapeHtml(invoice.summary.pointsSpent)}
-              </span>
-            </div>
-
-            <div>
-              <span>
-                Cash
-              </span>
-
-              <span>
-                ${escapeHtml(formatMoney(invoice.summary.cashAmount))}
-              </span>
-            </div>
-
-            <div class="total">
-              <span>Status</span>
-
-              <span>
-                ${escapeHtml(invoice.summary.status)}
-              </span>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-
-    printWindow.focus();
-  } catch (error) {
-    printWindow.close();
-
-    throw error;
+const methodLabel = (method: string) => {
+  switch (method.toLowerCase()) {
+    case "vnpay": return "VNPay";
+    case "cash": return "Cash";
+    case "transfer": return "Bank transfer";
+    case "ewallet": return "E-wallet";
+    case "card": return "Card";
+    default: return method;
   }
+};
+
+// Semicolon delimiter and BOM improve direct Excel opening on Vietnamese locale.
+// Protect text cells from CSV formula injection; leave numeric cells unquoted numerics.
+function csvValue(value: string | number | null | undefined) {
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  const raw = String(value ?? "");
+  const safe = /^[\s\t\r\n]*[=+@\-]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replaceAll('"', '""')}"`;
 }
 
 async function exportInvoiceCsv(invoiceId: string) {
   const invoice = await api.get<InvoiceDetailDto>(`/api/invoices/${invoiceId}`);
-
-  const rows = [
-    ["Invoice number", invoice.summary.invoiceNumber],
-    ["Member", invoice.summary.memberName],
-    ["Email", invoice.summary.memberEmail],
-    ["Status", invoice.summary.status],
-    ["Issued at", invoice.summary.issuedAt],
-    [],
-    ["Description", "Quantity", "Unit price", "Line amount"],
-    ...invoice.items.map((item) => [
-      item.description,
-      item.quantity,
-      item.unitPrice,
-      item.lineAmount,
-    ]),
-    [],
-    ["Total", invoice.summary.totalAmount],
-    ["Points spent", invoice.summary.pointsSpent],
-    ["Cash amount", invoice.summary.cashAmount],
-  ];
-
-  const csv =
-    "\uFEFF" + rows.map((row) => row.map(csvValue).join(",")).join("\r\n");
-
-  const blob = new Blob([csv], {
-    type: "text/csv;charset=utf-8",
-  });
-
-  const url = URL.createObjectURL(blob);
-
+  const summary = invoice.summary;
+  const payments = invoice.payments.filter((p) => p.status.toLowerCase() === "success");
+  const paidAt = payments.length ? localDate(payments[payments.length - 1].paidAt) : "";
+  const methods = [...new Set(payments.map((p) => methodLabel(p.method)))].join(", ");
+  const references = [...new Set(payments.map((p) => p.referenceCode).filter((r): r is string => !!r))].join(", ");
+  const paid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(summary.status.toUpperCase());
+  const voided = summary.status.toUpperCase() === "VOID";
+  type CsvCell = string | number;
+  const rows: CsvCell[][] = [[
+    "Invoice number", "Issued at (GMT+7)", "Paid at (GMT+7)", "Member", "Email",
+    "Status", "Service", "Quantity", "Unit price (VND)", "Line amount (VND)",
+    "Points used", "Cash amount (VND)", "Payment method", "Transaction reference",
+    "Outstanding (VND)", "Invoice total (VND)",
+  ]];
+  // Invoice-level amounts are populated only on the first service row.
+  // This prevents SUM() from double-counting the same invoice across multiple items.
+  invoice.items.forEach((item, i) => rows.push([
+    summary.invoiceNumber, localDate(summary.issuedAt), paidAt,
+    summary.memberName, summary.memberEmail, statusLabel(summary.status),
+    item.description, item.quantity, item.unitPrice, item.lineAmount,
+    i === 0 && !voided ? summary.pointsSpent : "",
+    i === 0 && !voided ? summary.cashAmount : "",
+    paid ? methods : "", paid ? references : "",
+    i === 0 && !voided ? summary.outstanding : "",
+    i === 0 ? summary.totalAmount : "",
+  ]));
+  if (!invoice.items.length) {
+    rows.push([summary.invoiceNumber, localDate(summary.issuedAt), paidAt,
+      summary.memberName, summary.memberEmail, statusLabel(summary.status),
+      "", "", "", "", "", "", "", "", "", summary.totalAmount]);
+  }
+  const csv = "\uFEFFsep=;\r\n" + rows.map((row) => row.map(csvValue).join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const anchor = document.createElement("a");
-
   anchor.href = url;
-
-  anchor.download = `${invoice.summary.invoiceNumber}.csv`;
-
+  anchor.download = `${summary.invoiceNumber}.csv`;
   document.body.appendChild(anchor);
-
   anchor.click();
-
   anchor.remove();
-
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function InvoiceList({
