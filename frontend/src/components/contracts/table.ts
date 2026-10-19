@@ -45,6 +45,8 @@ export interface TableProps<Row> {
   pagination?: TablePagination;
   /** Hành động cuối dòng; tối đa 2 nút + menu "Khác" khi nhiều hơn. */
   rowActions?: (row: Row) => ReactNode;
+  /** Number of row actions shown before the More menu; defaults to 2. */
+  visibleRowActions?: number;
   /** Bấm cả dòng mở chi tiết (Drawer/trang). Phải có cách tương đương bằng bàn phím. */
   onRowOpen?: (row: Row) => void;
   /** Trạng thái dữ liệu — dùng StateView, không để trang tự vẽ. */

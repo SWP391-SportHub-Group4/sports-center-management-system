@@ -201,3 +201,88 @@
   justify-content: flex-end;
   width: 100%;
 }
+
+.catalogLayout,
+.catalogTable {
+  min-width: 0;
+}
+.catalogToolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.catalogFilters {
+  flex: 1;
+  min-width: 0;
+}
+.catalogFilters > :global([role="group"]) {
+  margin: 0;
+}
+.catalogActions {
+  flex-shrink: 0;
+}
+.catalogActions :global(.btn) {
+  margin: 0;
+}
+.catalogHint {
+  margin: 0 0 var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  max-width: 90ch;
+}
+.catalogTable :global([data-management-table] th),
+.catalogTable :global([data-management-table] td) {
+  vertical-align: middle;
+}
+.catalogTable :global([data-management-table] td:last-child .btn) {
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+@media (min-width: 768px) {
+  .catalogTable :global([data-management-table] tr > :first-child) {
+    min-width: 160px;
+  }
+  .catalogTable :global([data-management-table] tr > :nth-last-child(2)) {
+    text-align: center;
+    white-space: nowrap;
+    width: 1%;
+    padding-inline: var(--space-5);
+  }
+  .catalogTable :global([data-management-table] tr > :last-child) {
+    width: 1%;
+    text-align: right;
+  }
+  .catalogTable :global([data-management-table] tbody td:last-child > div) {
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .catalogTable :global([data-management-table] table[data-columns="7"]) {
+    min-width: 1120px;
+  }
+  .catalogTable
+    :global([data-management-table] table[data-columns="6"] tr > :first-child) {
+    min-width: 64px;
+    text-align: center;
+  }
+}
+@media (max-width: 767px) {
+  .catalogToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  .catalogActions {
+    align-self: flex-end;
+  }
+  .catalogTable :global([data-management-table] td:last-child .btn) {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+}

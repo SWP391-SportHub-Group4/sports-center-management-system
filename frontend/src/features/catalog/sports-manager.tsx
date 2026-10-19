@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import { AsyncSection, Field, StatusChip } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import type { SportDto, SportServiceType } from "@/lib/types";
 import { catalogApi, type SaveSport } from "./api";
 import {
+  CatalogPanel,
   ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
@@ -96,9 +97,8 @@ export function SportsManager() {
   };
   return (
     <>
-      <Card
-        title={l.sports}
-        hint={c.sportsHint}
+      <CatalogPanel
+        filters={<CatalogFilters filters={filters} />}
         actions={
           <button
             className="btn"
@@ -109,7 +109,6 @@ export function SportsManager() {
           </button>
         }
       >
-        <CatalogFilters filters={filters} />
         <CatalogTable
           state={state}
           filters={filters}
@@ -195,7 +194,7 @@ export function SportsManager() {
           )}
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
-      </Card>
+      </CatalogPanel>
       {editor && (
         <CatalogFormDialog
           title={editor.id === null ? c.createSport : c.editSport}

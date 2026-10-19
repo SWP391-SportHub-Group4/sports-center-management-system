@@ -35,6 +35,7 @@ export function Table<Row>({
   onSortChange,
   pagination,
   rowActions,
+  visibleRowActions = 2,
   onRowOpen,
   status = "ready",
   empty,
@@ -68,11 +69,11 @@ export function Table<Row>({
     const all = open ? [open, ...nodes] : nodes;
     return (
       <div className={styles.actions}>
-        {all.slice(0, 2)}
-        {all.length > 2 && (
+        {all.slice(0, visibleRowActions)}
+        {all.length > visibleRowActions && (
           <details className={styles.more}>
             <summary>{labels.more}</summary>
-            <div className={styles.moreItems}>{all.slice(2)}</div>
+            <div className={styles.moreItems}>{all.slice(visibleRowActions)}</div>
           </details>
         )}
       </div>
