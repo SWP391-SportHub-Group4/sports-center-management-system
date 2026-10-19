@@ -13,13 +13,21 @@ namespace SportHub.Scheduling.Rental.Api;
 public sealed class CourtRentalsController(CourtRentalOperationsService operations,
     CourtRentalService rentals, AvailabilityService availability) : ControllerBase
 {
-    [Authorize(Policy = SportHubPolicies.CourtRental), HttpGet("api/court-rentals/policy")]
+    [Authorize(Roles = SportHubRoleNames.Member + "," + SportHubRoleNames.Receptionist + "," + SportHubRoleNames.CenterManager), HttpGet("api/court-rentals/policy")]
     public async Task<IActionResult> Policy(CancellationToken ct) => Ok(await operations.PolicyAsync(ct));
 
-    [Authorize(Policy = SportHubPolicies.CourtRental), HttpGet("api/court-rentals/calendar")]
-    public async Task<IActionResult> Calendar([FromQuery] int sportId, [FromQuery] DateOnly date,
+    [Authorize(Roles = SportHubRoleNames.Member + "," + SportHubRoleNames.Receptionist + "," + SportHubRoleNames.CenterManager), HttpGet("api/court-rentals/calendar")]
+    public async Task<IActionResult> Calendar([FromQuery] int sportId, [FromQuery] DateOnly date, [FromQuery] Guid? targetMemberId,
         [FromQuery] int hours = 1, CancellationToken ct = default)
-        => Ok(await rentals.CalendarAsync(User.RequireUserId(), sportId, date, hours, ct));
+    {
+        var actorId = User.RequireUserId();
+        var staff = User.IsInRole(SportHubRoleNames.Receptionist) || User.IsInRole(SportHubRoleNames.CenterManager);
+        var memberId = staff ? targetMemberId ?? throw new BadRequestException(
+            "target_member_required", "Target member required.") : actorId;
+        if (!staff && targetMemberId is Guid target && target != actorId)
+            throw new ForbiddenException("target_member_forbidden", "Target member forbidden.");
+        return Ok(await rentals.CalendarAsync(memberId, sportId, date, hours, ct));
+    }
 
     [Authorize(Policy = SportHubPolicies.CourtRental), HttpGet("api/court-rentals/{rentalId:guid}")]
     public async Task<IActionResult> Detail(Guid rentalId, CancellationToken ct)

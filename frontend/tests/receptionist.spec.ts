@@ -248,6 +248,101 @@ test("receptionist dashboard uses real operational links and no manual-paid work
   await expect(page.getByText(/cash payout/i)).toHaveCount(0);
 });
 
+test("receptionist can start a court rental for the selected member from Sell a service", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      "sporthub.desk.member",
+      JSON.stringify({
+        userId: "22222222-2222-4222-8222-222222222222",
+        fullName: "Member A",
+        email: "member@example.com",
+        phone: "0900000000",
+        role: "MEMBER",
+        status: "ACTIVE",
+      }),
+    );
+  });
+  await page.route("**/api/sports*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          sportId: 3,
+          name: "Badminton",
+          code: "badminton",
+          isActive: true,
+          services: [{ serviceType: "COURT_RENTAL", isEnabled: true }],
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/court-rentals/policy", (route) =>
+    route.fulfill({
+      json: {
+        slotMinutes: 60,
+        maxHours: 4,
+        advanceDays: 30,
+        cancelFreeHours: 24,
+        serverNowUtc: "2030-10-03T03:00:00Z",
+      },
+    }),
+  );
+  let calendarMember: string | null = null;
+  await page.route("**/api/court-rentals/calendar?*", (route) => {
+    calendarMember = new URL(route.request().url()).searchParams.get(
+      "targetMemberId",
+    );
+    return route.fulfill({
+      json: {
+        sportId: 3,
+        date: "2030-10-03",
+        serverNowUtc: "2030-10-03T03:00:00Z",
+        rooms: [
+          {
+            roomId: 8,
+            name: "Court 8",
+            slots: [
+              {
+                startUtc: "2030-10-03T04:00:00Z",
+                endUtc: "2030-10-03T05:00:00Z",
+                status: "AVAILABLE",
+                totalPrice: 100000,
+                blocks: [],
+              },
+            ],
+          },
+        ],
+      },
+    });
+  });
+  let checkoutBody: Record<string, unknown> | null = null;
+  await page.route("**/api/checkouts/court-rental", (route) => {
+    checkoutBody = route.request().postDataJSON();
+    return route.fulfill({ status: 400, json: { code: "test_stop" } });
+  });
+
+  await page.goto("/receptionist");
+  await expect(
+    page.getByRole("link", { name: "Sell a service" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /Buy Day Pass/ })).toHaveCount(0);
+
+  await page.goto("/receptionist/sales?tab=courts");
+  await expect(page.getByText("Selling for Member A")).toHaveCount(0);
+  await page.getByRole("button", { name: "Badminton" }).click();
+  await expect.poll(() => calendarMember).toBe(memberId);
+  await page.getByRole("button", { name: /11:00.*12:00/ }).click();
+  await page.getByRole("button", { name: "Payment", exact: true }).click();
+  await expect
+    .poll(() => checkoutBody)
+    .toMatchObject({
+      sportId: 3,
+      roomId: 8,
+      targetMemberId: memberId,
+    });
+});
+
 test("receptionist selects a Member and performs server-authorized Gym check-in", async ({
   page,
 }) => {
@@ -322,7 +417,7 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
     });
 });
 
-test("attendance can move to the next day when the selected day has no sessions", async ({
+test("attendance finds the next class day when the selected day has no sessions", async ({
   page,
 }) => {
   await page.route("**/api/manager/court-schedule?*", (route) =>
@@ -346,10 +441,67 @@ test("attendance can move to the next day when the selected day has no sessions"
   await expect(
     page.getByText("No class sessions are scheduled for 03/10/2030."),
   ).toBeVisible();
-  await expect(page.getByText("Nearby class days:")).toHaveCount(0);
-  await page.getByRole("button", { name: "Next day" }).click();
+  await page
+    .getByRole("button", { name: "Next class day: 04/10/2030 (1 session)" })
+    .click();
   await page.getByLabel("Class session").selectOption(sessionId);
   await expect(page.getByText("Member A")).toBeVisible();
+
+  const previousDay = await page
+    .getByRole("button", { name: "Previous day" })
+    .boundingBox();
+  const calendar = await page.getByLabel("Choose date").boundingBox();
+  expect(previousDay).not.toBeNull();
+  expect(calendar).not.toBeNull();
+  expect(Math.abs(previousDay!.y - calendar!.y)).toBeLessThan(2);
+
+  const summary = page.getByRole("region", { name: "Session summary" });
+  const status = await summary
+    .getByText("Status", { exact: true })
+    .locator("..")
+    .boundingBox();
+  const window = await summary
+    .getByText("Attendance window", { exact: true })
+    .locator("..")
+    .boundingBox();
+  expect(status).not.toBeNull();
+  expect(window).not.toBeNull();
+  expect(status!.width).toBeLessThan(window!.width);
+});
+
+test("attendance finds sessions beyond the first 30-day schedule window", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/court-schedule?*", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const includesNovember30 =
+      params.get("fromDate")! <= "2030-11-30" &&
+      params.get("toDate")! >= "2030-11-30";
+    return route.fulfill({
+      json: includesNovember30
+        ? [
+            {
+              sourceType: "CLASS_SESSION",
+              sourceId: sessionId,
+              classId: 7,
+              title: "Badminton group",
+              roomId: 3,
+              status: "SCHEDULED",
+              startAtUtc: "2030-11-30T00:00:00Z",
+              endAtUtc: "2030-11-30T02:00:00Z",
+            },
+          ]
+        : [],
+    });
+  });
+
+  await page.goto("/receptionist/attendance?date=2030-10-19");
+  await page
+    .getByRole("button", { name: "Next class day: 30/11/2030 (1 session)" })
+    .click();
+  await expect(page.getByLabel("Class session")).toContainText(
+    "Badminton group",
+  );
 });
 
 test("the selected Member follows the desk from check-in to sales and profile", async ({
@@ -406,7 +558,8 @@ test("the selected Member follows the desk from check-in to sales and profile", 
     })
     .click();
 
-  await expect(page.getByText("Selling for Member A")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Gym membership" })).toBeVisible();
+  await expect(page.getByText("Selling for Member A")).toHaveCount(0);
 
   await page
     .getByRole("link", {

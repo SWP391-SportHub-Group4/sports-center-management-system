@@ -6,20 +6,26 @@ import { MemberPicker } from "@/components/MemberPicker";
 import { Tabs } from "@/components/primitives";
 import { useDeskMember } from "./desk-context";
 import { CoursePurchase, PlanSales } from "./front-desk";
+import { CourtBookingCalendar } from "@/features/rentals";
 import { RegistrationHint } from "./dashboard";
 import styles from "./desk.module.css";
 
-/** Bán dịch vụ (H05/H06): giữ hội viên đang chọn; Membership, vé ngày và khóa học dùng checkout dùng chung (OTP khi dùng điểm). */
+/** Bán dịch vụ cho hội viên đang chọn tại quầy. */
 export function SalesDesk() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.frontDesk;
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const { member, setMember } = useDeskMember();
-  const tab = params.get("tab") === "courses" ? "courses" : "membership";
+  const requestedTab = params.get("tab");
+  const tab =
+    requestedTab === "courses" || requestedTab === "courts"
+      ? requestedTab
+      : "membership";
   const planParam = Number(params.get("plan"));
-  const initialPlan = Number.isInteger(planParam) && planParam > 0 ? planParam : null;
+  const initialPlan =
+    Number.isInteger(planParam) && planParam > 0 ? planParam : null;
 
   return (
     <div className={styles.work}>
@@ -30,20 +36,27 @@ export function SalesDesk() {
       />
       {member ? (
         <>
-          <p className={styles.hint}>
-            {l.salesFor.replace("{name}", member.fullName || member.email)}
-          </p>
           <Tabs
             tabs={[
               { id: "membership", label: l.membership },
               { id: "courses", label: l.tabCourses },
+              {
+                id: "courts",
+                label: language === "vi" ? "Thuê sân" : "Court rental",
+              },
             ]}
             value={tab}
             ariaLabel={l.salesTabsLabel}
             onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
           >
             <div className={styles.tabsBody}>
-              {tab === "courses" ? (
+              {tab === "courts" ? (
+                <CourtBookingCalendar
+                  key={member.userId}
+                  memberId={member.userId}
+                  memberName={member.fullName || member.email}
+                />
+              ) : tab === "courses" ? (
                 <CoursePurchase key={member.userId} memberId={member.userId} />
               ) : (
                 <PlanSales

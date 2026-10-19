@@ -21,11 +21,14 @@ export function RentalCancelConfirm({
   const { t } = useLanguage();
   const m = t.mSchedule;
   const mutation = useMutation();
-  const policy = useApi((signal) => rentalApi.policy(signal), []);
+  const policy = useApi(async (signal) => {
+    const value = await rentalApi.policy(signal);
+    return { ...value, receivedAtMs: Date.now() };
+  }, []);
   const hours = policy.data?.cancelFreeHours ?? 24;
-  const clock = useNow();
+  const clock = useNow(1_000);
   const now = policy.data
-    ? new Date(policy.data.serverNowUtc).getTime()
+    ? clock + Date.parse(policy.data.serverNowUtc) - policy.data.receivedAtMs
     : clock;
   const free = new Date(rental.startAtUtc).getTime() - now >= hours * 3_600_000;
   return (

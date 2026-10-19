@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.Scheduling.Rental.Domain;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
@@ -341,6 +342,7 @@ public sealed class ClassEnrollmentFulfillment(
     private async Task<(ClassQuote Quote, Class Class)> EnsureBookableAsync(int classId, Guid memberId, CancellationToken ct,
         int? excludedSourceClassId = null)
     {
+        await MemberScheduleLock.AcquireAsync(db, memberId, ct);
         var row = await db.Set<Class>().AsNoTracking()
                       .Where(c => c.ClassId == classId)
                       .Select(c => new { Class = c, SportName = c.Sport!.Name })
@@ -426,6 +428,20 @@ public sealed class ClassEnrollmentFulfillment(
             {
                 throw new ConflictException("member_schedule_conflict", "Member schedule conflict.");
             }
+        }
+
+        // Trùng lượt thuê sân đã xác nhận hoặc đang giữ chờ thanh toán của chính Member.
+        var classFrom = sessions.Min(s => s.StartAtUtc);
+        var classTo = sessions.Max(s => s.EndAtUtc);
+        var rentals = await db.Set<CourtRental>().AsNoTracking()
+            .Where(r => r.MemberId == memberId
+                && (r.Status == CourtRentalStatus.Confirmed || r.Status == CourtRentalStatus.PendingPayment)
+                && r.StartAtUtc < classTo && r.EndAtUtc > classFrom)
+            .Select(r => new { r.StartAtUtc, r.EndAtUtc })
+            .ToListAsync(ct);
+        if (rentals.Any(r => sessions.Any(s => s.StartAtUtc < r.EndAtUtc && s.EndAtUtc > r.StartAtUtc)))
+        {
+            throw new ConflictException("member_schedule_conflict", "Member schedule conflict.");
         }
 
         var quote = new ClassQuote(

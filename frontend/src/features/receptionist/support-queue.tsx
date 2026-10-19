@@ -1,404 +1,392 @@
-"use client";
-
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import {
-  ChevronDown,
-  MessageSquare,
-  Plus,
-  RefreshCw,
-  Search,
-  UserRound,
-} from "lucide-react";
-import { api } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
-import { formatDateTime } from "@/lib/format";
-import type { MemberSupportRequestDto, Paged } from "@/lib/types";
-import styles from "./support-queue.module.css";
-import {
-  SupportRequestActions,
-  type SupportAssignee,
-  type SupportFeedback,
-} from "./support-request-actions";
-
-const emptyFilters = { status: "", search: "", assignedToUserId: "" };
-const categories: Record<string, string> = {
-  GENERAL: "General",
-  MEMBERSHIP: "Membership",
-  CLASS: "Class",
-  PAYMENT: "Payment",
-  OTHER: "Other",
-};
-
-export function SupportQueue({
-  workspace = "receptionist",
-}: {
-  workspace?: "manager" | "receptionist";
-}) {
-  const assignees = useApi(
-    (signal) =>
-      api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
-        signal,
-      }),
-    [],
-  );
-  const [filters, setFilters] = useState(emptyFilters);
-  const [applied, setApplied] = useState(emptyFilters);
-  const [page, setPage] = useState(1);
-  const [notice, setNotice] = useState("");
-  const [expanded, setExpanded] = useState<string | null | undefined>();
-  const [feedback, setFeedback] = useState<
-    Record<string, SupportFeedback | null>
-  >({});
-  const queue = useApi(
-    (signal) =>
-      api.get<Paged<MemberSupportRequestDto>>(
-        "/api/member-support-requests/queue",
-        {
-          signal,
-          query: { ...applied, page, pageSize: 20 },
-        },
-      ),
-    [applied, page],
-  );
-  // Retain editors during refresh so an unsent note is not discarded.
-  const [lastResult, setLastResult] =
-    useState<Paged<MemberSupportRequestDto> | null>(null);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (queue.data) setLastResult(queue.data);
-  }, [queue.data]);
-  const result = queue.data ?? lastResult;
-  const selected =
-    expanded === undefined ? result?.items[0]?.requestId : expanded;
-  const filtered = !!(
-    applied.search ||
-    applied.status ||
-    applied.assignedToUserId
-  );
-  function apply(next: typeof filters) {
-    setFilters(next);
-    setApplied({ ...next, search: next.search.trim() });
-    setPage(1);
-    setExpanded(undefined);
-    setNotice("");
+.panel.panel {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-5);
+}
+.intro {
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 60ch;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.toolbar :global(.btn) {
+  gap: var(--space-2);
+  min-height: 44px;
+}
+.panel .filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.filters label {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.filters input,
+.filters select {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+}
+.searchInput {
+  display: block;
+  position: relative;
+}
+.searchInput svg {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.searchInput input {
+  padding-inline-start: var(--space-7);
+}
+.filterActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.filterActions :global(.btn) {
+  min-height: 44px;
+}
+.inbox {
+  min-width: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: clip;
+}
+.listHeader,
+.pagination {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.listHeader > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.listHeader h2 {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+.count {
+  background: var(--bg-surface-sunken);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.listHint,
+.pagination > span,
+.footnote {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.request {
+  border-top: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.requestHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5);
+}
+.requestIdentity {
+  min-width: 0;
+}
+.requestIdentity h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+.memberLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+}
+.memberLine a {
+  color: var(--color-primary);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.category {
+  color: var(--text-muted);
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+  line-height: 1.5;
+  background: var(--bg-surface-sunken);
+  color: var(--text-body);
+}
+.status[data-status="OPEN"] {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.status[data-status="ASSIGNED"] {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+.status[data-status="IN_PROGRESS"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+}
+.status[data-status="CLOSED"] {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.requestMeta {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.owner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+.owner svg {
+  flex: none;
+}
+.expandButton {
+  min-height: 44px;
+  gap: var(--space-2);
+}
+.expandButton svg {
+  transition: transform 160ms ease-out;
+}
+.expandButton[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.preview {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-4);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.panel .requestBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--border-subtle);
+  padding: 0;
+  margin: 0 var(--space-5) var(--space-5);
+  min-width: 0;
+}
+.requestContent,
+.handling {
+  min-width: 0;
+  padding-top: var(--space-5);
+}
+.requestContent {
+  padding-inline-end: var(--space-6);
+}
+.handling {
+  padding-inline-start: var(--space-6);
+  border-inline-start: 1px solid var(--border-subtle);
+}
+.requestBody h4 {
+  margin: 0 0 var(--space-4);
+  color: var(--text-strong);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 65ch;
+}
+.timeline {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-6) 0;
+  font-size: var(--text-sm);
+}
+.timeline > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.timeline dt {
+  color: var(--text-muted);
+}
+.timeline dd {
+  margin: 0;
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+.pagination {
+  border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-7) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+.empty svg {
+  color: var(--text-muted);
+}
+.empty h3,
+.empty p {
+  margin: 0;
+}
+.empty p {
+  color: var(--text-muted);
+  max-width: 60ch;
+}
+.loading {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+}
+.footnote {
+  margin: 0;
+  max-width: 90ch;
+}
+@media (max-width: 1100px) {
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-3);
   }
-  return (
-    <section className={styles.panel} aria-label="Support requests">
-      <div className={styles.header}>
-        <p className={styles.intro}>
-          Assign the right person, follow up on progress, and resolve member
-          requests.
-        </p>
-        <div className={styles.toolbar}>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            disabled={queue.loading}
-            onClick={() => {
-              queue.reload();
-              assignees.reload();
-            }}
-          >
-            <RefreshCw size={16} aria-hidden="true" />
-            Refresh
-          </button>
-          <Link className="btn" href={`/${workspace}/members`}>
-            <Plus size={18} aria-hidden="true" />
-            Record a request
-          </Link>
-        </div>
-      </div>
-      <form
-        className={styles.filters}
-        onSubmit={(e) => {
-          e.preventDefault();
-          apply(filters);
-        }}
-      >
-        <label className={styles.searchField}>
-          Search
-          <span className={styles.searchInput}>
-            <Search size={18} aria-hidden="true" />
-            <input
-              type="search"
-              value={filters.search}
-              maxLength={200}
-              placeholder="Subject, member name or email"
-              onChange={(e) =>
-                setFilters({ ...filters, search: e.target.value })
-              }
-            />
-          </span>
-        </label>
-        <label>
-          Status
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            <option value="OPEN">Open</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN_PROGRESS">In progress</option>
-            <option value="CLOSED">Closed</option>
-          </select>
-        </label>
-        <label>
-          Assigned staff
-          <select
-            value={filters.assignedToUserId}
-            onChange={(e) =>
-              setFilters({ ...filters, assignedToUserId: e.target.value })
-            }
-          >
-            <option value="">All staff</option>
-            {assignees.data?.map((x) => (
-              <option key={x.userId} value={x.userId}>
-                {x.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={styles.filterActions}>
-          <button type="submit" className="btn btn--secondary">
-            Apply filters
-          </button>
-          {(filtered ||
-            filters.search ||
-            filters.status ||
-            filters.assignedToUserId) && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => apply(emptyFilters)}
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-      </form>
-      {notice && (
-        <p className="alert alert--success" role="status">
-          {notice}
-        </p>
-      )}
-      {assignees.error && (
-        <div className="alert alert--error" role="alert">
-          Could not load staff.
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={assignees.reload}
-          >
-            Retry staff
-          </button>
-        </div>
-      )}
-      <div className={styles.inbox}>
-        <header className={styles.listHeader}>
-          <div>
-            <h2>Request queue</h2>
-            {result && (
-              <span className={styles.count}>{result.totalCount}</span>
-            )}
-          </div>
-          <span className={styles.listHint}>
-            {filtered ? "Filtered results" : "All member requests"}
-          </span>
-        </header>
-        {queue.loading && (
-          <p className={styles.loading} role="status">
-            Loading requests…
-          </p>
-        )}
-        {queue.error && (
-          <div className={styles.empty} role="alert">
-            <MessageSquare size={28} aria-hidden="true" />
-            <h3>Requests could not be loaded</h3>
-            <p>{queue.error.message}</p>
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={queue.reload}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-        {!queue.loading && !queue.error && result?.items.length === 0 && (
-          <div className={styles.empty}>
-            <MessageSquare size={28} aria-hidden="true" />
-            <h3>No requests match these filters</h3>
-            <p>
-              Change the filters or open a member’s profile to record a request.
-            </p>
-            {filtered && (
-              <button
-                className="btn btn--secondary"
-                onClick={() => apply(emptyFilters)}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        )}
-        <div aria-busy={queue.loading}>
-          {result?.items.map((request) => {
-            const open = selected === request.requestId;
-            const assignee =
-              request.assignedToName ||
-              assignees.data?.find((x) => x.userId === request.assignedToUserId)
-                ?.name;
-            return (
-              <article
-                key={request.requestId}
-                className={styles.request}
-                data-expanded={open}
-              >
-                <div className={styles.requestHeader}>
-                  <div className={styles.requestIdentity}>
-                    <h3>
-                      {request.subject}
-                      <span
-                        className={styles.status}
-                        data-status={request.status}
-                      >
-                        {request.status.replaceAll("_", " ")}
-                      </span>
-                    </h3>
-                    <div className={styles.memberLine}>
-                      <Link href={`/${workspace}/members/${request.memberId}`}>
-                        {request.memberName || "Member profile"}
-                        {request.memberEmail ? ` · ${request.memberEmail}` : ""}
-                      </Link>
-                      <span className={styles.category}>
-                        {categories[request.category] ?? request.category}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={styles.requestMeta}>
-                    <span className={styles.owner}>
-                      <UserRound size={15} aria-hidden="true" />
-                      {assignee ||
-                        (request.assignedToUserId
-                          ? "Former staff member"
-                          : "Unassigned")}
-                    </span>
-                    <span>
-                      {request.closedAt
-                        ? `Closed ${formatDateTime(request.closedAt)}`
-                        : `Created ${formatDateTime(request.createdAt)}`}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className={`btn btn--ghost ${styles.expandButton}`}
-                    aria-expanded={open}
-                    aria-controls={`support-detail-${request.requestId}`}
-                    aria-label={`${open ? "Collapse request" : "View request"}: ${request.subject}`}
-                    onClick={() => setExpanded(open ? null : request.requestId)}
-                  >
-                    {open ? "Hide details" : "View request"}
-                    <ChevronDown size={18} aria-hidden="true" />
-                  </button>
-                </div>
-                {!open && (
-                  <p className={styles.preview}>{request.description}</p>
-                )}
-                <div id={`support-detail-${request.requestId}`} hidden={!open}>
-                  <fieldset
-                    className={styles.requestBody}
-                    disabled={queue.loading || !!queue.error}
-                  >
-                    <div className={styles.requestContent}>
-                      <h4>Request details</h4>
-                      <p className={styles.message}>{request.description}</p>
-                      <dl className={styles.timeline}>
-                        <div>
-                          <dt>Recorded</dt>
-                          <dd>{formatDateTime(request.createdAt)}</dd>
-                        </div>
-                        {request.updatedAt && (
-                          <div>
-                            <dt>Last updated</dt>
-                            <dd>{formatDateTime(request.updatedAt)}</dd>
-                          </div>
-                        )}
-                      </dl>
-                      <Link
-                        className="btn btn--secondary btn--sm"
-                        href={`/${workspace}/members/${request.memberId}`}
-                      >
-                        Open member profile
-                      </Link>
-                    </div>
-                    <div className={styles.handling}>
-                      <h4>
-                        {request.status === "CLOSED"
-                          ? "Resolution"
-                          : "Handle request"}
-                      </h4>
-                      <SupportRequestActions
-                        request={request}
-                        assignees={assignees.data ?? []}
-                        layout="queue"
-                        feedback={feedback[request.requestId] ?? null}
-                        onFeedback={(next) =>
-                          setFeedback((previous) => ({
-                            ...previous,
-                            [request.requestId]: next,
-                          }))
-                        }
-                        onChanged={() => {
-                          setNotice("Request updated.");
-                          queue.reload();
-                        }}
-                      />
-                    </div>
-                  </fieldset>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        {result && (
-          <nav className={styles.pagination} aria-label="Support request pages">
-            <span>
-              Page {page} of {Math.max(1, Math.ceil(result.totalCount / 20))} ·{" "}
-              {result.totalCount} requests
-            </span>
-            <div className={styles.toolbar}>
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm"
-                disabled={queue.loading || page <= 1}
-                onClick={() => {
-                  setPage(page - 1);
-                  setExpanded(undefined);
-                }}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm"
-                disabled={queue.loading || page * 20 >= result.totalCount}
-                onClick={() => {
-                  setPage(page + 1);
-                  setExpanded(undefined);
-                }}
-              >
-                Next
-              </button>
-            </div>
-          </nav>
-        )}
-      </div>
-      <p className={styles.footnote}>
-        New requests are recorded from the member’s profile. Managers and
-        receptionists can handle requests assigned to any staff member.
-      </p>
-    </section>
-  );
+  .panel .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .requestHeader {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-3);
+  }
+  .requestMeta {
+    grid-row: 2;
+  }
+  .expandButton {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+  }
+}
+@media (max-width: 750px) {
+  .panel .requestBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .requestContent {
+    padding-inline-end: 0;
+  }
+  .handling {
+    margin-top: var(--space-5);
+    border-inline-start: 0;
+    border-top: 1px solid var(--border-subtle);
+    padding-inline-start: 0;
+  }
+}
+@media (max-width: 520px) {
+  .panel.panel {
+    gap: var(--space-4);
+  }
+  .toolbar {
+    width: 100%;
+  }
+  .header .toolbar > :global(.btn) {
+    flex: 1;
+  }
+  .panel .filters {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-4);
+  }
+  .filterActions > :global(.btn) {
+    flex: 1;
+  }
+  .listHeader,
+  .requestHeader,
+  .pagination {
+    padding: var(--space-4);
+  }
+  .listHint {
+    display: none;
+  }
+  .requestHeader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .expandButton {
+    grid-row: auto;
+    grid-column: auto;
+    justify-self: start;
+  }
+  .requestMeta {
+    grid-row: auto;
+  }
+  .panel .requestBody {
+    margin-inline: var(--space-4);
+  }
+  .preview {
+    padding-inline: var(--space-4);
+  }
+  .pagination .toolbar {
+    width: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .expandButton svg {
+    transition: none;
+  }
 }

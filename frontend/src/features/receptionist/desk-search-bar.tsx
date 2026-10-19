@@ -24,7 +24,7 @@ const MIN_KEYWORD_LENGTH = 2;
  * Thanh tìm hội viên ghim đầu trang quầy: gõ tên/SĐT/email, quét QR hoặc barcode,
  * Ctrl + K hoặc F2 nhảy vào ô từ bất kỳ đâu. Chọn người khác là đổi hội viên đang phục vụ.
  */
-export function DeskSearchBar() {
+export function DeskSearchBar({ showScan = true }: { showScan?: boolean }) {
   const { language } = useLanguage();
   const vi = language === "vi";
   const { member, setMember } = useDeskMember();
@@ -190,14 +190,16 @@ export function DeskSearchBar() {
         )}
       </div>
 
-      <button
-        type="button"
-        className={`btn btn--secondary ${styles.action}`}
-        onClick={() => setScanning(true)}
-      >
-        <QrCode size={18} aria-hidden="true" />
-        {vi ? "Quét QR" : "Scan QR"}
-      </button>
+      {showScan && (
+        <button
+          type="button"
+          className={`btn btn--secondary ${styles.action}`}
+          onClick={() => setScanning(true)}
+        >
+          <QrCode size={18} aria-hidden="true" />
+          {vi ? "Quét QR" : "Scan QR"}
+        </button>
+      )}
       <button
         type="button"
         className={`btn btn--secondary ${styles.action}`}

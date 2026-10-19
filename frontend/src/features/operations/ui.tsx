@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Feedback } from "@/components/ui";
 import { ApiError } from "@/lib/apiClient";
@@ -157,23 +158,39 @@ export function Pagination({
 }) {
   const { t } = useLanguage();
   if (count === 0) return null;
+  const pages = Math.max(1, Math.ceil(count / size));
+  const from = (page - 1) * size + 1;
+  const to = Math.min(page * size, count);
   return (
-    <div className="btn-row">
-      <button
-        className="btn btn--secondary"
-        disabled={loading || page <= 1}
-        onClick={() => onChange(page - 1)}
-      >
-        {t.operations.previous}
-      </button>
-      <span>{page}</span>
-      <button
-        className="btn btn--secondary"
-        disabled={loading || page * size >= count}
-        onClick={() => onChange(page + 1)}
-      >
-        {t.operations.next}
-      </button>
-    </div>
+    <nav className={styles.pager} aria-label={t.operations.pagination}>
+      <span className={styles.pagerRange}>
+        {from}–{to} / {count}
+      </span>
+      {pages > 1 && (
+        <div className={styles.pagerControls}>
+          <button
+            type="button"
+            className={styles.pagerBtn}
+            disabled={loading || page <= 1}
+            aria-label={t.operations.previous}
+            onClick={() => onChange(page - 1)}
+          >
+            <ChevronLeft size={18} aria-hidden="true" />
+          </button>
+          <span className={styles.pagerPage} aria-current="page">
+            {page} / {pages}
+          </span>
+          <button
+            type="button"
+            className={styles.pagerBtn}
+            disabled={loading || page >= pages}
+            aria-label={t.operations.next}
+            onClick={() => onChange(page + 1)}
+          >
+            <ChevronRight size={18} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </nav>
   );
 }

@@ -209,6 +209,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.manageHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
 .assignee {
   display: flex;
   flex-wrap: wrap;
@@ -238,6 +244,7 @@
 .buttons {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-3);
 }
 .buttons :global(.btn),

@@ -102,6 +102,101 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Expiry_skips_stalled_gateway_captures_before_applying_batch_limit()
+    {
+        var context = await SeedAsync();
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+        var releasable = await CreateAsync(member, context.PackageId);
+        var blockedIds = new List<Guid>();
+        await factory.QueryAsync(async db =>
+        {
+            var now = DateTime.UtcNow;
+            var blockedExpiry = now.AddMinutes(-3);
+            var releasableExpiry = now.AddMinutes(-1);
+            await db.Invoices.Where(x => x.InvoiceId == releasable.InvoiceId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.HoldExpiresAtUtc, releasableExpiry));
+            await db.CheckoutSessions.Where(x => x.CheckoutSessionId == releasable.CheckoutSessionId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.ExpiresAtUtc, releasableExpiry));
+
+            for (var i = 0; i < 100; i++)
+            {
+                var invoiceId = Guid.NewGuid();
+                var cycleId = Guid.NewGuid();
+                var attemptId = Guid.NewGuid();
+                var reference = attemptId.ToString("N");
+                blockedIds.Add(invoiceId);
+                db.Invoices.Add(new Invoice
+                {
+                    InvoiceId = invoiceId,
+                    InvoiceNumber = $"EXP-{invoiceId:N}",
+                    MemberId = context.MemberId,
+                    IssuedByUserId = context.ReceptionistId,
+                    TotalAmount = 100_000m,
+                    CashAmount = 100_000m,
+                    CheckoutCycleId = cycleId,
+                    CheckoutRevision = 1,
+                    HoldExpiresAtUtc = blockedExpiry,
+                    Status = InvoiceStatus.Issued,
+                    IssuedAt = now.AddMinutes(-10)
+                });
+                db.CheckoutSessions.Add(new CheckoutSession
+                {
+                    CheckoutSessionId = cycleId,
+                    InvoiceId = invoiceId,
+                    Revision = 1,
+                    IdempotencyKey = Guid.NewGuid().ToString("N"),
+                    Kind = "Membership",
+                    State = "Active",
+                    CreatedAtUtc = now.AddMinutes(-10),
+                    ExpiresAtUtc = blockedExpiry
+                });
+                db.PaymentAttempts.Add(new PaymentAttempt
+                {
+                    PaymentAttemptId = attemptId,
+                    InvoiceId = invoiceId,
+                    CheckoutSessionId = cycleId,
+                    VnpTxnRef = reference,
+                    Amount = 100_000m,
+                    CashSnapshot = 100_000m,
+                    VnpExpireDate = blockedExpiry,
+                    Status = PaymentAttemptStatus.Pending,
+                    CreatedAt = now.AddMinutes(-10)
+                });
+                db.VerifiedGatewayEvents.Add(new VerifiedGatewayEvent
+                {
+                    VerifiedGatewayEventId = Guid.NewGuid(),
+                    PaymentAttemptId = attemptId,
+                    ProviderTransactionId = Guid.NewGuid().ToString("N"),
+                    TransactionReference = reference,
+                    Amount = 100_000m,
+                    ResponseCode = "00",
+                    TransactionStatus = "00",
+                    ProviderPaidAtUtc = now.AddMinutes(-9),
+                    VerifiedAtUtc = now.AddMinutes(-9),
+                    ProcessingStatus = "Pending"
+                });
+            }
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<CheckoutExpiryService>()
+                .ExpireDueAsync(default);
+
+        await factory.QueryAsync(async db =>
+        {
+            Assert.Equal(InvoiceStatus.Void, await db.Invoices.Where(x => x.InvoiceId == releasable.InvoiceId)
+                .Select(x => x.Status).SingleAsync());
+            Assert.Equal(100, await db.Invoices.CountAsync(x => blockedIds.Contains(x.InvoiceId)
+                && x.Status == InvoiceStatus.Issued));
+            await db.Invoices.Where(x => blockedIds.Contains(x.InvoiceId))
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, InvoiceStatus.Void));
+            return 0;
+        });
+    }
+
+    [Fact]
     public async Task Explicit_points_confirmation_is_idempotent_without_gateway_attempt_and_recovery_is_owned()
     {
         var context = await SeedAsync();

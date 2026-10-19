@@ -151,7 +151,7 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await page
     .getByRole("combobox", { name: "Assign to", exact: true })
     .selectOption(staff);
-  await page.getByRole("button", { name: "Assign / transfer" }).click();
+  await page.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(
     page
       .locator("p")
@@ -194,6 +194,7 @@ test("manager assigns, records progress and closes with resolution in its worksp
   await page
     .getByRole("button", { name: "Close request", exact: true })
     .click();
+  await page.getByRole("button", { name: "Confirm close" }).click();
   await expect(
     page.getByText("Resolution: Membership corrected"),
   ).toBeVisible();
@@ -344,7 +345,7 @@ test("receptionist queue keeps member links in its own workspace", async ({
     page.getByRole("link", { name: "Record a request" }),
   ).toHaveAttribute("href", "/receptionist/members");
   await expect(
-    page.getByRole("button", { name: "Assign / transfer" }),
+    page.getByRole("button", { name: "Assign", exact: true }),
   ).toBeVisible();
 });
 
