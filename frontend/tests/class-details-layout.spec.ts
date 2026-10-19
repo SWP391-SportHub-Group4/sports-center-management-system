@@ -3,11 +3,19 @@ import { expect, test } from "@playwright/test";
 test("class details keeps capacity readable and groups management actions", async ({
   page,
 }) => {
+  const writes: { path: string; body: unknown }[] = [];
   await page.addInitScript(() =>
     localStorage.setItem("sporthub.accessToken", "class-details-fixture"),
   );
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (
+      path.endsWith("/threshold/pricing") ||
+      path.endsWith("/threshold/waive")
+    ) {
+      writes.push({ path, body: route.request().postDataJSON() });
+      return route.fulfill({ status: 204 });
+    }
     if (path === "/api/users/me")
       return route.fulfill({
         json: {
@@ -265,7 +273,21 @@ test("class details keeps capacity readable and groups management actions", asyn
   await expect(page.getByText("No active seat holds.")).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole("tab", { name: "Management", exact: true }).click();
-  await page.getByText("More actions", { exact: true }).click();
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+  await expect(
+    page.getByText("Enrollment is open", { exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "test-results/class-management-enrollment-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page
+    .getByRole("button", { name: "Close enrollment", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Cancel class", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "Cancel class" }),
@@ -276,6 +298,74 @@ test("class details keeps capacity readable and groups management actions", asyn
   await expect(
     page.getByRole("tab", { name: "Management", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "test-results/class-management-opening-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "Edit pricing", exact: true }).click();
+  const pricing = page.getByRole("dialog", {
+    name: "Edit pricing",
+    exact: true,
+  });
+  await expect(
+    pricing.getByRole("button", { name: "Save", exact: true }),
+  ).toBeDisabled();
+  await pricing.getByLabel("Price (VND)", { exact: true }).fill("1000000");
+  await pricing
+    .getByLabel("Reason", { exact: true })
+    .fill("Adjusted course pricing");
+  await pricing.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(pricing).toHaveCount(0);
+  expect(writes.at(-1)).toEqual({
+    path: "/api/manager/classes/42/threshold/pricing",
+    body: {
+      price: 1000000,
+      costAmount: 18000000,
+      reason: "Adjusted course pricing",
+    },
+  });
+  await page
+    .getByRole("button", { name: "Approve below threshold", exact: true })
+    .click();
+  const waiver = page.getByRole("dialog", {
+    name: "Approve below threshold",
+    exact: true,
+  });
+  await expect(waiver.getByLabel("Reason", { exact: true })).toHaveValue("");
+  await waiver
+    .getByLabel("Reason", { exact: true })
+    .fill("Run class for existing students");
+  await waiver
+    .getByRole("button", { name: "Approve below threshold", exact: true })
+    .click();
+  await expect(waiver).toHaveCount(0);
+  expect(writes.at(-1)).toEqual({
+    path: "/api/manager/classes/42/threshold/waive",
+    body: { reason: "Run class for existing students" },
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "test-results/class-management-opening-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "Enrollment", exact: true }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "test-results/class-management-enrollment-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/manager/classes/42?tab=history");
   await expect(page.getByText("Version", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Overview", exact: true }).click();

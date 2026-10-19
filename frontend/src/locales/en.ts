@@ -486,6 +486,17 @@ export const en = {
     expiresAt: "Expires at",
     noActiveHolds: "No active seat holds.",
     noStudents: "No students enrolled yet.",
+    editPricing: "Edit pricing",
+    approveBelowThreshold: "Approve below threshold",
+    approveBelowHint:
+      "Allow this class to run without meeting its break-even threshold. Confirmed members will be notified. Provide a reason for this decision.",
+    pricingLocked:
+      "Pricing changes are available for published classes before the review deadline.",
+    openingRules: "How opening conditions work",
+    openingRulesHint:
+      "Review at least 72 hours before opening. Members have up to 48 hours to respond, ending at least 24 hours before the first session. Confirm immediately once the threshold is met.",
+    cancelClassHint:
+      "Review affected sessions and refund points before confirming cancellation.",
   },
   managerCatalog: {
     ordinal: "No.",

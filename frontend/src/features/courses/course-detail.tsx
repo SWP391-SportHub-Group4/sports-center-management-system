@@ -1,4 +1,5 @@
 "use client";
+import managementStyles from "./course-management.module.css";
 import studentStyles from "./course-students.module.css";
 import detailStyles from "./course-detail.module.css";
 import { EnrollmentSummary } from "./enrollment-summary";
@@ -258,7 +259,10 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                       <div>
                         <span className="muted">{m.enrollmentTitle}</span>
                         <p>
-                          <strong>
+                          <strong
+                            className={managementStyles.enrollmentState}
+                            data-open={c.enrollmentOpen}
+                          >
                             {c.enrollmentOpen
                               ? m.enrollmentOpen
                               : m.enrollmentClosed}
@@ -392,36 +396,32 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
               )}
               {activeTab === "management" && (
                 <div className="stack">
-                  <div className={detailStyles.sectionToolbar}>
-                    <label>
-                      {t.classWorkspace.management}
-                      <select
-                        value={managementSection}
-                        onChange={(e) => {
-                          setManagementView(e.target.value);
+                  <div
+                    className={managementStyles.navigation}
+                    role="group"
+                    aria-label={t.classWorkspace.management}
+                  >
+                    {[
+                      { id: "enrollment", label: m.enrollmentTitle },
+                      { id: "threshold", label: m.thresholdTab },
+                      { id: "history", label: m.historyTab },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        aria-pressed={managementSection === item.id}
+                        onClick={() => {
+                          setManagementView(item.id);
                           setValues({ tab: "management" });
                         }}
                       >
-                        <option value="enrollment">{m.enrollmentTitle}</option>
-                        <option value="threshold">{m.thresholdTab}</option>
-                        <option value="history">{m.historyTab}</option>
-                      </select>
-                    </label>
-                    {!["CANCELLED", "COMPLETED"].includes(c.status) && (
-                      <details className={detailStyles.moreActions}>
-                        <summary>{t.classWorkspace.moreActions}</summary>
-                        <button
-                          className="btn btn--ghost"
-                          onClick={() => setCancelling(true)}
-                        >
-                          {t.classWorkspace.cancelClass}
-                        </button>
-                      </details>
-                    )}
+                        {item.label}
+                      </button>
+                    ))}
                   </div>
                   {managementSection === "enrollment" && (
                     <Card title={m.enrollmentTitle}>
-                      <section className={styles.enrollment}>
+                      <section className={managementStyles.enrollment}>
                         <div>
                           <strong>
                             {c.enrollmentOpen
@@ -442,11 +442,6 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                               )}
                               {c.enrollmentClosedReason &&
                                 ` · ${m.enrollmentClosedReason}: ${c.enrollmentClosedReason}`}
-                            </p>
-                          )}
-                          {!c.enrollmentOpen && c.enrollmentClosedReason && (
-                            <p className="small muted">
-                              {m.reopenNotifiesHint}
                             </p>
                           )}
                         </div>
@@ -489,16 +484,19 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                         course={c}
                         onSaved={reload}
                       />
-                      <CourseOperations
-                        key={"responses-" + revision}
-                        classId={classId}
-                        kind="threshold-responses"
-                      />
+                      <details className={managementStyles.responses}>
+                        <summary>{l.thresholdResponses}</summary>
+                        <CourseOperations
+                          key={"responses-" + revision}
+                          classId={classId}
+                          kind="threshold-responses"
+                        />
+                      </details>
                     </>
                   )}
                   {managementSection === "history" && (
-                    <>
-                      <dl className={detailStyles.auditMeta}>
+                    <Card title={m.historyTab}>
+                      <dl className={managementStyles.auditMeta}>
                         <div>
                           <dt>{m.created}</dt>
                           <dd>{formatDateTime(c.createdAt)}</dd>
@@ -508,7 +506,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                           <dd>
                             {c.publishedAt
                               ? formatDateTime(c.publishedAt)
-                              : "?"}
+                              : "\u2014"}
                           </dd>
                         </div>
                         <div>
@@ -520,7 +518,21 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                         key={"history-" + revision}
                         classId={classId}
                       />
-                    </>
+                    </Card>
+                  )}
+                  {!["CANCELLED", "COMPLETED"].includes(c.status) && (
+                    <div className={managementStyles.cancellation}>
+                      <div>
+                        <strong>{t.classWorkspace.cancelClass}</strong>
+                        <p>{t.classWorkspace.cancelClassHint}</p>
+                      </div>
+                      <button
+                        className="btn btn--secondary"
+                        onClick={() => setCancelling(true)}
+                      >
+                        {t.classWorkspace.cancelClass}
+                      </button>
+                    </div>
                   )}
                 </div>
               )}

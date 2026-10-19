@@ -302,7 +302,7 @@ export function CourseCancellation({
           </p>
           {!review.canCancel && <p role="alert">{l.courseCancelBlocked}</p>}
           <button
-            className="btn"
+            className="btn btn--danger"
             disabled={mutation.busy || !review.canCancel}
             onClick={async () => {
               const ok = await mutation.run(() =>

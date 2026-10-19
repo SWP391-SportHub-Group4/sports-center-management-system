@@ -181,40 +181,6 @@
 .sectionToolbar select {
   min-width: 220px;
 }
-.moreActions {
-  position: relative;
-}
-.moreActions summary {
-  cursor: pointer;
-  padding: var(--space-3);
-  border-radius: var(--radius-sm);
-}
-.moreActions summary:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-.moreActions[open] > button {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  z-index: 5;
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-md);
-  white-space: nowrap;
-}
-.auditMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-5);
-  margin: 0;
-}
-.auditMeta dt {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-.auditMeta dd {
-  margin: var(--space-1) 0 0;
-}
 @media (max-width: 800px) {
   .headerSummary {
     grid-template-columns: minmax(0, 1fr);
