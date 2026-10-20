@@ -91,7 +91,7 @@ public sealed partial class DemoDataSeeder(
         await db.SaveChangesAsync(ct);
 
         members[^1].Status = UserStatus.Deactivated;
-        // Two class courts and two shared Gym/PT rooms. FacilityBaselineSeeder adds the other courts.
+        // Two class courts and two Gym rooms. FacilityBaselineSeeder adds the other courts.
         var rooms = new[]
         {
             new Room { Name = "Badminton Class BC1", Capacity = 12, RoomTypeId = 3 },
@@ -279,6 +279,14 @@ public sealed partial class DemoDataSeeder(
             || member.Status != UserStatus.Active || coach.Status != UserStatus.Active) return;
         if (await db.WorkoutPlans.AnyAsync(x => x.MemberId == member.UserId && x.CoachId == coach.UserId, ct)) return;
 
+        var classId = await db.Enrollments
+            .Where(e => e.MemberId == member.UserId && e.Status == EnrollmentStatus.Confirmed
+                && e.Class != null && e.Class.CoachId == coach.UserId
+                && (e.Class.Status == ClassStatus.Published || e.Class.Status == ClassStatus.InProgress))
+            .Select(e => e.ClassId)
+            .FirstOrDefaultAsync(ct);
+        if (classId == 0) return;
+
         var now = clock.UtcNow;
         var relationship = await db.CoachMemberRelationships.FirstOrDefaultAsync(x =>
             x.MemberId == member.UserId && x.CoachId == coach.UserId && x.Status == RelationshipStatus.Active, ct);
@@ -289,7 +297,8 @@ public sealed partial class DemoDataSeeder(
                 RelationshipId = Guid.NewGuid(),
                 CoachId = coach.UserId,
                 MemberId = member.UserId,
-                SourceType = RelationshipSourceType.Personal,
+                SourceType = RelationshipSourceType.ClassBased,
+                ClassId = classId,
                 Status = RelationshipStatus.Active,
                 StartedAt = now.AddDays(-14)
             };
@@ -331,7 +340,7 @@ public sealed partial class DemoDataSeeder(
     {
         var presentation = new (int SportId, string Description, string ImageUrl)[]
         {
-            (1, "Open gym for strength, endurance, and general fitness. Personal training is a separate Gym service and requires an active Gym membership.", "/sporthub/court-volt/conditioning-speed-track.png"),
+            (1, "Open gym for strength, endurance, and general fitness.", "/sporthub/court-volt/conditioning-speed-track.png"),
             (3, "Badminton courses have recurring 90-minute sessions and are purchased separately without a Gym membership.", "/sporthub/court-volt/course-badminton.png"),
             (4, "Basketball courses have recurring 120-minute sessions. Courts can also be rented separately without a Gym membership.", "/sporthub/court-volt/course-basketball.png")
         };
@@ -820,111 +829,6 @@ public sealed partial class DemoDataSeeder(
         _ = manager;
     }
 
-    private async Task SeedTrainingAsync(
-        UserAccount[] members,
-        UserAccount manager,
-        UserAccount coachBadminton,
-        UserAccount coachBasketball,
-        UserAccount coachPt,
-
-        DateTime now,
-        CancellationToken ct)
-    {
-        var goals = new[]
-        {
-            ("Lose 5 kg in 3 months", ExperienceLevel.Beginner, TrainingGoalType.FatLoss),
-            ("Build muscle and improve endurance", ExperienceLevel.Intermediate, TrainingGoalType.MuscleGain),
-            ("Improve flexibility and reduce back pain", ExperienceLevel.Beginner, TrainingGoalType.Flexibility),
-            ("Prepare for amateur competition", ExperienceLevel.Advanced, TrainingGoalType.Endurance),
-            ("Maintain fitness with three sessions a week", ExperienceLevel.Intermediate, TrainingGoalType.Maintain)
-        };
-        // Tự khai: ngày sinh, giới tính, chiều cao, cân nặng, cân nặng mục tiêu, mức vận động, ngày tập/tuần, phút/buổi, chế độ ăn.
-        var body = new (int Year, BiologicalSex Sex, decimal Height, decimal Weight, decimal? Target, ActivityLevel Activity,
-            int Days, int Minutes, DietaryPreference Diet, string? Allergies)[]
-        {
-            (1999, BiologicalSex.Female, 162.0m, 68.0m, 63.0m, ActivityLevel.LightlyActive, 3, 60, DietaryPreference.NoPreference, null),
-            (1996, BiologicalSex.Male, 175.0m, 70.0m, 75.0m, ActivityLevel.ModeratelyActive, 4, 75, DietaryPreference.NoPreference, null),
-            (1988, BiologicalSex.Female, 158.0m, 55.0m, null, ActivityLevel.Sedentary, 3, 45, DietaryPreference.Vegetarian, "Peanuts"),
-            (2001, BiologicalSex.Male, 180.0m, 78.0m, null, ActivityLevel.VeryActive, 5, 90, DietaryPreference.NoPreference, null),
-            (1992, BiologicalSex.Female, 165.0m, 60.0m, null, ActivityLevel.LightlyActive, 3, 60, DietaryPreference.Halal, null)
-        };
-
-        for (var i = 0; i < goals.Length && i < members.Length; i++)
-        {
-            db.MemberTrainingProfiles.Add(new MemberTrainingProfile
-            {
-                ProfileId = Guid.NewGuid(),
-                MemberId = members[i].UserId,
-                Goal = goals[i].Item1,
-                ExperienceLevel = goals[i].Item2,
-                GoalType = goals[i].Item3,
-                DateOfBirth = new DateOnly(body[i].Year, 6, 15),
-                Sex = body[i].Sex,
-                HeightCm = body[i].Height,
-                WeightKg = body[i].Weight,
-                TargetWeightKg = body[i].Target,
-                ActivityLevel = body[i].Activity,
-                TrainingDaysPerWeek = body[i].Days,
-                SessionMinutes = body[i].Minutes,
-                DietaryPreference = body[i].Diet,
-                FoodAllergies = body[i].Allergies,
-                Notes = i == 2 ? "Previous lower back injury; avoid heavy abdominal crunches." : null,
-                UpdatedAt = now.AddDays(-5)
-            });
-            db.Set<MemberBodyMeasurement>().Add(new MemberBodyMeasurement
-            {
-                MeasurementId = Guid.NewGuid(), MemberId = members[i].UserId,
-                HeightCm = body[i].Height, WeightKg = body[i].Weight, MeasuredAt = now.AddDays(-5)
-            });
-        }
-
-        var relationships = new[]
-        {
-            new CoachMemberRelationship
-            {
-                RelationshipId = Guid.NewGuid(),
-                CoachId = coachPt.UserId,
-                MemberId = members[2].UserId,
-                SourceType = RelationshipSourceType.Personal,
-                Status = RelationshipStatus.Active,
-                StartedAt = now.AddDays(-20)
-            }
-        };
-
-        db.CoachMemberRelationships.AddRange(relationships);
-        await db.SaveChangesAsync(ct);
-
-        var plan = new WorkoutPlan
-        {
-            PlanId = Guid.NewGuid(),
-            MemberId = members[2].UserId,
-            CoachId = coachPt.UserId,
-            RelationshipId = relationships[0].RelationshipId,
-            Goal = "Improve flexibility and reduce back pain",
-            Level = nameof(ExperienceLevel.Beginner),
-            CreatedAt = now.AddDays(-14)
-        };
-
-        db.WorkoutPlans.Add(plan);
-
-        db.WorkoutPlanItems.AddRange(
-            new WorkoutPlanItem
-            {
-                ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
-                Exercise = "Cat-cow stretch", Sets = 3, Reps = 12, Notes = "Breathe steadily and relax your neck"
-            },
-            new WorkoutPlanItem
-            {
-                ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
-                Exercise = "Bird dog", Sets = 3, Reps = 10, Notes = "Hold for 2 seconds on each side"
-            },
-            new WorkoutPlanItem
-            {
-                ItemId = Guid.NewGuid(), PlanId = plan.PlanId,
-                Exercise = "Glute bridge", Sets = 3, Reps = 15, Notes = null
-            });
-    }
-
     private async Task SeedGymCheckInsAsync(
         UserAccount[] members,
         UserAccount reception,
@@ -946,9 +850,7 @@ public sealed partial class DemoDataSeeder(
                     CheckInId = Guid.NewGuid(),
                     MemberId = memberId,
                     CheckedInByUserId = reception.UserId,
-                    CheckInTime = now.AddDays(-day).AddHours(-2),
-                    CheckOutTime = now.AddDays(-day),
-                    CheckedOutByUserId = reception.UserId
+                    CheckInTime = now.AddDays(-day).AddHours(-2)
                 });
             }
         }

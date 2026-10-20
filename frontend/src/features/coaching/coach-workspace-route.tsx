@@ -1,7 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/lib/language";
-import { PtPage } from "./ui";
+import { StaffPage } from "./ui";
 import { CoachWorkspace, type WorkspaceMode } from "./coach-workspace";
 import { CoachStudentDirectory } from "./coach-students";
 
@@ -22,7 +22,7 @@ export function CoachWorkspaceRoute({
           students: "Students",
         };
   return (
-    <PtPage
+    <StaffPage
       title={
         mode === "schedule"
           ? "overview"
@@ -37,6 +37,6 @@ export function CoachWorkspaceRoute({
       ) : (
         <CoachWorkspace mode={mode} initialClassId={initialClassId} />
       )}
-    </PtPage>
+    </StaffPage>
   );
 }

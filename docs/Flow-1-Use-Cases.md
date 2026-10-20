@@ -1,13 +1,13 @@
 # Flow 1 — Use Case Specifications
 
-**Cập nhật 18/10/2026:** viết lại theo cùng khuôn với `Flow-2-Use-Cases.md` (mỗi UC một bảng: Tác nhân, Mức ưu tiên, Tiền điều kiện, Luồng chính, Luồng thay thế / ngoại lệ, Hậu điều kiện). Đây là đặc tả, không phải báo cáo đã kiểm thử thành công; trạng thái triển khai và các điểm chưa khớp được gom ở mục G cuối tài liệu.
+**Cập nhật 20/10/2026:** mô tả theo hành vi đang có trong backend (API, service, job) và giữ khuôn bảng của `Flow-2-Use-Cases.md`. Đây là đặc tả theo mã nguồn, không phải kết quả kiểm thử E2E. Chênh lệch với Business Rules và phần chưa xác minh được nêu ở mục G.
 
 3.3 Use Case Specifications
 Flow 1 Quản lý người dùng và Membership
-Phạm vi: tài khoản và hồ sơ, quản trị người dùng, danh mục gói và Membership Gym, quyền vào Gym (mã check-in, check-in/out), báo cáo hội viên, Audit Log, yêu cầu hỗ trợ. Thanh toán, hoàn điểm và báo cáo doanh thu thuộc Flow 3; hồ sơ tập luyện là đầu vào của Flow 5.
+Phạm vi: tài khoản và hồ sơ, quản trị người dùng, danh mục gói và Membership Gym, quyền vào Gym (mã check-in, check-in), báo cáo hội viên, Audit Log, yêu cầu hỗ trợ. Thanh toán, hoàn điểm và báo cáo doanh thu thuộc Flow 3; hồ sơ tập luyện là đầu vào của Flow 5.
 Mã UC-F1 là mã phân rã trong Flow 1, đối chiếu UC-03 đến UC-06 của SRS (SRS hiện chỉ có các UC tổng quát; cột SRS ở mục A ghi mã gần nhất, không có nghĩa SRS đã mô tả đủ luồng chi tiết).
-Quy ước chung: thời gian lưu UTC, hiển thị UTC+7, "hôm nay" tính theo giờ Việt Nam; backend kiểm tra quyền và trạng thái tại thời điểm ghi; mật khẩu theo BR-102; OTP và token lưu dạng băm, dùng một lần; thao tác quản trị quan trọng ghi Audit Log (BR-7); email gửi qua outbox, gửi lỗi không làm rollback nghiệp vụ; giao dịch lặp phải idempotent.
-Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_Report_SRS.docx (UC-03 đến UC-06); Requirements.md; 00-Source-of-Truth.md; api-contract.md. Khi khác nhau, ưu tiên phạm vi đã xác nhận và Business Rules theo 00-Source-of-Truth.md.
+Quy ước chung: thời gian lưu UTC, hiển thị UTC+7, "hôm nay" tính theo giờ Việt Nam; backend kiểm tra quyền và trạng thái tại thời điểm ghi; mật khẩu theo chính sách hiện hành; OTP và token lưu dạng băm, dùng một lần; thao tác quản trị quan trọng ghi Audit Log; email được xếp vào outbox. Checkout dùng `Idempotency-Key`; các thao tác lặp khác tuân theo ngoại lệ của từng UC.
+Nguồn đối chiếu: các controller, service và job trong `backend/`; `SportManagement_BusinessRules_v2.0_updated.docx`; `SWP391_Report_SRS.docx` (UC-03 đến UC-06); `Requirements.md`; `00-Source-of-Truth.md`; `api-contract.md`. Các luồng bên dưới phản ánh code hiện tại; mục G ghi rõ nơi code khác quy tắc hoặc tài liệu.
 
 ## A. Danh mục use case
 
@@ -18,9 +18,9 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | UC-F1-03 | Đăng nhập Google | Guest | — | 59, 60, 143 | POST /api/auth/google |
 | UC-F1-04 | Liên kết Google thủ công | Người dùng đã đăng nhập | — | 59 | POST /api/auth/google/link |
 | UC-F1-05 | Quên và đặt lại mật khẩu | Mọi người dùng | — | 102, 103, 104 | POST /api/auth/password/forgot, /reset |
-| UC-F1-06 | Đặt mật khẩu lần đầu / đổi mật khẩu | Người dùng đã đăng nhập | — | 60, 102, 104 | POST /api/users/me/password[/otp] |
-| UC-F1-07 | Xem và cập nhật hồ sơ cá nhân | Người dùng đã đăng nhập | — | 62 | GET/PUT /api/users/me |
-| UC-F1-08 | Quản lý ảnh đại diện | Member, Coach; nhân sự; Center Manager | — | — (tài liệu Avatar-Cloudinary) | /api/avatars/* |
+| UC-F1-06 | Đặt mật khẩu lần đầu / đổi mật khẩu | Người dùng đã đăng nhập | — | 60, 102, 104 | POST /api/users/me/password/otp; POST /api/users/me/password |
+| UC-F1-07 | Xem và cập nhật hồ sơ cá nhân | Người dùng đã đăng nhập | — | 62 | GET /api/users/me; PUT /api/users/me/profile |
+| UC-F1-08 | Quản lý ảnh đại diện | Member, Coach; Center Manager | — | — (tài liệu Avatar-Cloudinary) | GET /api/avatars/{userId}; POST/DELETE /api/avatars/me; DELETE /api/manager/members/{memberId}/avatar |
 | UC-F1-09 | Đăng ký Member tại quầy | Receptionist, Center Manager | UC-03 | 1, 7, 134, 143 | POST /api/members/front-desk |
 | UC-F1-10 | Kích hoạt tài khoản qua link | Member tại quầy, nhân sự | — | 1, 2, 143 | POST /api/auth/password/reset |
 | UC-F1-11 | Gửi lại link / sửa email Member chờ kích hoạt | Receptionist, Center Manager | UC-03 | 7, 143 | POST …/resend-activation; PUT …/email |
@@ -37,10 +37,10 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | UC-F1-22 | Tự động hết hạn và nhắc hạn gói | Hệ thống | — | 9, 33 | MemberPackageExpiryJob |
 | UC-F1-23 | Khai báo hồ sơ tập luyện | Member; Center Manager, Coach (đọc) | — | 26 (đầu vào AI) | /api/members/me/training-profile |
 | UC-F1-24 | Xem báo cáo hội viên | Center Manager | — | — (đề bài Center Manager) | GET /api/reports/membership-* |
-| UC-F1-25 | Xem Audit Log thao tác tài khoản | Center Manager, System Administrator | — | 7 | GET /api/audit-logs |
-| UC-F1-26 | Ghi nhận yêu cầu hỗ trợ của Member | Receptionist, Center Manager | — | — (đặc tả Lễ tân) | GET/POST /api/member-support-requests |
+| UC-F1-25 | Xem Audit Log theo quyền | Center Manager, System Administrator | — | 7 | GET /api/audit-logs; GET /api/audit-logs/actions |
+| UC-F1-26 | Ghi nhận và xử lý yêu cầu hỗ trợ của Member | Receptionist, Center Manager | — | — (đặc tả Lễ tân) | /api/member-support-requests/* |
 | UC-F1-27 | Cấp và xác thực mã check-in Gym | Member; Receptionist, Center Manager | Flow 1 Gym access | 64 + quy tắc vé ngày (G.1) | GET /api/members/me/checkin-code; POST /api/members/checkin-code/resolve |
-| UC-F1-28 | Check-in, check-out và xem lịch sử Gym | Member; Receptionist; Center Manager | Flow 1 Gym access | 64 | /api/gym-checkins/*; /api/members/{id|me}/gym-checkins |
+| UC-F1-28 | Check-in và xem lịch sử Gym | Member; Receptionist; Center Manager | Flow 1 Gym access | 64 | /api/gym-checkins; /api/members/{id|me}/gym-checkins |
 
 ## B. Tài khoản và hồ sơ
 
@@ -51,8 +51,8 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | Guest |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Email chưa có tài khoản (không phân biệt hoa thường). |
-| Luồng chính | 1. Guest nhập email và yêu cầu mã.<br>2. Hệ thống gửi OTP 6 chữ số (hiệu lực 10 phút, dùng một lần, chỉ mã mới nhất còn hiệu lực) và không tiết lộ email đã tồn tại hay chưa.<br>3. Guest nhập họ tên (2–100 ký tự chữ), số điện thoại Việt Nam (tùy chọn), mật khẩu và OTP.<br>4. Hệ thống kiểm mật khẩu trước (không tốn lượt nhập OTP), rồi kiểm OTP.<br>5. Hệ thống kiểm email và số điện thoại chưa dùng, tạo tài khoản Member trạng thái Active kèm mật khẩu băm và hồ sơ; đánh dấu OTP đã dùng trong cùng giao dịch.<br>6. Hệ thống đăng nhập luôn cho Guest. |
-| Luồng thay thế / ngoại lệ | a. Gửi lại OTP khi chưa đủ 60 giây: từ chối.<br>b. OTP không có, đã dùng, hết hạn, sai hoặc quá 5 lần nhập sai: từ chối và nêu đúng lý do; nhập sai thì tăng số lần thử.<br>c. Mật khẩu không đạt BR-102: từ chối, không tốn lượt OTP.<br>d. Email hoặc số điện thoại đã tồn tại tại bước 5: từ chối.<br>e. Vượt giới hạn tần suất theo IP: từ chối. |
+| Luồng chính | 1. Guest nhập email và yêu cầu mã.<br>2. Nếu email chưa có tài khoản, hệ thống ghi OTP 6 chữ số và xếp email; mã hiệu lực 10 phút, dùng một lần, mã mới thay mã cũ.<br>3. Guest nhập họ tên, số điện thoại tùy chọn, mật khẩu và OTP.<br>4. Hệ thống kiểm chính sách mật khẩu trước khi kiểm OTP.<br>5. Hệ thống kiểm email và số điện thoại chưa dùng, tạo Member Active với mật khẩu băm và hồ sơ; đánh dấu OTP đã dùng trong cùng lần lưu.<br>6. Hệ thống trả JWT và thông tin tài khoản mới. |
+| Luồng thay thế / ngoại lệ | a. Email đã có tài khoản ngay lúc xin OTP: API trả `email_already_exists`.<br>b. Gửi lại OTP trước 60 giây: từ chối.<br>c. OTP không có, đã dùng, hết hạn, sai hoặc đã sai 5 lần: từ chối; lần nhập sai tăng bộ đếm.<br>d. Mật khẩu không đạt chính sách: từ chối trước khi kiểm OTP.<br>e. Email hoặc số điện thoại trùng khi tạo tài khoản: từ chối.<br>f. Vượt giới hạn tần suất theo IP: từ chối. |
 | Hậu điều kiện | Có tài khoản Member Active, có mật khẩu, đã đăng nhập. Ví điểm được tạo khi dùng lần đầu, không tạo lúc đăng ký. |
 
 ### UC-F1-02 — Đăng nhập email/mật khẩu
@@ -117,7 +117,7 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | Người dùng đã đăng nhập |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đang đăng nhập; hồ sơ được xác định từ phiên đăng nhập, không từ mã người dùng do client gửi. |
-| Luồng chính | 1. Mở hồ sơ: hệ thống hiển thị email, họ tên, số điện thoại, vai trò, trạng thái, đã có mật khẩu hay chưa, đã liên kết Google hay chưa, ảnh đại diện và môn chuyên môn (với Coach).<br>2. Sửa họ tên (2–100 ký tự chữ) và số điện thoại Việt Nam (có thể để trống).<br>3. Hệ thống kiểm tra và lưu. |
+| Luồng chính | 1. Gọi `GET /api/users/me` để xem email, họ tên, số điện thoại, vai trò, trạng thái, cờ có mật khẩu, cờ liên kết Google, ảnh đại diện và mã môn chuyên môn.<br>2. Gửi họ tên và số điện thoại tùy chọn qua `PUT /api/users/me/profile`.<br>3. Hệ thống lấy user ID từ JWT, kiểm dữ liệu và lưu hồ sơ. |
 | Luồng thay thế / ngoại lệ | a. Sai định dạng: từ chối và chỉ rõ trường.<br>b. Số điện thoại đã thuộc tài khoản khác: từ chối (BR-62).<br>c. Không tìm thấy tài khoản: báo lỗi. |
 | Hậu điều kiện | Hồ sơ được cập nhật. Email không đổi được ở đây. |
 
@@ -141,9 +141,9 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | Receptionist, Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; email và số điện thoại của khách chưa có trong hệ thống. |
-| Luồng chính | 1. Nhập họ tên, email, nhập lại email và số điện thoại (tùy chọn).<br>2. Hệ thống kiểm hai lần nhập email khớp, email và số điện thoại chưa tồn tại.<br>3. Trong một giao dịch: tạo Member Active chưa có mật khẩu, tạo ví điểm 0, ghi audit FRONT_DESK_CREATE_MEMBER, tạo link kích hoạt (hiệu lực 24 giờ) và xếp email.<br>4. Màn hình hiển thị trạng thái "chờ kích hoạt". |
-| Luồng thay thế / ngoại lệ | a. Hai lần nhập email không khớp: từ chối.<br>b. Email hoặc số điện thoại đã tồn tại: từ chối.<br>c. Quầy không đặt mật khẩu hộ và không tạo được vai trò khác Member. |
-| Hậu điều kiện | Tài khoản Active nhưng chưa đăng nhập được bằng mật khẩu; quầy vẫn có thể ghi nhận thanh toán và đăng ký dịch vụ cho Member trong lúc chờ. |
+| Luồng chính | 1. Nhập họ tên, email một lần và số điện thoại tùy chọn.<br>2. Hệ thống kiểm email và số điện thoại chưa tồn tại.<br>3. Trong một giao dịch: tạo Member Active chưa có mật khẩu, tạo ví 0 điểm, ghi audit `FRONT_DESK_CREATE_MEMBER`, tạo link kích hoạt và xếp email.<br>4. Màn hình hiển thị trạng thái chờ đặt mật khẩu. |
+| Luồng thay thế / ngoại lệ | a. Email hoặc số điện thoại đã tồn tại: từ chối.<br>b. Quầy không đặt mật khẩu hộ và không tạo vai trò khác Member.<br>c. Tác vụ chạy mỗi 10 phút chỉ xóa tài khoản quầy sau 7 ngày nếu vẫn chưa có mật khẩu/Google và chưa có hóa đơn, ghi danh, đặt sân, gói hoặc giao dịch điểm; giữ audit đăng ký và ghi audit hết hạn. |
+| Hậu điều kiện | Tài khoản Active nhưng chưa đăng nhập được bằng mật khẩu; quầy có thể ghi nhận dịch vụ cho Member trong lúc chờ. Tài khoản đã phát sinh dữ liệu vận hành không bị tác vụ dọn xóa. |
 
 ### UC-F1-10 — Kích hoạt tài khoản qua link
 
@@ -151,9 +151,9 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 |---|---|
 | Tác nhân | Member đăng ký tại quầy; nhân sự do System Administrator tạo |
 | Mức ưu tiên | Required |
-| Tiền điều kiện | Tài khoản chưa đặt mật khẩu và có link kích hoạt còn hiệu lực (24 giờ, dùng một lần). |
+| Tiền điều kiện | Tài khoản chưa đặt mật khẩu và có link kích hoạt còn hiệu lực, dùng một lần. Link Member hết hạn 24 giờ từ khi phát; link nhân sự hết hạn đúng 24 giờ sau khi tạo tài khoản. |
 | Luồng chính | 1. Mở link trong email, vào trang đặt mật khẩu (phân biệt Member hay nhân sự).<br>2. Nhập mật khẩu và xác nhận theo BR-102.<br>3. Hệ thống tiêu link, lưu mật khẩu băm, vô hiệu phiên cũ và gửi email hoàn tất kích hoạt. |
-| Luồng thay thế / ngoại lệ | a. Link hết hạn, đã dùng hoặc bị thay thế (do gửi lại link hoặc sửa email): từ chối; người phụ trách dùng UC-F1-11 hoặc UC-F1-14 để phát link mới.<br>b. Mật khẩu không đạt BR-102: từ chối. |
+| Luồng thay thế / ngoại lệ | a. Link hết hạn, đã dùng hoặc bị thay thế: từ chối.<br>b. Nhân sự quá hạn 24 giờ kể từ lúc tạo: từ chối dù có link cũ; tác vụ hệ thống xóa lời mời chưa kích hoạt và giữ audit.<br>c. Mật khẩu không đạt chính sách hoặc xác nhận không khớp: từ chối. |
 | Hậu điều kiện | Tài khoản có mật khẩu, không còn "chờ kích hoạt", đăng nhập bình thường. |
 
 ### UC-F1-11 — Gửi lại link / sửa email Member chờ kích hoạt
@@ -163,18 +163,18 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | Receptionist, Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Member chưa có mật khẩu và chưa liên kết Google. |
-| Luồng chính | 1. Gửi lại link: hệ thống phát link mới, vô hiệu link cũ, ghi audit RESEND_MEMBER_ACTIVATION.<br>2. Sửa email: nhập email mới hai lần và lý do (3–500 ký tự); hệ thống hủy link gửi tới email cũ, đổi email, ghi audit CHANGE_PENDING_MEMBER_EMAIL (email cũ, email mới, lý do) và gửi link mới tới email mới. |
-| Luồng thay thế / ngoại lệ | a. Không tìm thấy Member: báo lỗi.<br>b. Tài khoản đã kích hoạt hoặc đã liên kết Google: từ chối.<br>c. Gửi lại khi chưa đủ 60 giây: từ chối.<br>d. Hai lần nhập email không khớp, email không đổi hoặc email mới đã tồn tại: từ chối. |
+| Luồng chính | 1. Gửi lại link: hệ thống phát link mới, vô hiệu link cũ, ghi audit `RESEND_MEMBER_ACTIVATION`.<br>2. Sửa email: nhập email mới một lần và lý do 3–500 ký tự; hệ thống hủy link của email cũ, đổi email, ghi audit `CHANGE_PENDING_MEMBER_EMAIL` và phát link tới email mới. |
+| Luồng thay thế / ngoại lệ | a. Không tìm thấy Member: báo lỗi.<br>b. Tài khoản đã có mật khẩu hoặc đã liên kết Google: từ chối.<br>c. Gửi lại trước 60 giây: từ chối.<br>d. Email không đổi hoặc email mới đã tồn tại: từ chối. |
 | Hậu điều kiện | Chỉ link mới nhất dùng được. |
 
 ### UC-F1-12 — Tìm kiếm, xem tài khoản
 
 | Mục | Nội dung |
 |---|---|
-| Tác nhân | Receptionist, Center Manager (danh sách Member); Coach (chỉ Member có quan hệ huấn luyện Active); System Administrator (danh sách quản trị) |
+| Tác nhân | Receptionist, Center Manager (tra danh sách); Coach (chỉ đọc chi tiết Member có quan hệ Active); System Administrator (danh sách quản trị) |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập với vai trò và quan hệ dữ liệu cho phép đọc tài khoản được yêu cầu. |
-| Luồng chính | 1. Nhập từ khóa (email, họ tên, số điện thoại), chọn vai trò, trạng thái và cách sắp xếp.<br>2. Hệ thống trả danh sách phân trang (20 dòng, tối đa 100).<br>3. Mỗi dòng hiển thị trạng thái chờ kích hoạt, đã có mật khẩu, đã liên kết Google và môn chuyên môn (với Coach).<br>4. Mở chi tiết một tài khoản khi cần. |
+| Luồng chính | 1. Receptionist/Center Manager dùng `GET /api/users`; System Administrator dùng `/api/users/admin` và có thể sắp xếp.<br>2. Hệ thống lọc theo từ khóa, vai trò, trạng thái và trả danh sách phân trang (mặc định 20 dòng, tối đa 100); Receptionist luôn bị giới hạn vai trò Member.<br>3. Người có quyền mở chi tiết qua `/api/users/{id}` hoặc `/api/users/admin/{id}`; Coach chỉ được mở Member có quan hệ Active. |
 | Luồng thay thế / ngoại lệ | a. Bộ lọc hoặc cột sắp xếp không hợp lệ: từ chối.<br>b. Coach xem Member không có quan hệ Active: từ chối.<br>c. Không tìm thấy tài khoản: báo lỗi. |
 | Hậu điều kiện | Không thay đổi dữ liệu. |
 
@@ -185,9 +185,9 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | System Administrator |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; email nhân sự chưa được dùng; với Coach, môn chuyên môn được chọn đang hoạt động. |
-| Luồng chính | 1. Nhập email, nhập lại email, họ tên, số điện thoại (tùy chọn) và chọn vai trò (System Administrator, Center Manager, Receptionist, Coach). Với Coach, chọn đúng một môn đang hoạt động.<br>2. Hệ thống kiểm hai lần nhập email khớp, email và số điện thoại chưa dùng, ràng buộc môn.<br>3. Trong một giao dịch: tạo tài khoản Active chưa có mật khẩu, tạo hồ sơ và chuyên môn Coach (nếu là Coach), ghi audit CREATE_STAFF_ACCOUNT, phát link kích hoạt 24 giờ.<br>4. Danh sách hiển thị tài khoản ở trạng thái "chờ kích hoạt".<br>5. Sau khi tạo, Center Manager có thể bổ sung chuyên môn cho Coach (UC-F1-17). |
-| Luồng thay thế / ngoại lệ | a. Vai trò không hợp lệ hoặc vai trò Member: từ chối (Member phải tự đăng ký).<br>b. Coach không chọn đúng một môn, hoặc vai trò khác Coach nhưng có chọn môn: từ chối.<br>c. Hai lần nhập email không khớp: từ chối.<br>d. Email hoặc số điện thoại đã tồn tại: từ chối. |
-| Hậu điều kiện | Nhân sự chưa đăng nhập được cho tới khi kích hoạt (UC-F1-10). |
+| Luồng chính | 1. Nhập email một lần, họ tên, số điện thoại tùy chọn và chọn vai trò nhân sự. Với Coach, chọn ít nhất một môn có thể dạy.<br>2. Hệ thống kiểm email, số điện thoại chưa dùng và ràng buộc chuyên môn.<br>3. Trong một giao dịch: tạo tài khoản Active chưa có mật khẩu, hồ sơ và chuyên môn Coach nếu cần, ghi audit `CREATE_STAFF_ACCOUNT`, phát link kích hoạt có hạn chót cố định 24 giờ từ lúc tạo.<br>4. Danh sách hiển thị tài khoản chờ đặt mật khẩu. |
+| Luồng thay thế / ngoại lệ | a. Vai trò không hợp lệ hoặc Member: từ chối.<br>b. Coach không chọn môn hợp lệ, hoặc vai trò khác Coach lại gửi chuyên môn: từ chối.<br>c. Email hoặc số điện thoại đã tồn tại: từ chối.<br>d. Sau 24 giờ chưa kích hoạt: tác vụ xóa lời mời nhân sự, giải phóng email và ghi audit hết hạn. |
+| Hậu điều kiện | Nhân sự chưa đăng nhập được bằng mật khẩu cho tới khi kích hoạt (UC-F1-10). |
 
 ### UC-F1-14 — Gửi lại link / sửa email nhân sự chờ kích hoạt
 
@@ -196,8 +196,8 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | System Administrator |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; tài khoản đích là nhân sự chờ kích hoạt. |
-| Luồng chính | 1. Gửi lại link: hệ thống phát link mới, vô hiệu link cũ, ghi audit RESEND_STAFF_ACTIVATION.<br>2. Sửa email: nhập email mới hai lần và lý do (3–500 ký tự); hệ thống hủy link cũ, đổi email, ghi audit CHANGE_PENDING_STAFF_EMAIL (email cũ, email mới, lý do) và gửi link mới tới email mới. |
-| Luồng thay thế / ngoại lệ | a. Tài khoản là Member, đã có mật khẩu hoặc đã liên kết Google: từ chối.<br>b. Gửi lại khi chưa đủ 60 giây: từ chối.<br>c. Email không đổi hoặc email mới đã tồn tại: từ chối. |
+| Luồng chính | 1. Gửi lại link: hệ thống phát link mới, vô hiệu link cũ, ghi audit `RESEND_STAFF_ACTIVATION`.<br>2. Sửa email: nhập email mới một lần và lý do 3–500 ký tự; hệ thống hủy link cũ, đổi email, ghi audit `CHANGE_PENDING_STAFF_EMAIL` và gửi link mới.<br>3. Hạn chót vẫn là 24 giờ kể từ lúc tạo tài khoản. |
+| Luồng thay thế / ngoại lệ | a. Tài khoản là Member, đã có mật khẩu hoặc đã liên kết Google: từ chối.<br>b. Gửi lại trước 60 giây hoặc sau hạn chót lời mời: từ chối.<br>c. Email không đổi hoặc email mới đã tồn tại: từ chối. |
 | Hậu điều kiện | Chỉ link mới nhất dùng được. |
 
 ### UC-F1-15 — Đổi vai trò
@@ -208,7 +208,7 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; tài khoản đích là nhân sự; vai trò mới là vai trò nhân sự. |
 | Luồng chính | 1. Chọn vai trò mới và nhập lý do (3–500 ký tự); nếu đổi sang Coach thì chọn môn chuyên môn.<br>2. Hệ thống kiểm các ràng buộc.<br>3. Hệ thống đổi vai trò, vô hiệu phiên đăng nhập cũ của tài khoản và ghi audit CHANGE_USER_ROLE.<br>4. Khi rời vai trò Coach: gỡ chuyên môn nhưng giữ hồ sơ Coach làm lịch sử. |
-| Luồng thay thế / ngoại lệ | a. Vai trò mới trùng vai trò hiện tại: không làm gì.<br>b. Đổi giữa Member và nhân sự: từ chối (BR-142).<br>c. Hạ System Administrator hoạt động cuối cùng: từ chối.<br>d. Coach còn lớp chưa kết thúc, buổi tương lai hoặc quan hệ huấn luyện Active: chặn và liệt kê lý do.<br>e. Vai trò không hợp lệ, hoặc có chọn môn khi vai trò mới không phải Coach: từ chối. |
+| Luồng thay thế / ngoại lệ | a. Vai trò mới trùng vai trò hiện tại: trả hồ sơ hiện tại.<br>b. Đổi giữa Member và nhân sự: từ chối.<br>c. Không cho đổi vai trò của bất kỳ System Administrator hiện tại nào, kể cả chính mình.<br>d. Coach còn lớp chưa kết thúc, buổi tương lai hoặc quan hệ huấn luyện Active: chặn và liệt kê lý do.<br>e. Vai trò/chuyên môn không hợp lệ: từ chối. |
 | Hậu điều kiện | Người dùng phải đăng nhập lại để nhận quyền đúng vai trò mới. |
 
 ### UC-F1-16 — Khóa / mở khóa / vô hiệu hóa tài khoản
@@ -253,8 +253,8 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập. |
-| Luồng chính | 1. Tạo gói: nhập tên duy nhất (2–120 ký tự), giá (dương, bội số của 1.000 VND), thời hạn và mô tả.<br>2. Sửa gói, ngừng bán hoặc bán lại.<br>3. Mỗi thao tác ghi audit (CREATE, UPDATE, DISCONTINUE, REACTIVATE_MEMBERSHIP_PACKAGE) kèm giá trị cũ và mới.<br>4. Sửa giá hoặc thời hạn không làm đổi các gói đã bán. |
-| Luồng thay thế / ngoại lệ | a. Tên trùng gói khác: từ chối (BR-56).<br>b. Giá không hợp lệ: từ chối.<br>c. Bỏ giới hạn số buổi của gói đang có giới hạn: từ chối.<br>d. Vé Gym 1 ngày có giá và thời hạn cố định: không cho sửa hoặc ngừng bán.<br>e. Không tìm thấy gói: báo lỗi. |
+| Luồng chính | 1. Tạo gói: nhập tên duy nhất 2–120 ký tự, giá dương là bội số 1.000 VND, thời hạn `durationDays` từ 1–3650 và mô tả tùy chọn.<br>2. Hệ thống dành riêng thời hạn 1 ngày cho vé Gym; gói thường phải dài hơn 1 ngày và không có giới hạn số buổi (`sessionLimit = null`).<br>3. Center Manager sửa gói, ngừng bán hoặc bán lại; mỗi thao tác ghi audit tương ứng.<br>4. Thay đổi danh mục không hồi tố gói đã bán hoặc hóa đơn đã phát hành. |
+| Luồng thay thế / ngoại lệ | a. Tên trùng gói khác: từ chối.<br>b. Giá không hợp lệ, thời hạn ngoài khoảng hoặc gửi `sessionLimit` khác null: từ chối.<br>c. Gói thường có thời hạn 1 ngày: từ chối vì dành cho vé Gym.<br>d. Vé Gym 1 ngày cho sửa giá/tên/mô tả nhưng giữ thời hạn đúng 1 ngày; không cho ngừng bán hoặc bán lại qua API trạng thái.<br>e. Không tìm thấy gói: báo lỗi. |
 | Hậu điều kiện | Danh mục được cập nhật; hóa đơn đã phát hành giữ nguyên snapshot giá và thời hạn; ngừng bán không làm mất quyền lợi đã mua (BR-8). |
 
 ### UC-F1-20 — Mua / gia hạn gói và kích hoạt (gồm vé Gym 1 ngày)
@@ -264,9 +264,9 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | Member (tự mua); Receptionist, Center Manager (mua hộ, phải chỉ rõ Member) |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; gói đang bán; Member đích ở trạng thái Active. |
-| Luồng chính | 1. Hệ thống báo giá gói (giá, thời hạn được chốt tại thời điểm mua).<br>2. Hệ thống tạo Membership ở trạng thái chờ thanh toán. Ngày bắt đầu là ngày ngay sau khi Membership Active gần nhất hết hạn (gia hạn sớm, BR-65), nếu không có thì là hôm nay.<br>3. Hệ thống tạo hóa đơn và chuyển sang thanh toán (Flow 3).<br>4. Khi thanh toán thành công: Membership chuyển Active, tính lại ngày bắt đầu/kết thúc theo BR-9 (hai đầu inclusive), ghi audit ACTIVATE_MEMBER_PACKAGE và thông báo cho Member.<br>5. Khi thanh toán thất bại hoặc bị hủy: Membership chờ thanh toán chuyển Cancelled.<br>6. Vé Gym 1 ngày: giá 50.000 VND, bắt đầu và kết thúc trong ngày thanh toán thành công; Member được báo rõ mã check-in chỉ dùng trong ngày trước khi trả tiền, và nhận lại thông báo kèm email nhắc. |
-| Luồng thay thế / ngoại lệ | a. Thiếu mã chống trùng giao dịch, hoặc Member mua hộ người khác: từ chối.<br>b. Nhân sự mua hộ mà không chỉ rõ Member: từ chối.<br>c. Gói không tồn tại, đã ngừng bán hoặc giá không còn hợp lệ: từ chối.<br>d. Đã có đơn chờ thanh toán cùng gói: từ chối, trừ khi được duyệt mua chồng kèm lý do.<br>e. Gym đang đóng do sự cố: không bán vé ngày.<br>f. Member đã có vé ngày còn hiệu lực trong ngày: từ chối.<br>g. Tài khoản không Active: từ chối. |
-| Hậu điều kiện | Member có quyền vào Gym trong khoảng ngày hiệu lực; các gói nối tiếp nhau, không chồng lấn. Thanh toán, thử lại và đối soát do Flow 3 đặc tả. |
+| Luồng chính | 1. Client gửi `POST /api/checkouts/membership` với `Idempotency-Key`; hệ thống lấy giá và thời hạn hiện tại của gói.<br>2. Hệ thống tạo Membership `PendingPayment`, hóa đơn `Issued` và phiên checkout trong một giao dịch; gói thường bắt đầu sau gói Active còn hiệu lực có ngày kết thúc muộn nhất, hoặc từ hôm nay.<br>3. Thanh toán và đối soát do Flow 3 xử lý. Khi hóa đơn được xác nhận trả thành công, Membership chuyển `Active`, tính lại ngày bắt đầu/kết thúc bằng giờ Việt Nam và snapshot thời hạn, ghi audit `ACTIVATE_MEMBER_PACKAGE` và xếp thông báo.<br>4. Khi phiên/hóa đơn được hủy hoặc giải phóng theo luồng thanh toán, Membership còn `PendingPayment` chuyển `Cancelled`.<br>5. Vé Gym 1 ngày dùng giá hiện hành trong danh mục (seed mặc định 50.000 VND); khi kích hoạt, ngày bắt đầu và kết thúc đều là ngày thanh toán thành công, kèm thông báo trong ứng dụng và email về hiệu lực trong ngày. |
+| Luồng thay thế / ngoại lệ | a. Thiếu hoặc dùng lại `Idempotency-Key` cho Member/gói khác: từ chối; cùng khóa hợp lệ trả lại checkout cũ.<br>b. Member mua hộ người khác hoặc nhân sự không chỉ rõ Member: từ chối.<br>c. Gói không tồn tại, ngừng bán, giá không hợp lệ hoặc Member không Active: từ chối.<br>d. Nếu có checkout chưa thanh toán cùng gói còn hiệu lực, hệ thống tiếp tục dùng checkout đó; nếu vẫn có `PendingPayment` khác thì chặn, trừ khi Center Manager duyệt mua chồng kèm lý do.<br>e. Gym đang đóng do sự cố hoặc Member đã có vé ngày Active hôm nay: không bán vé ngày. |
+| Hậu điều kiện | Member được vào Gym khi có gói `Active` và hôm nay nằm trong khoảng ngày hiệu lực. Gia hạn gói thường được xếp nối tiếp; vé ngày áp dụng riêng cho ngày thanh toán. Thanh toán, thử lại và đối soát thuộc Flow 3. |
 
 ### UC-F1-21 — Xem gói đã mua và hạn dùng
 
@@ -287,8 +287,8 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Tác vụ được bật; hệ thống có ngày hiện tại theo giờ Việt Nam và số ngày nhắc hạn đã cấu hình (mặc định 7 ngày, Center Manager chỉnh được). |
 | Luồng chính | 1. Gói Active có ngày kết thúc trước hôm nay chuyển sang Expired.<br>2. Gói Active sắp hết hạn trong số ngày cấu hình được xếp một thông báo nhắc hạn cho Member.<br>3. Mỗi gói chỉ được nhắc một lần; vé Gym 1 ngày không được nhắc. |
-| Luồng thay thế / ngoại lệ | a. Gói đã nhắc: không nhắc lại.<br>b. Gửi thông báo lỗi: giữ trạng thái để tác vụ thử lại theo cơ chế outbox, không làm sai trạng thái gói. |
-| Hậu điều kiện | Trạng thái gói đúng theo ngày; Member nhận đúng một nhắc hạn cho mỗi gói. |
+| Luồng thay thế / ngoại lệ | a. Gói đã có thông báo `PackageExpiring`: không xếp thêm.<br>b. Lỗi ghi thông báo: tác vụ thử lại ở lượt chạy sau; trạng thái gói đã hết hạn được cập nhật riêng. |
+| Hậu điều kiện | Gói quá ngày kết thúc chuyển `Expired`; mỗi gói đủ điều kiện có tối đa một thông báo nhắc hạn trong hệ thống. |
 
 ## E. Dữ liệu và hỗ trợ
 
@@ -310,31 +310,31 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Tác nhân | Center Manager |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; ngày hoặc khoảng ngày báo cáo được cung cấp, hoặc dùng mặc định. |
-| Luồng chính | 1. Xem tổng quan theo ngày (mặc định hôm nay): tổng Member, Member có và không có Membership hiệu lực, số gói theo từng trạng thái, số Member có vé ngày.<br>2. Xem theo kỳ [từ ngày, đến ngày]: Member mới, Member có Membership hiệu lực cuối kỳ, số Member có mua gói, số vé ngày đã bán.<br>3. Vé Gym 1 ngày không tính là hội viên. |
+| Luồng chính | 1. Xem tổng quan theo ngày (mặc định hôm nay): tổng tài khoản vai trò Member, số Member có và không có Membership thường hiệu lực, số gói thường theo trạng thái, số Member có vé ngày.<br>2. Xem theo kỳ [từ ngày, đến ngày]: Member mới, Member có Membership thường hiệu lực cuối kỳ, số Member có mua gói, số vé ngày đã bán.<br>3. Vé Gym 1 ngày không được tính vào chỉ số Membership thường hiệu lực; người mua vé vẫn là tài khoản vai trò Member và nằm trong tổng tài khoản Member. |
 | Luồng thay thế / ngoại lệ | a. Hai ngày bị đảo thứ tự: hệ thống tự đổi chỗ.<br>b. Vai trò khác Center Manager: từ chối. |
 | Hậu điều kiện | Không thay đổi dữ liệu. Doanh thu thuộc báo cáo của Flow 3; mục này chỉ để đối chiếu phần Membership. |
 
-### UC-F1-25 — Xem Audit Log thao tác tài khoản
+### UC-F1-25 — Xem Audit Log theo quyền
 
 | Mục | Nội dung |
 |---|---|
-| Tác nhân | Center Manager (toàn bộ); System Administrator (chỉ thao tác tài khoản) |
+| Tác nhân | Center Manager, System Administrator; mỗi vai trò có tập log hiển thị riêng theo vai trò người thực hiện |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; phạm vi log đọc được phụ thuộc vai trò. |
-| Luồng chính | 1. Lọc theo hành động, loại đối tượng, người thực hiện, mã đối tượng và khoảng thời gian; chọn cách sắp xếp.<br>2. Hệ thống trả danh sách phân trang (25 dòng).<br>3. Các hành động của Flow 1 được ghi: CREATE_STAFF_ACCOUNT, RESEND_STAFF_ACTIVATION, CHANGE_PENDING_STAFF_EMAIL, FRONT_DESK_CREATE_MEMBER, RESEND_MEMBER_ACTIVATION, CHANGE_PENDING_MEMBER_EMAIL, CHANGE_USER_ROLE, LOCK_USER_ACCOUNT, UNLOCK_USER_ACCOUNT, CREATE/UPDATE/DISCONTINUE/REACTIVATE_MEMBERSHIP_PACKAGE, ACTIVATE_MEMBER_PACKAGE. |
-| Luồng thay thế / ngoại lệ | a. Người không có quyền: từ chối.<br>b. System Administrator chỉ thấy Audit Log thao tác tài khoản. |
+| Luồng chính | 1. Gọi `GET /api/audit-logs/actions` để lấy hành động có thể lọc, hoặc `GET /api/audit-logs` để lọc theo hành động, đối tượng, người thực hiện, vai trò, mã đích, thời gian và sắp xếp.<br>2. Hệ thống trả danh sách phân trang (mặc định 25, tối đa 200).<br>3. Center Manager thấy log có actor role `CENTER_MANAGER`, `RECEPTIONIST`, `COACH`, `MEMBER`; System Administrator thấy `SYSTEM_ADMINISTRATOR`, `CENTER_MANAGER`, `COACH`, `SYSTEM`.<br>4. Các thao tác tài khoản, danh mục, kích hoạt Membership và xử lý yêu cầu hỗ trợ được ghi audit tại service/controller tương ứng. |
+| Luồng thay thế / ngoại lệ | a. Người không có quyền: từ chối.<br>b. Vai trò actor lọc không hợp lệ: từ chối.<br>c. Log ngoài tập vai trò được phép của người xem: không trả về, kể cả khi khớp bộ lọc. |
 | Hậu điều kiện | Không thay đổi dữ liệu. |
 
-### UC-F1-26 — Ghi nhận yêu cầu hỗ trợ của Member
+### UC-F1-26 — Ghi nhận và xử lý yêu cầu hỗ trợ của Member
 
 | Mục | Nội dung |
 |---|---|
 | Tác nhân | Receptionist, Center Manager |
 | Mức ưu tiên | Optional |
 | Tiền điều kiện | Đã đăng nhập; tài khoản đích có vai trò Member. |
-| Luồng chính | 1. Chọn Member.<br>2. Nhập loại yêu cầu (chung, Membership, lớp học, thanh toán, khác), tiêu đề (3–200 ký tự) và nội dung (3–2000 ký tự).<br>3. Hệ thống lưu yêu cầu ở trạng thái OPEN kèm người ghi nhận.<br>4. Xem 50 yêu cầu gần nhất của Member. |
-| Luồng thay thế / ngoại lệ | a. Tài khoản đích không phải Member: từ chối.<br>b. Loại, tiêu đề hoặc nội dung không hợp lệ: từ chối. |
-| Hậu điều kiện | Có bản ghi yêu cầu OPEN. Chưa có bước xử lý hoặc đóng yêu cầu (xem G.4). |
+| Luồng chính | 1. Receptionist hoặc Center Manager chọn Member, nhập loại `GENERAL`, `MEMBERSHIP`, `CLASS`, `PAYMENT` hoặc `OTHER`, tiêu đề 3–200 ký tự và nội dung 3–2000 ký tự.<br>2. Hệ thống tạo yêu cầu `OPEN` với người ghi nhận và audit; có thể xem 50 yêu cầu gần nhất của Member hoặc hàng đợi phân trang với bộ lọc trạng thái, người phụ trách và từ khóa.<br>3. Chọn Receptionist/Center Manager đang Active để giao việc; yêu cầu chuyển `ASSIGNED`.<br>4. Ghi chú tiến độ 3–1000 ký tự sau khi đã giao; yêu cầu chuyển `IN_PROGRESS`.<br>5. Nhập kết quả 3–1000 ký tự để đóng; yêu cầu chuyển `CLOSED` và lưu thời điểm đóng. |
+| Luồng thay thế / ngoại lệ | a. Tài khoản đích không phải Member, loại hoặc nội dung không hợp lệ: từ chối.<br>b. Người được giao không phải Receptionist/Center Manager Active: từ chối.<br>c. Chưa giao việc mà cập nhật tiến độ hoặc đóng: từ chối.<br>d. Yêu cầu đã đóng: không cho giao lại/cập nhật tiến độ; đóng lặp trả bản ghi cũ. |
+| Hậu điều kiện | Yêu cầu và các thay đổi trạng thái được lưu, có audit cho tạo, giao, cập nhật và đóng. |
 
 ## F. Quyền vào Gym
 
@@ -349,26 +349,26 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 | Luồng thay thế / ngoại lệ | a. Mã sai cấu trúc hoặc sai chữ ký: từ chối.<br>b. Mã hết hạn: từ chối.<br>c. Người quét không có quyền: từ chối.<br>d. Mã hợp lệ nhưng Member không có Membership Active: vẫn bị từ chối ở UC-F1-28. |
 | Hậu điều kiện | Mã chỉ định danh Member, không tự tạo lượt vào Gym và không cấp quyền sử dụng. |
 
-### UC-F1-28 — Check-in, check-out và xem lịch sử Gym
+### UC-F1-28 — Check-in và xem lịch sử Gym
 
 | Mục | Nội dung |
 |---|---|
-| Tác nhân | Member (đưa mã QR, xem lịch sử của mình); Receptionist (check-in và check-out cho Member, xem lịch sử); Center Manager (xem lịch sử) |
+| Tác nhân | Member (đưa mã QR, xem lịch sử của mình); Receptionist (check-in cho Member, xem lịch sử); Center Manager (xem lịch sử) |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Member tồn tại, có vai trò Member, trạng thái Active và có ít nhất một gói Gym Active với ngày bắt đầu ≤ hôm nay ≤ ngày kết thúc theo giờ Việt Nam. Member được nhận diện qua tài khoản đăng nhập hoặc mã QR (UC-F1-27). |
-| Luồng chính | 1. Receptionist tìm hoặc quét mã QR của Member rồi yêu cầu check-in (Member không tự check-in).<br>2. Hệ thống kiểm vai trò, trạng thái tài khoản, Member chưa có lượt đang mở và có gói Gym hiệu lực đúng ngày; lấy giờ máy chủ làm giờ vào.<br>3. Hệ thống lưu lượt check-in kèm người thực hiện.<br>4. Receptionist chọn lượt đang mở để check-out; hệ thống ghi giờ ra và người thực hiện.<br>5. Member xem lịch sử của mình; Receptionist và Center Manager xem lịch sử của một Member (phân trang). |
-| Luồng thay thế / ngoại lệ | a. Không tìm thấy Member hoặc không đúng vai trò: từ chối.<br>b. Tài khoản không Active: từ chối.<br>c. Đang có lượt chưa check-out: từ chối.<br>d. Không có gói Active đúng ngày (kể cả vé ngày đã qua ngày): từ chối.<br>e. Check-out lượt không tồn tại: báo lỗi.<br>f. Check-out lặp lại: trả lại bản ghi đã đóng, không ghi đè giờ ra.<br>g. Người thiếu quyền: từ chối. |
-| Hậu điều kiện | Lịch sử vào/ra Gym được lưu. Quyền vào chỉ được xác nhận tại thời điểm check-in, không dựa vào mã QR hay dữ liệu do client gửi. |
+| Luồng chính | 1. Receptionist tìm hoặc quét mã QR của Member rồi gọi `POST /api/gym-checkins` (Member không tự ghi check-in).<br>2. Hệ thống kiểm vai trò, trạng thái tài khoản, gói Gym hiệu lực đúng ngày và thời điểm check-in gần nhất trong transaction; lấy giờ máy chủ làm giờ vào.<br>3. Nút Check-in của Member đếm ngược 10 giây sau khi thành công; hết cooldown có thể check-in tiếp.<br>4. Member, Receptionist và Center Manager xem lịch sử check-in có phân trang. |
+| Luồng thay thế / ngoại lệ | a. Không tìm thấy Member, sai vai trò hoặc tài khoản không Active: từ chối.<br>b. Không có gói Active đúng ngày: từ chối.<br>c. Check-in lại trong 10 giây, kể cả gửi đồng thời từ hai máy: 409 `gym_checkin_cooldown`.<br>d. Người thiếu quyền: từ chối. |
+| Hậu điều kiện | Lịch sử check-in Gym được lưu. Quyền vào chỉ được xác nhận tại thời điểm check-in, không dựa vào mã QR hay dữ liệu do client gửi. |
 
-## G. Điểm cần chốt và đối chiếu (không thuộc nội dung UC)
+## G. Đối chiếu code và quy tắc (không thuộc nội dung UC)
 
-1. **Mã BR không có trong Business Rules v2.0.** Bản cũ dẫn BR-30, BR-40, BR-145 nhưng file BR chỉ đến BR-144 và không có ba mã này. Quy tắc vé Gym 1 ngày (50.000đ, dùng trong ngày, mã check-in hiệu lực trong ngày) hiện chỉ có ở Requirements.md và 00-Source-of-Truth.md; cần thêm vào file BR và đặt mã, rồi cập nhật cột BR ở mục A. BR-11 (bản cũ dẫn cho tác vụ hết hạn) là quy tắc gói PT, không phải hết hạn Membership; đã thay bằng BR-9, BR-33.
-2. **Thời hạn gói: BR-9 và code lệch nhau.** BR-9 quy định Membership chỉ có thời hạn 1, 3, 6 hoặc 12 tháng, EndDate = StartDate cộng số tháng trừ một ngày. Bản cũ UC-F1-19 ghi thời hạn lưu theo số ngày từ 1 đến 3650 và UC-F1-20 ghi quy đổi từ 28 ngày trở lên sang tháng. Cần chốt: sửa BR-9 cho khớp code, hoặc giới hạn code theo BR-9. UC viết lại dùng cách nói trung tính "thời hạn", "theo BR-9".
-3. **Gỡ liên kết Google chưa có.** BR-59 cho phép người dùng gỡ liên kết Google khi tài khoản đã có mật khẩu; UC-F1-04 chỉ có chiều liên kết.
-4. **Yêu cầu hỗ trợ (UC-F1-26):** chỉ tạo và xem, chưa có xử lý hoặc đóng yêu cầu; loại PT còn sót sau khi bỏ PT (bản viết lại đã bỏ khỏi danh sách loại).
-5. **BR-143 chưa áp dụng đủ cho nhân sự:** form và API tạo nhân sự hiện chỉ có một ô email (UC-F1-13 viết theo BR-143, tức nhập hai lần); màn quản trị người dùng của System Administrator chưa có nút gọi gửi lại link / sửa email (UC-F1-14).
-6. **Requirements.md lệch BR-1:** Requirements.md ghi lễ tân nhập email một lần và tài khoản chưa kích hoạt quá 7 ngày bị gỡ; BR-1 và BR-143 yêu cầu nhập hai lần, và không có BR nào về việc tự gỡ sau 7 ngày. UC-F1-09 viết theo BR-1; cần sửa Requirements.md hoặc bổ sung BR cho quy tắc 7 ngày.
-7. **UC-F1-01 bước gửi OTP:** BR-78 cấm phản hồi gửi OTP tiết lộ email đã tồn tại; bản cũ ghi trả lỗi email đã tồn tại ngay ở bước gửi OTP. UC viết lại theo BR-78; cần kiểm lại code.
-8. **UC-F1-20 bước 5 (hủy thanh toán → Cancelled)** phụ thuộc xử lý kết quả cổng thanh toán ở Flow 3; màn "Confirming your payment" treo Pending khi người dùng hủy ở VNPay là chưa khớp bước này.
-9. **UC-F1-27, UC-F1-28:** có mã nguồn nhưng chưa có bằng chứng nghiệm thu; các UC còn lại cũng chưa phải kết quả chạy thật hoặc E2E.
-10. **Mức ưu tiên (Required / Optional)** là đề xuất để nhóm xác nhận: Google (03, 04), ảnh đại diện (08), hồ sơ tập luyện (23) và yêu cầu hỗ trợ (26) đặt Optional.
+1. **OTP đăng ký và BR-78:** `AuthService.RequestRegisterOtpAsync` trả `email_already_exists` ngay khi xin mã cho email đã tồn tại. Vì vậy UC-F1-01 mô tả phản hồi hiện có; yêu cầu không tiết lộ sự tồn tại email của BR-78 chưa được đáp ứng.
+2. **Email nhập hai lần và BR-143:** request tạo Member tại quầy, tạo nhân sự và sửa email đang chờ kích hoạt đều chỉ có một trường `Email`. UC-F1-09, 11, 13, 14 phản ánh code; nếu cần hai lần nhập phải bổ sung contract và kiểm tra ở backend.
+3. **Hết hạn lời mời:** link Member có hạn 24 giờ từ mỗi lần phát; tài khoản Member tại quầy chưa kích hoạt bị dọn sau 7 ngày chỉ khi chưa có dữ liệu vận hành. Link nhân sự có hạn chót cố định 24 giờ từ lúc tạo, gửi lại hoặc sửa email không gia hạn; lời mời nhân sự chưa kích hoạt được dọn sau hạn chót. Các điều kiện này do `ActivationLinkService`, `MemberInvitationExpiryService` và `StaffInvitationExpiryService` thực hiện.
+4. **Thời hạn Membership và BR-9:** API nhận `durationDays` 1–3650 (1 ngày dành riêng cho vé Gym). `MemberPackageRules` quy đổi từ 28 ngày trở lên sang tháng bằng cách làm tròn `durationDays / 30.4375`, dưới 28 ngày tính theo ngày. BR-9 chỉ nêu 1, 3, 6, 12 tháng. Cần chốt lại tập thời hạn được bán hoặc sửa BR-9.
+5. **Vé Gym 1 ngày:** giá seed 50.000 VND không phải giá cố định trong code; Center Manager sửa được giá tại danh mục, nhưng không đổi được thời hạn 1 ngày hoặc ngừng bán. Hóa đơn dùng giá danh mục tại lúc mua; thông báo sau kích hoạt nêu ngày thanh toán thực tế. Quy tắc vé ngày chưa có mã BR tương ứng trong Business Rules v2.0.
+6. **Giới hạn số buổi:** Membership hiện không dùng quota. `MembershipPackageService` từ chối mọi `sessionLimit` khác null; `MemberPackageRules` kiểm quyền bằng trạng thái và ngày hiệu lực. Quy tắc hoặc màn hình nào còn mô tả gói giới hạn buổi cần cập nhật.
+7. **Google và hỗ trợ:** chưa có API gỡ liên kết Google dù BR-59 đề cập. `MemberSupportRequestsController` đã có hàng đợi, giao việc, ghi tiến độ và đóng yêu cầu.
+8. **Quyền quản trị:** `UserAdminService` cấm đổi vai trò của mọi System Administrator hiện tại. UC-F1-15 ghi theo code thay vì điều kiện "chỉ chặn Administrator cuối cùng" của bản trước.
+9. **Thanh toán:** Membership chỉ chuyển `Cancelled` khi luồng thanh toán thực sự giải phóng bản ghi `PendingPayment`. Việc VNPay trả về thất bại/hủy và trạng thái giao diện chờ xác nhận thuộc Flow 3, cần kiểm thử riêng; không suy ra `Cancelled` chỉ từ việc người dùng rời trang thanh toán.
+10. **Mã BR và mức ưu tiên:** tài liệu BR v2.0 không có BR-30, BR-40, BR-145 từng được dẫn ở bản cũ; BR-11 nói về PT, không dùng cho hết hạn Membership. Required/Optional trong bảng là đề xuất của nhóm, không suy ra từ code. Tài liệu này đối chiếu mã nguồn nhưng chưa thay thế kiểm thử tích hợp hoặc E2E.

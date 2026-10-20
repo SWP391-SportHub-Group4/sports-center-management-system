@@ -108,10 +108,13 @@ export function SupportQueue({
             <RefreshCw size={16} aria-hidden="true" />
             Refresh
           </button>
-          <Link className="btn" href={`/${workspace}/members`}>
-            <Plus size={18} aria-hidden="true" />
-            Record a request
-          </Link>
+          {/* Lễ tân ghi yêu cầu ngay trên Today's desk khi đã chọn Member; hàng đợi chỉ để xử lý. */}
+          {workspace !== "receptionist" && (
+            <Link className="btn" href={`/${workspace}/members`}>
+              <Plus size={18} aria-hidden="true" />
+              Record a request
+            </Link>
+          )}
         </div>
       </div>
       <form
@@ -272,7 +275,9 @@ export function SupportQueue({
             <MessageSquare size={28} aria-hidden="true" />
             <h3>No requests match these filters</h3>
             <p>
-              Change the filters or open a member’s profile to record a request.
+              {workspace === "receptionist"
+                ? "Change the filters, or record a request from Today’s desk."
+                : "Change the filters or open a member’s profile to record a request."}
             </p>
             {filtered && (
               <button
@@ -440,8 +445,11 @@ export function SupportQueue({
         )}
       </div>
       <p className={styles.footnote}>
-        New requests are recorded from the member’s profile. Managers and
-        receptionists can handle requests assigned to any staff member.
+        {workspace === "receptionist"
+          ? "New requests are recorded from Today’s desk after selecting the member. "
+          : "New requests are recorded from the member’s profile. "}
+        Managers and receptionists can handle requests assigned to any staff
+        member.
       </p>
     </section>
   );

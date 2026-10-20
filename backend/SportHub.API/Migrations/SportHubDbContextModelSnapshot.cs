@@ -3009,17 +3009,9 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("check_in_time");
 
-                    b.Property<DateTime?>("CheckOutTime")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("check_out_time");
-
                     b.Property<Guid>("CheckedInByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("checked_in_by_user_id");
-
-                    b.Property<Guid?>("CheckedOutByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("checked_out_by_user_id");
 
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
@@ -3030,9 +3022,6 @@ namespace SportHub.API.Migrations
 
                     b.HasIndex("CheckedInByUserId")
                         .HasDatabaseName("ix_gym_checkins_checked_in_by_user_id");
-
-                    b.HasIndex("CheckedOutByUserId")
-                        .HasDatabaseName("ix_gym_checkins_checked_out_by_user_id");
 
                     b.HasIndex("MemberId", "CheckInTime")
                         .IsDescending(false, true)
@@ -4695,12 +4684,6 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_gym_checkins_user_accounts_checked_in_by_user_id");
-
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("CheckedOutByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_gym_checkins_user_accounts_checked_out_by_user_id");
 
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Member")
                         .WithMany()

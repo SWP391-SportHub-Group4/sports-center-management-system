@@ -320,7 +320,7 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
         message: "Role change is blocked.",
         reasons: [
           "Main coach of 1 unfinished class. Reassign it first.",
-          "2 upcoming class/PT session(s) are still assigned. Reassign or cancel them first.",
+          "2 upcoming class session(s) are still assigned. Reassign or cancel them first.",
           "1 active coaching relationship(s). End or transfer them first.",
         ],
       },
@@ -343,7 +343,7 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
   });
   await expect(blockers.getByRole("listitem")).toHaveCount(3);
   await expect(blockers).toContainText("Main coach of 1 unfinished class");
-  await expect(blockers).toContainText("2 upcoming class/PT session(s)");
+  await expect(blockers).toContainText("2 upcoming class session(s)");
   await expect(blockers).toContainText("1 active coaching relationship(s)");
   await expect(blockers).toContainText(
     "Contact a Center Manager or Receptionist",

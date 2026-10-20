@@ -1,12 +1,12 @@
 "use client";
 
-import { PtPage } from "@/features/pt/ui";
-import { CoachWorkspace } from "@/features/pt/coach-workspace";
+import { StaffPage } from "@/features/coaching/ui";
+import { CoachWorkspace } from "@/features/coaching/coach-workspace";
 
 export default function CoachClassesPage() {
   return (
-    <PtPage title="classes">
+    <StaffPage title="classes">
       <CoachWorkspace mode="classes" />
-    </PtPage>
+    </StaffPage>
   );
 }

@@ -1,4 +1,4 @@
-import { CoachClassPage } from "@/features/pt/coach-class-page";
+import { CoachClassPage } from "@/features/coaching/coach-class-page";
 
 export default async function Page({
   params,

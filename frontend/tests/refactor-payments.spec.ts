@@ -360,21 +360,6 @@ test("public landing and catalog fit mobile and desktop and pass WCAG", async ({
           ],
           isActive: true,
         },
-        {
-          sportId: 2,
-          name: "Personal training",
-          description: "One-on-one training",
-          code: "gym",
-          services: [
-            {
-              serviceType: "PERSONAL_TRAINING",
-              isEnabled: true,
-              defaultSessionMinutes: null,
-              defaultMaxCapacity: null,
-            },
-          ],
-          isActive: true,
-        },
       ],
     }),
   );

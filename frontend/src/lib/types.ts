@@ -75,7 +75,14 @@ export interface CourseDto {
   thresholdResponseClosed?: boolean;
   openingConfirmed?: boolean;
   firstSessionStartUtc: string | null;
-  scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
+  /** Buổi đã bắt đầu / còn lại: Member vào giữa chừng cần biết khóa đã chạy tới đâu. */
+  sessionsPassed?: number;
+  sessionsRemaining?: number;
+  scheduleRules: {
+    dayOfWeek: number;
+    startTimeLocal: string;
+    endTimeLocal?: string | null;
+  }[];
 }
 
 export interface CourseEnrollmentDto {
@@ -590,8 +597,6 @@ export interface ReportExportDto {
 }
 
 export interface GymCheckInDto {
-  checkOutTime: string | null;
-  checkedOutByUserId: string | null;
   checkInId: string;
   memberId: string;
   checkedInByUserId: string;

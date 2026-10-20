@@ -13,7 +13,7 @@ import {
   TeachingRecords,
   teachingApi,
   type TeachingRecord,
-} from "@/features/pt";
+} from "@/features/coaching";
 import { ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";

@@ -604,14 +604,13 @@ for (const language of ["en", "vi"] as const)
   });
 
 for (const language of ["en", "vi"] as const)
-  test(`Gym duplicate check-in reports the open visit in ${language} and allows re-entry after checkout`, async ({
+  test(`Gym check-in disables for 10 seconds in ${language}`, async ({
     page,
   }) => {
     await session(page, "RECEPTIONIST", language);
     const visits: {
       checkInId: string;
       checkInTime: string;
-      checkOutTime: string | null;
     }[] = [];
     let posts = 0;
     await page.route("**/api/users?**", (r) =>
@@ -648,57 +647,35 @@ for (const language of ["en", "vi"] as const)
     await page.route("**/api/gym-checkins", (r) => {
       expect(r.request().postDataJSON()).toEqual({ targetMemberId: memberId });
       posts++;
-      if (visits.some((v) => !v.checkOutTime))
-        return r.fulfill({
-          status: 409,
-          json: {
-            error: "gym_already_checked_in",
-            message:
-              "Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.",
-          },
-        });
       const visit = {
         checkInId: posts === 1 ? sessionId : rentalId,
         checkInTime: new Date().toISOString(),
-        checkOutTime: null,
       };
       visits.unshift(visit);
       return r.fulfill({ status: 201, json: visit });
     });
-    await page.route(`**/api/gym-checkins/${sessionId}/checkout`, (r) => {
-      visits[0].checkOutTime = new Date().toISOString();
-      return r.fulfill({ json: visits[0] });
-    });
     await page.goto("/receptionist/gym-checkin");
     await page.getByPlaceholder(/Enter name|Nhập tên/).fill("Alice");
     await page.getByRole("button", { name: /Alice/ }).click();
+    await page.clock.install();
     const checkIn = page.getByRole("button", {
       name: "Check in",
       exact: true,
     });
     await checkIn.click();
-    const checkOut = page.getByRole("button", {
-      name: "Check out",
-      exact: true,
-    });
-    await expect(checkOut).toHaveCount(1);
-    await checkIn.click();
-    await expect(page.getByRole("main").getByRole("alert")).toHaveText(
-      "This member is already checked in to the gym. Check them out before checking in again.",
-    );
+    const countdown = page.getByRole("button", { name: /Check[ -]in \(\d+s\)/i });
+    await expect(countdown).toBeDisabled();
     expect(visits).toHaveLength(1);
-    await expect(checkOut).toHaveCount(1);
+    expect(posts).toBe(1);
+    await page.clock.fastForward(10_000);
+    await expect(checkIn).toBeEnabled();
     await page.screenshot({
       path: `test-results/gym-duplicate-${language}.png`,
       fullPage: true,
     });
-    await checkOut.click();
-    await expect(checkOut).toHaveCount(0);
     await checkIn.click();
-    await expect(checkOut).toHaveCount(1);
-    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     expect(visits).toHaveLength(2);
-    expect(posts).toBe(3);
+    expect(posts).toBe(2);
   });
 
 test("notice validation rejection keeps the content editable", async ({
@@ -1771,9 +1748,6 @@ async function invoiceLinkFixture(page: Page) {
   });
   await page.route("**/api/manager/court-schedule?**", (route) =>
     route.fulfill({ json: [] }),
-  );
-  await page.route("**/api/gym-checkins/inside?**", (route) =>
-    route.fulfill({ json: { items: [], totalCount: 0 } }),
   );
   await page.route(`**/api/members/${owner.userId}/points`, (route) =>
     route.fulfill({

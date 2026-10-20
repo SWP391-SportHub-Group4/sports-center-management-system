@@ -6,11 +6,11 @@
 --
 -- GIỮ NGUYÊN (không bị sửa):
 --   tài khoản:  user_accounts, user_credentials, user_profiles, user_external_logins,
---               user_sport_specialties, coach_profiles, coach_service_qualifications
+--               user_sport_specialties, coach_profiles
 --   cấu hình:   roles, system_settings, sports, sport_service_offerings, sport_room_types, service_room_types,
 --               room_types, rooms, room_opening_hours, court_rates, membership_packages
 --   lịch sử EF: __EFMigrationsHistory
--- XÓA: mọi bảng còn lại (lớp, buổi, ghi danh, hóa đơn, thanh toán, ví và sổ điểm, PT, lịch sân và thuê sân,
+-- XÓA: mọi bảng còn lại (lớp, buổi, ghi danh, hóa đơn, thanh toán, ví và sổ điểm, lịch sân và thuê sân,
 --      thông báo, OTP, nhật ký, báo cáo xuất, hồ sơ tập luyện, bảng legacy).
 --
 -- Sau reset: phiên đăng nhập cũ bị vô hiệu (security_stamp mới), mật khẩu và liên kết Google của tài khoản giữ nguyên.
@@ -67,10 +67,6 @@ TRUNCATE TABLE
     point_confirmations,
     point_ledger_entries,
     point_wallets,
-    pt_coach_change_requests,
-    pt_entitlements,
-    pt_session_change_requests,
-    pt_sessions,
     report_exports,
     room_blocks,
     room_occupancies,

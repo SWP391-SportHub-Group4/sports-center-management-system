@@ -11,7 +11,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 
 /// <summary>
 /// Khóa phòng theo khung giờ (bảo trì, sự kiện). Khóa chiếm chỗ qua <see cref="IOccupancyService"/> nên chống trùng do DB.
-/// Nếu khung giờ đang có lớp/PT/thuê sân thì trả 409 kèm danh sách xung đột — KHÔNG tự hủy hay hoàn tiền; xử lý sự cố có
+/// Nếu khung giờ đang có lớp/thuê sân thì trả 409 kèm danh sách xung đột — KHÔNG tự hủy hay hoàn tiền; xử lý sự cố có
 /// hoàn tiền là quy trình riêng (Incident).
 /// </summary>
 public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService occupancy, IAuditWriter audit, IClock clock)

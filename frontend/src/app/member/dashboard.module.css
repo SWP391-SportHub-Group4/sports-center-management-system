@@ -153,7 +153,7 @@
 }
 .todayAgenda {
   padding: var(--space-4);
-  margin-bottom: var(--space-5);
+  margin-top: var(--space-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
@@ -378,10 +378,6 @@
 .kindTag[data-kind="class"] {
   background: #d8ecdf;
   color: #20583a;
-}
-.kindTag[data-kind="pt"] {
-  background: #dcebf8;
-  color: #255579;
 }
 .kindTag[data-kind="rental"] {
   background: #f8ebbf;

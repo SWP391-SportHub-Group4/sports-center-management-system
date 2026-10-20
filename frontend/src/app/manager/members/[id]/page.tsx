@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { Loading } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
-import { ManagerMemberProfile } from "@/features/pt/manager-members";
+import { ManagerMemberProfile } from "@/features/coaching/manager-members";
 
 export default function Page() {
   const { t } = useLanguage();

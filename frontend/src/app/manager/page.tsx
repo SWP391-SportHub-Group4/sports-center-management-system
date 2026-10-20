@@ -1,10 +1,10 @@
 "use client";
-import { PtPage } from "@/features/pt/ui";
+import { StaffPage } from "@/features/coaching/ui";
 import { MonthlyAnalysis } from "@/features/reports/monthly-analysis";
 export default function Page() {
   return (
-    <PtPage title="overview" manager>
+    <StaffPage title="overview" manager>
       <MonthlyAnalysis />
-    </PtPage>
+    </StaffPage>
   );
 }

@@ -18,7 +18,7 @@ import styles from "./checkout-panel.module.css";
  * sang hóa đơn người khác trả 403/404 và trang chỉ hiện lỗi, không lộ nội dung).
  */
 export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const f = t.finance;
   const [refundSent, setRefundSent] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
@@ -49,9 +49,13 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
       );
     } catch (error) {
       setVerificationMessage(
-        error instanceof Error
-          ? error.message
-          : "Payment check failed. Please try again.",
+        error instanceof ApiError && error.code === "payment_attempt_not_found"
+          ? language === "vi"
+            ? "Chưa có giao dịch VNPay cho hóa đơn này. Hãy chọn Tiếp tục thanh toán để quay lại phiên đang giữ chỗ."
+            : "No VNPay payment attempt exists yet. Choose Continue payment to return to your active checkout."
+          : error instanceof Error
+            ? error.message
+            : "Payment check failed. Please try again.",
       );
     } finally {
       setCheckingPayment(false);
@@ -192,10 +196,12 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                     <dt>{f.cashPaid}</dt>
                     <dd>{formatMoney(s.cashAmount ?? 0)}</dd>
                   </div>
-                  <div className={styles.rowsTotal}>
-                    <dt>{f.outstanding}</dt>
-                    <dd>{formatMoney(s.outstanding)}</dd>
-                  </div>
+                  {s.status === "ISSUED" && (
+                    <div className={styles.rowsTotal}>
+                      <dt>{f.outstanding}</dt>
+                      <dd>{formatMoney(s.outstanding)}</dd>
+                    </div>
+                  )}
                 </dl>
               </Card>
               <Card title={f.payments} bodyless>

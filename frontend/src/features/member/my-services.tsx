@@ -672,13 +672,6 @@ function GymHistory() {
       {rows.map((r) => (
         <li key={r.checkInId}>
           <span>{formatDateTime(r.checkInTime)}</span>
-          <span>
-            {r.checkOutTime
-              ? formatDateTime(r.checkOutTime)
-              : vi
-                ? "Đang ở trong"
-                : "Inside now"}
-          </span>
         </li>
       ))}
     </ul>

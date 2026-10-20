@@ -39,7 +39,7 @@ export function FrontDeskPaymentReconciliation() {
 
   return <section className={`card ${styles.panel}`}>
     <h2>Payment and service reconciliation</h2>
-    <p className="small muted">Verified payments still awaiting service or compensation appear first. Pending and expired attempts can be checked with the gateway, including after the original hold has expired.</p>
+    <p className="small muted">Check pending or expired payments with VNPay and retry service delivery when needed. Completed payments and point compensation remain in invoice history.</p>
     <button type="button" className="btn btn--secondary btn--sm" onClick={cases.reload}>Refresh</button>
     {cases.loading && <p>Loading…</p>}
     {cases.error && <p role="alert">{cases.error.message}</p>}
@@ -54,8 +54,12 @@ export function FrontDeskPaymentReconciliation() {
         {row.holdExpiresAtUtc && ` · Hold expires ${formatDateTime(row.holdExpiresAtUtc)}`}</p>
       {row.lastError && <p role="alert">Last processing error: {row.lastError}</p>}
       <div className={styles.row}>
-        <button type="button" className="btn btn--secondary btn--sm" disabled={busy !== null}
-          onClick={() => retry(row)}>Verify / retry fulfillment</button>
+        {row.state === "ManualCompensationRequired" ? (
+          <p className="small muted">Manual compensation needs manager review; open the invoice for details.</p>
+        ) : (
+          <button type="button" className="btn btn--secondary btn--sm" disabled={busy !== null}
+            onClick={() => retry(row)}>Verify / retry fulfillment</button>
+        )}
         <Link className="btn btn--secondary btn--sm" href={`/receptionist/invoices?invoiceId=${row.invoiceId}`}>Invoice</Link>
       </div>
     </article>)}

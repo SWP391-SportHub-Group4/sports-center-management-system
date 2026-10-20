@@ -1,10 +1,10 @@
 "use client";
-import { PtPage } from "@/features/pt/ui";
+import { StaffPage } from "@/features/coaching/ui";
 import { ManagerWallet } from "@/features/wallet/manager-wallet";
 export default function Page() {
   return (
-    <PtPage title="wallet" manager>
+    <StaffPage title="wallet" manager>
       <ManagerWallet />
-    </PtPage>
+    </StaffPage>
   );
 }

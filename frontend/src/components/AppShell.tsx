@@ -413,7 +413,6 @@ export function AppFrame({
   }
 
   const items = getNavForUser(user);
-  const ptNavigation = false;
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
@@ -436,7 +435,7 @@ export function AppFrame({
       </a>
       <header className={shell.header} data-scrolled={scrolled || undefined}>
         <div
-          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""} ${user.role === "CenterManager" ? styles.managerHeader : ""}`}
+          className={`${shell.headerInner} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""} ${user.role === "CenterManager" ? styles.managerHeader : ""}`}
         >
           <Link href={root} className={shell.brandGroup}>
             <span className={shell.brandLogo}>
@@ -446,7 +445,7 @@ export function AppFrame({
           </Link>
 
           <nav
-            className={`${styles.staffNav} ${ptNavigation ? styles.ptNav : ""} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
+            className={`${styles.staffNav} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
             aria-label={roleDisplay}
           >
             {entries.map((entry) =>
@@ -597,16 +596,14 @@ export function AppFrame({
                 </div>
               )}
             </div>
-            {!ptNavigation && (
-              <button
-                type="button"
-                className={styles.menuButton}
-                onClick={() => setDrawer(true)}
-                aria-label={t.nav.openNav}
-              >
-                <IconMenu size={20} />
-              </button>
-            )}
+            <button
+              type="button"
+              className={styles.menuButton}
+              onClick={() => setDrawer(true)}
+              aria-label={t.nav.openNav}
+            >
+              <IconMenu size={20} />
+            </button>
           </div>
         </div>
       </header>

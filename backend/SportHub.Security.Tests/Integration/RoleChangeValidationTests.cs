@@ -188,13 +188,13 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             db.Set<SportHub.Scheduling.Occupancy.Domain.CoachOccupancy>().Add(new SportHub.Scheduling.Occupancy.Domain.CoachOccupancy
             {
-                OccupancyId = Guid.NewGuid(), CoachId = coachId, SourceType = SportHub.Scheduling.Occupancy.Domain.OccupancySourceType.PtSession,
+                OccupancyId = Guid.NewGuid(), CoachId = coachId, SourceType = SportHub.Scheduling.Occupancy.Domain.OccupancySourceType.ReservedLegacySource,
                 SourceId = Guid.NewGuid(), StartAtUtc = DateTime.UtcNow.AddDays(2), EndAtUtc = DateTime.UtcNow.AddDays(2).AddMinutes(90)
             });
             db.Set<SportHub.Training.Domain.Entities.CoachMemberRelationship>().Add(new SportHub.Training.Domain.Entities.CoachMemberRelationship
             {
                 RelationshipId = Guid.NewGuid(), CoachId = coachId, MemberId = member.UserId,
-                SourceType = SportHub.Training.Domain.Enums.RelationshipSourceType.Personal,
+                SourceType = SportHub.Training.Domain.Enums.RelationshipSourceType.AssignedByManager,
                 Status = SportHub.Training.Domain.Enums.RelationshipStatus.Active, StartedAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();
@@ -224,7 +224,7 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
             db.Set<SportHub.Training.Domain.Entities.CoachMemberRelationship>().Add(new()
             {
                 RelationshipId = Guid.NewGuid(), CoachId = coachId, MemberId = member.UserId,
-                SourceType = SportHub.Training.Domain.Enums.RelationshipSourceType.Personal,
+                SourceType = SportHub.Training.Domain.Enums.RelationshipSourceType.AssignedByManager,
                 Status = SportHub.Training.Domain.Enums.RelationshipStatus.Active, StartedAt = DateTime.UtcNow
             });
             await db.SaveChangesAsync();

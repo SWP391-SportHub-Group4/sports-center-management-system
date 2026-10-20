@@ -73,20 +73,6 @@ async function setup(page: Page) {
           },
         ],
       });
-    if (path === "/api/members/me/pt-sessions") {
-      const last = url.searchParams.get("page") === "2";
-      return route.fulfill({
-        json: Array.from({ length: last ? 1 : 50 }, (_, i) => ({
-          sessionId: last ? "last-session" : `pt-${i}`,
-          coachName: last ? "Coach Last" : `Coach ${i}`,
-          startAtUtc: `${today}T12:00:00Z`,
-          endAtUtc: `${today}T13:30:00Z`,
-          status: "SCHEDULED",
-          quotaState: "RESERVED",
-          roomName: "Gym",
-        })),
-      });
-    }
     if (path === "/api/members/me/enrollments")
       return route.fulfill({
         json: {
@@ -129,28 +115,10 @@ async function setup(page: Page) {
             {
               checkInId: "visit-1",
               checkInTime: `${today}T01:00:00Z`,
-              checkOutTime: null,
             },
           ],
           totalCount: 1,
         },
-      });
-    if (path === "/api/members/me/pt-entitlements")
-      return route.fulfill({
-        json: [
-          {
-            entitlementId: "ent-1",
-            coachName: "Coach A",
-            status: "ACTIVE",
-            totalQuota: 12,
-            remainingQuota: 7,
-            reservedSessions: 2,
-            consumedSessions: 3,
-            validityStartDate: today,
-            validityEndDate: "2099-01-01",
-            carryOverUntilDate: null,
-          },
-        ],
       });
     if (path === "/api/wallet/me")
       return route.fulfill({
@@ -325,9 +293,6 @@ test("weekly schedule orders sessions by start and then end time", async ({
       ],
     }),
   );
-  await page.route("**/api/members/me/pt-sessions?**", (route) =>
-    route.fulfill({ json: [] }),
-  );
   await page.goto("/member/schedule?date=2030-06-10");
   const mondayEvents = page
     .getByRole("region", { name: "Weekly schedule" })
@@ -349,19 +314,6 @@ test("all courses is the first and default tab", async ({ page }) => {
   await expect(
     page.getByText("Badminton course", { exact: true }),
   ).toBeVisible();
-});
-
-test("old routes retain query and services show visits and quota", async ({
-  page,
-}) => {
-  await setup(page);
-  await page.goto("/member/my-plans?tab=visits&source=email");
-  await expect(page).toHaveURL(/\/member\/services\?tab=visits&source=email/);
-  await expect(page.getByText("Still at the gym")).toBeVisible();
-  await page.getByRole("tab", { name: "Personal training" }).click();
-  await expect(page.getByText("7 / 12")).toBeVisible();
-  await page.goBack();
-  await expect(page.getByText("Still at the gym")).toBeVisible();
 });
 
 test("notification read is persisted and unknown source has no fabricated link", async ({
@@ -490,7 +442,7 @@ test("schedule errors provide a retry without fake empty results", async ({
   page,
 }) => {
   await setup(page);
-  await page.route("**/api/members/me/pt-sessions?**", (route) =>
+  await page.route("**/api/members/me/schedule?**", (route) =>
     route.fulfill({ status: 500, json: { title: "Schedule unavailable" } }),
   );
   await page.goto("/member/schedule");
@@ -657,9 +609,6 @@ test("dashboard empty state offers Member discovery and handles API failure", as
   await page.route("**/api/members/me/schedule?**", (route) =>
     route.fulfill({ json: [] }),
   );
-  await page.route("**/api/members/me/pt-sessions?**", (route) =>
-    route.fulfill({ json: [] }),
-  );
   // Gym walk-in hôm nay cũng là mục lịch trong ngày; bỏ nó đi để thấy trạng thái trống.
   await page.route("**/api/members/me/gym-checkins**", (route) =>
     route.fulfill({ json: { items: [], totalCount: 0 } }),
@@ -676,7 +625,7 @@ test("dashboard empty state offers Member discovery and handles API failure", as
       .getByRole("link", { name: "Explore courses", exact: true }),
   ).toHaveAttribute("href", "/member/services");
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Gym & PT services" }),
+    page.getByRole("main").getByRole("link", { name: "Gym services" }),
   ).toHaveAttribute("href", "/member/services?section=gym&view=explore");
   await page.screenshot({
     path: "test-results/an02-dashboard-empty.png",

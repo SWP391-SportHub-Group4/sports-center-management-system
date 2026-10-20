@@ -168,7 +168,7 @@ export function MemberInvoices() {
                       {open ? (
                         <Link
                           className={`${buttonClass({ size: "sm" })} ${styles.payAction}`}
-                          href={`/member/finance?tab=invoices&invoice=${invoice.invoiceId}`}
+                          href={`/checkout/${invoice.invoiceId}`}
                         >
                           {t.memberDashboardV2.payNow}
                         </Link>

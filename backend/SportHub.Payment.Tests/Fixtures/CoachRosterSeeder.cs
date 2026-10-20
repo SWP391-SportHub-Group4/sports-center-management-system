@@ -11,7 +11,7 @@ using SportHub.Scheduling.Domain.Entities;
 namespace SportHub.API.Persistence;
 
 /// <summary>
-/// Đội huấn luyện viên demo: 5 PT (Gym), 2 cầu lông, 2 bóng rổ, tên người Việt kèm ảnh minh họa trong
+/// Đội huấn luyện viên demo: 2 cầu lông, 2 bóng rổ, tên người Việt kèm ảnh minh họa trong
 /// <c>frontend/public/sporthub/coaches</c>. Chạy bằng lệnh riêng
 /// (<c>dotnet run --project backend/SportHub.API -- --seed-coaches=true</c>) hoặc khi seed DB rỗng.
 ///

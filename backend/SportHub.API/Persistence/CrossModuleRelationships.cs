@@ -62,7 +62,6 @@ public static class CrossModuleRelationships
         modelBuilder.Entity<Attendance>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.RecordedByUserId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SeatHold>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SeatHold>().HasOne<Invoice>().WithMany().HasForeignKey(e => e.InvoiceId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<GymCheckIn>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.CheckedOutByUserId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<CourtRental>().HasOne<UserAccount>().WithMany()
             .HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);

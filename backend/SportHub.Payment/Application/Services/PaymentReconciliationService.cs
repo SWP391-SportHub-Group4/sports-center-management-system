@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -13,10 +14,17 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
     ICourtRentalFulfillment rentals, IClock clock,
     Microsoft.Extensions.Logging.ILogger<PaymentReconciliationService> logger)
 {
+    // VNPay rejects duplicate QueryDR calls for the same reference within five minutes.
+    // The service is scoped, so this must outlive a single background-job run.
+    private static readonly ConcurrentDictionary<Guid, DateTime> NextQueryAtUtc = new();
+
     public async Task<string> ReceiveCallbackAsync(IReadOnlyDictionary<string, string> fields, CancellationToken ct)
     {
         // The return URL does not invoke this method. Only IPN or independently signed QueryDR may write.
         var result = gateway.VerifyCallback(fields);
+        // 01 means the gateway has not finished the transaction. It is not a failed payment.
+        // Keep the attempt queryable so a later IPN or QueryDR can confirm it.
+        if (result.TransactionStatus == "01") return "00";
         await AcceptVerifiedAsync(result, verifiedByQuery: false, ct);
         return "00";
     }
@@ -48,6 +56,11 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         {
             logger.LogWarning("VNPay QueryDR returned no verified result for attempt {AttemptId}, invoice {InvoiceId}",
                 attempt.PaymentAttemptId, attempt.InvoiceId);
+            return false;
+        }
+        if (result.TransactionStatus == "01")
+        {
+            logger.LogInformation("VNPay transaction is still incomplete for attempt {AttemptId}", attemptId);
             return false;
         }
         await AcceptVerifiedAsync(result, verifiedByQuery: true, ct);
@@ -83,7 +96,26 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         var proof = await db.Set<VerifiedGatewayEvent>().AsNoTracking()
             .SingleAsync(x => x.Provider == "VNPay" && x.ProviderTransactionId == result.ProviderTransactionId, ct);
         if (proof.PaymentAttemptId != attempt.PaymentAttemptId || proof.Amount != result.AmountVnd
-            || proof.ResponseCode != result.ResponseCode || proof.TransactionStatus != result.TransactionStatus)
+            || proof.TransactionReference != result.TransactionReference)
+            throw new ConflictException("provider_transaction_conflict", "Provider transaction conflict.");
+        // Older versions stored QueryDR status 01 as Failed. A later signed success may carry
+        // the same provider transaction ID; allow this one-way transition without a second capture.
+        if (proof.TransactionStatus == "01" && proof.ProcessingStatus == "Failed"
+            && result.ResponseCode == "00" && result.TransactionStatus == "00")
+        {
+            await db.Set<VerifiedGatewayEvent>()
+                .Where(x => x.VerifiedGatewayEventId == proof.VerifiedGatewayEventId
+                    && x.TransactionStatus == "01" && x.ProcessingStatus == "Failed")
+                .ExecuteUpdateAsync(x => x.SetProperty(e => e.TransactionStatus, "00")
+                    .SetProperty(e => e.ResponseCode, "00")
+                    .SetProperty(e => e.ProviderPaidAtUtc, result.ProviderPaidAtUtc)
+                    .SetProperty(e => e.VerifiedAtUtc, verifiedAt)
+                    .SetProperty(e => e.ProcessingStatus, "Pending")
+                    .SetProperty(e => e.ProcessedAtUtc, (DateTime?)null), ct);
+            proof = await db.Set<VerifiedGatewayEvent>().AsNoTracking()
+                .SingleAsync(x => x.VerifiedGatewayEventId == proof.VerifiedGatewayEventId, ct);
+        }
+        if (proof.ResponseCode != result.ResponseCode || proof.TransactionStatus != result.TransactionStatus)
             throw new ConflictException("provider_transaction_conflict", "Provider transaction conflict.");
         await ProcessAsync(proof.VerifiedGatewayEventId, ct);
     }
@@ -95,17 +127,27 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             .OrderBy(x => x.VerifiedAtUtc).Take(25).Select(x => x.VerifiedGatewayEventId).ToListAsync(ct);
         foreach (var id in ids) await ProcessAsync(id, ct);
         var dueAttempts = await db.Set<PaymentAttempt>().AsNoTracking()
-            .Where(a => a.Status == PaymentAttemptStatus.Pending && a.CheckoutSessionId != null
-                && a.CreatedAt < clock.UtcNow.AddMinutes(-2))
+            .Where(a => a.CheckoutSessionId != null
+                && a.CreatedAt < clock.UtcNow.AddMinutes(-2)
+                && (a.Status == PaymentAttemptStatus.Pending
+                    || (a.Status == PaymentAttemptStatus.Failed
+                        && a.CreatedAt > clock.UtcNow.AddDays(-1)
+                        && db.Set<VerifiedGatewayEvent>().Any(e => e.PaymentAttemptId == a.PaymentAttemptId
+                            && e.TransactionStatus == "01"))))
             .OrderBy(a => a.CreatedAt).Take(25).Select(a => a.PaymentAttemptId).ToListAsync(ct);
         logger.LogInformation("Payment reconciliation scan: {EventCount} events to retry, {AttemptCount} pending attempts eligible for QueryDR",
             ids.Count, dueAttempts.Count);
         foreach (var attemptId in dueAttempts)
         {
+            var now = clock.UtcNow;
+            if (NextQueryAtUtc.TryGetValue(attemptId, out var next) && now < next)
+                continue;
+            NextQueryAtUtc[attemptId] = now.AddMinutes(6);
             try
             {
                 logger.LogInformation("Starting VNPay QueryDR for attempt {AttemptId}", attemptId);
-                await ReconcileAttemptAsync(attemptId, ct);
+                if (await ReconcileAttemptAsync(attemptId, ct))
+                    NextQueryAtUtc.TryRemove(attemptId, out _);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

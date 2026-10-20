@@ -261,8 +261,6 @@ async function fixture(
     if (p === `/api/manager/incidents/${noticeId}/notifications`)
       return route.fulfill({ json: delivery });
     if (p === "/api/refunds") return route.fulfill({ json: paged([]) });
-    if (p.includes("pt-") && p.endsWith("change-requests"))
-      return route.fulfill({ json: [] });
     if (p === "/api/reports/revenue")
       return route.fulfill({
         json: {

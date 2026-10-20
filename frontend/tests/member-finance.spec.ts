@@ -116,6 +116,29 @@ test("checkout summary shows server split and one countdown", async ({
   await expect(page.getByRole("spinbutton")).toBeVisible();
 });
 
+test("overview Pay now resumes the active checkout and its existing countdown", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/member");
+  const payNow = page.getByRole("link", { name: /Pay now.*INV-0001/i });
+  await expect(payNow).toHaveAttribute("href", `/checkout/${id}`);
+  await payNow.click();
+  await expect(page).toHaveURL(`/checkout/${id}`);
+  await expect(
+    page.getByRole("complementary", { name: "Order summary" }).locator("time"),
+  ).toHaveText(/^(9|10):\d\d$/);
+});
+
+test("invoice list Pay now resumes the active checkout", async ({ page }) => {
+  await setup(page);
+  await page.goto("/member/finance?tab=invoices");
+  const payNow = page.getByRole("link", { name: "Pay now" });
+  await expect(payNow).toHaveAttribute("href", `/checkout/${id}`);
+  await payNow.click();
+  await expect(page).toHaveURL(`/checkout/${id}`);
+});
+
 test("zero balance does not break points selection", async ({ page }) => {
   await setup(page, { pointsApplied: 0, cashAmount: 300000 });
   await page.goto(`/checkout/${id}`);

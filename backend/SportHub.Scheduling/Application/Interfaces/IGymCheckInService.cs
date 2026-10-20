@@ -11,8 +11,6 @@ public interface IGymCheckInService
         Guid checkedInByUserId,
         CancellationToken cancellationToken = default);
 
-    Task<GymCheckInResponse> CheckOutAsync(Guid checkInId, Guid checkedOutByUserId, CancellationToken cancellationToken = default);
-
     Task<PagedResult<GymCheckInResponse>> GetHistoryAsync(
         Guid memberId,
         int page,

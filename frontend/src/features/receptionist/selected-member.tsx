@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Ban, CalendarClock, CircleCheck } from "lucide-react";
 
 import { api, ApiError } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
+import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
@@ -61,6 +61,8 @@ export function SelectedMemberPanel({
   const vi = language === "vi";
   const mutation = useMutation();
   const [note, setNote] = useState<string | null>(null);
+  const [localCooldown, setLocalCooldown] = useState({ memberId: "", until: 0 });
+  const now = useNow(250);
   const memberId = member.userId;
 
   // Hội viên được lưu theo tab nên có thể đã cũ (vd. vừa kích hoạt qua Google).
@@ -121,38 +123,39 @@ export function SelectedMemberPanel({
   const dayPass = usable.find((p) => p.packageId === DAY_PASS_PACKAGE_ID);
   const membership = usable.find((p) => p.packageId !== DAY_PASS_PACKAGE_ID);
 
-  const open = pagedItems(visits.data).find((v) => !v.checkOutTime);
+  const latestCheckIn = pagedItems(visits.data)[0];
+  const cooldownUntil = Math.max(
+    localCooldown.memberId === memberId ? localCooldown.until : 0,
+    latestCheckIn ? Date.parse(latestCheckIn.checkInTime) + 10_000 : 0,
+  );
+  const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const ready = !packages.loading && !visits.loading;
   const locked = member.status === "BANNED" || member.status === "DEACTIVATED";
   const hasAccess = Boolean(membership || dayPass);
-  const blocked = ready && !open && (!hasAccess || locked);
+  const blocked = ready && (!hasAccess || locked);
 
   const daysLeft = membership ? daysUntil(membership.endDate) : null;
   const expiring =
     membership && daysLeft !== null && daysLeft <= EXPIRY_WARNING_DAYS;
 
-  async function toggle() {
+  async function checkIn() {
     setNote(null);
 
     const ok = await mutation.run(async () => {
       try {
-        if (open) {
-          await api.post(`/api/gym-checkins/${open.checkInId}/checkout`);
-        } else {
-          await api.post("/api/gym-checkins", { targetMemberId: memberId });
-        }
+        await api.post("/api/gym-checkins", { targetMemberId: memberId });
       } catch (error) {
         if (
           error instanceof ApiError &&
-          error.code === "gym_already_checked_in"
+          error.code === "gym_checkin_cooldown"
         ) {
           visits.reload();
           throw new ApiError(
             error.status,
             error.code,
             vi
-              ? "Hội viên đã ở trong phòng Gym. Trạng thái đã được làm mới."
-              : "This member is already inside. The status was refreshed.",
+              ? "Vui lòng chờ 10 giây trước khi check-in lại hội viên này."
+              : "Wait 10 seconds before checking in this member again.",
             error.details,
           );
         }
@@ -162,14 +165,9 @@ export function SelectedMemberPanel({
 
     if (ok) {
       const time = formatTime(new Date().toISOString());
+      setLocalCooldown({ memberId, until: Date.now() + 10_000 });
       setNote(
-        open
-          ? vi
-            ? `Đã check-out lúc ${time}`
-            : `Checked out at ${time}`
-          : vi
-            ? `Đã check-in lúc ${time}`
-            : `Checked in at ${time}`,
+        vi ? `Đã check-in lúc ${time}` : `Checked in at ${time}`,
       );
       visits.reload();
     }
@@ -218,14 +216,14 @@ export function SelectedMemberPanel({
       label: vi ? "Phòng Gym" : "Gym",
       value: !ready
         ? "…"
-        : open
+        : latestCheckIn
           ? vi
-            ? `Đang tập từ ${formatTime(open.checkInTime)}`
-            : `In the Gym since ${formatTime(open.checkInTime)}`
+            ? `Lần check-in gần nhất: ${formatTime(latestCheckIn.checkInTime)}`
+            : `Last check-in: ${formatTime(latestCheckIn.checkInTime)}`
           : vi
-            ? "Không ở trong phòng"
-            : "Not in the Gym",
-      tone: open ? "ok" : "neutral",
+            ? "Chưa có lượt check-in"
+            : "No check-ins yet",
+      tone: latestCheckIn ? "ok" : "neutral",
     },
   ];
 
@@ -341,23 +339,19 @@ export function SelectedMemberPanel({
       <div className={styles.actions}>
         <span
           className={styles.tip}
-          title={!open && blocked ? blockReason : undefined}
+          title={blocked ? blockReason : undefined}
         >
           <button
             type="button"
             className="btn"
-            disabled={!ready || mutation.busy || blocked}
+            disabled={!ready || mutation.busy || blocked || cooldownSeconds > 0}
             aria-describedby={blocked ? "checkin-block-reason" : undefined}
-            onClick={toggle}
+            onClick={checkIn}
           >
             <CircleCheck size={18} aria-hidden="true" />
-            {open
-              ? vi
-                ? "Check-out"
-                : "Check out"
-              : vi
-                ? "Check-in"
-                : "Check in"}
+            {cooldownSeconds > 0
+              ? `${vi ? "Check-in" : "Check in"} (${cooldownSeconds}s)`
+              : vi ? "Check-in" : "Check in"}
           </button>
         </span>
 
@@ -377,7 +371,7 @@ export function SelectedMemberPanel({
         )}
       </div>
 
-      {blocked && !open && (
+      {blocked && (
         <p className={styles.block} id="checkin-block-reason">
           {blockReason}
         </p>

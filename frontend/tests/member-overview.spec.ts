@@ -59,17 +59,6 @@ test("member overview shows actionable data with clear session states", async ({
           attendanceStatus: "ABSENT",
         },
       ];
-    else if (path === "/api/members/me/pt-sessions")
-      json = [
-        {
-          sessionId: "pt-next",
-          coachName: "Coach Minh",
-          startAtUtc: at(1, 10),
-          endAtUtc: at(1, 11),
-          status: "SCHEDULED",
-          roomName: "Studio A",
-        },
-      ];
     else if (path === "/api/court-rentals/mine")
       json = [
         {
@@ -88,19 +77,10 @@ test("member overview shows actionable data with clear session states", async ({
           {
             checkInId: "visit-1",
             checkInTime: at(0, 8),
-            checkOutTime: at(0, 9),
           },
         ],
         totalCount: 1,
       };
-    else if (path === "/api/members/me/workout-results")
-      json = [
-        {
-          resultId: "result-1",
-          coachComment: "Your footwork is getting steadier.",
-          recordedAt: at(0, 12),
-        },
-      ];
     else if (path === "/api/class-threshold-responses/mine")
       json = [
         {
@@ -125,18 +105,35 @@ test("member overview shows actionable data with clear session states", async ({
     page.getByRole("link", { name: "View point history" }),
   ).toHaveAttribute("href", "/member/finance?tab=wallet");
   await expect(
-    page.getByText("Your footwork is getting steadier."),
+    page.getByRole("heading", { name: "Gym walk-in" }),
   ).toBeVisible();
-  await expect(page.getByText("Gym walk-in")).toBeVisible();
+  const scheduleSection = page.locator(
+    'section[aria-labelledby="next-session-title"]',
+  );
+  const courseCard = scheduleSection
+    .locator('[data-surface="inverse"]')
+    .first();
+  const gymHeading = scheduleSection.getByRole("heading", {
+    name: "Gym walk-in",
+  });
+  expect(
+    await courseCard.evaluate(
+      (card, heading) =>
+        Boolean(
+          card.compareDocumentPosition(heading) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+      await gymHeading.elementHandle(),
+    ),
+  ).toBe(true);
   await expect(
     page.getByText("Respond within", { exact: false }),
   ).toBeVisible();
   await expect(page.locator('[data-kind="class"]')).toHaveCount(2);
-  await expect(page.locator('[data-kind="pt"]')).toHaveCount(1);
   await expect(page.locator('[data-kind="rental"]')).toHaveCount(1);
   await expect(page.locator('[data-state="present"]')).toHaveCount(2);
   await expect(page.locator('[data-state="absent"]')).toHaveCount(1);
-  await expect(page.locator('[data-state="upcoming"]')).toHaveCount(2);
+  await expect(page.locator('[data-state="upcoming"]')).toHaveCount(1);
   await expect(
     page.getByRole("navigation", { name: "Quick actions" }).getByRole("link"),
   ).toHaveCount(3);
@@ -166,4 +163,27 @@ test("member overview shows actionable data with clear session states", async ({
         .analyze()
     ).violations,
   ).toEqual([]);
+
+  await page.route("**/api/members/me/schedule?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/api/court-rentals/mine?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.reload();
+  await expect(
+    scheduleSection.getByText("Your next session starts here."),
+  ).toBeVisible();
+  await expect(gymHeading).toBeVisible();
+  const emptyCard = scheduleSection.locator('[data-surface="inverse"]');
+  expect(
+    await emptyCard.evaluate(
+      (card, heading) =>
+        Boolean(
+          card.compareDocumentPosition(heading) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+      await gymHeading.elementHandle(),
+    ),
+  ).toBe(true);
 });

@@ -112,6 +112,24 @@ public sealed class CheckoutService(ISportHubDbContext db,
             await tx.CommitAsync(ct);
             return await GetAsync(existing.Invoice.InvoiceId, actorId, isFrontDesk, ct);
         }
+        // A member may leave the checkout page and return with a new client key. Reuse the
+        // active hold and its original deadline instead of trying to reserve a second seat.
+        var resumableInvoiceId = await db.Set<CheckoutSession>().AsNoTracking()
+            .Where(s => s.Kind == "Class" && s.ClassId == request.ClassId
+                && s.State == "Active" && s.ExpiresAtUtc > now)
+            .Join(db.Set<Invoice>().AsNoTracking(), s => s.InvoiceId, i => i.InvoiceId,
+                (s, i) => new { Session = s, Invoice = i })
+            .Where(x => x.Invoice.MemberId == memberId && x.Invoice.Status == InvoiceStatus.Issued
+                && x.Invoice.CheckoutCycleId == x.Session.CheckoutSessionId
+                && !x.Invoice.ReconciliationRequired)
+            .OrderByDescending(x => x.Session.CreatedAtUtc)
+            .Select(x => (Guid?)x.Invoice.InvoiceId)
+            .FirstOrDefaultAsync(ct);
+        if (resumableInvoiceId is Guid activeInvoiceId)
+        {
+            await tx.CommitAsync(ct);
+            return await GetAsync(activeInvoiceId, actorId, isFrontDesk, ct);
+        }
         var quote = await classes.QuoteAsync(request.ClassId, memberId, ct);
         if (quote.Price <= 0 || quote.Price % 1000 != 0)
             throw new ConflictException("class_price_invalid", "Class price invalid.");
