@@ -105,18 +105,21 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync($"/api/members/me/classes/{p.Course.Id}/teaching-records")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await stranger.DeleteAsync($"/api/members/me/course-interests/{interest.InterestId}")).StatusCode);
 
+        async Task RunWorker() { using var scope = factory.Services.CreateScope(); await scope.ServiceProvider.GetRequiredService<CourseInterestService>().NotifyOpenClassesAsync(); }
+        // An unrelated published class and a linked draft must not trigger a delivery.
+        await CourseTestData.CreateAsync(factory);
         var next = await CourseTestData.CreateAsync(factory, publish: false);
         next.Request.ContinuationOfClassId = p.Course.Id;
         using (var scope = factory.Services.CreateScope()) {
             var classes = scope.ServiceProvider.GetRequiredService<IClassService>();
             await classes.UpdateAsync(next.Id, next.Request, next.ManagerId);
-            await classes.PublishAsync(next.Id, new(), next.ManagerId);
         }
-        async Task RunWorker() { using var scope = factory.Services.CreateScope(); await scope.ServiceProvider.GetRequiredService<CourseInterestService>().NotifyOpenClassesAsync(); }
         await RunWorker();
         Assert.False(await factory.QueryAsync(db => db.Set<CourseInterestDelivery>().AnyAsync(d => d.InterestId == interest.InterestId)));
-        using (var scope = factory.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<IClassService>().SetEnrollmentOpenAsync(next.Id, true, next.ManagerId);
+        using (var scope = factory.Services.CreateScope()) {
+            var published = await scope.ServiceProvider.GetRequiredService<IClassService>().PublishAsync(next.Id, new(), next.ManagerId);
+            Assert.True(published.EnrollmentOpen);
+        }
         await RunWorker(); await RunWorker();
         var delivery = await factory.QueryAsync(db => db.Set<CourseInterestDelivery>().SingleAsync(d => d.InterestId == interest.InterestId));
         Assert.Equal(next.Id, delivery.ClassId);
@@ -126,10 +129,15 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
         Assert.True(notices.IsSuccessStatusCode, await notices.Content.ReadAsStringAsync());
         Assert.Contains($"course={next.Id}", await notices.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.NoContent, (await member.DeleteAsync($"/api/members/me/course-interests/{interest.InterestId}")).StatusCode);
-        // Reopening another linked class must not notify a cancelled subscription.
-        var another = await CourseTestData.CreateAsync(factory);
-        await factory.QueryAsync(async db => { await db.Classes.Where(c => c.ClassId == another.Id).ExecuteUpdateAsync(u => u
-            .SetProperty(c => c.ContinuationOfClassId, p.Course.Id).SetProperty(c => c.EnrollmentOpen, true)); return 0; });
+        // Publishing another linked class must not notify a cancelled subscription.
+        var another = await CourseTestData.CreateAsync(factory, publish: false);
+        another.Request.ContinuationOfClassId = p.Course.Id;
+        using (var scope = factory.Services.CreateScope()) {
+            var classes = scope.ServiceProvider.GetRequiredService<IClassService>();
+            await classes.UpdateAsync(another.Id, another.Request, another.ManagerId);
+            var published = await classes.PublishAsync(another.Id, new(), another.ManagerId);
+            Assert.True(published.EnrollmentOpen);
+        }
         await RunWorker();
         Assert.Equal(1, await factory.QueryAsync(db => db.Set<CourseInterestDelivery>().CountAsync(d => d.InterestId == interest.InterestId)));
     }
