@@ -120,11 +120,16 @@ public sealed class ClassService(
                 $"Enrollment for \"{entity.Name}\" is temporarily closed because of an issue at the center: {trimmedReason} "
                 + "Your place and your sessions are unchanged. You can wait for the center to resolve it, or submit a refund request "
                 + "from your invoice and the manager will review it as a center-side issue.",
-                "SportHub - Course enrollment paused", ct);
+                "SportHub - Course enrollment paused", ct,
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Class", entity.Name), ("Status", "Enrollment temporarily closed"), ("Reason", trimmedReason!))
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("Your place and your sessions are unchanged.")
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("You can wait for the center to resolve the issue, or submit a refund request from your invoice for the manager to review."));
         else if (open && !string.IsNullOrEmpty(hadClosureReason))
             await NotifyEnrolledAsync(entity, NotificationEvents.ClassEnrollmentReopened,
                 $"The issue affecting \"{entity.Name}\" has been resolved and enrollment is open again. Your course continues as normal.",
-                "SportHub - Course enrollment reopened", ct);
+                "SportHub - Course enrollment reopened", ct,
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Class", entity.Name), ("Status", "Enrollment reopened"))
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("The issue has been resolved. Your course continues as normal."));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -132,7 +137,7 @@ public sealed class ClassService(
         return await GetManagerAsync(classId, ct);
     }
 
-    private async Task NotifyEnrolledAsync(Class course, string eventType, string message, string subject, CancellationToken ct)
+    private async Task NotifyEnrolledAsync(Class course, string eventType, string message, string subject, CancellationToken ct, string? emailBody = null)
     {
         var memberIds = await db.Set<Enrollment>().AsNoTracking()
             .Where(e => e.ClassId == course.ClassId && e.Status == EnrollmentStatus.Confirmed)
@@ -145,7 +150,7 @@ public sealed class ClassService(
             var recipient = await users.GetAsync(memberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email, eventType, eventId,
-                    subject, "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                    subject, emailBody ?? SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message)));
         }
     }
 

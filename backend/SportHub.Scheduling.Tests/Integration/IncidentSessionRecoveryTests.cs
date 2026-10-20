@@ -67,34 +67,26 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public async Task Whole_session_replacement_preserves_history_retries_once_and_reopens_completed_course(bool ongoing, bool completed)
+    public async Task Enrolled_incident_sessions_cannot_be_cancelled_or_replaced(bool ongoing, bool completed)
     {
         var f = await Setup(ongoing, completed);
-        await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.RescheduleAsync(f.Session.SessionId,
-            new() { StartAtUtc = DateTime.UtcNow.AddDays(30), Reason = "Ordinary past editing stays blocked" }, f.Course.ManagerId)));
+        var before = await CourseTestData.SessionsAsync(factory, f.Course.Id);
         var replacementStart = await ManualReplacementStart(f);
         var request = new ReportSessionIncidentRequest { FenceId = f.FenceId, Outcome = "INTERRUPTED",
             OccurredAtUtc = f.Session.StartAtUtc.AddMinutes(10), Reason = "Power failure interrupted class",
             Makeup = new() { StartAtUtc = replacementStart, RoomId = f.Session.RoomId, CoachId = f.Session.CoachId } };
-        var results = await Task.WhenAll(Run(s => s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId)),
-            Run(s => s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId)));
-        Assert.Equal(results[0].SessionId, results[1].SessionId);
-        Assert.Equal(f.Session.EndAtUtc - f.Session.StartAtUtc, results[0].EndAtUtc - results[0].StartAtUtc);
-        var rows = await CourseTestData.SessionsAsync(factory, f.Course.Id);
-        Assert.Single(rows, s => s.RescheduledFromSessionId == f.Session.SessionId);
-        var original = rows.Single(s => s.SessionId == f.Session.SessionId);
-        Assert.Equal(f.Session.StartAtUtc, original.StartAtUtc);
-        Assert.Equal(ClassSessionStatus.Cancelled, original.Status);
-        Assert.NotNull(original.IncidentReportJson);
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var error = await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId)));
+            Assert.Equal("class_has_enrollments", error.ErrorCode);
+        }
+        var after = await CourseTestData.SessionsAsync(factory, f.Course.Id);
+        Assert.Equal(before.Select(s => (s.SessionId, s.StartAtUtc, s.Status)), after.Select(s => (s.SessionId, s.StartAtUtc, s.Status)));
+        Assert.DoesNotContain(after, s => s.RescheduledFromSessionId == f.Session.SessionId);
         Assert.True(await factory.QueryAsync(db => db.Attendances.AnyAsync(a => a.SessionId == f.Session.SessionId)));
         Assert.True(await factory.QueryAsync(db => db.Set<ClassTeachingRecord>().AnyAsync(r => r.SessionId == f.Session.SessionId && r.Title == "Original assessment")));
-        if (completed) Assert.Equal(ClassStatus.InProgress, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == f.Course.Id).Select(c => c.Status).SingleAsync()));
-        var preview = await Incidents(s => s.PreviewAsync(f.Incident));
-        Assert.True(preview.CanResolve);
-        var id = await Incidents(s => s.ResolveAsync(f.Incident, f.Course.ManagerId));
-        var history = await Incidents(s => s.GetAsync(id));
-        Assert.Equal("INTERRUPTED", Assert.Single(history.SessionReports!).Report.Outcome);
-        Assert.Equal(1, await factory.QueryAsync(db => db.AuditLogs.CountAsync(a => a.TargetId == f.Session.SessionId.ToString() && a.Action == "RECORD_SESSION_INCIDENT")));
+        Assert.Equal(completed ? ClassStatus.Completed : ClassStatus.InProgress,
+            await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == f.Course.Id).Select(c => c.Status).SingleAsync()));
     }
 
     [Fact]

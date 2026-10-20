@@ -15,22 +15,26 @@ import type { StepStatus } from "./incident-progress";
 
 export function IncidentSessionEditor({
   session,
+  confirmedCount,
   sportId,
   incident,
   onSaved,
   onOutcome,
 }: {
   session: CourseSessionDto;
+  confirmedCount: number;
   sportId: number;
   incident: IncidentRequest;
   onSaved: () => void;
   onOutcome: (status: StepStatus, message?: string) => void;
 }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const vi = language === "vi";
   const mutation = useMutation();
   const [openedAt] = useState(Date.now);
-  const [outcome, setOutcome] = useState("INTERRUPTED");
+  const [outcome, setOutcome] = useState(
+    confirmedCount > 0 ? "" : "INTERRUPTED",
+  );
   const [occurred, setOccurred] = useState(
     vietnamLocal(
       new Date(
@@ -68,6 +72,8 @@ export function IncidentSessionEditor({
     COMPLETED_AS_PLANNED: vi ? "Đã học đầy đủ" : "Fully delivered",
   };
   const valid =
+    !!outcome &&
+    (confirmedCount === 0 || full) &&
     reason.trim().length >= 3 &&
     reason.trim().length <= 500 &&
     !!occurred &&
@@ -88,24 +94,31 @@ export function IncidentSessionEditor({
         {formatDateTime(session.startAtUtc)} –{" "}
         {formatDateTime(session.endAtUtc)}
       </p>
-      <p>
-        {vi
-          ? "Giữ nguyên giờ học, điểm danh và đánh giá của buổi gốc để truy vết. Buổi không diễn ra hoặc bị gián đoạn được học lại nguyên thời lượng, không tính phần phút còn thiếu."
-          : "Original times, attendance and assessments are retained. A missed or interrupted session is repeated in full; no partial-duration calculation."}
-      </p>
+      {confirmedCount === 0 && (
+        <p>
+          {vi
+            ? "Giữ nguyên giờ học, điểm danh và đánh giá của buổi gốc để truy vết. Buổi không diễn ra hoặc bị gián đoạn được học lại nguyên thời lượng, không tính phần phút còn thiếu."
+            : "Original times, attendance and assessments are retained. A missed or interrupted session is repeated in full; no partial-duration calculation."}
+        </p>
+      )}
       <fieldset disabled={mutation.busy} hidden={review}>
+        {confirmedCount > 0 && (
+          <p role="status">{t.classWorkspace.enrolledCancellationBlocked}</p>
+        )}
         <Field
           label={vi ? "Thực tế buổi học" : "Actual session outcome"}
           required
         >
           <select value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+            {confirmedCount > 0 && <option value="">Select outcome</option>}
             {Object.entries(labels).map(([value, label]) => (
               <option
                 key={value}
                 value={value}
                 disabled={
-                  value === "COMPLETED_AS_PLANNED" &&
-                  Date.parse(session.endAtUtc) > openedAt
+                  (confirmedCount > 0 && value !== "COMPLETED_AS_PLANNED") ||
+                  (value === "COMPLETED_AS_PLANNED" &&
+                    Date.parse(session.endAtUtc) > openedAt)
                 }
               >
                 {label}
@@ -137,7 +150,7 @@ export function IncidentSessionEditor({
             onChange={(e) => setReason(e.target.value)}
           />
         </Field>
-        {!full && (
+        {!full && confirmedCount === 0 && (
           <>
             <Field label={vi ? "Lịch học lại" : "Replacement start"} required>
               <input

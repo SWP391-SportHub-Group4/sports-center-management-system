@@ -370,7 +370,7 @@ test("M05 coverage submits the chosen main coach and refreshes the queue", async
   expect(writes).toBe(1);
 });
 
-test("M05 course cancellation previews before confirming and cannot repeat after refresh", async ({
+test("M05 empty course cancellation previews before confirming and cannot repeat after refresh", async ({
   page,
 }) => {
   let cancelled = false;
@@ -379,6 +379,7 @@ test("M05 course cancellation previews before confirming and cannot repeat after
     route.fulfill({
       json: {
         ...course,
+        confirmedCount: 0,
         status: cancelled ? "CANCELLED" : "PUBLISHED",
       },
     }),
@@ -390,9 +391,9 @@ test("M05 course cancellation previews before confirming and cannot repeat after
         previewToken: "audit-preview",
         totalSessions: 2,
         sessionsNotProvided: 2,
-        confirmedCount: 1,
+        confirmedCount: 0,
         activeHoldCount: 0,
-        refundPoints: 100,
+        refundPoints: 0,
       },
     }),
   );
@@ -405,8 +406,14 @@ test("M05 course cancellation previews before confirming and cannot repeat after
     writes++;
     return route.fulfill({ json: {} });
   });
-  await page.goto("/manager/classes/1?tab=overview");
-  const section = page.locator("#course-cancellation");
+  await page.goto("/manager/classes/1?tab=management");
+  await page
+    .getByRole("button", { name: en.classWorkspace.cancelClass, exact: true })
+    .click();
+  const section = page.getByRole("dialog", {
+    name: en.classWorkspace.cancelClass,
+    exact: true,
+  });
   await section
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Cancellation audit");
@@ -828,7 +835,111 @@ test("publish confirms once and refreshes the server lifecycle", async ({
   ).toHaveCount(0);
   expect(writes).toBe(1);
 });
-test("session change is reviewed and rejected form stays intact", async ({
+test("edit session shows the selected week and excludes only the edited session", async ({
+  page,
+}) => {
+  const weeks: string[] = [];
+  await page.route("**/api/manager/court-schedule?**", (route) => {
+    weeks.push(new URL(route.request().url()).searchParams.get("fromDate")!);
+    return route.fulfill({
+      json: [
+        schedule[0],
+        {
+          ...schedule[0],
+          sourceId: "another-session",
+          title: "Another class session",
+          roomId: 8,
+          coachName: "Basketball Coach - Advanced Development",
+        },
+        {
+          ...schedule[0],
+          sourceId: "long-session",
+          title: "Basketball fundamentals and technical development",
+          coachName: "Trinh Thang Bang - Basketball Coach",
+          startAtUtc: "2030-10-01T02:00:00Z",
+          endAtUtc: "2030-10-01T04:00:00Z",
+        },
+        {
+          ...schedule[0],
+          sourceId: "unrelated-session",
+          title: "Unrelated session",
+          roomId: 8,
+          coachId: memberId,
+        },
+      ],
+    });
+  });
+  await page.goto("/manager/classes/1?tab=sessions");
+  await page
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  const calendar = dialog.getByRole("region", {
+    name: en.classScheduleLookup.title,
+    exact: true,
+  });
+  await expect(
+    calendar.getByRole("article", {
+      name: "Another class session",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByRole("article", {
+      name: "Another class session",
+      exact: true,
+    }),
+  ).toHaveAttribute("data-conflict", "true");
+  await expect(
+    calendar.getByRole("article", { name: "Badminton autumn", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    calendar.getByRole("article", { name: "Unrelated session", exact: true }),
+  ).toHaveCount(0);
+  expect(weeks).toContain("2030-09-30");
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  const headers = calendar.locator("header");
+  const headerHeights = await headers.evaluateAll((nodes) =>
+    nodes.map((node) => node.getBoundingClientRect().height),
+  );
+  expect(new Set(headerHeights).size).toBe(1);
+  for (const event of await calendar.getByRole("article").all()) {
+    expect(
+      await event.evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+    ).toBe(true);
+  }
+  await page.screenshot({
+    path: test.info().outputPath("edit-session-week-desktop.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await calendar.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: test.info().outputPath("edit-session-week-mobile.png"),
+  });
+  await dialog
+    .getByLabel(en.operations.start, { exact: true })
+    .fill("2030-10-10T18:00");
+  await expect.poll(() => weeks.at(-1)).toBe("2030-10-07");
+  await calendar
+    .getByRole("button", { name: en.mSchedule.nextWeek, exact: true })
+    .click();
+  await expect.poll(() => weeks.at(-1)).toBe("2030-10-14");
+  await dialog
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Move next week");
+  await dialog
+    .getByRole("button", {
+      name: en.managerOperations.reviewChange,
+      exact: true,
+    })
+    .click();
+  await expect(calendar).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toBeVisible();
+});
+
+test("session change is reviewed and rejection does not save", async ({
   page,
 }) => {
   let changes = 0;
@@ -860,9 +971,12 @@ test("session change is reviewed and rejected form stays intact", async ({
     .getByRole("button", { name: en.operations.confirm, exact: true })
     .click();
   await expect(dialog.getByText("Room is already occupied")).toBeVisible();
-  await dialog
-    .getByRole("button", { name: en.managerOperations.editReview })
-    .click();
+  await expect(
+    dialog.getByRole("button", { name: en.managerOperations.editReview }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: en.operations.refresh, exact: true }),
+  ).toHaveCount(0);
   await expect(
     dialog.getByLabel(en.operations.reason, { exact: true }),
   ).toHaveValue("Move to next week");
@@ -921,8 +1035,30 @@ test("session preview names resources, excludes itself and blocks unavailable ch
   ).toBeVisible();
   expect(writes).toBe(0);
   available = true;
+  await expect(
+    dialog.getByRole("button", { name: en.managerOperations.editReview }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: en.operations.refresh, exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: test.info().outputPath("session-confirm-desktop.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: test.info().outputPath("session-confirm-mobile.png"),
+  });
   await dialog
-    .getByRole("button", { name: en.operations.refresh, exact: true })
+    .getByRole("button", { name: en.common.close, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .click();
+  await dialog
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Move to next week");
+  await dialog
+    .getByRole("button", { name: en.managerOperations.reviewChange })
     .click();
   await expect(
     dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
@@ -979,12 +1115,14 @@ test("failed session availability never enables confirmation and retry keeps the
   ).toHaveCount(0);
   failed = false;
   await dialog
-    .getByRole("button", { name: en.operations.refresh, exact: true })
+    .getByRole("button", { name: en.common.retry, exact: true })
     .click();
   await expect(
     dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
   ).toBeEnabled();
-  await expect(dialog.getByText("Reschedule · Keep this reason")).toBeVisible();
+  await expect(
+    dialog.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("Keep this reason");
 });
 
 test("G02 remains an honest dependency with existing refund and transfer responses", async ({
@@ -2301,4 +2439,87 @@ test("class schedule conflict color follows the draft and ignores adjacent or ca
   await next.hover();
   await expect(next.locator("svg")).toHaveCSS("transform", "none");
   await expect(next.locator("svg")).toHaveCSS("width", "24px");
+});
+
+test("enrolled class hides cancellation and keeps rescheduling available", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: { ...course, status: "PUBLISHED", enrollmentOpen: true },
+    }),
+  );
+  let cancellations = 0;
+  await page.route("**/api/manager/classes/1/cancel", (route) => {
+    cancellations++;
+    return route.fulfill({
+      status: 409,
+      json: { error: "class_has_enrollments" },
+    });
+  });
+  await page.goto("/manager/classes/1?tab=management");
+  await expect(
+    page.getByRole("button", {
+      name: en.classWorkspace.cancelClass,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(en.classWorkspace.enrolledCancellationBlocked, {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath("enrolled-class-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: test.info().outputPath("enrolled-class-mobile.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("button", { name: en.classWorkspace.viewSchedule, exact: true })
+    .click();
+  await expect(
+    page.getByRole("tab", {
+      name: en.managerOperations.sessionsTab,
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("option", { name: en.operations.makeup, exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByLabel(en.operations.start, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByLabel(en.operations.room, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByLabel(en.operations.coach, { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByRole("heading")).toHaveText(
+    en.classWorkspace.editSession,
+  );
+  await expect(
+    dialog.getByRole("button", { name: en.common.close, exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    dialog.getByText(en.operations.notifyHint, { exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: test.info().outputPath("session-editor-mobile.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({
+    path: test.info().outputPath("session-editor-desktop.png"),
+    fullPage: true,
+  });
+  expect(cancellations).toBe(0);
 });

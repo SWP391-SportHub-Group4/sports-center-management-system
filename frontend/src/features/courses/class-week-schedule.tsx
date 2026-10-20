@@ -20,6 +20,7 @@ export function ClassWeekSchedule({
   roomId,
   rooms,
   classId,
+  excludeSessionId,
   draftSessions,
 }: {
   startDate: string;
@@ -27,6 +28,7 @@ export function ClassWeekSchedule({
   roomId: number;
   rooms: RoomDto[];
   classId?: number;
+  excludeSessionId?: string;
   draftSessions: { startAtUtc: string; endAtUtc: string }[];
 }) {
   const { t } = useLanguage();
@@ -43,6 +45,9 @@ export function ClassWeekSchedule({
     (state.data ?? []).filter(
       (entry) =>
         (!classId || entry.classId !== classId) &&
+        (!excludeSessionId ||
+          entry.sourceType !== "CLASS_SESSION" ||
+          entry.sourceId !== excludeSessionId) &&
         (!hasSelection ||
           entry.incidentScope === "CENTER" ||
           (!!coachId && entry.coachId === coachId) ||

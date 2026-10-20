@@ -46,7 +46,12 @@ function ClassImpactEditor({
         `/api/manager/classes/${session.classId}`,
         { signal },
       );
-      return { session, sportId: course.sportId, capacity: course.capacity };
+      return {
+        session,
+        sportId: course.sportId,
+        capacity: course.capacity,
+        confirmedCount: course.confirmedCount,
+      };
     },
     [id],
   );
@@ -56,6 +61,7 @@ function ClassImpactEditor({
         Date.parse(data.session.startAtUtc) <= openedAt ? (
           <IncidentSessionEditor
             session={data.session}
+            confirmedCount={data.confirmedCount}
             sportId={data.sportId}
             incident={incident}
             onSaved={onSaved}
@@ -64,6 +70,7 @@ function ClassImpactEditor({
         ) : (
           <SessionEditor
             session={data.session}
+            confirmedCount={data.confirmedCount}
             sportId={data.sportId}
             capacity={data.capacity}
             onSaved={onSaved}

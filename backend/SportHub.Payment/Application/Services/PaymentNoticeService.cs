@@ -14,7 +14,7 @@ public sealed class PaymentNoticeService(
         string eventType,
         Guid eventId,
         string message,
-        CancellationToken ct)
+        CancellationToken ct, string? emailBody = null)
     {
         notifications.Queue(
             new NotificationRequest(
@@ -38,10 +38,7 @@ public sealed class PaymentNoticeService(
                 eventType,
                 eventId,
                 "SportHub - Transaction notice",
-                "<p>" +
-                System.Net.WebUtility
-                    .HtmlEncode(message) +
-                "</p>"));
+                emailBody ?? SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message)));
     }
 
     public Task CreatedAsync(
@@ -53,7 +50,10 @@ public sealed class PaymentNoticeService(
                 NotificationEvents.InvoiceCreated,
                 invoice.InvoiceId,
                 $"Invoice {invoice.InvoiceNumber}: {invoice.TotalAmount:N0} VND. Please pay before the hold expires.",
-                ct);
+                ct,
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("Your invoice is ready. Please pay before the seat hold expires.")
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(
+                    ("Invoice", invoice.InvoiceNumber), ("Total", $"{invoice.TotalAmount:N0} VND")));
 
     public async Task PaidReceiptAsync(
         Invoice invoice,

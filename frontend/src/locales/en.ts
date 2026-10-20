@@ -514,6 +514,10 @@ export const en = {
     unchanged: "No changes in the recorded fields.",
   },
   classWorkspace: {
+    cancellationUnavailable: "Cancellation unavailable",
+    editSession: "Edit session",
+    enrolledCancellationBlocked:
+      "This class has enrolled students. Reschedule a session, change the room, or assign another coach instead.",
     classes: "Classes",
     classLabel: "Class",
     create: "Create class",

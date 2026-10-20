@@ -15,7 +15,7 @@ using SportHub.Scheduling.Threshold.Domain;
 
 namespace SportHub.Scheduling.Application.Services;
 
-/// <summary>Cancel paid courses using the same invoice, wallet and entitlement authorities as refunds.</summary>
+/// <summary>Manager cancellation is restricted to classes without active confirmed enrollments.</summary>
 public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCreditService refunds,
     ICheckoutLifecycleService checkouts, IClassEnrollmentFulfillment enrollments, IOccupancyService occupancy,
     IAuditWriter audit, INotificationWriter notifications, IClock clock, IUserAccessReader users)
@@ -25,7 +25,7 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
         var course = await db.Set<Class>().AsNoTracking().SingleOrDefaultAsync(x => x.ClassId == classId, ct)
             ?? throw new NotFoundException("class_not_found", "Class not found.");
         var members = await db.Set<Enrollment>().AsNoTracking().Where(x => x.ClassId == classId
-            && x.Status == EnrollmentStatus.Confirmed).OrderBy(x => x.EnrollmentId).ToListAsync(ct);
+            && x.Status == EnrollmentStatus.Confirmed && x.EndedAt == null).OrderBy(x => x.EnrollmentId).ToListAsync(ct);
         var holds = await db.Set<SeatHold>().AsNoTracking().Where(x => x.ClassId == classId
             && x.Status == SeatHoldStatus.Active).OrderBy(x => x.HoldId).ToListAsync(ct);
         var sessions = await db.Set<ClassSession>().AsNoTracking().Where(x => x.ClassId == classId).ToListAsync(ct);
@@ -34,15 +34,9 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
             && x.RescheduledFromSessionId != null).Select(x => x.RescheduledFromSessionId).ToHashSet();
         var remaining = originals.Count(x => x.Status != ClassSessionStatus.Completed && !completedMakeups.Contains(x.SessionId));
         var quotes = new List<CourseCancellationMember>();
-        foreach (var member in members)
-        {
-            if (member.InvoiceItemId is not Guid itemId) continue;
-            var value = await refunds.GetRemainingItemValueVndAsync(itemId, ct);
-            var points = originals.Count == 0 ? 0 : checked((int)decimal.Floor(value * remaining / originals.Count / 1000m));
-            quotes.Add(new(member.EnrollmentId, member.MemberId, itemId, value, points));
-        }
+        // A Manager cannot cancel an enrolled class, so no refund quote is offered for it.
         var canCancel = course.Status is not (ClassStatus.Completed or ClassStatus.Cancelled)
-            && quotes.Count == members.Count && (members.Count == 0 || originals.Count > 0);
+            && members.Count == 0;
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
             { course.Version, course.Status, remaining, total = originals.Count, quotes, holds = holds.Select(x => new { x.HoldId, x.InvoiceId }) }))));
         return new(canCancel, course.Version, originals.Count, remaining, members.Count, holds.Count,
@@ -81,6 +75,7 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
             ?? throw new NotFoundException("class_not_found", "Class not found.");
         await db.Entry(course).ReloadAsync(ct);
         if (course.Status == ClassStatus.Cancelled) { await tx.CommitAsync(ct); return; }
+        await ClassCancellationRules.EnsureNoConfirmedEnrollmentsAsync(db, classId, ct);
         var current = await PreviewAsync(classId, ct);
         if (!current.CanCancel)
             throw new ConflictException("class_not_cancellable", "Class not cancellable.");
@@ -98,19 +93,6 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
         foreach (var invoiceId in invoices.Order())
             await checkouts.ReleaseForSystemAsync(invoiceId, "Course cancelled by the center", ct);
         foreach (var hold in currentHolds.Where(x => x.InvoiceId == null)) await enrollments.ReleaseAsync(hold.HoldId, ct);
-        foreach (var member in current.Members)
-        {
-            await refunds.CreditAsync(new(member.InvoiceItemId, 100, $"Course {classId} cancelled: {request.Reason.Trim()}", member.EnrollmentId,
-                current.SessionsNotProvided, current.TotalSessions), ct);
-            await enrollments.CancelAsync(member.InvoiceItemId, EnrollmentEndReason.CancelledByCenter, ct);
-            var message = $"Course {course.Name} was cancelled; {member.RefundPoints} points were returned to your wallet. {request.Reason.Trim()}";
-            notifications.Queue(new(member.MemberId, NotificationEvents.ClassCancelled, message, member.EnrollmentId));
-            var recipient = await users.GetAsync(member.MemberId, ct);
-            if (recipient is not null)
-                notifications.QueueEmail(new(member.MemberId, recipient.Email, NotificationEvents.ClassCancelled,
-                    member.EnrollmentId, "SportHub - Course cancelled",
-                    "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
-        }
         // Entitlement services update counts using SQL; reload before saving the class.
         await db.Entry(course).ReloadAsync(ct);
         var sessions = await db.Set<ClassSession>().Where(x => x.ClassId == classId && x.Status == ClassSessionStatus.Scheduled).ToListAsync(ct);

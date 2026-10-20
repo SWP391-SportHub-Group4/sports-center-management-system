@@ -8,12 +8,50 @@ import { CloseButton } from "@/components/CloseButton";
 import { IconCheck, IconAlert } from "@/components/icons";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
-import { RoomSelector } from "@/features/catalog";
+import { RoomSelector, catalogApi } from "@/features/catalog";
+import { ClassWeekSchedule } from "./class-week-schedule";
 import { CoachSelector } from "@/features/coaches";
 import type { CourseSessionDto } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { checkClassSlot, availabilityReason } from "./slot-availability";
 import styles from "./session-editor.module.css";
+
+function SessionWeekSchedule({
+  session,
+  start,
+  roomId,
+  coachId,
+}: {
+  session: CourseSessionDto;
+  start: string;
+  roomId: string;
+  coachId: string;
+}) {
+  const rooms = useApi((signal) => catalogApi.rooms(signal), []);
+  const selectedStart = start || vietnamLocal(session.startAtUtc);
+  const startAtUtc = vietnamUtc(selectedStart);
+  const endAtUtc = new Date(
+    Date.parse(startAtUtc) +
+      Date.parse(session.endAtUtc) -
+      Date.parse(session.startAtUtc),
+  ).toISOString();
+  const date = selectedStart.slice(0, 10);
+  return (
+    <AsyncSection state={rooms}>
+      {(items) => (
+        <ClassWeekSchedule
+          key={date}
+          startDate={date}
+          coachId={coachId}
+          roomId={Number(roomId)}
+          rooms={items}
+          excludeSessionId={session.sessionId}
+          draftSessions={[{ startAtUtc, endAtUtc }]}
+        />
+      )}
+    </AsyncSection>
+  );
+}
 
 function SessionChangeReview({
   session,
@@ -28,6 +66,7 @@ function SessionChangeReview({
   onConfirm,
   onEdit,
   compact = false,
+  showReviewActions = true,
 }: {
   session: CourseSessionDto;
   sportId: number;
@@ -41,6 +80,7 @@ function SessionChangeReview({
   onConfirm: () => Promise<boolean>;
   onEdit: () => void;
   compact?: boolean;
+  showReviewActions?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -124,7 +164,7 @@ function SessionChangeReview({
                 {t.managerOperations.previewConfirmationHint}
               </p>
             )}
-            {compact && (
+            {compact && showReviewActions && (
               <div className="btn-row">
                 <button
                   type="button"
@@ -133,6 +173,14 @@ function SessionChangeReview({
                   onClick={onEdit}
                 >
                   {t.managerOperations.editReview}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  disabled={busy || state.loading}
+                  onClick={state.reload}
+                >
+                  {l.refresh}
                 </button>
               </div>
             )}
@@ -149,7 +197,7 @@ function SessionChangeReview({
           </>
         )}
       </AsyncSection>
-      {!compact && (
+      {!compact && showReviewActions && (
         <div className="btn-row">
           <button
             type="button"
@@ -179,19 +227,25 @@ export function SessionEditor({
   sportId,
   capacity,
   onSaved,
+  confirmedCount,
   onClose,
   onOutcome,
   showCloseButton = true,
   embedded = false,
+  showReviewActions = true,
   beforeSave,
+  showWeeklySchedule = false,
 }: {
   session: CourseSessionDto;
   sportId: number;
   capacity: number;
   onSaved: () => void;
+  confirmedCount: number;
   onClose: () => void;
   showCloseButton?: boolean;
   embedded?: boolean;
+  showReviewActions?: boolean;
+  showWeeklySchedule?: boolean;
   beforeSave?: () => Promise<void>;
   onOutcome?: (
     status: "pending" | "succeeded" | "failed" | "unknown",
@@ -201,7 +255,8 @@ export function SessionEditor({
   const { t } = useLanguage();
   const l = t.operations;
   const mutation = useMutation();
-  const [mode, setMode] = useState("reschedule");
+  const [requestedMode, setMode] = useState("reschedule");
+  const mode = confirmedCount > 0 ? "reschedule" : requestedMode;
   const [start, setStart] = useState(vietnamLocal(session.startAtUtc));
   const [roomId, setRoom] = useState(String(session.roomId));
   const [coachId, setCoach] = useState(session.coachId);
@@ -213,6 +268,7 @@ export function SessionEditor({
     <>
       {!embedded && <p>{l.notifyHint}</p>}
       <form
+        className={embedded ? styles.form : undefined}
         onSubmit={(e) => {
           e.preventDefault();
           if (!review) {
@@ -220,40 +276,70 @@ export function SessionEditor({
           }
         }}
       >
-        <fieldset disabled={busy} hidden={review}>
-          <Field label={l.edit}>
-            <select value={mode} onChange={(e) => setMode(e.target.value)}>
-              <option value="reschedule">{l.reschedule}</option>
-              <option value="cancel">{l.makeup}</option>
-            </select>
-          </Field>
-          <Field label={l.start}>
-            <input
-              required
-              type="datetime-local"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            />
-          </Field>
-          <RoomSelector sportId={sportId} value={roomId} onChange={setRoom} />
-          <CoachSelector
-            sportId={sportId}
-            value={coachId}
-            onChange={setCoach}
-          />
-          <Field label={l.reason}>
-            <textarea
-              required
-              minLength={3}
-              maxLength={500}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-        </fieldset>
+        <div
+          data-weekly-editor={(!review && showWeeklySchedule) || undefined}
+          className={
+            !review && showWeeklySchedule ? styles.editorLayout : undefined
+          }
+        >
+          <fieldset
+            disabled={busy}
+            hidden={review}
+            className={embedded ? styles.fields : undefined}
+          >
+            {confirmedCount === 0 && (
+              <Field label={l.edit}>
+                <select value={mode} onChange={(e) => setMode(e.target.value)}>
+                  <option value="reschedule">{l.reschedule}</option>
+                  <option value="cancel">{l.makeup}</option>
+                </select>
+              </Field>
+            )}
+            <Field label={l.start}>
+              <input
+                required
+                type="datetime-local"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+              />
+            </Field>
+            <div className={embedded ? styles.resources : undefined}>
+              <RoomSelector
+                sportId={sportId}
+                value={roomId}
+                onChange={setRoom}
+              />
+              <CoachSelector
+                sportId={sportId}
+                value={coachId}
+                onChange={setCoach}
+              />
+            </div>
+            <Field label={l.reason}>
+              <textarea
+                required
+                minLength={3}
+                maxLength={500}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+          </fieldset>
+          {!review && showWeeklySchedule && (
+            <div className={styles.weekSchedule}>
+              <SessionWeekSchedule
+                session={session}
+                start={start}
+                roomId={roomId}
+                coachId={coachId}
+              />
+            </div>
+          )}
+        </div>
         {review && (
           <SessionChangeReview
             compact={embedded}
+            showReviewActions={showReviewActions}
             session={session}
             sportId={sportId}
             capacity={capacity}

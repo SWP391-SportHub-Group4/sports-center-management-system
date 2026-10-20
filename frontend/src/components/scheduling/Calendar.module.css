@@ -103,6 +103,7 @@
 
 .dayBody {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: var(--space-2);
   padding: var(--space-2);
@@ -111,6 +112,8 @@
 
 .event {
   width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: left;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -238,11 +241,17 @@ button.event:hover {
 }
 
 .weekGrid {
+  grid-template-columns: repeat(7, minmax(10rem, 1fr));
   gap: 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
+.weekGrid.gridDay {
+  grid-template-columns: minmax(0, 1fr);
+}
 .weekGrid .day {
+  display: grid;
+  grid-template-rows: 64px minmax(0, 1fr);
   border: 0;
   border-right: 1px solid var(--border-subtle);
   border-radius: 0;
@@ -255,12 +264,23 @@ button.event:hover {
   justify-content: center;
   text-align: center;
 }
+.weekGrid .dayHeader time {
+  white-space: nowrap;
+}
+.weekGrid .eventMeta > span {
+  min-width: 0;
+  max-width: 100%;
+}
 .weekGrid .event {
   border: 0;
   border-radius: 0;
 }
 @media (max-width: 640px) {
+  .weekGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .weekGrid .day {
+    grid-template-rows: auto minmax(0, 1fr);
     border-right: 0;
     border-bottom: 1px solid var(--border-subtle);
   }

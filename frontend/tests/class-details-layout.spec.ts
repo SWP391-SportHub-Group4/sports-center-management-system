@@ -288,11 +288,15 @@ test("class details keeps capacity readable and groups management actions", asyn
     .click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Cancel class", exact: true }).click();
   await expect(
-    page.getByRole("dialog", { name: "Cancel class" }),
+    page.getByRole("button", { name: "Cancel class", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "This class has enrolled students. Reschedule a session, change the room, or assign another coach instead.",
+      { exact: true },
+    ),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.goto("/manager/classes/42?tab=threshold");
   await expect(

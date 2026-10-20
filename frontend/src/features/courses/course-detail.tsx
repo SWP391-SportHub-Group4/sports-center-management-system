@@ -20,6 +20,7 @@ import {
   Field,
 } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
+import { LockKeyhole } from "lucide-react";
 import { CoursePublishReview } from "./course-publish-review";
 import { SessionEditor } from "./session-editor";
 import { ThresholdPanel } from "./threshold-panel";
@@ -532,23 +533,47 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     </Card>
                   )}
                   {!["CANCELLED", "COMPLETED"].includes(c.status) && (
-                    <div className={managementStyles.cancellation}>
+                    <div
+                      className={managementStyles.cancellation}
+                      data-blocked={c.confirmedCount > 0}
+                    >
+                      {c.confirmedCount > 0 && (
+                        <LockKeyhole size={20} aria-hidden="true" />
+                      )}
                       <div>
-                        <strong>{t.classWorkspace.cancelClass}</strong>
-                        <p>{t.classWorkspace.cancelClassHint}</p>
+                        <strong>
+                          {c.confirmedCount > 0
+                            ? t.classWorkspace.cancellationUnavailable
+                            : t.classWorkspace.cancelClass}
+                        </strong>
+                        <p>
+                          {c.confirmedCount > 0
+                            ? t.classWorkspace.enrolledCancellationBlocked
+                            : t.classWorkspace.cancelClassHint}
+                        </p>
                       </div>
-                      <button
-                        className="btn btn--secondary"
-                        onClick={() => setCancelling(true)}
-                      >
-                        {t.classWorkspace.cancelClass}
-                      </button>
+                      {c.confirmedCount === 0 ? (
+                        <button
+                          className="btn btn--danger"
+                          onClick={() => setCancelling(true)}
+                        >
+                          {t.classWorkspace.cancelClass}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn--secondary"
+                          onClick={() => setValues({ tab: "sessions" })}
+                        >
+                          {t.classWorkspace.viewSchedule}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               )}
             </Tabs>
-            {cancelling && (
+            {cancelling && c.confirmedCount === 0 && (
               <Dialog
                 title={t.classWorkspace.cancelClass}
                 onClose={() => setCancelling(false)}
@@ -577,8 +602,8 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
             )}
             {session && (
               <Dialog
-                title={l.sessions}
-                size="lg"
+                title={t.classWorkspace.editSession}
+                className={managementStyles.sessionDialog}
                 onClose={() => setSession(null)}
               >
                 <SessionEditor
@@ -586,7 +611,15 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   session={session}
                   sportId={c.sportId}
                   capacity={c.capacity}
-                  onSaved={reload}
+                  confirmedCount={c.confirmedCount}
+                  embedded
+                  showCloseButton={false}
+                  showReviewActions={false}
+                  showWeeklySchedule
+                  onSaved={() => {
+                    setSession(null);
+                    reload();
+                  }}
                   onClose={() => setSession(null)}
                 />
               </Dialog>
@@ -660,19 +693,20 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                       {enrollmentError}
                     </p>
                   )}
-                  {!["CANCELLED", "COMPLETED"].includes(c.status) && (
-                    <div>
-                      <h3>{m.closeRefundTitle}</h3>
-                      <p className="small muted">{m.closeRefundBody}</p>
-                      <button
-                        type="button"
-                        className="btn btn--quiet"
-                        onClick={goToCancellation}
-                      >
-                        {m.closeGoToCancel}
-                      </button>
-                    </div>
-                  )}
+                  {c.confirmedCount === 0 &&
+                    !["CANCELLED", "COMPLETED"].includes(c.status) && (
+                      <div>
+                        <h3>{m.closeRefundTitle}</h3>
+                        <p className="small muted">{m.closeRefundBody}</p>
+                        <button
+                          type="button"
+                          className="btn btn--quiet"
+                          onClick={goToCancellation}
+                        >
+                          {m.closeGoToCancel}
+                        </button>
+                      </div>
+                    )}
                 </form>
               </Dialog>
             )}
