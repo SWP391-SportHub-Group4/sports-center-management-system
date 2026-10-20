@@ -1,6 +1,7 @@
 /** Display copy only. Keep the original action code in URLs, API filters and stored events. */
 const labels: Record<string, string> = {
   UPDATE_LANDING_PAGE: "Homepage content updated",
+  UPLOAD_MEDIA_IMAGE: "Homepage image uploaded",
   CREATE_STAFF_ACCOUNT: "Staff account created",
   CHANGE_USER_ROLE: "Account role changed",
   LOCK_USER_ACCOUNT: "Account locked or deactivated",

@@ -16,6 +16,7 @@ import { AuditEventDetails } from "./AuditEventDetails";
 import { readableAuditLabel } from "./audit-event-model";
 import { auditActionLabel } from "./audit-action-label";
 import styles from "./overview.module.css";
+import { AvatarImage } from "@/components/AvatarImage";
 
 const accountQueues = [
   "ACTIVE",
@@ -153,9 +154,10 @@ export function AdminOverview() {
             {row.actorRole === "SYSTEM" ? (
               <ShieldCheck size={17} />
             ) : (
-              (row.actorFullName?.trim() || row.actorEmail || "?")
-                .slice(0, 1)
-                .toUpperCase()
+              <AvatarImage
+                name={row.actorFullName?.trim() || row.actorEmail || "Account"}
+                size={32}
+              />
             )}
           </span>
           <span className={styles.identity}>

@@ -15,6 +15,9 @@ export type LandingDocument = {
   updatedAt: string | null;
 };
 const ContentContext = createContext<Record<string, string>>({});
+export function useLandingValues() {
+  return useContext(ContentContext);
+}
 
 export function validLandingImage(value: string): boolean {
   if (value.startsWith("/sporthub/"))
@@ -70,6 +73,7 @@ export function useLandingCopy<T>(section: string, defaults: T): T {
   const overrides = useContext(ContentContext);
   function visit(value: unknown, path: string): unknown {
     if (typeof value === "string") {
+      if (path.startsWith("bookmarks.0.items.")) return value;
       const override = overrides[path];
       if (
         override !== undefined &&

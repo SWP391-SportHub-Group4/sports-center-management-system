@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, UserRound, ShieldCheck, KeyRound } from "lucide-react";
+import { ArrowLeft, ShieldCheck, KeyRound } from "lucide-react";
+import { AvatarImage } from "@/components/AvatarImage";
 import { Card, Feedback } from "@/components/ui";
 import { StateView, StatusChip } from "@/components/data";
 import { ApiError, api } from "@/lib/apiClient";
@@ -109,7 +110,11 @@ export function UserDetail({ userId }: { userId: string }) {
             <Feedback success={saved ? t.operations.saved : ""} />
             <header className={styles.profileHeading}>
               <span className={styles.profileAvatar} aria-hidden="true">
-                <UserRound size={28} />
+                <AvatarImage
+                  name={account.fullName || account.email}
+                  avatarUrl={account.avatarUrl}
+                  size={64}
+                />
               </span>
               <div className={styles.profileIdentity}>
                 <h2>{account.fullName || account.email}</h2>

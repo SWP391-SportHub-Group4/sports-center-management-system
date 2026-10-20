@@ -2,7 +2,8 @@
 import { StaffActivationActions } from "./StaffActivationActions";
 import Link from "next/link";
 import { useState } from "react";
-import { Plus, UserRound } from "lucide-react";
+import { Plus } from "lucide-react";
+import { AvatarImage } from "@/components/AvatarImage";
 import { Card, Dialog, Feedback, Field } from "@/components/ui";
 import {
   ApiTable,
@@ -816,7 +817,11 @@ export function Users() {
       cell: (account) => (
         <div className={styles.person}>
           <span className={styles.personIcon} aria-hidden="true">
-            <UserRound size={18} />
+            <AvatarImage
+              name={account.fullName || account.email}
+              avatarUrl={account.avatarUrl}
+              size={36}
+            />
           </span>
           <Link
             className={styles.personName}

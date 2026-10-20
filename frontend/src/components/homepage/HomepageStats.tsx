@@ -12,18 +12,25 @@ import {
 import { ArrowRight, Dumbbell, Grid2X2, UsersRound } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/apiClient";
+import { DEFAULT_AVATAR } from "@/lib/avatar";
+import { homepageImageSpecs } from "./image-specs";
 import {
   homepageCategories as categoryLabels,
   type CategoryId,
   type HomepageLanguage,
-  type ShowcaseItem,
 } from "./homepage-content";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "./homepage-stats.module.css";
-import { useLandingCopy } from "./landing-content-context";
+import { useLandingCopy, useLandingValues } from "./landing-content-context";
+import {
+  resolveHomepageShowcase,
+  featuredCoachIds,
+  type HomepageCoach,
+  type HomepageOverview,
+  type HomepageShowcaseSources,
+} from "./homepage-showcase";
 
 const SHOWCASE_IMAGE_LIMIT = 3;
-const FACILITY_ROOM_TYPES = [1, 3, 4];
 
 function CountUp({
   value,
@@ -77,27 +84,17 @@ function CountUp({
   );
 }
 
-interface CatalogCoach {
-  userId: string;
-  fullName: string;
-  avatarUrl: string | null;
-  bio: string | null;
-  sportIds: number[];
-}
-
-const COACH_GROUPS = [
-  { sportId: 3, vi: "Cầu lông", en: "Badminton" },
-  { sportId: 4, vi: "Bóng rổ", en: "Basketball" },
-];
-
 /** Huấn luyện viên thật của trung tâm (hai người mỗi nhóm) thay cho nội dung mẫu khi tải được danh sách. */
-function useCoachShowcase() {
-  const [coaches, setCoaches] = useState<CatalogCoach[] | null>(null);
+function useCoachShowcase(provided?: HomepageCoach[]) {
+  const [coaches, setCoaches] = useState<HomepageCoach[] | null>(
+    provided ?? null,
+  );
   const [error, setError] = useState(false);
   useEffect(() => {
+    if (provided) return;
     const controller = new AbortController();
     api
-      .get<CatalogCoach[]>("/api/coaches", {
+      .get<HomepageCoach[]>("/api/coaches", {
         anonymous: true,
         signal: controller.signal,
       })
@@ -108,54 +105,29 @@ function useCoachShowcase() {
         if (!controller.signal.aborted) setError(true);
       });
     return () => controller.abort();
-  }, []);
+  }, [provided]);
   return { coaches, error };
-}
-
-function coachItems(coaches: CatalogCoach[]): ShowcaseItem[] {
-  return COACH_GROUPS.flatMap((group) =>
-    coaches
-      .filter((coach) => coach.sportIds.includes(group.sportId))
-      .slice(0, 2)
-      .map((coach) => ({
-        name: { en: coach.fullName, vi: coach.fullName },
-        detail: { en: group.en, vi: group.vi },
-        highlight: {
-          en: `${group.en} coach`,
-          vi: coach.bio ?? `Huấn luyện viên ${group.vi.toLowerCase()}`,
-        },
-        image: coach.avatarUrl ?? "",
-        alt: {
-          en: `Portrait of coach ${coach.fullName}`,
-          vi: `Chân dung minh họa huấn luyện viên ${coach.fullName}`,
-        },
-      })),
-  );
 }
 
 export function HomepageStats({
   language,
   initialCategory = "coaches",
+  showcaseData,
 }: {
   language: HomepageLanguage;
   initialCategory?: CategoryId;
+  showcaseData?: HomepageShowcaseSources;
 }) {
   const [active, setActive] = useState<CategoryId>(initialCategory);
-  const { coaches: liveCoaches, error: coachesError } = useCoachShowcase();
-  const showcase = liveCoaches ? coachItems(liveCoaches) : [];
-  const [overview, setOverview] = useState<{
-    coachCount: number;
-    memberCount: number;
-    facilityCount: number;
-    facilities: {
-      roomId: number;
-      name: string;
-      roomTypeId: number | null;
-      capacity: number;
-    }[];
-  } | null>(null);
+  const { coaches: liveCoaches, error: coachesError } = useCoachShowcase(
+    showcaseData?.coaches,
+  );
+  const [overview, setOverview] = useState<HomepageOverview | null>(
+    showcaseData?.overview ?? null,
+  );
   const [overviewError, setOverviewError] = useState(false);
   useEffect(() => {
+    if (showcaseData) return;
     const controller = new AbortController();
     api
       .get<NonNullable<typeof overview>>("/api/public/overview", {
@@ -169,38 +141,14 @@ export function HomepageStats({
         if (!controller.signal.aborted) setOverviewError(true);
       });
     return () => controller.abort();
-  }, []);
-  const liveCategories = categoryLabels.map((category) => ({
-    ...category,
-    value: overview
-      ? category.id === "coaches"
-        ? overview.coachCount
-        : category.id === "facilities"
-          ? overview.facilityCount
-          : overview.memberCount
-      : null,
-    items:
-      category.id === "coaches"
-        ? [...showcase, ...category.items].slice(0, SHOWCASE_IMAGE_LIMIT)
-        : category.id === "facilities"
-          ? category.items.map((item, index) => {
-              const room = overview?.facilities.find(
-                (facility) =>
-                  facility.roomTypeId === FACILITY_ROOM_TYPES[index],
-              );
-              return room
-                ? {
-                    ...item,
-                    detail: { en: room.name, vi: room.name },
-                    highlight: {
-                      en: `Capacity: ${room.capacity}`,
-                      vi: `Capacity: ${room.capacity}`,
-                    },
-                  }
-                : item;
-            })
-          : category.items,
-  }));
+  }, [showcaseData]);
+  const landingValues = useLandingValues();
+  const liveCategories = resolveHomepageShowcase(
+    liveCoaches,
+    overview,
+    featuredCoachIds(landingValues),
+    landingValues,
+  );
   const homepageCategories = useLandingCopy("bookmarks", liveCategories);
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const { user, loading } = useAuth();
@@ -388,12 +336,32 @@ export function HomepageStats({
                           } as CSSProperties
                         }
                       >
-                        <div className={styles.photo}>
+                        <div
+                          className={`${styles.photo} ${item.id === "coaches" ? styles.coachPhoto : ""}`}
+                          style={{
+                            aspectRatio:
+                              item.id === "coaches"
+                                ? homepageImageSpecs.coach.ratio
+                                : homepageImageSpecs.landscape.ratio,
+                          }}
+                        >
                           <Image
                             src={detail.image}
                             alt={detail.alt[language]}
                             fill
                             sizes="(max-width: 767px) 90vw, (max-width: 1199px) 30vw, 400px"
+                            fallbackSrc={
+                              item.id === "coaches" ? DEFAULT_AVATAR : undefined
+                            }
+                            style={
+                              detail.frame
+                                ? {
+                                    objectFit: detail.frame.fit,
+                                    objectPosition: `${detail.frame.x}% ${detail.frame.y}%`,
+                                    transform: `scale(${detail.frame.zoom})`,
+                                  }
+                                : undefined
+                            }
                           />
                         </div>
                         <div className={styles.itemCopy}>

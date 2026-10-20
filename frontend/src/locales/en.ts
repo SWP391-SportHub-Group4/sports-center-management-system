@@ -1919,7 +1919,7 @@ export const en = {
       revenueReports: "Revenue reports",
       systemSettings: "System settings",
       auditLog: "Audit log",
-      landingPage: "Landing page",
+      media: "Media",
       usersRoles: "Account management",
       myRegistrations: "My registrations",
       myMembershipPlans: "My membership plans",

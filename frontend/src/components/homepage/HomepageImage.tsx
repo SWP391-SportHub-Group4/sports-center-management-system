@@ -4,15 +4,28 @@ import NextImage, { type ImageProps } from "next/image";
 import { useState } from "react";
 import { HOMEPAGE_BLUR_DATA, HOMEPAGE_PLACEHOLDER } from "./image-placeholder";
 
-function ImageWithFallback({ src, alt, onError, ...props }: ImageProps) {
+type HomepageImageProps = ImageProps & { fallbackSrc?: string };
+function ImageWithFallback({
+  src,
+  alt,
+  onError,
+  fallbackSrc = HOMEPAGE_PLACEHOLDER,
+  ...props
+}: HomepageImageProps) {
   const [failed, setFailed] = useState(false);
   const fallback = failed || !src;
-  const source = fallback ? HOMEPAGE_PLACEHOLDER : src;
+  const source = fallback ? fallbackSrc : src;
   return (
     <NextImage
       {...props}
       src={source}
-      alt={fallback && alt ? "SportHub sports equipment illustration" : alt}
+      alt={
+        fallback && alt
+          ? fallbackSrc === HOMEPAGE_PLACEHOLDER
+            ? "SportHub sports equipment illustration"
+            : "SportHub default user avatar"
+          : alt
+      }
       unoptimized={
         props.unoptimized ??
         (typeof source === "string" && /^https?:\/\//.test(source))
@@ -28,7 +41,7 @@ function ImageWithFallback({ src, alt, onError, ...props }: ImageProps) {
 }
 
 /** Inline preview paints before network images; failed requests use the local asset. */
-export default function HomepageImage(props: ImageProps) {
+export default function HomepageImage(props: HomepageImageProps) {
   const key =
     typeof props.src === "string"
       ? props.src

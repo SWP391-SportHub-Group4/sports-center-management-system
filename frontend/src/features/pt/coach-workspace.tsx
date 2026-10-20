@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { Drawer, Tabs } from "@/components/primitives";
+import { AvatarImage } from "@/components/AvatarImage";
 import { Calendar } from "@/components/scheduling/Calendar";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
@@ -351,9 +352,7 @@ function Students({
                 className={styles.student}
                 onClick={() => onSelect(m)}
               >
-                <span className={styles.avatar} aria-hidden="true">
-                  {m.memberName.slice(0, 1)}
-                </span>
+                <AvatarImage name={m.memberName} size={40} />
                 <span>
                   <strong>{m.memberName}</strong>
                   <small>

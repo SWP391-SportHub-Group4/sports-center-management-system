@@ -2,12 +2,19 @@
 export type HomepageLanguage = "en" | "vi";
 export type CategoryId = "coaches" | "facilities" | "membership";
 export type LocalizedText = Record<HomepageLanguage, string>;
+export type CoachImageFrame = {
+  fit: "contain" | "cover";
+  x: number;
+  y: number;
+  zoom: number;
+};
 export type ShowcaseItem = {
   name: LocalizedText;
   detail: LocalizedText;
   highlight: LocalizedText;
   image: string;
   alt: LocalizedText;
+  frame?: CoachImageFrame;
 };
 
 export const homepageCategories: Array<{

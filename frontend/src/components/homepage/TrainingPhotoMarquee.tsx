@@ -3,6 +3,7 @@
 import Image from "./HomepageImage";
 import styles from "./training-photo-marquee.module.css";
 import { useLandingCopy } from "./landing-content-context";
+import { homepageImageSpecs } from "./image-specs";
 
 type Language = "en" | "vi";
 
@@ -55,7 +56,10 @@ export function TrainingPhotoMarquee({ language }: { language: Language }) {
             >
               {gallery.photos.map((photo, index) => (
                 <figure className={styles.photo} key={index}>
-                  <div className={styles.imageFrame}>
+                  <div
+                    className={styles.imageFrame}
+                    style={{ aspectRatio: homepageImageSpecs.landscape.ratio }}
+                  >
                     <Image
                       src={photo.src}
                       alt=""
