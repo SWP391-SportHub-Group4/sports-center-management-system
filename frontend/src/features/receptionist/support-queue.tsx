@@ -381,6 +381,7 @@ export function SupportQueue({
                           : "Handle request"}
                       </h4>
                       <SupportRequestActions
+                        key={`${request.requestId}:${request.assignedToUserId ?? "unassigned"}`}
                         request={request}
                         assignees={assignees.data ?? []}
                         layout="queue"

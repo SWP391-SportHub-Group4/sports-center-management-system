@@ -49,9 +49,7 @@ export function SupportRequestActions({
   const vi = language === "vi";
   const [assigneeId, setAssigneeId] = useState(request.assignedToUserId ?? "");
   // The queue refreshes its rows after assignments. Sync the selected assignee.
-  useEffect(() => {
-    setAssigneeId(request.assignedToUserId ?? "");
-  }, [request.requestId, request.assignedToUserId]);
+  
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"assign" | "progress" | "close" | null>(
     null,
