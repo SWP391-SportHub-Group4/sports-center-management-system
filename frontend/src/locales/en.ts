@@ -305,6 +305,13 @@ export const en = {
     lookup: "Look up a notice by ID",
     openDetails: "View notice and recipients",
   },
+  classScheduleLookup: {
+    conflict: "Schedule conflict",
+    title: "Existing schedule",
+    navigation: "Week navigation",
+    empty: "No activities found for this week and selection.",
+    emptyDay: "No activities",
+  },
   managerOperations: {
     overview: "Operations overview",
     priorities: "Needs attention",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
@@ -13,10 +14,11 @@ import { CoachSelector } from "@/features/coaches";
 import { ScheduleRuleEditor } from "./schedule-rule-editor";
 import { ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
-import { AiScheduleDrawer } from "@/features/manager";
+import { ClassWeekSchedule } from "./class-week-schedule";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
 import { pagedItems } from "@/lib/paged";
 import type { Paged, ManagerCourseDto } from "@/lib/types";
+import editorStyles from "./course-editor.module.css";
 
 export function CourseEditor({
   course,
@@ -41,8 +43,6 @@ export function CourseEditor({
   const saved = useRef(false);
 
   const [step, setStep] = useState(0);
-
-  const [ai, setAi] = useState(false);
 
   const [hydrated, setHydrated] = useState(false);
 
@@ -313,14 +313,7 @@ export function CourseEditor({
             return;
           }
 
-          /*
-           * Backend class body.
-           *
-           * AI suggestion is
-           * already reflected in
-           * form if Manager pressed
-           * Apply.
-           */
+          // Save the current manually configured schedule.
           const body = {
             ...schedule,
 
@@ -540,19 +533,15 @@ export function CourseEditor({
                 )}
               </AsyncSection>
 
-              <button
-                type="button"
-                className="btn btn--secondary"
-                disabled={
-                  !form.sportId ||
-                  !form.coachId ||
-                  !form.defaultRoomId ||
-                  form.capacity < 1
-                }
-                onClick={() => setAi(true)}
-              >
-                {m.aiTitle}
-              </button>
+              <ClassWeekSchedule
+                key={form.startDate}
+                startDate={form.startDate}
+                coachId={form.coachId}
+                roomId={Number(form.defaultRoomId)}
+                rooms={catalog.data?.rooms ?? []}
+                classId={course?.classId}
+                draftSessions={slots}
+              />
             </>
           )}
 
@@ -650,18 +639,7 @@ export function CourseEditor({
                 </div>
               </dl>
 
-              {/*
-               * Keep final review.
-               *
-               * Even though AI now
-               * receives backend
-               * validation, this
-               * review validates the
-               * CURRENT form state,
-               * including any manual
-               * edits made after AI
-               * Apply.
-               */}
+              {/* Validate the current form before saving. */}
               <ScheduleReview
                 course={schedule}
                 minutes={minutes}
@@ -679,16 +657,22 @@ export function CourseEditor({
           {step > 0 && (
             <button
               type="button"
-              className="btn btn--secondary"
+              className={`btn btn--secondary ${editorStyles.arrowButton}`}
+              aria-label={l.previous}
+              data-direction="previous"
+              title={l.previous}
               disabled={mutation.busy}
               onClick={() => setStep(step - 1)}
             >
-              {l.previous}
+              <ArrowLeft size={24} strokeWidth={2.25} aria-hidden="true" />
             </button>
           )}
 
           <button
-            className="btn"
+            className={`btn ${step < 3 ? editorStyles.arrowButton : ""}`}
+            aria-label={step === 3 ? m.saveDraft : l.next}
+            data-direction={step < 3 ? "next" : undefined}
+            title={step === 3 ? m.saveDraft : l.next}
             disabled={
               mutation.busy ||
               /*
@@ -704,12 +688,16 @@ export function CourseEditor({
               (step >= 2 && (!valid || catalog.loading))
             }
           >
-            {step === 3 ? m.saveDraft : l.next}
+            {step === 3 ? (
+              m.saveDraft
+            ) : (
+              <ArrowRight size={24} strokeWidth={2.25} aria-hidden="true" />
+            )}
           </button>
 
           <button
             type="button"
-            className="btn btn--secondary"
+            className={`btn ${editorStyles.cancelButton}`}
             disabled={mutation.busy}
             onClick={onClose}
           >
@@ -717,40 +705,6 @@ export function CourseEditor({
           </button>
         </div>
       </form>
-
-      {/* ---------------------------------------------
-          MANAGER AI
-      --------------------------------------------- */}
-
-      {ai && (
-        <AiScheduleDrawer
-          onClose={() => setAi(false)}
-          value={{
-            sportId: Number(form.sportId),
-            coachId: form.coachId || null,
-            defaultRoomId: Number(form.defaultRoomId),
-
-            capacity: form.capacity,
-
-            startDate: form.startDate,
-            numSessions: form.numSessions,
-            scheduleRules: form.scheduleRules,
-
-            operation: course ? "UPDATE" : "CREATE",
-
-            classId: course?.classId ?? null,
-            version: course?.version ?? null,
-          }}
-          onApply={(suggestion) => {
-            setForm((current) => ({
-              ...current,
-              startDate: suggestion.startDate,
-              numSessions: suggestion.numSessions,
-              scheduleRules: suggestion.scheduleRules,
-            }));
-          }}
-        />
-      )}
     </Card>
   );
 }

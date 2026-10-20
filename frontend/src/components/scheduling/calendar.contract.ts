@@ -10,6 +10,7 @@ export interface CalendarEvent {
   coachName?: string | null;
   status?: string | null;
   description?: string | null;
+  conflict?: boolean;
 }
 
 export interface CalendarLabels {
@@ -23,4 +24,5 @@ export interface CalendarLabels {
   next: string;
   empty: string;
   eventDetails: string;
+  conflict?: string;
 }

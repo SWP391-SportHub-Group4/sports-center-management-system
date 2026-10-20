@@ -119,11 +119,36 @@
   padding: var(--space-3);
   display: grid;
   gap: var(--space-2);
+}
+
+button.event {
   cursor: pointer;
 }
 
-.event:hover {
+button.event:hover {
   border-color: var(--color-primary);
+}
+
+.event[data-conflict="true"] {
+  background: #d6734fba;
+  color: var(--court-950);
+  transition: background-color 160ms var(--ease-out);
+}
+
+.event[data-conflict="true"] :is(.eventType, .eventMeta, .listTime) {
+  color: var(--court-950);
+}
+
+.conflictLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.conflictLabel svg {
+  flex-shrink: 0;
 }
 
 .grid:focus-visible,

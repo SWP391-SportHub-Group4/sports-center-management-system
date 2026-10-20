@@ -2061,3 +2061,226 @@ test("Vietnamese copy and keyboard tabs preserve selected state", async ({
     }),
   ).toHaveAttribute("aria-selected", "true");
 });
+
+test("class weekly schedule shows Coach or room bookings without AI or changing the draft", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2030-10-16T05:00:00Z"));
+  const requests: string[] = [];
+  let writes = 0;
+  page.on("request", (r) => {
+    if (
+      r.url().includes("/api/ai/") ||
+      (["POST", "PUT", "DELETE"].includes(r.method()) &&
+        r.url().includes("/api/"))
+    )
+      writes++;
+  });
+  await page.route("**/api/manager/court-schedule**", (route) => {
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get("roomId")).toBeFalsy();
+    requests.push(url.searchParams.get("fromDate")!);
+    return route.fulfill({
+      json: [
+        ...schedule,
+        {
+          ...schedule[0],
+          sourceId: "other-room",
+          roomId: 8,
+          classId: 2,
+          title: "Coach in another room",
+        },
+        {
+          ...schedule[0],
+          sourceId: "unrelated",
+          roomId: 8,
+          coachId: memberId,
+          classId: 3,
+          title: "Unrelated class",
+        },
+        {
+          ...schedule[1],
+          sourceId: "blocked",
+          sourceType: "ROOM_BLOCK",
+          title: "Court maintenance",
+        },
+      ],
+    });
+  });
+  await fillDraft(page);
+  await page
+    .getByRole("button", { name: en.operations.previous, exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: en.managerOperations.aiTitle }),
+  ).toHaveCount(0);
+  const panel = page.getByRole("region", {
+    name: en.classScheduleLookup.title,
+    exact: true,
+  });
+  await expect(
+    panel.getByText("Coach in another room", { exact: true }),
+  ).toBeVisible();
+  await expect(panel.getByText("Rental by An", { exact: true })).toBeVisible();
+  await expect(
+    panel.getByText("Court maintenance", { exact: true }),
+  ).toBeVisible();
+  await expect(panel.getByText("Unrelated class", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "View weekly schedule", exact: true }),
+  ).toHaveCount(0);
+  await expect(panel.getByRole("textbox")).toHaveCount(0);
+  await expect(panel.getByRole("combobox")).toHaveCount(0);
+  await expect(panel).not.toContainText("Vietnam time (UTC+7)");
+  await expect(panel).not.toContainText("Your changes stay in the form");
+  await expect(panel).not.toContainText("Check existing classes");
+  await page.screenshot({
+    fullPage: true,
+    path: test.info().outputPath("weekly-schedule-desktop.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    panel.getByText("Coach in another room", { exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    fullPage: true,
+    path: test.info().outputPath("weekly-schedule-mobile.png"),
+  });
+  await panel
+    .getByRole("button", { name: en.mSchedule.nextWeek, exact: true })
+    .click();
+  await expect.poll(() => requests.at(-1)).toBe("2030-10-07");
+  await panel
+    .getByRole("button", {
+      name: en.mSchedule.currentWeek,
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => requests.at(-1)).toBe("2030-10-14");
+  await expect(panel).toBeVisible();
+  await expect(
+    page.getByLabel(en.operations.coach, { exact: true }),
+  ).toHaveValue(coachId);
+  await expect(
+    page.getByLabel(en.operations.room, { exact: true }),
+  ).toHaveValue("7");
+  await expect(
+    page.getByLabel(en.operations.startDate, { exact: true }),
+  ).toHaveValue("2030-10-03");
+  await expect(page).toHaveURL(/manager\/classes\/new$/);
+  await page
+    .getByLabel(en.operations.startDate, { exact: true })
+    .fill("2030-10-10");
+  await expect.poll(() => requests.at(-1)).toBe("2030-10-07");
+  expect(writes).toBe(0);
+});
+
+test("class weekly schedule retries failed loading without losing form data", async ({
+  page,
+}) => {
+  await fillDraft(page);
+  let calls = 0;
+  await page.route("**/api/manager/court-schedule**", (route) => {
+    calls++;
+    return calls === 1
+      ? route.fulfill({
+          status: 503,
+          json: {
+            error: "schedule_unavailable",
+            message: "Schedule temporarily unavailable",
+          },
+        })
+      : route.fulfill({ json: [] });
+  });
+  await page
+    .getByRole("button", { name: en.operations.previous, exact: true })
+    .click();
+  const panel = page.getByRole("region", {
+    name: en.classScheduleLookup.title,
+    exact: true,
+  });
+  await expect(panel).toContainText("Schedule temporarily unavailable");
+  await panel
+    .getByRole("button", { name: en.common.retry, exact: true })
+    .click();
+  await expect(panel.getByRole("status")).toContainText(
+    en.classScheduleLookup.empty,
+  );
+  await expect(
+    page.getByLabel(en.operations.numSessions, { exact: true }),
+  ).toHaveValue("2");
+});
+
+test("class schedule conflict color follows the draft and ignores adjacent or cancelled bookings", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/court-schedule**", (route) =>
+    route.fulfill({
+      json: [
+        {
+          ...schedule[0],
+          sourceId: "busy-coach",
+          roomId: 8,
+          title: "Busy coach",
+        },
+        {
+          ...schedule[0],
+          sourceId: "later-room",
+          coachId: memberId,
+          title: "Later room booking",
+          startAtUtc: "2030-10-03T12:30:00Z",
+          endAtUtc: "2030-10-03T14:00:00Z",
+        },
+        {
+          ...schedule[0],
+          sourceId: "cancelled",
+          title: "Cancelled booking",
+          status: "CANCELLED",
+        },
+      ],
+    }),
+  );
+  await fillDraft(page);
+  await page
+    .getByRole("button", { name: en.operations.previous, exact: true })
+    .click();
+  const panel = page.getByRole("region", {
+    name: en.classScheduleLookup.title,
+    exact: true,
+  });
+  const busy = panel.getByRole("article", { name: "Busy coach", exact: true });
+  const later = panel.getByRole("article", {
+    name: "Later room booking",
+    exact: true,
+  });
+  const cancelled = panel.getByRole("article", {
+    name: "Cancelled booking",
+    exact: true,
+  });
+  await expect(busy).toHaveAttribute("data-conflict", "true");
+  await expect(busy).toHaveCSS("background-color", "rgba(214, 115, 79, 0.73)");
+  await expect(busy).toContainText(en.classScheduleLookup.conflict);
+  await busy.click();
+  await expect(panel.getByText("Busy coach", { exact: true })).toHaveCount(1);
+  await expect(later).not.toHaveAttribute("data-conflict", "true");
+  await expect(cancelled).not.toHaveAttribute("data-conflict", "true");
+  await page.getByLabel(en.operations.start, { exact: true }).fill("20:00");
+  await expect(busy).not.toHaveAttribute("data-conflict", "true");
+  await expect(later).toHaveAttribute("data-conflict", "true");
+  await expect(cancelled).not.toHaveAttribute("data-conflict", "true");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const next = page.getByRole("button", {
+    name: en.operations.next,
+    exact: true,
+  });
+  await next.hover();
+  await expect(next.locator("svg")).toHaveCSS("transform", "none");
+  await expect(next.locator("svg")).toHaveCSS("width", "24px");
+});
