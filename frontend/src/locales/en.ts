@@ -802,6 +802,13 @@ export const en = {
       "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
+    saveChanges: "Save changes",
+    confirmUpdate: "Confirm update",
+    updateSpecialties: "Update specialties",
+    specialtiesAdded: "Specialties added",
+    specialtiesRemoved: "Specialties removed",
+    specialtyImpact:
+      "Existing class assignments are kept. Review their schedules separately when removing a specialty.",
     roleBlockTitle: "Resolve these items before changing the role",
     memberRoleLocked:
       "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
