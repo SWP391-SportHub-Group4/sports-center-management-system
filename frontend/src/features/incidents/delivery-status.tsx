@@ -54,13 +54,6 @@ export function DeliveryStatus({
           </Table>
         )}
       </AsyncSection>
-      <button
-        className="btn btn--ghost"
-        disabled={state.loading}
-        onClick={state.reload}
-      >
-        {t.operations.refresh}
-      </button>
     </Card>
   );
 }

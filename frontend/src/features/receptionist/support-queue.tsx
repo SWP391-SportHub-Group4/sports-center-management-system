@@ -6,7 +6,6 @@ import {
   ChevronDown,
   MessageSquare,
   Plus,
-  RefreshCw,
   Search,
   UserRound,
 } from "lucide-react";
@@ -95,18 +94,6 @@ export function SupportQueue({
           requests.
         </p>
         <div className={styles.toolbar}>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            disabled={queue.loading}
-            onClick={() => {
-              queue.reload();
-              assignees.reload();
-            }}
-          >
-            <RefreshCw size={16} aria-hidden="true" />
-            Refresh
-          </button>
           <Link
             className="btn"
             href={

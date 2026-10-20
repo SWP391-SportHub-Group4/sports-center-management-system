@@ -368,13 +368,7 @@ export function ThresholdPanel({
         )}
       </AsyncSection>
       {action.error && <p role="alert">{action.error}</p>}
-      <button
-        className="btn btn--secondary"
-        disabled={action.busy}
-        onClick={state.reload}
-      >
-        {t.refactor.refresh}
-      </button>
+
       {review && !closed && choice && (
         <Dialog
           title={l.confirmation}

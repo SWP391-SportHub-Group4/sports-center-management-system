@@ -231,9 +231,7 @@ export function ReportExportPanel({
       </form>
       <MutationFeedback mutation={mutation} />
       <h3>{l.exportHistory}</h3>
-      <button className="btn btn--secondary" onClick={state.reload}>
-        {l.refresh}
-      </button>
+
       <AsyncSection state={state}>
         {(data) => {
           const rows = pagedItems(data);

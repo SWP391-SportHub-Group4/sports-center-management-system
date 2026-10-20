@@ -1,6 +1,5 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
 import { AsyncSection } from "@/components/ui";
 import { useApi } from "@/lib/useApi";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -50,15 +49,6 @@ export function StudentPhysicalProfile({ memberId }: { memberId: string }) {
           <h3>Fitness profile</h3>
           <p>Member-reported measurements, goals and health information.</p>
         </div>
-        <button
-          type="button"
-          className="btn btn--quiet btn--sm"
-          onClick={state.reload}
-          disabled={state.loading}
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          Refresh
-        </button>
       </header>
       <AsyncSection state={state}>
         {({ profile }) =>

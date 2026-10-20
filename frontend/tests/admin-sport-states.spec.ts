@@ -1,9 +1,24 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const sports = [
-  { sportId: 1, name: "Gym", isActive: true },
-  { sportId: 2, name: "Badminton", isActive: true },
-  { sportId: 3, name: "Archived sport", isActive: false },
+  {
+    sportId: 1,
+    name: "Gym",
+    isActive: true,
+    services: [{ serviceType: "MEMBERSHIP_ACCESS", isEnabled: true }],
+  },
+  {
+    sportId: 2,
+    name: "Badminton",
+    isActive: true,
+    services: [{ serviceType: "GROUP_COURSE", isEnabled: true }],
+  },
+  {
+    sportId: 3,
+    name: "Archived sport",
+    isActive: false,
+    services: [{ serviceType: "GROUP_COURSE", isEnabled: true }],
+  },
 ];
 
 async function setup(page: Page, response: (route: Route) => Promise<void>) {
@@ -48,8 +63,10 @@ async function setup(page: Page, response: (route: Route) => Promise<void>) {
     return route.fulfill({ status: 404, json: { code: "fixture_missing" } });
   });
   await page.goto("/admin/users");
-  // Vai trò Coach không còn trong form tạo tài khoản nhân sự; chuyên môn chọn khi đổi vai trò một tài khoản.
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  // Select specialties only while converting another staff role into Coach.
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   const form = page.getByRole("dialog");
   await form.getByLabel("Reason", { exact: true }).fill("Keep this reason");
   showOptions = true;
@@ -78,12 +95,15 @@ test("sport loading shows checkbox-shaped skeletons and then selectable active s
   expect(shape).toBe("18px");
   release();
   await expect(
-    group.getByRole("checkbox", { name: "Gym", exact: true }),
+    group.getByRole("checkbox", { name: "Badminton", exact: true }),
   ).toBeVisible();
-  await expect(group.getByRole("checkbox")).toHaveCount(2);
-  await group.getByRole("checkbox", { name: "Gym", exact: true }).check();
+  await expect(group.getByRole("checkbox")).toHaveCount(1);
   await expect(
     group.getByRole("checkbox", { name: "Gym", exact: true }),
+  ).toHaveCount(0);
+  await group.getByRole("checkbox", { name: "Badminton", exact: true }).check();
+  await expect(
+    group.getByRole("checkbox", { name: "Badminton", exact: true }),
   ).toBeChecked();
   await expect(form.getByLabel("Reason", { exact: true })).toHaveValue(
     "Keep this reason",
@@ -111,7 +131,7 @@ for (const inactiveOnly of [false, true]) {
     recovered = true;
     await group.getByRole("button", { name: "Reload data" }).click();
     await expect(
-      group.getByRole("checkbox", { name: "Gym", exact: true }),
+      group.getByRole("checkbox", { name: "Badminton", exact: true }),
     ).toBeVisible();
   });
 }
@@ -155,7 +175,7 @@ for (const status of [500, 403, 409, 412]) {
         })
         .click();
       await expect(
-        group.getByRole("checkbox", { name: "Gym", exact: true }),
+        group.getByRole("checkbox", { name: "Badminton", exact: true }),
       ).toBeVisible();
     }
     await expect(form.getByLabel("Reason", { exact: true })).toHaveValue(

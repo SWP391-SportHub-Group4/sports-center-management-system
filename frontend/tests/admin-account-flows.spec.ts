@@ -249,7 +249,7 @@ test("Admin detail displays access denial on reload and distinguishes a missing 
       json: { error: "user_not_found", message: "Missing user" },
     }),
   );
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page.reload();
   await expect(
     page.getByRole("heading", { name: "Account not found", exact: true }),
   ).toBeVisible();
@@ -281,7 +281,9 @@ test("role change requires reason and review; backend denial preserves the form"
     });
   });
   await page.goto("/admin/users");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   const dialog = page.getByRole("dialog");
   await dialog
     .getByLabel("Role", { exact: true })
@@ -327,14 +329,16 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
         message: "Role change is blocked.",
         reasons: [
           "Main coach of 1 unfinished class. Reassign it first.",
-          "2 upcoming class/PT session(s) are still assigned. Reassign or cancel them first.",
+          "2 upcoming class session(s) are still assigned. Reassign or cancel them first.",
           "1 active coaching relationship(s). End or transfer them first.",
         ],
       },
     }),
   );
   await page.goto("/admin/users");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   const dialog = page.getByRole("dialog");
   await dialog
     .getByLabel("Reason", { exact: true })
@@ -350,20 +354,20 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
   });
   await expect(blockers.getByRole("listitem")).toHaveCount(3);
   await expect(blockers).toContainText("Main coach of 1 unfinished class");
-  await expect(blockers).toContainText("2 upcoming class/PT session(s)");
+  await expect(blockers).toContainText("2 upcoming class session(s)");
   await expect(blockers).toContainText("1 active coaching relationship(s)");
   await expect(blockers).toContainText(
-    "Contact a Center Manager or Receptionist",
+    "Ask a Center Manager to reassign or close them",
   );
   await expect(
     blockers.getByRole("link", { name: "View account details" }),
   ).toHaveAttribute("href", `/admin/users/${row.userId}`);
   await expect(
-    blockers.getByRole("button", { name: "Copy Manager member link" }),
+    blockers.getByRole("button", { name: "Copy Coach management link" }),
   ).toBeVisible();
   await expect(
     blockers.getByRole("button", { name: "Copy Receptionist member link" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });
 
 test("lock/unlock require review, refresh the list and display successful outcomes", async ({
@@ -378,7 +382,9 @@ test("lock/unlock require review, refresh the list and display successful outcom
   });
   await page.goto("/admin/users");
   for (const action of ["Lock", "Unlock"]) {
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Manage access", exact: true })
+      .click();
     const dialog = page.getByRole("dialog");
     await dialog
       .getByLabel("Reason", { exact: true })
@@ -433,7 +439,7 @@ test("staff creation sends an activation request with Coach specialties and no p
     .check();
   await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
   await review.click();
-  await expect(dialog).toContainText("Selected specialties: 1");
+  await expect(dialog.getByRole("list")).toContainText("Badminton");
   expect(writes).toBe(0);
   await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
   await expect.poll(() => writes).toBe(1);
@@ -513,32 +519,29 @@ test("staff creation preserves the review when the API rejects a duplicate email
     "existing@example.com",
   );
 });
-test("own Administrator row hides Edit; details keep role and lock protections", async ({
+test("own Administrator row hides access changes; details offer the personal account only", async ({
   page,
 }) => {
   await setup(page, { self: true });
   await page.goto("/admin/users");
   await expect(
-    page.getByRole("button", { name: "Edit", exact: true }),
+    page.getByRole("button", { name: "Manage access", exact: true }),
   ).toHaveCount(0);
   await page.getByRole("link", { name: "View details", exact: true }).click();
-  const trigger = page.getByRole("button", { name: "Edit", exact: true });
-  await trigger.click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
   await expect(
-    dialog.getByRole("button", { name: "Save changes", exact: true }),
+    page.getByRole("button", { name: "Manage access", exact: true }),
   ).toHaveCount(0);
-  await expect(dialog).not.toContainText(
-    "Administrator roles cannot be changed",
-  );
+  await expect(
+    page.getByRole("link", { name: "Personal account", exact: true }),
+  ).toHaveAttribute("href", "/account");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Save changes", exact: true }),
+  ).toHaveCount(0);
   for (const action of ["Lock", "Unlock", "Deactivate"])
     await expect(
-      dialog.getByRole("button", { name: action, exact: true }),
+      page.getByRole("button", { name: action, exact: true }),
     ).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(trigger).toBeFocused();
 });
 
 test("another Administrator has no role-change controls in the list or account details", async ({
@@ -553,15 +556,15 @@ test("another Administrator has no role-change controls in the list or account d
   });
   for (const path of ["/admin/users", `/admin/users/${row.userId}`]) {
     await page.goto(path);
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Manage access", exact: true })
+      .click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
     await expect(
       dialog.getByRole("button", { name: "Save changes", exact: true }),
     ).toHaveCount(0);
-    await expect(dialog).not.toContainText(
-      "Administrator roles cannot be changed",
-    );
+    await expect(dialog).toContainText("Administrator roles cannot be changed");
     await expect(
       dialog.getByRole("button", { name: "Lock", exact: true }),
     ).toBeVisible();
@@ -598,7 +601,9 @@ test("detail reloads current data after mutation when the API allows access", as
   await expect(
     page.getByRole("heading", { name: "Identity and access" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   const dialog = page.getByRole("dialog");
   await dialog
     .getByLabel("Reason", { exact: true })
@@ -617,7 +622,9 @@ test("Member accounts cannot be converted to staff and show how to create a staf
   const row = await setup(page);
   row.role = "MEMBER";
   await page.goto("/admin/users");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText(
     "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
@@ -638,7 +645,9 @@ test("pending staff show Activation required in the list, details and edit dialo
   await expect(
     page.getByRole("table", { name: "Users and roles" }),
   ).toContainText("Activation required");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   await expect(page.getByRole("dialog")).toContainText("Activation required");
   await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "View details", exact: true }).click();
@@ -657,7 +666,9 @@ test("activated staff do not show pending-activation actions", async ({
   await expect(
     page.getByRole("table", { name: "Users and roles" }),
   ).not.toContainText("Activation required");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   await expect(
     page
       .getByRole("dialog")
@@ -706,7 +717,9 @@ test("Coach specialties save without changing role and preserve edits on failure
     return route.fulfill({ json: row });
   });
   await page.goto("/admin/users");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   const dialog = page.getByRole("dialog");
   const save = dialog.getByRole("button", {
     name: "Save changes",

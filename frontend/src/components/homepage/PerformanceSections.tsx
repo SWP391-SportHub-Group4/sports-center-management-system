@@ -6,10 +6,11 @@ import { CourtIcon } from "@/components/brand/CourtIcon";
 import { buttonClass } from "@/components/primitives/Button";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import styles from "./performance-sections.module.css";
+import { useLandingCopy } from "./landing-content-context";
 
 type Language = "en" | "vi";
 
-const copy = {
+export const heroCopy = {
   en: {
     title: "Every session\nhas a purpose.",
     lead: "Explore dedicated spaces for court sports and athletic training.",
@@ -106,7 +107,7 @@ function MagneticAccountLink({
 }
 
 export function PerformanceSections({ language }: { language: Language }) {
-  const t = copy[language];
+  const t = useLandingCopy("hero", heroCopy[language]);
   const { user, loading: authLoading } = useAuth();
   const destination = user ? HOME_BY_ROLE[user.role] : "/login";
 

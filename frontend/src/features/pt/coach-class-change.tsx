@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { CalendarClock, RefreshCw, Send, X } from "lucide-react";
+import { CalendarClock, Send, X } from "lucide-react";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -132,15 +132,6 @@ export function CoachClassChanges({
     >
       <div className={styles.heading}>
         <h3>{vi ? "Yêu cầu vắng" : "Absence request"}</h3>
-        <button
-          type="button"
-          className="btn btn--quiet btn--sm"
-          disabled={state.loading || action.busy}
-          onClick={() => state.reload()}
-        >
-          <RefreshCw size={15} aria-hidden="true" />
-          {vi ? "Cập nhật" : "Refresh"}
-        </button>
       </div>
       <p className={styles.hint}>
         {vi

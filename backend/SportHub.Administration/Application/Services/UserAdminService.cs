@@ -74,12 +74,19 @@ public sealed class UserAdminService(
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (status == "ACTIVATION_REQUIRED")
+            if (status is "ACTIVATION_REQUIRED" or "ACTIVATION_EXPIRING")
             {
                 query = query.Where(u => u.Status == UserStatus.Active
                     && u.Role!.RoleName != UserRole.Member
                     && (u.Credential == null || u.Credential.PasswordHash == null)
                     && !u.ExternalLogins.Any());
+                if (status == "ACTIVATION_EXPIRING")
+                {
+                    var now = clock.UtcNow;
+                    var createdAfter = now - StaffInvitationExpiryService.InvitationLifetime;
+                    var createdBy = now + TimeSpan.FromHours(6) - StaffInvitationExpiryService.InvitationLifetime;
+                    query = query.Where(u => u.CreatedAt > createdAfter && u.CreatedAt <= createdBy);
+                }
             }
             else
             {
@@ -312,17 +319,8 @@ public sealed class UserAdminService(
         var targetRole = ParseRole(request.Role);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        // Serialize role changes so an account promoted to Administrator cannot be demoted by a stale request.
-        _ = await db.Set<UserAccount>()
-            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE user_id = {userId} FOR UPDATE")
-            .SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("user_not_found", "User not found.");
-
-        var user = await db.Set<UserAccount>()
-            .Include(u => u.Role)
-            .Include(u => u.CoachProfile)
-            .SingleOrDefaultAsync(u => u.UserId == userId, ct)
-            ?? throw new NotFoundException("user_not_found", "User not found.");
+        var user = await LockAccountAdministrationAsync(userId, actorUserId, ct);
+        await db.Entry(user).Reference(u => u.CoachProfile).LoadAsync(ct);
 
         var currentRole = user.Role!.RoleName;
 
@@ -433,11 +431,9 @@ public sealed class UserAdminService(
                 "Cannot lock self.");
         }
 
-        var user = await db.Set<UserAccount>()
-            .Include(u => u.Role)
-            .Include(u => u.Profile)
-            .SingleOrDefaultAsync(u => u.UserId == userId, ct)
-            ?? throw new NotFoundException("user_not_found", "User not found.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var user = await LockAccountAdministrationAsync(userId, actorUserId, ct);
+        await db.Entry(user).Reference(u => u.Profile).LoadAsync(ct);
 
         if (user.Status == target)
         {
@@ -451,6 +447,7 @@ public sealed class UserAdminService(
         }
 
         var previous = user.Status;
+        var transitionId = Guid.NewGuid();
         user.Status = target;
         // A restored account must not revive a token issued before the lock.
         user.SecurityStamp = Guid.NewGuid();
@@ -468,15 +465,16 @@ public sealed class UserAdminService(
                 var managers = await db.Set<UserAccount>().AsNoTracking()
                     .Where(x => x.Status == UserStatus.Active && x.Role!.RoleName == UserRole.CenterManager)
                     .Select(x => new { x.UserId, x.Email }).ToListAsync(ct);
-                var message = $"Coach {user.Profile?.FullName ?? user.Email} was locked. {classCount} unfinished classes, "
+                var statusLabel = target == UserStatus.Banned ? "locked" : "deactivated";
+                var message = $"Coach {user.Profile?.FullName ?? user.Email} was {statusLabel}. {classCount} unfinished classes, "
                     + $"{futureSessions} future sessions and {relationshipCount} active coaching relationships need review. "
                     + "Assign an eligible replacement or reschedule the affected sessions. Open /manager/coach-coverage.";
                 foreach (var manager in managers)
                 {
                     notifications.Queue(new NotificationRequest(manager.UserId, NotificationEvents.CoachCoverageRequired,
-                        message, userId));
+                        message, transitionId));
                     notifications.QueueEmail(new EmailNotificationRequest(manager.UserId, manager.Email,
-                        NotificationEvents.CoachCoverageRequired, userId, "SportHub - Coach coverage required",
+                        NotificationEvents.CoachCoverageRequired, transitionId, "SportHub - Coach coverage required",
                         "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
                 }
             }
@@ -488,17 +486,46 @@ public sealed class UserAdminService(
             nameof(UserAccount),
             userId.ToString(),
             OldValue: $"{{\"status\":\"{previous}\"}}",
-            NewValue: $"{{\"status\":\"{target}\"}}",
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { status = target.ToString(), transitionId }),
 
             // BR-7 nêu đích danh: thao tác khoá/mở khoá phải ghi thêm lý do.
             Reason: reason.Trim()));
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
 
         // Hiệu lực với token đang lưu hành: hook OnTokenValidated ở SportHub.API đọc lại
         // status trong DB mỗi request, nên tài khoản vừa khoá bị chặn ở request kế tiếp
         // (SSOT §5.6). Request đang chạy dở không bị huỷ; thu hồi token vĩnh viễn là scope riêng.
         return await GetAsync(userId, ct);
+    }
+
+    private async Task<UserAccount> LockAccountAdministrationAsync(Guid userId, Guid actorUserId, CancellationToken ct)
+    {
+        // Status and role changes share a transaction-scoped barrier, acquired before any account row lock.
+        // This serializes the last-Admin check with promotion/lock/unlock, including two Admins locking each other.
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 24)", ct);
+
+        // Lock only the target, like invitation activation/resend/expiry. Locking the actor first can deadlock
+        // with those flows: they already hold the target while their audit insert needs a key-share on the actor.
+        var user = await db.Set<UserAccount>()
+            .FromSqlInterpolated($"SELECT * FROM user_accounts WHERE user_id = {userId} FOR UPDATE")
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("user_not_found", "User not found.");
+        // A reused scoped context may already track a stale account from an earlier read.
+        await db.Entry(user).ReloadAsync(ct);
+
+        // Authentication happened before the transaction. Re-read the actor after waiting; the shared barrier
+        // prevents another role/status mutation until commit. Invitation expiry cannot delete an activated actor.
+        var actorStillAuthorized = await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == actorUserId && u.Status == UserStatus.Active
+                && u.Role!.RoleName == UserRole.SystemAdministrator, ct);
+        if (!actorStillAuthorized)
+            throw new ForbiddenException("administrator_access_changed",
+                "Your account no longer has active Administrator access. Sign in again.");
+
+        user.Role = await db.Set<Role>().SingleAsync(r => r.RoleId == user.RoleId, ct);
+        return user;
     }
 
     private async Task<List<string>> CoachBlockersAsync(Guid userId, CancellationToken ct)

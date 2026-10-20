@@ -166,8 +166,11 @@ test("Audit FilterBar applies name/email drafts only on submit and preserves leg
     `/admin/audit-log?action=LOCK_USER&actorId=${actorId}&page=2&sortBy=action&keep=1&targetEntity=PointWallet`,
   );
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "LOCK_USER",
+    "Account locked",
   );
+  await expect(
+    page.getByRole("combobox", { name: "Record type", exact: true }),
+  ).toHaveValue("PointWallet");
   await expect(
     page.getByLabel("Actor name or email", { exact: true }),
   ).toHaveValue("");
@@ -193,14 +196,17 @@ test("Audit FilterBar applies name/email drafts only on submit and preserves leg
   expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
   await page.reload();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "UNLOCK_USER",
+    "Account unlocked",
   );
   await page.goBack();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "LOCK_USER",
+    "Account locked",
   );
   await page.getByRole("button", { name: /Clear filters/ }).click();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue("");
+  await expect(
+    page.getByRole("combobox", { name: "Record type", exact: true }),
+  ).toHaveValue("");
   await expect(
     page.getByLabel("Actor name or email", { exact: true }),
   ).toHaveValue("");

@@ -2,6 +2,7 @@
 import { StaffActivationActions } from "./StaffActivationActions";
 import Link from "next/link";
 import { useState } from "react";
+import { Plus, UserRound } from "lucide-react";
 import { Card, Dialog, Feedback, Field } from "@/components/ui";
 import {
   ApiTable,
@@ -41,6 +42,7 @@ const accountRoles = [...staffRoles, "MEMBER"];
 const accountStatuses = [
   "ACTIVE",
   "ACTIVATION_REQUIRED",
+  "ACTIVATION_EXPIRING",
   "BANNED",
   "DEACTIVATED",
 ];
@@ -61,6 +63,37 @@ const userQueryValidators = {
   sortBy: choiceQuery(["fullName", "email", "role", "status"], "email"),
   sortDirection: choiceQuery(["asc", "desc"], "asc"),
 };
+
+/** Rebuild only supported account-list state; never follow an arbitrary return URL. */
+export function accountListReturnHref(value: string): string {
+  try {
+    const url = new URL(value, "https://sporthub.invalid");
+    if (
+      !value.startsWith("/") ||
+      url.origin !== "https://sporthub.invalid" ||
+      url.pathname !== "/admin/users"
+    )
+      return "/admin/users";
+    const params = new URLSearchParams();
+    for (const key of [
+      "keyword",
+      "role",
+      "status",
+      "page",
+      "sortBy",
+      "sortDirection",
+    ] as const) {
+      const raw = url.searchParams.get(key);
+      if (!raw) continue;
+      const validated =
+        key === "keyword" ? raw.slice(0, 256) : userQueryValidators[key](raw);
+      if (validated !== userQueryDefaults[key]) params.set(key, validated);
+    }
+    return `/admin/users${params.size ? `?${params}` : ""}`;
+  } catch {
+    return "/admin/users";
+  }
+}
 function RoleSelect({
   value,
   onChange,
@@ -90,18 +123,32 @@ function RoleSelect({
     </Field>
   );
 }
-function SportSelect({
-  value,
-  onChange,
-}: {
-  value: number[];
-  onChange: (value: number[]) => void;
-}) {
-  const state = useApi(
-    (signal) => api.get<SportDto[]>("/api/sports", { signal }),
-    [],
+function useCoachSports(enabled: boolean) {
+  return useApi(
+    (signal) =>
+      enabled
+        ? api.get<SportDto[]>("/api/sports", { signal })
+        : Promise.resolve<SportDto[]>([]),
+    [enabled],
   );
-  return <SportOptions state={state} value={value} onChange={onChange} />;
+}
+
+function SpecialtySummary({
+  ids,
+  sports,
+}: {
+  ids: number[];
+  sports: SportDto[];
+}) {
+  return (
+    <ul className={styles.specialtyNames}>
+      {ids.map((id) => (
+        <li key={id}>
+          {sports.find((sport) => sport.sportId === id)?.name ?? `Sport #${id}`}
+        </li>
+      ))}
+    </ul>
+  );
 }
 function CreateStaff({
   reload,
@@ -118,12 +165,14 @@ function CreateStaff({
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("RECEPTIONIST");
   const [specialties, setSpecialties] = useState<number[]>([]);
+  const sports = useCoachSports(role === "COACH");
   const [review, setReview] = useState(false);
   const fieldClass = `form-grid__row ${styles.halfField}`;
   const canSubmit =
     !!name.trim() &&
     !!email.trim() &&
-    (role !== "COACH" || specialties.length > 0);
+    (role !== "COACH" ||
+      (specialties.length > 0 && !sports.loading && !sports.error));
 
   return (
     <Dialog
@@ -197,7 +246,11 @@ function CreateStaff({
             </div>
             {role === "COACH" && (
               <div className="form-grid__row">
-                <SportSelect value={specialties} onChange={setSpecialties} />
+                <SportOptions
+                  state={sports}
+                  value={specialties}
+                  onChange={setSpecialties}
+                />
               </div>
             )}
           </div>
@@ -227,10 +280,10 @@ function CreateStaff({
               <div>
                 <dt>{l.specialties}</dt>
                 <dd>
-                  {t.adminWork.specialtyCount.replace(
-                    "{count}",
-                    String(specialties.length),
-                  )}
+                  <SpecialtySummary
+                    ids={specialties}
+                    sports={sports.data ?? []}
+                  />
                 </dd>
               </div>
             )}
@@ -288,13 +341,7 @@ export function EditUser({
   const { user } = useAuth();
   const [role, setRole] = useState(a.role);
   const [sports, setSports] = useState(a.sportIds);
-  const sportOptions = useApi(
-    (signal) =>
-      role === "COACH"
-        ? api.get<SportDto[]>("/api/sports", { signal })
-        : Promise.resolve([] as SportDto[]),
-    [role],
-  );
+  const sportOptions = useCoachSports(role === "COACH");
   const roleChanged = role !== a.role;
   const addedSports = sports.filter((id) => !a.sportIds.includes(id));
   const removedSports = a.sportIds.filter((id) => !sports.includes(id));
@@ -305,14 +352,14 @@ export function EditUser({
       .map(
         (id) =>
           sportOptions.data?.find((sport) => sport.sportId === id)?.name ??
-          `#${id}`,
+          `Sport #${id}`,
       )
       .join(", ");
   const [reason, setReason] = useState("");
   const [review, setReview] = useState<AccountAction | null>(null);
-  const [copiedLink, setCopiedLink] = useState<
-    "manager" | "receptionist" | "failed" | null
-  >(null);
+  const [copiedLink, setCopiedLink] = useState<"manager" | "failed" | null>(
+    null,
+  );
   const mutation = useMutation();
   const roleBlockReasons =
     review === "role" && mutation.error?.code === "role_change_blocked"
@@ -323,13 +370,13 @@ export function EditUser({
         (value): value is string => typeof value === "string",
       )
     : [];
-  async function copyMemberLink(audience: "manager" | "receptionist") {
-    const path = `/${audience}/members/${a.userId}`;
+  async function copyCoachLink() {
+    const path = `/manager/coaches/${a.userId}`;
     try {
       await navigator.clipboard.writeText(
         new URL(path, window.location.origin).toString(),
       );
-      setCopiedLink(audience);
+      setCopiedLink("manager");
     } catch {
       setCopiedLink("failed");
     }
@@ -376,7 +423,7 @@ export function EditUser({
   }
   return (
     <Dialog
-      title={review ? d.reviewTitle : l.edit}
+      title={review ? d.reviewTitle : d.manageAccess}
       description={review ? d.reviewHint : d.guardHint}
       size="lg"
       onClose={() => {
@@ -394,7 +441,11 @@ export function EditUser({
         </div>
         {!review ? (
           <>
-            <Field label={l.reason} required>
+            <Field
+              label={l.reason}
+              required
+              hint="Required for every access change. Your reason is recorded in the audit log."
+            >
               <textarea
                 required
                 minLength={3}
@@ -403,7 +454,14 @@ export function EditUser({
                 onChange={(e) => setReason(e.target.value)}
               />
             </Field>
-            <>
+            <section
+              className={styles.accessSection}
+              aria-label="Role and specialties"
+            >
+              <div className={styles.sectionHeading}>
+                <h3>Role &amp; specialties</h3>
+                <p>Control what this account can access.</p>
+              </div>
               {a.role === "MEMBER" ? (
                 <p>{d.memberRoleLocked}</p>
               ) : a.role === "SYSTEM_ADMINISTRATOR" ? null : (
@@ -439,40 +497,52 @@ export function EditUser({
                   </button>
                 </>
               )}
-            </>
+            </section>
             {a.userId !== user?.userId && (
-              <div className={`btn-row ${styles.accountActions}`}>
-                {a.status !== "BANNED" && (
-                  <button
-                    type="button"
-                    className="btn btn--danger"
-                    disabled={!validReason}
-                    onClick={() => setReview("lock")}
-                  >
-                    {l.lock}
-                  </button>
-                )}
-                {a.status !== "ACTIVE" && (
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    disabled={!validReason}
-                    onClick={() => setReview("unlock")}
-                  >
-                    {l.unlock}
-                  </button>
-                )}
-                {a.status !== "DEACTIVATED" && (
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    disabled={!validReason}
-                    onClick={() => setReview("deactivate")}
-                  >
-                    {l.deactivate}
-                  </button>
-                )}
-              </div>
+              <section
+                className={styles.accessSection}
+                aria-label="Account status"
+              >
+                <div className={styles.sectionHeading}>
+                  <h3>Account status</h3>
+                  <p>
+                    Restrict or restore sign-in access. You will review the
+                    change before confirming.
+                  </p>
+                </div>
+                <div className={styles.rowActions}>
+                  {a.status !== "BANNED" && (
+                    <button
+                      type="button"
+                      className="btn btn--danger"
+                      disabled={!validReason}
+                      onClick={() => setReview("lock")}
+                    >
+                      {l.lock}
+                    </button>
+                  )}
+                  {a.status !== "ACTIVE" && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={!validReason}
+                      onClick={() => setReview("unlock")}
+                    >
+                      {l.unlock}
+                    </button>
+                  )}
+                  {a.status !== "DEACTIVATED" && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={!validReason}
+                      onClick={() => setReview("deactivate")}
+                    >
+                      {l.deactivate}
+                    </button>
+                  )}
+                </div>
+              </section>
             )}
           </>
         ) : (
@@ -512,19 +582,31 @@ export function EditUser({
                   )}
                   {role === "COACH" && (
                     <>
-                      {(roleChanged || addedSports.length > 0) && (
+                      {roleChanged ? (
                         <div>
-                          <dt>{d.specialtiesAdded}</dt>
+                          <dt>{l.specialties}</dt>
                           <dd>
-                            {sportNames(roleChanged ? sports : addedSports)}
+                            <SpecialtySummary
+                              ids={sports}
+                              sports={sportOptions.data ?? []}
+                            />
                           </dd>
                         </div>
-                      )}
-                      {!roleChanged && removedSports.length > 0 && (
-                        <div>
-                          <dt>{d.specialtiesRemoved}</dt>
-                          <dd>{sportNames(removedSports)}</dd>
-                        </div>
+                      ) : (
+                        <>
+                          {addedSports.length > 0 && (
+                            <div>
+                              <dt>{d.specialtiesAdded}</dt>
+                              <dd>{sportNames(addedSports)}</dd>
+                            </div>
+                          )}
+                          {removedSports.length > 0 && (
+                            <div>
+                              <dt>{d.specialtiesRemoved}</dt>
+                              <dd>{sportNames(removedSports)}</dd>
+                            </div>
+                          )}
+                        </>
                       )}
                     </>
                   )}
@@ -569,20 +651,15 @@ export function EditUser({
                   >
                     {d.roleBlockAccountLink}
                   </Link>
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => copyMemberLink("manager")}
-                  >
-                    {d.roleBlockCopyManager}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => copyMemberLink("receptionist")}
-                  >
-                    {d.roleBlockCopyReceptionist}
-                  </button>
+                  {a.role === "COACH" && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      onClick={copyCoachLink}
+                    >
+                      {d.roleBlockCopyManager}
+                    </button>
+                  )}
                 </div>
                 {copiedLink && (
                   <p role="status">
@@ -636,6 +713,10 @@ export function Users() {
   const l = t.staffWork;
   const query = useUrlQuery(userQueryDefaults, userQueryValidators);
   const { keyword, role, status } = query.values;
+  const listParams = new URLSearchParams(query.values);
+  const returnHref = accountListReturnHref(`/admin/users?${listParams}`);
+  const accountHref = (id: string) =>
+    `/admin/users/${id}?returnTo=${encodeURIComponent(returnHref)}`;
   const page = Number(query.values.page);
   const sort = {
     columnId: query.values.sortBy,
@@ -688,7 +769,12 @@ export function Users() {
     DEACTIVATED: l.accountDeactivated,
   };
   const fields: FilterField[] = [
-    { id: "keyword", label: l.keyword, kind: "search" },
+    {
+      id: "keyword",
+      label: "Find an account",
+      kind: "search",
+      placeholder: "Search name or email",
+    },
     {
       id: "role",
       label: l.role,
@@ -709,7 +795,9 @@ export function Users() {
           label:
             value === "ACTIVATION_REQUIRED"
               ? t.adminWork.pendingActivation
-              : statusLabels[value],
+              : value === "ACTIVATION_EXPIRING"
+                ? t.adminWork.expiringActivation
+                : statusLabels[value],
         })),
       ],
     },
@@ -720,7 +808,28 @@ export function Users() {
     setSelected(null);
   };
   const columns: TableColumn<UserAdminDto>[] = [
-    { id: "fullName", header: l.fullName, sortable: true, rowHeader: true },
+    {
+      id: "fullName",
+      header: l.fullName,
+      sortable: true,
+      rowHeader: true,
+      cell: (account) => (
+        <div className={styles.person}>
+          <span className={styles.personIcon} aria-hidden="true">
+            <UserRound size={18} />
+          </span>
+          <Link
+            className={styles.personName}
+            href={accountHref(account.userId)}
+          >
+            {account.fullName || account.email}
+            {account.userId === currentUser?.userId && (
+              <span className={styles.selfLabel}>You</span>
+            )}
+          </Link>
+        </div>
+      ),
+    },
     { id: "email", header: l.email, sortable: true },
     {
       id: "role",
@@ -751,19 +860,10 @@ export function Users() {
               : ""
         }
       />
-      <Card title={l.users}>
-        <FilterBar
-          fields={fields}
-          values={{ keyword, role, status }}
-          activeCount={activeCount}
-          onChange={(next) => {
-            query.setValues(
-              { ...next, page: "1" },
-              { replace: next.keyword !== keyword },
-            );
-            setSelected(null);
-          }}
-          onReset={clearFilters}
+      <div className={styles.directory}>
+        <Card
+          title={l.users}
+          hint="Find an account, review its status, or manage staff access."
           actions={
             <button
               type="button"
@@ -773,74 +873,105 @@ export function Users() {
                 query.setValues({ create: "1" });
               }}
             >
+              <Plus size={16} aria-hidden="true" />
               {l.staffCreate}
             </button>
           }
-        />
-        <ApiTable
-          caption={l.users}
-          columns={columns}
-          state={state}
-          getRowId={(account) => account.userId}
-          page={page}
-          pageSize={20}
-          onPageChange={(next) => {
-            query.setValues({ page: String(next) });
-            setSelected(null);
-          }}
-          sort={sort}
-          onSortChange={(next) => {
-            query.setValues({
-              sortBy: next.columnId,
-              sortDirection: next.direction,
-              page: "1",
-            });
-            setSelected(null);
-          }}
-          rowActions={(account) => (
-            <div className={styles.accountActions}>
-              <Link
-                className="btn btn--secondary"
-                href={`/admin/users/${account.userId}`}
-              >
-                {t.adminWork.viewDetail}
-              </Link>
-              {currentUser && account.userId !== currentUser.userId && (
-                <button
-                  type="button"
+        >
+          <div className={styles.directoryFilters}>
+            <FilterBar
+              fields={fields}
+              values={{ keyword, role, status }}
+              activeCount={activeCount}
+              onChange={(next) => {
+                query.setValues(
+                  { ...next, page: "1" },
+                  { replace: next.keyword !== keyword },
+                );
+                setSelected(null);
+              }}
+              onReset={clearFilters}
+            />
+          </div>
+          <div
+            className={styles.resultsHeading}
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <span>
+              {state.loading
+                ? "Loading accounts…"
+                : state.data
+                  ? `${state.data.totalCount.toLocaleString()} accounts${activeCount ? " matching your filters" : " in the directory"}`
+                  : "Account directory"}
+            </span>
+            <span>Manage access changes roles and account status.</span>
+          </div>
+          <ApiTable
+            caption={l.users}
+            columns={columns}
+            state={state}
+            getRowId={(account) => account.userId}
+            page={page}
+            pageSize={20}
+            onPageChange={(next) => {
+              query.setValues({ page: String(next) });
+              setSelected(null);
+            }}
+            sort={sort}
+            onSortChange={(next) => {
+              query.setValues({
+                sortBy: next.columnId,
+                sortDirection: next.direction,
+                page: "1",
+              });
+              setSelected(null);
+            }}
+            rowActions={(account) => (
+              <div className={styles.rowActions}>
+                <Link
                   className="btn btn--secondary"
-                  onClick={() => {
-                    setNotice(null);
-                    setSelected(account);
-                  }}
+                  href={accountHref(account.userId)}
                 >
-                  {l.edit}
-                </button>
-              )}
-              {requiresStaffActivation(account) && (
-                <button
-                  type="button"
-                  className={`btn btn--secondary ${styles.moreButton}`}
-                  aria-label={`More activation actions for ${account.fullName || account.email}`}
-                  aria-haspopup="dialog"
-                  aria-expanded={activationAccount?.userId === account.userId}
-                  data-activation-account-id={account.userId}
-                  onClick={() => {
-                    setActivationBusy(false);
-                    setActivationAccount(account);
-                  }}
-                >
-                  More
-                </button>
-              )}
-            </div>
-          )}
-          empty={{
-            title: t.common.noData,
-            hint: activeCount ? t.dataTable.emptyHint : l.accountHint,
-          }}
-        />
-      </Card>
+                  {t.adminWork.viewDetail}
+                </Link>
+                {currentUser && account.userId !== currentUser.userId && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => {
+                      setNotice(null);
+                      setSelected(account);
+                    }}
+                  >
+                    {t.adminWork.manageAccess}
+                  </button>
+                )}
+                {requiresStaffActivation(account) && (
+                  <button
+                    type="button"
+                    className={`btn btn--secondary ${styles.moreButton}`}
+                    aria-label={`Manage invitation for ${account.fullName || account.email}`}
+                    aria-haspopup="dialog"
+                    aria-expanded={activationAccount?.userId === account.userId}
+                    data-activation-account-id={account.userId}
+                    onClick={() => {
+                      setActivationBusy(false);
+                      setActivationAccount(account);
+                    }}
+                  >
+                    {t.adminWork.manageInvitation}
+                  </button>
+                )}
+              </div>
+            )}
+            empty={{
+              title: t.common.noData,
+              hint: activeCount ? t.dataTable.emptyHint : l.accountHint,
+            }}
+          />
+        </Card>
+      </div>
       {activationAccount && (
         <Dialog
           title="Staff account activation"

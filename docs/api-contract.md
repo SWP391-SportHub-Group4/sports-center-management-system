@@ -1,5 +1,13 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Landing page content
+
+- `GET /api/landing-page`: public, no-store; returns `{ revision, values, updatedAt }`. With no published row, returns an empty GUID revision, empty overrides and null timestamp; the homepage keeps its existing editorial defaults.
+- `PUT /api/landing-page`: CenterManager only. Sends the revision read by the editor and the complete `values` dictionary. Supported section prefixes: `hero`, `bookmarks`, `gallery`, `arena`, `booking`, `faq`. Text is plain text, 1–2,000 characters per field, maximum 300 fields and 256 KB request. Image fields accept HTTPS URLs or local `/sporthub/` assets. No HTML, routes, account counts or operational prices are edited through this API.
+- Saving publishes immediately. A transaction-scoped lock serializes first creation and updates; a stale revision returns `409 landing_content_changed` without overwriting published content. `UPDATE_LANDING_PAGE` is audited in the same transaction.
+- Manager UI: **Support & Communication → Landing page**, at `/manager/landing-page`. Section preview includes unsaved edits; **Restore section** only changes the draft until **Save & publish** is selected. Existing Coach/facility data still supplies bookmark defaults where available; editorial overrides take precedence for the corresponding display fields.
+- Migration `20261020162921_AddLandingPageContent` adds only the singleton `landing_page_content` table. Image files are referenced by URL; this feature does not upload files or change the hero video.
+
 ## Manager workspace — 20 October 2026
 
 Scope and navigation: [Manager workspace](Manager-Workspace.md). These rules supersede older cancellation, wallet-adjustment and next-cohort-link descriptions.
@@ -39,6 +47,14 @@ M02 reuses the existing relationship search/create/end routes. Manual creation n
 ## Staff activation and audit policy update — 14 October 2026
 
 The current policy is documented in [UsersController](../backend/SportHub.Administration/Api/UsersController.cs) and [AuditLogsController](../backend/SportHub.Administration/Api/AuditLogsController.cs). It supersedes account-only Admin audit restrictions. Staff links expire at account creation + 24 hours. Admin reads Manager/Admin/Coach/System events; Manager reads Manager/Receptionist/Coach/Member events, using immutable event-time roles. `GET /api/audit-logs` accepts an optional canonical `actorRole`; all filters and the action catalogue are scoped server-side. Responses add `actorRole` and user invitation metadata (`activationExpiresAtUtc`, `activationResendAvailableAtUtc`). Member activation also stays 24 hours.
+
+## Admin account administration
+
+- `GET /api/users/admin?status=ACTIVATION_REQUIRED` selects Active non-Member accounts without a password or external login. `status=ACTIVATION_EXPIRING` selects the same accounts whose fixed `CreatedAt + 24 hours` deadline is greater than server UTC now and no later than six hours ahead. These are filters, not new `UserStatus` values. Existing Active/Banned/Deactivated totals are unchanged; the invitation queues overlap Active.
+- Role and status commands share a PostgreSQL transaction-scoped advisory lock `(105,24)` before locking the target account. The actor is re-read and must still be Active/SystemAdministrator after waiting; otherwise 403 `administrator_access_changed`. The guard preventing lock/deactivation of the last active Admin is checked within this boundary. Existing self-lock, immutable Admin role and Member/staff separation rules remain enforced.
+- Effective status changes commit status, a new security stamp, audit and outbox together. `CoachCoverageRequired` uses a fresh `transitionId` as notification `SourceEntityId`; the same ID appears in the account-status audit `newValue`. It identifies the transition, not the Coach. Audit `targetId` remains the account ID. Repeating the current status is a no-op, while a later lock/deactivation creates a new event. Manager's coverage queue still resolves work through its existing API.
+- Admin account detail links to `/admin/audit-log?targetEntity=UserAccount&targetId=<userId>`. Shared audit filters persist `dateFrom`/`dateTo` calendar dates in the page URL and send `fromUtc` (inclusive Vietnam midnight) / `toUtc` (exclusive midnight after the selected final day) to `GET /api/audit-logs`. Presets: All time, Today, Last 7 days, This month. Invalid/reversed ranges are rejected in the UI. Record type/ID, action, actor and event-role filters retain server-side visibility rules.
+- Staff creation/resend/correction feedback states that email is queued. Resend/correction never extend `CreatedAt + 24 hours`; an expired invitation cannot be renewed through these operations. Eligible expired unactivated staff are removed by the existing expiry job before a new invitation can reuse their email. This refactor requires no migration and does not change staff activation deadlines or audit-read permissions.
 
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**.
@@ -218,7 +234,7 @@ Invoice checkout giữ phòng bằng cùng occupancy constraints với class/blo
 | GET | `api/audit-logs` |
 | GET | `api/audit-logs/actions` |
 
-`GET api/audit-logs/actions` trả mảng mã Action khác nhau, bỏ mã rỗng/chỉ khoảng trắng và sắp xếp tăng dần, không phụ thuộc phân trang của bảng. Chỉ CenterManager/SystemAdministrator được gọi. Admin nhận đầy đủ danh mục `AccountAuditActions` dùng chung với các nơi ghi log cho `UserAccount`, kể cả mã chưa phát sinh log, cộng các mã cũ đã ghi nhận cho `UserAccount`. Manager nhận các mã đã ghi nhận trong phạm vi Audit hiện có. Chọn Action chưa có log trả bảng rỗng hợp lệ; không tạo log giả và không mở rộng quyền đọc.
+`GET api/audit-logs/actions` trả mảng mã Action khác nhau, bỏ mã rỗng/chỉ khoảng trắng và sắp xếp tăng dần, không phụ thuộc phân trang của bảng. Chỉ CenterManager/SystemAdministrator được gọi. Admin nhận đầy đủ danh mục `AccountAuditActions`, kể cả mã chưa phát sinh log, cộng các mã đã ghi trong phạm vi Manager/Admin/Coach/System. Manager nhận các mã đã ghi trong phạm vi Manager/Receptionist/Coach/Member. Chọn Action chưa có log trả bảng rỗng hợp lệ; danh mục không giới hạn vào `UserAccount`, không tạo log giả và không mở rộng quyền đọc.
 
 Danh mục Admin hiện có: `CREATE_STAFF_ACCOUNT`, `CHANGE_USER_ROLE`, `LOCK_USER_ACCOUNT`, `UNLOCK_USER_ACCOUNT`, `RESEND_STAFF_ACTIVATION`, `CHANGE_PENDING_STAFF_EMAIL`, `FRONT_DESK_CREATE_MEMBER`, `RESEND_MEMBER_ACTIVATION`, `CHANGE_PENDING_MEMBER_EMAIL`, `EXPIRE_UNACTIVATED_STAFF_ACCOUNT`, `UPDATE_COACH_SPECIALTIES`.
 
@@ -229,7 +245,7 @@ Với sự kiện `targetEntity = UserAccount`, mỗi item bổ sung `targetFull
 Các trường này không phải snapshot tại thời điểm sự kiện. Tài khoản không còn
 tồn tại trả `targetAccountExists = false`, tên/email null; sự kiện trên entity
 khác trả cả ba trường null. `targetId` vẫn được giữ để đối chiếu.
-Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản của Admin hay policy G10.
+Việc bổ sung không thay đổi quyền đọc audit theo role tại thời điểm sự kiện hay policy G10.
 
 ### ReportExportsController — `api/reports/exports`
 
@@ -269,7 +285,7 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 
 `UserAdminResponse.activationPending` (bool): tài khoản (staff hoặc Member đăng ký tại quầy) chưa đặt mật khẩu và chưa liên kết Google. Hai thao tác dưới đây chỉ dành cho SystemAdministrator và chỉ áp dụng cho tài khoản `activationPending`; Member hoặc staff đã kích hoạt trả **409 `account_not_pending_activation`**.
 
-- `POST api/users/{userId}/resend-activation` (không body): phát hành link kích hoạt mới 24 giờ, vô hiệu link cũ; còn trong 60 giây kể từ lần gửi trước trả **429 `activation_resend_too_soon`**; ghi audit `RESEND_STAFF_ACTIVATION`.
+- `POST api/users/{userId}/resend-activation` (không body): phát hành link mới, vẫn hết hạn tại `CreatedAt + 24 giờ`, vô hiệu link cũ; còn trong 60 giây kể từ lần gửi trước trả **429 `activation_resend_too_soon`**; ghi audit `RESEND_STAFF_ACTIVATION`.
 - `PUT api/users/{userId}/email` (`{email, reason}`, lý do 3–500 ký tự): sửa email gõ sai. Email trùng (không phân biệt hoa thường) trả 409 `email_already_exists`, email không đổi trả 400 `email_unchanged`. Link gửi tới email cũ bị vô hiệu ngay (người nhận nhầm không kích hoạt được), link mới gửi tới email mới; ghi audit `CHANGE_PENDING_STAFF_EMAIL` kèm email cũ/mới và lý do.
 
 Đăng nhập Google với email của staff chưa kích hoạt bị từ chối (401), vì staff chỉ vào được sau khi tự đặt mật khẩu bằng link.

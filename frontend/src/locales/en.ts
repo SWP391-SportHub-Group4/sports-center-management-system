@@ -769,6 +769,11 @@ export const en = {
     statusTitle: "Accounts by status",
     statusHint:
       "Current totals across all accounts. Select a status to open its filtered list.",
+    invitationQueue: "Staff invitations",
+    invitationQueueHint:
+      "Awaiting activation is a subset of Active accounts. Invitations expire 24 hours after account creation.",
+    expiringWithinSixHours: "Expiring within 6 hours",
+    systemActor: "System",
     recentTitle: "Recent activity",
     recentHint:
       "The five latest visible Manager, Administrator, Coach or system events.",
@@ -784,6 +789,13 @@ export const en = {
     lockAction: "Account locked / deactivated",
     unlockAction: "Account unlocked",
     viewDetail: "View details",
+    manageAccess: "Manage access",
+    manageInvitation: "Manage invitation",
+    expiringActivation: "Expiring soon",
+    viewAccountActivity: "View account activity",
+    personalAccount: "Personal account",
+    specialtiesManagedByManager:
+      "Existing Coach specialties are managed by the Center Manager. They are read-only here.",
     detailTitle: "Account details",
     backUsers: "Back to accounts",
     identityTitle: "Identity and access",
@@ -818,7 +830,7 @@ export const en = {
     activationActionFailed: "The action could not be completed.",
     optionalPhoneHint: "Optional. The recipient can add it after signing in.",
     activationHint:
-      "* An activation email with a link to set the first password will be sent directly to the staff member.",
+      "An activation email will be queued for the staff member. The link expires 24 hours after account creation; resending or correcting the email does not extend this deadline.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
     saveChanges: "Save changes",
@@ -832,12 +844,12 @@ export const en = {
     memberRoleLocked:
       "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
     roleBlockGuidance:
-      "This account has service resources that must be settled first. Contact a Center Manager or Receptionist to handle them, then retry the role change. Copy a direct member link to share with the appropriate staff member.",
+      "This Coach still has teaching assignments or active relationships. Ask a Center Manager to reassign or close them, then retry the role change. Share the Coach management link below.",
     roleBlockAccountLink: "View account details",
-    roleBlockCopyManager: "Copy Manager member link",
+    roleBlockCopyManager: "Copy Coach management link",
     roleBlockCopyReceptionist: "Copy Receptionist member link",
     roleBlockCopied:
-      "Member link copied. Share it with the appropriate staff member.",
+      "Coach management link copied. Share it with a Center Manager.",
     roleBlockCopyFailed:
       "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
@@ -848,7 +860,7 @@ export const en = {
     deactivateImpact:
       "The account will be deactivated and cannot access authenticated features until it is unlocked.",
     guardHint:
-      "You cannot lock yourself. The server also prevents locking or demoting the last active Administrator.",
+      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be locked or deactivated.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -1907,6 +1919,7 @@ export const en = {
       revenueReports: "Revenue reports",
       systemSettings: "System settings",
       auditLog: "Audit log",
+      landingPage: "Landing page",
       usersRoles: "Account management",
       myRegistrations: "My registrations",
       myMembershipPlans: "My membership plans",

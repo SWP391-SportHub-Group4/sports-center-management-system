@@ -6,13 +6,14 @@ import { Activity, ArrowRight, MapPin } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import styles from "./interactive-arena-tour.module.css";
+import { useLandingCopy } from "./landing-content-context";
 
 type Language = "en" | "vi";
 type ZoneId = "badminton" | "basketball" | "conditioning";
 
 const zoneOrder: ZoneId[] = ["badminton", "basketball", "conditioning"];
 
-const copy = {
+export const arenaCopy = {
   en: {
     title: "Three disciplines.\nOne connected arena.",
     lead: "SportHub brings court sports, Gym and personal coaching into one training space. Find your rhythm with a class, an individual workout or a game with friends.",
@@ -287,7 +288,7 @@ function ZoneFloorPlan({
 }
 
 export function InteractiveArenaTour({ language }: { language: Language }) {
-  const text = copy[language];
+  const text = useLandingCopy("arena", arenaCopy[language]);
   const { user, loading: authLoading } = useAuth();
   const memberCatalogPath = "/member/services";
   const memberCatalogHref =

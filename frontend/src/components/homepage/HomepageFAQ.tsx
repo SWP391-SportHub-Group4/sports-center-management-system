@@ -1,9 +1,11 @@
+"use client";
 import Link from "next/link";
+import { useLandingCopy } from "./landing-content-context";
 import styles from "./homepage-faq.module.css";
 
 type Language = "en" | "vi";
 
-const copy = {
+export const faqCopy = {
   en: {
     eyebrow: "A few useful answers",
     title: "Good to know before you get started.",
@@ -95,7 +97,7 @@ const copy = {
 >;
 
 export function HomepageFAQ({ language }: { language: Language }) {
-  const t = copy[language];
+  const t = useLandingCopy("faq", faqCopy[language]);
 
   return (
     <section className={styles.section} aria-labelledby="homepage-faq-title">

@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  RefreshCw,
   Send,
   Users,
   UserRoundMinus,
@@ -122,16 +121,6 @@ export function CoachChangeRequests() {
             ? "Tất cả yêu cầu · Mới nhất trước"
             : "All requests · Newest first"}
         </span>
-        <button
-          type="button"
-          className="btn btn--quiet"
-          disabled={state.loading || action.busy}
-          onClick={() => state.reload()}
-          aria-label={vi ? "Tải lại yêu cầu" : "Refresh requests"}
-          title={vi ? "Tải lại" : "Refresh"}
-        >
-          <RefreshCw size={18} aria-hidden="true" />
-        </button>
       </div>
       <Feedback error={action.error} success={action.success} />
       <AsyncSection state={state}>

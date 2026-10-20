@@ -166,9 +166,6 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   >
                     {t.classWorkspace.viewSchedule}
                   </Link>
-                  <button className="btn btn--ghost" onClick={reload}>
-                    {l.refresh}
-                  </button>
                 </>
               }
             >

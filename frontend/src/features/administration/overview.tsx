@@ -1,35 +1,103 @@
 "use client";
 
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { ArrowRight, Check, Clock3, ShieldCheck, Users } from "lucide-react";
 import { StateView, Table, type TableColumn } from "@/components/data";
 import { stateKindFromStatus } from "@/components/contracts/state";
-import { api } from "@/lib/apiClient";
-import { formatDateTime } from "@/lib/format";
+import { api, type ApiError } from "@/lib/apiClient";
+import { formatDateTime, formatNumber, formatTime } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
-import { useApi } from "@/lib/useApi";
+import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { AuditLogDto, Paged, UserAdminDto } from "@/lib/types";
-import styles from "./overview.module.css";
 import { AuditTargetAccount } from "./AuditTargetAccount";
 import { AuditTargetEntity } from "./AuditTargetEntity";
+import { AuditEventDetails } from "./AuditEventDetails";
+import { readableAuditLabel } from "./audit-event-model";
+import { auditActionLabel } from "./audit-action-label";
+import styles from "./overview.module.css";
 
-const statuses = ["ACTIVE", "BANNED", "DEACTIVATED"] as const;
+const accountQueues = [
+  "ACTIVE",
+  "BANNED",
+  "DEACTIVATED",
+  "ACTIVATION_REQUIRED",
+  "ACTIVATION_EXPIRING",
+] as const;
+const accountRoles = [
+  { value: "SYSTEM_ADMINISTRATOR", label: "Administrators" },
+  { value: "CENTER_MANAGER", label: "Center Managers" },
+  { value: "RECEPTIONIST", label: "Receptionists" },
+  { value: "COACH", label: "Coaches" },
+  { value: "MEMBER", label: "Members" },
+] as const;
+
+function DashboardError({
+  error,
+  retry,
+}: {
+  error: ApiError;
+  retry: () => void;
+}) {
+  const { t } = useLanguage();
+  const kind = stateKindFromStatus(error.status);
+  return (
+    <StateView
+      kind={kind}
+      title={t.dataTable[`${kind}Title`]}
+      description={
+        kind === "error" ? error.message : t.dataTable[`${kind}Hint`]
+      }
+      code={error.code}
+      action={
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          onClick={retry}
+        >
+          {t.common.retry}
+        </button>
+      }
+    />
+  );
+}
 
 export function AdminOverview() {
   const { t } = useLanguage();
   const l = t.adminWork;
+  const now = useNow();
   const totals = useApi(async (signal) => {
     const pages = await Promise.all(
-      statuses.map((status) =>
+      accountQueues.map((status) =>
         api.get<Paged<UserAdminDto>>("/api/users/admin", {
           signal,
-          query: { status, page: 1, pageSize: 1 },
+          query: {
+            status,
+            page: 1,
+            pageSize: status === "ACTIVATION_REQUIRED" ? 4 : 1,
+          },
         }),
       ),
     );
-    // Use server totals, never the number of rows in the first page.
-    return pages.map((page) => page.totalCount);
+    return {
+      counts: pages.map((page) => page.totalCount),
+      invitations: pagedItems(pages[3]),
+      fetchedAt: new Date().toISOString(),
+    };
+  }, []);
+  const roles = useApi(async (signal) => {
+    const pages = await Promise.all(
+      accountRoles.map(({ value: role }) =>
+        api.get<Paged<UserAdminDto>>("/api/users/admin", {
+          signal,
+          query: { role, page: 1, pageSize: 1 },
+        }),
+      ),
+    );
+    return pages.map((page, index) => ({
+      ...accountRoles[index],
+      count: page.totalCount,
+    }));
   }, []);
   const activity = useApi(
     (signal) =>
@@ -44,123 +112,328 @@ export function AdminOverview() {
       }),
     [],
   );
-  const labels = [
-    t.staffWork.accountActive,
-    t.staffWork.accountLocked,
-    t.staffWork.accountDeactivated,
+  const loading = totals.loading || roles.loading || activity.loading;
+  const pending = totals.data?.counts[3] ?? 0;
+  const expiring = totals.data?.counts[4] ?? 0;
+  const roleTotal = roles.data?.reduce((sum, role) => sum + role.count, 0) ?? 0;
+  const metrics = [
+    {
+      status: "ACTIVE",
+      label: "Active accounts",
+      hint: "Includes staff awaiting activation",
+      tone: "active",
+    },
+    {
+      status: "BANNED",
+      label: "Locked accounts",
+      hint: "Sign-in is blocked",
+      tone: "locked",
+    },
+    {
+      status: "DEACTIVATED",
+      label: "Deactivated accounts",
+      hint: "Account access is disabled",
+      tone: "inactive",
+    },
+    {
+      status: "ACTIVATION_REQUIRED",
+      label: "Pending activation",
+      hint: "Staff who have not activated yet",
+      tone: "pending",
+    },
   ];
-  const actionLabels: Record<string, string> = {
-    CREATE_STAFF_ACCOUNT: l.createAction,
-    CHANGE_USER_ROLE: l.roleAction,
-    LOCK_USER_ACCOUNT: l.lockAction,
-    UNLOCK_USER_ACCOUNT: l.unlockAction,
-  };
   const columns: TableColumn<AuditLogDto>[] = [
     {
-      id: "timestamp",
-      header: t.staffWork.time,
-      cell: (row) => formatDateTime(row.timestamp),
+      id: "actorEmail",
+      header: l.actor,
+      rowHeader: true,
+      cell: (row) => (
+        <div className={styles.actor}>
+          <span className={styles.avatar} aria-hidden="true">
+            {row.actorRole === "SYSTEM" ? (
+              <ShieldCheck size={17} />
+            ) : (
+              (row.actorFullName?.trim() || row.actorEmail || "?")
+                .slice(0, 1)
+                .toUpperCase()
+            )}
+          </span>
+          <span className={styles.identity}>
+            <strong>
+              {row.actorRole === "SYSTEM"
+                ? l.systemActor
+                : row.actorFullName?.trim() || row.actorEmail}
+            </strong>
+            <small>
+              {row.actorRole === "SYSTEM"
+                ? "Automatic activity"
+                : readableAuditLabel(row.actorRole || "User")}
+            </small>
+          </span>
+        </div>
+      ),
     },
-    { id: "actorEmail", header: l.actor, rowHeader: true },
     {
       id: "action",
-      header: t.staffWork.action,
-      cell: (row) => actionLabels[row.action] ?? row.action,
+      header: "Activity",
+      cell: (row) => (
+        <div className={styles.event}>
+          <strong>{auditActionLabel(row.action, row.newValue)}</strong>
+          <div className={styles.eventTarget}>
+            {row.targetEntity === "UserAccount" ? (
+              <AuditTargetAccount row={row} />
+            ) : (
+              <AuditTargetEntity row={row} linkToManager={false} />
+            )}
+          </div>
+        </div>
+      ),
     },
     {
-      id: "targetId",
-      header: l.target,
-      cell: (row) =>
-        row.targetEntity === "UserAccount" ? (
-          <AuditTargetAccount row={row} linkToAccount />
-        ) : (
-          <AuditTargetEntity row={row} linkToManager={false} />
-        ),
+      id: "timestamp",
+      header: "When",
+      cell: (row) => (
+        <time dateTime={row.timestamp} className={styles.timestamp}>
+          {formatDateTime(row.timestamp)}
+        </time>
+      ),
+    },
+    {
+      id: "details",
+      header: "Details",
+      cell: (row) => <AuditEventDetails row={row} />,
     },
   ];
-  function errorView(state: typeof activity | typeof totals) {
-    if (!state.error) return null;
-    const kind = stateKindFromStatus(state.error.status);
-    return (
-      <StateView
-        kind={kind}
-        title={t.dataTable[`${kind}Title`]}
-        description={
-          kind === "error" ? state.error.message : t.dataTable[`${kind}Hint`]
-        }
-        code={state.error.code}
-        action={
-          <button
-            type="button"
-            className="btn btn--secondary"
-            onClick={state.reload}
-          >
-            {t.common.retry}
-          </button>
-        }
-      />
-    );
-  }
+
   return (
-    <div className="stack">
-      <Card
-        title={l.statusTitle}
-        hint={l.statusHint}
-        actions={
-          <button
-            type="button"
-            className="btn btn--ghost btn--sm"
-            disabled={totals.loading}
-            onClick={totals.reload}
-          >
-            {t.staffWork.refresh}
-          </button>
-        }
+    <div className={styles.dashboard}>
+      <div className={styles.toolbar}>
+        <div
+          className={styles.sync}
+          role="status"
+          data-error={!!(totals.error || roles.error || activity.error)}
+        >
+          <span className={styles.syncDot} aria-hidden="true" />
+          <span>
+            {loading
+              ? "Updating dashboard…"
+              : totals.error || roles.error || activity.error
+                ? "Some dashboard data is unavailable"
+                : totals.data
+                  ? `Account snapshot · updated ${formatTime(totals.data.fetchedAt)} (UTC+7)`
+                  : "Account snapshot"}
+          </span>
+        </div>
+      </div>
+
+      <section
+        className={`${styles.panel} ${styles.invitationPanel}`}
+        aria-labelledby="admin-invitations-title"
       >
+        <header className={styles.panelHeader}>
+          <div>
+            <h2 id="admin-invitations-title">Staff activation</h2>
+            <p>
+              Invitations have a fixed 24-hour window from account creation.
+            </p>
+          </div>
+        </header>
         {totals.error ? (
-          errorView(totals)
+          <DashboardError error={totals.error} retry={totals.reload} />
         ) : totals.loading ? (
-          <StateView kind="loading" title={t.common.loading} />
+          <StateView kind="loading" title="Loading invitations" />
+        ) : pending === 0 ? (
+          <div className={styles.allClear}>
+            <span className={styles.clearIcon}>
+              <Check size={20} aria-hidden="true" />
+            </span>
+            <div>
+              <strong>No pending activations</strong>
+              <p>No active staff accounts are awaiting activation.</p>
+            </div>
+          </div>
         ) : (
-          <ul className={styles.statusList}>
-            {statuses.map((status, index) => (
-              <li key={status}>
-                <Link
-                  className={styles.statusLink}
-                  href={`/admin/users?status=${status}`}
-                >
-                  <span>{labels[index]}</span>
-                  <strong className={styles.count}>
-                    {totals.data?.[index] ?? "—"}
-                  </strong>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className={styles.invitationGrid}>
+            <div className={styles.attention} data-urgent={expiring > 0}>
+              <Clock3 size={21} aria-hidden="true" />
+              <div>
+                <strong>
+                  {expiring > 0
+                    ? `${formatNumber(expiring)} ${expiring === 1 ? "invitation expires" : "invitations expire"} within 6 hours`
+                    : "No invitations expiring within 6 hours"}
+                </strong>
+                <p>
+                  {formatNumber(pending)} staff{" "}
+                  {pending === 1 ? "account is" : "accounts are"} awaiting
+                  activation. Staff can activate their accounts using the
+                  invitation email before the deadline.
+                </p>
+              </div>
+            </div>
+            <div>
+              <ul className={styles.invitationList}>
+                {totals.data?.invitations.map((account) => {
+                  const deadline = account.activationExpiresAtUtc;
+                  const expired = !!deadline && Date.parse(deadline) <= now;
+                  return (
+                    <li key={account.userId}>
+                      <div className={styles.invitationRow}>
+                        <span className={styles.identity}>
+                          <strong>{account.fullName || account.email}</strong>
+                          <small>{account.email}</small>
+                        </span>
+                        <span
+                          className={styles.deadline}
+                          data-expired={expired}
+                        >
+                          {deadline
+                            ? `${expired ? "Expired" : "Expires"} ${formatDateTime(deadline)}`
+                            : "Awaiting activation"}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              {pending > 4 && (
+                <p className={styles.queueNote}>
+                  Showing 4 of {formatNumber(pending)} pending staff accounts.
+                </p>
+              )}
+            </div>
+          </div>
         )}
-      </Card>
-      <Card
-        title={l.recentTitle}
-        hint={l.recentHint}
-        actions={
-          <Link className="btn btn--secondary btn--sm" href="/admin/audit-log">
-            {t.staffWork.adminAudit}
-          </Link>
-        }
-      >
-        {activity.error ? (
-          errorView(activity)
-        ) : (
-          <Table
-            caption={l.recentTitle}
-            columns={columns}
-            rows={pagedItems(activity.data)}
-            getRowId={(row) => row.auditId}
-            status={activity.loading ? "loading" : "ready"}
-            empty={{ title: l.recentEmpty }}
-          />
+      </section>
+
+      <section aria-label="Account overview" aria-busy={totals.loading}>
+        <div className={styles.metrics}>
+          {metrics.map((metric, index) => (
+            <div
+              className={styles.metric}
+              data-tone={metric.tone}
+              key={metric.status}
+            >
+              <span className={styles.metricLabel}>
+                <span className={styles.statusDot} aria-hidden="true" />
+                {metric.label}
+              </span>
+              <strong className={styles.metricValue}>
+                {totals.loading ? (
+                  <span
+                    className={styles.numberSkeleton}
+                    aria-label="Loading"
+                  />
+                ) : totals.data ? (
+                  formatNumber(totals.data.counts[index])
+                ) : (
+                  "—"
+                )}
+              </strong>
+              <span className={styles.metricHint}>{metric.hint}</span>
+            </div>
+          ))}
+        </div>
+        {totals.error && (
+          <DashboardError error={totals.error} retry={totals.reload} />
         )}
-      </Card>
+      </section>
+
+      <div className={styles.mainGrid}>
+        <section
+          className={`${styles.panel} ${styles.activityPanel}`}
+          aria-labelledby="admin-activity-title"
+        >
+          <header className={styles.panelHeader}>
+            <div>
+              <h2 id="admin-activity-title">{l.recentTitle}</h2>
+              <p>The latest five events in your audit scope.</p>
+            </div>
+            <Link className={styles.textLink} href="/admin/audit-log">
+              View all
+              <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          </header>
+          <div className={styles.activityBody}>
+            {activity.error ? (
+              <DashboardError error={activity.error} retry={activity.reload} />
+            ) : (
+              <Table
+                caption={l.recentTitle}
+                columns={columns}
+                rows={pagedItems(activity.data)}
+                getRowId={(row) => row.auditId}
+                status={activity.loading ? "loading" : "ready"}
+                density="compact"
+                empty={{ title: l.recentEmpty }}
+              />
+            )}
+          </div>
+          <p className={styles.panelNote}>
+            Manager, Administrator, Coach and system events. Select View details
+            to inspect a change.
+          </p>
+        </section>
+
+        <section
+          className={`${styles.panel} ${styles.rolesPanel}`}
+          aria-labelledby="admin-roles-title"
+        >
+          <header className={styles.panelHeader}>
+            <div>
+              <h2 id="admin-roles-title">Accounts by role</h2>
+              <p>All account statuses</p>
+            </div>
+            <Users size={20} className={styles.panelIcon} aria-hidden="true" />
+          </header>
+          {roles.error ? (
+            <DashboardError error={roles.error} retry={roles.reload} />
+          ) : roles.loading ? (
+            <StateView kind="loading" title="Loading account distribution" />
+          ) : roleTotal === 0 ? (
+            <StateView
+              kind="empty"
+              title="No accounts yet"
+              description="Account roles will appear here when accounts are available."
+            />
+          ) : (
+            <>
+              <div className={styles.roleTotal}>
+                <strong>{formatNumber(roleTotal)}</strong>
+                <span>total accounts</span>
+              </div>
+              <ul
+                className={styles.roleList}
+                aria-label="Account distribution by role"
+              >
+                {roles.data?.map((role) => (
+                  <li key={role.value}>
+                    <div className={styles.roleItem}>
+                      <span className={styles.roleLabel}>
+                        <span>{role.label}</span>
+                        <strong>{formatNumber(role.count)}</strong>
+                      </span>
+                      <span className={styles.barTrack} aria-hidden="true">
+                        <span
+                          className={styles.barFill}
+                          style={{
+                            width: `${(role.count / roleTotal) * 100}%`,
+                          }}
+                        />
+                      </span>
+                      <span className={styles.roleShare}>
+                        {new Intl.NumberFormat("en-GB", {
+                          maximumFractionDigits: 1,
+                        }).format((role.count / roleTotal) * 100)}
+                        % of accounts
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

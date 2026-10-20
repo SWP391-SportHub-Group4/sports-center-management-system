@@ -194,10 +194,19 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
         <Card title={l.delivery}>
           <p>{l.noticeRecovery}</p>
           <p>{c.recoveryOnly}</p>
-          {recovered.error && <p role="alert">{recovered.error.message}</p>}
-          <button className="btn btn--ghost" onClick={recovered.reload}>
-            {l.refresh}
-          </button>
+          {recovered.error && (
+            <div role="alert">
+              <p>{recovered.error.message}</p>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={recovered.reload}
+              >
+                {t.common.retry}
+              </button>
+            </div>
+          )}
+
           {recovered.error?.status === 404 && (
             <>
               <p>{c.recoveryNotFound}</p>

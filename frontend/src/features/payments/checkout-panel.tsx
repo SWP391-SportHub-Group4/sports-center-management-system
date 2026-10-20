@@ -112,11 +112,11 @@ function CheckoutFlow({
       : error?.cause instanceof ApiError &&
           error.cause.code === "member_schedule_conflict"
         ? t.apiErrors.memberScheduleConflict
-      : error?.cause instanceof Error
-        ? error.cause.message
-        : error
-          ? t.apiErrors.generic
-          : "";
+        : error?.cause instanceof Error
+          ? error.cause.message
+          : error
+            ? t.apiErrors.generic
+            : "";
   const retryKey = useRef<string | null>(null);
   const key = useRef<string | null>(null);
   const alive = useRef(true);
@@ -676,61 +676,61 @@ function CheckoutFlow({
                   size="sm"
                   onClose={() => setDismissedOtp(confirmation.confirmationId)}
                 >
-                <CounterPointConfirmation
-                  confirmation={confirmation}
-                  code={code}
-                  onCodeChange={setCode}
-                  busy={busy}
-                  serverNow={serverNow}
-                  resendAt={resendAt}
-                  onVerify={() =>
-                    run(async () => {
-                      try {
+                  <CounterPointConfirmation
+                    confirmation={confirmation}
+                    code={code}
+                    onCodeChange={setCode}
+                    busy={busy}
+                    serverNow={serverNow}
+                    resendAt={resendAt}
+                    onVerify={() =>
+                      run(async () => {
+                        try {
+                          await api.post(
+                            `/api/point-confirmations/${confirmation.confirmationId}/verify`,
+                            { code },
+                          );
+                        } catch (e) {
+                          setConfirmation(
+                            await api.get<CounterConfirmation | null>(
+                              `/api/invoices/${id}/point-confirmations/current`,
+                            ),
+                          );
+                          throw e;
+                        }
+                        setConfirmation(null);
+                        setCode("");
+                        await refresh();
+                      })
+                    }
+                    onClear={() =>
+                      run(async () => {
                         await api.post(
-                          `/api/point-confirmations/${confirmation.confirmationId}/verify`,
-                          { code },
+                          `/api/invoices/${id}/point-confirmations/clear`,
+                          { memberId, revision: checkout.revision },
                         );
-                      } catch (e) {
-                        setConfirmation(
-                          await api.get<CounterConfirmation | null>(
-                            `/api/invoices/${id}/point-confirmations/current`,
-                          ),
+                        setConfirmation(null);
+                        setCode("");
+                        await refresh();
+                      })
+                    }
+                    onResend={() =>
+                      run(async () => {
+                        const next = await api.post<CounterConfirmation>(
+                          `/api/invoices/${id}/point-confirmations`,
+                          {
+                            memberId,
+                            revision: checkout.revision,
+                            points: confirmation.points ?? Number(points),
+                          },
                         );
-                        throw e;
-                      }
-                      setConfirmation(null);
-                      setCode("");
-                      await refresh();
-                    })
-                  }
-                  onClear={() =>
-                    run(async () => {
-                      await api.post(
-                        `/api/invoices/${id}/point-confirmations/clear`,
-                        { memberId, revision: checkout.revision },
-                      );
-                      setConfirmation(null);
-                      setCode("");
-                      await refresh();
-                    })
-                  }
-                  onResend={() =>
-                    run(async () => {
-                      const next = await api.post<CounterConfirmation>(
-                        `/api/invoices/${id}/point-confirmations`,
-                        {
-                          memberId,
-                          revision: checkout.revision,
-                          points: confirmation.points ?? Number(points),
-                        },
-                      );
-                      setConfirmation(next);
-                      setCode("");
-                      setResendAt(Date.now() + 60000);
-                      await refresh();
-                    })
-                  }
-                />
+                        setConfirmation(next);
+                        setCode("");
+                        setResendAt(Date.now() + 60000);
+                        await refresh();
+                      })
+                    }
+                  />
                 </Dialog>
               )}
             </section>
@@ -864,9 +864,6 @@ function CheckoutFlow({
           </div>
         )}
         <div className={styles.actions}>
-          <Button variant="quiet" disabled={busy} onClick={() => run(refresh)}>
-            {l.refresh}
-          </Button>
           {(user?.role === "Receptionist" || user?.role === "CenterManager") &&
             checkout.reconciliationRequired && (
               <Button

@@ -2293,7 +2293,7 @@ test("Vietnamese copy and keyboard tabs preserve selected state", async ({
       .locator("main")
       .getByRole("button", { name: "Refresh", exact: true })
       .last(),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   const report = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();

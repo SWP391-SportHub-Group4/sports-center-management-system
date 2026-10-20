@@ -118,15 +118,6 @@ export function CourtCalendar({
                   ))}
                 </select>
               </Field>
-              <button
-                className="btn btn--secondary"
-                onClick={() => {
-                  state.reload();
-                  clear();
-                }}
-              >
-                {l.refresh}
-              </button>
             </div>
           ) : (
             <CourtFilters
@@ -161,17 +152,6 @@ export function CourtCalendar({
                 {label}
               </span>
             ))}
-
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => {
-              state.reload();
-              clear();
-            }}
-          >
-            {l.refresh}
-          </button>
         </div>
       )}
 

@@ -104,6 +104,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/schedule", labelKey: "activitySchedule" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
+    { href: "/manager/landing-page", labelKey: "landingPage" },
     { href: "/manager/requests", labelKey: "requests" },
     { href: "/manager/classes/interests", labelKey: "courseInterests" },
     { href: "/manager/classes", labelKey: "classes" },
@@ -161,7 +162,12 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
     "/manager/schedule",
     [
       "supportCommunications",
-      ["/manager/requests", "/manager/incidents", "/manager/notices"],
+      [
+        "/manager/requests",
+        "/manager/incidents",
+        "/manager/notices",
+        "/manager/landing-page",
+      ],
     ],
     ["people", ["/manager/coaches", "/manager/members"]],
     ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],

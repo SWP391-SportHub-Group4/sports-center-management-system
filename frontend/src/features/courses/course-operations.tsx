@@ -91,15 +91,6 @@ function OperationsRows({
               ? l.enrollments
               : l.thresholdResponses)
         }
-        actions={
-          <button
-            className="btn btn--ghost"
-            onClick={state.reload}
-            disabled={state.loading}
-          >
-            {l.refresh}
-          </button>
-        }
       >
         {kind === "holds" && toolbar && (
           <p className={styles.holdHint}>{t.managerOperations.holdHint}</p>

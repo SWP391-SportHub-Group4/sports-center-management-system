@@ -2,10 +2,11 @@
 
 import Image from "./HomepageImage";
 import styles from "./training-photo-marquee.module.css";
+import { useLandingCopy } from "./landing-content-context";
 
 type Language = "en" | "vi";
 
-const photos = [
+export const galleryPhotos = [
   {
     src: "/sporthub/court-volt/course-badminton.png",
     vi: "Cầu lông",
@@ -30,6 +31,10 @@ const photos = [
 
 export function TrainingPhotoMarquee({ language }: { language: Language }) {
   const vi = language === "vi";
+  const gallery = useLandingCopy("gallery", {
+    title: "Energy across every court",
+    photos: galleryPhotos,
+  });
 
   return (
     <section
@@ -37,9 +42,7 @@ export function TrainingPhotoMarquee({ language }: { language: Language }) {
       aria-labelledby="training-gallery-title"
     >
       <header className={styles.heading}>
-        <h2 id="training-gallery-title">
-          {vi ? "Năng lượng trên mọi sân tập" : "Energy across every court"}
-        </h2>
+        <h2 id="training-gallery-title">{gallery.title}</h2>
       </header>
 
       <div className={styles.viewport} tabIndex={0}>
@@ -50,8 +53,8 @@ export function TrainingPhotoMarquee({ language }: { language: Language }) {
               key={copy}
               aria-hidden={copy === 1 ? "true" : undefined}
             >
-              {photos.map((photo) => (
-                <figure className={styles.photo} key={photo.src}>
+              {gallery.photos.map((photo, index) => (
+                <figure className={styles.photo} key={index}>
                   <div className={styles.imageFrame}>
                     <Image
                       src={photo.src}

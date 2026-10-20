@@ -24,7 +24,6 @@ import {
   MailOpen,
   Megaphone,
   ReceiptText,
-  RefreshCw,
   Search,
   X,
 } from "lucide-react";
@@ -254,18 +253,6 @@ export function NotificationInbox() {
       <header className={styles.toolbar}>
         <p>Schedule changes, class updates and messages from your center.</p>
         <div className={styles.toolbarActions}>
-          <Button
-            variant="ghost"
-            icon={<RefreshCw size={16} />}
-            disabled={state.loading}
-            onClick={() => {
-              state.reload();
-              detail.reload();
-              unread.reload();
-            }}
-          >
-            Refresh
-          </Button>
           <Button
             variant="secondary"
             icon={<CheckCheck size={17} />}

@@ -212,7 +212,7 @@ export function ManagerAdjustmentForm({
         <>
           <p role="status">{l.uncertain}</p>
           <button className="btn btn--secondary" onClick={onSaved}>
-            {l.refresh}
+            {t.common.retry}
           </button>
         </>
       )}

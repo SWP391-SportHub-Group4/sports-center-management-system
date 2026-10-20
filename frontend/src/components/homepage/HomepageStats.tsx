@@ -20,6 +20,7 @@ import {
 } from "./homepage-content";
 import { ScrollReveal } from "./ScrollReveal";
 import styles from "./homepage-stats.module.css";
+import { useLandingCopy } from "./landing-content-context";
 
 const SHOWCASE_IMAGE_LIMIT = 3;
 const FACILITY_ROOM_TYPES = [1, 3, 4];
@@ -132,8 +133,14 @@ function coachItems(coaches: CatalogCoach[]): ShowcaseItem[] {
   );
 }
 
-export function HomepageStats({ language }: { language: HomepageLanguage }) {
-  const [active, setActive] = useState<CategoryId>("coaches");
+export function HomepageStats({
+  language,
+  initialCategory = "coaches",
+}: {
+  language: HomepageLanguage;
+  initialCategory?: CategoryId;
+}) {
+  const [active, setActive] = useState<CategoryId>(initialCategory);
   const { coaches: liveCoaches, error: coachesError } = useCoachShowcase();
   const showcase = liveCoaches ? coachItems(liveCoaches) : [];
   const [overview, setOverview] = useState<{
@@ -163,7 +170,7 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
       });
     return () => controller.abort();
   }, []);
-  const homepageCategories = categoryLabels.map((category) => ({
+  const liveCategories = categoryLabels.map((category) => ({
     ...category,
     value: overview
       ? category.id === "coaches"
@@ -194,6 +201,7 @@ export function HomepageStats({ language }: { language: HomepageLanguage }) {
             })
           : category.items,
   }));
+  const homepageCategories = useLandingCopy("bookmarks", liveCategories);
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const { user, loading } = useAuth();
   const vi = language === "vi";

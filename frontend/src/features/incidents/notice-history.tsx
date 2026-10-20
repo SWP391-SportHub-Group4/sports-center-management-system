@@ -67,18 +67,7 @@ export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
     [filters, page, refreshKey],
   );
   return (
-    <Card
-      title={l.history}
-      actions={
-        <button
-          className="btn btn--secondary"
-          disabled={state.loading}
-          onClick={state.reload}
-        >
-          {t.operations.refresh}
-        </button>
-      }
-    >
+    <Card title={l.history}>
       <p>{l.ownOnly}</p>
       <form
         className={`${styles.filters} form-grid`}
@@ -212,21 +201,7 @@ export function NoticeDetailsView({ id }: { id: string }) {
     <AsyncSection state={state}>
       {(notice) => (
         <>
-          <Card
-            title={notice.subject}
-            actions={
-              <button
-                className="btn btn--secondary"
-                disabled={state.loading || recipients.loading}
-                onClick={() => {
-                  state.reload();
-                  recipients.reload();
-                }}
-              >
-                {t.operations.refresh}
-              </button>
-            }
-          >
+          <Card title={notice.subject}>
             <dl className={styles.facts}>
               <div>
                 <dt>{l.sender}</dt>

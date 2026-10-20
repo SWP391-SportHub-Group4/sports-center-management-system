@@ -233,7 +233,9 @@ test("manager filters on the server, pages, retries and sees empty results", asy
   expect(queries.at(-1)?.searchParams.get("assignedToUserId")).toBe(staff);
   expect(queries.at(-1)?.searchParams.get("page")).toBe("1");
   state.error = true;
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Apply filters", exact: true })
+    .click();
   await expect(page.getByText("Support unavailable")).toBeVisible();
   state.error = false;
   state.empty = true;
@@ -285,7 +287,9 @@ test("a conflict retains the draft and refresh displays the closed result", asyn
   ).toHaveValue("Do not lose this note");
   state.status = "CLOSED";
   state.note = "Closed by another staff member";
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Apply filters", exact: true })
+    .click();
   await expect(
     page.getByText("Resolution: Closed by another staff member"),
   ).toBeVisible();
@@ -349,7 +353,9 @@ test("request details retain unsent notes when switching requests and refreshing
   await expect(
     page.getByRole("textbox", { name: /^Progress or resolution/ }),
   ).toHaveValue("Keep this unfinished progress note");
-  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Refresh", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("textbox", { name: /^Progress or resolution/ }),
   ).toBeEnabled();
