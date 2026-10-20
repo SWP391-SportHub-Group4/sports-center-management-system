@@ -203,7 +203,7 @@ public sealed class InvoiceReceiptService(
         m.PaymentStatus.Equals("Void", StringComparison.OrdinalIgnoreCase);
 
     private static string ReceiptTitle(InvoiceReceiptModel m) =>
-        IsVoid(m) ? "HÓA ĐƠN ĐÃ HỦY" : IsPaid(m) ? "BIÊN LAI THANH TOÁN" : "HÓA ĐƠN – CHỜ THANH TOÁN";
+        IsVoid(m) ? "VOID INVOICE" : IsPaid(m) ? "PAYMENT RECEIPT" : "INVOICE - PENDING PAYMENT";
 
     private static string ReceiptBadge(InvoiceReceiptModel m) =>
         IsVoid(m) ? "VOID" : IsPaid(m) ? "PAID" : "ISSUED";

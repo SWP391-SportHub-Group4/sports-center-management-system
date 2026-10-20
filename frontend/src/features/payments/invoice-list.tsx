@@ -11,10 +11,11 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 
 import { formatMoney } from "@/lib/format";
+import styles from "./invoice-list.module.css";
 
 import type { InvoiceSummaryDto, InvoiceDetailDto, Paged } from "@/lib/types";
 
-import { Card, StatusChip } from "@/components/ui";
+import { StatusChip } from "@/components/ui";
 
 import { InvoiceDetail } from "./invoice-detail";
 
@@ -63,6 +64,9 @@ function csvValue(value: string | number | null | undefined) {
 async function exportInvoiceCsv(invoiceId: string) {
   const invoice = await api.get<InvoiceDetailDto>(`/api/invoices/${invoiceId}`);
   const summary = invoice.summary;
+  if (!["PAID", "PAID_AFTER_RECONCILIATION"].includes(summary.status.toUpperCase())) {
+    throw new Error("Only paid invoices can be exported.");
+  }
   const payments = invoice.payments.filter((p) => p.status.toLowerCase() === "success");
   const paidAt = payments.length ? localDate(payments[payments.length - 1].paidAt) : "";
   const methods = [...new Set(payments.map((p) => methodLabel(p.method)))].join(", ");
@@ -102,6 +106,16 @@ async function exportInvoiceCsv(invoiceId: string) {
   anchor.click();
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function invoiceDescription(status: string) {
+  switch (status.toUpperCase()) {
+    case "VOID": return "This order was cancelled. No payment is currently due for this invoice.";
+    case "ISSUED": return "Payment is pending. Open Details to review this order or continue checkout.";
+    case "PAID": return "Payment confirmed. The receipt and transaction details are available.";
+    case "PAID_AFTER_RECONCILIATION": return "Payment confirmed after reconciliation. Review its final details below.";
+    default: return "Review this invoice's details and current payment status.";
+  }
 }
 
 export function InvoiceList({
@@ -272,55 +286,49 @@ export function InvoiceList({
       ) : !pagedItems(state.data).length ? (
         <p>{t.refactor.empty}</p>
       ) : (
-        pagedItems(state.data).map((i) => (
-          <Card key={i.invoiceId} title={i.invoiceNumber}>
-            <p>
-              <StatusChip value={i.status} />
-            </p>
-
-            <p>
-              {t.refactor.total}: {formatMoney(i.totalAmount)}
-              {" · "}
-              {t.refactor.remaining}: {formatMoney(i.outstanding)}
-            </p>
-
-            <div className="btn-row">
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() => setSelected(i.invoiceId)}
-              >
-                {t.refactor.details}
-              </button>
-
-              {staff && (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    disabled={exporting !== null}
-                    onClick={() => void runInvoiceAction(i.invoiceId, "print")}
-                  >
-                    {exporting === `print:${i.invoiceId}`
-                      ? "Preparing..."
-                      : "Print"}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    disabled={exporting !== null}
-                    onClick={() => void runInvoiceAction(i.invoiceId, "csv")}
-                  >
-                    {exporting === `csv:${i.invoiceId}`
-                      ? "Exporting..."
-                      : "Export CSV"}
-                  </button>
-                </>
-              )}
+        pagedItems(state.data).map((i) => {
+          const isPaid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(i.status.toUpperCase());
+          const isVoid = i.status.toUpperCase() === "VOID";
+          return (
+            <div className={styles.card} key={i.invoiceId}>
+              <div className={styles.top}>
+                <div className={styles.headerInfo}>
+                  <strong className={styles.number}>{i.invoiceNumber}</strong>
+                  <span className={styles.date}>Issued: {localDate(i.issuedAt)}</span>
+                </div>
+                <StatusChip value={i.status} />
+              </div>
+              <p className={styles.description}>{invoiceDescription(i.status)}</p>
+              <dl className={styles.infoGrid}>
+                <div><dt>Member</dt><dd>{i.memberName || i.memberEmail || "Not available"}</dd></div>
+                <div><dt>Member email</dt><dd>{i.memberEmail || "Not available"}</dd></div>
+                <div><dt>Order value</dt><dd>{formatMoney(i.totalAmount)}</dd></div>
+                <div><dt>{isVoid ? "Payment obligation" : isPaid ? "Outstanding" : "Amount due"}</dt>
+                  <dd>{isVoid ? "Cancelled" : formatMoney(i.outstanding)}</dd></div>
+              </dl>
+              <p className={styles.detailHint}>
+                Open Details to view purchased services, their sport (if recorded), quantities, unit prices, and available payment records.
+              </p>
+              <div className={styles.actions}>
+                <button type="button" className="btn btn--secondary" onClick={() => setSelected(i.invoiceId)}>
+                  {t.refactor.details}
+                </button>
+                {staff && isPaid && (
+                  <>
+                    <button type="button" className="btn btn--secondary" disabled={exporting !== null}
+                      onClick={() => void runInvoiceAction(i.invoiceId, "print")}>
+                      {exporting === `print:${i.invoiceId}` ? "Preparing..." : "Print PDF"}
+                    </button>
+                    <button type="button" className="btn btn--secondary" disabled={exporting !== null}
+                      onClick={() => void runInvoiceAction(i.invoiceId, "csv")}>
+                      {exporting === `csv:${i.invoiceId}` ? "Exporting..." : "Export CSV"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          </Card>
-        ))
+          );
+        })
       )}
 
       <div className="btn-row">
