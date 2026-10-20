@@ -67,7 +67,7 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public async Task Enrolled_incident_sessions_cannot_be_cancelled_or_replaced(bool ongoing, bool completed)
+    public async Task Enrolled_incident_sessions_can_receive_one_full_makeup_and_keep_history(bool ongoing, bool completed)
     {
         var f = await Setup(ongoing, completed);
         var before = await CourseTestData.SessionsAsync(factory, f.Course.Id);
@@ -75,17 +75,17 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         var request = new ReportSessionIncidentRequest { FenceId = f.FenceId, Outcome = "INTERRUPTED",
             OccurredAtUtc = f.Session.StartAtUtc.AddMinutes(10), Reason = "Power failure interrupted class",
             Makeup = new() { StartAtUtc = replacementStart, RoomId = f.Session.RoomId, CoachId = f.Session.CoachId } };
-        for (var attempt = 0; attempt < 2; attempt++)
-        {
-            var error = await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId)));
-            Assert.Equal("class_has_enrollments", error.ErrorCode);
-        }
+        var replacement = await Run(s => s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId));
+        var retry = await Run(s => s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId));
+        Assert.Equal(replacement.SessionId, retry.SessionId);
+        Assert.Equal(f.Session.EndAtUtc - f.Session.StartAtUtc, replacement.EndAtUtc - replacement.StartAtUtc);
         var after = await CourseTestData.SessionsAsync(factory, f.Course.Id);
-        Assert.Equal(before.Select(s => (s.SessionId, s.StartAtUtc, s.Status)), after.Select(s => (s.SessionId, s.StartAtUtc, s.Status)));
-        Assert.DoesNotContain(after, s => s.RescheduledFromSessionId == f.Session.SessionId);
+        Assert.Equal(before.Count + 1, after.Count);
+        Assert.Equal(f.Session.StartAtUtc, after.Single(s => s.SessionId == f.Session.SessionId).StartAtUtc);
+        Assert.Single(after, s => s.RescheduledFromSessionId == f.Session.SessionId);
         Assert.True(await factory.QueryAsync(db => db.Attendances.AnyAsync(a => a.SessionId == f.Session.SessionId)));
         Assert.True(await factory.QueryAsync(db => db.Set<ClassTeachingRecord>().AnyAsync(r => r.SessionId == f.Session.SessionId && r.Title == "Original assessment")));
-        Assert.Equal(completed ? ClassStatus.Completed : ClassStatus.InProgress,
+        Assert.Equal(ClassStatus.InProgress,
             await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == f.Course.Id).Select(c => c.Status).SingleAsync()));
     }
 
@@ -119,6 +119,31 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
                 Reason = "No session due to power failure", Makeup = new() { StartAtUtc = replacementStart, RoomId = f.Session.RoomId, CoachId = f.Session.CoachId } }, f.Course.ManagerId)));
         Assert.Null((await CourseTestData.SessionsAsync(factory, f.Course.Id))[0].IncidentReportJson);
         Assert.Equal(3, (await CourseTestData.SessionsAsync(factory, f.Course.Id)).Count);
+    }
+
+    [Fact]
+    public async Task Future_incident_makeup_requires_a_matching_fence_and_retries_return_one_replacement()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        await CourseTestData.EnrollmentAsync(factory, course.Id, member.UserId);
+        var sessions = await CourseTestData.SessionsAsync(factory, course.Id);
+        var source = sessions[0];
+        var incident = new IncidentRequest("Room", course.RoomId, source.StartAtUtc, source.EndAtUtc, "Court needs repair");
+        var fence = await Incidents(s => s.OpenFenceAsync(incident, course.ManagerId));
+        var request = new IncidentMakeupRequest { FenceId = Guid.NewGuid(), Reason = incident.Reason,
+            Makeup = new() {StartAtUtc = sessions.Max(s => s.StartAtUtc).AddDays(7), RoomId = source.RoomId, CoachId = source.CoachId} };
+        var blocked = await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId)));
+        Assert.Equal("incident_window_required", blocked.ErrorCode);
+        var ordinary = await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.CancelWithMakeupAsync(source.SessionId, request, course.ManagerId)));
+        Assert.Equal("class_has_enrollments", ordinary.ErrorCode);
+        request.FenceId = fence.FenceId;
+        var first = await Run(s => s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId));
+        var retry = await Run(s => s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId));
+        Assert.Equal(first.SessionId, retry.SessionId);
+        Assert.Equal(source.EndAtUtc - source.StartAtUtc, first.EndAtUtc - first.StartAtUtc);
+        Assert.Equal(sessions.Count + 1, (await CourseTestData.SessionsAsync(factory, course.Id)).Count);
+        Assert.True(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.MemberId == member.UserId && e.ClassId == course.Id && e.Status == EnrollmentStatus.Confirmed)));
     }
 
     [Fact]

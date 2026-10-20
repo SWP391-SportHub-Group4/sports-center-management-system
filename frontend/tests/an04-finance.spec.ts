@@ -72,6 +72,7 @@ async function managerFixture(page: Page, exportsRows: unknown[] = []) {
         totalCollected: 100000,
         pointsRedeemed: 200,
         pointsRedeemedVnd: 200000,
+        pointsRefunded: 0,
         pointsIssued: 50,
         outstandingPoints: 70,
         outstandingPointsAsOfUtc: "2030-11-12T03:00:00Z",
@@ -97,17 +98,17 @@ async function managerFixture(page: Page, exportsRows: unknown[] = []) {
   return calls;
 }
 
-test("finance has invoices and refunds as tabs, and the old refund address redirects", async ({
+test("refund addresses redirect to the shared Request workspace", async ({
   page,
 }) => {
   await managerFixture(page);
   await page.goto("/manager/payment-adjustments");
-  await expect(page).toHaveURL(/\/manager\/finance\?tab=refunds$/);
+  await expect(page).toHaveURL(/\/manager\/requests\?type=refunds$/);
   await expect(page.getByRole("tab", { name: "Refunds" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await page.getByRole("tab", { name: "Invoices" }).click();
+  await page.goto("/manager/finance");
   await expect(page).toHaveURL(/\/manager\/finance$/);
 });
 
@@ -182,12 +183,11 @@ test("reports use one period filter with tabs, and exports live on their own pag
   await managerFixture(page);
   await page.goto("/manager/reports");
   await expect(page.getByText("Cash collected (VND)").first()).toBeVisible();
-  await expect(page.getByText(en.staffWork.cashBasisHint)).toBeVisible();
   await expect(
-    page.getByRole("columnheader", {
-      name: en.staffWork.redeemedPoints,
-      exact: true,
-    }),
+    page.getByRole("region", { name: "Filtered collections", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(en.staffWork.redeemedPoints, { exact: true }).first(),
   ).toBeVisible();
   await expect(page.getByText(en.staffWork.currentPointHint)).toBeVisible();
   await expect(
@@ -195,7 +195,9 @@ test("reports use one period filter with tabs, and exports live on their own pag
   ).toHaveCount(0);
   await page.getByRole("tab", { name: "Members" }).click();
   await expect(page).toHaveURL(/tab=members/);
-  await expect(page.getByText("New members")).toBeVisible();
+  await expect(
+    page.getByText("New member accounts", { exact: true }).first(),
+  ).toBeVisible();
   await expect(
     page.getByText("Members with valid Membership on", { exact: false }),
   ).toBeVisible();

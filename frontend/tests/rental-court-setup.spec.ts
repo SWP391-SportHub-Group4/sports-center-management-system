@@ -37,7 +37,8 @@ async function setup(page: Page) {
         roomId: 71,
         name: body.name,
         capacity: body.capacity,
-        roomTypeId: body.roomTypeId,
+        roomTypeId: 51,
+        sportId: body.sportId,
         isActive: true,
         activeClassCount: 0,
       };
@@ -47,7 +48,7 @@ async function setup(page: Page) {
           ...r,
           rateId: i + 1,
           roomId: 71,
-          roomTypeId: body.roomTypeId,
+          roomTypeId: 51,
           sportId: body.sportId,
           daysOfWeek: (r.daysOfWeek as string[]).join(","),
           isActive: true,
@@ -109,7 +110,7 @@ async function openForm(page: Page) {
   });
   await form.getByLabel("Name", { exact: true }).fill("Court 001");
   await form.getByLabel("Sport", { exact: true }).selectOption("41");
-  await form.getByLabel("Room type", { exact: true }).selectOption("51");
+  await expect(form.getByLabel("Room type", { exact: true })).toHaveCount(0);
   return form;
 }
 
@@ -130,8 +131,8 @@ test("one save creates a bookable court and its prices appear in Court Rental Pr
   expect(fixture.writes[0]).toMatchObject({
     name: "Court 001",
     sportId: 41,
-    roomTypeId: 51,
   });
+  expect(fixture.writes[0]).not.toHaveProperty("roomTypeId");
   expect(fixture.writes[0].hours).toHaveLength(7);
   expect(fixture.writes[0].rates).toHaveLength(1);
   expect(
@@ -171,11 +172,9 @@ test("weekday pricing lists the selected opening days and keeps different price 
     .getByRole("button", { name: "Create court & open for booking" })
     .click();
   await page.getByRole("link", { name: "View rental prices" }).click();
-  const rows = page
-    .getByRole("row")
-    .filter({
-      has: page.getByRole("cell", { name: "Court 001", exact: true }),
-    });
+  const rows = page.getByRole("row").filter({
+    has: page.getByRole("cell", { name: "Court 001", exact: true }),
+  });
   await expect(rows).toHaveCount(2);
   await expect(
     rows.getByRole("cell", {

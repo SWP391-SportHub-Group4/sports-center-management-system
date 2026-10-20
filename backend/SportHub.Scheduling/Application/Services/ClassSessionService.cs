@@ -231,7 +231,8 @@ public sealed partial class ClassSessionService(
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
 
         if (incidentFenceId is null) EnsureEditable(session, cls);
-        await ClassCancellationRules.EnsureNoConfirmedEnrollmentsAsync(db, cls.ClassId, ct);
+        if (incidentFenceId is null)
+            await ClassCancellationRules.EnsureNoConfirmedEnrollmentsAsync(db, cls.ClassId, ct);
         var previousStatus = session.Status;
 
         var makeup = request.Makeup;

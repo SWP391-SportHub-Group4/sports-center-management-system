@@ -4,6 +4,8 @@ import { en } from "../src/locales/en";
 import { vi } from "../src/locales/vi";
 import { previewSessions } from "../src/features/courses/preview";
 import { fillIncidentDateTime } from "./helpers/incident";
+import { todayIso } from "../src/lib/format";
+import { isoWeek } from "../src/features/manager/schedule-week";
 
 const managerId = "11111111-1111-4111-8111-111111111111";
 const coachId = "22222222-2222-4222-8222-222222222222";
@@ -324,7 +326,7 @@ async function fillDraft(page: Page) {
     .click();
 }
 
-test("M05 coverage submits the chosen main coach and refreshes the queue", async ({
+test("M05 locked coach details reassign the main class and refresh affected assignments", async ({
   page,
 }) => {
   let assigned = false;
@@ -356,17 +358,27 @@ test("M05 coverage submits the chosen main coach and refreshes the queue", async
           ],
     });
   });
-  await page.goto("/manager/coach-coverage");
+  await page.route(`**/api/manager/coaches/${memberId}`, (route) =>
+    route.fulfill({ json: { ...coach, userId: memberId, status: "LOCKED" } }),
+  );
+  await page.goto(`/manager/coaches/${memberId}`);
+  await page
+    .getByRole("button", { name: "Change main coach", exact: true })
+    .click();
   await page
     .getByLabel(en.operations.coach, { exact: true })
     .selectOption(coachId);
   await page.getByLabel("Reason", { exact: true }).fill("Replacement audit");
   await page
-    .getByRole("button", { name: "Reassign main coach", exact: true })
+    .getByRole("button", { name: "Confirm main coach", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("No locked coaches");
+  await expect(
+    page.getByText("No assignments need a replacement."),
+  ).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("status")).toContainText("No locked coaches");
+  await expect(
+    page.getByText("No assignments need a replacement."),
+  ).toBeVisible();
   expect(writes).toBe(1);
 });
 
@@ -547,28 +559,36 @@ for (const late of [false, true]) {
       return route.fulfill({ status: 204 });
     });
     await page.goto("/manager/classes/1?tab=threshold");
-    await expect(page.getByText(/Review at least 72 hours/)).toBeVisible();
     await page
-      .getByLabel(en.operations.reason, { exact: true })
-      .fill("Run this class with fewer members");
+      .locator("summary")
+      .filter({ hasText: "How opening conditions work" })
+      .click();
+    await expect(page.getByText(/Review at least 72 hours/)).toBeVisible();
     const waive = page.getByRole("button", {
-      name: en.operations.waive,
+      name: "Approve below threshold",
       exact: true,
     });
     if (late) {
-      await expect(waive).toBeDisabled();
+      await expect(waive).toHaveCount(0);
       await expect(
         page.getByText(/planned opening has passed without confirmation/),
       ).toBeVisible();
-      await expect(
-        page.getByRole("link", { name: "Move the first session" }),
-      ).toHaveAttribute("href", "/manager/classes/1?tab=sessions");
     } else {
       await expect(
         page.getByText(/refunds remaining enrollments/),
       ).toBeVisible();
       await waive.click();
-      await expect(waive).toBeDisabled();
+      const dialog = page.getByRole("dialog", {
+        name: "Approve below threshold",
+        exact: true,
+      });
+      await dialog
+        .getByLabel(en.operations.reason, { exact: true })
+        .fill("Run this class with fewer members");
+      await dialog
+        .getByRole("button", { name: "Approve below threshold", exact: true })
+        .click();
+      await expect(dialog).toHaveCount(0);
       expect(waivers).toBe(1);
     }
     await page.setViewportSize({ width: 390, height: 844 });
@@ -675,6 +695,18 @@ test("draft save is separate from publish and reviews every generated session", 
     .click();
   await expect(page.getByRole("table")).toBeVisible();
   await expect(page.getByRole("row")).toHaveCount(3);
+  await expect(
+    page.getByRole("button", { name: en.operations.refresh, exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: test.info().outputPath("create-class-review-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: test.info().outputPath("create-class-review-mobile.png"),
+    fullPage: true,
+  });
   await page
     .getByRole("button", { name: en.managerOperations.saveDraft })
     .click();
@@ -745,8 +777,8 @@ test("detail tabs deep-link and load only the selected operational dataset", asy
   });
   await page.goto("/manager/classes/1?tab=holds");
   await expect(
-    page.getByRole("tab", { name: en.managerOperations.holdsTab, exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+    page.getByRole("button", { name: /^Seat holds/ }),
+  ).toHaveAttribute("aria-pressed", "true");
   expect(reads).toEqual(["/api/manager/classes/1/holds"]);
   await page
     .getByRole("tab", { name: en.managerOperations.studentsTab, exact: true })
@@ -1125,7 +1157,7 @@ test("failed session availability never enables confirmation and retry keeps the
   ).toHaveValue("Keep this reason");
 });
 
-test("G02 remains an honest dependency with existing refund and transfer responses", async ({
+test("class threshold history retains refund and transfer responses alongside course interests", async ({
   page,
 }) => {
   await page.route("**/api/manager/classes/1/threshold-responses?**", (route) =>
@@ -1147,7 +1179,10 @@ test("G02 remains an honest dependency with existing refund and transfer respons
     }),
   );
   await page.goto("/manager/classes/1?tab=threshold");
-  await expect(page.getByText(en.managerOperations.interestGap)).toBeVisible();
+  await page
+    .locator("summary")
+    .filter({ hasText: en.operations.thresholdResponses })
+    .click();
   await expect(
     page.getByRole("row").filter({ hasText: "Member refunded" }),
   ).toContainText(en.wireStatus.REFUND);
@@ -1239,7 +1274,7 @@ test("center incident appears once in schedule and shows all affected rooms", as
   ).toHaveAttribute("href", `/manager/incidents/${centerId}`);
 });
 
-test("AI gap uses a drawer, preserves schedule context and never writes", async ({
+test("schedule keeps its context without AI placeholder actions", async ({
   page,
 }) => {
   let writes = 0;
@@ -1251,16 +1286,9 @@ test("AI gap uses a drawer, preserves schedule context and never writes", async 
       writes++;
   });
   await page.goto("/manager/schedule?date=2030-10-03&view=day&roomId=7");
-  await page
-    .getByRole("button", { name: en.managerOperations.aiTitle })
-    .click();
   await expect(
-    page
-      .getByRole("dialog")
-      .getByText("Waiting for API · G03", { exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+    page.getByRole("button", { name: en.managerOperations.aiTitle }),
+  ).toHaveCount(0);
   await expect(page).toHaveURL(/roomId=7/);
   expect(writes).toBe(0);
 });
@@ -1275,7 +1303,12 @@ test("facility details reload with opening hours and incident entry", async ({
     page.getByRole("link", { name: en.operations.incidents, exact: true }),
   ).toHaveAttribute("href", /roomId=7/);
   await page.reload();
-  await expect(page.getByText(en.managerOperations.openingHint)).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: en.operations.openingHours,
+      exact: true,
+    }),
+  ).toBeVisible();
 });
 async function incidentInputs(page: Page) {
   await page.goto("/manager/incidents?roomId=7");
@@ -1506,7 +1539,7 @@ test("incident block removal requires review and records only the successful ste
   await page
     .getByRole("dialog")
     .getByRole("button", { name: en.operations.close, exact: true })
-    .first()
+    .last()
     .click();
   expect(deletes).toBe(0);
   await page
@@ -1516,7 +1549,13 @@ test("incident block removal requires review and records only the successful ste
     .getByRole("dialog")
     .getByRole("button", { name: en.operations.confirm, exact: true })
     .click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("dialog", { name: "Affected activities", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog", { name: "Affected activities", exact: true })
+    .getByRole("button", { name: en.operations.close, exact: true })
+    .click();
   await expect(
     page.getByText(en.managerOperations.noSteps, { exact: true }),
   ).toHaveCount(0);
@@ -1661,7 +1700,7 @@ test("notice receipt distinguishes failed delivery from business outcome", async
   ).toBeVisible();
 });
 
-test("AI stays blocked and manual review preserves the class draft without writing", async ({
+test("manual scheduling preserves the class draft without AI actions or writes", async ({
   page,
 }) => {
   let writes = 0;
@@ -1676,19 +1715,13 @@ test("AI stays blocked and manual review preserves the class draft without writi
   await page
     .getByRole("button", { name: en.operations.previous, exact: true })
     .click();
-  await page
-    .getByRole("button", { name: en.managerOperations.aiTitle, exact: true })
-    .click();
-  const drawer = page.getByRole("dialog");
-  await expect(drawer.getByText(en.managerOperations.aiGap)).toBeVisible();
   await expect(
-    drawer.getByRole("button", { name: "Generate suggestions", exact: true }),
-  ).toBeDisabled();
-  await drawer.getByLabel(en.operations.numSessions, { exact: true }).fill("4");
-  await drawer
-    .getByRole("button", { name: "Review and edit manually", exact: true })
-    .click();
-  await expect(drawer).toHaveCount(0);
+    page.getByRole("button", {
+      name: en.managerOperations.aiTitle,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await page.getByLabel(en.operations.numSessions, { exact: true }).fill("4");
   await expect(
     page.getByLabel(en.operations.numSessions, { exact: true }),
   ).toHaveValue("4");
@@ -2034,7 +2067,7 @@ test("incident step timeout records unknown and blocks blind retry", async ({
   await page
     .getByRole("dialog")
     .getByRole("button", { name: en.operations.close, exact: true })
-    .first()
+    .last()
     .click();
   await expect(
     page.getByText("Outcome unknown — check before retrying", { exact: true }),
@@ -2105,10 +2138,17 @@ for (const width of [390, 1440])
       "/manager/notices",
       "/manager/incidents",
     ]) {
-      await page.goto(path);
+      await page.goto(
+        path.endsWith("coaches") ? `/manager/coaches/${coachId}` : path,
+      );
       if (path.endsWith("training-rooms") || path.endsWith("coaches"))
         await page
-          .getByRole("button", { name: en.operations.create, exact: true })
+          .getByRole("button", {
+            name: path.endsWith("training-rooms")
+              ? "Add room only"
+              : en.operations.edit,
+            exact: true,
+          })
           .click();
       const surface = (await page.getByRole("dialog").count())
         ? page.getByRole("dialog")
@@ -2139,7 +2179,7 @@ for (const width of [390, 1440])
       if (path.endsWith("coaches")) {
         const modal = page.getByRole("dialog");
         const close = modal.getByRole("button", {
-          name: en.operations.close,
+          name: en.operations.cancel,
           exact: true,
         });
         const save = modal.getByRole("button", {
@@ -2147,6 +2187,13 @@ for (const width of [390, 1440])
           exact: true,
         });
         await expect(save).toBeInViewport();
+        await modal.evaluate(async (element) => {
+          await Promise.all(
+            element
+              .getAnimations()
+              .map((animation) => animation.finished.catch(() => undefined)),
+          );
+        });
         const before = await close.boundingBox();
         await modal.locator(".dialog__body").evaluate((el) => {
           el.scrollTop = el.scrollHeight;
@@ -2190,12 +2237,63 @@ test("schedule has one view selector and daily navigation moves one day", async 
     .getByRole("button", { name: en.mSchedule.nextWeek, exact: true })
     .click();
   await expect(page).toHaveURL(/date=2030-10-07/);
+  await page
+    .getByRole("button", { name: en.calendar.week, exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: en.calendar.week, exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(() =>
+      page
+        .getByRole("button", { name: en.calendar.week, exact: true })
+        .evaluate((node) => getComputedStyle(node).backgroundColor),
+    )
+    .not.toBe("rgba(0, 0, 0, 0)");
+  const viewColors = await page
+    .getByRole("group", { name: en.mSchedule.viewLabel, exact: true })
+    .getByRole("button")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        selected: node.getAttribute("aria-pressed") === "true",
+        background: getComputedStyle(node).backgroundColor,
+      })),
+    );
+  expect(viewColors.find((item) => item.selected)?.background).not.toBe(
+    viewColors.find((item) => !item.selected)?.background,
+  );
+  await page
+    .getByRole("button", { name: en.mSchedule.prevWeek, exact: true })
+    .click();
+  await expect(page).toHaveURL(/date=2030-09-30/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("button", { name: en.calendar.week, exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page
+    .getByRole("button", { name: en.mSchedule.currentWeek, exact: true })
+    .click();
+  await expect(
+    page.getByLabel(en.mSchedule.chooseWeek, { exact: true }),
+  ).toHaveValue(isoWeek(todayIso()));
 });
 
 test("Vietnamese copy and keyboard tabs preserve selected state", async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/manager/classes/1?tab=holds");
+  await expect(
+    page
+      .locator("main")
+      .getByRole("button", { name: "Refresh", exact: true })
+      .last(),
+  ).toBeEnabled();
   const report = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
@@ -2205,14 +2303,14 @@ test("Vietnamese copy and keyboard tabs preserve selected state", async ({
     ),
   ).toEqual([]);
   const tab = page.getByRole("tab", {
-    name: vi.managerOperations.holdsTab,
+    name: vi.managerOperations.studentsTab,
     exact: true,
   });
   await tab.focus();
   await page.keyboard.press("ArrowRight");
   await expect(
     page.getByRole("tab", {
-      name: vi.managerOperations.thresholdTab,
+      name: "Management",
       exact: true,
     }),
   ).toHaveAttribute("aria-selected", "true");

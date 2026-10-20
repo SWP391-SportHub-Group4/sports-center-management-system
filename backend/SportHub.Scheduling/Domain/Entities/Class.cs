@@ -55,6 +55,7 @@ public class Class
     public DateTime? ThresholdResponseDeadlineUtc { get; set; }
 
     public ClassStatus Status { get; set; }
+    public DateTime? PublishedAtUtc { get; set; }
     public bool EnrollmentOpen { get; set; } = true;
 
     /// <summary>Why the manager closed enrollment (set on close, cleared on reopen). Not exposed publicly.</summary>

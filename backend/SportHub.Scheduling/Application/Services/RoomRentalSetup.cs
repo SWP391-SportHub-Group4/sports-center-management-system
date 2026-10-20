@@ -24,6 +24,9 @@ public sealed partial class RoomService
         // Shared with price edits: setup, catalog changes and duplicate submissions serialize.
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(877459021)", ct);
+        if (request.RoomTypeId > 0 && !await db.Set<SportRoomType>().AnyAsync(l => l.RoomTypeId == request.RoomTypeId && l.SportId == request.SportId, ct))
+            throw new BadRequestException("rental_room_incompatible", "Choose a compatible sport.");
+        request.RoomTypeId = await ResolveSportRoomTypeAsync(request.SportId, ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT room_type_id FROM room_types WHERE room_type_id = {request.RoomTypeId} FOR UPDATE", ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
@@ -84,7 +87,7 @@ public sealed partial class RoomService
                 return rate;
             }).ToList();
 
-        var room = new Room { Name = name, Capacity = request.Capacity, RoomTypeId = request.RoomTypeId, IsActive = true };
+        var room = new Room { Name = name, Capacity = request.Capacity, SportId = request.SportId, RoomTypeId = request.RoomTypeId, IsActive = true };
         db.Set<Room>().Add(room);
         await db.SaveChangesAsync(ct);
         foreach (var h in hours) h.RoomId = room.RoomId;

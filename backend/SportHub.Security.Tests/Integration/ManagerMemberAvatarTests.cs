@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
@@ -39,13 +40,11 @@ public sealed class ManagerMemberAvatarTests(SportHubApiFactory factory)
         }
 
         using var deskClient = Client(receptionist.UserId, UserRole.Receptionist);
-        Assert.Contains((await deskClient.PostAsync("/api/avatars/reports", null)).StatusCode,
-            new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
+        Assert.Equal(HttpStatusCode.BadRequest, (await deskClient.PostAsJsonAsync("/api/avatars/reports", new { })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await deskClient.DeleteAsync($"/api/manager/members/{member.UserId}/avatar")).StatusCode);
         using var managerClient = Client(manager.UserId, UserRole.CenterManager);
-        Assert.Contains((await managerClient.GetAsync("/api/manager/avatar-reports")).StatusCode,
-            new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
+        Assert.Equal(HttpStatusCode.OK, (await managerClient.GetAsync("/api/manager/avatar-reports")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await managerClient.DeleteAsync($"/api/manager/members/{coach.UserId}/avatar")).StatusCode);
         Assert.Equal(HttpStatusCode.OK,

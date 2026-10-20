@@ -76,8 +76,12 @@ function ClassImpactEditor({
             onSaved={onSaved}
             onClose={onClose}
             showCloseButton={false}
+            showReviewActions={false}
             embedded
             onOutcome={onOutcome}
+            incidentFence={async () =>
+              (await incidentApi.openFence(incident)).fenceId
+            }
             beforeSave={async () => {
               await incidentApi.openFence(incident);
             }}

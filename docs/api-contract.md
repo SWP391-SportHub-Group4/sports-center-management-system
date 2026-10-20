@@ -1,5 +1,20 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Manager workspace — 20 October 2026
+
+Scope and navigation: [Manager workspace](Manager-Workspace.md). These rules supersede older cancellation, wallet-adjustment and next-cohort-link descriptions.
+
+- `GET /api/manager/requests/summary`: CenterManager only; pending counts `{coach,refunds,support,avatar}`. Existing request types retain their own mutation APIs.
+- `POST /api/avatars/reports`: authenticated account; `{targetUserId,avatarUrl,reason}` for another Member/Coach's current photo. Same reporter/photo/open report is deduplicated. Audit and Manager notifications commit with the report.
+- `GET /api/manager/avatar-reports?status&search&page&pageSize`: Manager-only paged moderation inbox with target identity/role, reported/current photo and reason.
+- `POST /api/manager/avatar-reports/{reportId}/dismiss`: Manager-only, idempotent after resolution.
+- `DELETE /api/manager/users/{userId}/avatar`: Manager-only current Member/Coach photo removal; resolves open reports and retains history. Legacy member-only removal remains compatible.
+- `POST /api/class-sessions/{sessionId}/incident-makeup`: Manager-only `{fenceId,reason,makeup}`; requires a held, matching, unexpired Incident fence and a valid future replacement. Allows enrolled classes. Ordinary `/cancel` still rejects active Confirmed enrollment; historical `/incident` permits whole-session makeup under its validated Incident window.
+- Room create/update accepts direct `sportId`; rental setup no longer requires `roomTypeId` from the user. Room responses append nullable `sportId`. Legacy type/rate keys are retained internally. Existing scheduled/priced rooms cannot silently change sports.
+- `GET /api/member-packages` adds optional `packageId`; `GET /api/manager/classes` adds `coachId`, including main and noncancelled session assignments.
+- `GET /api/course-interests` adds optional `active`. One active Member/Sport subscription is retained; same-sport publications after opt-in trigger one bell/email delivery per subscription/class when bookable. Paid fulfillment ends the interest atomically; holds do not. Existing unknown-time publications retain explicit-link compatibility.
+- HTTP manual wallet adjustment creation and legacy point-credit approval/rejection return 403. Wallet read/ledger, payment and refund commands remain functional.
+
 ## Tạo Sport kèm Room Type tùy chọn — 19 October 2026
 
 `POST /api/manager/sports` bổ sung `createRoomType` (mặc định false) và `roomTypeName` (tên do Manager nhập, tối đa 100 ký tự). Khi chọn true, tên sau trim phải có nội dung và không trùng Room Type hiện có (không phân biệt hoa/thường); lỗi `invalid_room_type_name` hoặc `room_type_name_taken` không tạo Sport. Sport, Room Type Active, liên kết SportRoomType và audit được lưu cùng transaction. Khi false/bỏ trống, tên Room Type được bỏ qua và không tạo/sửa Room Type hay liên kết. `PUT` không hỗ trợ tạo Room Type (`room_type_creation_only` nếu bật flag). Response Sport giữ nguyên; Room Type mới xuất hiện trong `/api/room-types` kèm sportIds. Không tạo sân vật lý. Không cần migration.

@@ -33,8 +33,10 @@ const categories: Record<string, string> = {
 
 export function SupportQueue({
   workspace = "receptionist",
+  onChanged,
 }: {
   workspace?: "manager" | "receptionist";
+  onChanged?: () => void;
 }) {
   const { user } = useAuth();
   const assignees = useApi(
@@ -105,7 +107,14 @@ export function SupportQueue({
             <RefreshCw size={16} aria-hidden="true" />
             Refresh
           </button>
-          <Link className="btn" href={`/${workspace}/members`}>
+          <Link
+            className="btn"
+            href={
+              workspace === "manager"
+                ? "/manager/requests?type=support&record=1"
+                : "/receptionist/members"
+            }
+          >
             <Plus size={18} aria-hidden="true" />
             Record a request
           </Link>
@@ -369,6 +378,7 @@ export function SupportQueue({
                           }))
                         }
                         onChanged={() => {
+                          onChanged?.();
                           setNotice("Request updated.");
                           queue.reload();
                         }}
@@ -414,8 +424,8 @@ export function SupportQueue({
         )}
       </div>
       <p className={styles.footnote}>
-        New requests are recorded from the member’s profile. Managers and
-        receptionists can handle requests assigned to any staff member.
+        Use Record a request to select a member. Managers and receptionists can
+        handle requests assigned to any staff member.
       </p>
     </section>
   );

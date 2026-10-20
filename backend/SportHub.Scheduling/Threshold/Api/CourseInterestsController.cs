@@ -17,12 +17,13 @@ public sealed class CourseInterestsController(ISportHubDbContext db, CourseInter
 {
     [HttpGet]
     public async Task<IActionResult> Search([FromQuery] int? sportId, [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        [FromQuery] int pageSize = 20, CancellationToken ct = default, bool? active = null)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var query = db.Set<CourseInterest>().AsNoTracking().AsQueryable();
         if (!User.IsInRole("CenterManager")) query = query.Where(x => x.MemberId == User.RequireUserId());
+        if (active.HasValue) query = query.Where(x => x.Active == active.Value);
         if (sportId.HasValue) query = query.Where(x => x.SportId == sportId.Value);
         var totalCount = await query.CountAsync(ct);
         var items = await (from interest in query

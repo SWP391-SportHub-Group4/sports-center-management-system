@@ -16,8 +16,7 @@ import { ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
 import { ClassWeekSchedule } from "./class-week-schedule";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
-import { pagedItems } from "@/lib/paged";
-import type { Paged, ManagerCourseDto } from "@/lib/types";
+import type { ManagerCourseDto } from "@/lib/types";
 import editorStyles from "./course-editor.module.css";
 
 export function CourseEditor({
@@ -180,25 +179,6 @@ export function CourseEditor({
     };
   }, []);
 
-  const previousClasses = useApi(
-    async (signal) => {
-      if (!form.sportId) return [];
-      const rows: ManagerCourseDto[] = [];
-      for (let page = 1; ; page++) {
-        const response = await api.get<Paged<ManagerCourseDto>>(
-          "/api/manager/classes",
-          {
-            signal,
-            query: { sportId: form.sportId, page, pageSize: 100 },
-          },
-        );
-        const batch = pagedItems(response);
-        rows.push(...batch);
-        if (!batch.length || rows.length >= response.totalCount) return rows;
-      }
-    },
-    [form.sportId],
-  );
   const service = catalog.data?.sports
     .find((sport) => sport.sportId === Number(form.sportId))
     ?.services.find(
@@ -410,38 +390,6 @@ export function CourseEditor({
                   })
                 }
               />
-              <Field label="Next cohort of (optional)">
-                <select
-                  value={form.continuationOfClassId}
-                  disabled={!form.sportId || previousClasses.loading}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      continuationOfClassId: event.target.value,
-                    })
-                  }
-                >
-                  <option value="">New program / no previous cohort</option>
-                  {(previousClasses.data ?? [])
-                    .filter(
-                      (c) =>
-                        c.classId !== course?.classId &&
-                        c.startDate <= form.startDate,
-                    )
-                    .map((c) => (
-                      <option key={c.classId} value={c.classId}>
-                        {c.code} · {c.name}
-                      </option>
-                    ))}
-                </select>
-                <small>
-                  Members waiting for the selected class will be notified when
-                  this cohort opens for registration.
-                </small>
-                {previousClasses.error && (
-                  <p role="alert">{previousClasses.error.message}</p>
-                )}
-              </Field>
             </div>
           )}
 
@@ -631,6 +579,7 @@ export function CourseEditor({
 
               {/* Validate the current form before saving. */}
               <ScheduleReview
+                showRefresh={!!course}
                 course={schedule}
                 minutes={minutes}
                 roomName={room?.name}

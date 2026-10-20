@@ -174,6 +174,13 @@ public sealed class ClassEnrollmentFulfillment(
 
         await db.SaveChangesAsync(cancellationToken);
 
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 22)", cancellationToken);
+        // Stop next-course notifications only after paid fulfillment, in this transaction.
+        await db.Set<SportHub.Scheduling.Threshold.Domain.CourseInterest>()
+            .Where(i => i.MemberId == hold.MemberId && i.SportId == cls.SportId && i.Active)
+            .ExecuteUpdateAsync(u => u.SetProperty(i => i.Active, false)
+                .SetProperty(i => i.CancelledAtUtc, (DateTime?)clock.UtcNow), cancellationToken);
+
         // Học viên đã ghi danh thành quan hệ huấn luyện ClassBased với Coach của lớp để Coach xem và lập kế hoạch cho từng học viên.
         if (cls.CoachId is Guid coachId)
         {

@@ -235,6 +235,7 @@ export function SessionEditor({
   showReviewActions = true,
   beforeSave,
   showWeeklySchedule = false,
+  incidentFence,
 }: {
   session: CourseSessionDto;
   sportId: number;
@@ -246,6 +247,7 @@ export function SessionEditor({
   embedded?: boolean;
   showReviewActions?: boolean;
   showWeeklySchedule?: boolean;
+  incidentFence?: () => Promise<string>;
   beforeSave?: () => Promise<void>;
   onOutcome?: (
     status: "pending" | "succeeded" | "failed" | "unknown",
@@ -256,7 +258,8 @@ export function SessionEditor({
   const l = t.operations;
   const mutation = useMutation();
   const [requestedMode, setMode] = useState("reschedule");
-  const mode = confirmedCount > 0 ? "reschedule" : requestedMode;
+  const mode =
+    confirmedCount > 0 && !incidentFence ? "reschedule" : requestedMode;
   const [start, setStart] = useState(vietnamLocal(session.startAtUtc));
   const [roomId, setRoom] = useState(String(session.roomId));
   const [coachId, setCoach] = useState(session.coachId);
@@ -287,7 +290,7 @@ export function SessionEditor({
             hidden={review}
             className={embedded ? styles.fields : undefined}
           >
-            {confirmedCount === 0 && (
+            {(confirmedCount === 0 || incidentFence) && (
               <Field label={l.edit}>
                 <select value={mode} onChange={(e) => setMode(e.target.value)}>
                   <option value="reschedule">{l.reschedule}</option>
@@ -360,11 +363,15 @@ export function SessionEditor({
               const success = await mutation.run(async () => {
                 try {
                   await beforeSave?.();
+                  const fenceId =
+                    mode === "cancel" && incidentFence
+                      ? await incidentFence()
+                      : undefined;
                   await api.post(
-                    `/api/class-sessions/${session.sessionId}/${mode === "reschedule" ? "reschedule" : "cancel"}`,
+                    `/api/class-sessions/${session.sessionId}/${mode === "reschedule" ? "reschedule" : incidentFence ? "incident-makeup" : "cancel"}`,
                     mode === "reschedule"
                       ? { ...schedule, reason }
-                      : { reason, makeup: schedule },
+                      : { reason, makeup: schedule, fenceId },
                   );
                 } catch (error) {
                   const uncertain =

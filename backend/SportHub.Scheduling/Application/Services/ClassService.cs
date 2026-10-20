@@ -197,11 +197,13 @@ public sealed class ClassService(
     }
 
     public async Task<PagedResult<ClassManagerResponse>> ListManagerAsync(
-        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null)
+        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null, Guid? coachId = null)
     {
         (page, pageSize) = Normalize(page, pageSize);
 
         var query = db.Set<Class>().AsNoTracking();
+
+        if (coachId is Guid coach) query = query.Where(c => c.CoachId == coach || c.Sessions.Any(s => s.CoachId == coach && s.Status != ClassSessionStatus.Cancelled));
 
         if (!string.IsNullOrWhiteSpace(thresholdStatus))
         {
@@ -461,6 +463,7 @@ public sealed class ClassService(
         }
 
         entity.Status = ClassStatus.Published;
+        entity.PublishedAtUtc = clock.UtcNow;
         entity.EnrollmentOpen = true;
         entity.EnrollmentClosedReason = null;
         entity.EnrollmentClosedAtUtc = null;
