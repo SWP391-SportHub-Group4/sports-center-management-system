@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import type { MemberSupportRequestDto } from "@/lib/types";
@@ -48,6 +48,8 @@ export function SupportRequestActions({
   const { language } = useLanguage();
   const vi = language === "vi";
   const [assigneeId, setAssigneeId] = useState(request.assignedToUserId ?? "");
+  // The queue refreshes its rows after assignments. Sync the selected assignee.
+  
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"assign" | "progress" | "close" | null>(
     null,
@@ -136,6 +138,11 @@ export function SupportRequestActions({
         </p>
       )}
 
+      {closed && (
+        <p className={styles.closedHint}>
+          This request has been closed. Its final resolution is shown above.
+        </p>
+      )}
       {!closed && (!collapsible || expanded) && (
         <>
           <div className={styles.assignRow}>
@@ -159,7 +166,7 @@ export function SupportRequestActions({
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={busy !== null || !assigneeId}
+              disabled={busy !== null || !assigneeId || assigneeId === request.assignedToUserId}
               onClick={() =>
                 act(
                   "assign",

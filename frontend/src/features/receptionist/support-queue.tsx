@@ -72,7 +72,8 @@ export function SupportQueue({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (queue.data) setLastResult(queue.data);
   }, [queue.data]);
-  const result = queue.data ?? lastResult;
+  // Never display a previous filter/page as though it belongs to the new query.
+  const result = queue.loading || queue.error ? null : queue.data ?? lastResult;
   const selected =
     expanded === undefined ? result?.items[0]?.requestId : expanded;
   const filtered = !!(
@@ -81,6 +82,7 @@ export function SupportQueue({
     applied.assignedToUserId
   );
   function apply(next: typeof filters) {
+    setLastResult(null);
     setFilters(next);
     setApplied({ ...next, search: next.search.trim() });
     setPage(1);
@@ -100,6 +102,7 @@ export function SupportQueue({
             className="btn btn--secondary"
             disabled={queue.loading}
             onClick={() => {
+              setNotice("");
               queue.reload();
               assignees.reload();
             }}
@@ -205,6 +208,26 @@ export function SupportQueue({
           )}
         </div>
       </form>
+      <div className={styles.quickFilters} aria-label="Quick status filters">
+        <span>Quick view</span>
+        {[
+          { value: "", label: "All requests" },
+          { value: "OPEN", label: "New" },
+          { value: "ASSIGNED", label: "Assigned" },
+          { value: "IN_PROGRESS", label: "In progress" },
+          { value: "CLOSED", label: "Closed" },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={styles.quickFilter}
+            aria-pressed={applied.status === option.value}
+            onClick={() => apply({ ...filters, status: option.value })}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
       {notice && (
         <p className="alert alert--success" role="status">
           {notice}
@@ -367,6 +390,7 @@ export function SupportQueue({
                           : "Handle request"}
                       </h4>
                       <SupportRequestActions
+                        key={`${request.requestId}:${request.assignedToUserId ?? "unassigned"}`}
                         request={request}
                         assignees={assignees.data ?? []}
                         layout="queue"
@@ -402,6 +426,7 @@ export function SupportQueue({
                 className="btn btn--secondary btn--sm"
                 disabled={queue.loading || page <= 1}
                 onClick={() => {
+                  setLastResult(null);
                   setPage(page - 1);
                   setExpanded(undefined);
                 }}
@@ -413,6 +438,7 @@ export function SupportQueue({
                 className="btn btn--secondary btn--sm"
                 disabled={queue.loading || page * 20 >= result.totalCount}
                 onClick={() => {
+                  setLastResult(null);
                   setPage(page + 1);
                   setExpanded(undefined);
                 }}
