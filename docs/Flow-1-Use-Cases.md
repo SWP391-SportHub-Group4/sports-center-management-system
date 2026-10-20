@@ -125,11 +125,11 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 
 | Mục | Nội dung |
 |---|---|
-| Tác nhân | Member, Coach (tự quản lý); Admin, Center Manager, Coach, Receptionist (báo cáo ảnh); Center Manager (duyệt báo cáo) |
+| Tác nhân | Member, Coach (tự quản lý); Center Manager (gỡ ảnh Member) |
 | Mức ưu tiên | Optional |
 | Tiền điều kiện | Đã đăng nhập khi tải, xóa hoặc xem ảnh Member; xem ảnh Coach công khai không cần đăng nhập. |
-| Luồng chính | 1. Người dùng tải ảnh lên (tối đa 5 MB) hoặc xóa ảnh của mình.<br>2. Hệ thống lưu ảnh lên dịch vụ lưu trữ ảnh và gắn vào hồ sơ.<br>3. Người được phép xem ảnh theo quyền (ảnh Coach công khai, ảnh Member cần đăng nhập).<br>4. Nhân sự có thể báo cáo một ảnh kèm lý do; Center Manager xem danh sách báo cáo chờ xử lý và chọn bỏ qua hoặc gỡ ảnh. |
-| Luồng thay thế / ngoại lệ | a. Ảnh rỗng hoặc vượt dung lượng: từ chối.<br>b. Quá 10 lần ghi/phút: từ chối.<br>c. Báo cáo nhắm vào ảnh cũ: không gỡ được phiên bản ảnh mới. |
+| Luồng chính | 1. Người dùng tải ảnh lên (tối đa 5 MB) hoặc xóa ảnh của mình.<br>2. Hệ thống lưu ảnh lên dịch vụ lưu trữ ảnh và gắn vào hồ sơ.<br>3. Người được phép xem ảnh theo quyền (ảnh Coach công khai, ảnh Member cần đăng nhập).<br>4. Center Manager mở hồ sơ Member và gỡ trực tiếp ảnh hiện tại nếu không phù hợp; hệ thống ghi audit và dọn ảnh cũ. |
+| Luồng thay thế / ngoại lệ | a. Ảnh rỗng hoặc vượt dung lượng: từ chối.<br>b. Quá 10 lần ghi/phút: từ chối.<br>c. Đối tượng không phải Member: từ chối.<br>d. Ảnh bị thay đồng thời: yêu cầu tải lại hồ sơ. |
 | Hậu điều kiện | Ảnh hiện hành được lưu; ảnh cũ được dọn nền bởi tác vụ hệ thống. |
 
 ## C. Vận hành tài khoản
@@ -353,10 +353,10 @@ Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_
 
 | Mục | Nội dung |
 |---|---|
-| Tác nhân | Member (tự check-in, xem lịch sử của mình); Receptionist (check-in và check-out hộ, xem lịch sử); Center Manager (xem lịch sử) |
+| Tác nhân | Member (đưa mã QR, xem lịch sử của mình); Receptionist (check-in và check-out cho Member, xem lịch sử); Center Manager (xem lịch sử) |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Member tồn tại, có vai trò Member, trạng thái Active và có ít nhất một gói Gym Active với ngày bắt đầu ≤ hôm nay ≤ ngày kết thúc theo giờ Việt Nam. Member được nhận diện qua tài khoản đăng nhập hoặc mã QR (UC-F1-27). |
-| Luồng chính | 1. Member tự check-in, hoặc Receptionist tìm / quét mã Member rồi yêu cầu check-in.<br>2. Hệ thống kiểm vai trò, trạng thái tài khoản, Member chưa có lượt đang mở và có gói Gym hiệu lực đúng ngày; lấy giờ máy chủ làm giờ vào.<br>3. Hệ thống lưu lượt check-in kèm người thực hiện.<br>4. Receptionist chọn lượt đang mở để check-out; hệ thống ghi giờ ra và người thực hiện.<br>5. Member xem lịch sử của mình; Receptionist và Center Manager xem lịch sử của một Member (phân trang). |
+| Luồng chính | 1. Receptionist tìm hoặc quét mã QR của Member rồi yêu cầu check-in (Member không tự check-in).<br>2. Hệ thống kiểm vai trò, trạng thái tài khoản, Member chưa có lượt đang mở và có gói Gym hiệu lực đúng ngày; lấy giờ máy chủ làm giờ vào.<br>3. Hệ thống lưu lượt check-in kèm người thực hiện.<br>4. Receptionist chọn lượt đang mở để check-out; hệ thống ghi giờ ra và người thực hiện.<br>5. Member xem lịch sử của mình; Receptionist và Center Manager xem lịch sử của một Member (phân trang). |
 | Luồng thay thế / ngoại lệ | a. Không tìm thấy Member hoặc không đúng vai trò: từ chối.<br>b. Tài khoản không Active: từ chối.<br>c. Đang có lượt chưa check-out: từ chối.<br>d. Không có gói Active đúng ngày (kể cả vé ngày đã qua ngày): từ chối.<br>e. Check-out lượt không tồn tại: báo lỗi.<br>f. Check-out lặp lại: trả lại bản ghi đã đóng, không ghi đè giờ ra.<br>g. Người thiếu quyền: từ chối. |
 | Hậu điều kiện | Lịch sử vào/ra Gym được lưu. Quyền vào chỉ được xác nhận tại thời điểm check-in, không dựa vào mã QR hay dữ liệu do client gửi. |
 

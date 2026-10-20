@@ -85,6 +85,12 @@ export function notificationPresentation(item: NotificationDto): {
     category = "schedule";
     label = "Attendance";
     title = "Complete your session attendance";
+  } else if (source === "AVATAR_REPORTED") {
+    label = "Profile photo";
+    title = "A profile photo needs review";
+  } else if (source === "COACH_COVERAGE_REQUIRED") {
+    label = "Coach assignments";
+    title = "Coach assignments need review";
   } else if (/SCHEDULE|SESSION|CHANGE_REQUEST/.test(source)) {
     category = "schedule";
     label = "Schedule";
@@ -159,6 +165,10 @@ export function notificationActionLabel(
   switch (item.sourceEventType) {
     case "COACH_ATTENDANCE_REMINDER":
       return "Complete attendance";
+    case "AVATAR_REPORTED":
+      return "Review avatar report";
+    case "COACH_COVERAGE_REQUIRED":
+      return "Review coach assignments";
     case "CLASS_SESSION_REMINDER":
       return "View upcoming session";
     case "COURSE_INTEREST_OPENED":

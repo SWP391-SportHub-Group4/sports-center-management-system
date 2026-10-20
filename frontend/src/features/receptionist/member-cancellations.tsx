@@ -45,6 +45,7 @@ export function MemberCancellations({
   const now = useNow();
 
   const [picked, setPicked] = useState<Row | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const enrollments = useApi(
     async (signal) =>
@@ -122,12 +123,17 @@ export function MemberCancellations({
       };
     });
 
-  if (!membershipRows.length && !classRows.length) {
+  if (!membershipRows.length && !classRows.length && !notice) {
     return null;
   }
 
   return (
     <div>
+      {notice && (
+        <p className="alert alert--success" role="status">
+          {notice}
+        </p>
+      )}
       {membershipRows.length > 0 && (
         <section
           className={styles.panel}
@@ -154,7 +160,10 @@ export function MemberCancellations({
                 <button
                   type="button"
                   className="btn btn--danger btn--sm"
-                  onClick={() => setPicked(row)}
+                  onClick={() => {
+                    setNotice(null);
+                    setPicked(row);
+                  }}
                 >
                   {row.label}
                 </button>
@@ -182,8 +191,15 @@ export function MemberCancellations({
 
                 <button
                   type="button"
-                  className="btn btn--secondary btn--sm"
-                  onClick={() => setPicked(row)}
+                  className={
+                    row.target.kind === "class" && row.target.started
+                      ? "btn btn--secondary btn--sm"
+                      : "btn btn--danger btn--sm"
+                  }
+                  onClick={() => {
+                    setNotice(null);
+                    setPicked(row);
+                  }}
                 >
                   {row.label}
                 </button>
@@ -198,7 +214,9 @@ export function MemberCancellations({
           target={picked.target}
           onBehalf
           onClose={() => setPicked(null)}
-          onDone={() => {
+          onDone={(message) => {
+            setNotice(message);
+            setPicked(null);
             enrollments.reload();
             onChanged();
           }}

@@ -1,3 +1,6 @@
+"use client";
+import { useState } from "react";
+import Image from "next/image";
 import styles from "./avatar.module.css";
 
 export function AvatarImage({
@@ -11,6 +14,7 @@ export function AvatarImage({
   size?: number;
   className?: string;
 }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
     <span
@@ -18,7 +22,18 @@ export function AvatarImage({
       style={{ width: size, height: size }}
       aria-label={name}
     >
-      {avatarUrl ? <img src={avatarUrl} alt="" loading="lazy" /> : initial}
+      {avatarUrl && avatarUrl !== failedUrl ? (
+        <Image
+          src={avatarUrl}
+          alt=""
+          width={size}
+          height={size}
+          unoptimized
+          onError={() => setFailedUrl(avatarUrl)}
+        />
+      ) : (
+        initial
+      )}
     </span>
   );
 }

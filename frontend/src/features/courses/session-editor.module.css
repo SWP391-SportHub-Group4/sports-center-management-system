@@ -13,7 +13,68 @@
   margin-top: var(--space-1);
 }
 .actions {
-  margin-top: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  justify-content: flex-end;
+}
+.form {
+  min-width: 0;
+}
+.editorLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.editorLayout .fields:not([hidden]) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.editorLayout .resources {
+  display: contents;
+}
+.editorLayout .fields > :last-child,
+.editorLayout .fields > :first-child:has(select) {
+  grid-column: 1 / -1;
+}
+.weekSchedule {
+  min-width: 0;
+}
+.weekSchedule > section {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+}
+.fields:not([hidden]) {
+  display: grid;
+  gap: var(--space-4);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.resources {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.fields label {
+  margin: 0;
+  min-width: 0;
+}
+.fields textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+@media (max-width: 640px) {
+  .editorLayout .fields:not([hidden]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .resources {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .actions > button {
+    width: 100%;
+  }
 }
 .availability {
   padding: var(--space-3) var(--space-4);

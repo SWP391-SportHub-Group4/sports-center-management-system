@@ -6,6 +6,13 @@ import {
 } from "@playwright/test";
 
 import { loginApi } from "./helpers/auth";
+import { en } from "../src/locales/en";
+import type {
+  CourseEnrollmentDto,
+  CourseSessionDto,
+  ManagerCourseDto,
+  WalletBalanceDto,
+} from "../src/lib/types";
 
 const base = process.env.P2_LIVE_API;
 
@@ -26,7 +33,7 @@ async function browserAuth(page: Page, token: string) {
   }, token);
 }
 
-test("paid course cancellation from Manager UI refunds the real wallet once", async ({
+test("enrolled class blocks Manager cancellation without changing enrollment or wallet", async ({
   page,
   request,
 }) => {
@@ -81,7 +88,7 @@ test("paid course cancellation from Manager UI refunds the real wallet once", as
     data: {
       code: `P2-cancel-${Date.now()}`,
 
-      name: "P2 live cancellation",
+      name: "P2 live enrolled cancellation guard",
 
       sportId: sport.sportId,
 
@@ -123,14 +130,7 @@ test("paid course cancellation from Manager UI refunds the real wallet once", as
 
   expect(publish.ok(), await publish.text()).toBeTruthy();
 
-  const opened = await request.post(
-    `${base}/api/manager/classes/${course.classId}/enrollment/open`,
-    {
-      headers,
-    },
-  );
-
-  expect(opened.ok(), await opened.text()).toBeTruthy();
+  expect((await publish.json()).enrollmentOpen).toBe(true);
 
   const before = await (
     await request.get(`${base}/api/wallet/me`, {
@@ -175,68 +175,185 @@ test("paid course cancellation from Manager UI refunds the real wallet once", as
 
   expect(paid.ok(), await paid.text()).toBeTruthy();
 
+  async function readJson<T>(
+    path: string,
+    auth: Record<string, string>,
+  ): Promise<T> {
+    const response = await request.get(base + path, { headers: auth });
+    expect(response.ok(), await response.text()).toBeTruthy();
+    return response.json() as Promise<T>;
+  }
+  const classPath = `/api/manager/classes/${course.classId}`;
+  const sessionsPath = `/api/classes/${course.classId}/sessions`;
+  const enrollmentPath = "/api/members/me/enrollments?pageSize=100";
+  const walletAfterPayment = await readJson<WalletBalanceDto>(
+    "/api/wallet/me",
+    memberHeaders,
+  );
+  expect(walletAfterPayment.availablePoints).toBe(before.availablePoints - 100);
+  expect(walletAfterPayment.heldPoints).toBe(before.heldPoints);
+  const ledgerBefore = await readJson(
+    "/api/wallet/me/ledger?pageSize=100",
+    memberHeaders,
+  );
+  const classBefore = await readJson<ManagerCourseDto>(classPath, headers);
+  const sessionsBefore = await readJson<CourseSessionDto[]>(
+    sessionsPath,
+    headers,
+  );
+  const enrollments = await readJson<{ items: CourseEnrollmentDto[] }>(
+    enrollmentPath,
+    memberHeaders,
+  );
+  const enrollmentBefore = enrollments.items.find(
+    (e) => e.classId === course.classId,
+  );
+  expect(classBefore.status).toBe("PUBLISHED");
+  expect(classBefore.confirmedCount).toBe(1);
+  expect(enrollmentBefore).toMatchObject({
+    status: "CONFIRMED",
+    endedAt: null,
+  });
+  expect(sessionsBefore).toHaveLength(3);
+
   await browserAuth(page, manager.accessToken);
 
-  await page.goto(`/manager/classes/${course.classId}`);
-
-  const cancellation = page.locator(".card").filter({
-    has: page.getByRole("heading", {
-      name: "Cancel",
+  await page.goto(`/manager/classes/${course.classId}?tab=management`);
+  await expect(
+    page.getByText(en.classWorkspace.enrolledCancellationBlocked, {
       exact: true,
     }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: en.classWorkspace.cancelClass,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: en.managerOperations.closeEnrollment,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: en.managerOperations.reopenEnrollment,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+
+  const preview = await readJson<{
+    canCancel: boolean;
+    confirmedCount: number;
+    refundPoints: number;
+    previewToken: string;
+  }>(classPath + "/cancellation-preview", headers);
+  expect(preview).toMatchObject({
+    canCancel: false,
+    confirmedCount: 1,
+    refundPoints: 0,
+  });
+  // Direct requests and retries cannot bypass the UI restriction or issue a refund.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const cancelled = await request.post(base + classPath + "/cancel", {
+      headers,
+      data: {
+        reason: "Attempt to cancel an enrolled class",
+        previewToken: preview.previewToken,
+      },
+    });
+    expect(cancelled.status(), await cancelled.text()).toBe(409);
+    expect(await cancelled.json()).toMatchObject({
+      error: "class_has_enrollments",
+    });
+  }
+  const first = sessionsBefore[0];
+  const makeup = await request.post(
+    `${base}/api/class-sessions/${first.sessionId}/cancel`,
+    {
+      headers,
+      data: {
+        reason: "Attempt to cancel an enrolled session",
+        makeup: {
+          startAtUtc: new Date(
+            Date.parse(first.startAtUtc) + 86400000,
+          ).toISOString(),
+          roomId: first.roomId,
+          coachId: first.coachId,
+        },
+      },
+    },
+  );
+  expect(makeup.status(), await makeup.text()).toBe(409);
+  expect(await makeup.json()).toMatchObject({ error: "class_has_enrollments" });
+
+  await page
+    .getByRole("button", { name: en.classWorkspace.viewSchedule, exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: en.operations.edit, exact: true })
+    .first()
+    .click();
+  const editor = page.getByRole("dialog", {
+    name: en.classWorkspace.editSession,
+    exact: true,
+  });
+  await expect(
+    editor.getByLabel(en.operations.start, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    editor.getByLabel(en.operations.room, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    editor.getByLabel(en.operations.coach, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    editor.getByRole("option", { name: en.operations.makeup, exact: true }),
+  ).toHaveCount(0);
+  await editor
+    .getByRole("button", { name: en.common.close, exact: true })
+    .click();
+
+  const classAfter = await readJson<ManagerCourseDto>(classPath, headers);
+  expect(classAfter.status).toBe(classBefore.status);
+  expect(classAfter.confirmedCount).toBe(classBefore.confirmedCount);
+  expect(classAfter.reservedCount).toBe(classBefore.reservedCount);
+  expect(await readJson(sessionsPath, headers)).toEqual(sessionsBefore);
+  const remaining = await readJson<{ items: CourseEnrollmentDto[] }>(
+    enrollmentPath,
+    memberHeaders,
+  );
+  expect(remaining.items.find((e) => e.classId === course.classId)).toEqual(
+    enrollmentBefore,
+  );
+  expect(await readJson("/api/wallet/me", memberHeaders)).toEqual(
+    walletAfterPayment,
+  );
+  expect(
+    await readJson("/api/wallet/me/ledger?pageSize=100", memberHeaders),
+  ).toEqual(ledgerBefore);
+  const invoice = await readJson<{
+    invoiceStatus: string;
+    fulfillmentOutcome: string;
+  }>(`/api/checkouts/${invoiceId}`, memberHeaders);
+  expect(invoice).toMatchObject({
+    invoiceStatus: "PAID",
+    fulfillmentOutcome: "FULFILLED",
   });
 
-  await expect(cancellation).toBeVisible();
-
-  await cancellation
-    .getByLabel("Reason", {
+  await page.goto(`/manager/classes/${course.classId}?tab=management`);
+  await expect(
+    page.getByText(en.classWorkspace.enrolledCancellationBlocked, {
       exact: true,
-    })
-    .fill("Center cancels this course");
-
-  await cancellation
-    .getByRole("button", {
-      name: "Preview course cancellation",
-    })
-    .click();
-
-  await expect(cancellation).toContainText(
-    "Estimated total refund points: 100",
-  );
-
-  await cancellation
-    .getByRole("button", {
-      name: "Confirm",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: en.classWorkspace.cancelClass,
       exact: true,
-    })
-    .click();
-
-  await expect
-    .poll(async () => {
-      const response = await request.get(
-        `${base}/api/manager/classes/${course.classId}`,
-        {
-          headers,
-        },
-      );
-
-      expect(response.ok(), await response.text()).toBeTruthy();
-
-      return (await response.json()).status;
-    })
-    .toBe("CANCELLED");
-
-  const after = await (
-    await request.get(`${base}/api/wallet/me`, {
-      headers: memberHeaders,
-    })
-  ).json();
-
-  expect(after.availablePoints).toBe(before.availablePoints);
-
-  expect(after.heldPoints).toBe(before.heldPoints);
-
-  await page.reload();
+    }),
+  ).toHaveCount(0);
 
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
 });

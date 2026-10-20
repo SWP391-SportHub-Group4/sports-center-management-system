@@ -288,6 +288,26 @@ export function EditUser({
   const { user } = useAuth();
   const [role, setRole] = useState(a.role);
   const [sports, setSports] = useState(a.sportIds);
+  const sportOptions = useApi(
+    (signal) =>
+      role === "COACH"
+        ? api.get<SportDto[]>("/api/sports", { signal })
+        : Promise.resolve([] as SportDto[]),
+    [role],
+  );
+  const roleChanged = role !== a.role;
+  const addedSports = sports.filter((id) => !a.sportIds.includes(id));
+  const removedSports = a.sportIds.filter((id) => !sports.includes(id));
+  const specialtiesChanged =
+    role === "COACH" && (addedSports.length > 0 || removedSports.length > 0);
+  const sportNames = (ids: number[]) =>
+    ids
+      .map(
+        (id) =>
+          sportOptions.data?.find((sport) => sport.sportId === id)?.name ??
+          `#${id}`,
+      )
+      .join(", ");
   const [reason, setReason] = useState("");
   const [review, setReview] = useState<AccountAction | null>(null);
   const [copiedLink, setCopiedLink] = useState<
@@ -328,7 +348,9 @@ export function EditUser({
         : "DEACTIVATED";
   const impact =
     review === "role"
-      ? d.roleImpact
+      ? roleChanged
+        ? d.roleImpact
+        : d.specialtyImpact
       : review === "lock"
         ? d.lockImpact
         : review === "unlock"
@@ -390,29 +412,36 @@ export function EditUser({
                     value={role}
                     onChange={(r) => {
                       setRole(r);
-                      setSports([]);
+                      setSports(r === a.role ? a.sportIds : []);
                     }}
                   />
                   {role === "COACH" && (
-                    <SportSelect value={sports} onChange={setSports} />
+                    <SportOptions
+                      state={sportOptions}
+                      value={sports}
+                      onChange={setSports}
+                    />
                   )}
                   <button
                     type="button"
                     className="btn"
                     disabled={
                       !validReason ||
-                      role === a.role ||
-                      (role === "COACH" && !sports.length)
+                      (!roleChanged && !specialtiesChanged) ||
+                      (role === "COACH" &&
+                        (!sports.length ||
+                          sportOptions.loading ||
+                          !!sportOptions.error))
                     }
                     onClick={() => setReview("role")}
                   >
-                    {l.changeRole}
+                    {d.saveChanges}
                   </button>
                 </>
               )}
             </>
             {a.userId !== user?.userId && (
-              <div className="btn-row">
+              <div className={`btn-row ${styles.accountActions}`}>
                 {a.status !== "BANNED" && (
                   <button
                     type="button"
@@ -453,7 +482,9 @@ export function EditUser({
                 <dt>{d.requestedAction}</dt>
                 <dd>
                   {review === "role"
-                    ? l.changeRole
+                    ? roleChanged
+                      ? l.changeRole
+                      : d.updateSpecialties
                     : review === "lock"
                       ? l.lock
                       : review === "unlock"
@@ -463,28 +494,39 @@ export function EditUser({
               </div>
               {review === "role" ? (
                 <>
-                  <div>
-                    <dt>{d.currentRole}</dt>
-                    <dd>
-                      <StatusChip value={a.role} />
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{d.newRole}</dt>
-                    <dd>
-                      <StatusChip value={role} />
-                    </dd>
-                  </div>
+                  {roleChanged && (
+                    <>
+                      <div>
+                        <dt>{d.currentRole}</dt>
+                        <dd>
+                          <StatusChip value={a.role} />
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{d.newRole}</dt>
+                        <dd>
+                          <StatusChip value={role} />
+                        </dd>
+                      </div>
+                    </>
+                  )}
                   {role === "COACH" && (
-                    <div>
-                      <dt>{l.specialties}</dt>
-                      <dd>
-                        {d.specialtyCount.replace(
-                          "{count}",
-                          String(sports.length),
-                        )}
-                      </dd>
-                    </div>
+                    <>
+                      {(roleChanged || addedSports.length > 0) && (
+                        <div>
+                          <dt>{d.specialtiesAdded}</dt>
+                          <dd>
+                            {sportNames(roleChanged ? sports : addedSports)}
+                          </dd>
+                        </div>
+                      )}
+                      {!roleChanged && removedSports.length > 0 && (
+                        <div>
+                          <dt>{d.specialtiesRemoved}</dt>
+                          <dd>{sportNames(removedSports)}</dd>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               ) : (
@@ -575,7 +617,11 @@ export function EditUser({
                 disabled={mutation.busy}
                 onClick={confirmAction}
               >
-                {mutation.busy ? t.common.loading : l.confirm}
+                {mutation.busy
+                  ? t.common.loading
+                  : review === "role"
+                    ? d.confirmUpdate
+                    : l.confirm}
               </button>
             </div>
           </>

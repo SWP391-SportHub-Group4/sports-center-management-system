@@ -5,9 +5,9 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
-import type { InvoiceDetailDto } from "@/lib/types";
+import type { CheckoutDto, InvoiceDetailDto } from "@/lib/types";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
-import { PageHeader, buttonClass } from "@/components/primitives";
+import { Button, PageHeader, buttonClass } from "@/components/primitives";
 import { RefundRequestForm } from "./refund-request-form";
 import { DownloadInvoiceButton } from "./download-invoice-button";
 import styles from "./checkout-panel.module.css";
@@ -21,6 +21,10 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const { t } = useLanguage();
   const f = t.finance;
   const [refundSent, setRefundSent] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(
+    null,
+  );
   const state = useApi(
     (signal) =>
       api.get<InvoiceDetailDto>(`/api/invoices/${invoiceId}`, { signal }),
@@ -29,6 +33,30 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const missing =
     state.error instanceof ApiError &&
     (state.error.status === 404 || state.error.status === 403);
+  async function verifyPayment() {
+    setCheckingPayment(true);
+    setVerificationMessage(null);
+    try {
+      const result = await api.post<{
+        verified: boolean;
+        checkout: CheckoutDto;
+      }>(`/api/checkouts/${invoiceId}/verify-payment`);
+      state.reload();
+      setVerificationMessage(
+        result.verified
+          ? "VNPay returned a verified result. The invoice status has been refreshed."
+          : "VNPay has not confirmed this payment yet. Keep your bank receipt and contact reception with this invoice number if the charge remains.",
+      );
+    } catch (error) {
+      setVerificationMessage(
+        error instanceof Error
+          ? error.message
+          : "Payment check failed. Please try again.",
+      );
+    } finally {
+      setCheckingPayment(false);
+    }
+  }
   return (
     <>
       {refundSent && (
@@ -80,6 +108,27 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                   </>
                 }
               />
+              {s.cashAmount > 0 &&
+                (s.status === "ISSUED" || s.status === "VOID") && (
+                  <Card title="Paid with VNPay but not shown here?">
+                    <p>
+                      Check the payment directly with VNPay before paying again.
+                      Your bank receipt alone does not confirm that SportHub has
+                      received the payment.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      loading={checkingPayment}
+                      onClick={() => void verifyPayment()}
+                    >
+                      Check payment with VNPay
+                    </Button>
+                    {verificationMessage && (
+                      <p role="status">{verificationMessage}</p>
+                    )}
+                  </Card>
+                )}
               {s.reconciliationRequired && (
                 <p
                   className={styles.banner + " " + styles.bannerWarning}

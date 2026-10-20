@@ -6,10 +6,9 @@ public sealed class AvatarReport
     public Guid TargetUserId { get; set; }
     public Guid ReporterUserId { get; set; }
     public string AvatarUrl { get; set; } = string.Empty;
-    public string? AvatarPublicId { get; set; }
     public string Reason { get; set; } = string.Empty;
-    public string Status { get; set; } = "PENDING";
-    public DateTime CreatedAt { get; set; }
-    public Guid? ReviewedById { get; set; }
-    public DateTime? ReviewedAt { get; set; }
+    public string Status { get; set; } = "OPEN";
+    public DateTime CreatedAtUtc { get; set; }
+    public Guid? ReviewedByUserId { get; set; }
+    public DateTime? ReviewedAtUtc { get; set; }
 }

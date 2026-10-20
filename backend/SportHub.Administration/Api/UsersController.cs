@@ -94,7 +94,7 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
         Guid userId, [FromBody] ChangePendingStaffEmailRequest request, CancellationToken ct)
         => Ok(await users.ChangePendingEmailAsync(userId, request, User.RequireUserId(), ct));
 
-    /// <summary>BR-2 — chỉ System Administrator gán hoặc thay đổi vai trò.</summary>
+    /// <summary>BR-2 — System Administrator lưu vai trò hoặc chuyên môn của Coach hiện tại.</summary>
     [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     [HttpPut("{userId:guid}/role")]
     public async Task<IActionResult> ChangeRole(

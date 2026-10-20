@@ -164,6 +164,7 @@ export interface PaymentAttemptDto {
 }
 
 export interface RoomDto {
+  sportId?: number | null;
   roomTypeId: number | null;
   isActive: boolean;
   roomId: number;
@@ -625,6 +626,7 @@ export interface OpeningHourDto {
   closeTimeLocal: string;
 }
 export interface CourtRateDto {
+  roomId?: number | null;
   rateId: number;
   roomTypeId: number;
   sportId: number | null;

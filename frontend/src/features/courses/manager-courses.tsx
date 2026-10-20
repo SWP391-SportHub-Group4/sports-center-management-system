@@ -14,7 +14,7 @@ import {
   type TableColumn,
 } from "@/components/data";
 import { catalogApi } from "@/features/catalog";
-import { ApiGap } from "@/features/manager";
+import { Card } from "@/components/ui";
 import type { ManagerCourseDto, Paged } from "@/lib/types";
 export { ManagerCourseDetail } from "./course-detail";
 const statuses = [
@@ -41,6 +41,7 @@ export function ManagerCourses() {
   const { t } = useLanguage();
   const l = t.operations;
   const m = t.managerOperations;
+  const copy = t.classWorkspace;
   const { values, setValues } = useUrlQuery(defaults, validators);
   const page = Number(values.page);
   const sports = useApi((signal) => catalogApi.sports(signal, true), []);
@@ -67,7 +68,13 @@ export function ManagerCourses() {
       rowHeader: true,
       cell: (c) => (
         <>
-          <strong>{c.name}</strong>
+          <Link
+            className={styles.className}
+            href={`/manager/classes/${c.classId}`}
+          >
+            {c.name}
+          </Link>
+          <span className={styles.classCode}>{c.code}</span>
         </>
       ),
     },
@@ -79,7 +86,7 @@ export function ManagerCourses() {
     },
     {
       id: "confirmedCount",
-      header: l.confirmed,
+      header: copy.enrolled,
       numeric: true,
       cell: (c) => (
         <span className={styles.count}>
@@ -89,126 +96,139 @@ export function ManagerCourses() {
     },
     {
       id: "activeHoldCount",
-      header: l.held,
+      header: copy.holds,
       numeric: true,
       cell: (c) => <span className={styles.count}>{c.activeHoldCount}</span>,
     },
     {
       id: "threshold",
-      header: l.threshold,
+      header: copy.opening,
       cell: (c) => <StatusChip value={c.thresholdStatus} />,
     },
     {
       id: "price",
-      header: l.price,
+      header: copy.price,
       numeric: true,
       cell: (c) => formatMoney(c.price),
     },
   ];
   return (
-    <>
-      <div className="btn-row" role="group" aria-label={m.savedFilters}>
-        {[
-          [m.all, "", ""],
-          [statusLabel("DRAFT"), "DRAFT", ""],
-          [m.recruiting, "PUBLISHED", ""],
-          [statusLabel("AT_RISK"), "PUBLISHED", "AT_RISK"],
-          [statusLabel("IN_PROGRESS"), "IN_PROGRESS", ""],
-          [m.history, "COMPLETED", ""],
-        ].map(([label, status, thresholdStatus]) => (
-          <button
-            key={label}
-            type="button"
-            className="btn btn--secondary"
-            aria-pressed={
-              values.status === status &&
-              values.thresholdStatus === thresholdStatus
-            }
-            onClick={() => setValues({ status, thresholdStatus, page: "1" })}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <FilterBar
-        values={values}
-        onChange={(next) => setValues({ ...next, page: "1" })}
-        onReset={() => setValues(defaults)}
-        fields={[
-          { id: "keyword", label: l.search, kind: "search" },
-          {
-            id: "sportId",
-            label: l.sport,
-            kind: "select",
-            options: [
-              { value: "", label: l.all },
-              ...(sports.data ?? [])
-                .filter((s) => hasService(s, "GROUP_COURSE"))
-                .map((s) => ({ value: String(s.sportId), label: s.name })),
-            ],
-          },
-          {
-            id: "status",
-            label: l.status,
-            kind: "select",
-            options: [
-              { value: "", label: l.all },
-              ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
-            ],
-          },
-          {
-            id: "thresholdStatus",
-            label: l.thresholdFilter,
-            kind: "select",
-            options: [
-              { value: "", label: l.all },
-              ...thresholds.map((s) => ({ value: s, label: statusLabel(s) })),
-            ],
-          },
-        ]}
-        actions={
-          <>
-            <Link
-              className="btn btn--secondary"
-              href="/manager/classes/interests"
-            >
-              Course interests
-            </Link>
-            <Link className="btn" href="/manager/classes/new">
-              {l.create}
-            </Link>
-          </>
-        }
-      />
-      {sports.error && <p role="alert">{sports.error.message}</p>}
-      <p>{m.holdHint}</p>
-      <ApiTable
-        caption={l.courses}
-        state={courses}
-        page={page}
-        pageSize={20}
-        onPageChange={(page) => setValues({ page: String(page) })}
-        columns={columns}
-        getRowId={(c) => String(c.classId)}
-        empty={{
-          title: m.noResults,
-          hint: m.draftHint,
-          action: (
-            <Link className="btn btn--secondary" href="/manager/classes/new">
-              {l.create}
-            </Link>
-          ),
-        }}
-        rowActions={(c) => (
+    <div className={styles.page}>
+      <div className={styles.toolbar}>
+        <p className={styles.resultCount} role="status">
+          {courses.loading
+            ? t.common.loading
+            : copy.matched.replace(
+                "{count}",
+                String(courses.data?.totalCount ?? 0),
+              )}
+        </p>
+        <div className={styles.primaryActions}>
           <Link
             className="btn btn--secondary"
-            href={`/manager/classes/${c.classId}`}
+            href="/manager/classes/interests"
           >
-            {l.details}
+            {copy.interests}
           </Link>
-        )}
-      />
-      <ApiGap code="G13" message={m.closeGap} />
-    </>
+          <Link className="btn" href="/manager/classes/new">
+            {copy.create}
+          </Link>
+        </div>
+      </div>
+      <Card>
+        <div
+          className={styles.savedFilters}
+          role="group"
+          aria-label={m.savedFilters}
+        >
+          {[
+            [m.all, "", ""],
+            [statusLabel("DRAFT"), "DRAFT", ""],
+            [m.recruiting, "PUBLISHED", ""],
+            [statusLabel("AT_RISK"), "PUBLISHED", "AT_RISK"],
+            [statusLabel("IN_PROGRESS"), "IN_PROGRESS", ""],
+            [m.history, "COMPLETED", ""],
+          ].map(([label, status, thresholdStatus]) => (
+            <button
+              key={label}
+              type="button"
+              className="btn btn--secondary"
+              aria-pressed={
+                values.status === status &&
+                values.thresholdStatus === thresholdStatus
+              }
+              onClick={() => setValues({ status, thresholdStatus, page: "1" })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <FilterBar
+          values={values}
+          onChange={(next) => setValues({ ...next, page: "1" })}
+          onReset={() => setValues(defaults)}
+          fields={[
+            { id: "keyword", label: l.search, kind: "search" },
+            {
+              id: "sportId",
+              label: l.sport,
+              kind: "select",
+              options: [
+                { value: "", label: l.all },
+                ...(sports.data ?? [])
+                  .filter((s) => hasService(s, "GROUP_COURSE"))
+                  .map((s) => ({ value: String(s.sportId), label: s.name })),
+              ],
+            },
+            {
+              id: "status",
+              label: l.status,
+              kind: "select",
+              options: [
+                { value: "", label: l.all },
+                ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
+              ],
+            },
+            {
+              id: "thresholdStatus",
+              label: l.thresholdFilter,
+              kind: "select",
+              options: [
+                { value: "", label: l.all },
+                ...thresholds.map((s) => ({ value: s, label: statusLabel(s) })),
+              ],
+            },
+          ]}
+        />
+        {sports.error && <p role="alert">{sports.error.message}</p>}
+        <p className={styles.tableHint}>{m.holdHint}</p>
+        <ApiTable
+          caption={l.courses}
+          state={courses}
+          page={page}
+          pageSize={20}
+          onPageChange={(page) => setValues({ page: String(page) })}
+          columns={columns}
+          getRowId={(c) => String(c.classId)}
+          empty={{
+            title: m.noResults,
+            hint: m.draftHint,
+            action: (
+              <Link className="btn btn--secondary" href="/manager/classes/new">
+                {l.create}
+              </Link>
+            ),
+          }}
+          rowActions={(c) => (
+            <Link
+              className="btn btn--secondary"
+              href={`/manager/classes/${c.classId}`}
+            >
+              {l.details}
+            </Link>
+          )}
+        />
+      </Card>
+    </div>
   );
 }

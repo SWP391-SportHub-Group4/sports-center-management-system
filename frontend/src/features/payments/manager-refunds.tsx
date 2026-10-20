@@ -233,7 +233,7 @@ function RefundCard({
 }
 
 /** Hàng đợi hoàn điểm (Q20): mặc định chờ duyệt; lịch sử cũ chỉ đọc. Hoàn chỉ bằng điểm. */
-export function ManagerRefunds() {
+export function ManagerRefunds({ onChanged }: { onChanged?: () => void } = {}) {
   const { t } = useLanguage();
   const l = t.staffWork;
   const f = t.finOps;
@@ -308,7 +308,10 @@ export function ManagerRefunds() {
                   <RefundCard
                     key={`${r.adjustmentId}-${r.status}`}
                     r={r}
-                    reload={state.reload}
+                    reload={() => {
+                      state.reload();
+                      onChanged?.();
+                    }}
                   />
                 ),
               )}

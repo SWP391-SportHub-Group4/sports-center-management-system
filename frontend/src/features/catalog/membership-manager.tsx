@@ -1,14 +1,16 @@
 "use client";
+import { PackageMembers } from "./package-members";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
 import type { MembershipPackageDto } from "@/lib/types";
-import { Card, Field, StatusChip } from "@/components/ui";
+import { Field, StatusChip } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import { catalogApi, type SavePackage } from "./api";
 import {
+  CatalogPanel,
   ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
@@ -33,6 +35,7 @@ export function MembershipManager() {
   const mutation = useMutation();
   const [form, setForm] = useState(empty);
   const [editor, setEditor] = useState<{ id: number | null } | null>(null);
+  const [buyers, setBuyers] = useState<MembershipPackageDto | null>(null);
   const [activity, setActivity] = useState<MembershipPackageDto | null>(null);
   const edit = (p?: MembershipPackageDto) => {
     mutation.reset();
@@ -51,9 +54,11 @@ export function MembershipManager() {
   };
   return (
     <>
-      <Card
-        title={c.gymPackages}
-        hint={l.snapshotHint}
+      {buyers && (
+        <PackageMembers plan={buyers} onClose={() => setBuyers(null)} />
+      )}
+      <CatalogPanel
+        filters={<CatalogFilters filters={filters} />}
         actions={
           <button
             className="btn"
@@ -64,7 +69,6 @@ export function MembershipManager() {
           </button>
         }
       >
-        <CatalogFilters filters={filters} />
         <CatalogTable
           state={state}
           filters={filters}
@@ -81,7 +85,7 @@ export function MembershipManager() {
               numeric: true,
               cell: (p) => formatMoney(p.price),
             },
-            { id: "durationDays", header: t.refactor.days, numeric: true },
+            { id: "durationDays", header: c.durationDays, numeric: true },
             {
               id: "isActive",
               header: l.status,
@@ -92,6 +96,13 @@ export function MembershipManager() {
           ]}
           actions={(p) => (
             <>
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => setBuyers(p)}
+              >
+                View members
+              </button>
               <button
                 className="btn btn--secondary btn--sm"
                 disabled={mutation.busy}
@@ -115,7 +126,7 @@ export function MembershipManager() {
           )}
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
-      </Card>
+      </CatalogPanel>
       {editor && (
         <CatalogFormDialog
           title={editor.id === null ? c.createPackage : c.editPackage}

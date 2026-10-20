@@ -1,124 +1,98 @@
 "use client";
-
 import { useState } from "react";
-import { api } from "@/lib/apiClient";
+import { Flag } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useLanguage } from "@/lib/language";
-import { Dialog } from "@/components/ui";
-import styles from "./ReportAvatarButton.module.css";
+import { api } from "@/lib/apiClient";
+import { useAction } from "@/lib/useApi";
+import { Dialog, Field } from "./ui";
 
 export function ReportAvatarButton({
-  targetUserId,
+  userId,
   avatarUrl,
+  name,
 }: {
-  targetUserId: string;
+  userId: string;
   avatarUrl?: string | null;
+  name: string;
 }) {
   const { user } = useAuth();
-  const { language } = useLanguage();
-  const vi = language === "vi";
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [sent, setSent] = useState(false);
+  const action = useAction();
   if (
     !user ||
-    user.role === "Member" ||
-    user.userId === targetUserId ||
-    !avatarUrl
+    user.userId === userId ||
+    !avatarUrl ||
+    user.role === "CenterManager"
   )
     return null;
-
-  function close() {
-    if (busy) return;
-    setOpen(false);
-    setError("");
-  }
-
   return (
     <>
       <button
         type="button"
         className="btn btn--ghost btn--sm"
+        aria-label={`Report ${name}'s profile photo`}
         onClick={() => {
-          setSent(false);
+          action.reset();
           setOpen(true);
         }}
       >
-        {vi ? "Báo cáo ảnh" : "Report photo"}
+        <Flag size={15} aria-hidden="true" />
+        Report photo
       </button>
-      {sent && (
-        <span className={styles.sent} role="status">
-          {vi ? "Đã gửi báo cáo cho Manager." : "Report sent to the manager."}
-        </span>
-      )}
       {open && (
         <Dialog
-          title={vi ? "Báo cáo ảnh đại diện" : "Report profile photo"}
-          description={
-            vi
-              ? "Manager sẽ xem xét ảnh này. Hãy nêu rõ lý do."
-              : "A manager will review this photo. Say what is wrong with it."
-          }
-          onClose={close}
+          title="Report profile photo"
+          onClose={() => {
+            if (!action.busy) setOpen(false);
+          }}
         >
           <form
-            className={styles.form}
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (busy) return;
-              setBusy(true);
-              setError("");
-              try {
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void action.run(async () => {
                 await api.post("/api/avatars/reports", {
-                  targetUserId,
+                  targetUserId: userId,
+                  avatarUrl,
                   reason: reason.trim(),
                 });
-                setSent(true);
-                setOpen(false);
-                setReason("");
-              } catch (cause) {
-                setError(
-                  cause instanceof Error ? cause.message : String(cause),
-                );
-              } finally {
-                setBusy(false);
-              }
+              }, "Report sent to the center manager.");
             }}
           >
-            <label className={styles.label}>
-              {vi
-                ? "Vì sao ảnh này không phù hợp?"
-                : "Why is this photo inappropriate?"}
-              <textarea
-                value={reason}
-                rows={4}
-                maxLength={500}
-                minLength={10}
-                required
-                onChange={(event) => setReason(event.target.value)}
-              />
-              <span className={styles.count}>{reason.trim().length}/500</span>
-            </label>
-            {error && <p role="alert">{error}</p>}
-            <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                disabled={busy}
-                onClick={close}
-              >
-                {vi ? "Hủy" : "Cancel"}
-              </button>
-              <button
-                className="btn"
-                disabled={busy || reason.trim().length < 10}
-                type="submit"
-              >
-                {vi ? "Gửi báo cáo" : "Send report"}
-              </button>
-            </div>
+            {action.success ? (
+              <>
+                <p role="status">{action.success}</p>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setOpen(false)}
+                >
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <p>{name}</p>
+                <Field label="Reason" required>
+                  <textarea
+                    required
+                    minLength={3}
+                    maxLength={500}
+                    rows={3}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                </Field>
+                {action.error && <p role="alert">{action.error}</p>}
+                <button
+                  className="btn"
+                  disabled={action.busy || reason.trim().length < 3}
+                >
+                  {action.busy ? "Sending…" : "Send report"}
+                </button>
+              </>
+            )}
           </form>
         </Dialog>
       )}

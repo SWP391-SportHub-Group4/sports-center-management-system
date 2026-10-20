@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
+import { CreditCard, FileText, LogOut } from "lucide-react";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
 import { resolveMemberCode } from "@/components/MemberPicker";
 import { api } from "@/lib/apiClient";
@@ -96,6 +97,14 @@ export function ReceptionDashboard() {
       }),
     [],
   );
+  const unfulfilled = useApi(
+    (signal) =>
+      api.get<Paged<unknown>>("/api/front-desk/payment-reconciliation", {
+        signal,
+        query: { page: 1, pageSize: 1 },
+      }),
+    [],
+  );
   const now = useNow();
   const roomName = (id: number | null) =>
     rooms.data?.find((room) => room.roomId === id)?.name ?? null;
@@ -117,6 +126,7 @@ export function ReceptionDashboard() {
   ).length;
   const forgottenCount = forgotten.data?.totalCount ?? 0;
   const invoiceCount = invoices.data?.totalCount ?? 0;
+  const unfulfilledCount = unfulfilled.data?.totalCount ?? 0;
   const [forgottenOpen, setForgottenOpen] = useState(false);
 
   return (
@@ -124,43 +134,42 @@ export function ReceptionDashboard() {
       <DeskSearchBar showScan={false} />
 
       <nav
-        className={styles.strip}
-        aria-label={vi ? "Việc cần xử lý" : "Needs attention"}
+        className={styles.checks}
+        aria-label={vi ? "Kiểm tra quầy" : "Desk checks"}
       >
-        {invoiceCount > 0 && (
-          <Link href="/receptionist/invoices" className={styles.chip}>
-            {l.openInvoices}
-            <span className={styles.badge}>{invoiceCount}</span>
-          </Link>
-        )}
-        {forgottenCount > 0 && (
-          <button
-            type="button"
-            className={styles.chip}
-            onClick={() => setForgottenOpen(true)}
-          >
-            {vi ? "Quên check-out" : "Forgotten check-outs"}
-            <span className={styles.badge}>{forgottenCount}</span>
-          </button>
-        )}
-        <Link href="/receptionist/support" className={styles.quiet}>
-          {vi ? "Yêu cầu hỗ trợ" : "Support requests"}
-        </Link>
-        <Link
+        <DeskCheck
           href="/receptionist/payment-reconciliation"
-          className={styles.quiet}
-        >
-          {vi ? "Thanh toán chưa hoàn tất" : "Unfulfilled payments"}
-        </Link>
-        {forgottenCount === 0 && (
-          <button
-            type="button"
-            className={styles.quiet}
-            onClick={() => setForgottenOpen(true)}
-          >
-            {vi ? "Quên check-out" : "Forgotten check-outs"}
-          </button>
-        )}
+          icon={<CreditCard size={20} aria-hidden="true" />}
+          count={unfulfilledCount}
+          title={vi ? "Đã trả tiền, chưa kích hoạt" : "Paid, not activated"}
+          hint={
+            vi
+              ? "Hội viên đã thanh toán nhưng dịch vụ chưa được cấp"
+              : "Member paid but the service was not granted"
+          }
+        />
+        <DeskCheck
+          onClick={() => setForgottenOpen(true)}
+          icon={<LogOut size={20} aria-hidden="true" />}
+          count={forgottenCount}
+          title={vi ? "Chưa check-out từ hôm trước" : "Still inside from earlier"}
+          hint={
+            vi
+              ? "Lượt Gym quên check-out, cần ghi giờ ra"
+              : "Gym visits never checked out; record the exit time"
+          }
+        />
+        <DeskCheck
+          href="/receptionist/invoices"
+          icon={<FileText size={20} aria-hidden="true" />}
+          count={invoiceCount}
+          title={vi ? "Hóa đơn chờ thanh toán" : "Invoices awaiting payment"}
+          hint={
+            vi
+              ? "Hóa đơn đã tạo ở quầy, chưa thu tiền"
+              : "Created at the desk, not paid yet"
+          }
+        />
       </nav>
 
       <div className={styles.ops}>
@@ -311,6 +320,46 @@ export function ReceptionDashboard() {
         </Dialog>
       )}
     </>
+  );
+}
+
+function DeskCheck({
+  href,
+  onClick,
+  icon,
+  count,
+  title,
+  hint,
+}: {
+  href?: string;
+  onClick?: () => void;
+  icon: ReactNode;
+  count: number;
+  title: string;
+  hint: string;
+}) {
+  const body = (
+    <>
+      <span className={styles.checkIcon}>{icon}</span>
+      <span className={styles.checkText}>
+        <strong>{title}</strong>
+        <span>{hint}</span>
+      </span>
+      <span className={styles.checkCount}>{count}</span>
+    </>
+  );
+  const props = {
+    className: styles.check,
+    "data-alert": count > 0 || undefined,
+  };
+  return href ? (
+    <Link href={href} {...props}>
+      {body}
+    </Link>
+  ) : (
+    <button type="button" onClick={onClick} {...props}>
+      {body}
+    </button>
   );
 }
 

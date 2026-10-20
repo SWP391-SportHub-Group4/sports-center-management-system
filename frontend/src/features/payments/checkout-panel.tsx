@@ -109,6 +109,9 @@ function CheckoutFlow({
     : error?.cause instanceof ApiError &&
         error.cause.code === "duplicate_active_package"
       ? t.apiErrors.duplicateActivePackage
+      : error?.cause instanceof ApiError &&
+          error.cause.code === "member_schedule_conflict"
+        ? t.apiErrors.memberScheduleConflict
       : error?.cause instanceof Error
         ? error.cause.message
         : error

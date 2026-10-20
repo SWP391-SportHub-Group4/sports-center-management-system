@@ -97,7 +97,7 @@ test("audit and overview distinguish target identity from actor without row deta
     const table = page.getByRole("table");
     await expect(
       table.getByRole("columnheader", {
-        name: "Affected record",
+        name: "Target",
         exact: true,
       }),
     ).toBeVisible();
@@ -107,7 +107,7 @@ test("audit and overview distinguish target identity from actor without row deta
       ).toHaveAttribute("href", `/admin/users/${targetId}`);
       await expect(table).toContainText(audit.targetEmail);
     } else {
-      await expect(table.locator('[data-label="Affected record"]')).toHaveText(
+      await expect(table.locator('[data-label="Target"]')).toHaveText(
         "Account",
       );
       await table.getByRole("button", { name: /View details:/ }).click();
@@ -224,7 +224,7 @@ test("long Vietnamese target names fit the English shell on desktop and mobile",
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/admin/audit-log");
-    await expect(page.getByRole("table")).toContainText("Affected record");
+    await expect(page.getByRole("table")).toContainText("Target");
     await page
       .getByRole("table")
       .getByRole("button", { name: /View details:/ })

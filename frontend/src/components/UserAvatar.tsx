@@ -2,19 +2,17 @@
 
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
-import { AvatarImage } from "./AvatarImage";
 import { ReportAvatarButton } from "./ReportAvatarButton";
+import { AvatarImage } from "./AvatarImage";
 
 export function UserAvatar({
   userId,
   name,
   size = 40,
-  report = false,
 }: {
   userId: string;
   name: string;
   size?: number;
-  report?: boolean;
 }) {
   const avatar = useApi(
     (signal) =>
@@ -26,12 +24,11 @@ export function UserAvatar({
   return (
     <span>
       <AvatarImage name={name} avatarUrl={avatar.data?.avatarUrl} size={size} />
-      {report && (
-        <ReportAvatarButton
-          targetUserId={userId}
-          avatarUrl={avatar.data?.avatarUrl}
-        />
-      )}
+      <ReportAvatarButton
+        userId={userId}
+        name={name}
+        avatarUrl={avatar.data?.avatarUrl}
+      />
     </span>
   );
 }

@@ -105,6 +105,20 @@
   display: grid;
   gap: var(--space-3);
 }
+@media (prefers-reduced-motion: no-preference) {
+  .impactDialog:global(.dialog) {
+    animation: impactOpen var(--duration-slow) var(--ease-out);
+    transform-origin: center;
+  }
+}
+@keyframes impactOpen {
+  from {
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
 @media (max-width: 680px) {
   .summary {
     grid-template-columns: minmax(0, 1fr);

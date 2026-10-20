@@ -9,6 +9,7 @@ import { MembershipManager } from "./membership-manager";
 import { CourtRateEditor } from "./court-rate-editor";
 type Tab = "sports" | "gym" | "court-rates";
 function CatalogContent({ defaultTab }: { defaultTab: Tab }) {
+  const { t } = useLanguage();
   const params = useSearchParams();
   const requested = params.get("tab");
   const tab: Tab =
@@ -22,15 +23,27 @@ function CatalogContent({ defaultTab }: { defaultTab: Tab }) {
           ? requested
           : defaultTab;
   return (
-    <div className="stack">
-      {tab === "sports" ? (
-        <SportsManager />
-      ) : tab === "gym" ? (
-        <MembershipManager />
-      ) : (
-        <CourtRateEditor />
-      )}
-    </div>
+    <AppShell
+      title={
+        tab === "sports"
+          ? t.operations.sports
+          : tab === "gym"
+            ? t.navigation.items.membershipPlans
+            : t.operations.rates
+      }
+      allow={["CenterManager"]}
+      operationalLayout
+    >
+      <div className="stack">
+        {tab === "sports" ? (
+          <SportsManager />
+        ) : tab === "gym" ? (
+          <MembershipManager />
+        ) : (
+          <CourtRateEditor />
+        )}
+      </div>
+    </AppShell>
   );
 }
 export function ManagerCatalog({
@@ -38,16 +51,9 @@ export function ManagerCatalog({
 }: {
   defaultTab?: Tab;
 }) {
-  const { t } = useLanguage();
   return (
-    <AppShell
-      title={t.managerCatalog.title}
-      allow={["CenterManager"]}
-      operationalLayout
-    >
-      <Suspense fallback={<Loading />}>
-        <CatalogContent defaultTab={defaultTab} />
-      </Suspense>
-    </AppShell>
+    <Suspense fallback={<Loading />}>
+      <CatalogContent defaultTab={defaultTab} />
+    </Suspense>
   );
 }

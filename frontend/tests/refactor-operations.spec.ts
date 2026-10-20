@@ -874,7 +874,7 @@ test("historical rental detail loads by owner ID with its snapshot and refund, w
   expect(rangeCalls).toBe(0);
 });
 
-test("course cancellation shows the server refund and discards a preview rejected as stale", async ({
+test("enrolled course cancellation cannot be opened through a direct link", async ({
   page,
 }) => {
   await session(page, "CENTER_MANAGER");
@@ -917,43 +917,29 @@ test("course cancellation shows the server refund and discards a preview rejecte
     }),
   );
   let cancellations = 0;
-  await page.route("**/api/manager/classes/1/cancel", (r) => {
+  await page.route("**/api/manager/classes/1/cancel", (route) => {
     cancellations++;
-    expect(r.request().postDataJSON()).toEqual({
-      reason: "Center closure",
-      previewToken: "server-quote",
-    });
-    return r.fulfill({
+    return route.fulfill({
       status: 409,
-      json: {
-        error: "class_cancellation_changed",
-        message: "Refund changed; preview again",
-      },
+      json: { error: "class_has_enrollments" },
     });
   });
-  await page.goto("/manager/classes/1");
-  const panel = page.locator("section.card").filter({
-    has: page.getByRole("heading", { name: "Cancel", exact: true }),
-  });
-  await panel.getByLabel("Reason", { exact: true }).fill("Center closure");
-  await panel
-    .getByRole("button", { name: "Preview course cancellation" })
-    .click();
+  await page.goto("/manager/classes/1?tab=management#course-cancellation");
   await expect(
-    panel.getByText("Estimated total refund points: 66", { exact: true }),
-  ).toBeVisible();
-  await panel.getByRole("button", { name: "Confirm", exact: true }).click();
-  await expect(panel.getByRole("alert")).toHaveText(
-    "Refund changed; preview again",
-  );
-  await expect(
-    panel.getByRole("button", { name: "Confirm", exact: true }),
+    page.getByRole("button", { name: "Cancel class", exact: true }),
   ).toHaveCount(0);
-  await expect(panel.getByLabel("Reason", { exact: true })).toHaveValue(
-    "Center closure",
-  );
-  expect(cancellations).toBe(1);
+  await expect(
+    page.getByRole("dialog", { name: "Cancel class", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "This class has enrolled students. Reschedule a session, change the room, or assign another coach instead.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect(cancellations).toBe(0);
 });
+
 const room = {
   roomId: 1,
   name: "Court A",

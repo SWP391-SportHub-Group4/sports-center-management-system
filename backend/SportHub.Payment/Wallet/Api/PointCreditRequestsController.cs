@@ -20,9 +20,9 @@ public sealed class PointCreditRequestsController(PointAdjustmentService adjustm
 
     [HttpPost("{requestId:guid}/approve")]
     public async Task<IActionResult> Approve(Guid requestId, CancellationToken ct)
-        => Ok(await adjustments.ApproveAsync(requestId, ActorId, ct));
+        => Forbid();
 
     [HttpPost("{requestId:guid}/reject")]
     public async Task<IActionResult> Reject(Guid requestId, RejectPointCreditRequest request, CancellationToken ct)
-        => Ok(await adjustments.RejectAsync(requestId, request.Reason, ActorId, ct));
+        => Forbid();
 }

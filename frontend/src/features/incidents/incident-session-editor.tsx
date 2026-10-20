@@ -21,6 +21,7 @@ export function IncidentSessionEditor({
   onOutcome,
 }: {
   session: CourseSessionDto;
+  confirmedCount: number;
   sportId: number;
   incident: IncidentRequest;
   onSaved: () => void;
@@ -68,6 +69,7 @@ export function IncidentSessionEditor({
     COMPLETED_AS_PLANNED: vi ? "Đã học đầy đủ" : "Fully delivered",
   };
   const valid =
+    !!outcome &&
     reason.trim().length >= 3 &&
     reason.trim().length <= 500 &&
     !!occurred &&

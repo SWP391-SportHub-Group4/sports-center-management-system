@@ -1,35 +1,25 @@
 "use client";
+import { PendingMemberActions } from "@/features/receptionist";
+import type { CourseEnrollmentDto } from "@/lib/types";
 import listStyles from "./manager-members.module.css";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { AsyncSection, Card, Field, StatusChip, Table } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { Pagination } from "@/features/operations";
 import { InvoiceList } from "@/features/payments";
-import type {
-  CoachMemberRelationshipDto,
-  MemberPackageDto,
-  Paged,
-  UserAdminDto,
-} from "@/lib/types";
+import type { MemberPackageDto, Paged, UserAdminDto } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
-import { MemberHealthProfile } from "./member-health-profile";
 import { AvatarImage } from "@/components/AvatarImage";
-import { ReportAvatarButton } from "@/components/ReportAvatarButton";
-import { AssignCoachDialog } from "./assign-coach-dialog";
-import { EndRelationshipDialog } from "./end-relationship-dialog";
-import {
-  PendingMemberPanel,
-  RegisterMemberDialog,
-  MemberSupportRequests,
-} from "@/features/receptionist";
+import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
+import { RegisterMemberDialog } from "@/features/receptionist";
 
 /** Danh sách hội viên của Manager và đăng ký Member tại quầy. */
 export function ManagerMemberList() {
@@ -121,16 +111,18 @@ export function ManagerMemberList() {
                           )}
                         </td>
                         <td>
-                          <ReportAvatarButton
-                            targetUserId={m.userId}
-                            avatarUrl={m.avatarUrl}
-                          />
-                          <Link
-                            className="btn btn--secondary btn--sm"
-                            href={`/manager/members/${m.userId}`}
-                          >
-                            {l.openMember}
-                          </Link>
+                          <div className={listStyles.actions}>
+                            <PendingMemberActions
+                              member={m}
+                              onChanged={state.reload}
+                            />
+                            <Link
+                              className="btn btn--secondary btn--sm"
+                              href={`/manager/members/${m.userId}`}
+                            >
+                              View details
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -161,20 +153,11 @@ export function ManagerMemberList() {
   );
 }
 
-type TabId = "overview" | "invoices" | "health";
-
 /** Hồ sơ vận hành của hội viên (Q12): Membership, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
 export function ManagerMemberProfile({ memberId }: { memberId: string }) {
-  const [assigning, setAssigning] = useState(false);
-  const [ending, setEnding] = useState<CoachMemberRelationshipDto | null>(null);
-  const { t, language } = useLanguage();
-  const l = t.ptOps;
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const requested = params.get("tab");
-  const tab: TabId =
-    requested === "invoices" || requested === "health" ? requested : "overview";
+  const { t } = useLanguage();
+  const [tab, setTab] = useState("packages");
+  const [page, setPage] = useState(1);
   const member = useApi(
     (signal) => api.get<UserAdminDto>(`/api/users/${memberId}`, { signal }),
     [memberId],
@@ -186,209 +169,111 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
       }),
     [memberId],
   );
-  const pairs = useApi(
+  const enrollments = useApi(
     (signal) =>
-      api.get<CoachMemberRelationshipDto[]>("/api/coach-member-relationships", {
-        signal,
-        query: { memberId, page: 1, pageSize: 20, activeOnly: false },
-      }),
-    [memberId],
+      api.get<Paged<CourseEnrollmentDto>>(
+        `/api/members/${memberId}/enrollments`,
+        { signal, query: { page, pageSize: 20 } },
+      ),
+    [memberId, page],
   );
-
   return (
     <div className={styles.page}>
-      <Link className={styles.back} href="/manager/members">
-        ← {l.members}
+      <Link className="btn btn--ghost" href="/manager/members">
+        {t.managerOperations.backToList}
       </Link>
       <AsyncSection state={member}>
         {(m) => (
-          <>
-            <section
-              className={styles.summary}
-              aria-label={m.fullName || m.email}
-            >
-              <div>
-                <AvatarImage
-                  name={m.fullName || m.email}
-                  avatarUrl={m.avatarUrl}
-                  size={64}
-                />
-                <p className={styles.coachName}>{m.fullName || m.email}</p>
-                <ReportAvatarButton
-                  targetUserId={m.userId}
-                  avatarUrl={m.avatarUrl}
-                />
-                <p className={styles.muted}>
-                  {m.email}
-                  {m.phone ? ` · ${m.phone}` : ""}
-                </p>
-              </div>
-              <div className={styles.next}>
-                {m.activationPending ? (
-                  <StatusChip
-                    value="PENDING_ACTIVATION"
-                    tone="warning"
-                    label={t.frontDesk.pendingActivation}
-                  />
-                ) : (
-                  <StatusChip value={m.status} />
-                )}
-                <p className={styles.muted}>{l.readOnlyNote}</p>
-              </div>
-            </section>
-            {m.activationPending && (
-              <PendingMemberPanel
-                key={m.userId}
-                member={m}
-                onChange={() => member.reload()}
+          <section className={styles.summary}>
+            <div>
+              <AvatarImage
+                name={m.fullName || m.email}
+                avatarUrl={m.avatarUrl}
+                size={64}
               />
-            )}
-          </>
+              <h2>{m.fullName || m.email}</h2>
+              <p>
+                {m.email}
+                {m.phone ? ` · ${m.phone}` : ""}
+              </p>
+              {m.avatarUrl && (
+                <RemoveMemberAvatarButton
+                  memberId={m.userId}
+                  memberName={m.fullName || m.email}
+                  onRemoved={member.reload}
+                />
+              )}
+            </div>
+            <StatusChip
+              value={m.activationPending ? "PENDING_ACTIVATION" : m.status}
+            />
+          </section>
         )}
       </AsyncSection>
       <Tabs
-        tabs={[
-          { id: "overview", label: l.memberOverview },
-          { id: "invoices", label: l.memberInvoices },
-          {
-            id: "health",
-            label: language === "vi" ? "Hồ sơ sức khỏe" : "Health profile",
-          },
-        ]}
         value={tab}
-        ariaLabel={l.memberTabsLabel}
-        onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
+        onChange={setTab}
+        ariaLabel="Member details"
+        tabs={[
+          { id: "packages", label: "Memberships" },
+          { id: "classes", label: "Classes" },
+          { id: "invoices", label: "Payment history" },
+        ]}
       >
         <div className={styles.tabBody}>
-          {tab === "health" ? (
-            <MemberHealthProfile key={memberId} memberId={memberId} />
-          ) : tab === "invoices" ? (
-            <InvoiceList staff memberId={memberId} />
-          ) : (
-            <>
-              <section className={styles.section}>
-                <h2>{l.gymMembership}</h2>
-                <AsyncSection
-                  state={packages}
-                  isEmpty={(rows) => !rows.length}
-                  emptyMessage={l.noMembership}
-                >
-                  {(rows) => (
-                    <ul className={styles.list}>
-                      {rows.map((p) => (
-                        <li key={p.memberPackageId}>
-                          <div>
-                            <strong>{p.packageName}</strong>
-                            <span>
-                              {formatDate(p.startDate)} –{" "}
-                              {formatDate(p.endDate)}
-                            </span>
-                          </div>
+          {tab === "packages" && (
+            <AsyncSection state={packages}>
+              {(rows) =>
+                rows.length ? (
+                  <Table headers={["Membership", "Start", "End", "Status"]}>
+                    {rows.map((p) => (
+                      <tr key={p.memberPackageId}>
+                        <td>{p.packageName}</td>
+                        <td>{formatDate(p.startDate)}</td>
+                        <td>{formatDate(p.endDate)}</td>
+                        <td>
                           <StatusChip value={p.status} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </AsyncSection>
-              </section>
-              <section className={styles.section}>
-                <div className={listStyles.sectionHeader}>
-                  <h2>{l.pairs}</h2>
-                  <button
-                    type="button"
-                    className="btn btn--sm"
-                    disabled={!member.data || member.data.status !== "ACTIVE"}
-                    onClick={() => setAssigning(true)}
-                  >
-                    {language === "vi" ? "Phân công HLV" : "Assign coach"}
-                  </button>
-                </div>
-                <AsyncSection
-                  state={pairs}
-                  isEmpty={(rows) => !pagedItems(rows).length}
-                  emptyMessage={l.noPairs}
-                >
-                  {(rows) => (
-                    <ul className={styles.list}>
-                      {pagedItems(rows).map((p) => (
-                        <li key={p.relationshipId}>
-                          <div className={listStyles.relationshipDetails}>
-                            <strong>{p.coachName}</strong>
-                            <span>
-                              {p.sourceType === "ASSIGNED_BY_MANAGER"
-                                ? "Assigned by Manager"
-                                : "Class assignment"}
-                            </span>
-                            {p.status === "ACTIVE" ? (
-                              (p.activeClasses ?? []).map((course) => (
-                                <Link
-                                  key={course.classId}
-                                  href={`/manager/classes/${course.classId}`}
-                                >
-                                  {course.className}
-                                </Link>
-                              ))
-                            ) : (
-                              <>
-                                {p.endedAt && (
-                                  <span>Ended {formatDateTime(p.endedAt)}</span>
-                                )}
-                                <span>
-                                  {p.endReason ?? "End reason not recorded."}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          <div className={listStyles.relationshipActions}>
-                            <StatusChip value={p.status} />
-                            {p.status === "ACTIVE" && (
-                              <button
-                                type="button"
-                                className="btn btn--secondary btn--sm"
-                                aria-label={
-                                  language === "vi"
-                                    ? `Kết thúc quan hệ với ${p.coachName}`
-                                    : `End relationship with ${p.coachName}`
-                                }
-                                onClick={() => setEnding(p)}
-                              >
-                                {language === "vi"
-                                  ? "Kết thúc quan hệ"
-                                  : "End relationship"}
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </AsyncSection>
-              </section>
-            </>
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+                ) : (
+                  <p>No memberships yet.</p>
+                )
+              }
+            </AsyncSection>
           )}
+          {tab === "classes" && (
+            <AsyncSection state={enrollments}>
+              {(data) => (
+                <>
+                  <Table headers={["Class", "Sport", "Status"]}>
+                    {data.items.map((e) => (
+                      <tr key={e.enrollmentId}>
+                        <td>
+                          <Link href={`/manager/classes/${e.classId}`}>
+                            {e.className}
+                          </Link>
+                        </td>
+                        <td>{e.sportName}</td>
+                        <td>
+                          <StatusChip value={e.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+                  <Pagination
+                    page={page}
+                    count={data.totalCount}
+                    onChange={setPage}
+                  />
+                </>
+              )}
+            </AsyncSection>
+          )}
+          {tab === "invoices" && <InvoiceList staff memberId={memberId} />}
         </div>
       </Tabs>
-      {member.data && <MemberSupportRequests memberId={memberId} />}
-      {assigning && member.data && (
-        <AssignCoachDialog
-          member={member.data}
-          onClose={() => setAssigning(false)}
-          onCreated={() => {
-            setAssigning(false);
-            pairs.reload();
-          }}
-        />
-      )}
-      {ending && (
-        <EndRelationshipDialog
-          relationship={ending}
-          onClose={() => setEnding(null)}
-          onEnded={() => {
-            setEnding(null);
-            pairs.reload();
-          }}
-        />
-      )}
     </div>
   );
 }

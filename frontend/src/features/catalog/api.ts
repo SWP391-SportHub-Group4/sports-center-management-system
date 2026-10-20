@@ -12,7 +12,7 @@ import type {
 export type SaveSport = Pick<
   SportDto,
   "name" | "description" | "imageUrl" | "services"
-> & { code?: string };
+> & { code?: string; createRoomType?: boolean; roomTypeName?: string };
 export type SavePackage = Pick<
   MembershipPackageDto,
   "name" | "price" | "durationDays" | "description" | "sessionLimit"

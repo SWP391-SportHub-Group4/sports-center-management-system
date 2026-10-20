@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System.Net;
 using System.Text.Json;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Identity;
@@ -15,7 +14,7 @@ public sealed class ClassScheduleEffects(ISportHubDbContext db, IUserAccessReade
 {
     public async Task ApplyAsync(Class cls, ClassSession session, Guid actorId, Guid oldCoachId,
         Guid resultSessionId, Guid nextCoachId, string message, CancellationToken ct,
-        string outcomeAction = "SCHEDULE_UPDATED", string? outcomeReason = null)
+        string outcomeAction = "SCHEDULE_UPDATED", string? outcomeReason = null, string? emailBody = null)
     {
         var requests = await db.Set<ClassSessionChangeRequest>()
             .Where(r => r.SessionId == session.SessionId && r.Status == "PENDING")
@@ -37,28 +36,28 @@ public sealed class ClassScheduleEffects(ISportHubDbContext db, IUserAccessReade
             await NotifyAsync(request.RequestedByUserId, NotificationEvents.ClassSessionChangeReviewed, request.RequestId,
                 $"{cls.Name} · Session {session.SessionNo}: {request.ReviewNote}", ct);
         }
-        await NotifyCoachesAsync(cls, oldCoachId, nextCoachId, message, ct);
+        await NotifyCoachesAsync(cls, oldCoachId, nextCoachId, message, ct, emailBody: emailBody);
     }
 
     // Undo only sends corrections; it must not review unrelated pending requests.
     public Task NotifyCoachesAsync(Class cls, Guid oldCoachId, Guid nextCoachId, string message,
-        CancellationToken ct, Guid? eventId = null)
+        CancellationToken ct, Guid? eventId = null, string? emailBody = null)
         => NotifyRecipientsAsync(new[] { cls.CoachId, (Guid?)oldCoachId, nextCoachId }
             .Where(id => id.HasValue).Select(id => id!.Value), NotificationEvents.ScheduleChanged,
-            eventId ?? Guid.NewGuid(), message, ct);
+            eventId ?? Guid.NewGuid(), message, ct, emailBody);
 
     public async Task NotifyRecipientsAsync(IEnumerable<Guid> recipients, string type, Guid eventId,
-        string message, CancellationToken ct)
+        string message, CancellationToken ct, string? emailBody = null)
     {
         foreach (var userId in recipients.Distinct())
-            await NotifyAsync(userId, type, eventId, message, ct);
+            await NotifyAsync(userId, type, eventId, message, ct, emailBody);
     }
 
-    private async Task NotifyAsync(Guid userId, string type, Guid source, string message, CancellationToken ct)
+    private async Task NotifyAsync(Guid userId, string type, Guid source, string message, CancellationToken ct, string? emailBody = null)
     {
         notifications.Queue(new(userId, type, message, source));
         var user = await users.GetAsync(userId, ct);
         if (user is not null) notifications.QueueEmail(new(userId, user.Email, type, source, "SportHub · Teaching schedule updated",
-            "<p>" + WebUtility.HtmlEncode(message) + "</p>"));
+            emailBody ?? SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message)));
     }
 }

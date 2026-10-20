@@ -30,6 +30,7 @@ export function SupportRequestActions({
   feedback: lifted,
   onFeedback: liftedSet,
   onChanged,
+  layout = "profile",
   collapsible = false,
 }: {
   request: MemberSupportRequestDto;
@@ -38,6 +39,7 @@ export function SupportRequestActions({
   feedback?: SupportFeedback | null;
   onFeedback?: (feedback: SupportFeedback | null) => void;
   onChanged: () => void;
+  layout?: "profile" | "queue";
   /** Danh sách dài: ẩn biểu mẫu xử lý sau nút "Xử lý" để mỗi yêu cầu chỉ chiếm vài dòng. */
   collapsible?: boolean;
 }) {
@@ -100,8 +102,10 @@ export function SupportRequestActions({
   const chosen = assignees.find((x) => x.userId === assigneeId);
 
   return (
-    <div className={styles.manage}>
-      <div className={styles.manageHead}>
+    <div
+      className={`${styles.manage} ${layout === "queue" ? styles.manageQueue : ""}`}
+    >
+      <div className={styles.requestTop}>
         <p className={styles.assignee}>
           <span>{vi ? "Người xử lý" : "Assigned to"}</span>
           <strong>{assigneeName ?? (vi ? "Chưa gán" : "Unassigned")}</strong>

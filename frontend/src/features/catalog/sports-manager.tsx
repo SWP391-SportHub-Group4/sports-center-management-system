@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import { Field, StatusChip } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import type { SportDto, SportServiceType } from "@/lib/types";
 import { catalogApi, type SaveSport } from "./api";
 import {
+  CatalogPanel,
   ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
@@ -50,7 +51,6 @@ export function SportsManager() {
   const l = t.operations;
   const c = t.managerCatalog;
   const state = useApi((s) => catalogApi.sports(s, true), []);
-  const types = useApi((s) => catalogApi.roomTypes(s), []);
   const filters = useCatalogFilters();
   const mutation = useMutation();
   const [form, setForm] = useState(empty);
@@ -96,9 +96,8 @@ export function SportsManager() {
   };
   return (
     <>
-      <Card
-        title={l.sports}
-        hint={c.sportsHint}
+      <CatalogPanel
+        filters={<CatalogFilters filters={filters} />}
         actions={
           <button
             className="btn"
@@ -109,7 +108,6 @@ export function SportsManager() {
           </button>
         }
       >
-        <CatalogFilters filters={filters} />
         <CatalogTable
           state={state}
           filters={filters}
@@ -195,7 +193,7 @@ export function SportsManager() {
           )}
         />
         {!editor && !activity && <CatalogFeedback mutation={mutation} />}
-      </Card>
+      </CatalogPanel>
       {editor && (
         <CatalogFormDialog
           title={editor.id === null ? c.createSport : c.editSport}
@@ -328,22 +326,6 @@ export function SportsManager() {
               }
             />
           </Field>
-          {editor.id !== null && (
-            <div>
-              <h3>{c.compatibleRooms}</h3>
-              <p className="small muted">{c.compatibleRoomsHint}</p>
-              <AsyncSection state={types}>
-                {(rows) => (
-                  <p>
-                    {rows
-                      .filter((r) => r.sportIds.includes(editor.id!))
-                      .map((r) => r.name)
-                      .join(", ") || c.noCompatibleRooms}
-                  </p>
-                )}
-              </AsyncSection>
-            </div>
-          )}
         </CatalogFormDialog>
       )}
       {activity && (

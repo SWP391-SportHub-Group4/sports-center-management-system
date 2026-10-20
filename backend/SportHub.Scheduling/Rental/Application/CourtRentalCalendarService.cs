@@ -82,7 +82,7 @@ public sealed partial class CourtRentalService
                     if (status == "AVAILABLE")
                     {
                         try { quote = CourtRateCalculator.Calculate(rates.Where(r => r.RoomTypeId == room.RoomTypeId), sportId,
-                            new DateTimeOffset(start), TimeSpan.FromHours(hours), step); }
+                            new DateTimeOffset(start), TimeSpan.FromHours(hours), step, room.RoomId); }
                         catch (ConflictException) { status = "NO_RATE"; }
                     }
                     slots.Add(new CourtCalendarSlot(start, end, status, quote?.TotalPrice, quote?.Blocks ?? []));

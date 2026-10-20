@@ -16,10 +16,7 @@ import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLogDto, Paged, RoomTypeDto } from "@/lib/types";
 import { AuditEventDetails } from "@/features/administration/AuditEventDetails";
-import {
-  auditRecordType,
-  readableAuditLabel,
-} from "@/features/administration/audit-event-model";
+import { auditRecordType } from "@/features/administration/audit-event-model";
 import { auditDisplayText } from "@/features/administration/audit-display";
 import { needsCourtRateRoomNames } from "@/features/administration/CourtRateAuditChanges";
 import styles from "./AuditLogView.module.css";
@@ -81,7 +78,7 @@ function AuditFilterForm({
         />
       ),
     },
-    { id: "targetEntity", label: l.entity, kind: "search" },
+    { id: "targetEntity", label: t.adminWork.target, kind: "search" },
     {
       id: "actorRole",
       label: "Role at event time",
@@ -301,7 +298,7 @@ export function AuditLogView({
       id: "action",
       header: l.action,
       sortable: true,
-      cell: (row) => readableAuditLabel(row.action),
+      cell: (row) => <span className={styles.actionCode}>{row.action}</span>,
     },
     {
       id: "targetEntity",

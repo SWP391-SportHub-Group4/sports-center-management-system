@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
@@ -13,10 +14,10 @@ import { CoachSelector } from "@/features/coaches";
 import { ScheduleRuleEditor } from "./schedule-rule-editor";
 import { ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
-import { AiScheduleDrawer } from "@/features/manager";
+import { ClassWeekSchedule } from "./class-week-schedule";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
-import { pagedItems } from "@/lib/paged";
-import type { Paged, ManagerCourseDto } from "@/lib/types";
+import type { ManagerCourseDto } from "@/lib/types";
+import editorStyles from "./course-editor.module.css";
 
 export function CourseEditor({
   course,
@@ -41,8 +42,6 @@ export function CourseEditor({
   const saved = useRef(false);
 
   const [step, setStep] = useState(0);
-
-  const [ai, setAi] = useState(false);
 
   const [hydrated, setHydrated] = useState(false);
 
@@ -180,25 +179,6 @@ export function CourseEditor({
     };
   }, []);
 
-  const previousClasses = useApi(
-    async (signal) => {
-      if (!form.sportId) return [];
-      const rows: ManagerCourseDto[] = [];
-      for (let page = 1; ; page++) {
-        const response = await api.get<Paged<ManagerCourseDto>>(
-          "/api/manager/classes",
-          {
-            signal,
-            query: { sportId: form.sportId, page, pageSize: 100 },
-          },
-        );
-        const batch = pagedItems(response);
-        rows.push(...batch);
-        if (!batch.length || rows.length >= response.totalCount) return rows;
-      }
-    },
-    [form.sportId],
-  );
   const service = catalog.data?.sports
     .find((sport) => sport.sportId === Number(form.sportId))
     ?.services.find(
@@ -213,6 +193,10 @@ export function CourseEditor({
 
   const threshold =
     form.price > 0 ? Math.ceil(form.costAmount / form.price) : 0;
+  const memberCount = (count: number) =>
+    count === 1
+      ? l.classSingleMember
+      : l.classMemberCount.replace("{count}", String(count));
 
   const capacityInvalid =
     (!!room && form.capacity > room.capacity) ||
@@ -273,11 +257,15 @@ export function CourseEditor({
   }
 
   return (
-    <Card title={course ? l.edit : l.create}>
-      <ol className={styles.steps}>
+    <Card>
+      <ol className={styles.steps} aria-label={t.classWorkspace.setupProgress}>
         {[m.contentStep, m.scheduleStep, m.pricingStep, m.reviewStep].map(
           (label, index) => (
-            <li key={label} aria-current={step === index ? "step" : undefined}>
+            <li
+              key={label}
+              aria-current={step === index ? "step" : undefined}
+              data-complete={index < step || undefined}
+            >
               {index + 1}. {label}
             </li>
           ),
@@ -305,14 +293,7 @@ export function CourseEditor({
             return;
           }
 
-          /*
-           * Backend class body.
-           *
-           * AI suggestion is
-           * already reflected in
-           * form if Manager pressed
-           * Apply.
-           */
+          // Save the current manually configured schedule.
           const body = {
             ...schedule,
 
@@ -409,38 +390,6 @@ export function CourseEditor({
                   })
                 }
               />
-              <Field label="Next cohort of (optional)">
-                <select
-                  value={form.continuationOfClassId}
-                  disabled={!form.sportId || previousClasses.loading}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      continuationOfClassId: event.target.value,
-                    })
-                  }
-                >
-                  <option value="">New program / no previous cohort</option>
-                  {(previousClasses.data ?? [])
-                    .filter(
-                      (c) =>
-                        c.classId !== course?.classId &&
-                        c.startDate <= form.startDate,
-                    )
-                    .map((c) => (
-                      <option key={c.classId} value={c.classId}>
-                        {c.code} · {c.name}
-                      </option>
-                    ))}
-                </select>
-                <small>
-                  Members waiting for the selected class will be notified when
-                  this cohort opens for registration.
-                </small>
-                {previousClasses.error && (
-                  <p role="alert">{previousClasses.error.message}</p>
-                )}
-              </Field>
             </div>
           )}
 
@@ -532,19 +481,15 @@ export function CourseEditor({
                 )}
               </AsyncSection>
 
-              <button
-                type="button"
-                className="btn btn--secondary"
-                disabled={
-                  !form.sportId ||
-                  !form.coachId ||
-                  !form.defaultRoomId ||
-                  form.capacity < 1
-                }
-                onClick={() => setAi(true)}
-              >
-                {m.aiTitle}
-              </button>
+              <ClassWeekSchedule
+                key={form.startDate}
+                startDate={form.startDate}
+                coachId={form.coachId}
+                roomId={Number(form.defaultRoomId)}
+                rooms={catalog.data?.rooms ?? []}
+                classId={course?.classId}
+                draftSessions={slots}
+              />
             </>
           )}
 
@@ -559,9 +504,9 @@ export function CourseEditor({
                   [
                     ["capacity", l.capacity, 1, 1],
 
-                    ["price", l.price, 1000, 1000],
+                    ["price", t.classWorkspace.price, 1000, 1000],
 
-                    ["costAmount", l.cost, 0, 1],
+                    ["costAmount", t.classWorkspace.cost, 0, 1],
                   ] as const
                 ).map(([key, label, min, increment]) => (
                   <Field key={key} label={label}>
@@ -583,9 +528,12 @@ export function CourseEditor({
                 ))}
               </div>
 
-              <p>
-                {l.threshold}: {threshold} / {form.capacity}
-              </p>
+              <div>
+                <p>
+                  {l.classMinimumEnrollment}:{" "}
+                  <strong>{memberCount(threshold)}</strong>
+                </p>
+              </div>
 
               {threshold > form.capacity && (
                 <p role="alert">{m.thresholdExceeded}</p>
@@ -611,39 +559,27 @@ export function CourseEditor({
                 </div>
 
                 <div>
-                  <dt>{l.price}</dt>
+                  <dt>{t.classWorkspace.price}</dt>
 
                   <dd>{formatMoney(form.price)}</dd>
                 </div>
 
                 <div>
-                  <dt>{l.cost}</dt>
+                  <dt>{t.classWorkspace.cost}</dt>
 
                   <dd>{formatMoney(form.costAmount)}</dd>
                 </div>
 
                 <div>
-                  <dt>{l.threshold}</dt>
+                  <dt>{l.classMinimumEnrollment}</dt>
 
-                  <dd>
-                    {threshold} / {form.capacity}
-                  </dd>
+                  <dd>{memberCount(threshold)}</dd>
                 </div>
               </dl>
 
-              {/*
-               * Keep final review.
-               *
-               * Even though AI now
-               * receives backend
-               * validation, this
-               * review validates the
-               * CURRENT form state,
-               * including any manual
-               * edits made after AI
-               * Apply.
-               */}
+              {/* Validate the current form before saving. */}
               <ScheduleReview
+                showRefresh={!!course}
                 course={schedule}
                 minutes={minutes}
                 roomName={room?.name}
@@ -660,16 +596,22 @@ export function CourseEditor({
           {step > 0 && (
             <button
               type="button"
-              className="btn btn--secondary"
+              className={`btn btn--secondary ${editorStyles.arrowButton}`}
+              aria-label={l.previous}
+              data-direction="previous"
+              title={l.previous}
               disabled={mutation.busy}
               onClick={() => setStep(step - 1)}
             >
-              {l.previous}
+              <ArrowLeft size={24} strokeWidth={2.25} aria-hidden="true" />
             </button>
           )}
 
           <button
-            className="btn"
+            className={`btn ${step < 3 ? editorStyles.arrowButton : ""}`}
+            aria-label={step === 3 ? m.saveDraft : l.next}
+            data-direction={step < 3 ? "next" : undefined}
+            title={step === 3 ? m.saveDraft : l.next}
             disabled={
               mutation.busy ||
               /*
@@ -685,12 +627,16 @@ export function CourseEditor({
               (step >= 2 && (!valid || catalog.loading))
             }
           >
-            {step === 3 ? m.saveDraft : l.next}
+            {step === 3 ? (
+              m.saveDraft
+            ) : (
+              <ArrowRight size={24} strokeWidth={2.25} aria-hidden="true" />
+            )}
           </button>
 
           <button
             type="button"
-            className="btn btn--secondary"
+            className={`btn ${editorStyles.cancelButton}`}
             disabled={mutation.busy}
             onClick={onClose}
           >
@@ -698,40 +644,6 @@ export function CourseEditor({
           </button>
         </div>
       </form>
-
-      {/* ---------------------------------------------
-          MANAGER AI
-      --------------------------------------------- */}
-
-      {ai && (
-        <AiScheduleDrawer
-          onClose={() => setAi(false)}
-          value={{
-            sportId: Number(form.sportId),
-            coachId: form.coachId || null,
-            defaultRoomId: Number(form.defaultRoomId),
-
-            capacity: form.capacity,
-
-            startDate: form.startDate,
-            numSessions: form.numSessions,
-            scheduleRules: form.scheduleRules,
-
-            operation: course ? "UPDATE" : "CREATE",
-
-            classId: course?.classId ?? null,
-            version: course?.version ?? null,
-          }}
-          onApply={(suggestion) => {
-            setForm((current) => ({
-              ...current,
-              startDate: suggestion.startDate,
-              numSessions: suggestion.numSessions,
-              scheduleRules: suggestion.scheduleRules,
-            }));
-          }}
-        />
-      )}
     </Card>
   );
 }

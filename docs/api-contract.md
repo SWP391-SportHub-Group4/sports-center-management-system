@@ -1,5 +1,28 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Manager workspace — 20 October 2026
+
+Scope and navigation: [Manager workspace](Manager-Workspace.md). These rules supersede older cancellation, wallet-adjustment and next-cohort-link descriptions.
+
+- `GET /api/manager/requests/summary`: CenterManager only; pending counts `{coach,refunds,support,avatar}`. Existing request types retain their own mutation APIs.
+- `POST /api/avatars/reports`: authenticated account; `{targetUserId,avatarUrl,reason}` for another Member/Coach's current photo. Same reporter/photo/open report is deduplicated. Audit and Manager notifications commit with the report.
+- `GET /api/manager/avatar-reports?status&search&page&pageSize`: Manager-only paged moderation inbox with target identity/role, reported/current photo and reason.
+- `POST /api/manager/avatar-reports/{reportId}/dismiss`: Manager-only, idempotent after resolution.
+- `DELETE /api/manager/users/{userId}/avatar`: Manager-only current Member/Coach photo removal; resolves open reports and retains history. Legacy member-only removal remains compatible.
+- `POST /api/class-sessions/{sessionId}/incident-makeup`: Manager-only `{fenceId,reason,makeup}`; requires a held, matching, unexpired Incident fence and a valid future replacement. Allows enrolled classes. Ordinary `/cancel` still rejects active Confirmed enrollment; historical `/incident` permits whole-session makeup under its validated Incident window.
+- Room create/update accepts direct `sportId`; rental setup no longer requires `roomTypeId` from the user. Room responses append nullable `sportId`. Legacy type/rate keys are retained internally. Existing scheduled/priced rooms cannot silently change sports.
+- `GET /api/member-packages` adds optional `packageId`; `GET /api/manager/classes` adds `coachId`, including main and noncancelled session assignments.
+- `GET /api/course-interests` adds optional `active`. One active Member/Sport subscription is retained; same-sport publications after opt-in trigger one bell/email delivery per subscription/class when bookable. Paid fulfillment ends the interest atomically; holds do not. Existing unknown-time publications retain explicit-link compatibility.
+- HTTP manual wallet adjustment creation and legacy point-credit approval/rejection return 403. Wallet read/ledger, payment and refund commands remain functional.
+
+## Tạo Sport kèm Room Type tùy chọn — 19 October 2026
+
+`POST /api/manager/sports` bổ sung `createRoomType` (mặc định false) và `roomTypeName` (tên do Manager nhập, tối đa 100 ký tự). Khi chọn true, tên sau trim phải có nội dung và không trùng Room Type hiện có (không phân biệt hoa/thường); lỗi `invalid_room_type_name` hoặc `room_type_name_taken` không tạo Sport. Sport, Room Type Active, liên kết SportRoomType và audit được lưu cùng transaction. Khi false/bỏ trống, tên Room Type được bỏ qua và không tạo/sửa Room Type hay liên kết. `PUT` không hỗ trợ tạo Room Type (`room_type_creation_only` nếu bật flag). Response Sport giữ nguyên; Room Type mới xuất hiện trong `/api/room-types` kèm sportIds. Không tạo sân vật lý. Không cần migration.
+
+## Tạo sân cho thuê trọn gói — 19 October 2026
+
+Manager-only `POST /api/rooms/rental` lưu sân, giờ hoạt động, giá riêng và bật dịch vụ thuê trong một transaction. Court-rate request/response bổ sung `roomId` nullable; giá riêng được ưu tiên hơn giá chung theo loại sân. Xem [contract, validation và verification](Rental-Court-Setup.md).
+
 ## M06 class opening decision — 18 October 2026
 
 See [confirmed policy and implementation](Class-Opening-Decision.md). Existing threshold/respond/waive/cancel/reschedule endpoints are reused. Public class responses add boolean `openingConfirmed` without exposing costs or break-even counts. Only Met/Waived classes advance to teaching; late unconfirmed openings require a Manager decision or deferral. Response settings allow 1–48 hours and reviews at least 72 hours ahead, with a 24-hour pre-opening margin. Rescheduling an unconfirmed planned first session updates its opening date/review deadline and cannot cut into an existing response window. Attendance can return 409 `class_opening_not_confirmed`; retroactive waiver returns 409 `threshold_opening_time_passed`; invalid reschedule returns 409 `threshold_response_window_conflict`.
@@ -53,16 +76,18 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 | GET | `/api/manager/classes/{classId}/holds` | Manager; paged `holdId,memberId,memberName,invoiceId,status,expiresAtUtc,createdAt`. |
 | GET | `/api/manager/classes/{classId}/enrollments` | Manager; paged `enrollmentId,memberId,memberName,invoiceItemId,status,enrolledAt`; lấy invoice bằng endpoint by-item hiện có. |
 | GET | `/api/manager/classes/{classId}/threshold-responses` | Manager; paged `responseId,memberId,memberName,choice,targetClassId,resolutionStatus,additionalInvoiceId,deadlineUtc`. Không trả token/hash. |
-| GET | `/api/manager/classes/{classId}/cancellation-preview` | Manager; `canCancel,version,totalSessions,sessionsNotProvided,confirmedCount,activeHoldCount,refundPoints,previewToken,members[]`. Member quote gồm enrollment/member/item ID, remaining paid value VND, refund points. |
-| POST | `/api/manager/classes/{classId}/cancel` | Manager; `{reason,previewToken?}`; có paid enrollment/active hold phải gửi token preview mới. Server khóa và tính lại; stale/concurrent trả 409 `class_cancellation_changed`. Nhả pending checkout/holds/điểm giữ, hoàn phần chưa cung cấp vào wallet + kết thúc enrollment + hủy buổi Scheduled + occupancy + audit/outbox cùng transaction. Hủy lặp khóa Cancelled không hoàn thêm. |
-| POST | `/api/manager/classes/{classId}/enrollment/close` | Manager; body `{reason}` bắt buộc, 3–500 ký tự (thiếu/ngắn → 400 `enrollment_close_reason_required`). Chỉ đóng tuyển sinh lớp Published: checkout mới nhận 409 `enrollment_closed`; hold Active và ghi danh hiện có không bị hủy, hold hợp lệ vẫn hoàn tất thanh toán. Luôn gửi thông báo + email tiếng Anh cho Member đã ghi danh. Response `ClassManagerResponse` thêm `enrollmentClosedReason`, `enrollmentClosedAtUtc`. Đóng lặp là no-op. Hoàn điểm lỗi trung tâm dùng `/cancel`, không dùng endpoint này. |
-| POST | `/api/manager/classes/{classId}/enrollment/open` | Manager; mở lại, xóa lý do đóng. Member đã ghi danh nhận thông báo + email “đã xử lý xong”. |
+| GET | `/api/manager/classes/{classId}/cancellation-preview` | Manager; `canCancel,version,totalSessions,sessionsNotProvided,confirmedCount,activeHoldCount,refundPoints,previewToken,members[]`. Enrolled classes cannot be cancelled; `refundPoints=0`, `members=[]`. |
+| POST | `/api/manager/classes/{classId}/cancel` | Manager; `{reason,previewToken?}`. Active Confirmed enrollment: HTTP 409 `class_has_enrollments`, no state changes. Empty classes may cancel; active holds require a fresh preview token. Releases pending checkout/holds and held points, cancels Scheduled sessions, releases occupancy and writes audit/outbox atomically. Stale preview: 409 `class_cancellation_changed`. |
+| POST | `/api/manager/classes/{classId}/enrollment/close` | Manager; body `{reason}` bắt buộc, 3–500 ký tự (thiếu/ngắn → 400 `enrollment_close_reason_required`). Chỉ đóng tuyển sinh lớp Published: checkout mới nhận 409 `enrollment_closed`; hold Active và ghi danh hiện có không bị hủy, hold hợp lệ vẫn hoàn tất thanh toán. Luôn gửi thông báo + email tiếng Anh cho Member đã ghi danh. Response `ClassManagerResponse` thêm `enrollmentClosedReason`, `enrollmentClosedAtUtc`. Đóng lặp là no-op; không hủy lớp hoặc hoàn điểm. |
+| POST | `/api/manager/classes/{classId}/enrollment/open` | Legacy compatibility; không còn nút trong giao diện Manager. Không mở lại lớp đủ sĩ số (`class_full`). |
 | GET | `/api/members/me/class-holds` | Member; danh sách hold lớp còn hiệu lực của chính Member: `[{classId,invoiceId,expiresAtUtc}]` (Active, chưa hết hạn, có invoice). UI dùng để hiện “Hoàn tất thanh toán” cho lớp đã đóng tuyển sinh sau khi Member giữ chỗ; hold vẫn thanh toán được tới `expiresAtUtc`. |
 | POST | `/api/manager/notices` | Manager; body hiện có, thêm header `Idempotency-Key` UUID. Cùng Manager/key/payload nhận cùng noticeId và không tạo thêm outbox; đổi payload trả 409 `notice_idempotency_conflict`. Client cũ không có key vẫn được hỗ trợ. |
 | GET | `/api/manager/notices` | Manager; lịch sử của chính mình, query `search` theo tiêu đề, `fromDate`/`toDate` theo ngày Việt Nam (bao gồm hai đầu), `page`/`pageSize` (tối đa 50). Trả `PagedResult` với tiêu đề, người gửi, thời điểm, số người nhận và kênh đã chọn; mới nhất trước, tie-break bằng noticeId. |
 | GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; giữ `{noticeId,delivery}`, thêm `subject,message,createdAtUtc,senderName,recipientCount,sendInApp,sendEmail,isLegacy`. Manager khác nhận 404. |
 | GET | `/api/manager/notices/{noticeId}/recipients` | Manager đã gửi; phân trang `page`/`pageSize` (tối đa 50). Mỗi người có `userId,name,email,inApp,emailDelivery`; mỗi kênh có `status,retryCount,sentAt,lastAttemptAt`, hoặc null khi không có bản ghi. Không trả payload email hay lỗi kỹ thuật của SMTP. Manager khác nhận 404. |
 | GET | `/api/manager/notices/by-key/{key}` | Manager đã gửi; phục hồi receipt sau timeout/F5, chờ transaction gửi cùng key hoàn tất. |
+
+**Manager cancellation rule:** A class with any active `Confirmed` enrollment (`EndedAt == null`) cannot be cancelled by a Manager. Preview returns `canCancel=false`, `refundPoints=0` and `members=[]`. Both `POST /api/manager/classes/{classId}/cancel` and cancellation-with-makeup paths (including Coach request resolution and incident replacement) return HTTP `409`, error `class_has_enrollments`. The check runs after locking the class row and does not trust cached counts or a prior preview. Rescheduling, changing room, and assigning another qualified Coach remain available. Automatic below-threshold resolution uses its existing separate services and is unchanged.
 
 Migration `AddManualNoticeHistory` tạo `manual_notice_records`. Lần gửi mới lưu nguyên văn nội dung và snapshot tên/email người nhận/người gửi trong cùng transaction với audit/outbox; thay hồ sơ sau này không đổi lịch sử. Khôi phục lịch sử cũ từ audit `SEND_MANUAL_NOTICE` và outbox ManualNotice: tiêu đề/ngày gửi/người gửi, người nhận còn có dữ liệu và nội dung in-app nếu còn; không giải mã email. Bản cũ có `isLegacy=true`, `message=null` nếu không khôi phục được, tên có thể lấy từ hồ sơ hiện tại. Không gửi lại thông báo trong migration. `recipientCount` là số người; `delivery.total` và các trạng thái đếm theo từng kênh, không phải số người. `Read` của chuông không chứng minh email đã được mở.
 | GET | `/api/manager/incidents/{incidentId}/notifications` | Manager; delivery tổng các notice IncidentResolution của rental thuộc incident. |
@@ -251,6 +276,8 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 
 `PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
 
+Khi tài khoản đã là Coach và `role` vẫn là `COACH`, gửi `sportIds` để lưu chuyên môn (1–10 môn hợp lệ, có GroupCourse). Ghi audit `UPDATE_COACH_SPECIALTIES` kèm lý do và danh sách trước/sau; giữ nguyên phiên đăng nhập và lớp đã phân công, giống cập nhật chuyên môn của Manager. Nếu không gửi `sportIds` hoặc danh sách không đổi thì không ghi thay đổi.
+
 - **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
 - **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
 - **Mọi tài khoản hiện là SystemAdministrator:** không được đổi sang role khác, gồm chính Admin đang thao tác và Admin khác, không phụ thuộc số lượng Admin hoặc trạng thái tài khoản (409 `administrator_role_change_not_allowed`). Chỉ gửi lại role hiện tại thì không thay đổi dữ liệu. Quy tắc khóa/vô hiệu hóa Admin cuối cùng vẫn giữ riêng như cũ.
@@ -279,7 +306,7 @@ Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tạ
 - Vé ngày là gói Membership `packageId = 50000`, 1 ngày, seed mặc định 50.000đ bằng migration `GymDayPass`. Mua qua `POST api/checkouts/membership` như gói thường. Manager sửa được giá/tên/mô tả qua `PUT api/membership-packages/50000`; đổi thời hạn trả 409 `day_pass_duration_fixed`, ngừng bán trả 409 `day_pass_fixed`.
 - Hiệu lực: bắt đầu và kết thúc đúng ngày thanh toán thành công theo giờ Việt Nam (không cộng dồn với gói dài). Đã có vé hôm nay mà mua thêm trả 409 `day_pass_already_active`. Gym đang đóng cửa vì sự cố (mọi phòng Gym bị block) trả 409 `gym_closed_today`.
 - Thanh toán xong: thông báo và email "SportHub - Your Gym day pass" nhắc vé và mã check-in chỉ dùng trong ngày.
-- Check-in: `POST api/gym-checkins/self` (Member tự check-in, cùng điều kiện có gói Active) hoặc `POST api/gym-checkins` (lễ tân check-in hộ). Mã QR do server cấp và ký: Member gọi `GET api/members/me/checkin-code` (`{code, expiresAtUtc}`, mã dạng `SPORTHUB-CODE:{memberId}.{exp}.{chữ ký}`, hết hạn 00:00 giờ Việt Nam hôm sau, client không tự dựng được); lễ tân/Manager (policy `FrontDesk`) quét mã rồi gọi `POST api/members/checkin-code/resolve` (`{code}`) nhận `{memberId}`; mã giả/sai chữ ký trả 400 `checkin_code_invalid`, mã hết hạn 409 `checkin_code_expired`. Mã chỉ định danh Member; quyền vào Gym vẫn do check-in kiểm gói Active hôm nay.
+- Check-in: chỉ lễ tân thực hiện qua `POST api/gym-checkins` (Member không tự check-in; endpoint `api/gym-checkins/self` đã gỡ). Mã QR do server cấp và ký: Member gọi `GET api/members/me/checkin-code` (`{code, expiresAtUtc}`, mã dạng `SPORTHUB-CODE:{memberId}.{exp}.{chữ ký}`, hết hạn 00:00 giờ Việt Nam hôm sau, client không tự dựng được); lễ tân/Manager (policy `FrontDesk`) quét mã rồi gọi `POST api/members/checkin-code/resolve` (`{code}`) nhận `{memberId}`; mã giả/sai chữ ký trả 400 `checkin_code_invalid`, mã hết hạn 409 `checkin_code_expired`. Mã chỉ định danh Member; quyền vào Gym vẫn do check-in kiểm gói Active hôm nay.
 - Không nhắc hết hạn (`PackageExpiring`), không gia hạn khi sự cố đóng Gym, không hoàn trả (`RefundCalculator` trả 0).
 - Báo cáo: `GET api/reports/membership-summary` và `membership-period` không tính vé ngày vào hội viên Membership; thêm `membersWithDayPassToday` và `dayPassesSold`.
 
@@ -311,7 +338,7 @@ and cool-down. Group coach suggestions include these values in exercise lines.
 
 ### Avatar Cloudinary — `api/avatars`
 
-Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [AvatarsController](../backend/SportHub.Identity/Api/AvatarsController.cs). `GET /api/users/me`, response đăng nhập và danh sách Coach có `avatarUrl` nullable. Member/Coach tự tải multipart `file` qua `POST /api/avatars/me` (JPG/PNG/WebP, tối đa 5 MiB) và xóa qua `DELETE /api/avatars/me`. `GET /api/avatars/{userId}` chỉ công khai avatar Coach; avatar Member yêu cầu đăng nhập. Người đăng nhập báo cáo ảnh qua `POST /api/avatars/reports` (`targetUserId`, `reason`); Manager dùng `GET /api/manager/avatar-reports` và `POST .../{id}/dismiss|remove`. Manager không thể gỡ phiên bản ảnh mới bằng báo cáo ảnh cũ.
+Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [AvatarsController](../backend/SportHub.Identity/Api/AvatarsController.cs). `GET /api/users/me`, response đăng nhập và danh sách Coach có `avatarUrl` nullable. Member/Coach tự tải multipart `file` qua `POST /api/avatars/me` (JPG/PNG/WebP, tối đa 5 MiB) và xóa qua `DELETE /api/avatars/me`. `GET /api/avatars/{userId}` chỉ công khai avatar Coach; avatar Member yêu cầu đăng nhập. Center Manager gỡ trực tiếp ảnh hiện tại của Member qua `DELETE /api/manager/members/{memberId}/avatar`; hệ thống ghi audit và xếp tác vụ dọn ảnh cũ trên Cloudinary. Endpoint này không áp dụng cho ảnh Coach.
 
 ### AccountController — `api/users/me`
 
@@ -452,6 +479,8 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | Verb | Path |
 |---|---|
 | GET | `api/reports/class-utilization` |
+
+Enrollment is opened automatically in the publish transaction. The final confirmed, paid enrollment closes the class at capacity. A withdrawn enrollment reopens a class that was automatically closed as full only if its first session has not started. Active checkout holds still count against availability, and releasing or expiring a hold does not require a Manager action. The Manager UI no longer exposes manual enrollment controls. Existing published, upcoming classes are normalized by the AutomaticClassEnrollment data migration.
 
 ### EnrollmentsController — `api`
 
@@ -710,7 +739,7 @@ Report presentation: `pointsRedeemed` is the number of points spent in the selec
 
 ## Manager operations read contracts
 
-- `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Visibility uses event-time actor roles: Admin reads Manager/Admin/Coach/System events, Manager reads Manager/Receptionist/Coach/Member events. Member/Coach/Receptionist cannot gain audit access through this parameter.
+- `GET /api/audit-logs` accepts optional `targetId` together with `targetEntity` (the UI's Target filter). `targetEntity` uses case-insensitive substring matching with SQL `LIKE '%term%'`; surrounding whitespace is trimmed and `%`, `_`, and `\` in user input are treated literally. For example, `court` matches `CourtRate` and `CourtRental`. `targetId` remains an exact match. Both filters apply before pagination/count. Visibility uses event-time actor roles: Admin reads Manager/Admin/Coach/System events, Manager reads Manager/Receptionist/Coach/Member events. Member/Coach/Receptionist cannot gain audit access through these parameters.
 - `GET /api/manager/sports` service rows include the actual `offeringId`. The client must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
 - This adds no migration and implements no new G03/G06/G07/G13 command. Current incident preview/action/recheck/resolve remains a sequence of separate operations; timeout resolve requires reconciliation before a fresh attempt.
 

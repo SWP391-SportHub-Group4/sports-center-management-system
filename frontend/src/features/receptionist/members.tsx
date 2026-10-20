@@ -21,7 +21,6 @@ import { RegisterMemberDialog } from "./register-member";
 import { SelectedMemberPanel } from "./selected-member";
 import styles from "./desk.module.css";
 import { AvatarImage } from "@/components/AvatarImage";
-import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
 /** Danh sách hội viên (H02): tên/SĐT/email, mở hồ sơ vận hành. */
 export function MemberList() {
@@ -112,10 +111,6 @@ export function MemberList() {
                       </td>
                       <td className={styles.actionsCell}>
                         <span className={styles.rowActions}>
-                          <ReportAvatarButton
-                            targetUserId={m.userId}
-                            avatarUrl={m.avatarUrl}
-                          />
                           <Link
                             className="btn btn--secondary btn--sm"
                             href={`/receptionist/members/${m.userId}`}

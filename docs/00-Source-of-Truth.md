@@ -1,6 +1,12 @@
 # SportHub — Nguồn thống nhất về phạm vi và quy ước
 
+**Manager workspace — quyết định 20/10/2026:** [Luồng giao diện và chính sách mới](Manager-Workspace.md). Giữ nguyên Overview/chi tiết lớp; tập trung Request, Incident và thông báo trong Support & Communication; chọn Sport trực tiếp khi tạo sân, giữ khóa loại sân cũ cho tương thích dữ liệu. Bỏ cộng/trừ điểm thủ công, hồ sơ sức khỏe và giao diện quan hệ Coach–Member của Manager. Cho phép buổi bù có Incident hợp lệ dù lớp có học viên. Course interests hiển thị Member/Sport, thông báo lớp mới cùng môn và kết thúc sau ghi danh đã thanh toán. Quyết định này thay thế các đoạn mô tả cũ mâu thuẫn bên dưới; tài khoản staff và phân quyền vẫn thuộc Admin.
+
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
+
+Catalog cập nhật 19/10/2026: form tạo Sport có tùy chọn tạo Room Type, mặc định tắt. Bật thì Manager tự nhập tên Room Type, hệ thống tạo và liên kết cùng Sport trong một transaction; tắt thì giữ nguyên hành vi tạo Sport và không thay đổi Room Type. Không tự đặt tên, không tạo sân vật lý. Chi tiết trong [API contract](api-contract.md).
+
+Flow 2 cập nhật 19/10/2026: Manager tạo sân cho thuê cùng giờ hoạt động và giá trong một lần lưu; mở thuê thành công thì Member đặt được các slot trống hợp lệ. Court Rental Pricing nhận giá riêng theo sân; giá chung theo loại sân vẫn được giữ. Xem [luồng tạo sân cho thuê](Rental-Court-Setup.md).
 
 
 M03/M04 cập nhật 18/10/2026: [Xử lý sự cố và bố trí buổi bù](Incident-Session-Recovery.md). Theo yêu cầu mới nhất, bỏ chức năng hệ thống tự tìm/đề xuất lịch. Manager nhập ngày giờ, phòng và HLV; hệ thống kiểm tra hợp lệ/xung đột khi lưu. Buổi bị gián đoạn/không diễn ra được học lại nguyên thời lượng; buổi đã học đủ chỉ ghi nhận. Giữ lịch sử, không tính phút bù, không chuyển lớp/hoàn điểm trong luồng này.
@@ -89,7 +95,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Member có Enrollment Confirmed, `EndedAt` rỗng vẫn đọc lịch sử buổi, giáo án, homework và kết quả của chính mình khi lớp Completed. Ghi danh kết thúc hoặc lớp Cancelled/Draft thì thu hồi quyền nội dung; Coach chủ nhiệm mất quyền hồ sơ học viên khi lớp Completed hoặc ghi danh kết thúc.
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
 - “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
-- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập, báo cáo sau đăng tải do Manager xử lý; chi tiết tại [Avatar Cloudinary](api-contract.md#avatar-cloudinary--apiavatars).
+- Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập; Center Manager có thể gỡ trực tiếp ảnh Member không phù hợp; chi tiết tại [Avatar Cloudinary](api-contract.md#avatar-cloudinary--apiavatars).
 
 ## 5. Quy ước kỹ thuật
 

@@ -9,6 +9,8 @@ import styles from "./threshold.module.css";
 
 interface Interest {
   interestId: string;
+  memberId: string;
+  sportId: number;
   memberName: string;
   sourceClassName: string;
   sportName: string;
@@ -30,10 +32,67 @@ export function CourseInterests({ manager = false }: { manager?: boolean }) {
     [manager],
   );
   const action = useAction();
+  if (manager)
+    return (
+      <section>
+        <AsyncSection state={state}>
+          {(rows) => {
+            const unique = [
+              ...new Map(
+                rows
+                  .filter((r) => r.active)
+                  .map((r) => [r.memberId + "|" + r.sportId, r]),
+              ).values(),
+            ];
+            return unique.length ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Sport</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unique.map((r) => (
+                    <tr key={r.interestId}>
+                      <td>{r.memberName}</td>
+                      <td>{r.sportName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p role="status">No members are following a next course.</p>
+            );
+          }}
+        </AsyncSection>
+      </section>
+    );
   return (
-    <section className={styles.page}>
+    <section
+      className={`${styles.page} ${manager ? styles.managerInterests : ""}`}
+    >
       <header className={styles.header}>
-        <h2>Course interests</h2>
+        {!manager && <h2>Course interests</h2>}
+        {manager && (
+          <div className={styles.managerToolbar}>
+            <Link className="btn btn--secondary" href="/manager/classes">
+              Back to classes
+            </Link>
+            <div className="btn-row">
+              <button
+                className="btn btn--secondary"
+                type="button"
+                onClick={state.reload}
+              >
+                Refresh
+              </button>
+              <Link className="btn" href="/manager/classes/new">
+                Create class
+              </Link>
+            </div>
+          </div>
+        )}
         <p>
           {manager
             ? "Members waiting for the next cohort. Link a new draft to its previous class to notify them when registration opens."
@@ -119,24 +178,31 @@ export function CourseInterests({ manager = false }: { manager?: boolean }) {
             </ul>
           ) : (
             <p>
-              No course interests yet. They appear here after you choose “Wait
-              for the next course”.
+              {manager
+                ? "No members are waiting for the next cohort yet."
+                : "No course interests yet. They appear here after you choose ‘Wait for the next course’."}
             </p>
           )
         }
       </AsyncSection>
       {action.error && <p role="alert">{action.error}</p>}
-      <div className="btn-row">
-        <Link
-          className="btn btn--secondary"
-          href={manager ? "/manager/classes" : "/member/services"}
-        >
-          {manager ? "Back to classes" : "Browse classes"}
-        </Link>
-        <button type="button" className="btn btn--quiet" onClick={state.reload}>
-          Refresh
-        </button>
-      </div>
+      {!manager && (
+        <div className="btn-row">
+          <Link
+            className="btn btn--secondary"
+            href={manager ? "/manager/classes" : "/member/services"}
+          >
+            {manager ? "Back to classes" : "Browse classes"}
+          </Link>
+          <button
+            type="button"
+            className="btn btn--quiet"
+            onClick={state.reload}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
     </section>
   );
 }

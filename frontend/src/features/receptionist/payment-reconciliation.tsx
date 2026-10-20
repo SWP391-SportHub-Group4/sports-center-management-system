@@ -43,7 +43,10 @@ export function FrontDeskPaymentReconciliation() {
     <button type="button" className="btn btn--secondary btn--sm" onClick={cases.reload}>Refresh</button>
     {cases.loading && <p>Loading…</p>}
     {cases.error && <p role="alert">{cases.error.message}</p>}
-    {cases.data?.totalCount === 0 && <p>No cases need follow-up.</p>}
+    {cases.data?.totalCount === 0 && <div>
+      <p>No payment attempts currently need follow-up. If a member says their bank account was charged, open their invoice and ask them to check the payment with VNPay. An empty queue does not confirm whether the bank collected the payment.</p>
+      <Link className="btn btn--secondary btn--sm" href="/receptionist/invoices">Open invoices</Link>
+    </div>}
     {cases.data?.items.map(row => <article key={row.paymentAttemptId} className={styles.item}>
       <h3>{row.invoiceNumber} <span className={styles.status}>{row.state.replace(/_/g, " ")}</span></h3>
       <p>{row.memberName} · {formatMoney(row.amount)}</p>

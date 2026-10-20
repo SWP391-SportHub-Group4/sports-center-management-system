@@ -14,6 +14,7 @@ public sealed class ChangeUserRoleRequest
     /// <summary>
     /// BR-96, chốt 28/09/2026 (2) — bắt buộc khi đổi vai trò SANG Coach, kể cả khi tài khoản
     /// từng có CoachProfile lịch sử (không tự khôi phục category cũ). Không gửi kèm cho role khác.
+    /// Khi giữ nguyên vai trò Coach, gửi sportIds để cập nhật chuyên môn; bỏ qua trường này để giữ nguyên.
     /// </summary>
     public List<int>? SportIds { get; set; }
 }

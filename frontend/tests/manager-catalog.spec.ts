@@ -138,6 +138,7 @@ async function setup(
     if (path === "/api/manager/court-rates")
       return route.fulfill({ json: data.rates });
     if (path === "/api/pt-pricing") return route.fulfill({ json: data.pt });
+    if (path === "/api/rooms") return route.fulfill({ json: [] });
     if (path === "/api/room-types")
       return route.fulfill({
         json: [
@@ -163,6 +164,83 @@ const row = (page: Page, name: string) =>
     .filter({ has: page.getByRole("rowheader", { name, exact: true }) });
 const dialog = (page: Page) => page.getByRole("dialog");
 
+test("sport creation omits all room-type controls and payload fields", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  await page.goto("/manager/sports");
+  await page.getByRole("button", { name: "Create sport", exact: true }).click();
+  await expect(
+    dialog(page).getByLabel("Create a room type with this sport", {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    dialog(page).getByLabel("Room type name", { exact: true }),
+  ).toHaveCount(0);
+  await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
+  await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  expect(fixture.writes).toHaveLength(1);
+  expect(fixture.writes[0].body).not.toHaveProperty("roomTypeName");
+  expect(fixture.writes[0].body).not.toHaveProperty("createRoomType");
+});
+
+for (const width of [1440, 390])
+  test(`sport retains its name and service choices on error at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    const fixture = await setup(page, {
+      fail: 409,
+      code: "sport_name_taken",
+    });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/manager/sports");
+    await page
+      .getByRole("button", { name: "Create sport", exact: true })
+      .click();
+    await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
+    await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
+
+    await dialog(page)
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
+    await expect(dialog(page).getByRole("alert")).toBeVisible();
+    await expect(dialog(page).getByLabel("Name", { exact: true })).toHaveValue(
+      "Volleyball",
+    );
+    expect(
+      await dialog(page).evaluate(
+        (node) => node.scrollWidth <= node.clientWidth,
+      ),
+    ).toBe(true);
+    const scan = await new AxeBuilder({ page })
+      .include('[role="dialog"]')
+      .analyze();
+    expect(scan.violations).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath(`sport-room-type-${width}.png`),
+      fullPage: true,
+    });
+    fixture.recover();
+    await dialog(page)
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
+    await expect(dialog(page)).toHaveCount(0);
+    expect(fixture.writes.at(-1)?.body).not.toHaveProperty("roomTypeName");
+    // Mobile renders catalog cards; check the edit-only behavior in the table layout.
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await row(page, "Volleyball")
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
+    await expect(
+      dialog(page).getByLabel("Create a room type with this sport", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  });
+
 test("sport creation uses service contract, reloads, and edits with immutable code", async ({
   page,
 }) => {
@@ -173,7 +251,9 @@ test("sport creation uses service contract, reloads, and edits with immutable co
   await dialog(page).getByLabel("Code", { exact: true }).fill("gym");
   await dialog(page).getByLabel("Group courses", { exact: true }).uncheck();
   await dialog(page).getByLabel("Membership", { exact: true }).check();
-  await dialog(page).getByLabel("Personal training", { exact: true }).check();
+  await expect(
+    dialog(page).getByLabel("Personal training", { exact: true }),
+  ).toHaveCount(0);
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
   await expect(row(page, "New Gym")).toBeVisible();
@@ -186,12 +266,6 @@ test("sport creation uses service contract, reloads, and edits with immutable co
       services: [
         {
           serviceType: "MEMBERSHIP_ACCESS",
-          isEnabled: true,
-          defaultSessionMinutes: null,
-          defaultMaxCapacity: null,
-        },
-        {
-          serviceType: "PERSONAL_TRAINING",
           isEnabled: true,
           defaultSessionMinutes: null,
           defaultMaxCapacity: null,
@@ -213,7 +287,9 @@ test("sport creation uses service contract, reloads, and edits with immutable co
     dialog(page).getByLabel("Personal training", { exact: true }),
   ).toHaveCount(0);
   await dialog(page).getByLabel("Court rental", { exact: true }).check();
-  await expect(dialog(page).getByText("Court", { exact: true })).toBeVisible();
+  await expect(
+    dialog(page).getByLabel("Room type", { exact: true }),
+  ).toHaveCount(0);
   await dialog(page)
     .getByLabel("Name", { exact: true })
     .fill("Basketball updated");
@@ -305,6 +381,7 @@ test("Gym creates, edits without changing active state, and reactivates via the 
     body: { price: 330000, sessionLimit: null },
   });
   expect(fixture.writes[0].body).not.toHaveProperty("isActive");
+  await row(page, "Gym 30 days").locator("summary").click();
   await row(page, "Gym 30 days")
     .getByRole("button", { name: "Activate", exact: true })
     .click();
@@ -330,21 +407,19 @@ test("court-rate creation validates days/window and uses actual compatible IDs",
   await page
     .getByRole("button", { name: "Create court rate", exact: true })
     .click();
-  await dialog(page)
-    .getByLabel("Room type", { exact: true })
-    .selectOption("51");
   await dialog(page).getByLabel("Sport", { exact: true }).selectOption("41");
   await dialog(page).getByLabel("Monday", { exact: true }).uncheck();
-  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
-  await expect(dialog(page).getByRole("alert")).toHaveText(
-    "Select at least one day.",
-  );
+  await expect(
+    dialog(page).getByRole("button", { name: "Save", exact: true }),
+  ).toBeDisabled();
   expect(fixture.writes).toHaveLength(0);
   await dialog(page).getByLabel("Tuesday", { exact: true }).check();
   await dialog(page).getByLabel("End", { exact: true }).fill("05:00");
-  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    dialog(page).getByRole("button", { name: "Save", exact: true }),
+  ).toBeDisabled();
   await expect(dialog(page).getByRole("alert")).toHaveText(
-    "The end time must be after the start time.",
+    "End time must be after start time.",
   );
   await dialog(page).getByLabel("End", { exact: true }).fill("08:00");
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
@@ -377,13 +452,14 @@ test("court activation PUT preserves the whole existing rate; cancel never write
   expect(fixture.writes).toHaveLength(0);
   await page.getByRole("button", { name: "Deactivate", exact: true }).click();
   await dialog(page)
-    .getByRole("button", { name: "Confirm", exact: true })
+    .getByRole("button", { name: "Deactivate", exact: true })
     .click();
   await expect(dialog(page)).toHaveCount(0);
   expect(fixture.writes[0]).toEqual({
     path: "/api/manager/court-rates/91",
     method: "PUT",
     body: {
+      roomId: null,
       roomTypeId: 51,
       sportId: 41,
       daysOfWeek: ["MON", "TUE"],
@@ -417,7 +493,9 @@ for (const [status, code] of [
       .getByRole("button", { name: "Save", exact: true })
       .click();
     await expect(dialog(page).getByRole("alert")).toBeVisible();
-    await expect(dialog(page).getByText(code, { exact: true })).toBeVisible();
+    await expect(
+      dialog(page).getByText("Server validation rejected the change"),
+    ).toBeVisible();
     await expect(
       dialog(page).getByLabel("Price per hour (VND)", { exact: true }),
     ).toHaveValue("150000");
@@ -476,7 +554,6 @@ test("Gym native price validation prevents zero, negative and non-multiple price
 
 for (const [tab, code, priceLabel] of [
   ["gym", "package_name_taken", "Price (VND)"],
-  ["pt", "invalid_setting_value", "PT price per session (VND)"],
 ] as const) {
   test(`${tab} shows server validation and retains draft values`, async ({
     page,
@@ -539,7 +616,7 @@ test("empty room-type catalog explains the prerequisite and prevents rate creati
   await page.goto("/manager/catalog?tab=court-rates");
   await expect(
     page.getByText(
-      "No compatible room types are configured. Compatibility is managed in Room types.",
+      "Create a court with its sport before adding rental prices.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -555,6 +632,7 @@ test("Gym stop-selling and sport activation use the supported endpoints", async 
   fixture.data.packages[0].isActive = true;
   fixture.data.sports[0].isActive = false;
   await page.goto("/manager/catalog?tab=gym");
+  await row(page, "Gym 30 days").locator("summary").click();
   await page.getByRole("button", { name: "Deactivate", exact: true }).click();
   await dialog(page)
     .getByRole("button", { name: "Confirm", exact: true })
@@ -669,12 +747,8 @@ test("mobile tables and forms fit and English labels are accessible", async ({
   }
   await page.goto("/manager/catalog?tab=pt");
   await expect(
-    page.getByRole("button", { name: "EN", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText("Personal training · Gym service", { exact: true }),
+    page.getByRole("heading", { name: "Sports", exact: true, level: 1 }),
   ).toBeVisible();
-  await expect(page.getByText("Price version", { exact: true })).toBeVisible();
 });
 
 test("live Manager API list contracts and aliases match the rendered catalog", async ({

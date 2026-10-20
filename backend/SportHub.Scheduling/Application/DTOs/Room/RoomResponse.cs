@@ -6,4 +6,5 @@ public sealed record RoomResponse(
     int Capacity,
     int ActiveClassCount,
     int? RoomTypeId,
-    bool IsActive);
+    bool IsActive,
+    int? SportId = null);

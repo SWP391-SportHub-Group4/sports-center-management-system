@@ -30,6 +30,12 @@ public sealed record ServiceReadinessResponse(
 
 public sealed class SaveSportRequest
 {
+    /// <summary>Create-only opt-in. False leaves room types and their sport links untouched.</summary>
+    public bool CreateRoomType { get; set; }
+
+    [MaxLength(100)]
+    public string? RoomTypeName { get; set; }
+
     /// <summary>Bắt buộc khi tạo (a-z, 0-9, _; 2-32 ký tự). Không đổi được sau khi tạo; PUT chỉ được gửi cùng mã hiện có hoặc bỏ trống.</summary>
     [MaxLength(32)]
     public string? Code { get; set; }
@@ -145,10 +151,12 @@ public sealed record CourtRateResponse(
     string StartTimeLocal,
     string EndTimeLocal,
     decimal PricePerHour,
-    bool IsActive);
+    bool IsActive,
+    int? RoomId = null);
 
 public sealed class SaveCourtRateRequest
 {
+    public int? RoomId { get; set; }
     public int RoomTypeId { get; set; }
 
     /// <summary>Null = áp dụng mọi môn chơi được ở loại sân này.</summary>

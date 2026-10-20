@@ -4,18 +4,16 @@ import { useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import {
-  AsyncSection,
-  Dialog,
-  Field,
-  Table,
-  StatusChip,
-} from "@/components/ui";
-import { FilterBar } from "@/components/data";
-import { useUrlQuery } from "@/lib/useUrlQuery";
+import { AsyncSection, Dialog, Field, StatusChip } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { SpecialtyEditor } from "@/features/coaches";
 import { catalogApi } from "./api";
+import {
+  CatalogPanel,
+  CatalogFilters,
+  CatalogTable,
+  useCatalogFilters,
+} from "./manager-shared";
 import styles from "./manager-catalog.module.css";
 export function RoomTypesManager() {
   const { t } = useLanguage();
@@ -28,30 +26,9 @@ export function RoomTypesManager() {
   const [sportIds, setSports] = useState<number[]>([]);
   const [editing, setEditing] = useState(false);
   const [partial, setPartial] = useState(false);
-  const { values, setValues } = useUrlQuery({ q: "" });
+  const filters = useCatalogFilters();
   return (
     <>
-      <FilterBar
-        fields={[{ id: "q", label: l.search, kind: "search" }]}
-        values={values}
-        onChange={setValues}
-        onReset={() => setValues({ q: "" })}
-      />
-      <div className="btn-row">
-        <button
-          className="btn"
-          onClick={() => {
-            setId(null);
-            setName("");
-            setSports([]);
-            setPartial(false);
-            setEditing(true);
-            mutation.reset();
-          }}
-        >
-          {l.create}
-        </button>
-      </div>
       {editing && (
         <Dialog
           showCloseButton={false}
@@ -147,93 +124,111 @@ export function RoomTypesManager() {
           )}
         </Dialog>
       )}
-      <p className="small muted">
-        Discontinuing a room type blocks new class and court bookings in all its
-        rooms. Existing bookings stay in place. Reactivating the type keeps
-        individually stopped rooms inactive.
-      </p>
-      <AsyncSection state={state}>
-        {(rows) => (
-          <Table headers={[l.roomType, l.sports, l.status, ""]}>
-            {rows
-              .filter((r) =>
-                r.name
-                  .toLocaleLowerCase()
-                  .includes(values.q.trim().toLocaleLowerCase()),
-              )
-              .map((r) => (
-                <tr key={r.roomTypeId}>
-                  <td>{r.name}</td>
-                  <td>
-                    {r.sportIds
-                      .map(
-                        (id) =>
-                          sports.data?.find((s) => s.sportId === id)?.name ??
-                          id,
-                      )
-                      .join(", ")}
-                  </td>
-                  <td>
-                    <StatusChip
-                      value={r.isActive !== false ? "ACTIVE" : "INACTIVE"}
-                    />
-                  </td>
-                  <td>
-                    <div className="btn-row">
-                      <button
-                        className="btn btn--secondary"
-                        onClick={() => {
-                          setId(r.roomTypeId);
-                          setName(r.name);
-                          setSports(r.sportIds);
-                          setEditing(true);
-                          setPartial(false);
-                          mutation.reset();
-                        }}
-                      >
-                        {l.edit}
-                      </button>
-                      <ConfirmRecordAction
-                        label={
-                          r.isActive !== false ? "Discontinue" : "Reactivate"
-                        }
-                        title={
-                          r.isActive !== false
-                            ? "Discontinue room type"
-                            : "Reactivate room type"
-                        }
-                        description={
-                          r.isActive !== false
-                            ? "New bookings will be blocked in all rooms of this type. Existing bookings and each room’s own status stay unchanged."
-                            : "Rooms of this type can accept new bookings again if they are individually active."
-                        }
-                        recordName={r.name}
-                        requireReason
-                        onConfirm={(reason) =>
-                          api.post(
-                            `/api/manager/room-types/${r.roomTypeId}/${r.isActive !== false ? "discontinue" : "reactivate"}`,
-                            { reason },
-                          )
-                        }
-                        onCompleted={state.reload}
-                      />
-                      <ConfirmRecordAction
-                        label={t.recordActions.delete}
-                        title={t.recordActions.deleteRoomType}
-                        description={t.recordActions.roomTypeDescription}
-                        recordName={r.name}
-                        onConfirm={() =>
-                          catalogApi.deleteRoomType(r.roomTypeId)
-                        }
-                        onCompleted={state.reload}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </Table>
-        )}
-      </AsyncSection>
+      <CatalogPanel
+        filters={<CatalogFilters filters={filters} />}
+        actions={
+          <button
+            className="btn"
+            onClick={() => {
+              setId(null);
+              setName("");
+              setSports([]);
+              setPartial(false);
+              setEditing(true);
+              mutation.reset();
+            }}
+          >
+            {l.create}
+          </button>
+        }
+      >
+        <CatalogTable
+          state={state}
+          filters={filters}
+          caption={l.roomTypes}
+          visibleRowActions={3}
+          rows={(state.data ?? []).filter(
+            (r) =>
+              r.name
+                .toLocaleLowerCase()
+                .includes(filters.values.q.trim().toLocaleLowerCase()) &&
+              (!filters.values.status ||
+                (r.isActive !== false) ===
+                  (filters.values.status === "active")),
+          )}
+          getRowId={(r) => String(r.roomTypeId)}
+          columns={[
+            { id: "name", header: l.roomType, rowHeader: true },
+            {
+              id: "sportIds",
+              header: l.sports,
+              cell: (r) =>
+                r.sportIds
+                  .map(
+                    (id) =>
+                      sports.data?.find((s) => s.sportId === id)?.name ?? id,
+                  )
+                  .join(", "),
+            },
+            {
+              id: "isActive",
+              header: l.status,
+              cell: (r) => (
+                <StatusChip
+                  value={r.isActive !== false ? "ACTIVE" : "INACTIVE"}
+                />
+              ),
+            },
+          ]}
+          actions={(r) => (
+            <>
+              <button
+                className="btn btn--secondary"
+                onClick={() => {
+                  setId(r.roomTypeId);
+                  setName(r.name);
+                  setSports(r.sportIds);
+                  setEditing(true);
+                  setPartial(false);
+                  mutation.reset();
+                }}
+              >
+                {l.edit}
+              </button>
+              <ConfirmRecordAction
+                label={r.isActive !== false ? "Discontinue" : "Reactivate"}
+                title={
+                  r.isActive !== false
+                    ? "Discontinue room type"
+                    : "Reactivate room type"
+                }
+                description={
+                  r.isActive !== false
+                    ? "New bookings will be blocked in all rooms of this type. Existing bookings and each room’s own status stay unchanged."
+                    : "Rooms of this type can accept new bookings again if they are individually active."
+                }
+                recordName={r.name}
+                requireReason
+                onConfirm={(reason) =>
+                  api.post(
+                    `/api/manager/room-types/${r.roomTypeId}/${r.isActive !== false ? "discontinue" : "reactivate"}`,
+                    { reason },
+                  )
+                }
+                onCompleted={state.reload}
+              />
+              <ConfirmRecordAction
+                label={t.recordActions.delete}
+                title={t.recordActions.deleteRoomType}
+                description={t.recordActions.roomTypeDescription}
+                recordName={r.name}
+                onConfirm={() => catalogApi.deleteRoomType(r.roomTypeId)}
+                onCompleted={state.reload}
+              />
+            </>
+          )}
+        />
+      </CatalogPanel>
     </>
   );
 }

@@ -37,7 +37,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var room = await (from r in db.Set<Room>().AsNoTracking()
                           join link in db.Set<SportRoomType>().AsNoTracking() on r.RoomTypeId equals link.RoomTypeId
                           where r.RoomId == request.RoomId && r.IsActive && link.SportId == request.SportId
-                              && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive)
+                              && (r.SportId == null || r.SportId == request.SportId)
+                              && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && (r.SportId != null || t.IsActive))
                           select r).SingleOrDefaultAsync(cancellationToken)
             ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
         if (room.RoomTypeId is not int roomTypeId)
@@ -55,9 +56,10 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         await EnsureNoMemberClassConflictAsync(request, cancellationToken);
 
         var rates = await db.Set<CourtRate>().AsNoTracking().Where(x => x.IsActive && x.RoomTypeId == roomTypeId
-            && (x.SportId == null || x.SportId == request.SportId)).ToListAsync(cancellationToken);
+            && (x.SportId == null || x.SportId == request.SportId)
+            && (x.RoomId == null || x.RoomId == request.RoomId)).ToListAsync(cancellationToken);
         return CourtRateCalculator.Calculate(rates, request.SportId, request.StartUtc,
-            request.EndUtc - request.StartUtc, slotMinutes);
+            request.EndUtc - request.StartUtc, slotMinutes, request.RoomId);
     }
 
     /// <summary>Member không thể thuê sân đúng giờ đang có buổi học (đã ghi danh hoặc đang giữ chỗ) của khóa nhóm.</summary>

@@ -1,5 +1,9 @@
 # SportHub — Thiết kế hệ thống quản lý trung tâm thể thao
 
+## Manager workspace — 20 October 2026
+
+Luồng Manager đã chốt được mô tả tại [Manager workspace](Manager-Workspace.md): Overview giữ nguyên; Services, Schedule, Support & Communication, People, Transaction & Report và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Manager chọn Sport khi tạo sân; các khóa Room Type cũ được giữ nội bộ để bảo toàn lịch sử và bảng giá. Ví điểm chỉ xem; không còn cộng/trừ thủ công. Course interests có một đăng ký đang theo dõi cho mỗi Member/Sport, thông báo lớp mới cùng môn và kết thúc sau ghi danh đã thanh toán. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
+
 ## Activation and audit policy update — 14 October 2026
 
 The product owner confirmed the [staff activation and audit policy](api-contract.md#staff-activation-and-audit-policy-update--14-october-2026). It replaces account-only Administrator audit scope in this design. Each staff token expires at `CreatedAt + 24 hours`, including resends/corrections. `AuditLog.ActorRole` is an event-time snapshot; Admin sees Manager/Admin/Coach/System, Manager sees Manager/Receptionist/Coach/Member. Migration `AuditActorRoleSnapshot` preserves historical event payloads while reconstructing role metadata. Other role permissions remain independent of audit-read access.
@@ -140,7 +144,7 @@ Chọn Membership → snapshot và checkout → payment xác minh → kích ho�
 
 ### 5.2 Vé Gym 1 ngày
 
-gói cố định `package_id = 50000`, 50.000đ, 1 ngày (Manager không sửa/ngừng). Hiệu lực đúng ngày thanh toán thành công theo giờ Việt Nam; mã check-in do server ký và cấp (`GET /api/members/me/checkin-code`, hết hạn 00:00 giờ Việt Nam hôm sau; lễ tân quét rồi `POST /api/members/checkin-code/resolve` để server đổi ra Member) chỉ có hiệu lực trong ngày, và Member được báo rõ trước khi trả tiền (màn checkout, thẻ gói, màn bán của lễ tân, thông báo + email sau khi thanh toán). Tình huống khách lạ: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó lễ tân hỗ trợ mua vé hoặc khách tự mua trên web; Member tự check-in (`POST /api/gym-checkins/self`) hoặc lễ tân check-in hộ. Không bán khi Gym đóng cửa vì sự cố (409 `gym_closed_today`), không gia hạn khi đóng Gym, không hoàn trả, không nhắc hết hạn; báo cáo tách riêng vé ngày khỏi hội viên Membership. Phòng Gym được nhận biết qua loại phòng thuộc môn Gym (`sport_room_types`).
+gói cố định `package_id = 50000`, 50.000đ, 1 ngày (Manager không sửa/ngừng). Hiệu lực đúng ngày thanh toán thành công theo giờ Việt Nam; mã check-in do server ký và cấp (`GET /api/members/me/checkin-code`, hết hạn 00:00 giờ Việt Nam hôm sau; lễ tân quét rồi `POST /api/members/checkin-code/resolve` để server đổi ra Member) chỉ có hiệu lực trong ngày, và Member được báo rõ trước khi trả tiền (màn checkout, thẻ gói, màn bán của lễ tân, thông báo + email sau khi thanh toán). Tình huống khách lạ: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó lễ tân hỗ trợ mua vé hoặc khách tự mua trên web; chỉ lễ tân check-in cho Member (Member không tự check-in). Không bán khi Gym đóng cửa vì sự cố (409 `gym_closed_today`), không gia hạn khi đóng Gym, không hoàn trả, không nhắc hết hạn; báo cáo tách riêng vé ngày khỏi hội viên Membership. Phòng Gym được nhận biết qua loại phòng thuộc môn Gym (`sport_room_types`).
 
 ### 5.3 Khóa cầu lông và bóng rổ
 

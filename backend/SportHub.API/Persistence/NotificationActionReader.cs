@@ -44,7 +44,15 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                 case "ClassSessionChangeRequested":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
                         foreach (var id in ids)
-                            links[id] = "/manager/schedule?section=requests";
+                            links[id] = "/manager/requests?type=coach";
+                    break;
+                case "AvatarReported":
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
+                        foreach (var id in ids) links[id] = "/manager/requests?type=avatar";
+                    break;
+                case "CoachCoverageRequired":
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
+                        foreach (var id in await db.UserAccounts.Where(u => ids.Contains(u.UserId) && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach).Select(u => u.UserId).ToListAsync(ct)) links[id] = $"/manager/coaches/{id}";
                     break;
                 case "ClassSessionChangeReviewed":
                     foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId) && r.RequestedByUserId == userId).Select(r => r.RequestId).ToListAsync(ct))
