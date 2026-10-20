@@ -244,7 +244,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   <Card title={t.classWorkspace.information}>
                     <dl className={styles.summary}>
                       {[
-                        [l.price, formatMoney(c.price)],
+                        [t.classWorkspace.price, formatMoney(c.price)],
                         [l.numSessions, String(c.numSessions)],
                         [l.startDate, c.startDate],
                       ].map(([label, value]) => (

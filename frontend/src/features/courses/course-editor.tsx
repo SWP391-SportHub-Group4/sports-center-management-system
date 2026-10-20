@@ -556,22 +556,12 @@ export function CourseEditor({
                   [
                     ["capacity", l.capacity, 1, 1],
 
-                    ["price", l.price, 1000, 1000],
+                    ["price", t.classWorkspace.price, 1000, 1000],
 
-                    ["costAmount", l.cost, 0, 1],
+                    ["costAmount", t.classWorkspace.cost, 0, 1],
                   ] as const
                 ).map(([key, label, min, increment]) => (
-                  <Field
-                    key={key}
-                    label={label}
-                    hint={
-                      key === "price"
-                        ? l.classPriceHint
-                        : key === "costAmount"
-                          ? l.classCostHint
-                          : undefined
-                    }
-                  >
+                  <Field key={key} label={label}>
                     <input
                       required
                       type="number"
@@ -621,13 +611,13 @@ export function CourseEditor({
                 </div>
 
                 <div>
-                  <dt>{l.price}</dt>
+                  <dt>{t.classWorkspace.price}</dt>
 
                   <dd>{formatMoney(form.price)}</dd>
                 </div>
 
                 <div>
-                  <dt>{l.cost}</dt>
+                  <dt>{t.classWorkspace.cost}</dt>
 
                   <dd>{formatMoney(form.costAmount)}</dd>
                 </div>

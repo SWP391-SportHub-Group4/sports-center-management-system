@@ -329,7 +329,7 @@ export const en = {
     roomTypes: "Room types",
     contentStep: "Class information",
     scheduleStep: "Coach, room & schedule",
-    pricingStep: "Price, cost & capacity",
+    pricingStep: "Tuition, cost & capacity",
     reviewStep: "Review generated sessions",
     saveDraft: "Save draft",
     draftHint:
@@ -338,7 +338,7 @@ export const en = {
     previewHint:
       "Preview only. The server validates the schedule again when saving and publishing.",
     thresholdExceeded:
-      "The opening threshold exceeds class capacity. Adjust cost, price or capacity.",
+      "The opening threshold exceeds class capacity. Adjust total class cost, tuition or capacity.",
     capacityExceeded: "Class capacity exceeds the room or sport limit.",
     missingDuration: "This sport has no group-course duration configured.",
     coachRequired: "Select a coach before publishing.",
@@ -523,7 +523,8 @@ export const en = {
     enrolled: "Enrolled / capacity",
     holds: "Seat holds",
     opening: "Opening conditions",
-    price: "Course price (VND)",
+    price: "Tuition per student (VND)",
+    cost: "Total class cost (VND)",
     information: "Class information",
     schedule: "Activity schedule",
     viewSchedule: "View class schedule",
@@ -1209,14 +1210,10 @@ export const en = {
     end: "End",
     price: "Price (VND)",
     cost: "Cost (VND)",
-    classPriceHint:
-      "Tuition each member pays for the entire course, including all sessions.",
     classMinimumEnrollment: "Minimum enrollment to break even",
     classCapacity: "Class capacity",
     classSingleMember: "1 member",
     classMemberCount: "{count} members",
-    classCostHint:
-      "Total cost to run the entire course, such as coach, room and equipment costs. Used to calculate the break-even threshold.",
     priceHour: "Price per hour (VND)",
     openingHours: "Opening hours",
     blocks: "Room blocks",

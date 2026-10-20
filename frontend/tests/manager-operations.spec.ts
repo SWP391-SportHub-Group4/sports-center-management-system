@@ -647,6 +647,22 @@ test("draft save is separate from publish and reviews every generated session", 
     await route.fulfill({ json: course });
   });
   await fillDraft(page);
+  await expect(
+    page.getByLabel(en.classWorkspace.price, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel(en.classWorkspace.cost, { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath("class-pricing-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: test.info().outputPath("class-pricing-mobile.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page
     .getByRole("button", { name: en.operations.next, exact: true })
     .click();
@@ -661,14 +677,16 @@ test("draft save is separate from publish and reviews every generated session", 
 });
 test("threshold and capacity guards stop invalid drafts", async ({ page }) => {
   await fillDraft(page);
-  await page.getByLabel(en.operations.cost, { exact: true }).fill("3900000");
+  await page
+    .getByLabel(en.classWorkspace.cost, { exact: true })
+    .fill("3900000");
   await expect(
     page.getByText(en.managerOperations.thresholdExceeded),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: en.operations.next, exact: true }),
   ).toBeDisabled();
-  await page.getByLabel(en.operations.cost, { exact: true }).fill("0");
+  await page.getByLabel(en.classWorkspace.cost, { exact: true }).fill("0");
   await page.getByLabel(en.operations.capacity, { exact: true }).fill("17");
   await expect(
     page.getByText(en.managerOperations.capacityExceeded),

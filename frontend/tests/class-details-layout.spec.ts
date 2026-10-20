@@ -313,7 +313,9 @@ test("class details keeps capacity readable and groups management actions", asyn
   await expect(
     pricing.getByRole("button", { name: "Save", exact: true }),
   ).toBeDisabled();
-  await pricing.getByLabel("Price (VND)", { exact: true }).fill("1000000");
+  await pricing
+    .getByLabel("Tuition per student (VND)", { exact: true })
+    .fill("1000000");
   await pricing
     .getByLabel("Reason", { exact: true })
     .fill("Adjusted course pricing");
