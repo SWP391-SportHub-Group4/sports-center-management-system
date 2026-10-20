@@ -180,16 +180,16 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 
 Ở môi trường `Development`, backend tự áp migration khi khởi động nhưng không tự seed dữ liệu. Để chuẩn bị dữ liệu kiểm tra tối thiểu, dùng `--seed-validation=true` sau khi áp migration. Xem [Local Validation Data](docs/Local-Validation-Data.md).
 
-### Cách 1: Docker Compose (cả 3 service)
+### PostgreSQL và AI bằng Docker Compose
 
 ```bash
 cp .env.example .env          # lần đầu — xem giá trị mẫu trong .env.example
 docker compose up -d --build
 ```
 
-Chạy xong sẽ có 3 container: `sporthub-postgres`, `sporthub-backend`, `sporthub-frontend`. Kiểm tra bằng `docker ps` hoặc Docker Desktop.
+Compose local chỉ chạy `sporthub-postgres` và `sporthub-ai`. PostgreSQL dùng named volume hiện có, cổng lấy từ `POSTGRES_PORT` (local hiện tại: `5435`); AI được mở tại `http://localhost:8001` để backend trên máy host gọi được. API key AI nằm trong `ai-service/.env`, không commit.
 
-Frontend Docker chạy bản build đóng trong image; sửa mã nguồn xong cần build và tạo lại container. Dừng `npm run dev` đang dùng cổng 3000, rồi từ thư mục gốc chạy `bash scripts/start-docker-frontend.sh` trong Git Bash hoặc `.\scripts\start-docker-frontend.ps1` trong PowerShell. Nếu sửa cả backend, chạy `docker compose up -d --build`. Khởi động lại container mà không build sẽ tiếp tục hiện giao diện cũ.
+Backend và frontend chạy trực tiếp theo hướng dẫn bên dưới. Frontend dùng `npm run dev` nên tự nhận thay đổi mã nguồn. Khi chuyển từ Compose cũ có backend/frontend, dùng `docker compose up -d --remove-orphans` để bỏ hai container cũ; named volumes được giữ nguyên.
 
 | Thành phần | Link |
 |---|---|
@@ -211,14 +211,22 @@ npm run test:e2e
 
 CI trên PR vào `develop` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Hợp đồng API: `docs/api-contract.md`.
 
-### Cách 2: Chạy riêng từng phần (debug trong Rider/VS Code)
+### Backend và frontend trên máy host (Rider/VS Code)
 
-Tắt container tương ứng trong docker-compose trước khi chạy thủ công để tránh trùng port:
+Sau khi PostgreSQL và AI đã chạy, mở hai terminal. Terminal thứ nhất, từ thư mục gốc dự án:
 
-```bash
-cd backend/SportHub.API && dotnet run
-cd frontend && npm install && npm run dev
+```powershell
+dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release -- --DataProtection:KeysPath="$PWD/.tmp/local-api-keys"
 ```
+
+Terminal thứ hai:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Backend đọc chuỗi kết nối local từ `.env` ở gốc dự án và mặc định gọi AI tại `http://localhost:8001`. Nếu cấu hình `AiService__BaseUrl`, dùng địa chỉ localhost này khi chạy backend trên host.
 
 | Thành phần | Link |
 |---|---|

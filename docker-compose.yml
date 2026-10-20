@@ -28,83 +28,8 @@ services:
         required: false
     environment:
       GEMINI_MODEL: ${Gemini__Model:-gemini-3.5-flash-lite}
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: SportHub.API/Dockerfile
-    container_name: sporthub-backend
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      ai-service:
-        condition: service_started
-    environment:
-      AiService__BaseUrl: ${AiService__BaseUrl:-http://ai-service:8001}
-      ConnectionStrings__Default: "Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
-      JwtOptions__SecretKey: ${JwtOptions__SecretKey}
-      Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:-http://localhost:3000}
-      Cors__AllowedOrigins__1: ${Cors__AllowedOrigins__1:-http://127.0.0.1:3000}
-      Cors__AllowedOrigins__2: ${Cors__AllowedOrigins__2:-http://localhost:3001}
-      Cors__AllowedOrigins__3: ${Cors__AllowedOrigins__3:-http://127.0.0.1:3001}
-      Cors__AllowedOrigins__4: ${Cors__AllowedOrigins__4:-http://127.0.0.1:3100}
-      Cors__AllowedOrigins__5: ${Cors__AllowedOrigins__5:-http://localhost:3100}
-      Google__ClientId: ${Google__ClientId}
-
-      VnPay__TmnCode: ${VnPay__TmnCode:-}
-      VnPay__HashSecret: ${VnPay__HashSecret:-}
-      VnPay__PaymentUrl: ${VnPay__PaymentUrl:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
-      VnPay__QueryUrl: ${VnPay__QueryUrl:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
-      VnPay__ReturnUrl: ${VnPay__ReturnUrl:-http://localhost:3000/payments/return}
-      VnPay__UseMock: "false"
-
-      Smtp__Host: ${Email__Smtp__Host:-}
-      Smtp__Port: ${Email__Smtp__Port:-587}
-      Smtp__Username: ${Email__Smtp__Username:-}
-      Smtp__Password: ${Email__Smtp__Password:-}
-      Smtp__FromAddress: ${Email__Smtp__FromAddress:-}
-      Smtp__FromName: ${Email__Smtp__FromName:-SportHub}
-      Smtp__UseSsl: ${Email__Smtp__UseSsl:-false}
-      Email__DemoLoggingEnabled: "false"
-      # Gốc URL frontend để dựng link đặt lại mật khẩu trong email.
-      Frontend__BaseUrl: ${Frontend__BaseUrl:-http://localhost:3000}
-      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
-      # Website hỗ trợ ghi ở cuối email (để trống = chỉ ghi "liên hệ trung tâm"; điền khi đã deploy).
-      Frontend__SupportUrl: ${Frontend__SupportUrl:-}
-      PublicContact__Phone: ${PublicContact__Phone:-}
-      PublicContact__Email: ${PublicContact__Email:-}
-      PublicContact__Address: ${PublicContact__Address:-}
-      PublicContact__Hours: ${PublicContact__Hours:-}
-      # Always use the container volume path, not a Windows host path from .env.
-      DataProtection__KeysPath: /var/lib/sporthub/dataprotection-keys
-
-      Gemini__ApiKey: ${Gemini__ApiKey:-}
-      Gemini__Model: ${Gemini__Model:-gemini-3.5-flash-lite}
-      Gemini__BaseUrl: ${Gemini__BaseUrl:-https://generativelanguage.googleapis.com}
-      Gemini__TimeoutSeconds: ${Gemini__TimeoutSeconds:-30}
-
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
     ports:
-      - "5000:8080"
-    volumes:
-      - sporthub_dataprotection:/var/lib/sporthub/dataprotection-keys
-
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:5000}
-        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-${Google__ClientId:-}}
-    container_name: sporthub-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "127.0.0.1:8001:8001"
 
 volumes:
   sporthub_pgdata:
-  sporthub_dataprotection:

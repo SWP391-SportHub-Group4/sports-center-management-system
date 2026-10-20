@@ -81,7 +81,11 @@ export function notificationPresentation(item: NotificationDto): {
   let category: NotificationCategory = "notice";
   let label = "Center update";
   let title = "An update from SportHub";
-  if (/SCHEDULE|SESSION|CHANGE_REQUEST/.test(source)) {
+  if (source === "COACH_ATTENDANCE_REMINDER") {
+    category = "schedule";
+    label = "Attendance";
+    title = "Complete your session attendance";
+  } else if (/SCHEDULE|SESSION|CHANGE_REQUEST/.test(source)) {
     category = "schedule";
     label = "Schedule";
     title = /REMINDER/.test(source)
@@ -153,6 +157,8 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "COACH_ATTENDANCE_REMINDER":
+      return "Complete attendance";
     case "CLASS_SESSION_REMINDER":
       return "View upcoming session";
     case "COURSE_INTEREST_OPENED":

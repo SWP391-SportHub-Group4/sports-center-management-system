@@ -19,6 +19,12 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "CoachAttendanceReminder":
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId
+                        && u.Status == SportHub.Identity.Domain.Enums.UserStatus.Active
+                        && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct))
+                        foreach (var id in ids) links[id] = "/coach/schedule";
+                    break;
                 case "CourseInterestOpened":
                     foreach (var n in group) result[n.NotificationId] = "/member/services?section=courses";
                     break;

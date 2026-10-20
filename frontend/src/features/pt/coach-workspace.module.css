@@ -209,6 +209,44 @@ button.student:hover {
   color: var(--text-body);
   overflow-wrap: anywhere;
 }
+.attendanceRow strong {
+  overflow-wrap: anywhere;
+}
+.attendanceFeedback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.attendanceStatus {
+  display: inline-flex;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.attendanceStatus[data-status="PRESENT"] {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.attendanceStatus[data-status="ABSENT"] {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+.attendanceReceipt {
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.attendanceError {
+  margin: var(--space-2) 0 0;
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
 .avatar {
   display: grid;
   place-items: center;
@@ -230,6 +268,39 @@ button.student:hover {
   background: var(--color-primary-soft);
   border-color: var(--color-primary);
   color: var(--color-primary-soft-text);
+}
+.rowActions button.attendanceButton {
+  min-width: 108px;
+  font-weight: 600;
+}
+.attendanceSelected {
+  font-size: var(--text-xs);
+  font-weight: 400;
+}
+.rowActions button.attendanceButton[data-attendance="present"]:not(:disabled) {
+  background: var(--success-bg);
+  border-color: var(--success-text);
+  color: var(--success-text);
+}
+.rowActions button.attendanceButton[data-attendance="absent"]:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+.rowActions
+  button.attendanceButton[data-attendance="present"][aria-pressed="true"] {
+  background: var(--success-text);
+  border-color: var(--success-text);
+  color: var(--white);
+}
+.rowActions
+  button.attendanceButton[data-attendance="absent"][aria-pressed="true"] {
+  background: var(--danger-text);
+  border-color: var(--danger-text);
+  color: var(--white);
+}
+.rowActions button.attendanceButton[aria-busy="true"] {
+  cursor: progress;
 }
 .rowActions .recordButton {
   min-height: 44px;

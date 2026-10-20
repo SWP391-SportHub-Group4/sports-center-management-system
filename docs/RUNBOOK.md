@@ -6,7 +6,7 @@ Mục 1–3: khởi động hệ thống trên máy local (PostgreSQL → backen
 
 ## 1. Yêu cầu
 
-- Docker Desktop (cho PostgreSQL)
+- Docker Desktop (cho PostgreSQL và AI)
 - .NET SDK 10
 - Node.js 24, npm 11
 
@@ -24,30 +24,16 @@ Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API t�
 
 ## 3. Khởi động
 
-Có thể chạy cả hệ thống bằng Docker, không cần khởi động backend/frontend riêng:
+Compose local chạy PostgreSQL và AI. Backend và frontend chạy trực tiếp trên host theo mục 3.2–3.3:
 
 ```bash
 docker compose up -d --build
 docker compose ps
 ```
 
-Web mặc định ở `http://localhost:3000`. Nếu Windows báo lỗi bind cổng
-`An attempt was made to access a socket in a way forbidden by its access permissions`,
-xem vùng cổng dự trữ bằng `netsh interface ipv4 show excludedportrange protocol=tcp`.
-Chọn cổng ngoài các vùng đó và đặt trong `.env`, ví dụ:
+AI được mở tại `http://localhost:8001`; backend mặc định gọi địa chỉ này. Cấu hình Gemini trong `ai-service/.env` được giữ riêng và không commit. Đổi cấu hình AI thì chạy `docker compose up -d --force-recreate ai-service`.
 
-```dotenv
-FRONTEND_PORT=3500
-Cors__AllowedOrigins__0=http://localhost:3500
-Cors__AllowedOrigins__1=http://127.0.0.1:3500
-Frontend__BaseUrl=http://localhost:3500
-VnPay__ReturnUrl=http://localhost:3500/payments/return
-```
-
-Chạy lại `docker compose up -d` rồi mở `http://localhost:3500`.
-`FRONTEND_PORT` chỉ đổi cổng Docker trên máy host; chạy Next trực tiếp dùng
-`npm run dev -- --port 3500`. Sau khi sửa mã frontend, build lại image bằng
-`docker compose up -d --build frontend`.
+Khi chuyển từ Compose cũ, chạy `docker compose up -d --remove-orphans` để bỏ container backend/frontend cũ và giải phóng cổng 5000/3000. Lệnh giữ nguyên named volumes và dữ liệu PostgreSQL.
 
 ### 3.1 Database
 
@@ -79,7 +65,7 @@ dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release -- --en
 Lệnh build Release rồi chạy API tại cổng 5000. Thư mục key riêng cho local giải quyết trường hợp `.env` chứa đường dẫn Docker `/var/lib/sporthub/dataprotection-keys`; key nằm trong `.tmp` đã được Git bỏ qua. `Ctrl+C` dừng API. Nếu bản Release cũng bị chặn, cần người quản lý chính sách App Control cấp quyền cho ứng dụng development theo quy trình của máy.
 Mỗi lần khởi động Development, baseline phòng được bổ sung idempotent, kể cả DB đã có tài khoản: `Badminton Class BC1/BC2`, `Badminton Rental BR1/BR2`, `Basketball Class KC1/KC2`, `Basketball Rental KR1/KR2`, `Gym G1/G2`. Tên cũ của các sân demo được đổi sang mã mới nhưng giữ nguyên `room_id`, lịch lớp và booking. Hai sân Class của mỗi môn vẫn có thể cho Member thuê khi không có buổi học hoặc block trùng giờ. Giờ mở cửa mặc định là 06:00–22:00 hằng ngày, giờ đã cấu hình trước đó được giữ nguyên.
 
-Trên lịch Member, sau khi hủy thuê sân thành công, thẻ chuyển ngay sang `Cancelled`, mờ dần trong 2,6 giây rồi rời khỏi lịch. Lịch Manager và Receptionist vẫn ghi nhận lượt đã hủy bằng nhãn trạng thái `Cancelled`; bản ghi cũng còn trong lịch sử thuê sân, chi tiết, hóa đơn và dữ liệu hoàn điểm. Với Docker Compose, frontend chạy từ image (không bind mount mã nguồn), nên sau khi sửa UI cần chạy `docker compose up -d --build frontend` và tải lại trang.
+Trên lịch Member, sau khi hủy thuê sân thành công, thẻ chuyển ngay sang `Cancelled`, mờ dần trong 2,6 giây rồi rời khỏi lịch. Lịch Manager và Receptionist vẫn ghi nhận lượt đã hủy bằng nhãn trạng thái `Cancelled`; bản ghi cũng còn trong lịch sử thuê sân, chi tiết, hóa đơn và dữ liệu hoàn điểm. Frontend local chạy bằng `npm run dev` và tự nhận thay đổi mã nguồn.
 
 ### 3.2.1 Dữ liệu dev: seed lớp BR-141 và reset
 
@@ -130,16 +116,15 @@ npm run dev
 
 Giao diện chạy tại [http://localhost:3000](http://localhost:3000)
 
-### 3.4 Chạy bằng Docker Compose (nhánh `develop`)
+### 3.4 Khởi động lại PostgreSQL và AI
 
-Để chạy cả hệ thống bằng container thay cho 3.1–3.3, chuyển sang nhánh `develop`, tạo `.env` như mục 2 rồi chạy từ thư mục gốc:
+Sau khi tắt Docker hoặc restart máy, chạy từ thư mục gốc:
 
 ```bash
-git checkout develop
-docker compose up -d --build
+docker compose up -d
 ```
 
-Frontend chạy từ image nên sau khi sửa UI phải build lại (`docker compose up -d --build frontend`). Giữ nguyên named volumes khi nâng cấp; không dùng `docker compose down -v` trên dữ liệu cần giữ.
+Chạy backend/frontend trong hai terminal như mục 3.2–3.3. Chỉ cần `docker compose build ai-service` khi sửa source Python hoặc dependencies của AI. Giữ nguyên named volumes khi nâng cấp; không dùng `docker compose down -v` trên dữ liệu cần giữ.
 
 ### 3.5 Tạo tài khoản nhân sự khi demo local
 
@@ -147,7 +132,7 @@ Member và staff là hai loại tài khoản tách biệt: không đổi Member 
 
 # 4. Bàn giao triển khai và nghiệm thu
 
-Hỗ trợ Member (hạng 5): build lại cả backend/frontend bằng `docker compose up -d --build backend frontend`. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới. Xem [quy trình và các ca nghiệm thu](Member-Support-Workflow.md).
+Hỗ trợ Member (hạng 5): trên local, chạy backend/frontend theo mục 3.2–3.3. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới. Xem [quy trình và các ca nghiệm thu](Member-Support-Workflow.md).
 
 Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở trên chỉ hướng dẫn chạy local.
 

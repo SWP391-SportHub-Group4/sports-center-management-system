@@ -15,7 +15,7 @@ import { Drawer, Tabs } from "@/components/primitives";
 import { Calendar } from "@/components/scheduling/Calendar";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
-import { useApi, useAction, useNow } from "@/lib/useApi";
+import { useApi, useNow } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { ApiError } from "@/lib/apiClient";
 import { addDaysIso, todayIso, formatDateTime, formatTime } from "@/lib/format";
@@ -42,6 +42,12 @@ type Selection = {
   course: CourseDto;
   session?: CourseSessionDto;
   member?: TeachingMember;
+};
+type AttendanceStatus = "PRESENT" | "ABSENT";
+type AttendanceUpdate = {
+  status?: AttendanceStatus;
+  pending?: AttendanceStatus;
+  error?: string;
 };
 
 function monday(value = todayIso()) {
@@ -431,6 +437,10 @@ export function TeachingDetail({
     scope?: PlanScope;
   } | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [attendanceUpdates, setAttendanceUpdates] = useState<
+    Record<string, AttendanceUpdate>
+  >({});
+  const pendingAttendance = useRef(new Set<string>());
   const editorState = useRef({ dirty: false, busy: false });
   const discard = () =>
     !editorState.current.busy &&
@@ -440,7 +450,37 @@ export function TeachingDetail({
           ? "Nội dung chưa được lưu. Bỏ các thay đổi?"
           : "You have unsaved changes. Discard them?",
       ));
-  const action = useAction();
+  async function markAttendance(
+    sessionId: string,
+    enrollmentId: string,
+    status: AttendanceStatus,
+  ) {
+    const key = `${sessionId}:${enrollmentId}`;
+    if (pendingAttendance.current.has(key)) return;
+    pendingAttendance.current.add(key);
+    setAttendanceUpdates((current) => ({
+      ...current,
+      [key]: { ...current[key], pending: status, error: undefined },
+    }));
+    try {
+      await teachingApi.attendance(sessionId, enrollmentId, status);
+      setAttendanceUpdates((current) => ({ ...current, [key]: { status } }));
+    } catch (error) {
+      setAttendanceUpdates((current) => ({
+        ...current,
+        [key]: {
+          ...current[key],
+          pending: undefined,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Attendance could not be saved. Please try again.",
+        },
+      }));
+    } finally {
+      pendingAttendance.current.delete(key);
+    }
+  }
   const state = useApi(
     async (signal) => {
       const [members, records, sessions, roster] = await Promise.all([
@@ -572,7 +612,7 @@ export function TeachingDetail({
             Substitute · Access is limited to this session.
           </p>
         )}
-        <Feedback error={action.error} success={saved ?? action.success} />
+        <Feedback success={saved} />
         <AsyncSection state={state}>
           {({ members, records, sessions, roster }) => {
             const scoped = records.filter(
@@ -754,12 +794,32 @@ export function TeachingDetail({
                         {roster.entries
                           .filter((e) => e.enrollmentStatus === "CONFIRMED")
                           .map((entry) => {
+                            const update =
+                              attendanceUpdates[
+                                `${session?.sessionId}:${entry.enrollmentId}`
+                              ];
+                            const attendanceStatus =
+                              update?.status ??
+                              entry.attendanceStatus?.toUpperCase();
+                            const statusLabel =
+                              attendanceStatus === "PRESENT"
+                                ? "Present"
+                                : attendanceStatus === "ABSENT"
+                                  ? "Absent"
+                                  : "Not marked";
                             const result = records.find(
                               (r) =>
                                 r.kind === "RESULT" &&
                                 r.sessionId === session?.sessionId &&
                                 r.memberId === entry.memberId,
                             );
+                            const recordAttendanceReason = update?.pending
+                              ? "Wait for attendance to finish saving."
+                              : attendanceStatus === "ABSENT"
+                                ? "Results are only available for students marked Present."
+                                : attendanceStatus !== "PRESENT"
+                                  ? "Mark this student Present before recording a result."
+                                  : null;
                             return (
                               <div
                                 className={styles.attendanceRow}
@@ -767,22 +827,52 @@ export function TeachingDetail({
                               >
                                 <div>
                                   <strong>{entry.memberName}</strong>
-                                  <small>
-                                    {entry.attendanceStatus
-                                      ? /present/i.test(entry.attendanceStatus)
-                                        ? vi
-                                          ? "Có mặt"
-                                          : "Present"
-                                        : vi
-                                          ? "Vắng mặt"
-                                          : "Absent"
-                                      : vi
-                                        ? "Chưa điểm danh"
-                                        : "Not marked"}
-                                    {result
-                                      ? ` · ${result.title}${result.score ? ` · ${result.score}/5` : ""}`
-                                      : ""}
-                                  </small>
+                                  <div
+                                    className={styles.attendanceFeedback}
+                                    role="status"
+                                    aria-live="polite"
+                                    aria-atomic="true"
+                                  >
+                                    <span
+                                      className={styles.attendanceStatus}
+                                      data-status={
+                                        attendanceStatus ?? "UNMARKED"
+                                      }
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                    {update?.pending ? (
+                                      <span
+                                        className={styles.attendanceReceipt}
+                                      >
+                                        Saving{" "}
+                                        {update.pending === "PRESENT"
+                                          ? "Present"
+                                          : "Absent"}{" "}
+                                        for {entry.memberName}…
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {update?.error && (
+                                    <p
+                                      className={styles.attendanceError}
+                                      role="alert"
+                                    >
+                                      Could not update {entry.memberName}.{" "}
+                                      {update.error}
+                                    </p>
+                                  )}
+                                  {recordAttendanceReason && (
+                                    <small>{recordAttendanceReason}</small>
+                                  )}
+                                  {result && (
+                                    <small>
+                                      {result.title}
+                                      {result.score
+                                        ? ` · ${result.score}/5`
+                                        : ""}
+                                    </small>
+                                  )}
                                   {result && (
                                     <span className={styles.recordSaved}>
                                       <Check size={14} aria-hidden="true" />
@@ -790,71 +880,96 @@ export function TeachingDetail({
                                     </span>
                                   )}
                                 </div>
-                                <div className={styles.rowActions}>
+                                <div
+                                  className={styles.rowActions}
+                                  role="group"
+                                  aria-label={`Attendance and results for ${entry.memberName}`}
+                                >
                                   <button
                                     type="button"
-                                    className="btn btn--secondary btn--sm"
-                                    aria-pressed={/present/i.test(
-                                      entry.attendanceStatus ?? "",
-                                    )}
-                                    disabled={!attendanceOpen || action.busy}
-                                    onClick={async () => {
-                                      const response = await action.run(
-                                        () =>
-                                          teachingApi.attendance(
-                                            session!.sessionId,
-                                            entry.enrollmentId,
-                                            "PRESENT",
-                                          ),
-                                        vi
-                                          ? "Đã lưu điểm danh."
-                                          : "Attendance saved.",
-                                      );
-                                      if (response !== null) state.reload();
-                                    }}
+                                    className={`btn btn--sm ${styles.attendanceButton}`}
+                                    data-attendance="present"
+                                    aria-busy={update?.pending === "PRESENT"}
+                                    aria-pressed={
+                                      attendanceStatus === "PRESENT"
+                                    }
+                                    disabled={
+                                      !attendanceOpen || !!update?.pending
+                                    }
+                                    onClick={() =>
+                                      void markAttendance(
+                                        session!.sessionId,
+                                        entry.enrollmentId,
+                                        "PRESENT",
+                                      )
+                                    }
                                   >
                                     <Check size={16} aria-hidden="true" />
                                     {vi ? "Có mặt" : "Present"}
+                                    {attendanceStatus === "PRESENT" && (
+                                      <span
+                                        className={styles.attendanceSelected}
+                                        aria-hidden="true"
+                                      >
+                                        Selected
+                                      </span>
+                                    )}
+                                    {update?.pending === "PRESENT" &&
+                                      " · Saving…"}
                                   </button>
                                   <button
                                     type="button"
-                                    className="btn btn--secondary btn--sm"
-                                    aria-pressed={/absent/i.test(
-                                      entry.attendanceStatus ?? "",
-                                    )}
-                                    disabled={!attendanceOpen || action.busy}
-                                    onClick={async () => {
-                                      const response = await action.run(
-                                        () =>
-                                          teachingApi.attendance(
-                                            session!.sessionId,
-                                            entry.enrollmentId,
-                                            "ABSENT",
-                                          ),
-                                        vi
-                                          ? "Đã lưu điểm danh."
-                                          : "Attendance saved.",
-                                      );
-                                      if (response !== null) state.reload();
-                                    }}
+                                    className={`btn btn--sm ${styles.attendanceButton}`}
+                                    data-attendance="absent"
+                                    title={
+                                      result
+                                        ? "This student already has a session result. Attendance cannot be changed to Absent."
+                                        : undefined
+                                    }
+                                    aria-busy={update?.pending === "ABSENT"}
+                                    aria-pressed={attendanceStatus === "ABSENT"}
+                                    disabled={
+                                      !attendanceOpen ||
+                                      !!update?.pending ||
+                                      !!result
+                                    }
+                                    onClick={() =>
+                                      void markAttendance(
+                                        session!.sessionId,
+                                        entry.enrollmentId,
+                                        "ABSENT",
+                                      )
+                                    }
                                   >
                                     <X size={16} aria-hidden="true" />
                                     {vi ? "Vắng" : "Absent"}
+                                    {attendanceStatus === "ABSENT" && (
+                                      <span
+                                        className={styles.attendanceSelected}
+                                        aria-hidden="true"
+                                      >
+                                        Selected
+                                      </span>
+                                    )}
+                                    {update?.pending === "ABSENT" &&
+                                      " · Saving…"}
                                   </button>
                                   <button
                                     type="button"
                                     className={`btn btn--secondary ${styles.recordButton}`}
                                     title={
-                                      result
+                                      recordAttendanceReason ??
+                                      (result
                                         ? vi
                                           ? "Xem và chỉnh sửa kết quả đã ghi"
                                           : "View and edit the saved result"
                                         : vi
                                           ? "Ghi kết quả buổi học"
-                                          : "Record this session’s result"
+                                          : "Record this session’s result")
                                     }
                                     disabled={
                                       !writable ||
+                                      !!recordAttendanceReason ||
                                       now < Date.parse(session!.startAtUtc) ||
                                       (!!result &&
                                         result.coachId !== user?.userId)

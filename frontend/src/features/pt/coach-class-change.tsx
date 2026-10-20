@@ -195,7 +195,7 @@ export function CoachClassChanges({
       {pending && (
         <p className={styles.hint} role="status">
           Your request is awaiting Manager review. Submitted requests cannot be
-          edited; you can withdraw it below.
+          edited; you can cancel it below.
         </p>
       )}
       {form && eligible && !pending && (
@@ -253,8 +253,7 @@ export function CoachClassChanges({
       {eligible && !absenceOpen && (
         <p className={styles.hint} role="status">
           Absence requests close 6 hours before class. Contact your Manager
-          directly for urgent absences. You can still withdraw a pending
-          request.
+          directly for urgent absences. You can still cancel a pending request.
         </p>
       )}
       <AsyncSection state={state}>
@@ -340,7 +339,7 @@ export function CoachClassChanges({
                           !window.confirm(
                             vi
                               ? "Rút yêu cầu này? Lịch học vẫn giữ nguyên."
-                              : "Withdraw this request? Your schedule will remain unchanged.",
+                              : "Cancel this request? Your schedule will remain unchanged.",
                           )
                         )
                           return;
@@ -365,7 +364,7 @@ export function CoachClassChanges({
                                   throw error;
                                 }
                               },
-                              vi ? "Đã rút yêu cầu." : "Request withdrawn.",
+                              vi ? "Đã rút yêu cầu." : "Request cancelled.",
                             )
                           ) {
                             setForm(false);
@@ -378,7 +377,7 @@ export function CoachClassChanges({
                       }}
                     >
                       <X size={15} aria-hidden="true" />
-                      {vi ? "Rút yêu cầu" : "Withdraw request"}
+                      {vi ? "Rút yêu cầu" : "Cancel request"}
                     </button>
                   )}
                 </article>
