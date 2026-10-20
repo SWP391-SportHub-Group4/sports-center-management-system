@@ -164,7 +164,7 @@ public sealed class ClassEnrollmentFulfillment(
 
         // reserved_count không đổi (hold đã được tính); confirmed_count + 1.
         var updated = await db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE classes SET confirmed_count = confirmed_count + 1, version = version + 1 WHERE class_id = {hold.ClassId} AND confirmed_count < reserved_count",
+            $"UPDATE classes SET confirmed_count = confirmed_count + 1, enrollment_open = CASE WHEN confirmed_count + 1 >= capacity THEN FALSE ELSE enrollment_open END, enrollment_closed_reason = CASE WHEN confirmed_count + 1 >= capacity THEN {AutomaticClassEnrollment.FullReason} ELSE enrollment_closed_reason END, enrollment_closed_at_utc = CASE WHEN confirmed_count + 1 >= capacity THEN {clock.UtcNow} ELSE enrollment_closed_at_utc END, version = version + 1 WHERE class_id = {hold.ClassId} AND confirmed_count < reserved_count",
             cancellationToken);
 
         if (updated == 0)
@@ -298,6 +298,8 @@ public sealed class ClassEnrollmentFulfillment(
             throw new InvalidOperationException("Seat counter mismatch while ending an enrollment.");
         }
 
+        await AutomaticClassEnrollment.ReopenAfterWithdrawalAsync(db, enrollment.ClassId, clock.UtcNow, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
         // A transfer confirms its destination before reconciling, so a same-coach transfer
         // keeps the existing assignment instead of manufacturing a gap in its history.
@@ -362,6 +364,8 @@ public sealed class ClassEnrollmentFulfillment(
         {
             throw new ConflictException("class_not_open", "Class not open.");
         }
+        if (cls.ConfirmedCount >= cls.Capacity)
+            throw new ConflictException("class_full", "Class full.");
         if (!cls.EnrollmentOpen)
         {
             throw new ConflictException(

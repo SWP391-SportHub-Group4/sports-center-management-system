@@ -388,6 +388,13 @@ export const en = {
     version: "Version",
     backToList: "Back to list",
     enrollmentTitle: "Enrollment",
+    enrollmentFull: "Class is full",
+    enrollmentOpensOnPublish:
+      "Enrollment opens automatically when this class is published.",
+    enrollmentAutomaticHint:
+      "Enrollment is managed automatically and closes when the class is full or starts.",
+    enrollmentFullHint:
+      "Enrollment is closed because all places are filled. A place released before the class starts reopens automatically.",
     enrollmentOpen: "Enrollment is open",
     enrollmentClosed: "Enrollment is closed",
     enrollmentClosedVisibilityHint:

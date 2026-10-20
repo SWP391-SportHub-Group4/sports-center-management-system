@@ -283,11 +283,18 @@ test("class details keeps capacity readable and groups management actions", asyn
     fullPage: true,
     animations: "disabled",
   });
-  await page
-    .getByRole("button", { name: "Close enrollment", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Close enrollment", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Reopen enrollment", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "Enrollment is managed automatically and closes when the class is full or starts.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Cancel class", exact: true }),
   ).toHaveCount(0);

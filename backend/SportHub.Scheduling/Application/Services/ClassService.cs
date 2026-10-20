@@ -80,6 +80,9 @@ public sealed class ClassService(
                 "Class not published.");
         }
 
+        if (open && entity.ConfirmedCount >= entity.Capacity)
+            throw new ConflictException("class_full", "Enrollment cannot open while the class is full.");
+
         if (entity.EnrollmentOpen == open)
         {
             await tx.CommitAsync(ct);
@@ -458,6 +461,9 @@ public sealed class ClassService(
         }
 
         entity.Status = ClassStatus.Published;
+        entity.EnrollmentOpen = true;
+        entity.EnrollmentClosedReason = null;
+        entity.EnrollmentClosedAtUtc = null;
         entity.PublishedAt = now;
         entity.BreakEvenThreshold = threshold;
         entity.ThresholdStatus = ThresholdStatus.NotEvaluated;
@@ -471,6 +477,7 @@ public sealed class ClassService(
             NewValue: JsonSerializer.Serialize(new
             {
                 status = ClassStatus.Published.ToString(),
+                enrollmentOpen = true,
                 sessions = sessions.Count,
                 breakEvenThreshold = threshold,
                 thresholdDeadlineUtc = entity.ThresholdDeadlineUtc
@@ -608,7 +615,7 @@ public sealed class ClassService(
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.Price,
             r.Class.Status.ToString(),
-            r.Class.EnrollmentOpen && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
+            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > now && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now),
             r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now,
@@ -649,7 +656,7 @@ public sealed class ClassService(
             r.ActiveHolds,
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.CreatedByAi,
-            r.Class.EnrollmentOpen,
+            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > clock.UtcNow,
             r.Class.EnrollmentClosedReason,
             r.Class.EnrollmentClosedAtUtc,
             r.Class.Version,

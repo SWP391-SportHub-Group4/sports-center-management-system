@@ -64,7 +64,7 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 | GET | `/api/manager/classes/{classId}/cancellation-preview` | Manager; `canCancel,version,totalSessions,sessionsNotProvided,confirmedCount,activeHoldCount,refundPoints,previewToken,members[]`. Enrolled classes cannot be cancelled; `refundPoints=0`, `members=[]`. |
 | POST | `/api/manager/classes/{classId}/cancel` | Manager; `{reason,previewToken?}`. Active Confirmed enrollment: HTTP 409 `class_has_enrollments`, no state changes. Empty classes may cancel; active holds require a fresh preview token. Releases pending checkout/holds and held points, cancels Scheduled sessions, releases occupancy and writes audit/outbox atomically. Stale preview: 409 `class_cancellation_changed`. |
 | POST | `/api/manager/classes/{classId}/enrollment/close` | Manager; body `{reason}` bắt buộc, 3–500 ký tự (thiếu/ngắn → 400 `enrollment_close_reason_required`). Chỉ đóng tuyển sinh lớp Published: checkout mới nhận 409 `enrollment_closed`; hold Active và ghi danh hiện có không bị hủy, hold hợp lệ vẫn hoàn tất thanh toán. Luôn gửi thông báo + email tiếng Anh cho Member đã ghi danh. Response `ClassManagerResponse` thêm `enrollmentClosedReason`, `enrollmentClosedAtUtc`. Đóng lặp là no-op; không hủy lớp hoặc hoàn điểm. |
-| POST | `/api/manager/classes/{classId}/enrollment/open` | Manager; mở lại, xóa lý do đóng. Member đã ghi danh nhận thông báo + email “đã xử lý xong”. |
+| POST | `/api/manager/classes/{classId}/enrollment/open` | Legacy compatibility; không còn nút trong giao diện Manager. Không mở lại lớp đủ sĩ số (`class_full`). |
 | GET | `/api/members/me/class-holds` | Member; danh sách hold lớp còn hiệu lực của chính Member: `[{classId,invoiceId,expiresAtUtc}]` (Active, chưa hết hạn, có invoice). UI dùng để hiện “Hoàn tất thanh toán” cho lớp đã đóng tuyển sinh sau khi Member giữ chỗ; hold vẫn thanh toán được tới `expiresAtUtc`. |
 | POST | `/api/manager/notices` | Manager; body hiện có, thêm header `Idempotency-Key` UUID. Cùng Manager/key/payload nhận cùng noticeId và không tạo thêm outbox; đổi payload trả 409 `notice_idempotency_conflict`. Client cũ không có key vẫn được hỗ trợ. |
 | GET | `/api/manager/notices` | Manager; lịch sử của chính mình, query `search` theo tiêu đề, `fromDate`/`toDate` theo ngày Việt Nam (bao gồm hai đầu), `page`/`pageSize` (tối đa 50). Trả `PagedResult` với tiêu đề, người gửi, thời điểm, số người nhận và kênh đã chọn; mới nhất trước, tie-break bằng noticeId. |
@@ -462,6 +462,8 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 | Verb | Path |
 |---|---|
 | GET | `api/reports/class-utilization` |
+
+Enrollment is opened automatically in the publish transaction. The final confirmed, paid enrollment closes the class at capacity. A withdrawn enrollment reopens a class that was automatically closed as full only if its first session has not started. Active checkout holds still count against availability, and releasing or expiring a hold does not require a Manager action. The Manager UI no longer exposes manual enrollment controls. Existing published, upcoming classes are normalized by the AutomaticClassEnrollment data migration.
 
 ### EnrollmentsController — `api`
 

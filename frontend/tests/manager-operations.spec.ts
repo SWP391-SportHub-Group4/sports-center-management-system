@@ -2441,6 +2441,38 @@ test("class schedule conflict color follows the draft and ignores adjacent or ca
   await expect(next.locator("svg")).toHaveCSS("width", "24px");
 });
 
+test("full class shows automatic enrollment status without manual controls", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        status: "PUBLISHED",
+        capacity: 4,
+        confirmedCount: 4,
+        reservedCount: 4,
+        enrollmentOpen: false,
+        availableSeats: 0,
+        activeHoldCount: 0,
+      },
+    }),
+  );
+  await page.goto("/manager/classes/1?tab=management");
+  await expect(
+    page.getByText(en.managerOperations.enrollmentFull, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(en.managerOperations.enrollmentFullHint, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Close enrollment", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Reopen enrollment", exact: true }),
+  ).toHaveCount(0);
+});
+
 test("enrolled class hides cancellation and keeps rescheduling available", async ({
   page,
 }) => {
@@ -2503,7 +2535,7 @@ test("enrolled class hides cancellation and keeps rescheduling available", async
   await expect(
     dialog.getByLabel(en.operations.coach, { exact: true }),
   ).toBeVisible();
-  await expect(dialog.getByRole("heading")).toHaveText(
+  await expect(dialog.getByRole("heading", { level: 2 })).toHaveText(
     en.classWorkspace.editSession,
   );
   await expect(
