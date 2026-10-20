@@ -367,10 +367,6 @@ export function SelectedMemberPanel({
           </Link>
         )}
 
-        <Link className="btn btn--ghost" href="/receptionist/invoices">
-          {vi ? "Xem hóa đơn" : "View invoices"}
-        </Link>
-
         {showProfileLink && (
           <Link
             className="btn btn--ghost"

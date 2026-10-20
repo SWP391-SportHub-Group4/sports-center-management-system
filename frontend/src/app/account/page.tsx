@@ -238,7 +238,7 @@ export default function AccountPage() {
             className={
               isCoach
                 ? styles.coachWorkspace
-                : user?.role === "Member"
+                : (user?.role === "Member" || user?.role === "Receptionist")
                   ? styles.content
                   : "grid grid--2"
             }
@@ -323,7 +323,7 @@ export default function AccountPage() {
                     <StatusChip value={data.status} />
                   </div>
 
-                  {(user?.role === "Member" || user?.role === "Coach") && (
+                  {(user?.role === "Member" || user?.role === "Coach" || user?.role === "Receptionist") && (
                     <AvatarEditor
                       name={data.fullName || data.email}
                       avatarUrl={data.avatarUrl}
