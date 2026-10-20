@@ -2,7 +2,7 @@
 
 import { useId, type ReactNode, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Dialog, Feedback } from "@/components/ui";
+import { Card, Dialog, Feedback } from "@/components/ui";
 import { FilterBar } from "@/components/data/FilterBar";
 import { Table } from "@/components/data/Table";
 import { StateView } from "@/components/data/StateView";
@@ -11,6 +11,34 @@ import type { AsyncState } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { useMutation } from "@/features/operations";
 import styles from "./manager-catalog.module.css";
+
+export function CatalogPanel({
+  filters,
+  actions,
+  hint,
+  children,
+}: {
+  title?: ReactNode;
+  filters?: ReactNode;
+  actions?: ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className={styles.catalogLayout}>
+      <Card>
+        {(filters || actions) && (
+          <div className={styles.catalogToolbar}>
+            <div className={styles.catalogFilters}>{filters}</div>
+            {actions && <div className={styles.catalogActions}>{actions}</div>}
+          </div>
+        )}
+        {hint && <p className={styles.catalogHint}>{hint}</p>}
+        {children}
+      </Card>
+    </div>
+  );
+}
 
 export function useCatalogFilters() {
   const params = useSearchParams();
@@ -90,6 +118,7 @@ export function CatalogTable<Row>({
   getRowId,
   actions,
   filters,
+  visibleRowActions,
 }: {
   state: AsyncState<Row[]>;
   rows: Row[];
@@ -98,6 +127,7 @@ export function CatalogTable<Row>({
   getRowId: (row: Row) => string;
   actions: (row: Row) => ReactNode;
   filters: ReturnType<typeof useCatalogFilters>;
+  visibleRowActions?: number;
 }) {
   const { t } = useLanguage();
   if (state.error)
@@ -124,24 +154,27 @@ export function CatalogTable<Row>({
     Math.max(1, Math.ceil(rows.length / pageSize)),
   );
   return (
-    <Table
-      caption={caption}
-      columns={columns}
-      rows={rows.slice((page - 1) * pageSize, page * pageSize)}
-      getRowId={getRowId}
-      rowActions={actions}
-      status={state.loading ? "loading" : "ready"}
-      empty={{
-        title: t.managerCatalog.empty,
-        hint: t.managerCatalog.emptyHint,
-      }}
-      pagination={{
-        page,
-        pageSize,
-        totalCount: rows.length,
-        onChange: filters.setPage,
-      }}
-    />
+    <div className={styles.catalogTable}>
+      <Table
+        caption={caption}
+        columns={columns}
+        rows={rows.slice((page - 1) * pageSize, page * pageSize)}
+        getRowId={getRowId}
+        rowActions={actions}
+        visibleRowActions={visibleRowActions}
+        status={state.loading ? "loading" : "ready"}
+        empty={{
+          title: t.managerCatalog.empty,
+          hint: t.managerCatalog.emptyHint,
+        }}
+        pagination={{
+          page,
+          pageSize,
+          totalCount: rows.length,
+          onChange: filters.setPage,
+        }}
+      />
+    </div>
   );
 }
 

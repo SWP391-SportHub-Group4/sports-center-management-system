@@ -86,6 +86,17 @@ public sealed class PaymentReturnVerificationTests(PaymentApiFactory factory)
         Assert.Contains("payment_verification_pending", await verified.Content.ReadAsStringAsync());
         Assert.Equal(1, gateway.Calls);
         Assert.Equal(attempt.PaymentAttemptId, gateway.LastAttemptId);
+        client.DefaultRequestHeaders.Authorization = otherClient.DefaultRequestHeaders.Authorization;
+        var otherInvoiceCheck = await client.PostAsync($"/api/checkouts/{checkout.InvoiceId}/verify-payment", null);
+        Assert.Equal(HttpStatusCode.Forbidden, otherInvoiceCheck.StatusCode);
+        Assert.Equal(1, gateway.Calls);
+
+        client.DefaultRequestHeaders.Authorization = ownerClient.DefaultRequestHeaders.Authorization;
+        var invoiceCheck = await client.PostAsync($"/api/checkouts/{checkout.InvoiceId}/verify-payment", null);
+        Assert.Equal(HttpStatusCode.OK, invoiceCheck.StatusCode);
+        Assert.Contains("\"verified\":false", await invoiceCheck.Content.ReadAsStringAsync());
+        Assert.Equal(2, gateway.Calls);
+        Assert.Equal(attempt.PaymentAttemptId, gateway.LastAttemptId);
         // An absent gateway proof must never create a successful payment.
         Assert.Equal(0, await factory.QueryAsync(db =>
             db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId)));

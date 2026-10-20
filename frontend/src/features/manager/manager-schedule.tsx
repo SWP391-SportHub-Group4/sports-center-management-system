@@ -19,7 +19,6 @@ import { courtScheduleApi } from "@/features/court-schedule";
 import { groupCenterIncidents } from "./schedule-incidents";
 
 import { ManagerClassChangeRequests } from "./class-change-requests";
-import { classChangeStyles as changeStyles } from "@/features/pt";
 
 const validDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -123,7 +122,7 @@ export function ManagerSchedule({
   }));
   const sectionNav = !fixedCoach && !fixedRoom && (
     <nav
-      className={changeStyles.bookmarks}
+      className={styles.sections}
       aria-label={language === "vi" ? "Quản lý lịch" : "Schedule management"}
     >
       <button
@@ -239,8 +238,7 @@ export function ManagerSchedule({
             </Button>
           </div>
         </div>
-        <details className={styles.filters}>
-          <summary>{t.common.filter}</summary>
+        <div className={styles.filters}>
           <FilterBar
             values={values}
             onChange={update}
@@ -284,7 +282,7 @@ export function ManagerSchedule({
                 : []),
               {
                 id: "classId",
-                label: l.courses,
+                label: t.classWorkspace.classLabel,
                 kind: "select",
                 options: [
                   { value: "", label: l.all },
@@ -327,16 +325,19 @@ export function ManagerSchedule({
               </>
             }
           />
-        </details>
+        </div>
       </Card>
       {rooms.error && <p role="alert">{rooms.error.message}</p>}
       <AsyncSection state={state}>
         {() => (
           <Card
             title={
-              formatDate(calendarDate) +
-              " – " +
-              formatDate(addDaysIso(calendarDate, days - 1))
+              days === 1
+                ? formatDate(calendarDate)
+                : [
+                    formatDate(calendarDate),
+                    formatDate(addDaysIso(calendarDate, days - 1)),
+                  ].join(" \u2013 ")
             }
           >
             <Calendar

@@ -30,20 +30,20 @@ export interface IncidentDetails {
   resolutionSummary: string;
   createdAtUtc: string;
   sessionReports?:
-    | {
-        sessionId: string;
-        classId: number;
-        sessionNo: number;
-        className: string;
-        report: {
-          outcome: string;
-          occurredAtUtc: string;
-          recordedAtUtc: string;
-          reason: string;
-          replacementSessionId: string | null;
-        };
-      }[]
-    | null;
+  | {
+    sessionId: string;
+    classId: number;
+    sessionNo: number;
+    className: string;
+    report: {
+      outcome: string;
+      occurredAtUtc: string;
+      recordedAtUtc: string;
+      reason: string;
+      replacementSessionId: string | null;
+    };
+  }[]
+  | null;
 }
 
 export interface IncidentFence {

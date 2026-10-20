@@ -11,9 +11,6 @@ using SportHub.Identity.Domain.Enums;
 namespace SportHub.Identity.Application.Services;
 
 public sealed record AvatarResponse(Guid UserId, string? AvatarUrl);
-public sealed record AvatarReportResponse(Guid ReportId, Guid TargetUserId, string TargetName,
-    Guid ReporterUserId, string ReporterName, string AvatarUrl, string Reason, string Status,
-    DateTime CreatedAt, DateTime? ReviewedAt);
 
 public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage, IAuditWriter audit,
     IClock clock, ILogger<AvatarService> logger)
@@ -34,7 +31,6 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
             user.Profile.AvatarPublicId = uploaded.PublicId;
             user.Profile.AvatarVersion++;
             QueueDeletion(old);
-            CloseReports(userId, "STALE");
             audit.Write(new AuditEntry(userId, "UPDATE_AVATAR", nameof(UserProfile), userId.ToString()));
             try { await db.SaveChangesAsync(ct); }
             catch (DbUpdateConcurrencyException)
@@ -62,7 +58,6 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         user.Profile.AvatarPublicId = null;
         user.Profile.AvatarVersion++;
         QueueDeletion(old);
-        CloseReports(userId, "STALE");
         audit.Write(new AuditEntry(userId, "DELETE_AVATAR", nameof(UserProfile), userId.ToString()));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
@@ -103,82 +98,25 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         return new AvatarResponse(targetUserId, row.AvatarUrl);
     }
 
-    public async Task<Guid> ReportAsync(Guid reporterUserId, Guid targetUserId, string reason, CancellationToken ct)
+    public async Task<AvatarResponse> ManagerDeleteMemberAsync(Guid managerId, Guid memberId, CancellationToken ct)
     {
-        if (reporterUserId == targetUserId)
-            throw new BadRequestException("avatar_self_report", "You cannot report your own avatar.");
-        reason = reason?.Trim() ?? string.Empty;
-        if (reason.Length is < 10 or > 500)
-            throw new BadRequestException("avatar_report_reason_invalid", "The reason must be 10 to 500 characters long.");
-        var target = await db.Set<UserAccount>().AsNoTracking().Where(u => u.UserId == targetUserId
-            && u.Status == UserStatus.Active && u.Role != null
-            && (u.Role.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach))
-            .Select(u => new { Url = u.Profile != null ? u.Profile.AvatarUrl : null,
-                PublicId = u.Profile != null ? u.Profile.AvatarPublicId : null }).SingleOrDefaultAsync(ct)
-            ?? throw new NotFoundException("avatar_owner_not_found", "User not found.");
-        if (target.Url is null)
-            throw new ConflictException("avatar_not_present", "This user has no avatar.");
-        if (await db.Set<AvatarReport>().AnyAsync(r => r.ReporterUserId == reporterUserId
-            && r.TargetUserId == targetUserId && r.AvatarUrl == target.Url && r.Status == "PENDING", ct))
-            throw new ConflictException("avatar_already_reported", "You have already reported this avatar.");
-        var report = new AvatarReport { ReportId = Guid.NewGuid(), ReporterUserId = reporterUserId,
-            TargetUserId = targetUserId, AvatarUrl = target.Url, AvatarPublicId = target.PublicId,
-            Reason = reason, CreatedAt = clock.UtcNow };
-        db.Set<AvatarReport>().Add(report);
-        audit.Write(new AuditEntry(reporterUserId, "REPORT_AVATAR", nameof(AvatarReport), report.ReportId.ToString()));
-        await db.SaveChangesAsync(ct);
-        return report.ReportId;
-    }
-
-    public async Task<IReadOnlyList<AvatarReportResponse>> ListReportsAsync(string status, CancellationToken ct)
-    {
-        status = status.ToUpperInvariant();
-        if (status is not ("PENDING" or "REMOVED" or "DISMISSED" or "STALE"))
-            throw new BadRequestException("avatar_report_status_invalid", "Invalid report status.");
-        return await (from r in db.Set<AvatarReport>().AsNoTracking()
-            join target in db.Set<UserAccount>().AsNoTracking() on r.TargetUserId equals target.UserId
-            join reporter in db.Set<UserAccount>().AsNoTracking() on r.ReporterUserId equals reporter.UserId
-            where r.Status == status
-            orderby r.CreatedAt descending
-            select new AvatarReportResponse(r.ReportId, r.TargetUserId,
-                target.Profile != null ? target.Profile.FullName : target.Email,
-                r.ReporterUserId, reporter.Profile != null ? reporter.Profile.FullName : reporter.Email,
-                r.AvatarUrl, r.Reason, r.Status, r.CreatedAt, r.ReviewedAt))
-            .Take(100).ToListAsync(ct);
-    }
-
-    public async Task ReviewAsync(Guid managerId, Guid reportId, bool remove, CancellationToken ct)
-    {
-        var report = await db.Set<AvatarReport>().SingleOrDefaultAsync(r => r.ReportId == reportId, ct)
-            ?? throw new NotFoundException("avatar_report_not_found", "Report not found.");
-        if (report.Status != "PENDING")
-            throw new ConflictException("avatar_report_processed", "This report has already been processed.");
-        var target = await db.Set<UserAccount>().Include(u => u.Profile).SingleAsync(u => u.UserId == report.TargetUserId, ct);
-        if (remove)
-        {
-            if (target.Profile?.AvatarUrl != report.AvatarUrl)
-                throw new ConflictException("avatar_report_stale", "The avatar has changed. This report cannot remove the new image.");
-            var old = target.Profile.AvatarPublicId;
-            target.Profile.AvatarUrl = null;
-            target.Profile.AvatarPublicId = null;
-            target.Profile.AvatarVersion++;
-            QueueDeletion(old);
-            CloseReports(report.TargetUserId, "REMOVED", managerId);
-            audit.Write(new AuditEntry(managerId, "REMOVE_REPORTED_AVATAR", nameof(UserProfile), report.TargetUserId.ToString(),
-                Reason: report.Reason));
-            try { await db.SaveChangesAsync(ct); }
-            catch (DbUpdateConcurrencyException)
-            { throw new ConflictException("avatar_changed", "The avatar has changed. Please reload the report."); }
-            await TryFlushDeletionAsync(old, ct);
-        }
-        else
-        {
-            report.Status = "DISMISSED";
-            report.ReviewedById = managerId;
-            report.ReviewedAt = clock.UtcNow;
-            audit.Write(new AuditEntry(managerId, "DISMISS_AVATAR_REPORT", nameof(AvatarReport), reportId.ToString()));
-            await db.SaveChangesAsync(ct);
-        }
+        var member = await db.Set<UserAccount>().Include(u => u.Role).Include(u => u.Profile)
+            .SingleOrDefaultAsync(u => u.UserId == memberId, ct)
+            ?? throw new NotFoundException("user_not_found", "Account not found.");
+        if (member.Role?.RoleName != UserRole.Member)
+            throw new ForbiddenException("avatar_target_not_member", "Only member photos can be removed here.");
+        if (member.Profile?.AvatarUrl is null) return new AvatarResponse(memberId, null);
+        var old = member.Profile.AvatarPublicId;
+        member.Profile.AvatarUrl = null;
+        member.Profile.AvatarPublicId = null;
+        member.Profile.AvatarVersion++;
+        QueueDeletion(old);
+        audit.Write(new AuditEntry(managerId, "MANAGER_REMOVE_MEMBER_AVATAR", nameof(UserProfile), memberId.ToString()));
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        { throw new ConflictException("avatar_changed", "The avatar has changed. Please reload the member."); }
+        await TryFlushDeletionAsync(old, ct);
+        return new AvatarResponse(memberId, null);
     }
 
     public async Task ProcessPendingDeletionsAsync(CancellationToken ct)
@@ -218,16 +156,6 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         if (publicId is null) return;
         db.Set<AvatarDeletion>().Add(new AvatarDeletion
         { DeletionId = Guid.NewGuid(), PublicId = publicId, CreatedAt = clock.UtcNow });
-    }
-
-    private void CloseReports(Guid targetUserId, string status, Guid? reviewerId = null)
-    {
-        foreach (var report in db.Set<AvatarReport>().Where(r => r.TargetUserId == targetUserId && r.Status == "PENDING"))
-        {
-            report.Status = status;
-            report.ReviewedById = reviewerId;
-            report.ReviewedAt = clock.UtcNow;
-        }
     }
 
     private async Task FlushDeletionAsync(string? publicId, CancellationToken ct)

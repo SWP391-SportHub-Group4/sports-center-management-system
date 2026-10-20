@@ -21,6 +21,7 @@ import { memberEnrollments, memberSchedule, type MemberEvent } from "./api";
 import { RefundCancelDialog } from "@/features/payments";
 import { eventKind, sportTone, type EventKind } from "./event-meta";
 import { googleCalendarHref } from "./google-calendar";
+import { downloadIcs } from "./ics";
 import { RentalCancelConfirm } from "./rental-cancel";
 import tags from "./tags.module.css";
 import styles from "./schedule.module.css";
@@ -812,25 +813,51 @@ export function MemberSchedule({
                     </button>
                   ) : null}
                   {!/CANCEL/i.test(selected.status ?? "") && (
-                    <a
-                      className="btn btn--secondary"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      href={googleCalendarHref({
-                        title:
-                          selected.kind === "rental" && selected.sport
-                            ? `${selected.title} · ${selected.sport}`
-                            : selected.title,
-                        startAtUtc: selected.startAtUtc,
-                        endAtUtc: selected.endAtUtc,
-                        location: selected.roomName,
-                        description: [selected.sport, selected.coachName]
-                          .filter(Boolean)
-                          .join(" · "),
-                      })}
-                    >
-                      {m.addToCalendar}
-                    </a>
+                    <>
+                      <a
+                        className="btn btn--secondary"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href={googleCalendarHref({
+                          title:
+                            selected.kind === "rental" && selected.sport
+                              ? `${selected.title} · ${selected.sport}`
+                              : selected.title,
+                          startAtUtc: selected.startAtUtc,
+                          endAtUtc: selected.endAtUtc,
+                          location: selected.roomName,
+                          description: [selected.sport, selected.coachName]
+                            .filter(Boolean)
+                            .join(" · "),
+                        })}
+                      >
+                        {m.addToCalendar}
+                      </a>
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() =>
+                          downloadIcs(
+                            {
+                              uid: selected.id,
+                              title:
+                                selected.kind === "rental" && selected.sport
+                                  ? `${selected.title} · ${selected.sport}`
+                                  : selected.title,
+                              startAtUtc: selected.startAtUtc,
+                              endAtUtc: selected.endAtUtc,
+                              location: selected.roomName,
+                              description: [selected.sport, selected.coachName]
+                                .filter(Boolean)
+                                .join(" · "),
+                            },
+                            `sporthub-${selected.id.replace(/[^\w-]/g, "_")}.ics`,
+                          )
+                        }
+                      >
+                        {vi ? "Tải tệp .ics" : "Download .ics"}
+                      </button>
+                    </>
                   )}
                   {selected.kind === "class" &&
                     classEnrollment(selected.classId) &&

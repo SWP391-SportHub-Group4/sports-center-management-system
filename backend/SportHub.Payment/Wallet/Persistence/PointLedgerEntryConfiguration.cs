@@ -17,7 +17,7 @@ public sealed class PointLedgerEntryConfiguration : IEntityTypeConfiguration<Poi
                 (entry_type = 2 AND available_delta = 0 AND held_delta = -points) OR
                 (entry_type = 3 AND available_delta = points AND held_delta = 0) OR
                 (entry_type = 4 AND held_delta = 0 AND (available_delta = points OR available_delta = -points))
-                """);
+                """.ReplaceLineEndings("\n"));
         });
         builder.HasKey(x => x.LedgerEntryId);
         builder.Property(x => x.ReferenceType).HasMaxLength(80).IsRequired();

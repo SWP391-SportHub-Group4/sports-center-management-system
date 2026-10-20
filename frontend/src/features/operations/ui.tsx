@@ -12,16 +12,22 @@ import styles from "./operations.module.css";
 
 export function OperationsPage({
   title,
+  heading,
   roles = ["CenterManager"],
   children,
 }: {
   title: keyof Omit<Translations["operations"], "weekdays">;
+  heading?: keyof Translations["classWorkspace"];
   roles?: Role[];
   children: ReactNode;
 }) {
   const { t } = useLanguage();
   return (
-    <AppShell title={t.operations[title]} allow={roles} operationalLayout>
+    <AppShell
+      title={heading ? t.classWorkspace[heading] : t.operations[title]}
+      allow={roles}
+      operationalLayout
+    >
       <div className={styles.workspace}>{children}</div>
     </AppShell>
   );

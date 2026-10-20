@@ -625,6 +625,7 @@ export interface OpeningHourDto {
   closeTimeLocal: string;
 }
 export interface CourtRateDto {
+  roomId?: number | null;
   rateId: number;
   roomTypeId: number;
   sportId: number | null;

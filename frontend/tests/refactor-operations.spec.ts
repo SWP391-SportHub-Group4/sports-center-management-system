@@ -932,8 +932,11 @@ test("course cancellation shows the server refund and discards a preview rejecte
     });
   });
   await page.goto("/manager/classes/1");
-  const panel = page.locator("section.card").filter({
-    has: page.getByRole("heading", { name: "Cancel", exact: true }),
+  await page.getByRole("tab", { name: "Management", exact: true }).click();
+  await page.getByRole("button", { name: "Cancel class", exact: true }).click();
+  const panel = page.getByRole("dialog", {
+    name: "Cancel class",
+    exact: true,
   });
   await panel.getByLabel("Reason", { exact: true }).fill("Center closure");
   await panel

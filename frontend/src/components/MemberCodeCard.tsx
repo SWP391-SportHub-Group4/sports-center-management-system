@@ -38,7 +38,6 @@ export function MemberCodeButton({
   };
   const [dataUrl, setDataUrl] = useState("");
   const [eligible, setEligible] = useState<boolean | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const userId = user?.userId;
 
   useEffect(() => {
@@ -142,30 +141,11 @@ export function MemberCodeButton({
                 <p className="small muted">
                   {en ? "Valid today only" : "Chỉ có hiệu lực hôm nay"}
                 </p>
-                <button
-                  className="btn"
-                  onClick={async () => {
-                    try {
-                      await api.post("/api/gym-checkins/self", {});
-                      setNotice(
-                        en
-                          ? "Checked in successfully."
-                          : "Đã check-in thành công.",
-                      );
-                    } catch (error) {
-                      setNotice(
-                        error instanceof Error
-                          ? error.message
-                          : en
-                            ? "Check-in failed."
-                            : "Check-in thất bại.",
-                      );
-                    }
-                  }}
-                >
-                  {en ? "Check in now" : "Tự check-in"}
-                </button>
-                {notice && <p role="status">{notice}</p>}
+                <p className="small">
+                  {en
+                    ? "Show this code to the receptionist to check in."
+                    : "Đưa mã này cho lễ tân để check-in."}
+                </p>
               </>
             )}
           </div>

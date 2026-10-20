@@ -6,6 +6,17 @@ namespace SportHub.Scheduling.Tests.Unit;
 public sealed class CourtRateCalculationTests
 {
     [Fact]
+    public void Court_specific_prices_override_shared_prices_without_affecting_other_courts()
+    {
+        var shared = Rate("MON", "08:00", "12:00", 100000);
+        var own = Rate("MON", "08:00", "10:00", 80000); own.RoomId = 7;
+        var another = Rate("MON", "08:00", "12:00", 200000); another.RoomId = 8;
+        var start = new DateTimeOffset(2026,10,5,1,0,0,TimeSpan.Zero);
+        Assert.Equal(260000, CourtRateCalculator.Calculate([shared, own, another], 2, start, TimeSpan.FromHours(3), 60, 7).TotalPrice);
+        Assert.Equal(600000, CourtRateCalculator.Calculate([shared, own, another], 2, start, TimeSpan.FromHours(3), 60, 8).TotalPrice);
+        Assert.Equal(300000, CourtRateCalculator.Calculate([shared, own, another], 2, start, TimeSpan.FromHours(3), 60, 9).TotalPrice);
+    }
+    [Fact]
     public void CalculatesEachBlockUsingItsVietnameseLocalRate()
     {
         var rates = new[]

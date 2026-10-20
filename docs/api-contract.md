@@ -1,5 +1,13 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Tạo Sport kèm Room Type tùy chọn — 19 October 2026
+
+`POST /api/manager/sports` bổ sung `createRoomType` (mặc định false) và `roomTypeName` (tên do Manager nhập, tối đa 100 ký tự). Khi chọn true, tên sau trim phải có nội dung và không trùng Room Type hiện có (không phân biệt hoa/thường); lỗi `invalid_room_type_name` hoặc `room_type_name_taken` không tạo Sport. Sport, Room Type Active, liên kết SportRoomType và audit được lưu cùng transaction. Khi false/bỏ trống, tên Room Type được bỏ qua và không tạo/sửa Room Type hay liên kết. `PUT` không hỗ trợ tạo Room Type (`room_type_creation_only` nếu bật flag). Response Sport giữ nguyên; Room Type mới xuất hiện trong `/api/room-types` kèm sportIds. Không tạo sân vật lý. Không cần migration.
+
+## Tạo sân cho thuê trọn gói — 19 October 2026
+
+Manager-only `POST /api/rooms/rental` lưu sân, giờ hoạt động, giá riêng và bật dịch vụ thuê trong một transaction. Court-rate request/response bổ sung `roomId` nullable; giá riêng được ưu tiên hơn giá chung theo loại sân. Xem [contract, validation và verification](Rental-Court-Setup.md).
+
 ## M06 class opening decision — 18 October 2026
 
 See [confirmed policy and implementation](Class-Opening-Decision.md). Existing threshold/respond/waive/cancel/reschedule endpoints are reused. Public class responses add boolean `openingConfirmed` without exposing costs or break-even counts. Only Met/Waived classes advance to teaching; late unconfirmed openings require a Manager decision or deferral. Response settings allow 1–48 hours and reviews at least 72 hours ahead, with a 24-hour pre-opening margin. Rescheduling an unconfirmed planned first session updates its opening date/review deadline and cannot cut into an existing response window. Attendance can return 409 `class_opening_not_confirmed`; retroactive waiver returns 409 `threshold_opening_time_passed`; invalid reschedule returns 409 `threshold_response_window_conflict`.
@@ -279,7 +287,7 @@ Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tạ
 - Vé ngày là gói Membership `packageId = 50000`, 1 ngày, seed mặc định 50.000đ bằng migration `GymDayPass`. Mua qua `POST api/checkouts/membership` như gói thường. Manager sửa được giá/tên/mô tả qua `PUT api/membership-packages/50000`; đổi thời hạn trả 409 `day_pass_duration_fixed`, ngừng bán trả 409 `day_pass_fixed`.
 - Hiệu lực: bắt đầu và kết thúc đúng ngày thanh toán thành công theo giờ Việt Nam (không cộng dồn với gói dài). Đã có vé hôm nay mà mua thêm trả 409 `day_pass_already_active`. Gym đang đóng cửa vì sự cố (mọi phòng Gym bị block) trả 409 `gym_closed_today`.
 - Thanh toán xong: thông báo và email "SportHub - Your Gym day pass" nhắc vé và mã check-in chỉ dùng trong ngày.
-- Check-in: `POST api/gym-checkins/self` (Member tự check-in, cùng điều kiện có gói Active) hoặc `POST api/gym-checkins` (lễ tân check-in hộ). Mã QR do server cấp và ký: Member gọi `GET api/members/me/checkin-code` (`{code, expiresAtUtc}`, mã dạng `SPORTHUB-CODE:{memberId}.{exp}.{chữ ký}`, hết hạn 00:00 giờ Việt Nam hôm sau, client không tự dựng được); lễ tân/Manager (policy `FrontDesk`) quét mã rồi gọi `POST api/members/checkin-code/resolve` (`{code}`) nhận `{memberId}`; mã giả/sai chữ ký trả 400 `checkin_code_invalid`, mã hết hạn 409 `checkin_code_expired`. Mã chỉ định danh Member; quyền vào Gym vẫn do check-in kiểm gói Active hôm nay.
+- Check-in: chỉ lễ tân thực hiện qua `POST api/gym-checkins` (Member không tự check-in; endpoint `api/gym-checkins/self` đã gỡ). Mã QR do server cấp và ký: Member gọi `GET api/members/me/checkin-code` (`{code, expiresAtUtc}`, mã dạng `SPORTHUB-CODE:{memberId}.{exp}.{chữ ký}`, hết hạn 00:00 giờ Việt Nam hôm sau, client không tự dựng được); lễ tân/Manager (policy `FrontDesk`) quét mã rồi gọi `POST api/members/checkin-code/resolve` (`{code}`) nhận `{memberId}`; mã giả/sai chữ ký trả 400 `checkin_code_invalid`, mã hết hạn 409 `checkin_code_expired`. Mã chỉ định danh Member; quyền vào Gym vẫn do check-in kiểm gói Active hôm nay.
 - Không nhắc hết hạn (`PackageExpiring`), không gia hạn khi sự cố đóng Gym, không hoàn trả (`RefundCalculator` trả 0).
 - Báo cáo: `GET api/reports/membership-summary` và `membership-period` không tính vé ngày vào hội viên Membership; thêm `membersWithDayPassToday` và `dayPassesSold`.
 
@@ -311,7 +319,7 @@ and cool-down. Group coach suggestions include these values in exercise lines.
 
 ### Avatar Cloudinary — `api/avatars`
 
-Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [AvatarsController](../backend/SportHub.Identity/Api/AvatarsController.cs). `GET /api/users/me`, response đăng nhập và danh sách Coach có `avatarUrl` nullable. Member/Coach tự tải multipart `file` qua `POST /api/avatars/me` (JPG/PNG/WebP, tối đa 5 MiB) và xóa qua `DELETE /api/avatars/me`. `GET /api/avatars/{userId}` chỉ công khai avatar Coach; avatar Member yêu cầu đăng nhập. Người đăng nhập báo cáo ảnh qua `POST /api/avatars/reports` (`targetUserId`, `reason`); Manager dùng `GET /api/manager/avatar-reports` và `POST .../{id}/dismiss|remove`. Manager không thể gỡ phiên bản ảnh mới bằng báo cáo ảnh cũ.
+Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [AvatarsController](../backend/SportHub.Identity/Api/AvatarsController.cs). `GET /api/users/me`, response đăng nhập và danh sách Coach có `avatarUrl` nullable. Member/Coach tự tải multipart `file` qua `POST /api/avatars/me` (JPG/PNG/WebP, tối đa 5 MiB) và xóa qua `DELETE /api/avatars/me`. `GET /api/avatars/{userId}` chỉ công khai avatar Coach; avatar Member yêu cầu đăng nhập. Center Manager gỡ trực tiếp ảnh hiện tại của Member qua `DELETE /api/manager/members/{memberId}/avatar`; hệ thống ghi audit và xếp tác vụ dọn ảnh cũ trên Cloudinary. Endpoint này không áp dụng cho ảnh Coach.
 
 ### AccountController — `api/users/me`
 
@@ -374,9 +382,15 @@ Quy tắc nghiệp vụ, quyền xem, xóa ảnh cũ và Google avatar: [Avatars
 | Verb | Path |
 |---|---|
 | GET | `api/notifications` |
+| GET | `api/notifications/inbox?unreadOnly=false&search=&page=1&pageSize=25` |
+| GET | `api/notifications/{notificationId:guid}` |
 | GET | `api/notifications/unread-count` |
 | POST | `api/notifications/{notificationId:guid}/read` |
 | POST | `api/notifications/read-all` |
+
+Inbox and detail are available to every authenticated role and return only the current user's InApp messages; email/OTP payloads are never exposed. Inbox returns `{items,totalCount,page,pageSize}`, newest first; `page` is 1–100000, `pageSize` is 1–50 and `search` is at most 150 characters. Search matches message text and the subject of a linked manual notice. The original list endpoint retains its latest-100 behavior for the bell preview. Notification DTOs additionally include nullable `title` and `senderName` from a referenced manual notice's send-time record; system events use the UI's event label and SportHub sender. Detail returns 404 for missing, other-user or non-InApp IDs. Reading detail does not change its status; the UI sends the existing read command after opening it.
+
+The bell opens `/notifications?message=<notificationId>` for all messages, including those without `actionUrl`. The inbox presents full text before a separate related-action link, constrained to the recipient's role workspace. Unread/read state is persisted through the existing commands and synchronized with the bell; a failed read receipt leaves the message readable and offers retry. Browser Back/Forward restores the selected message, filter, search and page. No migration is required.
 
 ### InvoicesController — `api`
 
@@ -702,7 +716,7 @@ Report presentation: `pointsRedeemed` is the number of points spent in the selec
 
 ## Manager operations read contracts
 
-- `GET /api/audit-logs` accepts optional `targetId` together with existing `targetEntity` filters. Exact target filtering happens before pagination/count. Visibility uses event-time actor roles: Admin reads Manager/Admin/Coach/System events, Manager reads Manager/Receptionist/Coach/Member events. Member/Coach/Receptionist cannot gain audit access through this parameter.
+- `GET /api/audit-logs` accepts optional `targetId` together with `targetEntity` (the UI's Target filter). `targetEntity` uses case-insensitive substring matching with SQL `LIKE '%term%'`; surrounding whitespace is trimmed and `%`, `_`, and `\` in user input are treated literally. For example, `court` matches `CourtRate` and `CourtRental`. `targetId` remains an exact match. Both filters apply before pagination/count. Visibility uses event-time actor roles: Admin reads Manager/Admin/Coach/System events, Manager reads Manager/Receptionist/Coach/Member events. Member/Coach/Receptionist cannot gain audit access through these parameters.
 - `GET /api/manager/sports` service rows include the actual `offeringId`. The client must not derive an offering ID from a sport ID. Public `GET /api/sports` omits `offeringId`.
 - This adds no migration and implements no new G03/G06/G07/G13 command. Current incident preview/action/recheck/resolve remains a sequence of separate operations; timeout resolve requires reconciliation before a fresh attempt.
 

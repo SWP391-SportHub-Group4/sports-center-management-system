@@ -213,6 +213,10 @@ export function CourseEditor({
 
   const threshold =
     form.price > 0 ? Math.ceil(form.costAmount / form.price) : 0;
+  const memberCount = (count: number) =>
+    count === 1
+      ? l.classSingleMember
+      : l.classMemberCount.replace("{count}", String(count));
 
   const capacityInvalid =
     (!!room && form.capacity > room.capacity) ||
@@ -273,11 +277,15 @@ export function CourseEditor({
   }
 
   return (
-    <Card title={course ? l.edit : l.create}>
-      <ol className={styles.steps}>
+    <Card>
+      <ol className={styles.steps} aria-label={t.classWorkspace.setupProgress}>
         {[m.contentStep, m.scheduleStep, m.pricingStep, m.reviewStep].map(
           (label, index) => (
-            <li key={label} aria-current={step === index ? "step" : undefined}>
+            <li
+              key={label}
+              aria-current={step === index ? "step" : undefined}
+              data-complete={index < step || undefined}
+            >
               {index + 1}. {label}
             </li>
           ),
@@ -564,7 +572,17 @@ export function CourseEditor({
                     ["costAmount", l.cost, 0, 1],
                   ] as const
                 ).map(([key, label, min, increment]) => (
-                  <Field key={key} label={label}>
+                  <Field
+                    key={key}
+                    label={label}
+                    hint={
+                      key === "price"
+                        ? l.classPriceHint
+                        : key === "costAmount"
+                          ? l.classCostHint
+                          : undefined
+                    }
+                  >
                     <input
                       required
                       type="number"
@@ -583,9 +601,12 @@ export function CourseEditor({
                 ))}
               </div>
 
-              <p>
-                {l.threshold}: {threshold} / {form.capacity}
-              </p>
+              <div>
+                <p>
+                  {l.classMinimumEnrollment}:{" "}
+                  <strong>{memberCount(threshold)}</strong>
+                </p>
+              </div>
 
               {threshold > form.capacity && (
                 <p role="alert">{m.thresholdExceeded}</p>
@@ -623,11 +644,9 @@ export function CourseEditor({
                 </div>
 
                 <div>
-                  <dt>{l.threshold}</dt>
+                  <dt>{l.classMinimumEnrollment}</dt>
 
-                  <dd>
-                    {threshold} / {form.capacity}
-                  </dd>
+                  <dd>{memberCount(threshold)}</dd>
                 </div>
               </dl>
 

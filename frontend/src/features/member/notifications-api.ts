@@ -8,9 +8,30 @@ export interface NotificationDto {
   status: string;
   sentAt: string | null;
   actionUrl?: string | null;
+  title?: string | null;
+  senderName?: string | null;
+}
+
+export interface NotificationInboxPage {
+  items: NotificationDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
 export const notificationsApi = {
+  inbox: (
+    filters: { unreadOnly: boolean; search: string; page: number },
+    signal: AbortSignal,
+  ) =>
+    api.get<NotificationInboxPage>("/api/notifications/inbox", {
+      signal,
+      query: { ...filters, pageSize: 25 },
+    }),
+  get: (id: string, signal: AbortSignal) =>
+    api.get<NotificationDto>(`/api/notifications/${encodeURIComponent(id)}`, {
+      signal,
+    }),
   list: (unreadOnly: boolean, signal: AbortSignal) =>
     api.get<NotificationDto[]>("/api/notifications", {
       signal,
@@ -20,6 +41,89 @@ export const notificationsApi = {
     api.post(`/api/notifications/${encodeURIComponent(id)}/read`),
   readAll: () => api.post("/api/notifications/read-all"),
 };
+
+export function notificationInboxHref(item: NotificationDto): string {
+  return `/notifications?message=${encodeURIComponent(item.notificationId)}`;
+}
+
+/** Related actions stay inside the recipient's own workspace. Reading never requires an action link. */
+export function notificationActionHref(
+  item: NotificationDto,
+  role?: string,
+): string | null {
+  const roots: Record<string, string> = {
+    Member: "/member/",
+    Coach: "/coach/",
+    Receptionist: "/receptionist/",
+    CenterManager: "/manager/",
+    SystemAdministrator: "/admin/",
+  };
+  const root = role ? roots[role] : null;
+  const href =
+    role === "Member" ? memberNotificationHref(item) : item.actionUrl;
+  return root &&
+    href?.startsWith(root) &&
+    !href.includes("\\") &&
+    !/\s/.test(href)
+    ? href
+    : null;
+}
+
+export type NotificationCategory =
+  "schedule" | "class" | "payment" | "training" | "notice";
+
+export function notificationPresentation(item: NotificationDto): {
+  category: NotificationCategory;
+  label: string;
+  title: string;
+} {
+  const source = item.sourceEventType;
+  let category: NotificationCategory = "notice";
+  let label = "Center update";
+  let title = "An update from SportHub";
+  if (/SCHEDULE|SESSION|CHANGE_REQUEST/.test(source)) {
+    category = "schedule";
+    label = "Schedule";
+    title = /REMINDER/.test(source)
+      ? "Your upcoming lesson"
+      : /REQUESTED/.test(source)
+        ? "A coach has requested an absence"
+        : /REVIEWED/.test(source)
+          ? "Your request has an update"
+          : "Your schedule has changed";
+  } else if (/INVOICE|PAYMENT|REFUND|POINT/.test(source)) {
+    category = "payment";
+    label = "Billing";
+    title = /REFUND/.test(source)
+      ? "Your refund update"
+      : /PAYMENT/.test(source)
+        ? "Your payment update"
+        : /INVOICE/.test(source)
+          ? "Your invoice update"
+          : "Your point wallet update";
+  } else if (/TEACHING|HOMEWORK|ASSESSMENT|WORKOUT/.test(source)) {
+    category = "training";
+    label = "Training";
+    title = "A training update from your coach";
+  } else if (/CLASS|COURSE|ENROLLMENT/.test(source)) {
+    category = "class";
+    label = "Classes";
+    title = /THRESHOLD/.test(source)
+      ? "Your class needs a decision"
+      : /INTEREST|NEXT_COURSE/.test(source)
+        ? "A new course is available"
+        : /CANCELLED/.test(source)
+          ? "Your class has been cancelled"
+          : "Your class update";
+  } else if (/PACKAGE/.test(source)) {
+    label = "Membership";
+    title = "Your membership update";
+  } else if (/INCIDENT/.test(source)) {
+    label = "Center update";
+    title = "An update about a center disruption";
+  }
+  return { category, label, title: item.title?.trim() || title };
+}
 
 /** Only map known source identities. PaymentReceived also has legacy package IDs. */
 export function memberNotificationHref(item: NotificationDto): string | null {
@@ -57,8 +161,6 @@ export function notificationActionLabel(
       return vi ? "Xử lý yêu cầu đổi lịch" : "Review change request";
     case "CLASS_SESSION_CHANGE_REVIEWED":
       return vi ? "Xem kết quả yêu cầu" : "View request outcome";
-    case "CLASS_SESSION_REMINDER":
-      return "View session";
     case "NEXT_COURSE_AVAILABLE":
       return "View class";
     case "CLASS_TEACHING_UPDATED":

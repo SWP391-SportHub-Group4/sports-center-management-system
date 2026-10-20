@@ -317,6 +317,12 @@ public sealed class ClassEnrollmentFulfillment(
             .Select(s => new { s.StartAtUtc, s.Status, s.IsMakeup, s.RescheduledFromSessionId })
             .ToListAsync(cancellationToken);
         var originals = sessions.Where(s => !s.IsMakeup).ToList();
+        // Legacy/imported courses can have only future makeup sessions. They have delivered
+        // nothing, so those scheduled sessions are sufficient to calculate a pre-start refund.
+        // Never infer a refund from makeup-only history once any session was completed.
+        if (originals.Count == 0 && sessions.Count > 0
+            && sessions.All(s => s.Status == ClassSessionStatus.Scheduled))
+            originals = sessions;
         var first = originals.Count == 0 ? null : originals.Min(s => (DateTime?)s.StartAtUtc);
         if (first is null) return null;
         var total = originals.Count;

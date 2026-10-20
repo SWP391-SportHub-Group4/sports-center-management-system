@@ -179,11 +179,11 @@ test("paid course cancellation from Manager UI refunds the real wallet once", as
 
   await page.goto(`/manager/classes/${course.classId}`);
 
-  const cancellation = page.locator(".card").filter({
-    has: page.getByRole("heading", {
-      name: "Cancel",
-      exact: true,
-    }),
+  await page.getByRole("tab", { name: "Management", exact: true }).click();
+  await page.getByRole("button", { name: "Cancel class", exact: true }).click();
+  const cancellation = page.getByRole("dialog", {
+    name: "Cancel class",
+    exact: true,
   });
 
   await expect(cancellation).toBeVisible();

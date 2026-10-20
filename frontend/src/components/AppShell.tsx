@@ -103,8 +103,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager/facilities", labelKey: "trainingRooms" },
     { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
-    { href: "/manager/avatar-reports", labelKey: "avatarReports" },
-    { href: "/manager/schedule", labelKey: "courtSchedule" },
+    { href: "/manager/schedule", labelKey: "activitySchedule" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
     { href: "/manager/support", labelKey: "support" },
@@ -160,19 +159,14 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/membership-plans",
       ],
     ],
+    ["classesScheduling", ["/manager/classes", "/manager/schedule"]],
     [
-      "operations",
-      [
-        "/manager/classes",
-        "/manager/schedule",
-        "/manager/incidents",
-        "/manager/notices",
-        "/manager/support",
-      ],
+      "supportCommunications",
+      ["/manager/incidents", "/manager/notices", "/manager/support"],
     ],
     [
       "people",
-      ["/manager/coaches", "/manager/members", "/manager/avatar-reports"],
+      ["/manager/coaches", "/manager/members"],
     ],
     ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
     "/manager/audit-log",
@@ -442,7 +436,7 @@ export function AppFrame({
       </a>
       <header className={shell.header} data-scrolled={scrolled || undefined}>
         <div
-          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""}`}
+          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""} ${user.role === "CenterManager" ? styles.managerHeader : ""}`}
         >
           <Link href={root} className={shell.brandGroup}>
             <span className={shell.brandLogo}>
@@ -764,18 +758,22 @@ export function AppFrame({
 function PageBody({
   title,
   description,
+  hidePageHeader = false,
   children,
 }: {
   title: string;
   description?: string;
+  hidePageHeader?: boolean;
   children: ReactNode;
 }) {
   return (
     <>
-      <div className={styles.pageHeader}>
-        <h1>{title}</h1>
-        {description && <p>{description}</p>}
-      </div>
+      {!hidePageHeader && (
+        <div className={styles.pageHeader}>
+          <h1>{title}</h1>
+          {description && <p>{description}</p>}
+        </div>
+      )}
       <div className="content">{children}</div>
     </>
   );
@@ -784,11 +782,13 @@ function PageBody({
 export function AppShell({
   title,
   description,
+  hidePageHeader,
   allow,
   children,
 }: {
   title: string;
   description?: string;
+  hidePageHeader?: boolean;
   /** Vai trò được phép xem nhánh này. Bảo vệ route ở client, không thay cho RBAC ở API. */
   allow: Role[];
   /** Giữ để không phải sửa nơi gọi; thanh điều hướng trên cùng không còn cần chế độ này. */
@@ -797,7 +797,11 @@ export function AppShell({
 }) {
   const inFrame = useContext(FrameContext);
   const page = (
-    <PageBody title={title} description={description}>
+    <PageBody
+      title={title}
+      description={description}
+      hidePageHeader={hidePageHeader}
+    >
       {children}
     </PageBody>
   );

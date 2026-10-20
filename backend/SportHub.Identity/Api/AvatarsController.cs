@@ -8,7 +8,6 @@ using SportHub.Identity.Application.Services;
 
 namespace SportHub.Identity.Api;
 
-public sealed record ReportAvatarRequest(Guid TargetUserId, string Reason);
 public sealed class UploadAvatarRequest
 {
     public IFormFile? File { get; set; }
@@ -43,35 +42,15 @@ public sealed class AvatarsController(AvatarService avatars) : ControllerBase
     [EnableRateLimiting("avatar-write")]
     public async Task<IActionResult> Delete(CancellationToken ct)
         => Ok(await avatars.DeleteAsync(User.RequireUserId(), ct));
-
-    [HttpPost("reports")]
-    [Authorize(Roles = SportHubRoleNames.SystemAdministrator + "," + SportHubRoleNames.CenterManager + "," + SportHubRoleNames.Coach + "," + SportHubRoleNames.Receptionist)]
-    [EnableRateLimiting("avatar-write")]
-    public async Task<IActionResult> Report([FromBody] ReportAvatarRequest request, CancellationToken ct)
-        => StatusCode(StatusCodes.Status201Created,
-            new { reportId = await avatars.ReportAsync(User.RequireUserId(), request.TargetUserId, request.Reason, ct) });
 }
 
 [ApiController]
 [Authorize(Policy = SportHubPolicies.CenterManager)]
-[Route("api/manager/avatar-reports")]
-public sealed class ManagerAvatarReportsController(AvatarService avatars) : ControllerBase
+[Route("api/manager/members/{memberId:guid}/avatar")]
+public sealed class ManagerMemberAvatarController(AvatarService avatars) : ControllerBase
 {
-    [HttpGet]
-    public async Task<IActionResult> List([FromQuery] string status = "PENDING", CancellationToken ct = default)
-        => Ok(await avatars.ListReportsAsync(status, ct));
-
-    [HttpPost("{reportId:guid}/dismiss")]
-    public async Task<IActionResult> Dismiss(Guid reportId, CancellationToken ct)
-    {
-        await avatars.ReviewAsync(User.RequireUserId(), reportId, remove: false, ct);
-        return NoContent();
-    }
-
-    [HttpPost("{reportId:guid}/remove")]
-    public async Task<IActionResult> Remove(Guid reportId, CancellationToken ct)
-    {
-        await avatars.ReviewAsync(User.RequireUserId(), reportId, remove: true, ct);
-        return NoContent();
-    }
+    [HttpDelete]
+    [EnableRateLimiting("avatar-write")]
+    public async Task<IActionResult> Delete(Guid memberId, CancellationToken ct)
+        => Ok(await avatars.ManagerDeleteMemberAsync(User.RequireUserId(), memberId, ct));
 }

@@ -55,7 +55,7 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                                 where (attempt.Status == PaymentAttemptStatus.Pending
                                         || attempt.Status == PaymentAttemptStatus.Expired
                                         || attempt.Status == PaymentAttemptStatus.ReconciliationRequired)
-                                    && invoice.Status == InvoiceStatus.Issued
+                                    && (invoice.Status == InvoiceStatus.Issued || invoice.Status == InvoiceStatus.Void)
                                     && (!memberId.HasValue || invoice.MemberId == memberId.Value)
                                     && !db.Set<VerifiedGatewayEvent>().Any(e =>
                                         e.PaymentAttemptId == attempt.PaymentAttemptId)

@@ -18,6 +18,8 @@ public sealed class FrontDeskPaymentReconciliationTests(PaymentApiFactory factor
         var invoiceId = Guid.NewGuid();
         var attemptId = Guid.NewGuid();
         var proofId = Guid.NewGuid();
+        var expiredInvoiceId = Guid.NewGuid();
+        var expiredAttemptId = Guid.NewGuid();
         await factory.QueryAsync(async db =>
         {
             db.Invoices.Add(new Invoice
@@ -42,6 +44,20 @@ public sealed class FrontDeskPaymentReconciliationTests(PaymentApiFactory factor
                 ResponseCode = "00", TransactionStatus = "00", ProcessingStatus = "ReconciliationRequired",
                 ProviderPaidAtUtc = DateTime.UtcNow.AddMinutes(-5), VerifiedAtUtc = DateTime.UtcNow.AddMinutes(-4)
             });
+            db.Invoices.Add(new Invoice
+            {
+                InvoiceId = expiredInvoiceId, InvoiceNumber = "EXPIRED-" + Guid.NewGuid().ToString("N"),
+                MemberId = member.UserId, IssuedByUserId = desk.UserId,
+                TotalAmount = 100_000m, CashAmount = 100_000m, Status = InvoiceStatus.Void,
+                IssuedAt = DateTime.UtcNow.AddHours(-2), HoldExpiresAtUtc = DateTime.UtcNow.AddMinutes(-1)
+            });
+            db.PaymentAttempts.Add(new PaymentAttempt
+            {
+                PaymentAttemptId = expiredAttemptId, InvoiceId = expiredInvoiceId,
+                VnpTxnRef = "EXPIRED-" + Guid.NewGuid().ToString("N"), Amount = 100_000m,
+                CashSnapshot = 100_000m, VnpExpireDate = DateTime.UtcNow.AddMinutes(-1),
+                Status = PaymentAttemptStatus.Expired, CreatedAt = DateTime.UtcNow.AddHours(-1)
+            });
             await db.SaveChangesAsync();
             return 0;
         });
@@ -51,6 +67,9 @@ public sealed class FrontDeskPaymentReconciliationTests(PaymentApiFactory factor
         Assert.Contains(rows.GetProperty("items").EnumerateArray(), x => x.GetProperty("invoiceId").GetGuid() == invoiceId
             && x.GetProperty("verifiedEventId").GetGuid() == proofId
             && x.GetProperty("state").GetString() == "ReconciliationRequired");
+        Assert.Contains(rows.GetProperty("items").EnumerateArray(), x => x.GetProperty("invoiceId").GetGuid() == expiredInvoiceId
+            && x.GetProperty("paymentAttemptId").GetGuid() == expiredAttemptId
+            && x.GetProperty("state").GetString() == "AWAITING_VERIFICATION");
         using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await memberClient.GetAsync("/api/front-desk/payment-reconciliation")).StatusCode);

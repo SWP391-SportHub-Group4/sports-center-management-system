@@ -5,7 +5,7 @@ import { CourseEditorPage } from "@/features/courses/course-editor-page";
 export default function Page() {
   const { classId } = useParams<{ classId: string }>();
   return (
-    <OperationsPage title="courses">
+    <OperationsPage title="courses" heading="edit">
       <CourseEditorPage classId={Number(classId)} />
     </OperationsPage>
   );

@@ -5,7 +5,7 @@ import { ManagerCourseDetail } from "@/features/courses/manager-courses";
 export default function Page() {
   const { classId } = useParams<{ classId: string }>();
   return (
-    <OperationsPage title="courses">
+    <OperationsPage title="courses" heading="details">
       <ManagerCourseDetail classId={Number(classId)} />
     </OperationsPage>
   );

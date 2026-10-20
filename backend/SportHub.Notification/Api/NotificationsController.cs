@@ -18,6 +18,15 @@ public class NotificationsController(INotificationService notifications) : Contr
     public async Task<IActionResult> GetMine([FromQuery] bool unreadOnly = false, CancellationToken ct = default)
         => Ok(await notifications.GetMineAsync(User.RequireUserId(), unreadOnly, ct));
 
+    [HttpGet("inbox")]
+    public async Task<IActionResult> Inbox([FromQuery] bool unreadOnly = false, [FromQuery] string? search = null,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default)
+        => Ok(await notifications.GetInboxAsync(User.RequireUserId(), unreadOnly, search, page, pageSize, ct));
+
+    [HttpGet("{notificationId:guid}")]
+    public async Task<IActionResult> Detail(Guid notificationId, CancellationToken ct = default)
+        => Ok(await notifications.GetAsync(User.RequireUserId(), notificationId, ct));
+
     [HttpGet("unread-count")]
     public async Task<IActionResult> UnreadCount(CancellationToken ct = default)
         => Ok(new { count = await notifications.CountUnreadAsync(User.RequireUserId(), ct) });

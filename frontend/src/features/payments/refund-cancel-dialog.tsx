@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Dialog } from "@/components/ui";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { formatDate, formatPoints } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { useAction, useApi, useNow } from "@/lib/useApi";
@@ -37,7 +37,7 @@ export function RefundCancelDialog({
   target: RefundCancelTarget;
   onBehalf?: boolean;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (message: string) => void;
 }) {
   const { language, t } = useLanguage();
   const vi = language === "vi";
@@ -77,18 +77,17 @@ export function RefundCancelDialog({
     );
     if (!done) return;
     const returned = formatPoints(done.approvedPoints ?? points ?? 0);
-    setResult(
-      onBehalf
-        ? tx(
-            `Đã hủy thay hội viên. ${returned} điểm đã được hoàn vào ví của họ.`,
-            `Cancelled for the member. ${returned} points went back to their wallet.`,
-          )
-        : tx(
-            `Đã hủy. ${returned} điểm đã được hoàn vào ví.`,
-            `Cancelled. ${returned} points were returned to your wallet.`,
-          ),
-    );
-    onDone();
+    const message = onBehalf
+      ? tx(
+          `Đã hủy thay hội viên. ${returned} điểm đã được hoàn vào ví của họ.`,
+          `Cancelled for the member. ${returned} points went back to their wallet.`,
+        )
+      : tx(
+          `Đã hủy. ${returned} điểm đã được hoàn vào ví.`,
+          `Cancelled. ${returned} points were returned to your wallet.`,
+        );
+    setResult(message);
+    onDone(message);
   }
 
   async function request() {
@@ -100,13 +99,12 @@ export function RefundCancelDialog({
       }),
     );
     if (!done) return;
-    setResult(
-      tx(
-        "Đã gửi đơn. Manager sẽ xem xét và quyết định mức hoàn.",
-        "Request sent. A manager will review it and decide the refund.",
-      ),
+    const message = tx(
+      "Đã gửi đơn. Manager sẽ xem xét và quyết định mức hoàn.",
+      "Request sent. A manager will review it and decide the refund.",
     );
-    onDone();
+    setResult(message);
+    onDone(message);
   }
 
   const title = started
@@ -121,7 +119,9 @@ export function RefundCancelDialog({
         <p className={styles.name}>{target.name}</p>
         {result ? (
           <>
-            <p role="status">{result}</p>
+            <p className="alert alert--success" role="status">
+              {result}
+            </p>
             <button type="button" className="btn" onClick={onClose}>
               {tx("Đóng", "Close")}
             </button>
@@ -209,7 +209,17 @@ export function RefundCancelDialog({
                       "Fewer than 5 days remain, so only 50% is returned. Refunds go to the wallet as points, never cash.",
                     )}
             </p>
-            {quote.error && <p role="alert">{quote.error.message}</p>}
+            {quote.error && (
+              <p className="alert alert--error" role="alert">
+                {quote.error instanceof ApiError &&
+                quote.error.code === "refund_entitlement_not_found"
+                  ? tx(
+                      "Không tìm thấy quyền ghi danh hợp lệ để tính hoàn điểm. Chưa hủy lớp. Hãy tải lại hồ sơ hội viên; nếu vẫn gặp lỗi, nhờ Manager kiểm tra dữ liệu lớp và hóa đơn.",
+                      "The class enrollment or its sessions could not be matched to this invoice. Nothing was cancelled. Refresh the member profile; if this persists, ask a manager to check the class and invoice data.",
+                    )
+                  : quote.error.message}
+              </p>
+            )}
             {action.error && <p role="alert">{action.error}</p>}
             <div className={styles.actions}>
               <button

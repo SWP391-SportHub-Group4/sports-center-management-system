@@ -7,6 +7,9 @@ public class CourtRate
 
     public int RoomTypeId { get; set; }
 
+    /// <summary>Null = shared room-type price; otherwise applies only to this court.</summary>
+    public int? RoomId { get; set; }
+
     /// <summary>Null = áp dụng mọi môn chơi được ở loại sân này.</summary>
     public int? SportId { get; set; }
 

@@ -343,71 +343,6 @@ namespace SportHub.API.Migrations
                     b.ToTable("avatar_deletions", (string)null);
                 });
 
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarReport", b =>
-                {
-                    b.Property<Guid>("ReportId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("report_id");
-
-                    b.Property<string>("AvatarPublicId")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("avatar_public_id");
-
-                    b.Property<string>("AvatarUrl")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("avatar_url");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("reason");
-
-                    b.Property<Guid>("ReporterUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reporter_user_id");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("reviewed_at");
-
-                    b.Property<Guid?>("ReviewedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reviewed_by_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("TargetUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("target_user_id");
-
-                    b.HasKey("ReportId")
-                        .HasName("pk_avatar_reports");
-
-                    b.HasIndex("ReviewedById")
-                        .HasDatabaseName("ix_avatar_reports_reviewed_by_id");
-
-                    b.HasIndex("TargetUserId", "Status")
-                        .HasDatabaseName("ix_avatar_reports_target_user_id_status");
-
-                    b.HasIndex("ReporterUserId", "TargetUserId", "Status")
-                        .HasDatabaseName("ix_avatar_reports_reporter_user_id_target_user_id_status");
-
-                    b.ToTable("avatar_reports", (string)null);
-                });
-
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1935,7 +1870,7 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("ck_point_credit_positive", "points > 0");
 
-                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\r\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\r\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
+                            t.HasCheckConstraint("ck_point_credit_resolution", "(status = 0 AND decided_by_user_id IS NULL AND decided_at_utc IS NULL AND ledger_entry_id IS NULL AND decision_reason IS NULL) OR\n(status = 1 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NOT NULL AND decision_reason IS NULL) OR\n(status = 2 AND decided_by_user_id IS NOT NULL AND decided_at_utc IS NOT NULL AND ledger_entry_id IS NULL AND decision_reason IS NOT NULL)");
 
                             t.HasCheckConstraint("ck_point_credit_separate_approver", "decided_by_user_id IS NULL OR decided_by_user_id <> requested_by_user_id");
 
@@ -2098,6 +2033,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("numeric(18,0)")
                         .HasColumnName("price_per_hour");
 
+                    b.Property<int?>("RoomId")
+                        .HasColumnType("integer")
+                        .HasColumnName("room_id");
+
                     b.Property<int>("RoomTypeId")
                         .HasColumnType("integer")
                         .HasColumnName("room_type_id");
@@ -2112,6 +2051,9 @@ namespace SportHub.API.Migrations
 
                     b.HasKey("RateId")
                         .HasName("pk_court_rates");
+
+                    b.HasIndex("RoomId")
+                        .HasDatabaseName("ix_court_rates_room_id");
 
                     b.HasIndex("SportId")
                         .HasDatabaseName("ix_court_rates_sport_id");
@@ -3992,29 +3934,6 @@ namespace SportHub.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarReport", b =>
-                {
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("ReporterUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_avatar_reports_user_accounts_reporter_user_id");
-
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("ReviewedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_avatar_reports_user_accounts_reviewed_by_id");
-
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany()
-                        .HasForeignKey("TargetUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_avatar_reports_user_accounts_target_user_id");
-                });
-
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "UserAccount")
@@ -4479,6 +4398,12 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Catalog.Domain.CourtRate", b =>
                 {
+                    b.HasOne("SportHub.Scheduling.Domain.Entities.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_court_rates_rooms_room_id");
+
                     b.HasOne("SportHub.Scheduling.Catalog.Domain.RoomType", null)
                         .WithMany()
                         .HasForeignKey("RoomTypeId")

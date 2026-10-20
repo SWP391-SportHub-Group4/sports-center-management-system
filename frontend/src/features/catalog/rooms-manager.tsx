@@ -3,8 +3,6 @@ import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/useUrlQuery";
-import { FilterBar } from "@/components/data";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -22,8 +20,17 @@ import { dayRange, vietnamUtc } from "@/lib/vietnam-time";
 import { OpeningHoursEditor } from "./opening-hours-editor";
 import { catalogApi } from "./api";
 import type { RoomBlockDto } from "@/lib/types";
-import { CatalogFormDialog } from "./manager-shared";
+import {
+  CatalogPanel,
+  CatalogFormDialog,
+  CatalogFilters,
+  CatalogTable,
+  useCatalogFilters,
+  matchesCatalog,
+} from "./manager-shared";
 import styles from "./manager-catalog.module.css";
+import { CreateRentalCourt } from "./create-rental-court";
+import type { RoomDto } from "@/lib/types";
 function Blocks({ roomId }: { roomId: number }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -208,7 +215,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
   const { t } = useLanguage();
   const l = t.operations;
   const router = useRouter();
-  const { values, setValues } = useUrlQuery({ q: "", status: "" });
+  const filters = useCatalogFilters();
   const state = useApi((s) => catalogApi.rooms(s), []);
   const types = useApi((s) => catalogApi.roomTypes(s), []);
   const sports = useApi((s) => catalogApi.sports(s, true), []);
@@ -218,8 +225,29 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
   const [id, setId] = useState<number | null>(null);
   const selected = detailId;
   const [editing, setEditing] = useState(false);
+  const [creatingRental, setCreatingRental] = useState(false);
+  const [createdRental, setCreatedRental] = useState<RoomDto | null>(null);
   return (
     <>
+      {creatingRental && (
+        <CreateRentalCourt
+          onCancel={() => setCreatingRental(false)}
+          onCreated={(room) => {
+            setCreatingRental(false);
+            setCreatedRental(room);
+            state.reload();
+            sports.reload();
+          }}
+        />
+      )}
+      {createdRental && (
+        <div className="alert alert--success" role="status">
+          <strong>{createdRental.name}</strong> {t.rentalCourtSetup.created}{" "}
+          <Link href="/manager/court-rates">
+            {t.rentalCourtSetup.viewPrices}
+          </Link>
+        </div>
+      )}
       {detailId && (
         <Link className="btn btn--ghost" href="/manager/facilities">
           {t.managerOperations.backToList}
@@ -304,65 +332,63 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           </label>
         </CatalogFormDialog>
       )}
-      {!detailId && (
-        <FilterBar
-          fields={[
-            { id: "q", label: l.search, kind: "search" },
-            {
-              id: "status",
-              label: l.status,
-              kind: "select",
-              options: [
-                { value: "", label: l.all },
-                { value: "active", label: l.active },
-                { value: "inactive", label: t.wireStatus.INACTIVE },
-              ],
-            },
-          ]}
-          values={values}
-          onChange={setValues}
-          onReset={() => setValues({ q: "", status: "" })}
-        />
-      )}
-      {!detailId && (
-        <div className="btn-row">
-          <button
-            className="btn"
-            onClick={() => {
-              setId(null);
-              setForm(empty);
-              setEditing(true);
-              mutation.reset();
-            }}
-          >
-            {l.create}
-          </button>
-        </div>
-      )}
-      <AsyncSection state={state}>
-        {(rows) => (
-          <Table headers={[l.room, l.roomType, l.capacity, l.status, ""]}>
-            {rows
-              .filter((r) =>
-                detailId
-                  ? r.roomId === detailId
-                  : r.name
-                      .toLocaleLowerCase()
-                      .includes(values.q.trim().toLocaleLowerCase()) &&
-                    (!values.status ||
-                      r.isActive === (values.status === "active")),
-              )
-              .map((r) => (
-                <tr key={r.roomId}>
-                  <td>{r.name}</td>
-                  <td>
-                    {
-                      types.data?.find((x) => x.roomTypeId === r.roomTypeId)
-                        ?.name
-                    }
-                  </td>
-                  <td>{r.capacity}</td>
-                  <td>
+      {!creatingRental && (
+        <CatalogPanel
+          filters={!detailId ? <CatalogFilters filters={filters} /> : undefined}
+          actions={
+            !detailId ? (
+              <>
+                <button
+                  className="btn"
+                  disabled={creatingRental}
+                  onClick={() => {
+                    setCreatingRental(true);
+                    setCreatedRental(null);
+                  }}
+                >
+                  {t.rentalCourtSetup.create}
+                </button>
+                <button
+                  className="btn btn--secondary"
+                  disabled={creatingRental}
+                  onClick={() => {
+                    setId(null);
+                    setForm(empty);
+                    setEditing(true);
+                    mutation.reset();
+                  }}
+                >
+                  {t.rentalCourtSetup.basicRoom}
+                </button>
+              </>
+            ) : undefined
+          }
+        >
+          <CatalogTable
+            state={state}
+            visibleRowActions={3}
+            filters={filters}
+            caption={t.managerOperations.facilities}
+            rows={(state.data ?? []).filter((r) =>
+              detailId
+                ? r.roomId === detailId
+                : matchesCatalog(r, r.name, filters.values),
+            )}
+            getRowId={(r) => String(r.roomId)}
+            columns={[
+              { id: "name", header: l.room, rowHeader: true },
+              {
+                id: "roomTypeId",
+                header: l.roomType,
+                cell: (r) =>
+                  types.data?.find((x) => x.roomTypeId === r.roomTypeId)?.name,
+              },
+              { id: "capacity", header: l.capacity, numeric: true },
+              {
+                id: "isActive",
+                header: l.status,
+                cell: (r) => (
+                  <>
                     <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
                     {types.data?.find((x) => x.roomTypeId === r.roomTypeId)
                       ?.isActive === false && (
@@ -370,51 +396,48 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                         Bookings blocked by room type
                       </p>
                     )}
-                  </td>
-                  <td>
-                    <div className="btn-row">
-                      <button
-                        className="btn btn--secondary"
-                        onClick={() => {
-                          setId(r.roomId);
-                          setForm({
-                            ...r,
-                            roomTypeId: r.roomTypeId
-                              ? String(r.roomTypeId)
-                              : "",
-                          });
-                          setEditing(true);
-                          mutation.reset();
-                        }}
-                      >
-                        {l.edit}
-                      </button>
-                      <ConfirmRecordAction
-                        label={t.recordActions.delete}
-                        title={t.recordActions.deleteRoom}
-                        description={t.recordActions.roomDescription}
-                        recordName={r.name}
-                        onConfirm={() => catalogApi.deleteRoom(r.roomId)}
-                        onCompleted={() => {
-                          state.reload();
-                          if (detailId) router.push("/manager/training-rooms");
-                        }}
-                      />
-                      <button
-                        className="btn btn--ghost"
-                        onClick={() =>
-                          router.push(`/manager/facilities/${r.roomId}`)
-                        }
-                      >
-                        {l.openingHours} / {l.blocks}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-          </Table>
-        )}
-      </AsyncSection>
+                  </>
+                ),
+              },
+            ]}
+            actions={(r) => (
+              <>
+                <button
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => {
+                    setId(r.roomId);
+                    setForm({
+                      ...r,
+                      roomTypeId: r.roomTypeId ? String(r.roomTypeId) : "",
+                    });
+                    setEditing(true);
+                    mutation.reset();
+                  }}
+                >
+                  {l.edit}
+                </button>
+                <ConfirmRecordAction
+                  label={t.recordActions.delete}
+                  title={t.recordActions.deleteRoom}
+                  description={t.recordActions.roomDescription}
+                  recordName={r.name}
+                  onConfirm={() => catalogApi.deleteRoom(r.roomId)}
+                  onCompleted={() => {
+                    state.reload();
+                    if (detailId) router.push("/manager/training-rooms");
+                  }}
+                />
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => router.push("/manager/facilities/" + r.roomId)}
+                >
+                  {l.openingHours} / {l.blocks}
+                </button>
+              </>
+            )}
+          />
+        </CatalogPanel>
+      )}
       {detailId &&
         state.data &&
         !state.data.some((r) => r.roomId === detailId) && (

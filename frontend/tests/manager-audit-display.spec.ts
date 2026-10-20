@@ -75,10 +75,15 @@ test("affected records show types and each event opens its own details", async (
     entry("99", "Class", "DELETE_CLASS", { name: "Deleted class" }, null),
   ]);
   const table = auditTable(page);
+  await expect(table.locator('[data-label="Action"]')).toHaveText([
+    "UPDATE_CLASS",
+    "UPDATE_ROOM",
+    "DELETE_CLASS",
+  ]);
   await expect(
     table.getByRole("button", { name: /View details:/ }),
   ).toHaveCount(3);
-  await expect(table.locator('[data-label="Affected record"]')).toHaveText([
+  await expect(table.locator('[data-label="Target"]')).toHaveText([
     "Class",
     "Room/court",
     "Class",

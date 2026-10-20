@@ -3,6 +3,21 @@
   gap: var(--space-5);
   max-width: 960px;
 }
+.managerInterests {
+  max-width: none;
+}
+.managerToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.managerToolbar :global(.btn),
+.managerToolbar :global(.btn-row) {
+  margin: 0;
+}
 .header h2 {
   margin: 0 0 var(--space-3);
 }

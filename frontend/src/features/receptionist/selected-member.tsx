@@ -24,7 +24,6 @@ import type {
 import styles from "./desk.module.css";
 
 import { AvatarImage } from "@/components/AvatarImage";
-import { ReportAvatarButton } from "@/components/ReportAvatarButton";
 
 import { MemberCancellations } from "./member-cancellations";
 import { MemberSupportRequests } from "./member-support-requests";
@@ -293,10 +292,6 @@ export function SelectedMemberPanel({
           >
             {vi ? "Đổi hội viên" : "Change member"}
           </button>
-          <ReportAvatarButton
-            targetUserId={member.userId}
-            avatarUrl={member.avatarUrl}
-          />
         </div>
       </div>
 

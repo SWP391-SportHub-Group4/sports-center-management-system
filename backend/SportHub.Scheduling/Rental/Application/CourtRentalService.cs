@@ -55,9 +55,10 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         await EnsureNoMemberClassConflictAsync(request, cancellationToken);
 
         var rates = await db.Set<CourtRate>().AsNoTracking().Where(x => x.IsActive && x.RoomTypeId == roomTypeId
-            && (x.SportId == null || x.SportId == request.SportId)).ToListAsync(cancellationToken);
+            && (x.SportId == null || x.SportId == request.SportId)
+            && (x.RoomId == null || x.RoomId == request.RoomId)).ToListAsync(cancellationToken);
         return CourtRateCalculator.Calculate(rates, request.SportId, request.StartUtc,
-            request.EndUtc - request.StartUtc, slotMinutes);
+            request.EndUtc - request.StartUtc, slotMinutes, request.RoomId);
     }
 
     /// <summary>Member không thể thuê sân đúng giờ đang có buổi học (đã ghi danh hoặc đang giữ chỗ) của khóa nhóm.</summary>

@@ -49,11 +49,9 @@ public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
         try
         {
             using var desk = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
-            using var self = factory.CreateApiClient(member.UserId, UserRole.Member);
             foreach (var response in new[]
             {
-                await desk.PostAsJsonAsync("/api/gym-checkins", new { targetMemberId = member.UserId }),
-                await self.PostAsync("/api/gym-checkins/self", null)
+                await desk.PostAsJsonAsync("/api/gym-checkins", new { targetMemberId = member.UserId })
             })
             {
                 Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);

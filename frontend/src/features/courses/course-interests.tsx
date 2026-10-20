@@ -31,9 +31,30 @@ export function CourseInterests({ manager = false }: { manager?: boolean }) {
   );
   const action = useAction();
   return (
-    <section className={styles.page}>
+    <section
+      className={`${styles.page} ${manager ? styles.managerInterests : ""}`}
+    >
       <header className={styles.header}>
-        <h2>Course interests</h2>
+        {!manager && <h2>Course interests</h2>}
+        {manager && (
+          <div className={styles.managerToolbar}>
+            <Link className="btn btn--secondary" href="/manager/classes">
+              Back to classes
+            </Link>
+            <div className="btn-row">
+              <button
+                className="btn btn--secondary"
+                type="button"
+                onClick={state.reload}
+              >
+                Refresh
+              </button>
+              <Link className="btn" href="/manager/classes/new">
+                Create class
+              </Link>
+            </div>
+          </div>
+        )}
         <p>
           {manager
             ? "Members waiting for the next cohort. Link a new draft to its previous class to notify them when registration opens."
@@ -119,24 +140,31 @@ export function CourseInterests({ manager = false }: { manager?: boolean }) {
             </ul>
           ) : (
             <p>
-              No course interests yet. They appear here after you choose “Wait
-              for the next course”.
+              {manager
+                ? "No members are waiting for the next cohort yet."
+                : "No course interests yet. They appear here after you choose ‘Wait for the next course’."}
             </p>
           )
         }
       </AsyncSection>
       {action.error && <p role="alert">{action.error}</p>}
-      <div className="btn-row">
-        <Link
-          className="btn btn--secondary"
-          href={manager ? "/manager/classes" : "/member/services"}
-        >
-          {manager ? "Back to classes" : "Browse classes"}
-        </Link>
-        <button type="button" className="btn btn--quiet" onClick={state.reload}>
-          Refresh
-        </button>
-      </div>
+      {!manager && (
+        <div className="btn-row">
+          <Link
+            className="btn btn--secondary"
+            href={manager ? "/manager/classes" : "/member/services"}
+          >
+            {manager ? "Back to classes" : "Browse classes"}
+          </Link>
+          <button
+            type="button"
+            className="btn btn--quiet"
+            onClick={state.reload}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
     </section>
   );
 }

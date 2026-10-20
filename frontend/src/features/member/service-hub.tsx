@@ -119,25 +119,22 @@ export function MemberServiceHub() {
           </p>
         </div>
         <div className={styles.introActions}>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            aria-pressed={view === "owned" && values.tab === "interests"}
+            onClick={() =>
+              setValues({ ...RESET, view: "owned", tab: "interests" })
+            }
+          >
+            Course interests
+          </button>
           <SubNav
             view={view}
             onChange={goView}
             vi={vi}
             label={tx("Trang dịch vụ", "Services pages")}
           />
-          {view === "owned" &&
-            values.tab !== "interests" &&
-            !values.responseId && (
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() =>
-                  setValues({ ...RESET, view: "owned", tab: "interests" })
-                }
-              >
-                Course interests
-              </button>
-            )}
         </div>
       </header>
       <Suspense fallback={<Loading />}>

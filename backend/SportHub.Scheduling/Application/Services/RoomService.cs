@@ -14,7 +14,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// Danh mục phòng tập — BR-39 (chỉ Center Manager cấu hình), BR-57 (Name unique toàn trung tâm), BR-108 (loại phòng).
 /// Phòng ngừng hoạt động (IsActive=false) chặn booking mới nhưng giữ nguyên lịch đã có.
 /// </summary>
-public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRoomService
+public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRoomService
 {
     public async Task<IReadOnlyList<RoomResponse>> GetAllAsync(CancellationToken ct = default)
         => await db.Set<Room>()
@@ -84,6 +84,8 @@ public sealed class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRo
         if (request.RoomTypeId is not null)
         {
             await EnsureRoomTypeAsync(request.RoomTypeId, ct);
+            if (request.RoomTypeId != room.RoomTypeId && await db.Set<CourtRate>().AnyAsync(r => r.RoomId == roomId, ct))
+                throw new ConflictException("room_pricing_type_conflict", "Remove this court's rental prices before changing its room type.");
         }
 
         var before = Describe(room);
