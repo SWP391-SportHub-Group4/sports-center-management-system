@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Coins } from "lucide-react";
 import { AsyncSection, PageNav } from "@/components/ui";
@@ -8,17 +8,24 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import { walletApi } from "./api";
+import { paymentApi, openPaymentGateway } from "@/features/payments";
+import type { CheckoutDto } from "@/lib/types";
 import styles from "./member-wallet.module.css";
 
 const PAGE_SIZE = 20;
 
 /** Ví điểm của Member: một thẻ số dư chính, một cột phụ, sổ điểm là một danh sách liền. */
 export function MemberWallet() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.finance;
   const w = t.wallet;
   const [page, setPage] = useState(1);
   const [entryType, setEntryType] = useState("");
+  const [topUpPoints, setTopUpPoints] = useState("100");
+  const [topUpBusy, setTopUpBusy] = useState(false);
+  const [topUpError, setTopUpError] = useState("");
+  const [topUpCheckout, setTopUpCheckout] = useState<CheckoutDto | null>(null);
+  const topUpKey = useRef<string | null>(null);
   const balance = useApi((signal) => walletApi.balance(signal), []);
   const ledger = useApi(
     (signal) => walletApi.ledger(page, signal, entryType),
@@ -31,28 +38,42 @@ export function MemberWallet() {
     EARN: w.earn,
     ADJUSTMENT: w.adjustment,
   };
-  const firstUse =
-    !!balance.data &&
-    !!ledger.data &&
-    !entryType &&
-    !ledger.data.length &&
-    balance.data.availablePoints + balance.data.heldPoints === 0;
-  if (firstUse)
-    return (
-      <div className={styles.wallet}>
-        <EmptyPanel
-          icon={<Coins size={22} />}
-          title={l.ledgerEmptyTitle}
-          body={`${l.ledgerEmptyBody} ${l.pointRate}.`}
-          action={
-            <Link href="/member/services">
-              {l.ledgerEmptyAction}
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          }
-        />
-      </div>
-    );
+  const points = Number(topUpPoints);
+  const validPoints =
+    /^\d+$/.test(topUpPoints) && points >= 1 && points <= 10_000;
+  async function createTopUp() {
+    if (!validPoints || topUpBusy) return;
+    setTopUpBusy(true);
+    setTopUpError("");
+    try {
+      const checkout = await paymentApi.create(
+        { kind: "wallet-top-up", body: { points } },
+        (topUpKey.current ??= crypto.randomUUID()),
+      );
+      setTopUpCheckout(checkout);
+    } catch (error) {
+      setTopUpError(
+        error instanceof Error ? error.message : "Unable to prepare top-up.",
+      );
+    } finally {
+      setTopUpBusy(false);
+    }
+  }
+  async function payTopUp() {
+    if (!topUpCheckout || topUpBusy) return;
+    setTopUpBusy(true);
+    setTopUpError("");
+    try {
+      const attempt = await paymentApi.attempt(topUpCheckout.invoiceId);
+      openPaymentGateway(attempt);
+    } catch (error) {
+      setTopUpError(
+        error instanceof Error ? error.message : "Unable to start payment.",
+      );
+    } finally {
+      setTopUpBusy(false);
+    }
+  }
   return (
     <div className={styles.wallet}>
       <AsyncSection state={balance}>
@@ -93,6 +114,101 @@ export function MemberWallet() {
           </section>
         )}
       </AsyncSection>
+      <section className={styles.topUp} aria-labelledby="wallet-top-up-title">
+        <div>
+          <h2 id="wallet-top-up-title">
+            {language === "vi" ? "Nạp điểm" : "Add points"}
+          </h2>
+          <p>
+            {language === "vi"
+              ? "Chọn số điểm và thanh toán qua VNPay. Điểm được cộng sau khi giao dịch được xác nhận."
+              : "Choose points and pay with VNPay. Points are added after payment is confirmed."}
+          </p>
+        </div>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void createTopUp();
+          }}
+        >
+          <label htmlFor="top-up-points">
+            {language === "vi" ? "Số điểm" : "Points"}
+          </label>
+          <input
+            id="top-up-points"
+            type="number"
+            min="1"
+            max="10000"
+            step="1"
+            required
+            value={topUpPoints}
+            onChange={(event) => {
+              setTopUpPoints(event.target.value);
+              topUpKey.current = null;
+              setTopUpCheckout(null);
+            }}
+          />
+          <span>
+            {validPoints
+              ? balance.data
+                ? `1 ${language === "vi" ? "điểm" : "point"} = ${formatMoney(balance.data.vndPerPoint)}`
+                : ""
+              : language === "vi"
+                ? "Nhập từ 1 đến 10.000 điểm"
+                : "Enter 1 to 10,000 points"}
+          </span>
+          <button
+            className="btn"
+            type="submit"
+            disabled={!validPoints || topUpBusy || !!topUpCheckout}
+          >
+            {topUpBusy
+              ? language === "vi"
+                ? "Đang xử lý…"
+                : "Processing…"
+              : language === "vi"
+                ? "Xem số tiền nạp"
+                : "Review top-up"}
+          </button>
+        </form>
+        {topUpCheckout && (
+          <div className={styles.topUpReview}>
+            <p>
+              {language === "vi"
+                ? "Số tiền VNPay do hệ thống xác nhận"
+                : "VNPay amount confirmed by SportHub"}
+            </p>
+            <strong>{formatMoney(topUpCheckout.cashAmount)}</strong>
+            <button
+              className="btn"
+              type="button"
+              disabled={topUpBusy}
+              onClick={() => void payTopUp()}
+            >
+              {topUpBusy
+                ? language === "vi"
+                  ? "Đang xử lý…"
+                  : "Processing…"
+                : language === "vi"
+                  ? "Thanh toán bằng VNPay"
+                  : "Pay with VNPay"}
+            </button>
+          </div>
+        )}
+        {topUpError && (
+          <p role="alert" className={styles.topUpError}>
+            {topUpError}
+          </p>
+        )}
+        {topUpCheckout && (
+          <Link href={`/checkout/${topUpCheckout.invoiceId}`}>
+            {language === "vi"
+              ? "Xem giao dịch nạp điểm"
+              : "View top-up checkout"}{" "}
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        )}
+      </section>
       <section className={styles.history} aria-labelledby="wallet-history">
         <header className={styles.historyHead}>
           <h2 id="wallet-history">{w.history}</h2>

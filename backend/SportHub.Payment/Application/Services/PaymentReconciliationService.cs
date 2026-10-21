@@ -204,7 +204,8 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                     || invoice.CheckoutCycleId != session.CheckoutSessionId)
                 {
                     var reacquired = await TryReacquireClassAsync(invoice, attempt, session, proof, ct)
-                        ?? await TryReacquireRentalAsync(invoice, attempt, session, proof, ct);
+                        ?? await TryReacquireRentalAsync(invoice, attempt, session, proof, ct)
+                        ?? await TryRenewWalletTopUpAsync(invoice, attempt, session, proof, ct);
                     if (reacquired is not null)
                         await fulfillment.CompleteVerifiedAsync(invoice, reacquired, attempt, proof, ct,
                             lateReacquired: true);
@@ -250,6 +251,33 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             await fulfillment.ReleaseAsync(invoice, session, "Expired", null, ct);
         }
         await fulfillment.CompensateCashAsync(invoice, proof, ct);
+    }
+
+    // A wallet credit has no seat or court to reacquire. A verified late capture can still
+    // fulfill the original top-up, while reusing the normal payment and ledger transaction.
+    private async Task<CheckoutSession?> TryRenewWalletTopUpAsync(Invoice invoice,
+        PaymentAttempt attempt, CheckoutSession? oldSession, VerifiedGatewayEvent proof, CancellationToken ct)
+    {
+        if (oldSession?.Kind != "WalletTopUp" || attempt.PointsSnapshot != 0
+            || invoice.PointsApplied != 0 || invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation
+            || invoice.CashAmount != attempt.Amount)
+            return null;
+        oldSession.State = "Expired";
+        var renewed = new CheckoutSession
+        {
+            CheckoutSessionId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
+            Revision = invoice.CheckoutRevision + 1,
+            IdempotencyKey = "late-" + proof.VerifiedGatewayEventId.ToString("N"),
+            Kind = "WalletTopUp", State = "Active", CreatedAtUtc = clock.UtcNow,
+            ExpiresAtUtc = clock.UtcNow.AddMinutes(1)
+        };
+        db.Set<CheckoutSession>().Add(renewed);
+        invoice.CheckoutCycleId = renewed.CheckoutSessionId;
+        invoice.CheckoutRevision = renewed.Revision;
+        invoice.HoldExpiresAtUtc = renewed.ExpiresAtUtc;
+        invoice.Status = InvoiceStatus.Issued;
+        await db.SaveChangesAsync(ct);
+        return renewed;
     }
 
     private async Task<CheckoutSession?> TryReacquireClassAsync(Invoice invoice,

@@ -6,5 +6,6 @@ public enum InvoiceItemType
     ReservedLegacyItem = 1, // giữ ordinal của dữ liệu cũ
     ClassPackage,
     Rental,
-    ClassTransferDifference
+    ClassTransferDifference,
+    WalletTopUp
 }

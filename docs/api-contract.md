@@ -173,10 +173,13 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
+| `/api/checkouts/wallet-top-up` | `{points}` (1–10.000) | Chỉ Member tự nạp; 1 điểm = 1.000 VND, chỉ thanh toán VNPay. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
 
 `CheckoutResponse`: `{invoiceId,checkoutSessionId,revision,kind,state,totalAmount,pointsApplied,cashAmount,expiresAtUtc,resourceHoldId,invoiceStatus,fulfillmentOutcome,reconciliationRequired}`. Số tiền server quyết định; FE không tự đánh dấu paid từ redirect return hoặc chỉ từ `state`.
+
+Wallet top-up dùng checkout/invoice/attempt/IPN/QueryDR và ledger hiện có. Chỉ cộng điểm sau khi VNPay xác minh khoản thu; callback lặp không cộng lại. Member không thể dùng điểm để thanh toán top-up. Khoản thu xác minh sau khi checkout hết hạn vẫn cộng điểm vào đúng ví và ghi `PAID_AFTER_RECONCILIATION` với `FULFILLED`.
 
 | fulfillmentOutcome | Ý nghĩa |
 |---|---|

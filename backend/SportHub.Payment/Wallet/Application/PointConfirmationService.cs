@@ -262,6 +262,9 @@ public sealed class PointConfirmationService(
     {
         if (invoice.MemberId != memberId)
             throw new ForbiddenException("invoice_not_owned", "Invoice not owned.");
+        if (await db.Set<CheckoutSession>().AnyAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId
+            && x.Kind == "WalletTopUp", ct))
+            throw new ConflictException("top_up_cash_only", "Wallet top-ups must be paid through VNPay.");
         if (invoice.Status != InvoiceStatus.Issued || invoice.CheckoutCycleId is null
             || invoice.HoldExpiresAtUtc is null || invoice.HoldExpiresAtUtc <= clock.UtcNow)
             throw new ConflictException("checkout_unavailable", "Checkout unavailable.");

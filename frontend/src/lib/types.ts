@@ -145,7 +145,7 @@ export interface CheckoutDto {
   invoiceId: string;
   checkoutSessionId: string;
   revision: number;
-  kind: "MEMBERSHIP" | "CLASS" | "COURT_RENTAL";
+  kind: "MEMBERSHIP" | "CLASS" | "COURT_RENTAL" | "WALLET_TOP_UP";
   state: string;
   totalAmount: number;
   pointsApplied: number;

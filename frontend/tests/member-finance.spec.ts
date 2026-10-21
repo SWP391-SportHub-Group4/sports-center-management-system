@@ -57,6 +57,37 @@ async function setup(
   });
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (
+      path === "/api/checkouts/wallet-top-up" &&
+      route.request().method() === "POST"
+    )
+      return route.fulfill({
+        json: {
+          ...checkout,
+          kind: "WALLET_TOP_UP",
+          pointsApplied: 0,
+          totalAmount: 15000,
+          cashAmount: 15000,
+          beneficiaryUserId: "member-1",
+          initiatorUserId: "member-1",
+        },
+      });
+    if (
+      path === `/api/checkouts/${id}/attempts` &&
+      route.request().method() === "POST"
+    )
+      return route.fulfill({
+        json: {
+          paymentAttemptId: "attempt-1",
+          invoiceId: id,
+          transactionReference: "attempt-1",
+          cashAmount: 15000,
+          pointsApplied: 0,
+          expiresAtUtc: checkout.expiresAtUtc,
+          paymentUrl: "https://sandbox.vnpayment.vn/test-top-up",
+          state: "PENDING",
+        },
+      });
     if (path === "/api/users/me")
       return route.fulfill({
         json: {
@@ -101,6 +132,30 @@ async function setup(
     return route.fulfill({ json: [] });
   });
 }
+
+test("member can start a VNPay points top-up from an empty wallet", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("https://sandbox.vnpayment.vn/**", (route) =>
+    route.fulfill({ body: "VNPay test gateway" }),
+  );
+  await page.goto("/member/finance?tab=wallet");
+  await expect(page.getByRole("heading", { name: "Add points" })).toBeVisible();
+  await page.getByRole("spinbutton", { name: "Points" }).fill("10001");
+  await expect(
+    page.getByRole("button", { name: "Review top-up" }),
+  ).toBeDisabled();
+  await page.getByRole("spinbutton", { name: "Points" }).fill("15");
+  const create = page.waitForRequest((request) =>
+    request.url().endsWith("/api/checkouts/wallet-top-up"),
+  );
+  await page.getByRole("button", { name: "Review top-up" }).click();
+  expect((await create).postDataJSON()).toEqual({ points: 15 });
+  await expect(page.getByText("15,000", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Pay with VNPay" }).click();
+  await expect(page).toHaveURL("https://sandbox.vnpayment.vn/test-top-up");
+});
 
 test("checkout summary shows server split and one countdown", async ({
   page,
