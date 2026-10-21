@@ -21,7 +21,7 @@ Tài liệu này mô tả độc lập phạm vi, kiến trúc, dữ liệu, lu�
 
 | Môn | Dịch vụ | Đơn vị mua | Quyền lợi |
 |---|---|---|---|
-| Gym | Tập tự do | Membership có thời hạn hoặc vé Gym 1 ngày | Check-in/out tại quầy khi gói có hiệu lực |
+| Gym | Tập tự do | Membership có thời hạn hoặc vé Gym 1 ngày | Check-in tại quầy khi gói có hiệu lực; cooldown 10 giây mỗi Member |
 | Cầu lông | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
 | Bóng rổ | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
 
@@ -45,7 +45,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngo
 |---|---|---|
 | Guest | Xem thông tin trung tâm, môn, khóa/gói công khai; đăng ký | Không phải role tài khoản; không đọc roster, ví hoặc lịch cá nhân |
 | Member | Mua dịch vụ; thuê/hủy sân còn trống; xem lịch, quyền lợi, hóa đơn, ví; yêu cầu hỗ trợ | Chỉ dữ liệu của mình; không tự xác nhận payment |
-| Receptionist | Tiếp đón, Gym check-in/out, điểm danh lớp, checkout hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
+| Receptionist | Tiếp đón, Gym check-in, điểm danh lớp, checkout thanh toán hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
 | Coach | Xem lịch được giao; lập giáo án, ghi kết quả và nhận xét cho lớp/học viên được phân công | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
 | CenterManager | Môn/sân, hồ sơ/chuyên môn của Coach (không tạo Coach), lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
 | SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach), đổi role giữa các role staff, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
@@ -140,7 +140,7 @@ Chi tiết tại [Phụ lục A — Từ điển dữ liệu](#phụ-lục-a--t�
 
 **Ngôn ngữ giao diện:** các trang xác thực (`/login`, `/register`, `/forgot-password`, `/reset-password`) luôn tiếng Anh, không đọc ngôn ngữ đã lưu và không có nút đổi ngôn ngữ; phần còn lại giữ EN/VI.
 
-Chọn Membership → snapshot và checkout → payment xác minh → kích hoạt gói. Receptionist check-in/out dựa trên hiệu lực gói. Không dùng SessionLimit/RemainingSessions legacy để giới hạn vào Gym. Gia hạn giữ snapshot quyền lợi, xử lý gói nối tiếp theo Business Rules.
+Chọn Membership → snapshot và checkout thanh toán → payment xác minh → kích hoạt gói. Receptionist check-in dựa trên hiệu lực gói; mỗi Member cách lần check-in trước ít nhất 10 giây. Không dùng SessionLimit/RemainingSessions legacy để giới hạn vào Gym. Gia hạn giữ snapshot quyền lợi, xử lý gói nối tiếp theo Business Rules.
 
 ### 5.2 Vé Gym 1 ngày
 
@@ -238,7 +238,7 @@ Cần nghiệm thu gateway sandbox, callback public, QR/payment-page journey, re
 
 | Đối tượng | Vòng đời |
 |---|---|
-| Class | Draft → Published → InProgress → Completed; Cancelled theo điều kiện |
+| Class | Draft → Published → InProgress → Completed; Cancelled theo điều kiện. Published và InProgress đều nhận ghi danh khi còn chỗ (ghi danh giữa chừng, giá trọn khóa, còn ≥ 1 buổi sắp tới) |
 | Enrollment | Confirmed; kết thúc TransferredOut, Refunded hoặc CancelledByCenter |
 | PaymentAttempt | Pending, Expired, Succeeded, Failed, ReconciliationRequired; event muộn qua đối soát |
 | Invoice | Issued, Paid, Void, PaidAfterReconciliation; expiry thuộc checkout/attempt |
@@ -789,7 +789,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 `PendingPayment` và `Confirmed` giữ dòng `ROOM_OCCUPANCIES`; `Expired`/hủy vô hiệu hóa chúng.
 
 #### `GYM_CHECKINS`
-**Mục đích:** ghi nhận Member ra vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-64. **Giữ nguyên ở v3** (Gym là môn `WalkIn` trong `SPORTS`; đảm bảo có `CheckOutTime`).
+**Mục đích:** ghi nhận thời điểm Member vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-64. Không theo dõi thời điểm rời Gym.
 
 | Field | Vai trò |
 |---|---|
@@ -797,9 +797,8 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 | `MemberId` (FK) | Ai check-in |
 | `CheckedInByUserId` (FK, not null) | Lễ tân nào thực hiện — luôn có giá trị, không phải self-service |
 | `CheckInTime` | Mốc check-in (UTC) |
-| `CheckOutTime` | Mốc check-out theo BR-64 |
 
-Điều kiện tạo (BR-64): Member phải có Membership `Active`; Gym không giới hạn trong Membership validity và không trừ quota/session.
+Điều kiện tạo (BR-64): Member phải có Membership `Active`; Gym không giới hạn số lượt trong thời hạn Membership và không trừ quota/session. Hai lượt của cùng Member cách nhau ít nhất 10 giây.
 
 ---
 

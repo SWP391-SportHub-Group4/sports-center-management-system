@@ -94,9 +94,7 @@ export function MutationFeedback({
   const conflicts = mutation.error?.details.conflicts;
   const reasons = mutation.error?.details.reasons;
   const message =
-    mutation.error?.code === "gym_already_checked_in"
-      ? t.operations.gymAlreadyInside
-      : mutation.error?.code === "member_schedule_conflict"
+    mutation.error?.code === "member_schedule_conflict"
         ? t.operations.memberScheduleConflict
         : mutation.error?.code === "unknown_error"
           ? t.operations.unknownOutcome

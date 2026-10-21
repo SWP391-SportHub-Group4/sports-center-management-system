@@ -17,6 +17,79 @@ namespace SportHub.Payment.Tests.Integration;
 [Collection(nameof(PaymentApiCollection))]
 public sealed class PaymentReturnVerificationTests(PaymentApiFactory factory)
 {
+    [Fact]
+    public async Task Incomplete_query_stays_pending_and_later_success_repairs_legacy_failed_event()
+    {
+        var buyer = await factory.SeedUserAsync(UserRole.Member);
+        var packageId = await factory.QueryAsync(async db =>
+        {
+            var package = new MembershipPackage
+            {
+                Name = "Delayed VNPay " + Guid.NewGuid().ToString("N"),
+                Price = 100_000m, DurationDays = 30, IsActive = true
+            };
+            db.MembershipPackages.Add(package);
+            await db.SaveChangesAsync();
+            return package.PackageId;
+        });
+        using var ownerClient = factory.CreateApiClient(buyer.UserId, UserRole.Member);
+        using var create = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
+        {
+            Content = JsonContent.Create(new { packageId })
+        };
+        create.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var created = await ownerClient.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var checkout = (await created.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        var started = await ownerClient.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+        var attempt = (await started.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+
+        var gateway = new ChangingQueryGateway(factory.Services.GetRequiredService<IPaymentGateway>());
+        using var app = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IPaymentGateway>();
+            services.AddSingleton<IPaymentGateway>(gateway);
+        }));
+        using var client = app.CreateClient();
+        client.DefaultRequestHeaders.Authorization = ownerClient.DefaultRequestHeaders.Authorization;
+
+        var incomplete = await client.PostAsync($"/api/checkouts/{checkout.InvoiceId}/verify-payment", null);
+        Assert.Equal(HttpStatusCode.OK, incomplete.StatusCode);
+        Assert.Contains("\"verified\":false", await incomplete.Content.ReadAsStringAsync());
+        Assert.Equal(PaymentAttemptStatus.Pending, await factory.QueryAsync(db =>
+            db.PaymentAttempts.Where(x => x.PaymentAttemptId == attempt.PaymentAttemptId)
+                .Select(x => x.Status).SingleAsync()));
+        Assert.Equal(0, await factory.QueryAsync(db => db.VerifiedGatewayEvents
+            .CountAsync(x => x.PaymentAttemptId == attempt.PaymentAttemptId)));
+
+        // A prior release stored status 01 as a failed event. The same provider ID may later succeed.
+        await factory.QueryAsync(async db =>
+        {
+            var old = await db.PaymentAttempts.SingleAsync(x => x.PaymentAttemptId == attempt.PaymentAttemptId);
+            old.Status = PaymentAttemptStatus.Failed;
+            old.VerifiedResult = "Failed";
+            db.VerifiedGatewayEvents.Add(new VerifiedGatewayEvent
+            {
+                VerifiedGatewayEventId = Guid.NewGuid(), PaymentAttemptId = old.PaymentAttemptId,
+                Provider = "VNPay", ProviderTransactionId = gateway.ProviderTransactionId,
+                TransactionReference = old.VnpTxnRef, Amount = old.Amount,
+                ResponseCode = "00", TransactionStatus = "01", ProviderPaidAtUtc = DateTime.UtcNow,
+                VerifiedAtUtc = DateTime.UtcNow, ProcessingStatus = "Failed"
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        gateway.TransactionStatus = "00";
+        var completed = await client.PostAsync($"/api/checkouts/{checkout.InvoiceId}/verify-payment", null);
+        Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+        Assert.Contains("\"verified\":true", await completed.Content.ReadAsStringAsync());
+        Assert.Equal(1, await factory.QueryAsync(db => db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId)));
+        Assert.Equal(PaymentAttemptStatus.Succeeded, await factory.QueryAsync(db =>
+            db.PaymentAttempts.Where(x => x.PaymentAttemptId == attempt.PaymentAttemptId)
+                .Select(x => x.Status).SingleAsync()));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -116,5 +189,19 @@ public sealed class PaymentReturnVerificationTests(PaymentApiFactory factory)
             LastAttemptId = attempt.PaymentAttemptId;
             return Task.FromResult<VerifiedPaymentResult?>(null);
         }
+    }
+
+    private sealed class ChangingQueryGateway(IPaymentGateway inner) : IPaymentGateway
+    {
+        public string ProviderTransactionId { get; } = Guid.NewGuid().ToString("N");
+        public string TransactionStatus { get; set; } = "01";
+        public string CreatePaymentUrl(string reference, decimal amount, DateTime created,
+            DateTime expires, string ip) => inner.CreatePaymentUrl(reference, amount, created, expires, ip);
+        public VerifiedPaymentResult VerifyCallback(IReadOnlyDictionary<string, string> values)
+            => inner.VerifyCallback(values);
+        public Task<VerifiedPaymentResult?> QueryAsync(PaymentAttempt attempt, CancellationToken ct)
+            => Task.FromResult<VerifiedPaymentResult?>(new VerifiedPaymentResult(
+                attempt.VnpTxnRef, ProviderTransactionId, attempt.Amount,
+                TransactionStatus == "00", "00", TransactionStatus, DateTime.UtcNow));
     }
 }

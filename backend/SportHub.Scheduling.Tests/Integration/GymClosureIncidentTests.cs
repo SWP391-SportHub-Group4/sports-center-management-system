@@ -15,7 +15,7 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
 {
-    // Cửa sổ xa trong tương lai để không đụng lịch lớp/PT/thuê sân do các test khác tạo.
+    // Cửa sổ xa trong tương lai để không đụng lịch lớp/thuê sân do các test khác tạo.
     private static (DateTime Start, DateTime End) TwoFullDays(int daysAhead)
     {
         var first = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(daysAhead);

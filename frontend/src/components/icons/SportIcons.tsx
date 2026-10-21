@@ -18,7 +18,7 @@ const baseIconStyle: React.CSSProperties = {
 // ==========================================
 
 /**
- * Athletic Dumbbell (Gym, Strength, Personal Training)
+ * Athletic Dumbbell (Gym, Strength)
  * Google Material precision with rounded hexagonal plates & knurled bar
  */
 export function IconDumbbell({

@@ -44,7 +44,7 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
                 roster.Entries.Select(x => new CourtScheduleParticipant(x.MemberId, x.MemberName, x.EnrollmentId,
                     x.AttendanceStatus, x.AttendanceRecordedAt)).ToList()));
         }
-        // Coaches receive only their classes. Their PT calendar has its existing owner-scoped endpoint.
+        // Coaches receive only their assigned classes.
         if (coachScope is not null) return result.OrderBy(x => x.StartAtUtc).ThenBy(x => x.SourceId).ToList();
         var rentals = await db.Set<CourtRental>().AsNoTracking().Where(x => x.StartAtUtc < to && x.EndAtUtc > from
             && (roomId == null || x.RoomId == roomId)).ToListAsync(ct);

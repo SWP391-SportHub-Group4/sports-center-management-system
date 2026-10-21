@@ -1,7 +1,7 @@
 namespace SportHub.Scheduling.Application.DTOs;
 
 /// <summary>Quy tắc lịch lặp: thứ 0=CN..6=T7 và giờ địa phương HH:mm.</summary>
-public sealed record ClassScheduleRuleResponse(int DayOfWeek, string StartTimeLocal);
+public sealed record ClassScheduleRuleResponse(int DayOfWeek, string StartTimeLocal, string? EndTimeLocal = null);
 
 /// <summary>
 /// Khóa học cho công chúng/Member: không có chi phí, ngưỡng hoàn vốn hay số liệu nội bộ. Chỉ hiện khóa đã publish
@@ -27,7 +27,9 @@ public sealed record ClassPublicResponse(
     bool ThresholdResponseClosed,
     DateTime? FirstSessionStartUtc,
     IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules,
-    bool OpeningConfirmed = false);
+    bool OpeningConfirmed = false,
+    int SessionsPassed = 0,
+    int SessionsRemaining = 0);
 
 /// <summary>Khóa học cho Manager: đủ trường tài chính/ngưỡng/đồng thời.</summary>
 public sealed record ClassManagerResponse(

@@ -15,51 +15,11 @@ mkdirSync(out, { recursive: true });
 
 const INK = "#090e0f";
 const sports = {
-  pt: { bg: "#d6f6f9", shirt: "#003b40", trim: "#c8f03a" },
   badminton: { bg: "#eef9c2", shirt: "#02717a", trim: "#c8f03a" },
   basketball: { bg: "#feeade", shirt: "#c96203", trim: "#090e0f" },
 };
 
 const coaches = [
-  {
-    slug: "nguyen-minh-quan",
-    sport: "pt",
-    skin: "#e8b48f",
-    hair: "#16110e",
-    style: "crop",
-    extra: ["stubble"],
-  },
-  {
-    slug: "tran-thu-ha",
-    sport: "pt",
-    skin: "#f0c4a0",
-    hair: "#1c1411",
-    style: "ponytail",
-    female: true,
-  },
-  {
-    slug: "le-hoang-phuc",
-    sport: "pt",
-    skin: "#d9a27a",
-    hair: "#0f0b09",
-    style: "sidepart",
-    extra: ["glasses"],
-  },
-  {
-    slug: "pham-ngoc-anh",
-    sport: "pt",
-    skin: "#f1c7a6",
-    hair: "#2a1a13",
-    style: "bun",
-    female: true,
-  },
-  {
-    slug: "vo-duc-thinh",
-    sport: "pt",
-    skin: "#cf9570",
-    hair: "#120e0c",
-    style: "buzz",
-  },
   {
     slug: "dang-quoc-bao",
     sport: "badminton",
@@ -128,9 +88,7 @@ const hairFront = {
 function badge(sport) {
   const stroke = `stroke="${INK}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"`;
   const glyph =
-    sport === "pt"
-      ? `<path d="M-30 0H30" ${stroke}/><rect x="-44" y="-22" width="14" height="44" rx="4" fill="${INK}"/><rect x="30" y="-22" width="14" height="44" rx="4" fill="${INK}"/><rect x="-58" y="-12" width="10" height="24" rx="3" fill="${INK}"/><rect x="48" y="-12" width="10" height="24" rx="3" fill="${INK}"/>`
-      : sport === "badminton"
+    sport === "badminton"
         ? `<circle cx="-14" cy="22" r="13" fill="${INK}"/><path d="M-6 12 L26 -26 M-24 8 L-10 -30 M2 22 L36 -2" ${stroke}/>`
         : `<circle r="34" ${stroke}/><path d="M-34 0H34 M0 -34V34 M-24 -24C-10 -10 -10 10 -24 24 M24 -24C10 -10 10 10 24 24" ${stroke} stroke-width="5"/>`;
   return `<g transform="translate(650 150)"><circle r="82" fill="#ffffff" opacity="0.9"/><g transform="scale(0.9)">${glyph}</g></g>`;

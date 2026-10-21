@@ -3,8 +3,9 @@ namespace SportHub.Payment.Domain.Enums;
 public enum InvoiceItemType
 {
     Membership,
-    PT, // ngừng dùng; giữ để không đổi số lưu của các loại sau
+    ReservedLegacyItem = 1, // giữ ordinal của dữ liệu cũ
     ClassPackage,
     Rental,
-    ClassTransferDifference
+    ClassTransferDifference,
+    WalletTopUp
 }

@@ -102,6 +102,26 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Gym_checkout_resumes_the_same_invoice_and_deadline_after_returning_to_catalog()
+    {
+        var context = await SeedAsync();
+        using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
+
+        var first = await CreateAsync(member, context.PackageId);
+        var resumed = await CreateAsync(member, context.PackageId);
+
+        Assert.Equal(first.InvoiceId, resumed.InvoiceId);
+        Assert.Equal(first.CheckoutSessionId, resumed.CheckoutSessionId);
+        Assert.InRange(
+            (first.ExpiresAtUtc - resumed.ExpiresAtUtc).Duration(),
+            TimeSpan.Zero,
+            TimeSpan.FromMilliseconds(1));
+        Assert.Equal(1, await factory.QueryAsync(db => db.MemberPackages.CountAsync(
+            p => p.MemberId == context.MemberId && p.PackageId == context.PackageId
+                && p.Status == MemberPackageStatus.PendingPayment)));
+    }
+
+    [Fact]
     public async Task Expiry_skips_stalled_gateway_captures_before_applying_batch_limit()
     {
         var context = await SeedAsync();
@@ -818,6 +838,11 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
 
                 return 0;
             });
+
+        var compensatedDetail = await member.GetFromJsonAsync<System.Text.Json.JsonElement>(
+            $"/api/invoices/{checkout.InvoiceId}");
+        Assert.Equal(0m, compensatedDetail.GetProperty("summary")
+            .GetProperty("outstanding").GetDecimal());
     }
 
     [Fact]
@@ -1391,13 +1416,15 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                     .ReadFromJsonAsync<CheckoutResponse>()
             )!.InvoiceId);
 
-        Assert.Equal(
-            HttpStatusCode.Conflict,
-            (
-                await Create(
-                    Guid.NewGuid()
-                        .ToString("N"))
-            ).StatusCode);
+        var resumedResponse = await Create(Guid.NewGuid().ToString("N"));
+        Assert.Equal(HttpStatusCode.Created, resumedResponse.StatusCode);
+        var resumed = (await resumedResponse.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        Assert.Equal(checkout.InvoiceId, resumed.InvoiceId);
+        Assert.Equal(checkout.CheckoutSessionId, resumed.CheckoutSessionId);
+        Assert.InRange(
+            (checkout.ExpiresAtUtc - resumed.ExpiresAtUtc).Duration(),
+            TimeSpan.Zero,
+            TimeSpan.FromMilliseconds(1));
 
         Assert.Equal(
             0,

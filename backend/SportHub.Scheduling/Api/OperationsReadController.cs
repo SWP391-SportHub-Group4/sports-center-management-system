@@ -13,27 +13,6 @@ namespace SportHub.Scheduling.Api;
 [ApiController]
 public sealed class OperationsReadController(ISportHubDbContext db) : ControllerBase
 {
-    [Authorize(Policy = SportHubPolicies.FrontDesk), HttpGet("api/gym-checkins/inside")]
-    public async Task<IActionResult> Inside([FromQuery] int page = 1, [FromQuery] int pageSize = 20,
-        [FromQuery] bool staleOnly = false, CancellationToken ct = default)
-    {
-        page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
-        var query = db.Set<GymCheckIn>().AsNoTracking().Where(x => x.CheckOutTime == null);
-        if (staleOnly)
-        {
-            var today = DateOnly.FromDateTime(
-                SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(DateTime.UtcNow));
-            var cutoff = SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.StartOfDayUtc(today);
-            query = query.Where(x => x.CheckInTime < cutoff);
-        }
-        var count = await query.CountAsync(ct);
-        var rows = await query.OrderBy(x => x.CheckInTime).ThenBy(x => x.CheckInId)
-            .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(x => new GymInsideRow(x.CheckInId, x.MemberId,
-                x.Member!.Profile != null ? x.Member.Profile.FullName : x.Member.Email, x.CheckInTime)).ToListAsync(ct);
-        return Ok(new PagedResult<GymInsideRow> { Items = rows, TotalCount = count, Page = page, PageSize = pageSize });
-    }
-
     [Authorize(Policy = SportHubPolicies.CenterManager), HttpGet("api/manager/classes/{classId:int}/holds")]
     public async Task<IActionResult> Holds(int classId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
@@ -85,7 +64,6 @@ public sealed class OperationsReadController(ISportHubDbContext db) : Controller
             throw new NotFoundException("class_not_found", "Class not found.");
     }
 }
-public sealed record GymInsideRow(Guid CheckInId, Guid MemberId, string MemberName, DateTime CheckInTime);
 public sealed record CourseHoldRow(Guid HoldId, Guid MemberId, string MemberName, Guid? InvoiceId,
     [property: WireEnum] string Status, DateTime ExpiresAtUtc, DateTime CreatedAt);
 public sealed record CourseEnrollmentRow(Guid EnrollmentId, Guid MemberId, string MemberName, Guid? InvoiceItemId,

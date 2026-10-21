@@ -25,7 +25,6 @@ public sealed class InvoiceDraftWriter(ISportHubDbContext db, IInvoiceNumberGene
         var itemType = itemDraft.ItemType switch
         {
             "Membership" => InvoiceItemType.Membership,
-            "PtPackage" => InvoiceItemType.PT,
             "ClassEnrollment" => InvoiceItemType.ClassPackage,
             "ClassTransferDifference" => InvoiceItemType.ClassTransferDifference,
             "CourtRental" => InvoiceItemType.Rental,

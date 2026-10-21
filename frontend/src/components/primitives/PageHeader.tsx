@@ -6,7 +6,7 @@ export interface PageHeaderProps {
   title: ReactNode;
   description?: ReactNode;
   /** Liên kết quay lại cấp cha (trang chi tiết). */
-  back?: { href: string; label: string };
+  back?: { href: string; label: string; reloadDocument?: boolean };
   /** Chip trạng thái, mã tham chiếu… hiện dưới tiêu đề. */
   meta?: ReactNode;
   /** Nút hành động của trang; để <Button variant="primary"> cho hành động chính duy nhất. */
@@ -26,11 +26,16 @@ export function PageHeader({
   return (
     <header className="page-header">
       <div>
-        {back && (
-          <Link href={back.href} className="page-header__back">
-            {back.label}
-          </Link>
-        )}
+        {back &&
+          (back.reloadDocument ? (
+            <a href={back.href} className="page-header__back">
+              {back.label}
+            </a>
+          ) : (
+            <Link href={back.href} className="page-header__back">
+              {back.label}
+            </Link>
+          ))}
         <Heading className="page-header__title">{title}</Heading>
         {description && <p className="page-header__desc">{description}</p>}
         {meta && <div className="page-header__meta">{meta}</div>}

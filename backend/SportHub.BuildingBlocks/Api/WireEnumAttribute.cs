@@ -25,7 +25,6 @@ public static class WireEnum
     public static string? ToInternalName(string? value)
     {
         if (string.IsNullOrEmpty(value) || value.Any(char.IsLower)) return value;
-        if (value == "PT") return "PT";
         if (value == "VN_PAY" || value == "VNPAY") return "VnPay";
         return string.Concat(value.Split('_').Select(part => part.Length == 0 ? ""
             : char.ToUpperInvariant(part[0]) + part[1..].ToLowerInvariant()));

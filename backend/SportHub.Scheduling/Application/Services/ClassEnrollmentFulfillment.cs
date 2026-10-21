@@ -57,9 +57,11 @@ public sealed class ClassEnrollmentFulfillment(
         var (quote, _) = await EnsureBookableAsync(classId, memberId, cancellationToken, sourceClassToIgnore);
 
         // 2) Chốt chặn overbooking: chỉ tăng khi còn chỗ và khóa đang mở bán. Nếu 0 dòng thì đã hết chỗ hoặc hết mở bán.
+        // Khóa đang học (InProgress) vẫn nhận ghi danh giữa chừng khi còn chỗ.
         var published = (int)ClassStatus.Published;
+        var inProgress = (int)ClassStatus.InProgress;
         var updated = await db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE classes SET reserved_count = reserved_count + 1, version = version + 1 WHERE class_id = {classId} AND status = {published} AND enrollment_open = TRUE AND reserved_count < capacity",
+            $"UPDATE classes SET reserved_count = reserved_count + 1, version = version + 1 WHERE class_id = {classId} AND status IN ({published}, {inProgress}) AND enrollment_open = TRUE AND reserved_count < capacity",
             cancellationToken);
 
         if (updated == 0)
@@ -135,14 +137,14 @@ public sealed class ClassEnrollmentFulfillment(
 
         var cls = await db.Set<Class>().AsNoTracking().SingleAsync(c => c.ClassId == hold.ClassId, cancellationToken);
 
-        if (cls.Status != ClassStatus.Published)
+        if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
         {
             throw new ConflictException("class_not_open", "Class not open.");
         }
 
-        // Không nhận ghi danh khi đã đến buổi đầu (dù job chuyển InProgress chưa chạy).
-        var firstStart = await FirstSessionStartAsync(hold.ClassId, cancellationToken);
-        if (firstStart is null || firstStart <= clock.UtcNow)
+        // Ghi danh giữa chừng được phép dù đã qua bao nhiêu buổi; chỉ cần còn ít nhất một buổi sắp tới.
+        var nextStart = await NextSessionStartAsync(hold.ClassId, cancellationToken);
+        if (nextStart is null)
         {
             throw new ConflictException("class_started", "Class started.");
         }
@@ -367,7 +369,7 @@ public sealed class ClassEnrollmentFulfillment(
         var cls = row.Class;
 
         // Không cần Membership: khóa nhóm mua trọn gói bằng tiền/điểm (BR-110).
-        if (cls.Status != ClassStatus.Published)
+        if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
         {
             throw new ConflictException("class_not_open", "Class not open.");
         }
@@ -387,21 +389,19 @@ public sealed class ClassEnrollmentFulfillment(
                 "Class threshold response closed.");
         }
 
+        // Chỉ các buổi sắp tới mới tính cho kiểm tra trùng lịch; buổi đã qua không ảnh hưởng người vào giữa chừng.
+        var now = clock.UtcNow;
         var sessions = await db.Set<ClassSession>().AsNoTracking()
-            .Where(s => s.ClassId == classId && s.Status == ClassSessionStatus.Scheduled)
+            .Where(s => s.ClassId == classId && s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc > now)
             .Select(s => new { s.StartAtUtc, s.EndAtUtc })
             .ToListAsync(ct);
 
         if (sessions.Count == 0)
         {
-            throw new ConflictException("class_not_open", "Class not open.");
-        }
-
-        var firstStart = await FirstSessionStartAsync(classId, ct);
-        if (firstStart is null || firstStart <= clock.UtcNow)
-        {
             throw new ConflictException("class_started", "Class started.");
         }
+
+        var firstStart = sessions.Min(s => s.StartAtUtc);
 
         var member = await users.GetAsync(memberId, ct);
         if (member is null || member.Role != "Member" || !member.IsActive)
@@ -461,16 +461,20 @@ public sealed class ClassEnrollmentFulfillment(
             throw new ConflictException("member_schedule_conflict", "Member schedule conflict.");
         }
 
+        // FirstSessionUtc = buổi sắp tới gần nhất: với khóa chưa bắt đầu đó là buổi đầu, với khóa đang học là buổi kế tiếp.
         var quote = new ClassQuote(
-            cls.ClassId, cls.SportId, row.SportName, cls.Price, new DateTimeOffset(DateTime.SpecifyKind(firstStart.Value, DateTimeKind.Utc)));
+            cls.ClassId, cls.SportId, row.SportName, cls.Price, new DateTimeOffset(DateTime.SpecifyKind(firstStart, DateTimeKind.Utc)));
 
         return (quote, cls);
     }
 
-    private async Task<DateTime?> FirstSessionStartAsync(int classId, CancellationToken ct)
-        => await db.Set<ClassSession>().AsNoTracking()
-            .Where(s => s.ClassId == classId && s.Status != ClassSessionStatus.Cancelled)
+    private async Task<DateTime?> NextSessionStartAsync(int classId, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        return await db.Set<ClassSession>().AsNoTracking()
+            .Where(s => s.ClassId == classId && s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc > now)
             .MinAsync(s => (DateTime?)s.StartAtUtc, ct);
+    }
 
     private async Task<SeatHold?> LockHoldAsync(Guid holdId, CancellationToken ct)
     {

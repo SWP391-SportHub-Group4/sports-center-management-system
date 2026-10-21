@@ -42,9 +42,6 @@
 .sticker[data-kind="rental"] .badge {
   background: #97610a;
 }
-.sticker[data-kind="pt"] .badge {
-  background: #007d73;
-}
 @media (prefers-reduced-motion: no-preference) {
   .emblem {
     transition: transform 180ms ease-out;

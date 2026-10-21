@@ -22,10 +22,6 @@
   border-radius: 50%;
   background: #2969ae;
 }
-.legend [data-kind="pt"] i,
-.dots [data-kind="pt"] {
-  background: #007d73;
-}
 .legend [data-kind="rental"] i,
 .dots [data-kind="rental"] {
   background: #a86a0a;
@@ -130,10 +126,6 @@
   background: #e5effa;
   cursor: pointer;
   text-align: left;
-}
-.event[data-kind="pt"] {
-  color: #005e54;
-  background: #dff2ec;
 }
 .event[data-kind="rental"] {
   color: #765006;
@@ -246,9 +238,6 @@
   padding: var(--space-3);
   border-radius: var(--radius-md);
   background: #e5effa;
-}
-.agenda li[data-kind="pt"] {
-  background: #dff2ec;
 }
 .agenda li[data-kind="rental"] {
   background: #fff0ce;

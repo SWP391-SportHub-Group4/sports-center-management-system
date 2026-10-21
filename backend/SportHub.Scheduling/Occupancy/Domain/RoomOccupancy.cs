@@ -1,7 +1,7 @@
 namespace SportHub.Scheduling.Occupancy.Domain;
 
 /// <summary>
-/// Một khoảng [StartAtUtc, EndAtUtc) phòng bị chiếm bởi một nguồn (buổi lớp, PT, thuê sân, block).
+/// Một khoảng [StartAtUtc, EndAtUtc) phòng bị chiếm bởi một nguồn (buổi lớp, thuê sân, block).
 /// Chống trùng do DB: exclusion constraint (room_id, tstzrange) chỉ với dòng IsActive. Hai khoảng liền kề không xung đột.
 /// Mỗi nguồn đúng một dòng (unique source_type + source_id); nhả chỗ = IsActive=false, đặt lại thì dùng lại dòng.
 /// </summary>

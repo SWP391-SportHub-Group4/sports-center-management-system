@@ -162,7 +162,6 @@ public sealed class MemberSupportRequestsController(
             "MEMBERSHIP",
             "CLASS",
             "PAYMENT",
-            "PT",
             "OTHER"
         };
 

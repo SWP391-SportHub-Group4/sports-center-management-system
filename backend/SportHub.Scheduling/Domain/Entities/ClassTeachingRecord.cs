@@ -1,6 +1,6 @@
 namespace SportHub.Scheduling.Domain.Entities;
 
-/// <summary>Class teaching content; PT plans/results remain in the Training domain.</summary>
+/// <summary>Class teaching content.</summary>
 public sealed class ClassTeachingRecord
 {
     public Guid RecordId { get; set; }

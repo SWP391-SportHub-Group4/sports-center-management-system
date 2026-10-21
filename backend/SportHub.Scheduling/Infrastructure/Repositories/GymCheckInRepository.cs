@@ -55,14 +55,16 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
         if (await gymClosure.IsGymClosedAtAsync(checkIn.CheckInTime, cancellationToken))
             throw new ConflictException("gym_closed", "The Gym is closed due to an incident.");
 
-        // Serialize the open-visit check and insert for this Member, including concurrent requests.
+        // Serialize the cooldown check and insert for this Member, including concurrent requests.
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT pg_advisory_xact_lock(hashtextextended({$"gym-checkin:{checkIn.MemberId:D}"}, 0))", cancellationToken);
+        checkIn.CheckInTime = DateTime.UtcNow;
         if (await db.Set<GymCheckIn>().AnyAsync(
-                x => x.MemberId == checkIn.MemberId && x.CheckOutTime == null, cancellationToken))
+                x => x.MemberId == checkIn.MemberId && x.CheckInTime > checkIn.CheckInTime.AddSeconds(-10),
+                cancellationToken))
         {
-            throw new ConflictException("gym_already_checked_in",
-                "Gym already checked in.");
+            throw new ConflictException("gym_checkin_cooldown",
+                "Wait 10 seconds before checking in this member again.");
         }
 
         // BR-64: phải có >= 1 MemberPackage Active TẠI THỜI ĐIỂM check-in.
@@ -91,30 +93,6 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
         await db.SaveChangesAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
-    }
-
-    public async Task<GymCheckIn> CheckOutAsync(
-        Guid checkInId,
-        Guid checkedOutByUserId,
-        CancellationToken cancellationToken = default)
-    {
-        var now = DateTime.UtcNow;
-
-        // UPDATE có điều kiện: chỉ ghi giờ ra khi CHƯA có giờ ra và không trước giờ vào. Hai request song song chỉ một bên ghi;
-        // bên còn lại (0 dòng) nhận lại bản ghi hiện có — check-out idempotent, giờ ra không bị ghi đè.
-        await db.Set<GymCheckIn>()
-            .Where(c => c.CheckInId == checkInId && c.CheckOutTime == null && c.CheckInTime <= now)
-            .ExecuteUpdateAsync(
-                s => s.SetProperty(c => c.CheckOutTime, now).SetProperty(c => c.CheckedOutByUserId, checkedOutByUserId),
-                cancellationToken);
-
-        var checkIn = await db.Set<GymCheckIn>().AsNoTracking().SingleOrDefaultAsync(c => c.CheckInId == checkInId, cancellationToken)
-               ?? throw new NotFoundException("gym_checkin_not_found", "Gym checkin not found.");
-        if (checkIn.CheckOutTime is null)
-        {
-            throw new ConflictException("checkout_before_checkin", "Checkout before checkin.");
-        }
-        return checkIn;
     }
 
     public async Task<(IReadOnlyList<GymCheckIn> Items, int TotalCount)> GetHistoryAsync(

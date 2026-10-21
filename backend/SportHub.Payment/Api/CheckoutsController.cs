@@ -16,6 +16,16 @@ namespace SportHub.Payment.Api;
 public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurchaseService packages,
     PaymentReconciliationService reconciliation, ISportHubDbContext db) : ControllerBase
 {
+    [HttpPost("wallet-top-up")]
+    [Authorize(Roles = SportHubRoleNames.Member)]
+    [EnableRateLimiting("checkout-write")]
+    public async Task<IActionResult> WalletTopUp([FromBody] WalletTopUpCheckoutRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
+    {
+        var result = await checkouts.CreateWalletTopUpAsync(request.Points, key, User.RequireUserId(), ct);
+        return Created($"/api/checkouts/{result.InvoiceId}", result);
+    }
+
     [HttpPost("membership")]
     [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> Membership([FromBody] MembershipCheckoutRequest request,
@@ -214,3 +224,4 @@ public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
 
 public sealed record VerifyPaymentReferenceRequest(string Reference);
 public sealed record CancelPaymentReferenceRequest(Dictionary<string, string>? Fields);
+public sealed record WalletTopUpCheckoutRequest(int Points);

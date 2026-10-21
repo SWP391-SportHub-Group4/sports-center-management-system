@@ -11,13 +11,12 @@ using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Security.Tests.Integration;
 
-/// <summary>BR-96 — chuyên môn theo môn thay CoachCategory: Manager quản lý Coach, guard PT dựa trên qualification dịch vụ PT của Gym.</summary>
+/// <summary>BR-96 — chuyên môn theo môn: Manager quản lý Coach lớp nhóm.</summary>
 [Collection(nameof(SportHubApiCollection))]
 public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
 {
     private const string Password = "Coach-Strong-Pass-1!";
     private const int GymSportId = 1;             // Gym: chỉ có Membership, không có Coach
-    private const int PersonalTrainingOfferingId = 2;
     private const int BadmintonSportId = 3;        // GroupCourse
     private const int BasketballSportId = 4;       // GroupCourse
 

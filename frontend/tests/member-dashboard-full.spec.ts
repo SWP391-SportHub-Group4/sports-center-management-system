@@ -37,21 +37,6 @@ async function install(page: Page, opts: { aiFailsFirst?: boolean } = {}) {
           isUsable: true,
         },
       ]);
-    if (path === "/api/members/me/pt-entitlements")
-      return json([
-        {
-          entitlementId: "e1",
-          coachId: "c1",
-          coachName: "Coach Minh",
-          status: "ACTIVE",
-          totalQuota: 8,
-          reservedSessions: 1,
-          consumedSessions: 2,
-          remainingQuota: 5,
-          validityStartDate: isoDay(-10),
-          validityEndDate: isoDay(100),
-        },
-      ]);
     if (path === "/api/class-threshold-responses/mine")
       return json([
         {
@@ -75,9 +60,7 @@ async function install(page: Page, opts: { aiFailsFirst?: boolean } = {}) {
             checkInId: "g1",
             memberId: userId,
             checkInTime: hours(-1),
-            checkOutTime: null,
             checkedInByUserId: "r1",
-            checkedOutByUserId: null,
           },
         ],
         page: 1,

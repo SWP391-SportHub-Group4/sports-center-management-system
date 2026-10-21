@@ -73,7 +73,8 @@ export function SupportQueue({
     if (queue.data) setLastResult(queue.data);
   }, [queue.data]);
   // Never display a previous filter/page as though it belongs to the new query.
-  const result = queue.loading || queue.error ? null : queue.data ?? lastResult;
+  const result =
+    queue.loading || queue.error ? null : (queue.data ?? lastResult);
   const selected =
     expanded === undefined ? result?.items[0]?.requestId : expanded;
   const filtered = !!(
@@ -110,17 +111,15 @@ export function SupportQueue({
             <RefreshCw size={16} aria-hidden="true" />
             Refresh
           </button>
-          <Link
-            className="btn"
-            href={
-              workspace === "manager"
-                ? "/manager/requests?type=support&record=1"
-                : "/receptionist/members"
-            }
-          >
-            <Plus size={18} aria-hidden="true" />
-            Record a request
-          </Link>
+          {workspace !== "receptionist" && (
+            <Link
+              className="btn"
+              href="/manager/requests?type=support&record=1"
+            >
+              <Plus size={18} aria-hidden="true" />
+              Record a request
+            </Link>
+          )}
         </div>
       </div>
       <form
@@ -281,7 +280,9 @@ export function SupportQueue({
             <MessageSquare size={28} aria-hidden="true" />
             <h3>No requests match these filters</h3>
             <p>
-              Change the filters or open a member’s profile to record a request.
+              {workspace === "receptionist"
+                ? "Change the filters, or record a request from Today’s desk."
+                : "Change the filters or open a member’s profile to record a request."}
             </p>
             {filtered && (
               <button
@@ -450,8 +451,11 @@ export function SupportQueue({
         )}
       </div>
       <p className={styles.footnote}>
-        Use Record a request to select a member. Managers and receptionists can
-        handle requests assigned to any staff member.
+        {workspace === "receptionist"
+          ? "New requests are recorded from Today’s desk after selecting the member. "
+          : "Use Record a request to select a member. "}
+        Managers and receptionists can handle requests assigned to any staff
+        member.
       </p>
     </section>
   );

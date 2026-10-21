@@ -95,8 +95,6 @@ async function fixture(
     if (path === "/api/rooms") return route.fulfill({ json: [] });
     if (path === "/api/coach-member-relationships")
       return route.fulfill({ json: [] });
-    if (path === "/api/coaches/me/pt-sessions")
-      return route.fulfill({ json: [] });
     if (path === "/api/coaches/me/classes") {
       if (failOnce && !failed) {
         failed = true;
@@ -166,7 +164,6 @@ for (const language of ["en", "vi"] as const)
       await expect(page.locator('main a[href="/coach/classes/7"]')).toHaveCount(
         1,
       );
-      await expect(page.locator('a[href="/coach/pt-schedule"]')).toHaveCount(0);
       await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
       expect(calls).toContain("GET /api/coaches/me/classes");
       expect(calls).toContain("GET /api/classes/7/sessions");

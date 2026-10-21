@@ -11,7 +11,7 @@ public sealed class CreateRelationshipRequest
     public Guid MemberId { get; set; }
 
     /// <summary>
-    /// Personal hoặc AssignedByManager. ClassBased do hệ thống tự tạo khi hội viên đăng ký
+    /// AssignedByManager. ClassBased do hệ thống tự tạo khi hội viên đăng ký
     /// lớp của HLV đó — không nhận từ API (quyết định C3).
     /// </summary>
     [Required]

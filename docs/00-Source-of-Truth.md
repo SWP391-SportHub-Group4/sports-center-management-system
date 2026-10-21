@@ -9,6 +9,8 @@ Catalog cập nhật 19/10/2026: form tạo Sport có tùy chọn tạo Room Typ
 Flow 2 cập nhật 19/10/2026: Manager tạo sân cho thuê cùng giờ hoạt động và giá trong một lần lưu; mở thuê thành công thì Member đặt được các slot trống hợp lệ. Court Rental Pricing nhận giá riêng theo sân; giá chung theo loại sân vẫn được giữ. Xem [luồng tạo sân cho thuê](Rental-Court-Setup.md).
 
 
+Ghi danh giữa chừng cập nhật 20/10/2026: khóa `Published` hoặc `InProgress` đều nhận đăng ký khi còn chỗ và Manager chưa đóng đăng ký, **dù đã qua bao nhiêu buổi**. Chỉ dừng khi hết chỗ, khóa `Completed`/`Cancelled`, hoặc không còn buổi nào sắp tới (`class_started`). Học phí vẫn là **giá trọn khóa**, không tính theo tỷ lệ buổi còn lại. Member chỉ học từ buổi kế tiếp; buổi đã qua không tạo vắng mặt. Màn Member hiển thị "đã học X/N buổi, còn Y buổi". Hủy ghi danh khi khóa đã bắt đầu vẫn không hoàn tự động. Chi tiết trong [API contract](api-contract.md).
+
 M03/M04 cập nhật 18/10/2026: [Xử lý sự cố và bố trí buổi bù](Incident-Session-Recovery.md). Theo yêu cầu mới nhất, bỏ chức năng hệ thống tự tìm/đề xuất lịch. Manager nhập ngày giờ, phòng và HLV; hệ thống kiểm tra hợp lệ/xung đột khi lưu. Buổi bị gián đoạn/không diễn ra được học lại nguyên thời lượng; buổi đã học đủ chỉ ghi nhận. Giữ lịch sử, không tính phút bù, không chuyển lớp/hoàn điểm trong luồng này.
 
 ## 1. Thứ tự nguồn và cách giải quyết mâu thuẫn

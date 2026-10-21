@@ -178,7 +178,7 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
         return result.OrderBy(c => c.FullName).ToList();
     }
 
-    /// <summary>Các khoảng phòng đang bị chiếm (lớp/PT/thuê sân/block) — chỉ cho nhân sự vận hành.</summary>
+    /// <summary>Các khoảng phòng đang bị chiếm (lớp/thuê sân/block) — chỉ cho nhân sự vận hành.</summary>
     public async Task<IReadOnlyList<BusyIntervalResponse>> RoomBusyAsync(
         int roomId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
     {

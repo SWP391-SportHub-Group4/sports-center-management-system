@@ -206,8 +206,6 @@ async function coachFixture(
       });
     if (path === "/api/coach-member-relationships")
       return route.fulfill({ json: [] });
-    if (path.endsWith("/pt-entitlements") || path.includes("/pt-sessions"))
-      return route.fulfill({ json: [] });
     return route.fulfill({
       status: 404,
       json: { code: "fixture_missing", message: path },
@@ -221,9 +219,6 @@ test("group-only coach uses a single navbar for teaching, classes and students",
   await coachFixture(page, [3]);
   await page.goto("/coach");
   const navbar = page.getByRole("navigation");
-  await expect(
-    page.getByRole("link", { name: "PT schedule", exact: true }),
-  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Schedule", exact: true }),
   ).toHaveCount(1);

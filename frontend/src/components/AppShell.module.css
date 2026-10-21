@@ -35,29 +35,6 @@
   justify-content: center;
   gap: var(--space-6);
 }
-.ptNav {
-  display: flex;
-}
-@media (max-width: 1099px) {
-  .ptHeader {
-    flex-wrap: wrap;
-    justify-content: space-between;
-    height: auto;
-    padding-block: 10px;
-    gap: 8px;
-  }
-  .ptNav {
-    order: 3;
-    flex: 1 0 100%;
-    justify-content: flex-start;
-  }
-  .ptNav > a {
-    flex: 1;
-    text-align: center;
-    white-space: normal;
-    font-size: 0.875rem;
-  }
-}
 .menuButton {
   display: flex;
   align-items: center;

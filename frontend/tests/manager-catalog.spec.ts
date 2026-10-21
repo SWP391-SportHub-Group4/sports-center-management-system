@@ -60,7 +60,6 @@ async function setup(
     sports: options.empty ? [] : [structuredClone(sport)],
     packages: options.empty ? [] : [structuredClone(gym)],
     rates: options.empty ? [] : [structuredClone(rate)],
-    pt: { pricePerSessionVnd: 250000, priceVersion: "v-original" },
   };
   const writes: Write[] = [];
   const reads: Record<string, number> = {};
@@ -86,12 +85,7 @@ async function setup(
             message: "Server validation rejected the change",
           },
         });
-      if (path === "/api/manager/pt-pricing")
-        data.pt = {
-          pricePerSessionVnd: Number(body?.value),
-          priceVersion: "v-updated",
-        };
-      else if (path.startsWith("/api/manager/sports")) {
+      if (path.startsWith("/api/manager/sports")) {
         if (path.endsWith("activate"))
           data.sports[0].isActive = path.endsWith("/activate");
         else if (req.method() === "POST")
@@ -137,7 +131,6 @@ async function setup(
       return route.fulfill({ json: data.packages });
     if (path === "/api/manager/court-rates")
       return route.fulfill({ json: data.rates });
-    if (path === "/api/pt-pricing") return route.fulfill({ json: data.pt });
     if (path === "/api/rooms") return route.fulfill({ json: [] });
     if (path === "/api/room-types")
       return route.fulfill({
@@ -282,9 +275,6 @@ test("sport creation uses service contract, reloads, and edits with immutable co
   ).toHaveCount(0);
   await expect(
     dialog(page).getByLabel("Membership", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    dialog(page).getByLabel("Personal training", { exact: true }),
   ).toHaveCount(0);
   await dialog(page).getByLabel("Court rental", { exact: true }).check();
   await expect(
@@ -772,7 +762,6 @@ test("live Manager API list contracts and aliases match the rendered catalog", a
       "/api/membership-packages?includeInactive=true",
       "/manager/membership-plans",
     ],
-    ["/api/pt-pricing", "/manager/catalog?tab=pt"],
     ["/api/manager/court-rates", "/manager/court-rates"],
   ]) {
     const result = await request.get(apiBase + endpoint, {

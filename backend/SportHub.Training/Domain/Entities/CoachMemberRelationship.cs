@@ -15,7 +15,7 @@ public class CoachMemberRelationship
 
     public UserAccount? Member { get; set; }
 
-    public RelationshipSourceType SourceType { get; set; } // ClassBased/Personal/AssignedByManager
+    public RelationshipSourceType SourceType { get; set; } // ClassBased/AssignedByManager; 1 reserved for old data
 
     public int? ClassId { get; set; } // FK -> Class, chỉ có khi SourceType = ClassBased
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { AsyncSection, PageNav, StatusChip } from "@/components/ui";
@@ -33,13 +32,10 @@ export function MemberRefunds() {
       <header className={styles.head}>
         <p className={styles.caption}>{l.refundFlow}</p>
         {state.data && pagedItems(state.data).length > 0 && (
-          <Link
-            href="/member/finance?tab=invoices"
-            className={styles.quietAction}
-          >
+          <a href="/member/finance?tab=invoices" className={styles.quietAction}>
             {l.refundEmptyAction}
             <ArrowRight size={16} aria-hidden="true" />
-          </Link>
+          </a>
         )}
       </header>
       <AsyncSection
@@ -51,10 +47,10 @@ export function MemberRefunds() {
             title={l.refundEmptyTitle}
             body={l.refundEmptyBody}
             action={
-              <Link href="/member/finance?tab=invoices">
+              <a href="/member/finance?tab=invoices">
                 {l.refundEmptyAction}
                 <ArrowRight size={16} aria-hidden="true" />
-              </Link>
+              </a>
             }
           />
         }
@@ -81,12 +77,12 @@ export function MemberRefunds() {
                           : l.refundNoCredit}
                     </span>
                   </p>
-                  <Link
+                  <a
                     className={styles.quietAction}
                     href={`/member/finance?tab=invoices&invoice=${refund.invoiceId}`}
                   >
                     {l.refundInvoice}
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ol>

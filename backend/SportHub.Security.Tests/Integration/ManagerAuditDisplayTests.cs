@@ -38,9 +38,9 @@ public class ManagerAuditDisplayTests(SportHubApiFactory factory)
             recorded = JsonSerializer.Serialize(new { name = "Recorded old sport", sportId, roomId, coachId = coach.UserId, password = "DO_NOT_RESOLVE" });
             db.AuditLogs.Add(new AuditLog { AuditId = auditId, UserId = actor.UserId, Action = action, TargetEntity = "Sport", TargetId = sportId.ToString(), NewValue = recorded, Timestamp = DateTime.UtcNow });
             // Trigger every supported query shape, including missing/deleted targets.
-            foreach (var entity in new[] { "Room", "RoomType", "MembershipPackage", "Class", "SportServiceOffering", "CourtRate", "ClassSession", "RoomBlock", "IncidentNotice", "Invoice", "InvoiceItem", "PaymentAdjustment", "MemberPackage", "PtEntitlement", "PtSession", "PtCoachChangeRequest", "PtSessionChangeRequest", "CoachMemberRelationship", "ReportExport", "PointWallet", "CoachServiceQualification", "UnknownFutureEntity" })
+            foreach (var entity in new[] { "Room", "RoomType", "MembershipPackage", "Class", "SportServiceOffering", "CourtRate", "ClassSession", "RoomBlock", "IncidentNotice", "Invoice", "InvoiceItem", "PaymentAdjustment", "MemberPackage", "CoachMemberRelationship", "ReportExport", "PointWallet", "UnknownFutureEntity" })
             {
-                var id = entity is "Room" ? roomId.ToString() : entity is "RoomType" ? type.RoomTypeId.ToString() : entity is "Class" or "MembershipPackage" or "SportServiceOffering" or "CourtRate" ? int.MaxValue.ToString() : entity is "PointWallet" or "CoachServiceQualification" ? coach.UserId.ToString().ToUpperInvariant() : Guid.NewGuid().ToString();
+                var id = entity is "Room" ? roomId.ToString() : entity is "RoomType" ? type.RoomTypeId.ToString() : entity is "Class" or "MembershipPackage" or "SportServiceOffering" or "CourtRate" ? int.MaxValue.ToString() : entity is "PointWallet" ? coach.UserId.ToString().ToUpperInvariant() : Guid.NewGuid().ToString();
                 db.AuditLogs.Add(new AuditLog { AuditId = Guid.NewGuid(), UserId = actor.UserId, Action = action, TargetEntity = entity, TargetId = id, Timestamp = DateTime.UtcNow });
             }
             db.AuditLogs.Add(new AuditLog { AuditId = Guid.NewGuid(), UserId = actor.UserId, Action = action, TargetEntity = "Sport", TargetId = "bad-id", OldValue = "{\"name\":\"Deleted historical sport\"}", NewValue = "\"malformed\"", Timestamp = DateTime.UtcNow });
@@ -49,7 +49,7 @@ public class ManagerAuditDisplayTests(SportHubApiFactory factory)
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(actor.UserId, UserRole.CenterManager));
         var result = (await client.GetFromJsonAsync<PagedResult<AuditLogResponse>>($"api/audit-logs?action={action}&pageSize=200"))!;
-        Assert.Equal(24, result.TotalCount);
+        Assert.Equal(19, result.TotalCount);
         var row = Assert.Single(result.Items, r => r.AuditId == auditId);
         Assert.StartsWith("Current sport", row.CurrentTargetLabel);
         using var expectedJson = JsonDocument.Parse(recorded);

@@ -27,7 +27,6 @@ export function readableAuditLabel(value: string): string {
 export function auditRecordType(row: AuditLogDto, t: Translations): string {
   const extra: Record<string, string> = {
     CourtRate: "Court rate",
-    PtCoachChangeRequest: "PT coach change request",
     ClassRegistration: "Class registration",
   };
   return (

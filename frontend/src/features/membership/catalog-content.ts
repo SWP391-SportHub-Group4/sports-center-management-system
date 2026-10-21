@@ -6,7 +6,7 @@ export function isRetiredActivityPackage(
   name: string,
   description = "",
 ): boolean {
-  return /(?:^|[^\p{L}\p{N}])(?:yoga|group[\s_-]*x)(?:$|[^\p{L}\p{N}])/iu.test(
+  return /(?:^|[^\p{L}\p{N}])(?:yoga|group[\s_-]*x|pt|personal[\s_-]*training)(?:$|[^\p{L}\p{N}])/iu.test(
     `${name} ${description}`,
   );
 }
@@ -22,7 +22,6 @@ const verifiedVietnameseContent = new Set([
   "Gym thử 14 ngày (ngừng bán)",
   "Yoga 12 buổi",
   "Group X 20 buổi",
-  "Personal Training 10 buổi",
   "Membership 90 ngày",
   "Membership 120 ngày",
   "Membership 90 ngày nâng cao",

@@ -17,7 +17,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatTime } from "@/lib/format";
 import { courseApi } from "@/features/courses";
-import { MemberTeachingFeed } from "@/features/pt";
+import { MemberTeachingFeed } from "@/features/coaching";
 import { memberEnrollments } from "./api";
 import { CalendarSticker } from "./calendar-sticker";
 import styles from "./schedule-course-page.module.css";
