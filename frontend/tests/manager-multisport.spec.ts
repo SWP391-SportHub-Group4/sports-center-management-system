@@ -56,6 +56,21 @@ async function managerFixture(page: Page) {
           daily: [],
         },
       });
+    if (path === "/api/reports/recorded-attendance")
+      return route.fulfill({
+        json: {
+          fromDate: url.searchParams.get("fromDate"),
+          toDate: url.searchParams.get("toDate"),
+          daily: [
+            {
+              date: url.searchParams.get("toDate"),
+              uniqueMembers: 4,
+              gymCheckIns: 3,
+              classAttendances: 2,
+            },
+          ],
+        },
+      });
     if (path === "/api/reports/revenue-dimensions")
       return route.fulfill({
         json: {
@@ -73,6 +88,7 @@ async function managerFixture(page: Page) {
           toDate: "2030-10-31",
           newMembers: 2,
           activeMembersAtPeriodEnd: 7,
+          membersPurchasingMembershipInPeriod: 3,
         },
       });
     if (path === "/api/reports/class-enrollment")
@@ -87,6 +103,10 @@ async function managerFixture(page: Page) {
           fillRatio: 0.4,
           classes: [],
         },
+      });
+    if (path === "/api/manager/classes")
+      return route.fulfill({
+        json: { items: [], totalCount: 2, page: 1, pageSize: 1 },
       });
     if (path === "/api/reports/exports")
       return route.fulfill({ json: paged([]) });
@@ -121,25 +141,47 @@ async function managerFixture(page: Page) {
 
 test.beforeEach(async ({ page }) => managerFixture(page));
 
-test("manager overview uses server cash/points metrics and no profit claim", async ({
+test("manager overview connects collections, class reviews and active Gym members", async ({
   page,
 }) => {
   await page.goto("/manager");
   await expect(
     page.getByRole("heading", { name: "Overview", exact: true }),
   ).toBeVisible();
-  const cash = page
-    .locator(".stat")
-    .filter({ has: page.getByText("Cash collected (VND)", { exact: true }) });
-  const usedPoints = page.locator(".stat").filter({
-    has: page.getByText("Points used by members in period", { exact: true }),
-  });
-  await expect(cash.locator(".stat__value")).toContainText("100,000");
-  await expect(usedPoints.locator(".stat__value")).toContainText("200");
-  await expect(usedPoints.locator(".stat__value")).not.toContainText("₫");
+  const cash = page.getByRole("region", { name: "Net collected", exact: true });
+  await expect(cash.getByLabel("100,000 ₫").first()).toHaveText(/100K/);
+  await expect(cash.getByText("Cash refunded", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Active Gym members" }),
+  ).toContainText("7");
+  await expect(
+    page.getByText("3 members purchased Gym access this month"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Classes needing review" }),
+  ).toContainText("2");
+  await expect(
+    page.getByRole("link", { name: "Review classes" }),
+  ).toHaveAttribute(
+    "href",
+    "/manager/classes?status=PUBLISHED&thresholdStatus=AT_RISK",
+  );
+  await expect(
+    page.getByRole("heading", { name: "Class occupancy by sport" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Points ledger" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("New member accounts", { exact: true }),
+  ).toHaveCount(0);
+  const daily = page.getByRole("slider", { name: /Inspect daily collections/ });
+  await daily.focus();
+  await page.keyboard.press("Home");
+  await expect(daily).toHaveAttribute("aria-valuenow", "1");
   await expect(page.getByText(/profit/i)).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Reports", exact: true }),
+    page.getByRole("link", { name: "View reports", exact: true }),
   ).toBeVisible();
 });
 
@@ -151,9 +193,9 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
   await expect(
     page.getByText("Cash collected (VND)", { exact: true }).first(),
   ).toBeVisible();
-  const refundedPoints = page
-    .locator(".stat")
-    .filter({ has: page.getByText("Points refunded to members", { exact: true }) });
+  const refundedPoints = page.locator(".stat").filter({
+    has: page.getByText("Points refunded to members", { exact: true }),
+  });
   const outstandingPoints = page.locator(".stat").filter({
     has: page.getByText("Current outstanding points (available + held)", {
       exact: true,

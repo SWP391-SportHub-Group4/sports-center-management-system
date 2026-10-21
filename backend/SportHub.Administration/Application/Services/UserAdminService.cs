@@ -48,12 +48,13 @@ public sealed class UserAdminService(
         int pageSize,
         CancellationToken ct = default,
         string? sortBy = null,
-        string? sortDirection = null)
+        string? sortDirection = null, bool peopleOnly = false)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
         var query = db.Set<UserAccount>().AsNoTracking();
+        if (peopleOnly) query = query.Where(u => u.Role!.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach);
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {

@@ -1,10 +1,15 @@
 "use client";
-import { StaffPage } from "@/features/coaching/ui";
+import { AppShell } from "@/components/AppShell";
 import { MonthlyAnalysis } from "@/features/reports/monthly-analysis";
 export default function Page() {
   return (
-    <StaffPage title="overview" manager>
+    <AppShell
+      title="Overview"
+      allow={["CenterManager"]}
+      operationalLayout
+      hidePageHeader
+    >
       <MonthlyAnalysis />
-    </StaffPage>
+    </AppShell>
   );
 }

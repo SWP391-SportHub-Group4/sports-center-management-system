@@ -850,3 +850,9 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 | POST | `/api/front-desk/payment-reconciliation/{invoiceId}/retry` | FrontDesk; thử cấp lại dịch vụ hoặc xác minh với cổng; ghi audit `FRONT_DESK_PAYMENT_RECONCILIATION_RETRY`. |
 | GET / POST | `/api/course-interests`, `/api/course-interests/{id}/cancel` | Member xem/hủy của mình, CenterManager xem theo `sportId`. Tạo khi chọn `WAIT_NEXT_COURSE` ở ngưỡng hoàn vốn (hoàn 100% điểm). Job nhắc không gửi cho Member đã ghi danh chính khóa mới. |
 | GET | `/api/members/me/class-holds` | Member; các giữ chỗ còn hạn có hóa đơn để tiếp tục thanh toán. |
+
+### Recorded attendance
+
+- `GET /api/reports/recorded-attendance?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD` is CenterManager-only. Defaults to month to date in Vietnam time; invalid, future-ending, or ranges longer than 366 days return `400 invalid_date_range`.
+- Response: `{fromDate,toDate,daily:[{date,uniqueMembers,gymCheckIns,classAttendances}]}`. Every day in the range is included, including zero-activity days. `uniqueMembers` deduplicates Member IDs across Gym check-ins and Present class attendance on that day. Individual check-ins and lesson attendances remain separate event counts and must not be added to estimate unique people.
+- Class attendance is assigned to the session's Vietnam start date, not the date of entry/edit. Future sessions and future check-ins are excluded; later attendance edits can revise earlier daily totals. Rental visitors and unrecorded arrivals are not estimated. No profile-level data is returned and no migration is required.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useId, useState, type CSSProperties } from "react";
 import {
   addDaysIso,
   formatDate,
@@ -9,28 +9,40 @@ import {
 } from "@/lib/format";
 import type { ClassEnrollmentReportDto, RevenueReportDto } from "@/lib/types";
 import styles from "./monthly-analysis.module.css";
+import overview from "./manager-overview.module.css";
+import {
+  collectionSources,
+  compactAmount,
+  occupancyBySport,
+} from "./monthly-analysis-data";
 
-const colors = [
-  "var(--court-700)",
-  "var(--wood-500)",
-  "var(--info-solid)",
-  "var(--volt-700)",
-  "var(--chalk-600)",
-];
-const compact = (n: number) =>
-  new Intl.NumberFormat("en-GB", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(n);
+export function ExactMoney({ amount }: { amount: number }) {
+  const id = useId();
+  return (
+    <span
+      className={overview.money}
+      tabIndex={0}
+      aria-label={formatMoney(amount)}
+      aria-describedby={id}
+    >
+      {compactAmount(amount)}
+      <span className={overview.exactValue} role="tooltip" id={id}>
+        {formatMoney(amount)}
+      </span>
+    </span>
+  );
+}
 
 export function CashTrend({
   report,
   today,
-  days,
+  selectedDate,
+  onSelectDate,
 }: {
   report: RevenueReportDto;
   today?: string;
-  days?: number;
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
 }) {
   const [inspected, setInspected] = useState<number | null>(null);
   const start = today ? `${today.slice(0, 8)}01` : report.fromDate;
@@ -42,17 +54,32 @@ export function CashTrend({
       Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1,
     ),
   );
-  const visibleDays = days ?? elapsed;
-  const selected = Math.min(inspected ?? elapsed, elapsed);
   const daily = new Map(
     (report.daily ?? []).map((row) => [row.date.slice(0, 10), row]),
   );
   const rows = Array.from({ length: elapsed }, (_, i) => {
     const date = addDaysIso(start, i);
     const value = daily.get(date);
-    return { date, collected: value?.collected ?? 0, net: value?.net ?? 0 };
+    return {
+      date,
+      collected: value?.collected ?? 0,
+      refunded: value?.refunded ?? 0,
+      net: value?.net ?? 0,
+    };
   });
-  const values = rows.flatMap((r) => [r.collected, r.net]);
+  const controlledIndex = selectedDate
+    ? rows.findIndex((row) => row.date === selectedDate)
+    : -1;
+  const selected =
+    controlledIndex >= 0
+      ? controlledIndex
+      : Math.max(0, Math.min(inspected ?? elapsed - 1, elapsed - 1));
+  const inspectIndex = (index: number) => {
+    setInspected(index);
+    onSelectDate?.(rows[index].date);
+  };
+  const point = rows[selected];
+  const values = rows.flatMap((row) => [row.collected, row.net]);
   const rawHigh = Math.max(0, ...values);
   const rawLow = Math.min(0, ...values);
   const magnitude = 10 ** Math.floor(Math.log10(Math.max(rawHigh - rawLow, 1)));
@@ -62,84 +89,100 @@ export function CashTrend({
   );
   const high = Math.ceil(rawHigh / step) * step || step * 4;
   const low = Math.floor(rawLow / step) * step;
-  const y = (value: number) => 224 - ((value - low) / (high - low)) * 208;
-  const x = (i: number) => 12 + (i / Math.max(visibleDays - 1, 1)) * 976;
+  const y = (value: number) => 164 - ((value - low) / (high - low)) * 152;
+  const x = (i: number) =>
+    elapsed === 1 ? 500 : 12 + (i / (elapsed - 1)) * 976;
   const line = (field: "collected" | "net") =>
     rows
       .map(
-        (r, i) =>
-          `${i ? "L" : "M"}${x(i).toFixed(2)},${y(r[field]).toFixed(2)}`,
+        (row, i) =>
+          `${i ? "L" : "M"}${x(i).toFixed(2)},${y(row[field]).toFixed(2)}`,
       )
       .join(" ");
-  const point = rows[selected - 1];
   const ticks = Array.from(
-    { length: 5 },
-    (_, i) => high - ((high - low) * i) / 4,
+    { length: 4 },
+    (_, i) => high - ((high - low) * i) / 3,
   );
-  const cashLine = line("collected");
-  const hasActivity = rows.some((r) => r.collected !== 0 || r.net !== 0);
+  const selectionText = `${formatDate(point.date)}: ${formatMoney(point.collected)} collected, ${formatMoney(point.refunded)} cash refunded, ${formatMoney(point.net)} net collected`;
+  const inspectAt = (element: HTMLElement, clientX: number) => {
+    const bounds = element.getBoundingClientRect();
+    inspectIndex(
+      Math.max(
+        0,
+        Math.min(
+          elapsed - 1,
+          Math.round(
+            ((((clientX - bounds.left) / bounds.width) * 1000 - 12) / 976) *
+              (elapsed - 1),
+          ),
+        ),
+      ),
+    );
+  };
   return (
-    <div className={styles.trend}>
-      <div className={styles.chartLegend}>
+    <div className={overview.trend}>
+      <div className={overview.legend}>
         <span>
-          <i className={styles.cashKey} />
-          Cash collected
+          <i className={overview.collectedKey} />
+          Collected
         </span>
         <span>
-          <i className={styles.netKey} />
-          Net revenue
+          <i className={overview.netKey} />
+          Net collected
         </span>
-        <span className={styles.unit}>VND</span>
       </div>
-      <div className={styles.plot}>
-        <div className={styles.yAxis} aria-hidden="true">
+      <div className={overview.plot}>
+        <div className={overview.yAxis} aria-hidden="true">
           {ticks.map((value, i) => (
-            <span key={i}>{compact(value)}</span>
+            <span key={i}>{compactAmount(value)}</span>
           ))}
         </div>
         <div
-          className={styles.plotBody}
+          className={overview.plotBody}
+          role="slider"
+          tabIndex={0}
+          aria-label="Inspect daily collections. Use Left and Right arrow keys to change day."
+          aria-valuemin={1}
+          aria-valuemax={elapsed}
+          aria-valuenow={selected + 1}
+          aria-valuetext={selectionText}
           onPointerMove={(event) => {
-            const bounds = event.currentTarget.getBoundingClientRect();
-            setInspected(
-              Math.max(
-                1,
-                Math.min(
-                  elapsed,
-                  Math.round(
-                    ((((event.clientX - bounds.left) / bounds.width) * 1000 -
-                      12) /
-                      976) *
-                      (visibleDays - 1),
-                  ) + 1,
-                ),
-              ),
-            );
+            if (event.pointerType !== "touch" || event.buttons)
+              inspectAt(event.currentTarget, event.clientX);
+          }}
+          onPointerDown={(event) =>
+            inspectAt(event.currentTarget, event.clientX)
+          }
+          onKeyDown={(event) => {
+            const next =
+              event.key === "ArrowRight" || event.key === "ArrowUp"
+                ? selected + 1
+                : event.key === "ArrowLeft" || event.key === "ArrowDown"
+                  ? selected - 1
+                  : event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? elapsed - 1
+                      : null;
+            if (next !== null) {
+              event.preventDefault();
+              inspectIndex(Math.max(0, Math.min(elapsed - 1, next)));
+            }
           }}
         >
           <svg
-            viewBox="0 0 1000 240"
+            viewBox="0 0 1000 180"
             preserveAspectRatio="none"
-            role="img"
-            aria-label={`Daily cash flow from ${formatDate(start)} to ${formatDate(end)}. Cash collected: ${formatMoney(report.totalCollected)}. Net revenue: ${formatMoney(report.netRevenue)}. Use the day selector for daily values.`}
+            aria-hidden="true"
           >
-            {elapsed < visibleDays && (
-              <rect
-                x={x(elapsed - 1)}
-                y="0"
-                width={1000 - x(elapsed - 1)}
-                height="240"
-                className={styles.future}
-              />
-            )}
-            {ticks.map((v, i) => (
+            {ticks.map((value, i) => (
               <line
                 key={i}
                 x1="0"
                 x2="1000"
-                y1={y(v)}
-                y2={y(v)}
-                className={styles.gridLine}
+                y1={y(value)}
+                y2={y(value)}
+                className={overview.gridLine}
               />
             ))}
             {low < 0 && (
@@ -148,99 +191,76 @@ export function CashTrend({
                 x2="1000"
                 y1={y(0)}
                 y2={y(0)}
-                className={styles.zeroLine}
+                className={overview.zeroLine}
               />
             )}
             <path
-              d={`${cashLine} L${x(elapsed - 1)},${y(0)} L${x(0)},${y(0)} Z`}
-              className={styles.area}
-            />
-            <path
-              d={cashLine}
-              className={styles.cashLine}
+              d={line("collected")}
+              className={overview.collectedLine}
               vectorEffect="non-scaling-stroke"
             />
             <path
               d={line("net")}
-              className={styles.netLine}
+              className={overview.netLine}
               vectorEffect="non-scaling-stroke"
             />
             <line
-              x1={x(selected - 1)}
-              x2={x(selected - 1)}
+              x1={x(selected)}
+              x2={x(selected)}
               y1="0"
-              y2="240"
-              className={styles.cursor}
+              y2="180"
+              className={overview.cursor}
             />
             <circle
-              cx={x(selected - 1)}
+              cx={x(selected)}
               cy={y(point.collected)}
-              r="5"
-              className={styles.dot}
-              vectorEffect="non-scaling-stroke"
+              r="4"
+              className={overview.collectedDot}
+            />
+            <circle
+              cx={x(selected)}
+              cy={y(point.net)}
+              r="3"
+              className={overview.netDot}
             />
           </svg>
-          <div className={styles.xAxis} aria-hidden="true">
+          <div className={overview.xAxis} aria-hidden="true">
             {Array.from(
-              { length: 5 },
-              (_, i) => Math.round((i * (visibleDays - 1)) / 4) + 1,
-            )
-              .filter((day, i, a) => a.indexOf(day) === i)
-              .map((day) => (
-                <span key={day} style={{ left: `${x(day - 1) / 10}%` }}>
-                  {today
-                    ? String(day).padStart(2, "0")
-                    : formatDate(addDaysIso(start, day - 1)).slice(0, 5)}
-                </span>
-              ))}
+              new Set(
+                Array.from({ length: 5 }, (_, i) =>
+                  Math.round((i * (elapsed - 1)) / 4),
+                ),
+              ),
+            ).map((i) => (
+              <span key={i} style={{ left: `${x(i) / 10}%` }}>
+                {today
+                  ? String(i + 1).padStart(2, "0")
+                  : formatDate(rows[i].date).slice(0, 5)}
+              </span>
+            ))}
           </div>
         </div>
       </div>
-      {!hasActivity && (
-        <p className={styles.emptyNote}>
-          No cash activity recorded in this period.
-        </p>
-      )}
-      <div className={styles.inspection}>
+      <div className={overview.inspection}>
+        <span>{point.date === today ? "Today" : formatDate(point.date)}</span>
         <span>
-          {today && point.date === today ? "Today" : "Selected day"} ·{" "}
-          {formatDate(point.date)}
+          <small>Collected</small>
+          <ExactMoney amount={point.collected} />
         </span>
-        <strong>
-          {formatMoney(point.collected)}
-          <small>collected</small>
-        </strong>
-        <strong>
-          {formatMoney(point.net)}
-          <small>net revenue</small>
-        </strong>
+        <span>
+          <small>Cash refunded</small>
+          <ExactMoney amount={point.refunded} />
+        </span>
+        <span>
+          <small>Net collected</small>
+          <ExactMoney amount={point.net} />
+        </span>
       </div>
-      <label className={styles.daySelector}>
-        Inspect day{" "}
-        <span>
-          {selected} / {elapsed}
-        </span>
-        <input
-          type="range"
-          min="1"
-          max={elapsed}
-          value={selected}
-          onChange={(event) => setInspected(Number(event.target.value))}
-          aria-label="Inspect daily cash flow"
-          aria-valuetext={`${formatDate(point.date)}: ${formatMoney(point.collected)} collected, ${formatMoney(point.net)} net revenue`}
-        />
-      </label>
+      {!rows.some((row) => row.collected || row.refunded || row.net) && (
+        <p className={overview.note}>No cash activity recorded this month.</p>
+      )}
     </div>
   );
-}
-
-function sourceLabel(source: string) {
-  const normalized = source.replaceAll("_", "").toUpperCase();
-  if (normalized.includes("MEMBERSHIP")) return "Gym plans & passes";
-  if (normalized.includes("CLASS")) return "Group classes";
-  if (normalized.includes("RENTAL")) return "Court rentals";
-  if (normalized.includes("RECONCILIATION")) return "Reconciliation";
-  return "Other collections";
 }
 
 export function RevenueMix({
@@ -251,95 +271,109 @@ export function RevenueMix({
     "bySource" | "reconciliationCashCollected" | "totalCollected"
   >;
 }) {
-  const [active, setActive] = useState<string | null>(null);
-  const groups = new Map<string, number>();
-  for (const row of report.bySource ?? []) {
-    const label = sourceLabel(row.source);
-    groups.set(label, (groups.get(label) ?? 0) + row.cashCollected);
-  }
-  if (report.reconciliationCashCollected > 0)
-    groups.set(
-      "Reconciliation",
-      (groups.get("Reconciliation") ?? 0) + report.reconciliationCashCollected,
+  const { sources, mismatch } = collectionSources(report);
+  if (mismatch)
+    return (
+      <p role="alert" className={overview.note}>
+        Source totals do not match collections. Check the revenue report before
+        interpreting shares.
+      </p>
     );
-  const allocated = Array.from(groups.values()).reduce(
-    (sum, value) => sum + value,
-    0,
-  );
-  if (report.totalCollected - allocated > 0.01)
-    groups.set(
-      "Other collections",
-      (groups.get("Other collections") ?? 0) +
-        report.totalCollected -
-        allocated,
+  if (!sources.length)
+    return (
+      <p className={overview.empty}>
+        No collections yet. Sources appear after successful payments.
+      </p>
     );
-  const sources = Array.from(groups, ([label, value]) => ({ label, value }))
-    .filter((r) => r.value > 0)
-    .sort((a, b) => b.value - a.value);
-  const total = sources.reduce((sum, r) => sum + r.value, 0);
-  const selected = sources.find((r) => r.label === active);
-  let offset = 0;
-  const segments = sources.map((r, i) => {
-    const start = offset;
-    offset += (r.value / total) * 100;
-    return `${colors[i % colors.length]} ${start}% ${offset}%`;
-  });
+  const leader = sources[0];
   return (
-    <div className={styles.mix}>
-      <div
-        className={styles.donut}
-        style={{
-          background: total
-            ? `conic-gradient(${segments.join(",")})`
-            : "var(--bg-surface-sunken)",
-        }}
-        role="img"
-        aria-label={
-          total
-            ? sources
-                .map(
-                  (r) =>
-                    `${r.label}: ${formatMoney(r.value)}, ${((r.value / total) * 100).toFixed(1)}%`,
-                )
-                .join(". ")
-            : "No cash collections recorded"
-        }
-      >
-        <div className={styles.donutHole}>
-          <strong>
-            {selected
-              ? `${((selected.value / total) * 100).toFixed(1)}%`
-              : formatNumber(sources.length)}
-          </strong>
-          <span>{selected ? selected.label : "revenue sources"}</span>
-        </div>
-      </div>
-      {!sources.length ? (
-        <p className={styles.emptyNote}>
-          Collections will appear here after successful payments.
+    <div className={overview.sources}>
+      <ul className={overview.sourceList}>
+        {sources.map((row) => (
+          <li key={row.label}>
+            <div className={overview.sourceHeading}>
+              <span>{row.label}</span>
+              <span>
+                <ExactMoney amount={row.amount} />
+                <small>{(row.share * 100).toFixed(1)}%</small>
+              </span>
+            </div>
+            <div
+              className={overview.sourceTrack}
+              role="img"
+              aria-label={`${row.label}: ${formatMoney(row.amount)}, ${(row.share * 100).toFixed(1)}% of collections`}
+            >
+              <span
+                style={{
+                  width: `${Math.max(0, Math.min(100, row.share * 100))}%`,
+                }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className={overview.insight}>
+        <strong>{leader.label}</strong> accounts for{" "}
+        {(leader.share * 100).toFixed(1)}% of collections.
+      </p>
+    </div>
+  );
+}
+
+export function CompactEnrollmentBars({
+  rows,
+}: {
+  rows: ClassEnrollmentReportDto["classes"];
+}) {
+  const groups = occupancyBySport(rows);
+  if (!groups.length)
+    return <p className={overview.empty}>No classes starting this month.</p>;
+  const comparable = groups.filter((row) => row.ratio !== null);
+  const high = comparable[0];
+  const low = comparable.at(-1);
+  const gap = high && low ? (high.ratio! - low.ratio!) * 100 : 0;
+  return (
+    <div className={overview.occupancy}>
+      <ul className={overview.sportList}>
+        {groups.map((row) => (
+          <li key={row.id}>
+            <div className={overview.sportHeading}>
+              <span>
+                {row.name}
+                <small>
+                  {row.classes} {row.classes === 1 ? "class" : "classes"}
+                </small>
+              </span>
+              <span>
+                <strong>
+                  {row.ratio === null ? "—" : `${Math.round(row.ratio * 100)}%`}
+                </strong>
+                <small>
+                  {formatNumber(row.confirmed)} / {formatNumber(row.capacity)}{" "}
+                  seats
+                </small>
+              </span>
+            </div>
+            <div
+              className={overview.capacityTrack}
+              role="img"
+              aria-label={`${row.name}: ${row.confirmed} confirmed of ${row.capacity} seats`}
+            >
+              <span
+                style={{
+                  width: `${Math.min(100, Math.max(0, (row.ratio ?? 0) * 100))}%`,
+                }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+      {comparable.length >= 2 && (
+        <p className={overview.note}>
+          {gap < 0.05
+            ? "Sports have the same occupancy rate."
+            : `${high.name} occupancy is ${new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 }).format(gap)} percentage points above ${low!.name}.`}
         </p>
-      ) : (
-        <ul className={styles.sourceList}>
-          {sources.map((r, i) => (
-            <li key={r.label}>
-              <button
-                type="button"
-                aria-pressed={active === r.label}
-                onClick={() => setActive(active === r.label ? null : r.label)}
-              >
-                <i
-                  style={{ background: colors[i % colors.length] }}
-                  aria-hidden="true"
-                />
-                <span>
-                  {r.label}
-                  <small>{formatMoney(r.value)}</small>
-                </span>
-                <strong>{((r.value / total) * 100).toFixed(1)}%</strong>
-              </button>
-            </li>
-          ))}
-        </ul>
       )}
     </div>
   );

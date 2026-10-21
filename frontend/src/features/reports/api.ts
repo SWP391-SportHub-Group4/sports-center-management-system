@@ -5,6 +5,7 @@ import type {
   ClassEnrollmentReportDto,
   Paged,
   ReportExportDto,
+  ManagerCourseDto,
 } from "@/lib/types";
 export interface ReportFilters {
   fromDate: string;
@@ -12,6 +13,16 @@ export interface ReportFilters {
   sportId: string;
   source: string;
   memberId: string;
+}
+export interface RecordedAttendanceReport {
+  fromDate: string;
+  toDate: string;
+  daily: {
+    date: string;
+    uniqueMembers: number;
+    gymCheckIns: number;
+    classAttendances: number;
+  }[];
 }
 export interface ReconciliationCheck {
   name: string;
@@ -68,6 +79,21 @@ export interface OperationsHealth {
 }
 
 export const reportsApi = {
+  attendance: (f: ReportFilters, signal?: AbortSignal) =>
+    api.get<RecordedAttendanceReport>("/api/reports/recorded-attendance", {
+      signal,
+      query: { fromDate: f.fromDate, toDate: f.toDate },
+    }),
+  classesNeedingReview: (signal?: AbortSignal) =>
+    api.get<Paged<ManagerCourseDto>>("/api/manager/classes", {
+      signal,
+      query: {
+        status: "PUBLISHED",
+        thresholdStatus: "AT_RISK",
+        page: 1,
+        pageSize: 1,
+      },
+    }),
   reconciliation: (f: ReportFilters) =>
     api.get<ReportReconciliation>("/api/reports/revenue/reconciliation", {
       query: { fromDate: f.fromDate, toDate: f.toDate },
