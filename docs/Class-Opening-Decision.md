@@ -6,7 +6,7 @@ Nguồn nghiệp vụ: quy tắc 72–48–24 giờ do người dùng chuyển t
 
 - Đánh giá ít nhất 72 giờ trước buổi đầu; chỉ đếm Enrollment Confirmed, không đếm SeatHold chưa thanh toán.
 - Thiếu ngưỡng: thông báo trong hệ thống và email cho học viên, Manager và HLV liên quan. Cửa sổ phản hồi tối đa 48 giờ, kết thúc ít nhất 24 giờ trước buổi đầu.
-- Học viên chọn ở lại chờ, chuyển lớp hoặc hoàn điểm. Luồng nhắc đợt lớp sau hiện có được giữ riêng; không đồng nhất với giữ ghi danh lớp hiện tại.
+- Học viên chọn ở lại chờ, chuyển lớp hoặc hoàn điểm. Khi lớp bị hủy vì thiếu ngưỡng, thông báo hoàn điểm kèm gợi ý khóa tương đương tại thời điểm đó; không có đăng ký nhận tin khóa sau.
 - Trong thời gian chờ vẫn nhận ghi danh nếu lớp cho phép; hiển thị rõ chưa xác nhận mở.
 - Đạt ngưỡng trong lúc chờ: xác nhận ngay, báo người còn ghi danh; không tự hoàn người chưa phản hồi. Lựa chọn đã thực hiện không bị đảo ngược.
 - Hết hạn vẫn thiếu: có quyết định miễn ngưỡng hợp lệ thì mở; nếu không, hủy và hoàn điểm cho người còn ghi danh. Manager cần ghi quyết định trước khi tác vụ hủy chốt giao dịch.

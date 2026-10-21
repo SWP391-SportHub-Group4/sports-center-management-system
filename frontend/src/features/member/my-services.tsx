@@ -2,7 +2,6 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { CourseInterests } from "@/features/courses";
 import { isRetiredActivityPackage } from "@/features/membership";
 import { rentalApi } from "@/features/rentals";
 import { api } from "@/lib/apiClient";
@@ -58,14 +57,10 @@ function exploreHref(kind: ServiceKind, extra = "") {
 export function MyServices({
   filter,
   onFilter,
-  tab,
-  onTab,
   gymPackageId,
 }: {
   filter: FilterValue;
   onFilter: (next: FilterValue) => void;
-  tab: string;
-  onTab: (next: string) => void;
   gymPackageId: string;
 }) {
   const { language } = useLanguage();
@@ -245,20 +240,6 @@ export function MyServices({
     .filter((it) => it.tone === "ended")
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  if (tab === "interests")
-    return (
-      <div className={styles.page}>
-        <button
-          type="button"
-          className="btn btn--quiet"
-          onClick={() => onTab("")}
-        >
-          {tx("← Về dịch vụ của tôi", "← Back to my services")}
-        </button>
-        <CourseInterests />
-      </div>
-    );
-
   if (loading)
     return (
       <div className={styles.page} aria-busy="true">
@@ -333,12 +314,6 @@ export function MyServices({
           label={tx("Lọc theo loại dịch vụ", "Filter by service type")}
         />
       </div>
-
-      {gymPackageId && (
-        <Link className="btn btn--quiet" href="/member/services?view=owned&type=gym">
-          {tx("← Về dịch vụ của tôi", "← Back to my services")}
-        </Link>
-      )}
 
       {selectedGym && selectedItem ? (
         <>

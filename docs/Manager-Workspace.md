@@ -1,11 +1,11 @@
 # Manager workspace
 
-Confirmed product scope on 20 October 2026. This update supersedes older Manager navigation, manual wallet adjustment, room-type selection, cohort-interest linking and incident-cancellation descriptions. It does not change staff account administration or role management, which remain with System Administrator.
+Confirmed product scope on 20 October 2026. This update supersedes older Manager navigation, manual wallet adjustment, room-type selection and incident-cancellation descriptions. It does not change staff account administration or role management, which remain with System Administrator.
 
 ## Navigation
 
 - Overview: preserve the existing page, charts and data presentation.
-- Services: Sports, Courts & Rooms, Membership, Classes, Course interests.
+- Services: Sports, Courts & Rooms, Membership, Classes.
 - Schedule: one calendar for class sessions, rentals and blocked times.
 - Support & Communication: Request, Incident, Manual notices.
 - People: Members and Coaches.
@@ -31,12 +31,6 @@ Rental court creation still saves opening hours and prices together. Rental pric
 
 A missed/interrupted session may receive one full-duration makeup in Incident even with active enrolled students. Keep the source, attendance, assessments and enrollment history. A valid matching held incident window is required. Future-session incident makeup has its own Manager command; ordinary cancellation cannot use this exception. Recheck room/Coach/member conflicts, opening hours and replacement timing. Retries must not create another makeup. A fully delivered session is recorded without a replacement.
 
-## Course interests
-
-Course interests is a direct Services child. The Manager table has only Member and Sport, with pagination. A Member opts in through the below-threshold next-course choice, which refunds and ends the source enrollment. Keep one active subscription per Member/Sport. New same-sport courses notify eligible followers after publication when enrollment is open, seats remain and teaching has not started. No explicit previous-cohort selection is required for new courses. Record actual publication time; do not infer it from creation time for historical classes. Legacy explicit links remain a compatibility path for publications whose timestamp is unknown.
-
-Only a successfully fulfilled, paid Confirmed enrollment in that sport ends the active interest; browsing, holds and payment selection do not. Opt-out and fulfillment share the notification-worker lock. Retain inactive history rather than deleting a Member. The interest does not reserve a seat, enroll or charge anyone automatically.
-
 ## Requests and transactions
 
 Request centralizes Coach absence, refunds, Member support and avatar reports. Categories show pending counts and retain their own statuses, authorization, transaction and review rules. Member support is recorded by staff; this does not add Member self-submission. Existing support, refund and schedule-request links lead to the shared Request entry point.
@@ -45,4 +39,4 @@ Wallet balance/ledger and existing financial history remain readable. Manager cr
 
 ## Deployment and validation
 
-Apply ManagerWorkspace and CourseInterestLifecycle migrations with the backend deployment. Do not rebuild or replace the running database/AI services for this change. Verification evidence belongs to the relevant backend integration suites and frontend Manager workspace tests; fixture screenshots are not proof of live email delivery.
+Apply the ManagerWorkspace and RemoveCourseInterest migrations with the backend deployment (RemoveCourseInterest drops the course-interest tables and the class "next cohort" link, and is not reversible). Do not rebuild or replace the running database/AI services for this change. Verification evidence belongs to the relevant backend integration suites and frontend Manager workspace tests; fixture screenshots are not proof of live email delivery.

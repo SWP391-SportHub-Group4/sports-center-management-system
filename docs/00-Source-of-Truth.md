@@ -1,6 +1,6 @@
 # SportHub — Nguồn thống nhất về phạm vi và quy ước
 
-**Manager workspace — quyết định 20/10/2026:** [Luồng giao diện và chính sách mới](Manager-Workspace.md). Giữ nguyên Overview/chi tiết lớp; tập trung Request, Incident và thông báo trong Support & Communication; chọn Sport trực tiếp khi tạo sân, giữ khóa loại sân cũ cho tương thích dữ liệu. Bỏ cộng/trừ điểm thủ công, hồ sơ sức khỏe và giao diện quan hệ Coach–Member của Manager. Cho phép buổi bù có Incident hợp lệ dù lớp có học viên. Course interests hiển thị Member/Sport, thông báo lớp mới cùng môn và kết thúc sau ghi danh đã thanh toán. Quyết định này thay thế các đoạn mô tả cũ mâu thuẫn bên dưới; tài khoản staff và phân quyền vẫn thuộc Admin.
+**Manager workspace — quyết định 20/10/2026:** [Luồng giao diện và chính sách mới](Manager-Workspace.md). Giữ nguyên Overview/chi tiết lớp; tập trung Request, Incident và thông báo trong Support & Communication; chọn Sport trực tiếp khi tạo sân, giữ khóa loại sân cũ cho tương thích dữ liệu. Bỏ cộng/trừ điểm thủ công, hồ sơ sức khỏe và giao diện quan hệ Coach–Member của Manager. Cho phép buổi bù có Incident hợp lệ dù lớp có học viên. Tính năng Course interests / “chờ đợt sau” đã bị loại bỏ hoàn toàn. Quyết định này thay thế các đoạn mô tả cũ mâu thuẫn bên dưới; tài khoản staff và phân quyền vẫn thuộc Admin.
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
 
@@ -71,7 +71,7 @@ Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Requ
 | AI workout | Gợi ý cho Coach trong phạm vi học viên được giao |
 | AI assistant | Member context chat; Manager xếp lịch/tạo nháp là phần chưa triển khai |
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, VNPay production và hoàn tiền mặt/ngân hàng. Không biến “chờ đợt sau” thành waitlist giữ chỗ.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, VNPay production và hoàn tiền mặt/ngân hàng. Không có waitlist hay đăng ký nhận tin khóa sau.
 
 ## 4. Bất biến nghiệp vụ
 
@@ -96,7 +96,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - `hold.minutes` do Manager cấu hình trong khoảng **10–30 phút**, mặc định **15 phút**; áp dụng cho checkout lớp, thuê sân, mua gói và chuyển lớp có phần chênh. Giá trị mới chỉ tác động checkout được tạo sau khi đổi; hạn đã ghi trên checkout/payment attempt hiện có không đổi. Hạn thực tế có thể sớm hơn khi sát giờ bắt đầu lớp/sân hoặc hạn trả lời chuyển lớp; Member xem `expiresAtUtc` của đơn thay vì suy từ mức cấu hình.
 - Member có Enrollment Confirmed, `EndedAt` rỗng vẫn đọc lịch sử buổi, giáo án, homework và kết quả của chính mình khi lớp Completed. Ghi danh kết thúc hoặc lớp Cancelled/Draft thì thu hồi quyền nội dung; Coach chủ nhiệm mất quyền hồ sơ học viên khi lớp Completed hoặc ghi danh kết thúc.
 - Quên mật khẩu bằng link email (BR-103): phản hồi trung tính; xem thiết kế v3 mục Danh tính. Trang xác thực luôn tiếng Anh.
-- “Chờ đợt sau” cần hoàn 100% điểm + subscription thông báo, không giữ tiền/chỗ hoặc tự ghi danh.
+- Khi lớp dưới ngưỡng bị hủy lúc hết hạn phản hồi, Member còn ghi danh được hoàn 100% giá trị còn đủ điều kiện bằng điểm và nhận một thông báo (chuông + email) kèm số điểm hoàn và tối đa 3 khóa tương đương tại thời điểm đó (cùng môn, Published, đang mở đăng ký, còn chỗ, chưa bắt đầu, Member chưa ghi danh). Gợi ý chỉ là ảnh chụp lúc hủy: không lưu nguyện vọng, không gửi lại khi có lớp mới, không giữ chỗ hoặc tự ghi danh.
 - Avatar Member/Coach qua Cloudinary: tự thay/xóa, ảnh Coach công khai, ảnh Member cho tài khoản đăng nhập; Center Manager có thể gỡ trực tiếp ảnh Member không phù hợp; chi tiết tại [Avatar Cloudinary](api-contract.md#avatar-cloudinary--apiavatars).
 
 ## 5. Quy ước kỹ thuật
@@ -122,5 +122,5 @@ The product uses English only. Public pages, authenticated screens, validation a
 
 ## 6. Theo dõi phần chưa hoàn thành
 
-Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**. Payment, callback public và chờ đợt sau đã có mã nhưng còn nghiệm thu tích hợp/staging theo từng mục; Manager AI và các API hỗ trợ frontend theo trạng thái riêng trong bảng. COACH-01 ghi rõ validation tạo request cũ còn được chấp nhận ở backend. Có tài liệu hoặc code không đồng nghĩa đã nghiệm thu thành công.
+Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-Management-System-Design-v3.md)**. Payment và callback public đã có mã nhưng còn nghiệm thu tích hợp/staging theo từng mục; Manager AI và các API hỗ trợ frontend theo trạng thái riêng trong bảng. COACH-01 ghi rõ validation tạo request cũ còn được chấp nhận ở backend. Có tài liệu hoặc code không đồng nghĩa đã nghiệm thu thành công.
 

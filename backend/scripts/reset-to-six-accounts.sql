@@ -18,7 +18,7 @@ ALTER TABLE point_ledger_entries DISABLE TRIGGER point_ledger_no_truncate;
 TRUNCATE TABLE
     ai_logs, attendances, audit_logs, checkout_sessions, class_schedule_rules, class_sessions,
     class_threshold_responses, classes, coach_member_relationships, coach_occupancies,
-    course_interest_subscriptions, court_rentals, email_otps, enrollments,
+    court_rentals, email_otps, enrollments,
     gym_checkins, incident_notices, invoice_items, invoices, legacy_attendances, legacy_class_recurrences,
     legacy_class_sessions, legacy_classes, legacy_enrollments, legacy_relationship_class_links,
     member_bmi_profiles, member_packages, member_training_profiles, membership_packages, notifications,

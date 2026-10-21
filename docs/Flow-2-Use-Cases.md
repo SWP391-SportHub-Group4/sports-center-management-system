@@ -8,7 +8,7 @@ Phạm vi: danh mục tài nguyên, khóa học, ghi danh, ngưỡng mở lớp,
 Mã UC-F2 là mã phân rã trong Flow 2, đối chiếu UC-07, UC-08, UC-09 và UC-10 của SRS. Thanh toán gọi UC-15, hoàn theo yêu cầu gọi UC-16 của Flow 3. Kế hoạch tập luyện, đánh giá và hồ sơ sức khỏe thuộc Flow 4/5; PT, Yoga và GroupX không thuộc phạm vi hiện tại.
 Quy ước chung: thời gian lưu UTC, hiển thị UTC+7; backend kiểm tra quyền và dữ liệu tại thời điểm ghi. 1 điểm = 1.000 VND; hoàn trả bằng điểm, không trả tiền mặt. Giao dịch lặp phải idempotent. Thông báo qua outbox không làm rollback nghiệp vụ khi gửi email lỗi.
 Nguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_Report_SRS.docx (UC-07 đến UC-10); Center-Management-System-Design-v3.md; api-contract.md; Class-Session-Change-Requests.md. Khi khác nhau, ưu tiên phạm vi đã xác nhận và Business Rules theo 00-Source-of-Truth.md. BR-122 quy định hoàn trước khai giảng 100% nếu còn ít nhất 5 ngày, 50% nếu dưới 5 ngày; không dùng mô tả 100% chung trong SRS cũ.
-Cập nhật 16/10/2026: đã có UI chờ đợt lớp sau, quản lý Course interests, rút Pending trong Requests, nhắc lịch và tự đóng yêu cầu khi Manager đổi buổi trực tiếp. Email cần SMTP để kiểm chứng delivery. Các use case tự động dùng tác vụ hệ thống làm tác nhân khởi phát.
+Cập nhật 16/10/2026: đã có rút Pending trong Requests, nhắc lịch và tự đóng yêu cầu khi Manager đổi buổi trực tiếp. Email cần SMTP để kiểm chứng delivery. Các use case tự động dùng tác vụ hệ thống làm tác nhân khởi phát.
 
 Đối chiếu 18/10/2026: Member còn ghi danh hợp lệ vẫn xem lịch sử lớp Completed (UC-F2-20), trong khi quyền Coach chỉ dựa trên lớp Published/InProgress và đúng phạm vi buổi/lớp. UI Coach chỉ tạo ABSENCE; backend còn nhận các loại tạo mới cũ theo gap COACH-01, không mô tả chặn mọi client như một chức năng đã hoàn tất. Xem [thiết kế §13.2](Center-Management-System-Design-v3.md#132-chức-năng-và-contract-còn-thiếu).
 
@@ -387,28 +387,6 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Luồng thay thế / ngoại lệ | a. Đã hoàn một phần do chuyển lớp: không hoàn vượt phần còn lại.<br>b. Phản hồi hết hạn/đã xử lý: từ chối hoặc trả kết quả cũ.<br>c. Lỗi ghi điểm: rollback hủy đăng ký để không mất quyền lợi. |
 | Hậu điều kiện | Chỗ được giải phóng; ví điểm và quyết định được ghi nhất quán. |
 
-### UC-F2-34 — Chờ thông tin khóa tiếp theo
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân | Member |
-| Mức ưu tiên | Required |
-| Tiền điều kiện | Member đăng nhập, có ghi danh Confirmed đã thanh toán và response thiếu ngưỡng của chính mình còn Pending, chưa hết hạn. |
-| Luồng chính | 1. Mở thông báo thiếu ngưỡng của lớp; chọn Wait for the next course.<br>2. Đọc điều kiện: hoàn 100% giá trị còn được hoàn bằng điểm; không giữ chỗ, tự ghi danh hay bảo lưu giá.<br>3. Nhấn Review response → Confirm response.<br>4. Backend hoàn điểm, kết thúc ghi danh nguồn và tạo một Course interest trong cùng transaction.<br>5. Nhấn Manage course interests để xem số điểm thực hoàn và trạng thái Following next cohort. |
-| Luồng thay thế / ngoại lệ | a. Sai chủ sở hữu, response đóng/hết hạn, ghi danh không còn Confirmed: từ chối.<br>b. Gửi lại cùng lựa chọn không hoàn điểm hoặc tạo interest lần hai; đổi lựa chọn đã chốt: 409.<br>c. Không tự giữ chỗ hay ghi danh lớp mới. Hủy nhận tin không thu hồi điểm đã hoàn. |
-| Hậu điều kiện | Ghi danh nguồn kết thúc; điểm hoàn đúng giá trị còn đủ điều kiện; một interest đang theo dõi đợt tiếp theo được lưu thật. |
-
-### UC-F2-35 — Quản lý quan tâm khóa tiếp theo
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân | Member, Center Manager |
-| Mức ưu tiên | Required |
-| Tiền điều kiện | Member có quan tâm thuộc mình; Manager có quyền xem danh sách. |
-| Luồng chính | 1. Member mở Services → Course interests; xem lớp nguồn, môn, điểm đã hoàn, ngày tạo và Following next cohort / Notifications stopped.<br>2. Chọn Stop notifications nếu không còn nhu cầu.<br>3. Manager mở Classes → Course interests để xem Member và lớp nguồn.<br>4. Khi tạo/sửa draft đợt mới cùng môn, Manager chọn Next cohort of (optional) = lớp nguồn.<br>5. Sau khi publish và Reopen enrollment, job mỗi phút xét chỗ trống và buổi đầu tương lai; tạo thông báo chuông và email một lần cho mỗi interest/lớp.<br>6. Member chọn View class trong thông báo để xem lịch/giá hiện hành và tự đăng ký. |
-| Luồng thay thế / ngoại lệ | a. Member chỉ đọc/hủy interest của mình; hủy lặp là idempotent và không đảo refund.<br>b. Draft, lớp đóng đăng ký, đã bắt đầu, hết chỗ hoặc không liên kết đúng lớp nguồn: chưa gửi tin.<br>c. Dừng nhận tin không ngăn truy cập danh mục công khai; thông báo không tự đăng ký/thu tiền.<br>d. Danh sách API hiện trả tối đa 200 interest mới nhất; không mô tả filter/phân trang chưa có. |
-| Hậu điều kiện | Trạng thái theo dõi được lưu; delivery chống trùng tồn tại; Member tự quyết định mua lớp mới. Email thực tế phụ thuộc SMTP. |
-
 ### UC-F2-36 — Xử lý hết hạn phản hồi và kết luận mở lớp
 
 Cập nhật M06 theo yêu cầu đã xác nhận: phải xét lớp Met/Waived trước khi hoàn; nếu đã được xác nhận mở thì giữ người chưa phản hồi. Chỉ hủy và hoàn người còn ghi danh khi hết hạn vẫn thiếu và không có miễn ngưỡng. Không cho lớp chưa được chốt tự khai giảng. Chi tiết [quy tắc 72–48–24 giờ](Class-Opening-Decision.md).
@@ -418,8 +396,8 @@ Cập nhật M06 theo yêu cầu đã xác nhận: phải xét lớp Met/Waived 
 | Tác nhân | Hệ thống |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Cửa sổ phản hồi đã kết thúc; khóa chưa được kết luận. |
-| Luồng chính | 1. Kiểm tra lớp đã đạt ngưỡng hoặc được miễn ngưỡng; nếu có thì giữ ghi danh, không tự hoàn người chưa phản hồi.<br>2. Nếu vẫn thiếu và không có miễn ngưỡng: hủy lớp, hoàn 100% phần còn được hoàn cho người còn ghi danh.<br>3. Giải phóng hold chuyển lớp và checkout/điểm giữ chưa thanh toán.<br>4. Gửi thông báo kết quả cho Member, Manager và HLV liên quan. |
-| Luồng thay thế / ngoại lệ | a. Không hoàn hai lần cho lựa chọn đã thực hiện.<br>b. Thanh toán đến muộn phải đi qua fulfillment/bù hoàn, không bỏ qua.<br>c. Lỗi một giao dịch không được để trạng thái đăng ký/điểm lệch nhau. |
+| Luồng chính | 1. Kiểm tra lớp đã đạt ngưỡng hoặc được miễn ngưỡng; nếu có thì giữ ghi danh, không tự hoàn người chưa phản hồi.<br>2. Nếu vẫn thiếu và không có miễn ngưỡng: hủy lớp, hoàn 100% phần còn được hoàn cho người còn ghi danh.<br>3. Giải phóng hold chuyển lớp và checkout/điểm giữ chưa thanh toán.<br>4. Gửi thông báo kết quả cho Member, Manager và HLV liên quan; thông báo cho Member nêu số điểm đã hoàn và tối đa 3 khóa tương đương (cùng môn, Published, đang mở, còn chỗ, chưa bắt đầu) tại thời điểm hủy. |
+| Luồng thay thế / ngoại lệ | a. Không hoàn hai lần cho lựa chọn đã thực hiện.<br>b. Thanh toán đến muộn phải đi qua fulfillment/bù hoàn, không bỏ qua.<br>c. Lỗi một giao dịch không được để trạng thái đăng ký/điểm lệch nhau.<br>d. Không có khóa tương đương: thông báo chỉ nêu điểm hoàn. Gợi ý không được lưu hay gửi lại về sau. |
 | Hậu điều kiện | Phản hồi hết hạn được kết thúc; khóa có kết luận; không còn hold không hợp lệ. |
 
 ## E. Lịch dạy và điểm danh

@@ -3,9 +3,6 @@
   gap: var(--space-5);
   max-width: 960px;
 }
-.managerInterests {
-  max-width: none;
-}
 .managerToolbar {
   display: flex;
   justify-content: space-between;
@@ -100,43 +97,6 @@
 }
 .page > button {
   justify-self: start;
-}
-.interests {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: var(--space-4);
-}
-.interest {
-  padding: var(--space-5);
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-}
-.interestHeading {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  justify-content: space-between;
-  align-items: center;
-}
-.interestHeading h3 {
-  margin: var(--space-2) 0;
-  overflow-wrap: anywhere;
-}
-.interestHeading > div > span {
-  font-size: var(--text-sm);
-}
-.interestStatus {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  font-size: var(--text-sm);
-}
-.interestStatus[data-active="true"] {
-  color: var(--color-primary);
-  font-weight: var(--weight-semibold);
 }
 .deliveries {
   padding: 0;

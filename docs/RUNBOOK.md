@@ -156,6 +156,7 @@ Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở t
 - VNPay IPN và return cho phép request không có JWT. IPN vẫn phải qua xác minh chữ ký, merchant, số tiền và xử lý idempotent trước khi cấp quyền lợi. Return không ghi nhận thanh toán.
 - Coach không còn được duyệt danh sách tài khoản/gói của mọi Member. Hồ sơ tập luyện chỉ đọc được khi có quan hệ Coach–Member đang hoạt động.
 - Admin có route chi tiết tài khoản riêng `/api/users/admin/{userId}`; quyền đọc của Staff không bị mở rộng.
+- `NEXT_PUBLIC_VNPAY_SANDBOX` (mặc định bật): trang nạp điểm hiển thị thẻ test VNPay sandbox (NCB 9704198526191432198, NGUYEN VAN A, 07/15, OTP 123456). Đặt `false` khi build production.
 - Frontend Docker build nhận các biến `NEXT_PUBLIC_*` ở build time. Đổi các biến này phải build lại image.
 - Compose lưu bền vững khóa Data Protection và tệp báo cáo bằng named volumes. Không xóa volumes khi nâng cấp.
 

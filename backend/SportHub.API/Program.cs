@@ -307,7 +307,6 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICour
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ClassTeachingService>();
 builder.Services.AddScoped<ClassSessionReminderService>();
-builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.CourseInterestService>();
 builder.Services.AddScoped<ClassSessionChangeRequestService>();
 builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,

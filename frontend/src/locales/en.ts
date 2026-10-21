@@ -358,8 +358,6 @@ export const en = {
     waitingApi: "Waiting for API",
     closeGap:
       "Closing enrollment only stops new registrations. Cancelling a class is a different action.",
-    interestGap:
-      "Next-course interest is not available yet. Members can currently choose a refund or transfer. The refund + notification option will appear here when supported.",
     previewConfirmationHint:
       "Room and coach availability is a preview. Confirmation checks the schedule again, including student conflicts and makeup rules; it does not reserve this slot.",
     availabilityReasons: {
@@ -530,7 +528,6 @@ export const en = {
     create: "Create class",
     edit: "Edit class",
     details: "Class details",
-    interests: "Course interests",
     enrolled: "Enrolled / capacity",
     holds: "Seat holds",
     opening: "Opening conditions",
@@ -1854,7 +1851,6 @@ export const en = {
     },
     items: {
       requests: "Request",
-      courseInterests: "Course interests",
       finance: "Invoices",
       invoicesRefunds: "Invoices & refunds",
       scheduleRequests: "Schedule & requests",

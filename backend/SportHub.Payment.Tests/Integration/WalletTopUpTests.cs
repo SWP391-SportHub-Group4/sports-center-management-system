@@ -106,4 +106,25 @@ public sealed class WalletTopUpTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden,
             (await stranger.GetAsync($"/api/checkouts/{checkout.InvoiceId}")).StatusCode);
     }
+
+    [Fact]
+    public async Task New_top_up_supersedes_the_unpaid_one_and_late_capture_on_it_still_credits_once()
+    {
+        var buyer = await factory.SeedUserAsync(UserRole.Member);
+        using var client = factory.CreateApiClient(buyer.UserId, UserRole.Member);
+        var (first, firstAttempt) = await StartAsync(client, 10);
+        var (second, _) = await StartAsync(client, 20);
+
+        Assert.Equal(1, await factory.QueryAsync(db => db.Invoices.CountAsync(x =>
+            x.MemberId == buyer.UserId && x.Status == InvoiceStatus.Issued)));
+        Assert.Equal(InvoiceStatus.Void, await factory.QueryAsync(db => db.Invoices
+            .Where(x => x.InvoiceId == first.InvoiceId).Select(x => x.Status).SingleAsync()));
+
+        await ReceiveAsync(firstAttempt);
+        Assert.Equal(10, await factory.QueryAsync(db => db.PointLedgerEntries
+            .Where(x => x.ReferenceType == "WalletTopUp" && x.ReferenceId == first.InvoiceId)
+            .SumAsync(x => x.AvailableDelta)));
+        Assert.Equal(0, await factory.QueryAsync(db => db.PointLedgerEntries.CountAsync(x =>
+            x.ReferenceType == "WalletTopUp" && x.ReferenceId == second.InvoiceId)));
+    }
 }

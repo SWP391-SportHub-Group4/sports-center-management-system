@@ -20,7 +20,6 @@ public class Class
     public int SportId { get; set; }
 
     /// <summary>Explicit next cohort of this program; only same-sport existing source classes are accepted.</summary>
-    public int? ContinuationOfClassId { get; set; }
 
     public Sport? Sport { get; set; }
 
@@ -55,7 +54,6 @@ public class Class
     public DateTime? ThresholdResponseDeadlineUtc { get; set; }
 
     public ClassStatus Status { get; set; }
-    public DateTime? PublishedAtUtc { get; set; }
     public bool EnrollmentOpen { get; set; } = true;
 
     /// <summary>Why the manager closed enrollment (set on close, cleared on reopen). Not exposed publicly.</summary>

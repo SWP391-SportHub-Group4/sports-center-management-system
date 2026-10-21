@@ -105,12 +105,7 @@ export function MemberServiceHub() {
                   "Chọn môn, ngày và giờ để tìm sân trống.",
                   "Choose a sport, date and time to find a court.",
                 )
-              : values.tab === "interests" && view === "owned"
-                ? tx(
-                    "Theo dõi các khóa học bạn muốn được báo khi mở lớp tiếp theo.",
-                    "Track the courses you asked to hear about when the next cohort opens.",
-                  )
-                : view === "owned"
+              : view === "owned"
                   ? tx(
                       "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
                       "What you own, when it expires and how you used it.",
@@ -122,16 +117,6 @@ export function MemberServiceHub() {
           </p>
         </div>
         <div className={styles.introActions}>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            aria-pressed={view === "owned" && values.tab === "interests"}
-            onClick={() =>
-              setValues({ ...RESET, view: "owned", tab: "interests" })
-            }
-          >
-            Course interests
-          </button>
           <SubNav
             view={view}
             onChange={goView}
@@ -181,8 +166,6 @@ export function MemberServiceHub() {
           <MyServices
             filter={filter}
             onFilter={setFilter}
-            tab={values.tab === "interests" ? "interests" : ""}
-            onTab={(next) => setValues({ tab: next })}
             gymPackageId={values.gymPackage}
           />
         ) : (

@@ -27,23 +27,6 @@
   gap: var(--space-3);
 }
 
-.interests {
-  min-height: 44px;
-  padding: 0 var(--space-2);
-  border: 0;
-  background: none;
-  color: var(--color-primary);
-  font: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.interests:hover {
-  color: var(--color-primary-hover);
-}
-
 .groupCount {
   min-width: 22px;
   padding: 0 6px;

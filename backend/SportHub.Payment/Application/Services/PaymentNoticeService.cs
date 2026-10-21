@@ -59,11 +59,22 @@ public sealed class PaymentNoticeService(
         Invoice invoice,
         CancellationToken ct)
     {
+        var receipt =
+            await receipts.BuildAsync(
+                invoice.InvoiceId,
+                ct);
+
+        // A wallet top-up says what was done and how many points were added, not a generic "benefit".
+        var topUp = receipt.Items.Count == 1
+            && receipt.Items[0].Description.StartsWith("Top up ", StringComparison.Ordinal)
+            ? receipt.Items[0] : null;
         notifications.Queue(
             new NotificationRequest(
                 invoice.MemberId,
                 NotificationEvents.PaymentReceived,
-                $"Invoice {invoice.InvoiceNumber} was paid; the benefit was granted.",
+                topUp is null
+                    ? $"Invoice {invoice.InvoiceNumber} was paid; the benefit was granted."
+                    : $"Top-up successful: +{topUp.Quantity:N0} points added to your wallet after paying {topUp.LineAmount:N0} VND via VNPay (invoice {invoice.InvoiceNumber}).",
                 invoice.InvoiceId));
 
         var recipient =
@@ -73,11 +84,6 @@ public sealed class PaymentNoticeService(
 
         if (recipient is null)
             return;
-
-        var receipt =
-            await receipts.BuildAsync(
-                invoice.InvoiceId,
-                ct);
 
         var pdf =
             receipts.RenderPdf(receipt);

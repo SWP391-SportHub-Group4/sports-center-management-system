@@ -120,6 +120,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             await tx.CommitAsync(ct);
             return await GetAsync(existing.Invoice.InvoiceId, memberId, false, ct);
         }
+        await SupersedeOpenTopUpsAsync(memberId, ct);
         var amount = points * (decimal)SportHub.Payment.Wallet.Application.PointWalletService.VndPerPoint;
         var invoice = new Invoice
         {
@@ -147,6 +148,30 @@ public sealed class CheckoutService(ISportHubDbContext db,
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ToResponse(invoice, session);
+    }
+
+    // One open top-up per member: choosing another amount closes the earlier unpaid one inside the
+    // member-locked transaction. A top-up with a capture awaiting reconciliation is left untouched
+    // (the new request is refused) so money in flight is never orphaned; a late capture on a closed
+    // top-up still credits through TryRenewWalletTopUpAsync.
+    private async Task SupersedeOpenTopUpsAsync(Guid memberId, CancellationToken ct)
+    {
+        var open = await db.Set<Invoice>()
+            .Where(i => i.MemberId == memberId && i.Status == InvoiceStatus.Issued
+                && db.Set<CheckoutSession>().Any(s => s.CheckoutSessionId == i.CheckoutCycleId
+                    && s.Kind == "WalletTopUp" && s.State == "Active"))
+            .ToListAsync(ct);
+        foreach (var invoice in open)
+        {
+            var session = await db.Set<CheckoutSession>()
+                .SingleAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct);
+            var attemptIds = await db.Set<PaymentAttempt>().Where(a => a.InvoiceId == invoice.InvoiceId)
+                .Select(a => a.PaymentAttemptId).ToListAsync(ct);
+            if (await db.Set<VerifiedGatewayEvent>().AnyAsync(e => attemptIds.Contains(e.PaymentAttemptId)
+                    && (e.ProcessingStatus == "Pending" || e.ProcessingStatus == "ReconciliationRequired"), ct))
+                throw new ConflictException("payment_reconciliation_pending", "Payment reconciliation pending.");
+            await fulfillment.ReleaseAsync(invoice, session, "Cancelled", memberId, ct);
+        }
     }
 
     public async Task<CheckoutResponse> CreateClassAsync(ClassCheckoutRequest request, string idempotencyKey,

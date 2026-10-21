@@ -53,7 +53,6 @@ export function CourseEditor({
     name: course?.name ?? "",
 
     sportId: String(course?.sportId ?? ""),
-    continuationOfClassId: String(course?.continuationOfClassId ?? ""),
 
     coachId: course?.coachId ?? "",
 
@@ -213,9 +212,6 @@ export function CourseEditor({
     sportId: Number(form.sportId),
 
     defaultRoomId: Number(form.defaultRoomId),
-    continuationOfClassId: form.continuationOfClassId
-      ? Number(form.continuationOfClassId)
-      : null,
 
     coachId: form.coachId || null,
   };
@@ -383,7 +379,6 @@ export function CourseEditor({
                      * coach/room
                      * selection.
                      */
-                    continuationOfClassId: "",
                     coachId: "",
 
                     defaultRoomId: "",
