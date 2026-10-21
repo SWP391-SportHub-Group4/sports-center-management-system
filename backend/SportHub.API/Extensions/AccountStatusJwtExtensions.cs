@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Application.Interfaces;
+using SportHub.API.Middleware;
 
 namespace SportHub.API.Extensions;
 
@@ -86,7 +87,10 @@ public static class AccountStatusJwtExtensions
                     || !string.Equals(roleClaim, state.Role, StringComparison.Ordinal))
                 {
                     context.Fail("Account is unavailable.");
+                    return;
                 }
+
+                context.HttpContext.Items[InitialAdminPasswordMiddleware.RequiredKey] = state.MustChangePassword;
             };
         });
 

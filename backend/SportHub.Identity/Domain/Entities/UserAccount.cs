@@ -15,6 +15,9 @@ public class UserAccount
     // Đổi khi reset/đổi mật khẩu hoặc đổi vai trò; JWT mang claim sst để vô hiệu phiên cũ (BR-103/104).
     public Guid SecurityStamp { get; set; } = Guid.NewGuid();
 
+    // The one-time bootstrap administrator must change the deployment password before using protected features.
+    public bool MustChangePassword { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public UserCredential? Credential { get; set; } // 1-1, null nếu account thuần Google

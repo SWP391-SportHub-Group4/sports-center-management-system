@@ -631,6 +631,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("citext")
                         .HasColumnName("email");
 
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("boolean")
+                        .HasColumnName("must_change_password");
+
                     b.Property<int>("RoleId")
                         .HasColumnType("integer")
                         .HasColumnName("role_id");
