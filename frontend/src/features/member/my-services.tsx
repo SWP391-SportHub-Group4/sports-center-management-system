@@ -12,15 +12,14 @@ import { useApi, useNow } from "@/lib/useApi";
 import type {
   CourseEnrollmentDto,
   CourtRentalDto,
-  GymCheckInDto,
   MemberPackageDto,
-  Paged,
   SportDto,
   ThresholdResponseDto,
 } from "@/lib/types";
 import { memberEnrollments } from "./api";
 import { RefundCancelDialog } from "@/features/payments";
 import { ServiceEmblem } from "./service-emblem";
+import { GymPackageDetails } from "./gym-package-details";
 import {
   daysUntil,
   emblemForSport,
@@ -61,11 +60,13 @@ export function MyServices({
   onFilter,
   tab,
   onTab,
+  gymPackageId,
 }: {
   filter: FilterValue;
   onFilter: (next: FilterValue) => void;
   tab: string;
   onTab: (next: string) => void;
+  gymPackageId: string;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -315,6 +316,12 @@ export function MyServices({
     );
 
   let order = 0;
+  const selectedGym = gymPackageId
+    ? allPackages.find((p) => p.memberPackageId === gymPackageId)
+    : undefined;
+  const selectedItem = selectedGym
+    ? items.find((item) => item.id === `gym:${selectedGym.memberPackageId}`)
+    : undefined;
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
@@ -327,7 +334,22 @@ export function MyServices({
         />
       </div>
 
-      {!visible.length ? (
+      {gymPackageId && (
+        <Link className="btn btn--quiet" href="/member/services?view=owned&type=gym">
+          {tx("← Về dịch vụ của tôi", "← Back to my services")}
+        </Link>
+      )}
+
+      {selectedGym && selectedItem ? (
+        <>
+          <div className={styles.list}>{selectedItem.node(0)}</div>
+          <GymPackageDetails pkg={selectedGym} />
+        </>
+      ) : gymPackageId ? (
+        <p className={styles.status} role="alert">
+          {tx("Không tìm thấy gói Gym này.", "This Gym membership could not be found.")}
+        </p>
+      ) : !visible.length ? (
         <section className={styles.emptyFilter}>
           <p>
             {tx(
@@ -388,7 +410,6 @@ function Shell({
   statusText,
   metric,
   actions,
-  panel,
 }: {
   kind: ServiceKind;
   emblem: EmblemKind;
@@ -399,7 +420,6 @@ function Shell({
   statusText?: string;
   metric: ReactNode;
   actions: ReactNode;
-  panel?: ReactNode;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -423,7 +443,6 @@ function Shell({
         <div className={styles.metric}>{metric}</div>
       </div>
       <div className={styles.actions}>{actions}</div>
-      {panel}
     </article>
   );
 }
@@ -475,7 +494,6 @@ function GymCard({
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
-  const [open, setOpen] = useState<"detail" | "history" | null>(null);
   const [cancelTarget, setCancelTarget] = useState<MemberPackageDto | null>(
     null,
   );
@@ -561,28 +579,21 @@ function GymCard({
             <Link className="btn" href="/member/finance">
               {tx("Xem hóa đơn", "View invoice")}
             </Link>
-          ) : renew ? (
-            <Link className="btn" href={exploreHref("gym")}>
-              {tx("Gia hạn", "Renew")}
-            </Link>
           ) : (
-            <button
-              type="button"
-              className="btn"
-              aria-expanded={open === "detail"}
-              onClick={() => setOpen(open === "detail" ? null : "detail")}
-            >
-              {tx("Xem chi tiết", "View details")}
-            </button>
+            <>
+              <Link
+                className="btn"
+                href={`/member/services?view=owned&type=gym&gymPackage=${encodeURIComponent(pkg.memberPackageId)}`}
+              >
+                {tx("Xem chi tiết", "View details")}
+              </Link>
+              {renew && (
+                <Link className="btn btn--quiet" href={exploreHref("gym")}>
+                  {tx("Gia hạn", "Renew")}
+                </Link>
+              )}
+            </>
           )}
-          <button
-            type="button"
-            className={styles.link}
-            aria-expanded={open === "history"}
-            onClick={() => setOpen(open === "history" ? null : "history")}
-          >
-            {tx("Lịch sử sử dụng", "Usage history")}
-          </button>
           {tone !== "ended" && !pending && pkg.invoiceItemId && (
             <button
               type="button"
@@ -606,75 +617,7 @@ function GymCard({
           )}
         </>
       }
-      panel={
-        open && (
-          <div className={styles.panel}>
-            {open === "detail" ? (
-              <dl className={styles.facts}>
-                <div>
-                  <dt>{tx("Bắt đầu", "Starts")}</dt>
-                  <dd>{formatDate(pkg.startDate)}</dd>
-                </div>
-                <div>
-                  <dt>{tx("Hết hạn", "Ends")}</dt>
-                  <dd>{formatDate(endDate)}</dd>
-                </div>
-                <div>
-                  <dt>{tx("Quyền lợi", "Includes")}</dt>
-                  <dd>
-                    {pkg.sessionLimit === null
-                      ? tx("Check-in không giới hạn", "Unlimited check-ins")
-                      : tx(
-                          `${pkg.remainingSessions ?? 0} lượt còn lại`,
-                          `${pkg.remainingSessions ?? 0} visits left`,
-                        )}
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <GymHistory />
-            )}
-          </div>
-        )
-      }
     />
-  );
-}
-
-function GymHistory() {
-  const { language } = useLanguage();
-  const vi = language === "vi";
-  const state = useApi(
-    (signal) =>
-      api.get<Paged<GymCheckInDto>>("/api/members/me/gym-checkins", {
-        signal,
-        query: { page: 1, pageSize: 5 },
-      }),
-    [],
-  );
-  if (state.loading && !state.data)
-    return <p className={styles.note}>{vi ? "Đang tải…" : "Loading…"}</p>;
-  if (state.error)
-    return (
-      <p className={styles.note} role="alert">
-        {vi ? "Chưa tải được lịch sử." : "Could not load history."}
-      </p>
-    );
-  const rows = state.data?.items ?? [];
-  if (!rows.length)
-    return (
-      <p className={styles.note}>
-        {vi ? "Chưa có lượt check-in nào." : "No check-ins yet."}
-      </p>
-    );
-  return (
-    <ul className={styles.history}>
-      {rows.map((r) => (
-        <li key={r.checkInId}>
-          <span>{formatDateTime(r.checkInTime)}</span>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -779,12 +722,6 @@ function ClassCard({
               {tx("Xem chi tiết", "View details")}
             </Link>
           )}
-          <Link
-            className={styles.link}
-            href={`/member/schedule?course=${row.classId}`}
-          >
-            {tx("Lịch sử sử dụng", "Usage history")}
-          </Link>
           {canCancel && (
             <button
               type="button"
@@ -883,12 +820,6 @@ function CourtCard({
             {tone === "ended"
               ? tx("Gia hạn", "Book again")
               : tx("Xem chi tiết", "View details")}
-          </Link>
-          <Link
-            className={styles.link}
-            href={`/member/schedule?rental=${row.courtRentalId}`}
-          >
-            {tx("Lịch sử sử dụng", "Usage history")}
           </Link>
         </>
       }

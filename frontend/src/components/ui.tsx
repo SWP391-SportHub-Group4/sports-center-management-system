@@ -259,6 +259,7 @@ export function Dialog({
   size = "md",
   className = "",
   showCloseButton = true,
+  closeIconOnly = false,
   children,
 }: {
   title: string;
@@ -269,6 +270,7 @@ export function Dialog({
   size?: "sm" | "md" | "lg";
   className?: string;
   showCloseButton?: boolean;
+  closeIconOnly?: boolean;
   children: ReactNode;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -293,7 +295,7 @@ export function Dialog({
       >
         <header className="dialog__head">
           <h2>{title}</h2>
-          {showCloseButton && <CloseButton onClick={onClose} />}
+          {showCloseButton && <CloseButton onClick={onClose} iconOnly={closeIconOnly} />}
         </header>
         <div className="dialog__body">
           {description && <p className="dialog__desc">{description}</p>}

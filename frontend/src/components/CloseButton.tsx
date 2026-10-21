@@ -8,13 +8,15 @@ import styles from "./CloseButton.module.css";
 
 export function CloseButton({
   label,
+  iconOnly: iconOnlyProp,
   className,
   variant = "ghost",
   size = "sm",
   ...props
-}: Omit<ButtonProps, "children" | "icon"> & { label?: string }) {
+}: Omit<ButtonProps, "children" | "icon"> & { label?: string; iconOnly?: boolean }) {
   const { t } = useLanguage();
-  const iconOnly = /^\/(admin|manager)(\/|$)/.test(usePathname());
+  const pathname = usePathname();
+  const iconOnly = iconOnlyProp ?? /^\/(admin|manager)(\/|$)/.test(pathname);
   const closeLabel = label ?? t.common.close;
 
   return (

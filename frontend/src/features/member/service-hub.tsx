@@ -27,6 +27,7 @@ const RESET = {
   course: "",
   responseId: "",
   section: "",
+  gymPackage: "",
 };
 
 export function MemberServiceHub() {
@@ -47,6 +48,7 @@ export function MemberServiceHub() {
       responseId: "",
       type: "",
       sport: "",
+      gymPackage: "",
     },
     {
       view: choiceQuery(["explore", "owned"], "explore"),
@@ -89,6 +91,7 @@ export function MemberServiceHub() {
       course: "",
       responseId: "",
       tab: "",
+      gymPackage: "",
     });
 
   return (
@@ -180,6 +183,7 @@ export function MemberServiceHub() {
             onFilter={setFilter}
             tab={values.tab === "interests" ? "interests" : ""}
             onTab={(next) => setValues({ tab: next })}
+            gymPackageId={values.gymPackage}
           />
         ) : (
           <ExplorePackages
