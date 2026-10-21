@@ -48,6 +48,11 @@ public class ClassSessionsController(
     public async Task<IActionResult> Cancel(Guid sessionId, [FromBody] CancelSessionRequest request, CancellationToken ct)
         => Ok(await sessions.CancelWithMakeupAsync(sessionId, request, User.RequireUserId(), ct));
 
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("{sessionId:guid}/incident-makeup")]
+    public async Task<IActionResult> IncidentMakeup(Guid sessionId, [FromBody] IncidentMakeupRequest request, CancellationToken ct)
+        => Ok(await sessions.CreateIncidentMakeupAsync(sessionId, request, User.RequireUserId(), ct));
+
     private Guid? CoachScope()
         => User.IsInRole(SportHubRoleNames.Coach) ? User.RequireUserId() : null;
 }

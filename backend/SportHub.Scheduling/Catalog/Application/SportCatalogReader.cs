@@ -64,7 +64,8 @@ public sealed class SportCatalogReader(ISportHubDbContext db) : ISportCatalogRea
                   join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
                   join sport in db.Set<Sport>().AsNoTracking() on link.SportId equals sport.SportId
                   where room.RoomId == roomId && room.IsActive && sport.SportId == sportId && sport.IsActive
-                      && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
+                      && (room.SportId == null || room.SportId == sportId)
+                      && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && (room.SportId != null || t.IsActive))
                   select 1)
             .AnyAsync(cancellationToken);
 

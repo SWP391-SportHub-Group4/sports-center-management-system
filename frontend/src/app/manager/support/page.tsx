@@ -1,11 +1,4 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { SupportQueue } from "@/features/receptionist/support-queue";
-
+import { redirect } from "next/navigation";
 export default function Page() {
-  return (
-    <OperationsPage title="support">
-      <SupportQueue workspace="manager" />
-    </OperationsPage>
-  );
+  redirect("/manager/requests?type=support");
 }

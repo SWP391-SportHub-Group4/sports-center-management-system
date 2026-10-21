@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/primitives";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
 import { StatusChip } from "@/components/ui";
 import {
   addDaysIso,
@@ -50,11 +50,12 @@ export function Calendar({
   labels: CalendarLabels;
   onDateChange: (date: string) => void;
   onViewChange?: (view: CalendarView) => void;
-  onSelectEvent: (event: CalendarEvent) => void;
+  onSelectEvent?: (event: CalendarEvent) => void;
   showViewSwitcher?: boolean;
   iconNavigation?: boolean;
 }) {
   const rangeDays = daysFor(view);
+  const EventTag = onSelectEvent ? "button" : "article";
   const now = useNow();
   const today = vietnamDateIso(new Date(now).toISOString());
 
@@ -187,14 +188,18 @@ export function Calendar({
                 )}
 
                 {items.map((event) => (
-                  <button
-                    type="button"
+                  <EventTag
+                    type={onSelectEvent ? "button" : undefined}
+                    aria-label={onSelectEvent ? undefined : event.title}
                     className={`${styles.event} ${styles.listEvent}`}
                     key={event.id}
+                    data-conflict={event.conflict || undefined}
                     data-cancelled={
                       /CANCEL/i.test(event.status ?? "") || undefined
                     }
-                    onClick={() => onSelectEvent(event)}
+                    onClick={
+                      onSelectEvent ? () => onSelectEvent(event) : undefined
+                    }
                   >
                     <span className={styles.listTime}>
                       {formatTime(event.startAtUtc)}–
@@ -202,6 +207,12 @@ export function Calendar({
                     </span>
 
                     <span>
+                      {event.conflict && labels.conflict && (
+                        <span className={styles.conflictLabel}>
+                          <TriangleAlert size={14} aria-hidden="true" />
+                          {labels.conflict}
+                        </span>
+                      )}
                       {labels.types && (
                         <span className={styles.eventType}>
                           {labels.types[event.type] ?? event.type}
@@ -217,7 +228,7 @@ export function Calendar({
                         {event.status && <StatusChip value={event.status} />}
                       </span>
                     </span>
-                  </button>
+                  </EventTag>
                 ))}
               </section>
             );
@@ -275,15 +286,25 @@ export function Calendar({
                   )}
 
                   {items.map((event) => (
-                    <button
-                      type="button"
+                    <EventTag
+                      type={onSelectEvent ? "button" : undefined}
+                      aria-label={onSelectEvent ? undefined : event.title}
                       className={styles.event}
                       key={event.id}
+                      data-conflict={event.conflict || undefined}
                       data-cancelled={
                         /CANCEL/i.test(event.status ?? "") || undefined
                       }
-                      onClick={() => onSelectEvent(event)}
+                      onClick={
+                        onSelectEvent ? () => onSelectEvent(event) : undefined
+                      }
                     >
+                      {event.conflict && labels.conflict && (
+                        <span className={styles.conflictLabel}>
+                          <TriangleAlert size={14} aria-hidden="true" />
+                          {labels.conflict}
+                        </span>
+                      )}
                       {labels.types && (
                         <span className={styles.eventType}>
                           {labels.types[event.type] ?? event.type}
@@ -303,7 +324,7 @@ export function Calendar({
                       </span>
 
                       {event.status && <StatusChip value={event.status} />}
-                    </button>
+                    </EventTag>
                   ))}
                 </div>
               </section>

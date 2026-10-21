@@ -98,12 +98,12 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         return new AvatarResponse(targetUserId, row.AvatarUrl);
     }
 
-    public async Task<AvatarResponse> ManagerDeleteMemberAsync(Guid managerId, Guid memberId, CancellationToken ct)
+    public async Task<AvatarResponse> ManagerDeleteMemberAsync(Guid managerId, Guid memberId, CancellationToken ct, bool allowCoach = false)
     {
         var member = await db.Set<UserAccount>().Include(u => u.Role).Include(u => u.Profile)
             .SingleOrDefaultAsync(u => u.UserId == memberId, ct)
             ?? throw new NotFoundException("user_not_found", "Account not found.");
-        if (member.Role?.RoleName != UserRole.Member)
+        if (member.Role?.RoleName != UserRole.Member && !(allowCoach && member.Role?.RoleName == UserRole.Coach))
             throw new ForbiddenException("avatar_target_not_member", "Only member photos can be removed here.");
         if (member.Profile?.AvatarUrl is null) return new AvatarResponse(memberId, null);
         var old = member.Profile.AvatarPublicId;
@@ -111,6 +111,11 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         member.Profile.AvatarPublicId = null;
         member.Profile.AvatarVersion++;
         QueueDeletion(old);
+        foreach (var report in await db.Set<AvatarReport>().Where(r => r.TargetUserId == memberId && r.Status == "OPEN").ToListAsync(ct))
+        {
+            report.Status = "REMOVED";
+            report.ReviewedByUserId = managerId; report.ReviewedAtUtc = clock.UtcNow;
+        }
         audit.Write(new AuditEntry(managerId, "MANAGER_REMOVE_MEMBER_AVATAR", nameof(UserProfile), memberId.ToString()));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)

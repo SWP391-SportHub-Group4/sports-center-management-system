@@ -9,6 +9,8 @@ import styles from "./threshold.module.css";
 
 interface Interest {
   interestId: string;
+  memberId: string;
+  sportId: number;
   memberName: string;
   sourceClassName: string;
   sportName: string;
@@ -30,6 +32,42 @@ export function CourseInterests({ manager = false }: { manager?: boolean }) {
     [manager],
   );
   const action = useAction();
+  if (manager)
+    return (
+      <section>
+        <AsyncSection state={state}>
+          {(rows) => {
+            const unique = [
+              ...new Map(
+                rows
+                  .filter((r) => r.active)
+                  .map((r) => [r.memberId + "|" + r.sportId, r]),
+              ).values(),
+            ];
+            return unique.length ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Sport</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unique.map((r) => (
+                    <tr key={r.interestId}>
+                      <td>{r.memberName}</td>
+                      <td>{r.sportName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p role="status">No members are following a next course.</p>
+            );
+          }}
+        </AsyncSection>
+      </section>
+    );
   return (
     <section
       className={`${styles.page} ${manager ? styles.managerInterests : ""}`}

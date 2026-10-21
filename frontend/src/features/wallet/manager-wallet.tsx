@@ -1,4 +1,5 @@
 "use client";
+import { PointSummary } from "@/features/reports";
 import styles from "./manager-wallet.module.css";
 import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
@@ -16,50 +17,23 @@ import { useLanguage } from "@/lib/language";
 import type { WalletBalanceDto, UserAdminDto, Paged } from "@/lib/types";
 import { WalletBalance } from "./wallet-balance";
 import { WalletLedger } from "./wallet-ledger";
-import { ManagerAdjustmentForm } from "./manager-adjustment-form";
-import { PointCreditApprovals } from "./point-credit-approvals";
-function OwnerWallet({
-  owner,
-  approvalRevision,
-  onChanged,
-}: {
-  owner: UserAdminDto;
-  approvalRevision: number;
-  onChanged: () => void;
-}) {
-  const [revision, setRevision] = useState(0);
-  const [balance, setBalance] = useState<WalletBalanceDto | null>(null);
+function OwnerWallet({ owner }: { owner: UserAdminDto }) {
   const state = useApi(
     async (signal) => {
       const data = await api.get<WalletBalanceDto>(
         `/api/manager/wallets/${owner.userId}`,
         { signal },
       );
-      if (!signal.aborted) setBalance(data);
       return data;
     },
-    [owner.userId, revision, approvalRevision],
+    [owner.userId],
   );
   return (
     <div className={styles.wallet}>
       <AsyncSection state={state}>
         {(data) => <WalletBalance balance={data} />}
       </AsyncSection>
-      {balance && (
-        <ManagerAdjustmentForm
-          balance={balance}
-          disabled={state.loading || !!state.error}
-          ownerName={`${owner.fullName} · ${owner.email}`}
-          onSaved={() => {
-            setRevision((v) => v + 1);
-            onChanged();
-          }}
-        />
-      )}
-      <WalletLedger
-        key={`${owner.userId}-${revision}`}
-        ownerId={owner.userId}
-      />
+      <WalletLedger key={owner.userId} ownerId={owner.userId} />
     </div>
   );
 }
@@ -70,7 +44,6 @@ export function ManagerWallet() {
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
   const [owner, setOwner] = useState<UserAdminDto | null>(null);
-  const [approvalRevision, setApprovalRevision] = useState(0);
   const users = useApi(
     (signal) =>
       api.get<Paged<UserAdminDto>>("/api/users", {
@@ -81,10 +54,7 @@ export function ManagerWallet() {
   );
   return (
     <>
-      <PointCreditApprovals
-        revision={approvalRevision}
-        onChanged={() => setApprovalRevision((value) => value + 1)}
-      />
+      <PointSummary />
       <Card title={l.owner}>
         <div className={styles.search}>
           <Field label={l.keyword}>
@@ -129,17 +99,12 @@ export function ManagerWallet() {
       </Card>
       {owner && (
         <Dialog
-          title={t.staffWork.adjustment}
+          title={t.staffWork.wallet}
           size="lg"
           className={styles.dialog}
           onClose={() => setOwner(null)}
         >
-          <OwnerWallet
-            key={owner.userId}
-            owner={owner}
-            approvalRevision={approvalRevision}
-            onChanged={() => setApprovalRevision((value) => value + 1)}
-          />
+          <OwnerWallet key={owner.userId} owner={owner} />
         </Dialog>
       )}
     </>

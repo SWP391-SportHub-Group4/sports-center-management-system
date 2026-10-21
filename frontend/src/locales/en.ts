@@ -305,6 +305,13 @@ export const en = {
     lookup: "Look up a notice by ID",
     openDetails: "View notice and recipients",
   },
+  classScheduleLookup: {
+    conflict: "Schedule conflict",
+    title: "Existing schedule",
+    navigation: "Week navigation",
+    empty: "No activities found for this week and selection.",
+    emptyDay: "No activities",
+  },
   managerOperations: {
     overview: "Operations overview",
     priorities: "Needs attention",
@@ -322,7 +329,7 @@ export const en = {
     roomTypes: "Room types",
     contentStep: "Class information",
     scheduleStep: "Coach, room & schedule",
-    pricingStep: "Price, cost & capacity",
+    pricingStep: "Tuition, cost & capacity",
     reviewStep: "Review generated sessions",
     saveDraft: "Save draft",
     draftHint:
@@ -331,7 +338,7 @@ export const en = {
     previewHint:
       "Preview only. The server validates the schedule again when saving and publishing.",
     thresholdExceeded:
-      "The opening threshold exceeds class capacity. Adjust cost, price or capacity.",
+      "The opening threshold exceeds class capacity. Adjust total class cost, tuition or capacity.",
     capacityExceeded: "Class capacity exceeds the room or sport limit.",
     missingDuration: "This sport has no group-course duration configured.",
     coachRequired: "Select a coach before publishing.",
@@ -381,6 +388,13 @@ export const en = {
     version: "Version",
     backToList: "Back to list",
     enrollmentTitle: "Enrollment",
+    enrollmentFull: "Class is full",
+    enrollmentOpensOnPublish:
+      "Enrollment opens automatically when this class is published.",
+    enrollmentAutomaticHint:
+      "Enrollment is managed automatically and closes when the class is full or starts.",
+    enrollmentFullHint:
+      "Enrollment is closed because all places are filled. A place released before the class starts reopens automatically.",
     enrollmentOpen: "Enrollment is open",
     enrollmentClosed: "Enrollment is closed",
     enrollmentClosedVisibilityHint:
@@ -507,6 +521,10 @@ export const en = {
     unchanged: "No changes in the recorded fields.",
   },
   classWorkspace: {
+    cancellationUnavailable: "Cancellation unavailable",
+    editSession: "Edit session",
+    enrolledCancellationBlocked:
+      "This class has enrolled students. Reschedule a session, change the room, or assign another coach instead.",
     classes: "Classes",
     classLabel: "Class",
     create: "Create class",
@@ -516,7 +534,8 @@ export const en = {
     enrolled: "Enrolled / capacity",
     holds: "Seat holds",
     opening: "Opening conditions",
-    price: "Course price (VND)",
+    price: "Tuition per student (VND)",
+    cost: "Total class cost (VND)",
     information: "Class information",
     schedule: "Activity schedule",
     viewSchedule: "View class schedule",
@@ -800,6 +819,13 @@ export const en = {
       "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
+    saveChanges: "Save changes",
+    confirmUpdate: "Confirm update",
+    updateSpecialties: "Update specialties",
+    specialtiesAdded: "Specialties added",
+    specialtiesRemoved: "Specialties removed",
+    specialtyImpact:
+      "Existing class assignments are kept. Review their schedules separately when removing a specialty.",
     roleBlockTitle: "Resolve these items before changing the role",
     memberRoleLocked:
       "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
@@ -1138,7 +1164,7 @@ export const en = {
     rentals: "My rentals",
     profile: "Profile",
     wallet: "Points wallet",
-    catalog: "Service & Facilities",
+    catalog: "Services",
     name: "Name",
     code: "Code",
     sport: "Sport",
@@ -1193,14 +1219,10 @@ export const en = {
     end: "End",
     price: "Price (VND)",
     cost: "Cost (VND)",
-    classPriceHint:
-      "Tuition each member pays for the entire course, including all sessions.",
     classMinimumEnrollment: "Minimum enrollment to break even",
     classCapacity: "Class capacity",
     classSingleMember: "1 member",
     classMemberCount: "{count} members",
-    classCostHint:
-      "Total cost to run the entire course, such as coach, room and equipment costs. Used to calculate the break-even threshold.",
     priceHour: "Price per hour (VND)",
     openingHours: "Opening hours",
     blocks: "Room blocks",
@@ -1813,12 +1835,12 @@ export const en = {
     shortcutsEscapeHint: "Press Escape to close",
     footerTagline: "Multidisciplinary Sports Centre",
     groups: {
-      catalog: "Service & Facilities",
+      catalog: "Services",
       classesScheduling: "Classes & Scheduling",
-      supportCommunications: "Support & Communications",
+      supportCommunications: "Support & Communication",
       operations: "Operations",
-      people: "Account",
-      finance: "Finance",
+      people: "People",
+      finance: "Transaction & Report",
       system: "System",
       training: "Training",
       billing: "Billing",
@@ -1831,7 +1853,9 @@ export const en = {
       SystemAdministrator: "System Administrator",
     },
     items: {
-      finance: "Finance",
+      requests: "Request",
+      courseInterests: "Course interests",
+      finance: "Invoices",
       invoicesRefunds: "Invoices & refunds",
       scheduleRequests: "Schedule & requests",
       reports: "Reports",
@@ -1844,7 +1868,7 @@ export const en = {
       rates: "Court Rental Pricing",
       coaches: "Coaches",
       courtSchedule: "Court schedule",
-      activitySchedule: "Activity schedule",
+      activitySchedule: "Schedule",
       incidents: "Incidents",
       notices: "Manual notices",
       support: "Support requests",
@@ -1866,10 +1890,10 @@ export const en = {
       trainingPlans: "Training plans",
       progress: "Results & progress",
       aiSuggestions: "AI suggestions",
-      trainingRooms: "Rooms & Courts",
+      trainingRooms: "Courts & Rooms",
       classes: "Classes",
       classSchedule: "Class schedule",
-      membershipPlans: "Membership plans",
+      membershipPlans: "Membership",
       coachingRelationships: "Coaching relationships",
       paymentAdjustments: "Payment adjustments",
       revenueReports: "Revenue reports",

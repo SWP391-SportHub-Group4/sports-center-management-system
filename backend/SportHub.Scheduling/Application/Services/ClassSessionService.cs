@@ -199,10 +199,16 @@ public sealed partial class ClassSessionService(
 
         var oldCoachName = (await users.GetAsync(oldCoach, ct))?.FullName ?? oldCoach.ToString();
         var nextCoachName = (await users.GetAsync(coachId, ct))?.FullName ?? coachId.ToString();
-        var message = $"Session {session.SessionNo} · {cls.Name}: {Local(oldStart)} → {Local(start)}. Coach: {oldCoachName} → {nextCoachName}. Room: {oldRoom} → {roomId}. Reason: {request.Reason.Trim()}";
-        await NotifyEnrolledAsync(cls, Guid.NewGuid(), message, ct);
+        var roomNames = await db.Set<Room>().AsNoTracking().Where(r => r.RoomId == oldRoom || r.RoomId == roomId)
+            .ToDictionaryAsync(r => r.RoomId, r => r.Name, ct);
+        var oldRoomName = roomNames.GetValueOrDefault(oldRoom, $"Room {oldRoom}");
+        var nextRoomName = roomNames.GetValueOrDefault(roomId, $"Room {roomId}");
+        var message = $"Session {session.SessionNo} · {cls.Name}: {Local(oldStart)} → {Local(start)}. Coach: {oldCoachName} → {nextCoachName}. Room: {oldRoomName} → {nextRoomName}. Reason: {request.Reason.Trim()}";
+        var emailBody = SessionScheduleEmail.Render(cls.Name, session.SessionNo, oldStart, oldEnd, oldRoomName, oldCoachName,
+            start, end, nextRoomName, nextCoachName, request.Reason.Trim(), coachChanged: coachId != oldCoach, roomChanged: roomId != oldRoom);
+        await NotifyEnrolledAsync(cls, Guid.NewGuid(), message, ct, emailBody);
         await scheduleEffects.ApplyAsync(cls, session, actorUserId, oldCoach, sessionId, coachId, message, ct,
-            start != oldStart ? "RESCHEDULE" : coachId != oldCoach ? "SUBSTITUTE" : roomId != oldRoom ? "ROOM_CHANGED" : "SCHEDULE_UPDATED", request.Reason.Trim());
+            start != oldStart ? "RESCHEDULE" : coachId != oldCoach ? "SUBSTITUTE" : roomId != oldRoom ? "ROOM_CHANGED" : "SCHEDULE_UPDATED", request.Reason.Trim(), emailBody);
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -225,6 +231,8 @@ public sealed partial class ClassSessionService(
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
 
         if (incidentFenceId is null) EnsureEditable(session, cls);
+        if (incidentFenceId is null)
+            await ClassCancellationRules.EnsureNoConfirmedEnrollmentsAsync(db, cls.ClassId, ct);
         var previousStatus = session.Status;
 
         var makeup = request.Makeup;
@@ -292,11 +300,19 @@ public sealed partial class ClassSessionService(
             NewValue: JsonSerializer.Serialize(new { status = ClassSessionStatus.Cancelled.ToString(), makeupSessionId = newSession.SessionId }),
             Reason: request.Reason.Trim()));
 
+        var makeupRooms = await db.Set<Room>().AsNoTracking().Where(r => r.RoomId == session.RoomId || r.RoomId == roomId)
+            .ToDictionaryAsync(r => r.RoomId, r => r.Name, ct);
+        var emailBody = SessionScheduleEmail.Render(cls.Name, session.SessionNo,
+            session.StartAtUtc, session.EndAtUtc, makeupRooms.GetValueOrDefault(session.RoomId, $"Room {session.RoomId}"),
+            (await users.GetAsync(session.CoachId, ct))?.FullName ?? session.CoachId.ToString(),
+            start, end, makeupRooms.GetValueOrDefault(roomId, $"Room {roomId}"),
+            (await users.GetAsync(coachId, ct))?.FullName ?? coachId.ToString(), request.Reason.Trim(), makeup: true,
+            coachChanged: coachId != session.CoachId, roomChanged: roomId != session.RoomId);
         await NotifyEnrolledAsync(cls, newSession.SessionId,
-            $"Session {session.SessionNo} ({Local(session.StartAtUtc)}) of course {cls.Name} was canceled and rescheduled for {Local(start)}. Reason: {request.Reason.Trim()}", ct);
+            $"Session {session.SessionNo} ({Local(session.StartAtUtc)}) of course {cls.Name} was canceled and rescheduled for {Local(start)}. Reason: {request.Reason.Trim()}", ct, emailBody);
         await scheduleEffects.ApplyAsync(cls, session, actorUserId, session.CoachId, newSession.SessionId, coachId,
             $"Session {session.SessionNo} · {cls.Name} at {Local(session.StartAtUtc)} was cancelled. Makeup: {Local(start)}. Coach: {(await users.GetAsync(coachId, ct))?.FullName}. Reason: {request.Reason.Trim()}", ct,
-            "CANCEL_WITH_MAKEUP", request.Reason.Trim());
+            "CANCEL_WITH_MAKEUP", request.Reason.Trim(), emailBody);
 
         await db.SaveChangesAsync(ct);
         if (tx != null) await tx.CommitAsync(ct);
@@ -516,7 +532,7 @@ public sealed partial class ClassSessionService(
         return $"Coach: {oldName} → {newName}. Room: {roomNames.GetValueOrDefault(departedRoom, departedRoom.ToString())} → {roomNames.GetValueOrDefault(restoredRoom, restoredRoom.ToString())}. Reason: incident abandoned. Enrollment remains valid; follow the restored session schedule.";
     }
 
-    private async Task NotifyEnrolledAsync(Class cls, Guid sourceId, string message, CancellationToken ct)
+    private async Task NotifyEnrolledAsync(Class cls, Guid sourceId, string message, CancellationToken ct, string? emailBody = null)
     {
         var memberIds = await db.Set<Enrollment>().AsNoTracking()
             .Where(e => e.ClassId == cls.ClassId && e.Status == EnrollmentStatus.Confirmed)
@@ -530,7 +546,7 @@ public sealed partial class ClassSessionService(
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email,
                     NotificationEvents.ScheduleChanged, sourceId, "SportHub - Course schedule changed",
-                    "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                    emailBody ?? SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message)));
         }
     }
 

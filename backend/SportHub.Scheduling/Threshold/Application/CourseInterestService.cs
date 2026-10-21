@@ -51,8 +51,13 @@ public sealed class CourseInterestService(ISportHubDbContext db, INotificationWr
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 22)", ct);
         var now = clock.UtcNow;
         var pending = await (from i in db.Set<CourseInterest>()
-                             join c in db.Set<Class>() on i.SourceClassId equals c.ContinuationOfClassId
-                             where i.Active && c.Status == ClassStatus.Published && c.EnrollmentOpen
+                             join c in db.Set<Class>() on i.SportId equals c.SportId
+                             where i.Active && c.ClassId != i.SourceClassId
+                                 && (c.PublishedAtUtc >= i.CreatedAtUtc
+                                     || c.PublishedAtUtc == null && c.ContinuationOfClassId == i.SourceClassId)
+                                 && !db.Set<SportHub.Scheduling.Domain.Entities.Enrollment>().Any(e => e.MemberId == i.MemberId
+                                     && e.ClassId == c.ClassId && e.Status == SportHub.Scheduling.Domain.Enums.EnrollmentStatus.Confirmed && e.EndedAt == null)
+                                 && c.Status == ClassStatus.Published && c.EnrollmentOpen
                                  && c.ReservedCount < c.Capacity
                                  && c.Sessions.Any() && !c.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now)
                                  && c.Sessions.Any(s => s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc > now)

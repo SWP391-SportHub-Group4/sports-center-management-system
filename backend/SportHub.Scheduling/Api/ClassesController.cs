@@ -108,8 +108,8 @@ public class ClassesController(IClassService classes, IClassSessionService sessi
     [HttpGet("api/manager/classes")]
     public async Task<IActionResult> ListManager(
         [FromQuery] string? status, [FromQuery] int? sportId, [FromQuery] string? keyword,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default, [FromQuery] string? thresholdStatus = null)
-        => Ok(await classes.ListManagerAsync(status, sportId, keyword, page, pageSize, ct, thresholdStatus));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default, [FromQuery] string? thresholdStatus = null, [FromQuery] Guid? coachId = null)
+        => Ok(await classes.ListManagerAsync(status, sportId, keyword, page, pageSize, ct, thresholdStatus, coachId));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("api/manager/classes/{classId:int}")]

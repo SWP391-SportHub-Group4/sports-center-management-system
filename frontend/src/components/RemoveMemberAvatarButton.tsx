@@ -25,7 +25,7 @@ export function RemoveMemberAvatarButton({
     setBusy(true);
     setError("");
     try {
-      await api.del(`/api/manager/members/${memberId}/avatar`);
+      await api.del(`/api/manager/users/${memberId}/avatar`);
       setOpen(false);
       onRemoved();
     } catch (cause) {
@@ -49,7 +49,7 @@ export function RemoveMemberAvatarButton({
           title={vi ? "Gỡ ảnh đại diện" : "Remove profile photo"}
           description={
             vi
-              ? `Gỡ ảnh hiện tại của ${memberName} nếu không phù hợp. Hội viên có thể tải ảnh mới sau đó.`
+              ? `Gỡ ảnh hiện tại của ${memberName} nếu không phù hợp. Người dùng có thể tải ảnh mới sau đó.`
               : `Remove ${memberName}'s current photo if it is inappropriate. They can upload a new one later.`
           }
           onClose={() => {

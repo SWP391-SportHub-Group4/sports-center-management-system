@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { AsyncSection, Field, StatusChip } from "@/components/ui";
+import { Field, StatusChip } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import type { SportDto, SportServiceType } from "@/lib/types";
 import { catalogApi, type SaveSport } from "./api";
@@ -25,8 +25,6 @@ const SERVICE_TYPES: SportServiceType[] = [
 ];
 const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS"];
 interface FormState {
-  createRoomType: boolean;
-  roomTypeName: string;
   code: string;
   name: string;
   description: string;
@@ -36,8 +34,6 @@ interface FormState {
   defaultMaxCapacity: number;
 }
 const empty: FormState = {
-  createRoomType: false,
-  roomTypeName: "",
   code: "",
   name: "",
   enabled: {
@@ -55,7 +51,6 @@ export function SportsManager() {
   const l = t.operations;
   const c = t.managerCatalog;
   const state = useApi((s) => catalogApi.sports(s, true), []);
-  const types = useApi((s) => catalogApi.roomTypes(s), []);
   const filters = useCatalogFilters();
   const mutation = useMutation();
   const [form, setForm] = useState(empty);
@@ -83,8 +78,6 @@ export function SportsManager() {
     setForm(
       row
         ? {
-            createRoomType: false,
-            roomTypeName: "",
             name: row.name,
             code: row.code,
             enabled: Object.fromEntries(
@@ -213,12 +206,6 @@ export function SportsManager() {
               ...(editor.id === null
                 ? { code: form.code.trim().toLowerCase() }
                 : {}),
-              ...(editor.id === null && form.createRoomType
-                ? {
-                    createRoomType: true,
-                    roomTypeName: form.roomTypeName.trim(),
-                  }
-                : {}),
               name: form.name.trim(),
               description: form.description,
               imageUrl: form.imageUrl,
@@ -242,7 +229,6 @@ export function SportsManager() {
             ) {
               setEditor(null);
               state.reload();
-              if (editor.id === null && form.createRoomType) types.reload();
             }
           }}
         >
@@ -312,44 +298,6 @@ export function SportsManager() {
               />
             </Field>
           </div>
-          {editor.id === null && (
-            <div className={styles.linkedRoomType}>
-              <label className={styles.check}>
-                <input
-                  type="checkbox"
-                  checked={form.createRoomType}
-                  aria-controls="new-sport-room-type"
-                  aria-describedby="new-sport-room-type-hint"
-                  onChange={(e) =>
-                    setForm({ ...form, createRoomType: e.target.checked })
-                  }
-                />
-                {c.createLinkedRoomType}
-              </label>
-              <p id="new-sport-room-type-hint" className="small muted">
-                {c.createLinkedRoomTypeHint}
-              </p>
-              <div id="new-sport-room-type" hidden={!form.createRoomType}>
-                {form.createRoomType && (
-                  <Field
-                    label={c.linkedRoomTypeName}
-                    required
-                    hint={c.linkedRoomTypeNameHint}
-                  >
-                    <input
-                      required
-                      maxLength={100}
-                      pattern=".*\S.*"
-                      value={form.roomTypeName}
-                      onChange={(e) =>
-                        setForm({ ...form, roomTypeName: e.target.value })
-                      }
-                    />
-                  </Field>
-                )}
-              </div>
-            </div>
-          )}
           <fieldset className={styles.days}>
             <legend>{l.services}</legend>
             {visibleServices.map((type) => (
@@ -378,22 +326,6 @@ export function SportsManager() {
               }
             />
           </Field>
-          {editor.id !== null && (
-            <div>
-              <h3>{c.compatibleRooms}</h3>
-              <p className="small muted">{c.compatibleRoomsHint}</p>
-              <AsyncSection state={types}>
-                {(rows) => (
-                  <p>
-                    {rows
-                      .filter((r) => r.sportIds.includes(editor.id!))
-                      .map((r) => r.name)
-                      .join(", ") || c.noCompatibleRooms}
-                  </p>
-                )}
-              </AsyncSection>
-            </div>
-          )}
         </CatalogFormDialog>
       )}
       {activity && (

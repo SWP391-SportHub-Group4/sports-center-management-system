@@ -33,8 +33,10 @@ const categories: Record<string, string> = {
 
 export function SupportQueue({
   workspace = "receptionist",
+  onChanged,
 }: {
   workspace?: "manager" | "receptionist";
+  onChanged?: () => void;
 }) {
   const { user } = useAuth();
   const assignees = useApi(
@@ -71,7 +73,8 @@ export function SupportQueue({
     if (queue.data) setLastResult(queue.data);
   }, [queue.data]);
   // Never display a previous filter/page as though it belongs to the new query.
-  const result = queue.loading || queue.error ? null : queue.data ?? lastResult;
+  const result =
+    queue.loading || queue.error ? null : (queue.data ?? lastResult);
   const selected =
     expanded === undefined ? result?.items[0]?.requestId : expanded;
   const filtered = !!(
@@ -108,9 +111,11 @@ export function SupportQueue({
             <RefreshCw size={16} aria-hidden="true" />
             Refresh
           </button>
-          {/* Lễ tân ghi yêu cầu ngay trên Today's desk khi đã chọn Member; hàng đợi chỉ để xử lý. */}
           {workspace !== "receptionist" && (
-            <Link className="btn" href={`/${workspace}/members`}>
+            <Link
+              className="btn"
+              href="/manager/requests?type=support&record=1"
+            >
               <Plus size={18} aria-hidden="true" />
               Record a request
             </Link>
@@ -398,6 +403,7 @@ export function SupportQueue({
                           }))
                         }
                         onChanged={() => {
+                          onChanged?.();
                           setNotice("Request updated.");
                           queue.reload();
                         }}
@@ -447,7 +453,7 @@ export function SupportQueue({
       <p className={styles.footnote}>
         {workspace === "receptionist"
           ? "New requests are recorded from Today’s desk after selecting the member. "
-          : "New requests are recorded from the member’s profile. "}
+          : "Use Record a request to select a member. "}
         Managers and receptionists can handle requests assigned to any staff
         member.
       </p>

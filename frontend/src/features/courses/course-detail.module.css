@@ -109,6 +109,10 @@
   color: #000;
   font-variant-numeric: tabular-nums;
 }
+
+.donutLabel > span {
+  color: var(--text-strong);
+}
 .donutLabel strong span {
   font-size: var(--text-base);
   font-weight: 400;

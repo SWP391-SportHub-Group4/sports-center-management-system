@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useUrlQuery, choiceQuery } from "@/lib/useUrlQuery";
@@ -18,7 +19,7 @@ import { catalogApi } from "@/features/catalog";
 import { courtScheduleApi } from "@/features/court-schedule";
 import { groupCenterIncidents } from "./schedule-incidents";
 
-import { ManagerClassChangeRequests } from "./class-change-requests";
+import { useRouter } from "next/navigation";
 
 const validDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -35,7 +36,8 @@ export function ManagerSchedule({
   coachId?: string;
   roomId?: number;
 }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
+  const router = useRouter();
   const l = t.operations;
   const m = t.managerOperations;
   const { values, setValues } = useUrlQuery(
@@ -58,6 +60,10 @@ export function ManagerSchedule({
       ),
     },
   );
+  useEffect(() => {
+    if (values.section === "requests" && !fixedCoach && !fixedRoom)
+      router.replace("/manager/requests?type=coach");
+  }, [values.section, fixedCoach, fixedRoom, router]);
   const [selectedId, setSelected] = useState("");
   const calendarDate =
     values.view === "week" ? mondayOf(values.date) : values.date;
@@ -120,39 +126,8 @@ export function ManagerSchedule({
     coachName: r.coachName,
     status: r.status,
   }));
-  const sectionNav = !fixedCoach && !fixedRoom && (
-    <nav
-      className={styles.sections}
-      aria-label={language === "vi" ? "Quản lý lịch" : "Schedule management"}
-    >
-      <button
-        type="button"
-        className={`btn btn--sm ${values.section === "calendar" ? "" : "btn--quiet"}`}
-        aria-pressed={values.section === "calendar"}
-        onClick={() => setValues({ section: "calendar" })}
-      >
-        {language === "vi" ? "Lịch hoạt động" : "Activity calendar"}
-      </button>
-      <button
-        type="button"
-        className={`btn btn--sm ${values.section === "requests" ? "" : "btn--quiet"}`}
-        aria-pressed={values.section === "requests"}
-        onClick={() => setValues({ section: "requests" })}
-      >
-        {language === "vi" ? "Yêu cầu đổi lịch lớp" : "Class change requests"}
-      </button>
-    </nav>
-  );
-  if (values.section === "requests" && !fixedCoach && !fixedRoom)
-    return (
-      <>
-        {sectionNav}
-        <ManagerClassChangeRequests onChanged={() => state.reload()} />
-      </>
-    );
   return (
     <>
-      {sectionNav}
       <Card>
         <div className={styles.weekToolbar}>
           <Field
@@ -182,6 +157,7 @@ export function ManagerSchedule({
                   key={view}
                   variant="secondary"
                   size="sm"
+                  className={styles.viewButton}
                   aria-pressed={values.view === view}
                   onClick={() =>
                     update({
@@ -195,47 +171,71 @@ export function ManagerSchedule({
                 </Button>
               ))}
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                update({
-                  date: addDaysIso(
-                    values.date,
-                    values.view === "day" ? -1 : -7,
-                  ),
-                })
-              }
-            >
-              {values.view === "day"
-                ? t.calendar.previous
-                : t.mSchedule.prevWeek}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                update({
-                  date:
-                    values.view === "day" ? todayIso() : mondayOf(todayIso()),
-                })
-              }
-            >
-              {values.view === "day"
-                ? t.calendar.today
-                : t.mSchedule.currentWeek}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                update({
-                  date: addDaysIso(values.date, values.view === "day" ? 1 : 7),
-                })
-              }
-            >
-              {values.view === "day" ? t.calendar.next : t.mSchedule.nextWeek}
-            </Button>
+            <div className={styles.dateNavigation}>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.arrowButton}
+                data-direction="previous"
+                aria-label={
+                  values.view === "day"
+                    ? t.calendar.previous
+                    : t.mSchedule.prevWeek
+                }
+                title={
+                  values.view === "day"
+                    ? t.calendar.previous
+                    : t.mSchedule.prevWeek
+                }
+                onClick={() =>
+                  update({
+                    date: addDaysIso(
+                      values.date,
+                      values.view === "day" ? -1 : -7,
+                    ),
+                  })
+                }
+              >
+                <ArrowLeft size={22} strokeWidth={2.25} aria-hidden="true" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.currentButton}
+                onClick={() =>
+                  update({
+                    date:
+                      values.view === "day" ? todayIso() : mondayOf(todayIso()),
+                  })
+                }
+              >
+                {values.view === "day"
+                  ? t.calendar.today
+                  : t.mSchedule.currentWeek}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.arrowButton}
+                data-direction="next"
+                aria-label={
+                  values.view === "day" ? t.calendar.next : t.mSchedule.nextWeek
+                }
+                title={
+                  values.view === "day" ? t.calendar.next : t.mSchedule.nextWeek
+                }
+                onClick={() =>
+                  update({
+                    date: addDaysIso(
+                      values.date,
+                      values.view === "day" ? 1 : 7,
+                    ),
+                  })
+                }
+              >
+                <ArrowRight size={22} strokeWidth={2.25} aria-hidden="true" />
+              </Button>
+            </div>
           </div>
         </div>
         <div className={styles.filters}>

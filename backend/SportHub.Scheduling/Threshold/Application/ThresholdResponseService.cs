@@ -154,7 +154,9 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
                 "Points refunded by member choice after the course missed its break-even threshold", response.ThresholdResponseId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.Refunded, ct);
-            if (choice == ThresholdResponseChoice.WaitNextCourse)
+            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 22)", ct);
+            if (choice == ThresholdResponseChoice.WaitNextCourse
+                && !await db.Set<CourseInterest>().AnyAsync(i => i.MemberId == memberId && i.SportId == course.SportId && i.Active, ct))
                 db.Set<CourseInterest>().Add(new CourseInterest
                 {
                     CourseInterestId = Guid.NewGuid(), MemberId = memberId, SportId = course.SportId,

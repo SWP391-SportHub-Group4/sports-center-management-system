@@ -23,7 +23,9 @@
 }
 .weekToolbar
   .viewNavigation
-  :global(button.btn.btn--secondary[aria-pressed="true"]:not(:disabled)) {
+  .viewButton:global(
+    button.btn.btn--secondary[aria-pressed="true"]:not(:disabled)
+  ) {
   background: var(--bg-inverse);
   color: var(--text-on-inverse);
   border-color: var(--bg-inverse);
@@ -37,17 +39,77 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-4);
   margin-left: auto;
 }
 .weekNavigation :global(.btn) {
   margin: 0;
+  min-height: 44px;
 }
 .viewNavigation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-sunken);
+}
+.weekToolbar .viewNavigation .viewButton:global(.btn.btn--secondary) {
+  min-width: 64px;
+  min-height: 36px;
+  padding: var(--space-2) var(--space-3);
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.weekToolbar
+  .viewNavigation
+  .viewButton:global(
+    button.btn.btn--secondary:hover:not([aria-pressed="true"])
+  ) {
+  background: var(--bg-surface);
+  color: var(--text-strong);
+}
+.dateNavigation {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  flex-wrap: wrap;
+}
+.arrowButton:global(.btn) {
+  width: 44px;
+  padding: 0;
+  flex: none;
+  border-radius: var(--radius-md);
+}
+.arrowButton svg {
+  flex: none;
+  transition: transform 160ms var(--ease-out);
+}
+.arrowButton[data-direction="previous"]:hover svg {
+  transform: translateX(-2px);
+}
+.arrowButton[data-direction="next"]:hover svg {
+  transform: translateX(2px);
+}
+.currentButton:global(.btn) {
+  min-width: 128px;
+  padding-inline: var(--space-4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrowButton svg,
+  .weekToolbar .viewNavigation .viewButton:global(.btn.btn--secondary) {
+    transition: none;
+    transform: none;
+  }
+  .arrowButton[data-direction]:hover svg {
+    transform: none;
+  }
 }
 .filters {
   margin-top: var(--space-4);
@@ -75,6 +137,17 @@
 @media (max-width: 640px) {
   .weekNavigation {
     margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .viewNavigation,
+  .dateNavigation {
+    width: 100%;
+  }
+  .dateNavigation {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
   }
   .weekToolbar > :global(.field) {
     width: 100%;

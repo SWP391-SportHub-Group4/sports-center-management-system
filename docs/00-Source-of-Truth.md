@@ -1,5 +1,7 @@
 # SportHub — Nguồn thống nhất về phạm vi và quy ước
 
+**Manager workspace — quyết định 20/10/2026:** [Luồng giao diện và chính sách mới](Manager-Workspace.md). Giữ nguyên Overview/chi tiết lớp; tập trung Request, Incident và thông báo trong Support & Communication; chọn Sport trực tiếp khi tạo sân, giữ khóa loại sân cũ cho tương thích dữ liệu. Bỏ cộng/trừ điểm thủ công, hồ sơ sức khỏe và giao diện quan hệ Coach–Member của Manager. Cho phép buổi bù có Incident hợp lệ dù lớp có học viên. Course interests hiển thị Member/Sport, thông báo lớp mới cùng môn và kết thúc sau ghi danh đã thanh toán. Quyết định này thay thế các đoạn mô tả cũ mâu thuẫn bên dưới; tài khoản staff và phân quyền vẫn thuộc Admin.
+
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
 
 Catalog cập nhật 19/10/2026: form tạo Sport có tùy chọn tạo Room Type, mặc định tắt. Bật thì Manager tự nhập tên Room Type, hệ thống tạo và liên kết cùng Sport trong một transaction; tắt thì giữ nguyên hành vi tạo Sport và không thay đổi Room Type. Không tự đặt tên, không tạo sân vật lý. Chi tiết trong [API contract](api-contract.md).

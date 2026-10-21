@@ -27,12 +27,12 @@ export function CreateRentalCourt({
   const { t } = useLanguage();
   const copy = t.rentalCourtSetup;
   const sports = useApi((s) => catalogApi.sports(s, true), []);
-  const types = useApi((s) => catalogApi.roomTypes(s), []);
+
   const mutation = useMutation();
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState(12);
   const [sportId, setSportId] = useState("");
-  const [typeId, setTypeId] = useState("");
+
   const [hours, setHours] = useState(
     order.map((dayOfWeek) => ({
       dayOfWeek,
@@ -50,11 +50,8 @@ export function CreateRentalCourt({
     { start: "17:00", end: "22:00", price: 120000 },
   ]);
   const [validation, setValidation] = useState("");
-  const compatible = (types.data ?? []).filter(
-    (r) => r.isActive && r.sportIds.includes(Number(sportId)),
-  );
   const enabled = hours.filter((h) => h.enabled);
-  const ready = !!sports.data && !!types.data && !sports.error && !types.error;
+  const ready = !!sports.data && !sports.error;
   const sport = sports.data?.find((s) => s.sportId === Number(sportId));
   const hourlyInput = (value: number, change: (value: number) => void) => (
     <input
@@ -82,7 +79,7 @@ export function CreateRentalCourt({
         </button>
       </header>
       <AsyncSection state={sports}>{() => null}</AsyncSection>
-      <AsyncSection state={types}>{() => null}</AsyncSection>
+
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -158,7 +155,7 @@ export function CreateRentalCourt({
                 name: name.trim(),
                 capacity,
                 sportId: Number(sportId),
-                roomTypeId: Number(typeId),
+
                 hours: enabled.map(
                   ({ dayOfWeek, openTimeLocal, closeTimeLocal }) => ({
                     dayOfWeek,
@@ -209,19 +206,11 @@ export function CreateRentalCourt({
                       value={sportId}
                       onChange={(e) => {
                         setSportId(e.target.value);
-                        setTypeId("");
                       }}
                     >
                       <option value="">{copy.chooseSport}</option>
                       {(sports.data ?? [])
-                        .filter(
-                          (s) =>
-                            s.isActive &&
-                            (types.data ?? []).some(
-                              (r) =>
-                                r.isActive && r.sportIds.includes(s.sportId),
-                            ),
-                        )
+                        .filter((s) => s.isActive && s.code !== "gym")
                         .map((s) => (
                           <option key={s.sportId} value={s.sportId}>
                             {s.name}
@@ -229,32 +218,7 @@ export function CreateRentalCourt({
                         ))}
                     </select>
                   </Field>
-                  <Field label={t.operations.roomType} required>
-                    <select
-                      required
-                      disabled={!sportId}
-                      value={typeId}
-                      onChange={(e) => setTypeId(e.target.value)}
-                    >
-                      <option value="">{copy.chooseType}</option>
-                      {compatible.map((r) => (
-                        <option key={r.roomTypeId} value={r.roomTypeId}>
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
                 </div>
-                {ready &&
-                  !types.data?.some(
-                    (r) =>
-                      r.isActive &&
-                      r.sportIds.some((id) =>
-                        sports.data?.some(
-                          (s) => s.sportId === id && s.isActive,
-                        ),
-                      ),
-                  ) && <p role="alert">{copy.noTypes}</p>}
               </section>
               <section
                 className={styles.section}

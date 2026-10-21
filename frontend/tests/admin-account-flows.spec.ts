@@ -11,7 +11,7 @@ const account = {
   phone: "0901234567",
   role: "RECEPTIONIST",
   status: "ACTIVE",
-  sportIds: [],
+  sportIds: [] as number[],
   createdAt: "2026-10-01T02:00:00Z",
   hasPassword: true,
   hasGoogleLink: false,
@@ -64,7 +64,14 @@ async function setup(
     }
     if (url.pathname === "/api/sports")
       return route.fulfill({
-        json: [{ sportId: 1, name: "Gym", isActive: true }],
+        json: [
+          {
+            sportId: 3,
+            name: "Badminton",
+            isActive: true,
+            services: [{ serviceType: "GROUP_COURSE", isEnabled: true }],
+          },
+        ],
       });
     if (url.pathname === "/api/audit-logs")
       return route.fulfill({
@@ -280,19 +287,19 @@ test("role change requires reason and review; backend denial preserves the form"
     .getByLabel("Role", { exact: true })
     .selectOption("SYSTEM_ADMINISTRATOR");
   await expect(
-    dialog.getByRole("button", { name: "Change role", exact: true }),
+    dialog.getByRole("button", { name: "Save changes", exact: true }),
   ).toBeDisabled();
   await dialog
     .getByLabel("Reason", { exact: true })
     .fill("Approved role change");
   await dialog
-    .getByRole("button", { name: "Change role", exact: true })
+    .getByRole("button", { name: "Save changes", exact: true })
     .click();
   await expect(dialog).toContainText(
     "Changing the role invalidates existing sessions",
   );
   expect(writes).toBe(0);
-  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
   await expect(dialog).toContainText(
     "Cannot demote the last active Administrator",
   );
@@ -334,9 +341,9 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
     .fill("Hire as receptionist");
   await dialog.getByLabel("Role", { exact: true }).selectOption("RECEPTIONIST");
   await dialog
-    .getByRole("button", { name: "Change role", exact: true })
+    .getByRole("button", { name: "Save changes", exact: true })
     .click();
-  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
 
   const blockers = dialog.getByRole("region", {
     name: "Resolve these items before changing the role",
@@ -380,7 +387,7 @@ test("lock/unlock require review, refresh the list and display successful outcom
     const before = writes;
     await expect(dialog).toContainText("Approved account change");
     expect(writes).toBe(before);
-    await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+    await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
     await expect(dialog).toHaveCount(0);
     await expect(
       page.getByRole("table", { name: "Users and roles" }),
@@ -407,7 +414,7 @@ test("staff creation sends an activation request with Coach specialties and no p
       fullName: "New staff",
       phone: null,
       roleId: 2,
-      specialties: [1],
+      specialties: [3],
     });
     return route.fulfill({ status: 201, json: account });
   });
@@ -421,12 +428,14 @@ test("staff creation sends an activation request with Coach specialties and no p
     exact: true,
   });
   await expect(review).toBeDisabled();
-  await dialog.getByRole("checkbox", { name: "Gym", exact: true }).check();
+  await dialog
+    .getByRole("checkbox", { name: "Badminton", exact: true })
+    .check();
   await expect(dialog.getByLabel("Password", { exact: true })).toHaveCount(0);
   await review.click();
   await expect(dialog).toContainText("Selected specialties: 1");
   expect(writes).toBe(0);
-  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
   await expect.poll(() => writes).toBe(1);
   await expect(dialog).toHaveCount(0);
 });
@@ -469,7 +478,7 @@ test("Admin can create a named staff account without a phone or administrator-su
     "handoff@gmail.com",
   );
   await review.click();
-  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
   await expect.poll(() => writes).toBe(1);
   await expect(dialog).toHaveCount(0);
 });
@@ -493,7 +502,7 @@ test("staff creation preserves the review when the API rejects a duplicate email
   await dialog
     .getByRole("button", { name: "Review staff account", exact: true })
     .click();
-  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
   await expect(dialog.getByRole("alert")).toContainText(
     "Email already exists.",
   );
@@ -518,7 +527,7 @@ test("own Administrator row hides Edit; details keep role and lock protections",
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
   await expect(
-    dialog.getByRole("button", { name: "Change role", exact: true }),
+    dialog.getByRole("button", { name: "Save changes", exact: true }),
   ).toHaveCount(0);
   await expect(dialog).not.toContainText(
     "Administrator roles cannot be changed",
@@ -548,7 +557,7 @@ test("another Administrator has no role-change controls in the list or account d
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
     await expect(
-      dialog.getByRole("button", { name: "Change role", exact: true }),
+      dialog.getByRole("button", { name: "Save changes", exact: true }),
     ).toHaveCount(0);
     await expect(dialog).not.toContainText(
       "Administrator roles cannot be changed",
@@ -595,7 +604,7 @@ test("detail reloads current data after mutation when the API allows access", as
     .getByLabel("Reason", { exact: true })
     .fill("Approved access change");
   await dialog.getByRole("button", { name: "Lock", exact: true }).click();
-  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator("dl").first()).toContainText("Locked");
   await page.reload();
@@ -615,7 +624,7 @@ test("Member accounts cannot be converted to staff and show how to create a staf
   );
   await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
   await expect(
-    dialog.getByRole("button", { name: "Change role", exact: true }),
+    dialog.getByRole("button", { name: "Save changes", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -634,6 +643,9 @@ test("pending staff show Activation required in the list, details and edit dialo
   await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "View details", exact: true }).click();
   await expect(
+    page.getByRole("link", { name: "Back to accounts", exact: true }),
+  ).toBeVisible();
+  await expect(
     page.getByText("Activation required", { exact: true }),
   ).toBeVisible();
 });
@@ -651,4 +663,102 @@ test("activated staff do not show pending-activation actions", async ({
       .getByRole("dialog")
       .getByRole("button", { name: "Resend activation link" }),
   ).toHaveCount(0);
+});
+
+test("Coach specialties save without changing role and preserve edits on failure", async ({
+  page,
+}) => {
+  const row = await setup(page);
+  row.role = "COACH";
+  row.sportIds = [3];
+  await page.route("**/api/sports", (route) =>
+    route.fulfill({
+      json: [
+        {
+          sportId: 3,
+          name: "Badminton",
+          isActive: true,
+          services: [{ serviceType: "GROUP_COURSE", isEnabled: true }],
+        },
+        {
+          sportId: 4,
+          name: "Basketball",
+          isActive: true,
+          services: [{ serviceType: "GROUP_COURSE", isEnabled: true }],
+        },
+      ],
+    }),
+  );
+  let writes = 0;
+  await page.route("**/api/users/" + row.userId + "/role", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      role: "COACH",
+      reason: "Teach both sports",
+      sportIds: [3, 4],
+    });
+    writes++;
+    if (writes === 1)
+      return route.fulfill({
+        status: 409,
+        json: { error: "invalid_sport", message: "Sport is no longer active" },
+      });
+    row.sportIds = [3, 4];
+    return route.fulfill({ json: row });
+  });
+  await page.goto("/admin/users");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  const save = dialog.getByRole("button", {
+    name: "Save changes",
+    exact: true,
+  });
+  await dialog.getByLabel("Reason", { exact: true }).fill("Teach both sports");
+  await expect(save).toBeDisabled();
+  await dialog
+    .getByRole("checkbox", { name: "Badminton", exact: true })
+    .uncheck();
+  await expect(save).toBeDisabled();
+  await dialog
+    .getByRole("checkbox", { name: "Badminton", exact: true })
+    .check();
+  await dialog
+    .getByRole("checkbox", { name: "Basketball", exact: true })
+    .check();
+  await expect(save).toBeEnabled();
+  await page.screenshot({
+    path: test.info().outputPath("coach-editor-desktop.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(save).toBeVisible();
+  await page.screenshot({
+    path: test.info().outputPath("coach-editor-mobile.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await save.click();
+  await expect(dialog).toContainText("Specialties added");
+  await expect(dialog).toContainText("Basketball");
+  await expect(dialog).not.toContainText("Current role");
+  await expect(dialog).not.toContainText("invalidates existing sessions");
+  expect(writes).toBe(0);
+  await dialog
+    .getByRole("button", { name: "Confirm update", exact: true })
+    .click();
+  await expect(dialog).toContainText("Sport is no longer active");
+  await dialog
+    .getByRole("button", { name: "Edit change", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("checkbox", { name: "Basketball", exact: true }),
+  ).toBeChecked();
+  await expect(dialog.getByLabel("Reason", { exact: true })).toHaveValue(
+    "Teach both sports",
+  );
+  await save.click();
+  await dialog
+    .getByRole("button", { name: "Confirm update", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  expect(writes).toBe(2);
 });

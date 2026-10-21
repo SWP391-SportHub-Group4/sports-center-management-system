@@ -161,8 +161,8 @@ test("live isolated draft/edit/publish/reschedule/makeup/cancel refunds paid enr
   await page.getByLabel(en.operations.start, { exact: false }).fill("09:00");
   await page.getByLabel(en.operations.numSessions, { exact: true }).fill("3");
   await next();
-  await page.getByLabel(en.operations.price, { exact: true }).fill("1000");
-  await page.getByLabel(en.operations.cost, { exact: true }).fill("0");
+  await page.getByLabel(en.classWorkspace.price, { exact: true }).fill("1000");
+  await page.getByLabel(en.classWorkspace.cost, { exact: true }).fill("0");
   await next();
   await expect(
     page.getByText(coaches[0].fullName, { exact: false }).last(),

@@ -66,26 +66,22 @@ public sealed class IncidentUndoTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Abandoning_restores_a_session_that_was_cancelled_for_a_makeup_and_cancels_the_makeup()
+    public async Task Enrolled_class_cannot_be_cancelled_through_incident_makeup()
     {
         var (course, session, _) = await SetupAsync();
         var all = await CourseTestData.SessionsAsync(factory, course.Id);
         var fence = await WithIncidents(factory, s => s.OpenFenceAsync(WindowOf(course, session), course.ManagerId));
-        var makeup = await CourseTestData.RunAsync<IClassSessionService, SportHub.Scheduling.Application.DTOs.ClassSessionResponse>(factory,
-            svc => svc.CancelWithMakeupAsync(session.SessionId, new()
-            {
-                Reason = "Incident cancel",
-                Makeup = new() { StartAtUtc = all.Max(s => s.StartAtUtc).AddDays(7) }
-            }, course.ManagerId));
-
-        var result = await WithIncidents(factory, s => s.AbandonFenceAsync(fence.FenceId, course.ManagerId));
-
-        Assert.Equal(1, result.Undone);
-        var sessions = await CourseTestData.SessionsAsync(factory, course.Id);
-        Assert.Equal(ClassSessionStatus.Scheduled, sessions.Single(s => s.SessionId == session.SessionId).Status);
-        Assert.Equal(ClassSessionStatus.Cancelled, sessions.Single(s => s.SessionId == makeup.SessionId).Status);
+        var error = await Assert.ThrowsAsync<SportHub.BuildingBlocks.SharedKernel.Errors.ConflictException>(() =>
+            CourseTestData.RunAsync<IClassSessionService, SportHub.Scheduling.Application.DTOs.ClassSessionResponse>(factory,
+                svc => svc.CancelWithMakeupAsync(session.SessionId, new() { Reason = "Incident cancel",
+                    Makeup = new() { StartAtUtc = all.Max(s => s.StartAtUtc).AddDays(7) } }, course.ManagerId)));
+        Assert.Equal("class_has_enrollments", error.ErrorCode);
+        var after = await CourseTestData.SessionsAsync(factory, course.Id);
+        Assert.Equal(all.Count, after.Count);
+        Assert.Equal(ClassSessionStatus.Scheduled, after.Single(s => s.SessionId == session.SessionId).Status);
         Assert.True(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == session.SessionId && o.IsActive)));
-        Assert.False(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == makeup.SessionId && o.IsActive)));
+        var result = await WithIncidents(factory, s => s.AbandonFenceAsync(fence.FenceId, course.ManagerId));
+        Assert.Equal(0, result.Undone);
     }
 
     [Fact]

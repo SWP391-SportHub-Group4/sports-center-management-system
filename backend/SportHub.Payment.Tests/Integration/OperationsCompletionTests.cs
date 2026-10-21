@@ -152,11 +152,10 @@ public sealed class OperationsCompletionTests(
     }
 
     [Theory]
-    [InlineData(false, 100)]
-    [InlineData(true, 66)]
-    public async Task Course_cancel_returns_exact_proration_releases_holds_and_is_repeat_safe(
-        bool partiallyProvided,
-        int expectedPoints)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Manager_cannot_cancel_enrolled_courses_before_or_after_teaching_starts(
+        bool partiallyProvided)
     {
         var data =
             await CourseAsync();
@@ -425,162 +424,33 @@ public sealed class OperationsCompletionTests(
             ).Content
              .ReadFromJsonAsync<CourseCancellationPreview>();
 
-        Assert.NotNull(
-            preview);
-
-        Assert.Equal(
-            expectedPoints,
-            preview.RefundPoints);
-
-        Assert.Equal(
-            1,
-            preview.ActiveHoldCount);
-
-        async Task<HttpResponseMessage> Cancel()
-            =>
-                await manager.PostAsJsonAsync(
-                    $"/api/manager/classes/{data.Id}/cancel",
-                    new
-                    {
-                        reason =
-                            "Center course cancellation",
-
-                        previewToken =
-                            preview.PreviewToken
-                    });
-
-        var cancellations =
-            await Task.WhenAll(
-                Cancel(),
-                Cancel());
-
-        foreach (
-            var response
-            in cancellations)
+        Assert.NotNull(preview);
+        Assert.False(preview.CanCancel);
+        Assert.Equal(0, preview.RefundPoints);
+        Assert.Equal(1, preview.ConfirmedCount);
+        Assert.Equal(1, preview.ActiveHoldCount);
+        var memberWallet = await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member.UserId)
+            .Select(w => new { w.AvailablePoints, w.HeldPoints }).SingleAsync());
+        var waitingWallet = await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == waiting.UserId)
+            .Select(w => new { w.AvailablePoints, w.HeldPoints }).SingleAsync());
+        var ledgerCount = await factory.QueryAsync(db => db.PointLedgerEntries.CountAsync());
+        var pendingStatus = await factory.QueryAsync(db => db.Invoices.Where(i => i.InvoiceId == pendingId).Select(i => i.Status).SingleAsync());
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            Assert.True(
-                response.IsSuccessStatusCode,
-                await response.Content
-                    .ReadAsStringAsync());
+            var response = await manager.PostAsJsonAsync($"/api/manager/classes/{data.Id}/cancel",
+                new { reason = "Center course cancellation", previewToken = preview.PreviewToken });
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            using var error = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal("class_has_enrollments", error.RootElement.GetProperty("error").GetString());
         }
-
-        Assert.True(
-            (
-                await Cancel()
-            ).IsSuccessStatusCode);
-
-        await factory.QueryAsync(
-            async db =>
-            {
-                var course =
-                    await db.Classes
-                        .SingleAsync(
-                            x =>
-                                x.ClassId ==
-                                data.Id);
-
-                Assert.Equal(
-                    ClassStatus.Cancelled,
-                    course.Status);
-
-                Assert.Equal(
-                    0,
-                    course.ConfirmedCount);
-
-                Assert.Equal(
-                    0,
-                    course.ReservedCount);
-
-                var wallet =
-                    await db.PointWallets
-                        .SingleAsync(
-                            x =>
-                                x.OwnerUserId ==
-                                member.UserId);
-
-                Assert.Equal(
-                    100 +
-                    expectedPoints,
-                    wallet.AvailablePoints);
-
-                var heldWallet =
-                    await db.PointWallets
-                        .SingleAsync(
-                            x =>
-                                x.OwnerUserId ==
-                                waiting.UserId);
-
-                Assert.Equal(
-                    200,
-                    heldWallet.AvailablePoints);
-
-                Assert.Equal(
-                    0,
-                    heldWallet.HeldPoints);
-
-                Assert.Equal(
-                    SportHub.Payment.Domain.Enums
-                        .InvoiceStatus.Void,
-                    (
-                        await db.Invoices
-                            .SingleAsync(
-                                x =>
-                                    x.InvoiceId ==
-                                    pendingId)
-                    ).Status);
-
-                Assert.Equal(
-                    1,
-                    await db.PointLedgerEntries
-                        .CountAsync(
-                            x =>
-                                x.WalletId ==
-                                    wallet.WalletId &&
-                                x.ReferenceType ==
-                                    "SystemEvent"));
-
-                Assert.False(
-                    await db.ClassSessions
-                        .AnyAsync(
-                            x =>
-                                x.ClassId ==
-                                    data.Id &&
-                                x.Status ==
-                                    ClassSessionStatus.Scheduled));
-
-                // M05 audit: the concurrent requests and subsequent retry above
-                // must not repeat either the member notice or per-session coach notices.
-                var memberNotices = await db.Notifications.Where(n =>
-                    n.UserId == member.UserId && n.SourceEventType == NotificationSourceEventType.ClassCancelled)
-                    .ToListAsync();
-                Assert.Equal(2, memberNotices.Count);
-                Assert.Single(memberNotices, n => n.Channel == NotificationChannel.InApp);
-                Assert.Single(memberNotices, n => n.Channel == NotificationChannel.Email);
-                Assert.Contains(expectedPoints.ToString(), memberNotices.Single(n => n.Channel == NotificationChannel.InApp).Message);
-                Assert.False(string.IsNullOrWhiteSpace(memberNotices.Single(n => n.Channel == NotificationChannel.Email).ProtectedEmailPayload));
-                var mainCoachId = await db.Classes.Where(c => c.ClassId == data.Id)
-                    .Select(c => c.CoachId).SingleAsync();
-                var coachNotices = await db.Notifications.Where(n =>
-                    n.UserId == mainCoachId && n.SourceEventType == NotificationSourceEventType.ScheduleChanged)
-                    .ToListAsync();
-                var cancelledSessions = partiallyProvided ? 2 : 3;
-                Assert.Equal(cancelledSessions, coachNotices.Count(n => n.Channel == NotificationChannel.InApp));
-                Assert.Equal(cancelledSessions, coachNotices.Count(n => n.Channel == NotificationChannel.Email));
-
-                Assert.Equal(
-                    ThresholdResolutionStatus.Expired,
-                    await db.Set<ThresholdResponse>()
-                        .Where(
-                            x =>
-                                x.ClassId ==
-                                data.Id)
-                        .Select(
-                            x =>
-                                x.ResolutionStatus)
-                        .SingleAsync());
-
-                return 0;
-            });
+        Assert.Equal(memberWallet, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member.UserId)
+            .Select(w => new { w.AvailablePoints, w.HeldPoints }).SingleAsync()));
+        Assert.Equal(waitingWallet, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == waiting.UserId)
+            .Select(w => new { w.AvailablePoints, w.HeldPoints }).SingleAsync()));
+        Assert.Equal(ledgerCount, await factory.QueryAsync(db => db.PointLedgerEntries.CountAsync()));
+        Assert.Equal(pendingStatus, await factory.QueryAsync(db => db.Invoices.Where(i => i.InvoiceId == pendingId).Select(i => i.Status).SingleAsync()));
+        Assert.Equal(1, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == data.Id).Select(c => c.ConfirmedCount).SingleAsync()));
+        Assert.False(await factory.QueryAsync(db => db.AuditLogs.AnyAsync(a => a.Action == "CANCEL_CLASS" && a.TargetId == data.Id.ToString())));
     }
 
     private async Task<(int Id, Guid ManagerId)> CourseAsync()

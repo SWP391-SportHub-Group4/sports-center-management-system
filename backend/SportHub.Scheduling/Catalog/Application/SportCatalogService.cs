@@ -297,13 +297,12 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         foreach (var sport in sports)
         {
             var roomTypeIds = links.Where(l => l.SportId == sport.SportId).Select(l => l.RoomTypeId).ToHashSet();
-            var sportRooms = rooms.Where(r => roomTypeIds.Contains(r.RoomTypeId!.Value)).ToList();
+            var sportRooms = rooms.Where(r => roomTypeIds.Contains(r.RoomTypeId!.Value) && (r.SportId == null || r.SportId == sport.SportId)).ToList();
             var list = new List<ServiceReadinessResponse>();
 
             foreach (var service in sport.Services.Where(s => s.ServiceType is SportServiceType.GroupCourse or SportServiceType.CourtRental))
             {
                 var missing = new List<string>();
-                if (roomTypeIds.Count == 0) missing.Add("room_type");
                 if (sportRooms.Count == 0) missing.Add("room");
                 if (!sportRooms.Any(r => hours.Contains(r.RoomId))) missing.Add("opening_hours");
 
