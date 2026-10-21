@@ -73,7 +73,7 @@ public sealed class ClassService(
                 "class_not_found",
                 "Class not found.");
 
-        if (entity.Status != ClassStatus.Published)
+        if (entity.Status is not (ClassStatus.Published or ClassStatus.InProgress))
         {
             throw new ConflictException(
                 "class_not_published",
@@ -163,7 +163,8 @@ public sealed class ClassService(
     {
         (page, pageSize) = Normalize(page, pageSize);
 
-        var query = db.Set<Class>().AsNoTracking().Where(c => c.Status == ClassStatus.Published);
+        var query = db.Set<Class>().AsNoTracking()
+            .Where(c => c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress);
         if (sportId is int sid)
         {
             query = query.Where(c => c.SportId == sid);
@@ -189,7 +190,8 @@ public sealed class ClassService(
 
     public async Task<ClassPublicResponse> GetPublicAsync(int classId, CancellationToken ct = default)
     {
-        var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId && c.Status == ClassStatus.Published))
+        var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId
+                      && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)))
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("class_not_found", "Class not found.");
 
@@ -589,10 +591,23 @@ public sealed class ClassService(
             .OrderBy(r => r.DayOfWeek).ThenBy(r => r.StartTimeLocal)
             .ToListAsync(ct);
 
+        // Thời lượng buổi lấy từ buổi đã sinh (Draft chưa có buổi → không có giờ kết thúc).
+        var sessions = await db.Set<ClassSession>().AsNoTracking()
+            .Where(s => classIds.Contains(s.ClassId) && s.Status != ClassSessionStatus.Cancelled)
+            .GroupBy(s => s.ClassId)
+            .Select(g => new { ClassId = g.Key, Start = g.Min(s => s.StartAtUtc), End = g.Min(s => s.EndAtUtc) })
+            .ToListAsync(ct);
+        var minutes = sessions.ToDictionary(s => s.ClassId, s => (int)Math.Round((s.End - s.Start).TotalMinutes));
+
         return rows.GroupBy(r => r.ClassId).ToDictionary(
             g => g.Key,
             g => (IReadOnlyList<ClassScheduleRuleResponse>)g
-                .Select(r => new ClassScheduleRuleResponse(r.DayOfWeek, r.StartTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture)))
+                .Select(r => new ClassScheduleRuleResponse(
+                    r.DayOfWeek,
+                    r.StartTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
+                    minutes.TryGetValue(r.ClassId, out var m) && m > 0
+                        ? r.StartTimeLocal.AddMinutes(m).ToString(TimeFormat, CultureInfo.InvariantCulture)
+                        : null))
                 .ToList());
     }
 
@@ -601,6 +616,18 @@ public sealed class ClassService(
         var rules = await RulesAsync(rows.Select(r => r.Class.ClassId).ToList(), ct);
         var names = await validator.CoachNamesAsync(rows.Select(r => r.Class.CoachId), ct);
         var now = clock.UtcNow;
+        var classIds = rows.Select(r => r.Class.ClassId).ToList();
+        // Tiến độ khóa cho Member vào giữa chừng: buổi đã bắt đầu / buổi còn lại (không tính buổi bị hủy).
+        var progress = await db.Set<ClassSession>().AsNoTracking()
+            .Where(s => classIds.Contains(s.ClassId) && s.Status != ClassSessionStatus.Cancelled)
+            .GroupBy(s => s.ClassId)
+            .Select(g => new
+            {
+                ClassId = g.Key,
+                Passed = g.Count(s => s.StartAtUtc <= now),
+                Remaining = g.Count(s => s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc > now)
+            })
+            .ToDictionaryAsync(x => x.ClassId, ct);
 
         return rows.Select(r => new ClassPublicResponse(
             r.Class.ClassId,
@@ -625,7 +652,9 @@ public sealed class ClassService(
             r.FirstStart,
             rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [],
             r.Class.ThresholdStatus is ThresholdStatus.Met or ThresholdStatus.WaivedByManager
-                || r.Class.Status is ClassStatus.InProgress or ClassStatus.Completed
+                || r.Class.Status is ClassStatus.InProgress or ClassStatus.Completed,
+            progress.TryGetValue(r.Class.ClassId, out var p) ? p.Passed : 0,
+            progress.TryGetValue(r.Class.ClassId, out var p2) ? p2.Remaining : 0
         )).ToList();
     }
 

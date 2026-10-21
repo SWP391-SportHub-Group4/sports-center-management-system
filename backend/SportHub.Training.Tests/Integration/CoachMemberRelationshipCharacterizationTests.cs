@@ -104,7 +104,7 @@ public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFact
     public async Task Creating_relationship_with_class_based_source_type_is_rejected()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
-        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.GymCoach);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
 
@@ -116,15 +116,30 @@ public sealed class CoachMemberRelationshipCharacterizationTests(TrainingApiFact
     }
 
     [Fact]
+    public async Task Personal_training_relationship_source_is_rejected()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var coach = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+
+        var response = await client.PostAsJsonAsync(
+            "api/coach-member-relationships",
+            new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "Personal" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Non_manager_cannot_create_or_end_relationships()
     {
-        var coach = await factory.SeedCoachAsync(CoachKind.PersonalTrainer);
+        var coach = await factory.SeedCoachAsync(CoachKind.GymCoach);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var coachClient = factory.CreateApiClient(coach.UserId, UserRole.Coach);
 
         var response = await coachClient.PostAsJsonAsync(
             "api/coach-member-relationships",
-            new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "Personal" });
+            new CreateRelationshipRequest { CoachId = coach.UserId, MemberId = member.UserId, SourceType = "AssignedByManager" });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }

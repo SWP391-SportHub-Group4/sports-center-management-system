@@ -1,7 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { CoachChangeRequests } from "@/features/pt/coach-change-requests";
+import { CoachChangeRequests } from "@/features/coaching/coach-change-requests";
 import { useLanguage } from "@/lib/language";
 
 export default function CoachChangeRequestsPage() {

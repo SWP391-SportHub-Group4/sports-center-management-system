@@ -22,7 +22,7 @@ using Testcontainers.PostgreSql;
 namespace SportHub.Training.Tests.Integration;
 
 /// <summary>
-/// Ha tang test cua module Training (BE-4: PT entitlement/session) — cung mau voi
+/// Hạ tầng test của module Training cho Coach lớp nhóm — cùng mẫu với
 /// SchedulingApiFactory (PostgreSQL that qua Testcontainers, schema sinh bang chinh migration).
 /// </summary>
 public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
@@ -140,8 +140,7 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
     }
 
     /// <summary>
-    /// Coach voi chuyen mon tuong ung (thay CoachCategory cu): PersonalTrainer = chuyen mon Gym (sport 1) + qualification dich vu PT (offering 2), ClassInstructor = mon nhom
-    /// (sport 3). Can cho moi test RBAC/authorization cua PT.
+    /// Coach với chuyên môn Gym hoặc môn lớp nhóm để kiểm tra quyền theo môn.
     /// </summary>
     public async Task<UserAccount> SeedCoachAsync(
         CoachKind kind,
@@ -156,7 +155,7 @@ public sealed class TrainingApiFactory : WebApplicationFactory<Program>, IAsyncL
         db.UserSportSpecialties.Add(new UserSportSpecialty
         {
             UserId = coach.UserId,
-            SportId = kind == CoachKind.PersonalTrainer ? 1 : 3
+            SportId = kind == CoachKind.GymCoach ? 1 : 3
         });
         await db.SaveChangesAsync();
 
@@ -225,6 +224,6 @@ public sealed class TrainingApiCollection : ICollectionFixture<TrainingApiFactor
 /// <summary>Loai Coach dung trong test (thay enum CoachCategory da go): quyet dinh mon chuyen mon duoc seed.</summary>
 public enum CoachKind
 {
-    PersonalTrainer,
+    GymCoach,
     ClassInstructor
 }

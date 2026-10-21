@@ -241,9 +241,6 @@
   background: var(--k-bar, var(--color-primary));
   box-shadow: none;
 }
-.card[data-kind="pt"] .pips i[data-on] {
-  background: var(--chalk-950);
-}
 .card[data-tone="ended"] .pips i[data-on] {
   background: var(--chalk-400);
 }

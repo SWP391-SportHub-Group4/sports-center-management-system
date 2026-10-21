@@ -160,7 +160,10 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
             balance.RefundedAmount,
             balance.NetCollected,
             balance.NetPayable,
-            balance.Outstanding,
+            // A closed invoice cannot be paid again. A late VNPay capture may be
+            // compensated in wallet points without creating a Payment row, so the
+            // ledger balance alone would misleadingly show the original price due.
+            row.Status == InvoiceStatus.Issued ? balance.Outstanding : 0m,
             balance.RefundDue,
             row.Status.ToString(),
             row.IssuedAt,

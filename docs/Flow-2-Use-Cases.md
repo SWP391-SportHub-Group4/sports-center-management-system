@@ -147,9 +147,9 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 |---|---|
 | Tác nhân | Center Manager |
 | Mức ưu tiên | Required |
-| Tiền điều kiện | Khóa PUBLISHED; buổi đầu chưa bắt đầu. |
+| Tiền điều kiện | Khóa PUBLISHED hoặc IN_PROGRESS (đã có thể bắt đầu); còn buổi sắp tới. |
 | Luồng chính | 1. Mở quản lý khóa.<br>2. Chọn đóng hoặc mở đăng ký.<br>3. Hệ thống kiểm tra trạng thái và thời điểm.<br>4. Cập nhật khả năng nhận đăng ký và thông tin trên danh mục. |
-| Luồng thay thế / ngoại lệ | a. Đã bắt đầu, hoàn thành hoặc hủy: không mở đăng ký.<br>b. Hết chỗ vẫn không thể đăng ký dù trạng thái mở.<br>c. Đóng đăng ký không tự hủy đăng ký hoặc hóa đơn đã có. |
+| Luồng thay thế / ngoại lệ | a. Hoàn thành hoặc hủy: không mở đăng ký. Khóa đã bắt đầu vẫn mở được; Member vào giữa chừng, học từ buổi kế tiếp, trả giá trọn khóa.<br>b. Hết chỗ vẫn không thể đăng ký dù trạng thái mở.<br>c. Đóng đăng ký không tự hủy đăng ký hoặc hóa đơn đã có. |
 | Hậu điều kiện | Trạng thái nhận đăng ký được cập nhật; dữ liệu học viên hiện có giữ nguyên. |
 
 ### UC-F2-13 — Phân công hoặc thay coach
@@ -228,7 +228,7 @@ Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Khóa được công bố. |
 | Luồng chính | 1. Mở danh mục Classes & Packages.<br>2. Xem các khóa đang/sắp mở và trạng thái khả năng đăng ký.<br>3. Mở khóa để xem bộ môn, coach, học phí, lịch dự kiến và điều kiện.<br>4. Member xem lịch dự kiến cạnh lịch đã đăng ký/thuê sân.<br>5. Chọn đăng ký nếu đủ điều kiện. |
-| Luồng thay thế / ngoại lệ | a. Guest chọn đăng ký: yêu cầu đăng nhập Member.<br>b. DRAFT không xuất hiện.<br>c. Đã đăng ký, đóng đăng ký, hết chỗ hoặc đã bắt đầu: hiển thị rõ và không cho đăng ký lần hai. |
+| Luồng thay thế / ngoại lệ | a. Guest chọn đăng ký: yêu cầu đăng nhập Member.<br>b. DRAFT không xuất hiện.<br>c. Đã đăng ký, đóng đăng ký hoặc hết chỗ: hiển thị rõ và không cho đăng ký lần hai.<br>d. Khóa đã bắt đầu còn chỗ: vẫn cho đăng ký, thẻ khóa hiện "đã học X/N buổi, còn Y buổi"; hết chỗ thì không vào được dù đã qua bao nhiêu buổi. |
 | Hậu điều kiện | Người dùng có thông tin để quyết định; lịch xem trước không giữ chỗ. |
 
 ### UC-F2-20 — Xem đăng ký và lịch học cá nhân

@@ -121,7 +121,6 @@ const serviceTypes = [
   "MembershipAccess",
   "GroupCourse",
   "CourtRental",
-  "PersonalTraining",
 ];
 const lowerFirst = (key: string) => key.charAt(0).toLowerCase() + key.slice(1);
 const object = (value: unknown): value is Record<string, unknown> =>

@@ -19,13 +19,6 @@
   --k-solid: var(--wood-600);
   --k-on-solid: var(--white);
 }
-.tile[data-kind="pt"],
-.badge[data-kind="pt"] {
-  --k-tint: var(--chalk-950);
-  --k-ink: var(--volt-400);
-  --k-solid: var(--chalk-950);
-  --k-on-solid: var(--volt-400);
-}
 
 .tile {
   --emblem-accent: var(--k-ink);
@@ -35,9 +28,6 @@
   border-radius: var(--radius-lg);
   background: var(--k-tint);
   color: var(--k-ink);
-}
-.tile[data-kind="pt"] {
-  --emblem-accent: var(--volt-400);
 }
 
 .badge {

@@ -141,9 +141,7 @@ async function install(page: Page) {
                 checkInId: "c1",
                 memberId: userId,
                 checkInTime: new Date(Date.now() - 3_600_000).toISOString(),
-                checkOutTime: null,
                 checkedInByUserId: "r1",
-                checkedOutByUserId: null,
               },
             ]
           : [],

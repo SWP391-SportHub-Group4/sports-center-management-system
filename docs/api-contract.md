@@ -92,9 +92,7 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 
 | Verb | Route | Actor / contract |
 |---|---|---|
-| GET | `/api/gym-checkins/inside?page&pageSize` | FrontDesk; PagedResult gồm `checkInId,memberId,memberName,checkInTime`; chỉ lượt chưa checkout, pageSize tối đa 100. `staleOnly=true` chỉ trả lượt mở từ trước 00:00 hôm nay (giờ Việt Nam). |
-| POST | `/api/gym-checkins` | Receptionist; `{targetMemberId}`. Nếu Member còn lượt `CheckOutTime=null` (kể cả ngày trước), trả 409 `gym_already_checked_in`. Gym đóng vì các phòng Gym đều bị chặn thì trả 409 `gym_closed` cho cả quầy và self check-in. Không tạo thêm lượt; yêu cầu đồng thời chỉ một lượt thành công. Sau check-out được vào lại, không giới hạn số lượt trong ngày. |
-| POST | `/api/gym-checkins/{checkInId}/forgotten-checkout` | Receptionist; `{departedAtUtc, reason(3-500)}`. Chỉ cho lượt mở từ ngày trước (409 `gym_checkout_not_stale` nếu là hôm nay); giờ rời phải sau check-in và không ở tương lai; ghi audit `RESOLVE_FORGOTTEN_GYM_CHECKOUT`. |
+| POST | `/api/gym-checkins` | Receptionist; `{targetMemberId}`. Member cần gói Gym còn hiệu lực; Gym đóng trả 409 `gym_closed`. Mỗi Member chỉ được ghi thêm lượt sau ít nhất 10 giây; gửi đồng thời hoặc trong cooldown trả 409 `gym_checkin_cooldown`. Lịch sử chỉ ghi thời điểm vào, không có thao tác check-out. |
 | PUT | `/api/manager/coaches/{userId}` | Manager; bổ sung `fullName?` (2–100 ký tự, validator hiện có), `phone?` (đúng định dạng, unique); null giữ giá trị cũ, chuỗi phone rỗng xóa số. Không đổi email/role/UserStatus. |
 | GET | `/api/manager/classes?thresholdStatus=AT_RISK` | Manager; thêm filter threshold, giữ sport/lifecycle/search/pagination hiện có. Enum wire UPPER_SNAKE_CASE. |
 | GET | `/api/manager/classes/{classId}/holds` | Manager; paged `holdId,memberId,memberName,invoiceId,status,expiresAtUtc,createdAt`. |
@@ -132,7 +130,7 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 |---|---|---|
 | GET / PUT | `/api/users/me`, `/api/users/me/profile` | Thêm `sportIds: number[]`, nullable `approvalStatus`. Role UPPER_SNAKE_CASE. F5 refresh profile trước cấp quyền trên UI; regression Security đã pass. |
 | GET | `/api/membership-packages/public` | Anonymous, chỉ catalog active; endpoint quản trị/auth cũ giữ chính sách riêng. |
-| GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public chỉ Published. |
+| GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public gồm khóa Published và InProgress (nhận ghi danh giữa chừng khi còn chỗ). Mỗi khóa có `sessionsPassed` (buổi đã bắt đầu, không tính buổi hủy) và `sessionsRemaining` (buổi Scheduled sắp tới). Đăng ký/checkout lớp không bị chặn vì đã qua buổi nào; chỉ trả 409 `class_started` khi không còn buổi sắp tới. Giá luôn là cả khóa; hạn giữ chỗ không vượt quá giờ bắt đầu buổi kế tiếp. |
 | GET | `/api/classes/{classId}/public-sessions` | Anonymous, chỉ khóa Published, lịch buổi/room/coach không có roster/attendance. |
 | GET | `/api/members/me/classes/{classId}/sessions` | Member có ghi danh còn hiệu lực (`Confirmed`, chưa `EndedAt`) trong khóa Published/InProgress/Completed (xem lại lịch sử sau khi lớp kết thúc); khóa Cancelled/Draft hoặc ghi danh đã kết thúc trả 403 `class_access_ended`. Không trả roster. |
 | GET | `/api/coaches?sportId=` | Member/Receptionist/Manager: Coach active cùng specialty (`sportId`), chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
@@ -199,10 +197,13 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
+| `/api/checkouts/wallet-top-up` | `{points}` (1–10.000) | Chỉ Member tự nạp; 1 điểm = 1.000 VND, chỉ thanh toán VNPay. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
 
 `CheckoutResponse`: `{invoiceId,checkoutSessionId,revision,kind,state,totalAmount,pointsApplied,cashAmount,expiresAtUtc,resourceHoldId,invoiceStatus,fulfillmentOutcome,reconciliationRequired}`. Số tiền server quyết định; FE không tự đánh dấu paid từ redirect return hoặc chỉ từ `state`.
+
+Wallet top-up dùng checkout/invoice/attempt/IPN/QueryDR và ledger hiện có. Chỉ cộng điểm sau khi VNPay xác minh khoản thu; callback lặp không cộng lại. Member không thể dùng điểm để thanh toán top-up. Khoản thu xác minh sau khi checkout hết hạn vẫn cộng điểm vào đúng ví và ghi `PAID_AFTER_RECONCILIATION` với `FULFILLED`.
 
 | fulfillmentOutcome | Ý nghĩa |
 |---|---|
@@ -666,7 +667,6 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | POST | `api/class-sessions/{sessionId}/reschedule`, `.../cancel` | Manager | Kiểm lại room/coach/opening/capacity/lịch Member; hủy buộc có buổi bù hợp lệ. |
 | PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Receptionist | `{status:"Present"|"Absent"}`; từ 5 phút trước đầu buổi đến hết 24 giờ sau cuối buổi; ghi audit khi thay đổi. |
 | GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
-| POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
 
 `IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. Lớp nhóm không tự tạo Present/Absent; điểm danh do Receptionist hoặc Coach được phân công ghi.
 
@@ -688,7 +688,7 @@ Lỗi truyền tải QueryDR trả `502 vnp_query_http_error` (message chứa HT
 
 Request QueryDR gửi `User-Agent: SportHub/1.0` và `Accept: application/json`. Kiểm tra sandbox ngày 15/10/2026 cho thấy cùng POST JSON rỗng nhận HTTP 403 với HttpClient không có User-Agent, và HTTP 200 kèm JSON lỗi nghiệp vụ khi có header này; probe rỗng chỉ kiểm tra khả năng truy cập, không xác nhận một giao dịch thanh toán.
 
-Route ghi payment thủ công không còn tạo khoản thu mới. `PAID_AFTER_RECONCILIATION` biểu thị khoản thu muộn, cần đọc `fulfillmentOutcome`: `FULFILLED` khi reacquire/cấp quyền lợi được; `COMPENSATED` khi bồi hoàn điểm; `RECONCILIATION_REQUIRED` khi không thể đổi chính xác tiền thực thu sang điểm. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency. CourtRental dùng `/api/checkouts/court-rental`.
+Route ghi payment thủ công không còn tạo khoản thu mới. `PAID_AFTER_RECONCILIATION` biểu thị khoản thu muộn, cần đọc `fulfillmentOutcome`: `FULFILLED` khi reacquire/cấp quyền lợi được; `COMPENSATED` khi bồi hoàn điểm; `RECONCILIATION_REQUIRED` khi không thể đổi chính xác tiền thực thu sang điểm. Khi hold lớp hết hạn, thanh toán kết hợp điểm và VNPay không được tự tái giữ chỗ; hệ thống nhả điểm đã giữ và bù phần tiền VNPay thực thu vào ví theo 1.000đ/điểm. Hóa đơn đã đóng không còn số tiền cần thanh toán (`outstanding = 0`), còn `totalAmount` giữ nguyên giá trị đơn ban đầu. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency. CourtRental dùng `/api/checkouts/court-rental`.
 
 ## Phần H — P1.08 Refund bằng điểm
 

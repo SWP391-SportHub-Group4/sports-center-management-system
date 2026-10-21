@@ -103,12 +103,24 @@ public sealed class SeatHoldConcurrencyTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Completed_first_session_closes_sales_even_when_class_job_is_late()
+    public async Task Member_can_join_after_first_session_while_upcoming_sessions_remain()
     {
         var c = await CourseTestData.CreateAsync(factory);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var first = (await CourseTestData.SessionsAsync(factory, c.Id))[0];
         await factory.QueryAsync(db => db.ClassSessions.Where(s => s.SessionId == first.SessionId).ExecuteUpdateAsync(s => s
+            .SetProperty(x => x.StartAtUtc, DateTime.UtcNow.AddHours(-2)).SetProperty(x => x.EndAtUtc, DateTime.UtcNow.AddMinutes(-30))
+            .SetProperty(x => x.Status, ClassSessionStatus.Completed)));
+        await Reserve(c.Id, member.UserId);
+        Assert.Equal(1, await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id).Select(x => x.ReservedCount).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Sales_close_when_no_upcoming_session_remains()
+    {
+        var c = await CourseTestData.CreateAsync(factory);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        await factory.QueryAsync(db => db.ClassSessions.Where(s => s.ClassId == c.Id).ExecuteUpdateAsync(s => s
             .SetProperty(x => x.StartAtUtc, DateTime.UtcNow.AddHours(-2)).SetProperty(x => x.EndAtUtc, DateTime.UtcNow.AddMinutes(-30))
             .SetProperty(x => x.Status, ClassSessionStatus.Completed)));
         Assert.Equal("class_started", (await Assert.ThrowsAsync<ConflictException>(() => Reserve(c.Id, member.UserId))).ErrorCode);

@@ -86,7 +86,10 @@ function CheckoutFlow({
       ? (targetMemberId ?? checkout?.beneficiaryUserId)
       : undefined;
   const canSelectPoints =
-    !vnpayOnly && (user?.role === "Member" || user?.role === "Receptionist");
+    !vnpayOnly &&
+    checkout?.kind !== "WALLET_TOP_UP" &&
+    intent?.kind !== "wallet-top-up" &&
+    (user?.role === "Member" || user?.role === "Receptionist");
   // Điểm đang soạn gắn với revision: server đổi đơn (ví dụ ở tab khác) thì bản nháp cũ bị bỏ và ô
   // nhập quay về số điểm server đang áp dụng, thay vì ghi đè mù.
   const [draft, setDraft] = useState<{
@@ -112,11 +115,21 @@ function CheckoutFlow({
       : error?.cause instanceof ApiError &&
           error.cause.code === "member_schedule_conflict"
         ? t.apiErrors.memberScheduleConflict
-        : error?.cause instanceof Error
-          ? error.cause.message
-          : error
-            ? t.apiErrors.generic
-            : "";
+        : error?.cause instanceof ApiError &&
+            error.cause.code === "payment_already_started"
+          ? vi
+            ? "Đã chuyển sang cổng thanh toán nên không thể đổi điểm. Hãy hủy checkout nếu muốn chọn lại."
+            : "Payment has already started, so points cannot be changed. Cancel the checkout to choose again."
+          : error?.cause instanceof Error
+            ? error.cause.message
+            : error
+              ? t.apiErrors.generic
+              : "";
+  // Đã chuyển sang cổng VNPay: server chặn đổi điểm (payment_already_started) tới khi hủy/hết hạn.
+  // Khóa theo checkoutSessionId nên checkout mới (retry) tự mở khóa.
+  const [lockedSessionId, setLockedSessionId] = useState<string | null>(null);
+  const pointsLocked =
+    !!checkout && lockedSessionId === checkout.checkoutSessionId;
   const retryKey = useRef<string | null>(null);
   const key = useRef<string | null>(null);
   const alive = useRef(true);
@@ -383,7 +396,9 @@ function CheckoutFlow({
   const pointsValue = checkout ? checkout.totalAmount - checkout.cashAmount : 0;
   const showExpiredRetry =
     expired &&
-    ["MEMBERSHIP", "CLASS", "COURT_RENTAL"].includes(checkout?.kind ?? "") &&
+    ["MEMBERSHIP", "CLASS", "COURT_RENTAL", "WALLET_TOP_UP"].includes(
+      checkout?.kind ?? "",
+    ) &&
     checkout?.invoiceStatus === "ISSUED" &&
     !checkout.reconciliationRequired;
   function forgetRememberedInvoice() {
@@ -610,14 +625,22 @@ function CheckoutFlow({
                 wallet={wallet.data}
                 totalAmount={checkout.totalAmount}
                 pointsApplied={checkout.pointsApplied}
-                disabled={busy || !!confirmation}
+                disabled={busy || !!confirmation || pointsLocked}
               />
+              {pointsLocked && (
+                <p className={styles.note} role="status">
+                  {vi
+                    ? "Bạn đã chuyển sang cổng VNPay nên không thể đổi điểm. Hãy thanh toán tiếp, hoặc nhấn Hủy để tạo lại đơn và chọn số điểm khác."
+                    : "You have already gone to the VNPay gateway, so points can no longer be changed. Continue paying, or cancel the checkout to start over with a different amount."}
+                </p>
+              )}
               <div className={styles.actions}>
                 <Button
                   variant="secondary"
                   disabled={
                     busy ||
                     !validPoints ||
+                    pointsLocked ||
                     !!confirmation ||
                     (!!memberId && !counterReady)
                   }
@@ -643,12 +666,21 @@ function CheckoutFlow({
                         setConfirmation(result);
                         setResendAt(Date.now() + 60000);
                       } else
-                        await api.post(
-                          `/api/wallet/me/checkouts/${id}/points`,
-                          {
-                            points: Number(points),
-                          },
-                        );
+                        try {
+                          await api.post(
+                            `/api/wallet/me/checkouts/${id}/points`,
+                            {
+                              points: Number(points),
+                            },
+                          );
+                        } catch (e) {
+                          if (
+                            e instanceof ApiError &&
+                            e.code === "payment_already_started"
+                          )
+                            setLockedSessionId(checkout.checkoutSessionId);
+                          throw e;
+                        }
                       await refresh();
                     })
                   }
@@ -790,6 +822,7 @@ function CheckoutFlow({
                     } else {
                       const nextAttempt = await paymentApi.attempt(id!);
                       setAttempt(nextAttempt);
+                      setLockedSessionId(checkout.checkoutSessionId);
                       if (user?.role === "Member")
                         openPaymentGateway(nextAttempt);
                     }

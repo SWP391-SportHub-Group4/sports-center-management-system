@@ -372,9 +372,10 @@ test("receptionist queue keeps member links in its own workspace", async ({
   await expect(
     page.getByRole("link", { name: "Member An · an@example.com" }),
   ).toHaveAttribute("href", `/receptionist/members/${id}`);
+  // Lễ tân ghi yêu cầu ngay trên Today's desk, nên hàng đợi không còn nút "Record a request".
   await expect(
     page.getByRole("link", { name: "Record a request" }),
-  ).toHaveAttribute("href", "/receptionist/members");
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Assign", exact: true }),
   ).toBeVisible();

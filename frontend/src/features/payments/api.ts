@@ -1,7 +1,7 @@
 import { api } from "@/lib/apiClient";
 import type { CheckoutDto, PaymentAttemptDto } from "@/lib/types";
 export interface PurchaseIntent {
-  kind: "membership" | "class" | "court-rental";
+  kind: "membership" | "class" | "court-rental" | "wallet-top-up";
   body: Record<string, unknown>;
 }
 export const paymentApi = {

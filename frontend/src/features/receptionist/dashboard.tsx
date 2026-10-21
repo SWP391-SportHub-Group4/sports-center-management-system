@@ -2,27 +2,22 @@
 
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
-import { CreditCard, FileText, LogOut } from "lucide-react";
+import { CreditCard, FileText } from "lucide-react";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
 import { resolveMemberCode } from "@/components/MemberPicker";
 import { api } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { pagedItems } from "@/lib/paged";
 import {
   todayIso,
   formatTime,
 } from "@/lib/format";
-import { AsyncSection, Dialog, StatusChip } from "@/components/ui";
-import { UserAvatar } from "@/components/UserAvatar";
-import {
-  MutationFeedback,
-  Pagination,
-  useMutation,
-} from "@/features/operations";
+import { AsyncSection, StatusChip } from "@/components/ui";
 import { catalogApi } from "@/features/catalog";
 import { courseApi } from "@/features/courses";
+import { pagedItems } from "@/lib/paged";
 import type {
+  CourseEnrollmentDto,
   CourtScheduleEntryDto,
   InvoiceSummaryDto,
   Paged,
@@ -33,7 +28,6 @@ import { DeskSearchBar } from "./desk-search-bar";
 import { RegisterMemberDialog } from "./register-member";
 import { SelectedMemberPanel } from "./selected-member";
 import styles from "./desk.module.css";
-import { ForgottenGymVisits } from "./forgotten-gym-visits";
 
 export function RegistrationHint() {
   const { t } = useLanguage();
@@ -89,14 +83,6 @@ export function ReceptionDashboard() {
       }),
     [],
   );
-  const forgotten = useApi(
-    (signal) =>
-      api.get<Paged<unknown>>("/api/gym-checkins/inside", {
-        signal,
-        query: { staleOnly: true, page: 1, pageSize: 1 },
-      }),
-    [],
-  );
   const unfulfilled = useApi(
     (signal) =>
       api.get<Paged<unknown>>("/api/front-desk/payment-reconciliation", {
@@ -106,11 +92,39 @@ export function ReceptionDashboard() {
     [],
   );
   const now = useNow();
+  // Đã chọn Member: chỉ hiện lớp hôm nay mà Member này có ghi danh (Confirmed) để điểm danh đúng người.
+  const [showAllClasses, setShowAllClasses] = useState(false);
+  const memberId = member?.userId;
+  const memberClasses = useApi(
+    async (signal) =>
+      memberId
+        ? pagedItems(
+            await api.get<Paged<CourseEnrollmentDto>>(
+              `/api/members/${memberId}/enrollments`,
+              { signal, query: { page: 1, pageSize: 50 } },
+            ),
+          )
+            .filter((e) => e.status === "CONFIRMED" && !e.endedAt)
+            .map((e) => e.classId)
+        : null,
+    [memberId],
+  );
   const roomName = (id: number | null) =>
     rooms.data?.find((room) => room.roomId === id)?.name ?? null;
 
+  const memberClassIds = memberClasses.data
+    ? new Set(memberClasses.data)
+    : null;
+  const filterByMember = !!member && !showAllClasses;
   const sessions = (schedule.data ?? [])
     .filter((r) => r.sourceType === "CLASS_SESSION")
+    .filter(
+      (r) =>
+        !filterByMember ||
+        (memberClassIds !== null &&
+          r.classId !== null &&
+          memberClassIds.has(r.classId)),
+    )
     .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc));
   const rentals = (schedule.data ?? [])
     .filter(
@@ -124,10 +138,8 @@ export function ReceptionDashboard() {
   const liveCount = sessions.filter(
     (s) => Date.parse(s.startAtUtc) <= now && now < Date.parse(s.endAtUtc),
   ).length;
-  const forgottenCount = forgotten.data?.totalCount ?? 0;
   const invoiceCount = invoices.data?.totalCount ?? 0;
   const unfulfilledCount = unfulfilled.data?.totalCount ?? 0;
-  const [forgottenOpen, setForgottenOpen] = useState(false);
 
   return (
     <>
@@ -146,17 +158,6 @@ export function ReceptionDashboard() {
             vi
               ? "Hội viên đã thanh toán nhưng dịch vụ chưa được cấp"
               : "Member paid but the service was not granted"
-          }
-        />
-        <DeskCheck
-          onClick={() => setForgottenOpen(true)}
-          icon={<LogOut size={20} aria-hidden="true" />}
-          count={forgottenCount}
-          title={vi ? "Chưa check-out từ hôm trước" : "Still inside from earlier"}
-          hint={
-            vi
-              ? "Lượt Gym quên check-out, cần ghi giờ ra"
-              : "Gym visits never checked out; record the exit time"
           }
         />
         <DeskCheck
@@ -199,7 +200,30 @@ export function ReceptionDashboard() {
 
         <div className={styles.side}>
         <DeskPanel
-          title={l.sessionsToday}
+          title={
+            filterByMember
+              ? vi
+                ? "Lớp hôm nay của hội viên"
+                : "Member's classes today"
+              : l.sessionsToday
+          }
+          footer={
+            member ? (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => setShowAllClasses((v) => !v)}
+              >
+                {showAllClasses
+                  ? vi
+                    ? "Chỉ hiện lớp của hội viên"
+                    : "Show only this member's classes"
+                  : vi
+                    ? "Xem tất cả lớp hôm nay"
+                    : "Show all classes today"}
+              </button>
+            ) : undefined
+          }
           badge={
             liveCount > 0 ? (
               <StatusChip
@@ -215,7 +239,13 @@ export function ReceptionDashboard() {
           <AsyncSection state={schedule}>
             {() =>
               !sessions.length ? (
-                <p className={styles.empty}>{l.noSessionsToday}</p>
+                <p className={styles.empty}>
+                  {filterByMember
+                    ? vi
+                      ? "Hội viên này không có lớp nào hôm nay."
+                      : "This member has no classes today."
+                    : l.noSessionsToday}
+                </p>
               ) : (
                 <ol className={styles.rows}>
                   {sessions.map((s) => {
@@ -256,10 +286,6 @@ export function ReceptionDashboard() {
               )
             }
           </AsyncSection>
-        </DeskPanel>
-
-        <DeskPanel title={l.insideNow}>
-          <GymInside />
         </DeskPanel>
 
         <DeskPanel
@@ -307,18 +333,6 @@ export function ReceptionDashboard() {
         </div>
       </div>
 
-      {forgottenOpen && (
-        <Dialog
-          title={vi ? "Khách quên check-out" : "Forgotten Gym check-outs"}
-          size="md"
-          onClose={() => {
-            setForgottenOpen(false);
-            forgotten.reload();
-          }}
-        >
-          <ForgottenGymVisits />
-        </Dialog>
-      )}
     </>
   );
 }
@@ -423,110 +437,7 @@ function ClassSeats({ classId }: { classId: number | null }) {
   const confirmed = state.data.capacity - state.data.availableSeats;
   return (
     <span className={styles.seats}>
-      {language === "vi" ? "Sĩ số" : "Enrolled"} {confirmed}/{state.data.capacity}
+      {language === "vi" ? "Đã đặt chỗ" : "Booked"} {confirmed}/{state.data.capacity}
     </span>
-  );
-}
-
-function GymInside() {
-  const { language, t } = useLanguage();
-  const vi = language === "vi";
-  const l = t.frontDesk;
-  const [page, setPage] = useState(1);
-  const [filter, setFilter] = useState("");
-  const mutation = useMutation();
-  const state = useApi(
-    (signal) =>
-      api.get<
-        Paged<{
-          checkInId: string;
-          memberId: string;
-          memberName: string;
-          checkInTime: string;
-        }>
-      >("/api/gym-checkins/inside", { signal, query: { page, pageSize: 8 } }),
-    [page],
-  );
-  return (
-    <>
-      <AsyncSection state={state}>
-        {(data) => {
-          const all = pagedItems(data);
-          const needle = filter.trim().toLowerCase();
-          const rows = needle
-            ? all.filter((row) => row.memberName.toLowerCase().includes(needle))
-            : all;
-          return (
-            <>
-              <p className={styles.bigCount}>
-                <strong>{data.totalCount}</strong>
-                <span>{vi ? "đang tập" : "inside"}</span>
-              </p>
-              {all.length > 3 && (
-                <input
-                  type="search"
-                  className={styles.filter}
-                  aria-label={vi ? "Lọc người đang tập" : "Filter people inside"}
-                  placeholder={
-                    vi ? "Lọc theo tên trên trang này" : "Filter by name on this page"
-                  }
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                />
-              )}
-              {!all.length ? (
-                <p className={styles.empty}>{l.insideEmpty}</p>
-              ) : !rows.length ? (
-                <p className={styles.empty}>
-                  {vi ? "Không có ai khớp." : "Nobody matches."}
-                </p>
-              ) : (
-                <ul className={styles.rows}>
-                  {rows.map((row) => (
-                    <li key={row.checkInId} className={styles.row}>
-                      <UserAvatar
-                        userId={row.memberId}
-                        name={row.memberName}
-                        size={32}
-                      />
-                      <div className={styles.rowBody}>
-                        <strong>{row.memberName}</strong>
-                        <span>
-                          {vi ? "Vào lúc " : "In since "}
-                          {formatTime(row.checkInTime)}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn--secondary btn--sm"
-                        disabled={mutation.busy}
-                        onClick={async () => {
-                          if (
-                            await mutation.run(() =>
-                              api.post(
-                                `/api/gym-checkins/${row.checkInId}/checkout`,
-                              ),
-                            )
-                          )
-                            state.reload();
-                        }}
-                      >
-                        {vi ? "Check-out" : "Check out"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Pagination
-                page={page}
-                count={data.totalCount}
-                onChange={setPage}
-              />
-            </>
-          );
-        }}
-      </AsyncSection>
-      <MutationFeedback mutation={mutation} />
-    </>
   );
 }

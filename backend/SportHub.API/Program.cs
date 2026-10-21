@@ -66,7 +66,7 @@ var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordi
 if (seedCommands.Length > 0)
 {
     var cmd = seedCommands[0];
-    if (seedCommands.Length != 1 || cmd is not ("--seed-validation=true" or "--seed-validation" or "--seed-gym-six-months=true" or "--seed-gym-six-months" or "--seed-br141=true" or "--seed-br141"))
+    if (seedCommands.Length != 1 || cmd is not ("--seed-validation=true" or "--seed-validation" or "--seed-gym-six-months=true" or "--seed-gym-six-months" or "--seed-br141=true" or "--seed-br141" or "--seed-started-class=true" or "--seed-started-class"))
     {
         Console.Error.WriteLine("Use --seed-validation=true, --seed-gym-six-months=true or --seed-br141=true for explicit local setup.");
         Environment.ExitCode = 1;
@@ -455,6 +455,7 @@ builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<SystemValidationSeeder>();
 builder.Services.AddScoped<Br141Seeder>();
+builder.Services.AddScoped<StartedClassSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
@@ -477,6 +478,7 @@ if (seedCommands.Length > 0)
         var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
         var cmd = seedCommands[0];
         if (cmd is "--seed-br141=true" or "--seed-br141") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
+        else if (cmd is "--seed-started-class=true" or "--seed-started-class") await scope.ServiceProvider.GetRequiredService<StartedClassSeeder>().SeedAsync();
         else if (cmd is "--seed-gym-six-months=true" or "--seed-gym-six-months") await seeder.SeedGymSixMonthsAsync();
         else await seeder.SeedAsync();
     }

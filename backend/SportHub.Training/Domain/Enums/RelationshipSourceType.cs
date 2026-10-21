@@ -4,6 +4,6 @@ namespace SportHub.Training.Domain.Enums;
 public enum RelationshipSourceType
 {
     ClassBased,
-    Personal,
+    ReservedLegacySource = 1,
     AssignedByManager
 }

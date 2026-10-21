@@ -229,7 +229,7 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 3. Xác nhận nút đăng ký không dùng được; đăng ký/hóa đơn hiện có vẫn còn.
 4. Manager nhấn `Reopen enrollment`; Member reload và kiểm tra có thể đăng ký nếu còn chỗ.
 
-**Pass khi:** khả năng đăng ký thay đổi đúng, không hủy người đã đăng ký. **Test lỗi:** lớp đầy, đã bắt đầu, Completed hoặc Cancelled không được nhận đăng ký mới. Nếu gặp ghi chú `Waiting for API` cũ nhưng thao tác lỗi thật, lưu request/response và ghi Fail/Blocked theo nguyên nhân.
+**Pass khi:** khả năng đăng ký thay đổi đúng, không hủy người đã đăng ký. **Test lỗi:** lớp đầy, Completed, Cancelled hoặc không còn buổi sắp tới (`class_started`) không được nhận đăng ký mới. Lớp đã bắt đầu (IN_PROGRESS) còn chỗ **được** đăng ký giữa chừng: thẻ khóa ở Explore hiện số buổi đã học/còn lại, giá trọn khóa. Dữ liệu mẫu: chạy `--seed-started-class=true` (lớp `CAULONG-STARTED-01`, Thứ 3/5/7 06:00–08:00, bắt đầu 15/10/2026). Nếu gặp ghi chú `Waiting for API` cũ nhưng thao tác lỗi thật, lưu request/response và ghi Fail/Blocked theo nguyên nhân.
 
 #### UC-F2-13 — Thay coach
 

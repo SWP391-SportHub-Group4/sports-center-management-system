@@ -401,6 +401,12 @@ test("Gym purchase: expired plans hide ownership and the day pass can be bought 
 test("Gym purchase: unpaid and cancelled purchases do not count as paid history", async ({
   page,
 }) => {
+  const invoiceId = "55555555-5555-4555-8555-555555555555";
+  let checkoutPosts = 0;
+  await page.route("**/api/checkouts/membership", async (route) => {
+    checkoutPosts++;
+    await route.fulfill({ json: { invoiceId } });
+  });
   await page.route("**/api/members/me/packages", (route) =>
     route.fulfill({
       json: [
@@ -418,9 +424,12 @@ test("Gym purchase: unpaid and cancelled purchases do not count as paid history"
       .getByRole("button", { name: "Choose plan", exact: true }),
   ).toBeEnabled();
   await expect(
-    plans.getByRole("button", { name: "Awaiting payment", exact: true }),
-  ).toBeDisabled();
+    plans.getByRole("button", { name: "Continue payment", exact: true }),
+  ).toBeEnabled();
   await expect(plans.getByText(/^Purchased · Until/)).toHaveCount(0);
+  await plans.getByRole("button", { name: "Continue payment" }).click();
+  await expect(page).toHaveURL(new RegExp(`/checkout/${invoiceId}$`));
+  expect(checkoutPosts).toBe(1);
 });
 
 test("Gym purchase: day pass expires at Vietnam midnight while the page stays open", async ({
@@ -535,20 +544,6 @@ test.beforeEach(async ({ page }) => {
               isEnabled: true,
               defaultSessionMinutes: 90,
               defaultMaxCapacity: 12,
-            },
-          ],
-          isActive: true,
-        },
-        {
-          sportId: 2,
-          name: "PT",
-          code: "gym",
-          services: [
-            {
-              serviceType: "PERSONAL_TRAINING",
-              isEnabled: true,
-              defaultSessionMinutes: null,
-              defaultMaxCapacity: null,
             },
           ],
           isActive: true,

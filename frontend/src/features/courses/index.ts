@@ -4,3 +4,4 @@ export { CourseInterests } from "./course-interests";
 export { CourseCatalog, CourseDetail } from "./catalog";
 export { ThresholdPanel } from "./threshold";
 export { CourseSticker } from "./course-sticker";
+export { isCourseOpenForRegistration } from "./registration-state";

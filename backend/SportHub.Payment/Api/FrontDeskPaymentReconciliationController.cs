@@ -38,6 +38,8 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                                   on attempt.InvoiceId equals invoice.InvoiceId
                               where proof.ResponseCode == "00" && proof.TransactionStatus == "00"
                                   && proof.ProcessingStatus != "Fulfilled"
+                                  && proof.ProcessingStatus != "Compensated"
+                                  && proof.ProcessingStatus != "Failed"
                                   && (!memberId.HasValue || invoice.MemberId == memberId.Value)
                               orderby (invoice.HoldExpiresAtUtc ?? DateTime.MaxValue), proof.ProviderPaidAtUtc descending, attempt.PaymentAttemptId
                               select new FrontDeskReconciliationRow(invoice.InvoiceId, invoice.InvoiceNumber,
@@ -88,7 +90,11 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                            join a in db.Set<PaymentAttempt>().AsNoTracking()
                                on e.PaymentAttemptId equals a.PaymentAttemptId
                            where a.InvoiceId == invoiceId && e.ResponseCode == "00"
-                               && e.TransactionStatus == "00" && e.ProcessingStatus != "Fulfilled"
+                               && e.TransactionStatus == "00"
+                               && e.ProcessingStatus != "Fulfilled"
+                               && e.ProcessingStatus != "Compensated"
+                               && e.ProcessingStatus != "Failed"
+                               && e.ProcessingStatus != "ManualCompensationRequired"
                            orderby e.VerifiedAtUtc descending
                            select e.VerifiedGatewayEventId).FirstOrDefaultAsync(ct);
         if (proof != Guid.Empty)
@@ -101,7 +107,9 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
             return Ok(new { state = status });
         }
         var attemptId = await db.Set<PaymentAttempt>().AsNoTracking()
-            .Where(x => x.InvoiceId == invoiceId && (x.Status == PaymentAttemptStatus.Pending
+            .Where(x => x.InvoiceId == invoiceId && !db.Set<VerifiedGatewayEvent>().Any(e =>
+                    e.PaymentAttemptId == x.PaymentAttemptId)
+                && (x.Status == PaymentAttemptStatus.Pending
                 || x.Status == PaymentAttemptStatus.Expired
                 || x.Status == PaymentAttemptStatus.ReconciliationRequired))
             .OrderByDescending(x => x.CreatedAt).Select(x => (Guid?)x.PaymentAttemptId)

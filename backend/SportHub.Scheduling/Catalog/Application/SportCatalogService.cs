@@ -12,7 +12,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// <summary>
 /// CRUD môn thể thao và dịch vụ của môn (BR-106/107, CAT-01). Ngừng hoạt động thay cho xóa cứng; tắt môn hoặc dịch vụ
 /// chỉ chặn giao dịch mới, không đụng thứ đã bán. <c>code</c> không đổi được sau khi tạo.
-/// Membership/PT chỉ bật được ở môn tham chiếu Gym (<see cref="SportCodes.Gym"/>), kiểm ở backend.
+/// Membership chỉ bật được ở môn tham chiếu Gym (<see cref="SportCodes.Gym"/>), kiểm ở backend.
 /// </summary>
 public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit)
 {
@@ -230,7 +230,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         => await db.Set<Sport>().Include(s => s.Services).SingleOrDefaultAsync(s => s.SportId == sportId, ct)
            ?? throw new NotFoundException("sport_not_found", "Sport not found.");
 
-    /// <summary>Kiểm tập dịch vụ: loại hợp lệ, không trùng, mặc định đúng loại, Membership/PT chỉ ở Gym.</summary>
+    /// <summary>Kiểm tập dịch vụ: loại hợp lệ, không trùng, mặc định đúng loại, Membership chỉ ở Gym.</summary>
     private static List<SportServiceOffering> ValidateServices(string sportCode, IEnumerable<SaveSportServiceRequest> requested)
     {
         var result = new List<SportServiceOffering>();
@@ -282,7 +282,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         return result;
     }
 
-    /// <summary>Phần còn thiếu để GroupCourse/CourtRental bán được; Membership/PT có cấu hình riêng ở module khác.</summary>
+    /// <summary>Phần còn thiếu để GroupCourse/CourtRental bán được; Membership có cấu hình riêng ở module khác.</summary>
     private async Task<Dictionary<int, IReadOnlyList<ServiceReadinessResponse>>> ReadinessAsync(List<Sport> sports, CancellationToken ct)
     {
         var sportIds = sports.Select(s => s.SportId).ToList();

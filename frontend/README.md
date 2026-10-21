@@ -2,7 +2,7 @@
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**.
 
-Next.js App Router, React, TypeScript and CSS Modules. Routes in `src/app` use `src/lib/apiClient.ts`; canonical DTOs are in `src/lib/types.ts`. Feature modules (courses, catalog, payments, wallet, rentals, pt, reports, court-schedule, incidents) live in `src/features`. Financial states, ownership and authorization always come from the backend; the UI only mirrors them. API reference: [docs/api-contract.md](../docs/api-contract.md).
+Next.js App Router, React, TypeScript and CSS Modules. Routes in `src/app` use `src/lib/apiClient.ts`; canonical DTOs are in `src/lib/types.ts`. Feature modules (courses, catalog, payments, wallet, rentals, coaching, reports, court-schedule, incidents) live in `src/features`. Financial states, ownership and authorization always come from the backend; the UI only mirrors them. API reference: [docs/api-contract.md](../docs/api-contract.md).
 
 ## Checks
 

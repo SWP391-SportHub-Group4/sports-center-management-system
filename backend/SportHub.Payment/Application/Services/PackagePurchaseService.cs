@@ -77,6 +77,30 @@ public sealed class PackagePurchaseService(
                 return await invoiceQuery.GetDetailAsync(existing.InvoiceId, ct);
             }
         }
+        // Returning to the Gym catalog supplies a new client key. Reuse an unpaid
+        // checkout for the same plan while its original hold is still valid.
+        if (!request.AllowStacking && !string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            var resumableInvoiceId = await db.Set<CheckoutSession>().AsNoTracking()
+                .Where(s => s.Kind == "Membership" && s.State == "Active" && s.ExpiresAtUtc > now)
+                .Join(db.Set<Invoice>().AsNoTracking(), s => s.InvoiceId, i => i.InvoiceId,
+                    (s, i) => new { Session = s, Invoice = i })
+                .Join(db.Set<SportHub.Membership.Domain.Entities.MemberPackage>().AsNoTracking(),
+                    x => x.Invoice.MemberPackageId, p => (Guid?)p.MemberPackageId,
+                    (x, p) => new { x.Session, x.Invoice, Package = p })
+                .Where(x => x.Invoice.MemberId == request.MemberId && x.Package.PackageId == request.PackageId
+                    && x.Invoice.Status == InvoiceStatus.Issued
+                    && x.Invoice.CheckoutCycleId == x.Session.CheckoutSessionId
+                    && !x.Invoice.ReconciliationRequired)
+                .OrderByDescending(x => x.Session.CreatedAtUtc)
+                .Select(x => (Guid?)x.Invoice.InvoiceId)
+                .FirstOrDefaultAsync(ct);
+            if (resumableInvoiceId is Guid activeInvoiceId)
+            {
+                await transaction.CommitAsync(ct);
+                return await invoiceQuery.GetDetailAsync(activeInvoiceId, ct);
+            }
+        }
         var memberPackageId = await memberships.PrepareAsync(request.MemberId, request.PackageId,
             actorUserId, request.AllowStacking, request.StackingApprovalReason, ct);
         var invoice = new Invoice

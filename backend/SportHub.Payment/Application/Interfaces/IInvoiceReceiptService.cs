@@ -41,4 +41,10 @@ public sealed record InvoiceReceiptModel(
     string PaymentMethod,
     string PaymentStatus,
 
-    int RefundedPoints);
+    int RefundedPoints,
+    string? TransactionReference = null,
+    string? CenterPhone = null,
+    string? CenterEmail = null,
+    string? CenterAddress = null,
+    decimal Outstanding = 0m,
+    bool ShowCashier = false);

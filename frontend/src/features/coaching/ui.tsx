@@ -6,7 +6,7 @@ import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { operationsStyles as styles } from "@/features/operations";
 
-export function PtPage({
+export function StaffPage({
   title,
   manager = false,
   titleText,

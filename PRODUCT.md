@@ -12,7 +12,7 @@ web
 
 - **Hội viên (Member)**: Xem lớp/khóa học đa môn (Cầu lông, Bóng rổ...) và ghi danh có giữ chỗ; mua Membership Gym hoặc vé Gym 1 ngày (50.000đ, chỉ trong ngày); quản lý ví điểm và lịch sử điểm; xem lịch hôm nay/tuần, hóa đơn, thông báo; hỏi chatbot lịch tập; chuyển đổi ngôn ngữ EN / VI.
 - **Huấn luyện viên của trung tâm (Coach)**: Có chuyên môn theo môn; xem lịch dạy và roster lớp mình phụ trách. Coach cầu lông/bóng rổ lập kế hoạch tập, ghi kết quả, đánh giá học viên của lớp.
-- **Nhân viên lễ tân (Receptionist)**: Tìm và đăng ký Member tại quầy; Gym check-in/out; điểm danh lớp nhóm; checkout thay Member (dùng điểm phải có mã OTP gửi email Member); xem Court Schedule; hỗ trợ đối soát thanh toán.
+- **Nhân viên lễ tân (Receptionist)**: Tìm và đăng ký Member tại quầy; Gym check-in (cooldown 10 giây mỗi Member); điểm danh lớp nhóm; checkout thanh toán thay Member (dùng điểm phải có mã OTP gửi email Member); xem Court Schedule; hỗ trợ đối soát thanh toán.
 - **Quản lý trung tâm (Center Manager)**: Cấu hình môn, phòng/sân, giá thuê sân, Membership; tạo lớp và xếp lịch, phân công Coach theo chuyên môn, duyệt hoàn điểm, xử lý lớp dưới ngưỡng hoàn vốn, sự cố, báo cáo doanh thu, audit log.
 - **Quản trị hệ thống (System Administrator)**: Quản trị tài khoản nhân sự, phân quyền vai trò (RBAC), khóa/mở khóa tài khoản.
 - **Khách vãng lai (Public Guest)**: Xem trang chủ đa môn, danh sách lớp đang mở (giá, lịch, chỗ còn), lịch sân trống tổng quát; đăng ký Member.
@@ -34,7 +34,7 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 ## Capabilities and Constraints
 
 - **Danh mục môn và cơ sở vật chất**: Manager tự thêm/sửa môn (phạm vi sản phẩm: Gym, Cầu lông, Bóng rổ), phòng/sân, giờ hoạt động, khóa sân và giá thuê theo khung giờ.
-- **Ghi danh khóa học có giữ chỗ**: Checkout lớp giữ chỗ tối đa theo cấu hình Manager (10–30 phút, mặc định 15); hạn thực tế hiện trên đơn và có thể sớm hơn trước buổi đầu. Sĩ số không bao giờ vượt trần dù nhiều người đặt đồng thời.
+- **Ghi danh khóa học có giữ chỗ**: Checkout lớp giữ chỗ tối đa theo cấu hình Manager (10–30 phút, mặc định 15); hạn thực tế hiện trên đơn và có thể sớm hơn trước buổi sắp tới. Khóa đã bắt đầu vẫn nhận đăng ký giữa chừng khi còn chỗ (giá trọn khóa; thẻ khóa hiện số buổi đã qua). Sĩ số không bao giờ vượt trần dù nhiều người đặt đồng thời.
 - **Ngưỡng hoàn vốn**: Lớp chốt trước khai giảng N ngày; nếu dưới ngưỡng, học viên nhận email chọn chuyển lớp hoặc hoàn điểm trong thời hạn; Manager có thể miễn ngưỡng có lý do.
 - **Ví điểm và split payment**: Một hóa đơn có thể trả bằng điểm + VNPay-QR (ví dụ 300.000đ = 200 điểm + 100.000đ). Receptionist thanh toán thay Member bắt buộc có OTP email của Member (5 phút, tối đa 5 lần sai).
 - **Hoàn trả chỉ bằng điểm**: Không hoàn tiền mặt/chuyển khoản, không hoàn qua cổng thanh toán; Manager duyệt yêu cầu hoàn điểm.

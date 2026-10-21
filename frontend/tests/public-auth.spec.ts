@@ -10,8 +10,7 @@ async function mockCoachDashboard(page: Page) {
     if (
       path === "/api/notifications" ||
       path === "/api/coaches/me/classes" ||
-      path === "/api/coach-member-relationships" ||
-      path.includes("/pt-sessions")
+      path === "/api/coach-member-relationships"
     )
       return route.fulfill({ json: [] });
     return route.fulfill({

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Kiểm tra tĩnh cho quy chuẩn localization (docs/frontend-pt-manager-ux-redesign-plan.md, mục 4).
+ * Kiểm tra tĩnh cho quy chuẩn localization.
  *
  * Không kiểm tra parity key EN/VI ở đây — `vi.ts` đã được khai báo `: Translations` (kiểu của
  * `en.ts`) nên `tsc`/`npm run typecheck` đã chặn cứng việc thiếu/thừa key giữa hai ngôn ngữ.

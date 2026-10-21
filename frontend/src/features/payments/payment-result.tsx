@@ -59,11 +59,13 @@ export function PaymentResult({
   const description = cancelled
     ? "You cancelled this payment on VNPay and nothing was charged. Your order is still open, so you can pay again before it expires."
     : complete
-      ? checkout.kind === "COURT_RENTAL"
-        ? "Your court booking is confirmed. Your next session is waiting in My schedule."
-        : checkout.kind === "CLASS"
-          ? "You're registered. Your classes and lesson details are ready in My schedule."
-          : "Your membership is active. You're ready for your next workout."
+      ? checkout.kind === "WALLET_TOP_UP"
+        ? "Your points have been added to your wallet."
+        : checkout.kind === "COURT_RENTAL"
+          ? "Your court booking is confirmed. Your next session is waiting in My schedule."
+          : checkout.kind === "CLASS"
+            ? "You're registered. Your classes and lesson details are ready in My schedule."
+            : "Your membership is active. You're ready for your next workout."
       : compensated
         ? "This purchase could not be completed. The payment has been credited to your SportHub points wallet."
         : review
@@ -78,21 +80,29 @@ export function PaymentResult({
     if (complete) heading.current?.focus({ preventScroll: true });
   }, [complete]);
   const nextHref =
-    checkout.kind === "MEMBERSHIP"
-      ? "/member/services?tab=gym"
-      : "/member/schedule";
+    checkout.kind === "WALLET_TOP_UP"
+      ? "/member/finance?tab=wallet"
+      : checkout.kind === "MEMBERSHIP"
+        ? "/member/services?tab=gym"
+        : "/member/schedule";
   const nextLabel =
-    checkout.kind === "MEMBERSHIP" ? "View membership" : "View my schedule";
+    checkout.kind === "WALLET_TOP_UP"
+      ? "View points wallet"
+      : checkout.kind === "MEMBERSHIP"
+        ? "View membership"
+        : "View my schedule";
   const invoiceHref = `/member/finance?tab=invoices&invoice=${checkout.invoiceId}`;
   const payment = detail?.payments.find(
     (p) => p.status === "SUCCESS" || p.status === "SUCCEEDED",
   );
   const label =
-    checkout.kind === "COURT_RENTAL"
-      ? "Court booking"
-      : checkout.kind === "CLASS"
-        ? "Class registration"
-        : "Gym membership";
+    checkout.kind === "WALLET_TOP_UP"
+      ? "Points top-up"
+      : checkout.kind === "COURT_RENTAL"
+        ? "Court booking"
+        : checkout.kind === "CLASS"
+          ? "Class registration"
+          : "Gym membership";
 
   return (
     <section

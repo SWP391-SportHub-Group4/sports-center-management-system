@@ -264,9 +264,9 @@ test("reference changes show names without exposing UUIDs", async ({
     next = "33333333-3333-4333-8333-333333333333";
   await setup(page, [
     entry(
-      "pt",
-      "PtCoachChangeRequest",
-      "APPROVE_PT_COACH_CHANGE_REQUEST",
+      "class",
+      "Class",
+      "REASSIGN_CLASS_COACH",
       { coachId: old },
       { coachId: next, movedSessionIds: [], unmovedSessionIds: [] },
       {

@@ -23,7 +23,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import type { CourseDto } from "@/lib/types";
 import { ptApi } from "./api";
-import { PtPage } from "./ui";
+import { StaffPage } from "./ui";
 import { TeachingDetail } from "./coach-workspace";
 import { classSportTone } from "./class-identity";
 import styles from "./coach-class-page.module.css";
@@ -40,7 +40,7 @@ export function CoachClassPage({
   const vi = language === "vi";
   const state = useApi((signal) => ptApi.classes(signal), [classId]);
   return (
-    <PtPage
+    <StaffPage
       title="classes"
       titleText={
         state.data?.find((course) => course.classId === classId)?.name ??
@@ -75,7 +75,7 @@ export function CoachClassPage({
           );
         }}
       </AsyncSection>
-    </PtPage>
+    </StaffPage>
   );
 }
 

@@ -21,7 +21,7 @@ import {
   type ClassChangeRequest,
   type ClassChangeResolutionType,
   classChangeStyles as styles,
-} from "@/features/pt";
+} from "@/features/coaching";
 
 export function ManagerClassChangeRequests({
   onChanged,

@@ -60,7 +60,7 @@ export default function MemberWorkoutSuggestionsPage() {
     <main className={styles.page}>
       <header className={styles.hero}>
         <div className={styles.heroText}>
-          <span className={styles.eyebrow}><Sparkles size={15} aria-hidden="true" /> PERSONAL TRAINING</span>
+          <span className={styles.eyebrow}><Sparkles size={15} aria-hidden="true" /> WORKOUT SUGGESTIONS</span>
           <h1>Workout suggestions</h1>
           <p>Build a workout around your saved fitness profile and your activity over the last 30 days.</p>
         </div>

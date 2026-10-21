@@ -109,7 +109,7 @@ for (const status of ["ACTIVE", "PENDING_PAYMENT", "NONE"]) {
     ).toHaveCount(0);
     await expect(
       catalog.getByRole("heading", { name: "Gym PT recovery", exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     const existing = catalog
       .locator("article")
       .filter({ hasText: "Gym monthly" });
@@ -125,7 +125,7 @@ for (const status of ["ACTIVE", "PENDING_PAYMENT", "NONE"]) {
       await expect(
         status === "ACTIVE"
           ? page.getByText(/^In use · until/)
-          : page.getByText("Awaiting payment", { exact: true }),
+          : existing.getByRole("button", { name: "Continue payment" }),
       ).toBeVisible();
     }
     await page.screenshot({
