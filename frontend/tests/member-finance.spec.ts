@@ -202,7 +202,7 @@ test("zero balance does not break points selection", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("spinbutton")).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "Confirm payment", exact: true }),
+    page.getByRole("button", { name: "Pay with VNPay", exact: true }),
   ).toBeEnabled();
 });
 
@@ -212,7 +212,7 @@ test("expired hold stops payment actions", async ({ page }) => {
   });
   await page.goto(`/checkout/${id}`);
   await expect(
-    page.getByRole("button", { name: "Confirm payment", exact: true }),
+    page.getByRole("button", { name: "Pay with VNPay", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -220,12 +220,12 @@ test("finance tabs, invoice detail and legacy aliases", async ({ page }) => {
   await setup(page);
   await page.goto("/member/wallet");
   await expect(page).toHaveURL(/\/member\/finance\?tab=wallet/);
-  await expect(page.locator("#main-content h1")).toHaveText("Finance");
+  await expect(page.locator("#main-content h1")).toHaveText("Billing");
   await page.getByRole("tab", { name: "Invoices" }).click();
   await expect(page).toHaveURL(/tab=invoices/);
   await expect(page.getByText("INV-0001")).toBeVisible();
-  await page.getByRole("link", { name: "Details" }).click();
-  await expect(page).toHaveURL(`/member/invoices/${id}`);
+  await page.getByRole("link", { name: "INV-0001" }).click();
+  await expect(page).toHaveURL(`/member/finance?tab=invoices&invoice=${id}`);
   await expect(
     page.getByRole("cell", { name: "Badminton course" }),
   ).toBeVisible();
@@ -233,7 +233,7 @@ test("finance tabs, invoice detail and legacy aliases", async ({ page }) => {
     page.getByRole("link", { name: "Continue payment" }),
   ).toHaveAttribute("href", `/checkout/${id}`);
   await page.goto(`/member/invoices?invoiceId=${id}`);
-  await expect(page).toHaveURL(`/member/invoices/${id}`);
+  await expect(page).toHaveURL(`/member/finance?tab=invoices&invoice=${id}`);
 });
 
 test("member can review their point refund and open its invoice", async ({
@@ -247,7 +247,7 @@ test("member can review their point refund and open its invoice", async ({
   await expect(page.getByText("Membership cancellation")).toBeVisible();
   await expect(page.getByText("150", { exact: false })).toBeVisible();
   await page.getByRole("link", { name: "View invoice" }).click();
-  await expect(page).toHaveURL(`/member/invoices/${id}`);
+  await expect(page).toHaveURL(`/member/finance?tab=invoices&invoice=${id}`);
 });
 
 test("reloaded day-pass checkout explains validity and no refunds before payment", async ({
@@ -279,6 +279,8 @@ test("member downloads the invoice PDF through the authenticated endpoint", asyn
   });
   await page.goto(`/member/finance?tab=invoices&invoice=${id}`);
   const downloaded = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download PDF" }).click();
-  expect((await downloaded).suggestedFilename()).toBe("INV-0001.pdf");
+  await page.getByRole("button", { name: "Download invoice" }).click();
+  expect((await downloaded).suggestedFilename()).toBe(
+    `SportHub-invoice-${id}.pdf`,
+  );
 });

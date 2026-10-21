@@ -89,6 +89,7 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                 back={{
                   href: "/member/finance?tab=invoices",
                   label: f.backToInvoices,
+                  reloadDocument: true,
                 }}
                 title={s.invoiceNumber}
                 description={`${f.issuedAt}: ${formatDateTime(s.issuedAt)}`}

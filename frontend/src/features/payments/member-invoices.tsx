@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowRight, ReceiptText } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -25,7 +24,6 @@ const PAGE_SIZE = 10;
 export function MemberInvoices() {
   const { t } = useLanguage();
   const l = t.finance;
-  const router = useRouter();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [linkError, setLinkError] = useState("");
@@ -42,7 +40,7 @@ export function MemberInvoices() {
       })
       .then((d) => {
         if (!controller.signal.aborted)
-          router.replace(
+          window.location.replace(
             `/member/finance?tab=invoices&invoice=${d.summary.invoiceId}`,
           );
       })
@@ -50,7 +48,7 @@ export function MemberInvoices() {
         if (!controller.signal.aborted) setLinkError(error.message);
       });
     return () => controller.abort();
-  }, [router]);
+  }, []);
 
   const state = useApi(
     (signal) =>
@@ -135,12 +133,12 @@ export function MemberInvoices() {
                   return (
                     <li key={invoice.invoiceId} data-status={invoice.status}>
                       <div className={styles.invoiceMain}>
-                        <Link
+                        <a
                           className={styles.invoiceLink}
                           href={`/member/finance?tab=invoices&invoice=${invoice.invoiceId}`}
                         >
                           {invoice.invoiceNumber}
-                        </Link>
+                        </a>
                         <time dateTime={invoice.issuedAt}>
                           {formatDateTime(invoice.issuedAt)}
                         </time>
