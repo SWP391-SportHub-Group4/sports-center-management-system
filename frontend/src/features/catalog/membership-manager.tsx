@@ -1,4 +1,5 @@
 "use client";
+import { PackageMembers } from "./package-members";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
@@ -34,6 +35,7 @@ export function MembershipManager() {
   const mutation = useMutation();
   const [form, setForm] = useState(empty);
   const [editor, setEditor] = useState<{ id: number | null } | null>(null);
+  const [buyers, setBuyers] = useState<MembershipPackageDto | null>(null);
   const [activity, setActivity] = useState<MembershipPackageDto | null>(null);
   const edit = (p?: MembershipPackageDto) => {
     mutation.reset();
@@ -52,6 +54,9 @@ export function MembershipManager() {
   };
   return (
     <>
+      {buyers && (
+        <PackageMembers plan={buyers} onClose={() => setBuyers(null)} />
+      )}
       <CatalogPanel
         filters={<CatalogFilters filters={filters} />}
         actions={
@@ -91,6 +96,13 @@ export function MembershipManager() {
           ]}
           actions={(p) => (
             <>
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => setBuyers(p)}
+              >
+                View members
+              </button>
               <button
                 className="btn btn--secondary btn--sm"
                 disabled={mutation.busy}

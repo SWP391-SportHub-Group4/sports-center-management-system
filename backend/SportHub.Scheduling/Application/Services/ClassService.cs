@@ -80,6 +80,9 @@ public sealed class ClassService(
                 "Class not published.");
         }
 
+        if (open && entity.ConfirmedCount >= entity.Capacity)
+            throw new ConflictException("class_full", "Enrollment cannot open while the class is full.");
+
         if (entity.EnrollmentOpen == open)
         {
             await tx.CommitAsync(ct);
@@ -120,11 +123,16 @@ public sealed class ClassService(
                 $"Enrollment for \"{entity.Name}\" is temporarily closed because of an issue at the center: {trimmedReason} "
                 + "Your place and your sessions are unchanged. You can wait for the center to resolve it, or submit a refund request "
                 + "from your invoice and the manager will review it as a center-side issue.",
-                "SportHub - Course enrollment paused", ct);
+                "SportHub - Course enrollment paused", ct,
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Class", entity.Name), ("Status", "Enrollment temporarily closed"), ("Reason", trimmedReason!))
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("Your place and your sessions are unchanged.")
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("You can wait for the center to resolve the issue, or submit a refund request from your invoice for the manager to review."));
         else if (open && !string.IsNullOrEmpty(hadClosureReason))
             await NotifyEnrolledAsync(entity, NotificationEvents.ClassEnrollmentReopened,
                 $"The issue affecting \"{entity.Name}\" has been resolved and enrollment is open again. Your course continues as normal.",
-                "SportHub - Course enrollment reopened", ct);
+                "SportHub - Course enrollment reopened", ct,
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Class", entity.Name), ("Status", "Enrollment reopened"))
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("The issue has been resolved. Your course continues as normal."));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -132,7 +140,7 @@ public sealed class ClassService(
         return await GetManagerAsync(classId, ct);
     }
 
-    private async Task NotifyEnrolledAsync(Class course, string eventType, string message, string subject, CancellationToken ct)
+    private async Task NotifyEnrolledAsync(Class course, string eventType, string message, string subject, CancellationToken ct, string? emailBody = null)
     {
         var memberIds = await db.Set<Enrollment>().AsNoTracking()
             .Where(e => e.ClassId == course.ClassId && e.Status == EnrollmentStatus.Confirmed)
@@ -145,7 +153,7 @@ public sealed class ClassService(
             var recipient = await users.GetAsync(memberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email, eventType, eventId,
-                    subject, "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                    subject, emailBody ?? SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message)));
         }
     }
 
@@ -189,11 +197,13 @@ public sealed class ClassService(
     }
 
     public async Task<PagedResult<ClassManagerResponse>> ListManagerAsync(
-        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null)
+        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null, Guid? coachId = null)
     {
         (page, pageSize) = Normalize(page, pageSize);
 
         var query = db.Set<Class>().AsNoTracking();
+
+        if (coachId is Guid coach) query = query.Where(c => c.CoachId == coach || c.Sessions.Any(s => s.CoachId == coach && s.Status != ClassSessionStatus.Cancelled));
 
         if (!string.IsNullOrWhiteSpace(thresholdStatus))
         {
@@ -453,6 +463,10 @@ public sealed class ClassService(
         }
 
         entity.Status = ClassStatus.Published;
+        entity.PublishedAtUtc = clock.UtcNow;
+        entity.EnrollmentOpen = true;
+        entity.EnrollmentClosedReason = null;
+        entity.EnrollmentClosedAtUtc = null;
         entity.PublishedAt = now;
         entity.BreakEvenThreshold = threshold;
         entity.ThresholdStatus = ThresholdStatus.NotEvaluated;
@@ -466,6 +480,7 @@ public sealed class ClassService(
             NewValue: JsonSerializer.Serialize(new
             {
                 status = ClassStatus.Published.ToString(),
+                enrollmentOpen = true,
                 sessions = sessions.Count,
                 breakEvenThreshold = threshold,
                 thresholdDeadlineUtc = entity.ThresholdDeadlineUtc
@@ -603,7 +618,7 @@ public sealed class ClassService(
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.Price,
             r.Class.Status.ToString(),
-            r.Class.EnrollmentOpen && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
+            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > now && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now),
             r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now,
@@ -644,7 +659,7 @@ public sealed class ClassService(
             r.ActiveHolds,
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.CreatedByAi,
-            r.Class.EnrollmentOpen,
+            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > clock.UtcNow,
             r.Class.EnrollmentClosedReason,
             r.Class.EnrollmentClosedAtUtc,
             r.Class.Version,

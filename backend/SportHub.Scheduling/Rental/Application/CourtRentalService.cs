@@ -37,7 +37,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var room = await (from r in db.Set<Room>().AsNoTracking()
                           join link in db.Set<SportRoomType>().AsNoTracking() on r.RoomTypeId equals link.RoomTypeId
                           where r.RoomId == request.RoomId && r.IsActive && link.SportId == request.SportId
-                              && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive)
+                              && (r.SportId == null || r.SportId == request.SportId)
+                              && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && (r.SportId != null || t.IsActive))
                           select r).SingleOrDefaultAsync(cancellationToken)
             ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
         if (room.RoomTypeId is not int roomTypeId)

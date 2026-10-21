@@ -11,6 +11,7 @@ import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { catalogApi } from "@/features/catalog";
+import type { ManagerCourseDto } from "@/lib/types";
 import {
   classChangeApi,
   changeTypeLabel,
@@ -232,9 +233,20 @@ function ReviewDrawer({
   const vi = language === "vi";
   const action = useAction();
   const lock = useRef(false);
-  const [type, setType] = useState<ClassChangeResolutionType | "REJECT" | "">(
-    r.type === "ABSENCE" ? "" : r.type,
+  const course = useApi(
+    (signal) =>
+      api.get<ManagerCourseDto>(`/api/manager/classes/${r.classId}`, {
+        signal,
+      }),
+    [r.classId],
   );
+  const [requestedType, setType] = useState<
+    ClassChangeResolutionType | "REJECT" | ""
+  >(r.type === "ABSENCE" ? "" : r.type);
+  const type =
+    requestedType === "CANCEL_WITH_MAKEUP" && course.data?.confirmedCount !== 0
+      ? "RESCHEDULE"
+      : requestedType;
   const [note, setNote] = useState("");
   const [start, setStart] = useState(
     r.proposedStartAtUtc ? vietnamLocal(r.proposedStartAtUtc) : "",
@@ -394,13 +406,17 @@ function ReviewDrawer({
                 <option value="" disabled>
                   Select a resolution
                 </option>
-                {(
-                  ["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const
-                ).map((id) => (
-                  <option key={id} value={id}>
-                    {changeTypeLabel(id, vi)}
-                  </option>
-                ))}
+                {(["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const)
+                  .filter(
+                    (id) =>
+                      id !== "CANCEL_WITH_MAKEUP" ||
+                      course.data?.confirmedCount === 0,
+                  )
+                  .map((id) => (
+                    <option key={id} value={id}>
+                      {changeTypeLabel(id, vi)}
+                    </option>
+                  ))}
                 <option value="REJECT">
                   {vi ? "Từ chối yêu cầu" : "Reject request"}
                 </option>

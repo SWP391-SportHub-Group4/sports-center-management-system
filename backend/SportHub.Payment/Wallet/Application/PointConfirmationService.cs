@@ -60,7 +60,9 @@ public sealed class PointConfirmationService(
         notifications.QueueEmail(new EmailNotificationRequest(memberId, member.Email,
             NotificationEvents.PointConfirmationOtpRequested, confirmation.PointConfirmationId,
             "SportHub points confirmation code",
-            $"<p>Use this code to confirm {points} points for invoice {System.Net.WebUtility.HtmlEncode(invoice.InvoiceNumber)}: <strong>{code}</strong></p>"
+            SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Invoice", invoice.InvoiceNumber), ("Points to confirm", points.ToString()))
+            + "<p>Your confirmation code:</p>"
+            + $"<p style=\"font-size:28px;font-weight:bold;letter-spacing:4px;padding:16px;background:#f2f4ed;text-align:center;\"><strong>{code}</strong></p>"
             + $"<p>The code is valid for up to {otpMinutes} minutes. Do not share it outside this reception transaction.</p>"));
         audit.Write(new AuditEntry(receptionistId, "REQUEST_POINT_CONFIRMATION", nameof(Invoice), invoiceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { memberId, points, confirmation.PointConfirmationId })));

@@ -1,4 +1,3 @@
-using System.Text.Encodings.Web;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -61,8 +60,7 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
             RecipientCount = users.Count, RecipientsJson = JsonSerializer.Serialize(users.OrderBy(x => x.Name).ThenBy(x => x.UserId))
         });
 
-        var body = "<h2>" + HtmlEncoder.Default.Encode(safeSubject) + "</h2><p>"
-            + HtmlEncoder.Default.Encode(safeMessage).Replace("\r\n", "\n").Replace("\n", "<br>") + "</p>";
+        var body = SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(safeMessage);
         foreach (var user in users)
         {
             if (request.SendInApp)

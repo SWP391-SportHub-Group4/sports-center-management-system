@@ -75,11 +75,11 @@ export function ThresholdPanel({
             <dd>{formatDateTime(course.thresholdDeadlineUtc)}</dd>
           </div>
           <div>
-            <dt>{l.price}</dt>
+            <dt>{t.classWorkspace.price}</dt>
             <dd>{formatMoney(course.price)}</dd>
           </div>
           <div>
-            <dt>{l.cost}</dt>
+            <dt>{t.classWorkspace.cost}</dt>
             <dd>{formatMoney(course.costAmount)}</dd>
           </div>
         </dl>
@@ -222,7 +222,7 @@ export function ThresholdPanel({
                 {action === "pricing" && (
                   <>
                     <div className="form-grid">
-                      <Field label={l.price} hint={l.classPriceHint}>
+                      <Field label={t.classWorkspace.price}>
                         <input
                           required
                           type="number"
@@ -232,7 +232,7 @@ export function ThresholdPanel({
                           onChange={(e) => setPrice(Number(e.target.value))}
                         />
                       </Field>
-                      <Field label={l.cost} hint={l.classCostHint}>
+                      <Field label={t.classWorkspace.cost}>
                         <input
                           required
                           type="number"

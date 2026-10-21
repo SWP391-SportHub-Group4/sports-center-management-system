@@ -23,26 +23,27 @@
 @media (min-width: 768px) {
   .memberTable table {
     table-layout: fixed;
-    min-width: 1050px;
+    min-width: 700px;
   }
   .memberTable table :is(th, td):nth-child(1) {
     width: 23%;
   }
   .memberTable table :is(th, td):nth-child(2) {
-    width: 47%;
+    width: 30%;
   }
   .memberTable table :is(th, td):nth-child(3) {
     width: 17%;
   }
   .memberTable table :is(th, td):nth-child(4) {
-    width: 13%;
+    width: 30%;
   }
   .memberTable table :is(th, td) {
-    white-space: nowrap;
+    white-space: normal;
   }
   .memberTable table td > div {
     max-width: none;
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 }
 .relationshipDetails {
@@ -87,4 +88,16 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+.actions > p {
+  flex-basis: 100%;
+  margin: 0;
 }

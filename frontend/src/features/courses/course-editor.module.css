@@ -1,0 +1,61 @@
+.arrowButton:global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  transition:
+    var(--transition-colors),
+    box-shadow 160ms var(--ease-out);
+}
+
+.arrowButton:global(.btn) svg {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  transition: transform 160ms var(--ease-out);
+}
+
+.arrowButton:global(.btn):is(:hover, :focus-visible):not(:disabled) {
+  box-shadow: var(--shadow-sm);
+}
+
+.arrowButton[data-direction="previous"]:is(:hover, :focus-visible):not(
+    :disabled
+  )
+  svg {
+  transform: translateX(-3px);
+}
+
+.arrowButton[data-direction="next"]:is(:hover, :focus-visible):not(:disabled)
+  svg {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrowButton:global(.btn),
+  .arrowButton:global(.btn) svg {
+    transition: none;
+  }
+
+  .arrowButton[data-direction]:is(:hover, :focus-visible):not(:disabled) svg {
+    transform: none;
+  }
+}
+
+button.cancelButton:global(.btn):not(:disabled) {
+  background: #e0340d;
+  color: var(--white);
+  border-color: transparent;
+}
+
+button.cancelButton:global(.btn):hover:not(:disabled) {
+  background: color-mix(in srgb, #e0340d, black 12%);
+}
+
+button.cancelButton:global(.btn):active:not(:disabled) {
+  background: color-mix(in srgb, #e0340d, black 20%);
+}

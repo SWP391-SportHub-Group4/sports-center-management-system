@@ -12,6 +12,7 @@ public sealed class CourseInterestConfiguration : IEntityTypeConfiguration<Cours
         b.HasKey(x => x.InterestId);
         b.HasIndex(x => x.ThresholdResponseId).IsUnique();
         b.HasIndex(x => new { x.MemberId, x.Active });
+        b.HasIndex(x => new { x.MemberId, x.SportId }).IsUnique().HasFilter("active = TRUE");
         b.HasIndex(x => new { x.SportId, x.CancelledAtUtc });
         b.HasOne<SportHub.Scheduling.Catalog.Domain.Sport>().WithMany().HasForeignKey(x => x.SportId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<Class>().WithMany().HasForeignKey(x => x.SourceClassId).OnDelete(DeleteBehavior.Restrict);

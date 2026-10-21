@@ -9,7 +9,8 @@ public sealed class CreateRentalCourtRequest
     public string Name { get; set; } = string.Empty;
     [Range(1, 500)]
     public int Capacity { get; set; }
-    [Range(1, int.MaxValue)]
+    // Optional legacy compatibility key; new clients choose Sport only.
+    [Range(0, int.MaxValue)]
     public int RoomTypeId { get; set; }
     [Range(1, int.MaxValue)]
     public int SportId { get; set; }

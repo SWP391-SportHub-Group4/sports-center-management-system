@@ -18,6 +18,24 @@ namespace SportHub.Payment.Tests.Integration;
 [Collection(nameof(PaymentApiCollection))]
 public sealed class RentalCourtSetupTests(PaymentApiFactory factory)
 {
+    [Fact]
+    public async Task Sport_only_setup_creates_a_court_without_user_managed_room_type()
+    {
+        var template = await RequestAsync();
+        var sportId = await factory.QueryAsync(async db => {
+            var sport = new Sport {Code = "direct_" + Guid.NewGuid().ToString("N")[..12], Name = "Direct sport " + Guid.NewGuid(), IsActive = true};
+            db.Set<Sport>().Add(sport); await db.SaveChangesAsync(); return sport.SportId;
+        });
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var response = await client.PostAsJsonAsync("/api/rooms/rental", new {template.Name, template.Capacity, sportId, template.Hours, template.Rates});
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var court = (await response.Content.ReadFromJsonAsync<RoomResponse>())!;
+        Assert.Equal(sportId, court.SportId);
+        Assert.True(await factory.QueryAsync(db => db.Set<SportRoomType>().AnyAsync(l => l.SportId == sportId && l.RoomTypeId == court.RoomTypeId)));
+        Assert.True(await factory.QueryAsync(db => db.Set<CourtRate>().AnyAsync(r => r.RoomId == court.RoomId && r.SportId == sportId)));
+    }
+
     private async Task<CreateRentalCourtRequest> RequestAsync()
     {
         return await factory.QueryAsync(async db =>

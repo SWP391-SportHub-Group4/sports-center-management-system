@@ -13,7 +13,7 @@ public interface IClassService
     Task<ClassPublicResponse> GetPublicAsync(int classId, CancellationToken ct = default);
 
     Task<PagedResult<ClassManagerResponse>> ListManagerAsync(
-        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null);
+        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null, Guid? coachId = null);
 
     Task<ClassManagerResponse> GetManagerAsync(int classId, CancellationToken ct = default);
 

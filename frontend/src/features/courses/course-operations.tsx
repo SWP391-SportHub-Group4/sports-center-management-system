@@ -300,10 +300,18 @@ export function CourseCancellation({
           <p>
             {l.refundTotal}: {review.refundPoints}
           </p>
-          {!review.canCancel && <p role="alert">{l.courseCancelBlocked}</p>}
+          {(!review.canCancel || review.confirmedCount > 0) && (
+            <p role="alert">
+              {review.confirmedCount > 0
+                ? t.classWorkspace.enrolledCancellationBlocked
+                : l.courseCancelBlocked}
+            </p>
+          )}
           <button
             className="btn btn--danger"
-            disabled={mutation.busy || !review.canCancel}
+            disabled={
+              mutation.busy || !review.canCancel || review.confirmedCount > 0
+            }
             onClick={async () => {
               const ok = await mutation.run(() =>
                 api.post(`/api/manager/classes/${classId}/cancel`, {

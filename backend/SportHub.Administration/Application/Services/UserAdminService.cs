@@ -328,6 +328,23 @@ public sealed class UserAdminService(
 
         if (currentRole == targetRole)
         {
+            // Saving an existing Coach can update specialties without changing the role or sessions.
+            if (currentRole == UserRole.Coach && request.SportIds is not null)
+            {
+                var sportIds = await specialties.ValidateAsync(request.SportIds, ct);
+                var before = await specialties.ReplaceAsync(userId, sportIds, ct);
+                if (!before.SequenceEqual(sportIds))
+                {
+                    audit.Write(new AuditEntry(
+                        actorUserId, AccountAuditActions.UpdateCoachSpecialties, nameof(UserAccount), userId.ToString(),
+                        OldValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds = before }),
+                        NewValue: System.Text.Json.JsonSerializer.Serialize(new { sportIds }),
+                        Reason: request.Reason.Trim()));
+                    // Existing class assignments are preserved, matching Manager specialty updates.
+                    await db.SaveChangesAsync(ct);
+                    await tx.CommitAsync(ct);
+                }
+            }
             return await GetAsync(userId, ct);
         }
 

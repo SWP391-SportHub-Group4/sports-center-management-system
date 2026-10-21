@@ -164,6 +164,7 @@ export interface PaymentAttemptDto {
 }
 
 export interface RoomDto {
+  sportId?: number | null;
   roomTypeId: number | null;
   isActive: boolean;
   roomId: number;
