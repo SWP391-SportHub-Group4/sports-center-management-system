@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { isRetiredActivityPackage } from "@/features/membership";
 import { rentalApi } from "@/features/rentals";
@@ -12,9 +18,12 @@ import type {
   CourseEnrollmentDto,
   CourtRentalDto,
   MemberPackageDto,
+  Paged,
   SportDto,
   ThresholdResponseDto,
+  UserAdminDto,
 } from "@/lib/types";
+import { pagedItems } from "@/lib/paged";
 import { memberEnrollments } from "./api";
 import { RefundCancelDialog } from "@/features/payments";
 import { ServiceEmblem } from "./service-emblem";
@@ -47,6 +56,9 @@ interface Owned {
   node: (index: number) => ReactNode;
 }
 
+/** Quầy: xem dịch vụ của Member đang chọn, không có thao tác (hủy, xem chi tiết) vì thuộc khu Member. */
+const ReadOnlyContext = createContext(false);
+
 const SOON_GYM_DAYS = 14;
 const SOON_CLASS_SESSIONS = 2;
 
@@ -57,44 +69,71 @@ function exploreHref(kind: ServiceKind, extra = "") {
 export function MyServices({
   filter,
   onFilter,
-  gymPackageId,
+  gymPackageId = "",
+  staffMember,
 }: {
   filter: FilterValue;
   onFilter: (next: FilterValue) => void;
-  gymPackageId: string;
+  gymPackageId?: string;
+  /** Có giá trị = chế độ quầy: đọc dịch vụ của Member này, chỉ xem. */
+  staffMember?: UserAdminDto;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const now = useNow();
+  const staffId = staffMember?.userId;
 
   const packages = useApi(
     async (signal) =>
       (
-        await api.get<MemberPackageDto[]>("/api/members/me/packages", {
-          signal,
-        })
+        await api.get<MemberPackageDto[]>(
+          staffId
+            ? `/api/members/${staffId}/packages`
+            : "/api/members/me/packages",
+          { signal },
+        )
       ).filter((row) => !isRetiredActivityPackage(row.packageName)),
-    [],
+    [staffId],
   );
-  const enrollments = useApi(memberEnrollments, []);
+  const enrollments = useApi(
+    async (signal) =>
+      staffId
+        ? pagedItems(
+            await api.get<Paged<CourseEnrollmentDto>>(
+              `/api/members/${staffId}/enrollments`,
+              { signal, query: { page: 1, pageSize: 50 } },
+            ),
+          )
+        : memberEnrollments(signal),
+    [staffId],
+  );
   const thresholds = useApi(
     (signal) =>
-      api
-        .get<ThresholdResponseDto[]>("/api/class-threshold-responses/mine", {
-          signal,
-        })
-        .catch(() => [] as ThresholdResponseDto[]),
-    [],
+      staffId
+        ? Promise.resolve([] as ThresholdResponseDto[])
+        : api
+            .get<ThresholdResponseDto[]>(
+              "/api/class-threshold-responses/mine",
+              {
+                signal,
+              },
+            )
+            .catch(() => [] as ThresholdResponseDto[]),
+    [staffId],
   );
   const rentals = useApi(
-    (signal) =>
-      rentalApi.mine(
-        new Date(Date.now() - 7 * 86_400_000).toISOString(),
-        new Date(Date.now() + 24 * 86_400_000).toISOString(),
-        signal,
-      ),
-    [],
+    (signal) => {
+      const from = new Date(Date.now() - 7 * 86_400_000).toISOString();
+      const to = new Date(Date.now() + 24 * 86_400_000).toISOString();
+      return staffId
+        ? api.get<CourtRentalDto[]>(`/api/members/${staffId}/court-rentals`, {
+            signal,
+            query: { fromUtc: from, toUtc: to },
+          })
+        : rentalApi.mine(from, to, signal);
+    },
+    [staffId],
   );
   const sports = useApi(
     (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
@@ -244,7 +283,12 @@ export function MyServices({
     return (
       <div className={styles.page} aria-busy="true">
         <p className={styles.status} role="status">
-          {tx("Đang tải dịch vụ của bạn…", "Loading your services…")}
+          {staffId
+            ? tx(
+                "Đang tải dịch vụ của hội viên…",
+                "Loading the member's services…",
+              )
+            : tx("Đang tải dịch vụ của bạn…", "Loading your services…")}
         </p>
       </div>
     );
@@ -267,6 +311,18 @@ export function MyServices({
             {tx("Tải lại", "Reload")}
           </button>
         </div>
+      </div>
+    );
+
+  if (!items.length && staffId)
+    return (
+      <div className={styles.page}>
+        <p className={styles.status} role="status">
+          {tx(
+            "Hội viên này chưa có dịch vụ nào.",
+            "This member has no services yet.",
+          )}
+        </p>
       </div>
     );
 
@@ -304,66 +360,73 @@ export function MyServices({
     ? items.find((item) => item.id === `gym:${selectedGym.memberPackageId}`)
     : undefined;
   return (
-    <div className={styles.page}>
-      <div className={styles.toolbar}>
-        <TypeFilter
-          value={filter}
-          onChange={onFilter}
-          counts={counts}
-          vi={vi}
-          label={tx("Lọc theo loại dịch vụ", "Filter by service type")}
-        />
-      </div>
+    <ReadOnlyContext.Provider value={!!staffId}>
+      <div className={styles.page}>
+        <div className={styles.toolbar}>
+          <TypeFilter
+            value={filter}
+            onChange={onFilter}
+            counts={counts}
+            vi={vi}
+            label={tx("Lọc theo loại dịch vụ", "Filter by service type")}
+          />
+        </div>
 
-      {selectedGym && selectedItem ? (
-        <>
-          <div className={styles.list}>{selectedItem.node(0)}</div>
-          <GymPackageDetails pkg={selectedGym} />
-        </>
-      ) : gymPackageId ? (
-        <p className={styles.status} role="alert">
-          {tx("Không tìm thấy gói Gym này.", "This Gym membership could not be found.")}
-        </p>
-      ) : !visible.length ? (
-        <section className={styles.emptyFilter}>
-          <p>
+        {selectedGym && selectedItem ? (
+          <>
+            <div className={styles.list}>{selectedItem.node(0)}</div>
+            <GymPackageDetails pkg={selectedGym} />
+          </>
+        ) : gymPackageId ? (
+          <p className={styles.status} role="alert">
             {tx(
-              "Bạn chưa có dịch vụ nào thuộc loại này.",
-              "You have no services of this type yet.",
+              "Không tìm thấy gói Gym này.",
+              "This Gym membership could not be found.",
             )}
           </p>
-          <Link
-            className="btn btn--secondary"
-            href={
-              filter === "all"
-                ? "/member/services?view=explore"
-                : exploreHref(filter)
-            }
-          >
-            {tx("Khám phá gói dịch vụ", "Explore packages")}
-          </Link>
-        </section>
-      ) : (
-        <>
-          {live.length > 0 && (
-            <div className={styles.list}>
-              {live.map((row) => row.node(order++))}
-            </div>
-          )}
-          {ended.length > 0 && (
-            <details className={styles.endedBox}>
-              <summary>
-                {tx("Đã hết hạn", "Ended")}
-                <span className={styles.groupCount}>{ended.length}</span>
-              </summary>
+        ) : !visible.length ? (
+          <section className={styles.emptyFilter}>
+            <p>
+              {tx(
+                "Bạn chưa có dịch vụ nào thuộc loại này.",
+                "You have no services of this type yet.",
+              )}
+            </p>
+            {!staffId && (
+              <Link
+                className="btn btn--secondary"
+                href={
+                  filter === "all"
+                    ? "/member/services?view=explore"
+                    : exploreHref(filter)
+                }
+              >
+                {tx("Khám phá gói dịch vụ", "Explore packages")}
+              </Link>
+            )}
+          </section>
+        ) : (
+          <>
+            {live.length > 0 && (
               <div className={styles.list}>
-                {ended.map((row) => row.node(order++))}
+                {live.map((row) => row.node(order++))}
               </div>
-            </details>
-          )}
-        </>
-      )}
-    </div>
+            )}
+            {ended.length > 0 && (
+              <details className={styles.endedBox}>
+                <summary>
+                  {tx("Đã hết hạn", "Ended")}
+                  <span className={styles.groupCount}>{ended.length}</span>
+                </summary>
+                <div className={styles.list}>
+                  {ended.map((row) => row.node(order++))}
+                </div>
+              </details>
+            )}
+          </>
+        )}
+      </div>
+    </ReadOnlyContext.Provider>
   );
 }
 
@@ -398,6 +461,7 @@ function Shell({
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
+  const readOnly = useContext(ReadOnlyContext);
   return (
     <article
       className={styles.card}
@@ -417,7 +481,7 @@ function Shell({
         <p className={styles.subtitle}>{subtitle}</p>
         <div className={styles.metric}>{metric}</div>
       </div>
-      <div className={styles.actions}>{actions}</div>
+      {!readOnly && <div className={styles.actions}>{actions}</div>}
     </article>
   );
 }

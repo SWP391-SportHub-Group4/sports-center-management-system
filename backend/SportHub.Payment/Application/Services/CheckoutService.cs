@@ -301,10 +301,11 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var startLocal = VietnamTime.ToLocal(request.StartUtc.UtcDateTime);
         var endLocal = VietnamTime.ToLocal(request.EndUtc.UtcDateTime);
         var rentalLabel = string.Join(" · ", new[] { sportName, roomName }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        var rentalDescription = $"Court rental {rentalLabel}, {startLocal:dd/MM/yyyy} {startLocal:HH:mm}-{endLocal:HH:mm} ({quote.Blocks.Count} hours)";
         db.Set<InvoiceItem>().Add(new InvoiceItem
         {
             ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.Rental,
-            Description = $"Court rental {rentalLabel}, {startLocal:dd/MM/yyyy} {startLocal:HH:mm}-{endLocal:HH:mm} ({quote.Blocks.Count} hours)",
+            Description = rentalDescription,
             UnitPrice = quote.TotalPrice, Quantity = 1, LineAmount = quote.TotalPrice, RelatedEntityId = rentalId,
             CourtRentalId = rentalId, SportId = request.SportId,
             SportNameSnapshot = sportName
@@ -317,7 +318,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         };
         db.Set<CheckoutSession>().Add(session);
         audit.Write(new AuditEntry(actorId, "CREATE_COURT_RENTAL_CHECKOUT", nameof(Invoice), invoice.InvoiceId.ToString()));
-        await notices.CreatedAsync(invoice, ct);
+        await notices.CreatedAsync(invoice, ct, rentalDescription);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ToResponse(invoice, session);

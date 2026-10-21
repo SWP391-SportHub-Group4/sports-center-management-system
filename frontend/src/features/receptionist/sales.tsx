@@ -4,7 +4,13 @@ import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/lib/language";
 import { MemberPicker } from "@/components/MemberPicker";
-import { ExplorePackages, type FilterValue } from "@/features/member";
+import {
+  ExplorePackages,
+  MyServices,
+  SubNav,
+  type FilterValue,
+  type HubView,
+} from "@/features/member";
 import { CourtBookingCalendar } from "@/features/rentals";
 import { useDeskMember } from "./desk-context";
 import { RegistrationHint } from "./dashboard";
@@ -22,6 +28,7 @@ export function SalesDesk() {
   const planParam = Number(params.get("plan"));
   const initialPlan =
     Number.isInteger(planParam) && planParam > 0 ? planParam : null;
+  const [view, setView] = useState<HubView>("explore");
   const [filter, setFilter] = useState<FilterValue>(
     requestedTab === "courses"
       ? "class"
@@ -31,28 +38,40 @@ export function SalesDesk() {
   );
 
   return (
-    <div className={styles.work}>
+    <div className={styles.salesWork}>
       <MemberPicker
         value={member}
         onChange={setMember}
         emptyHint={<RegistrationHint />}
+        hideLabel
       />
+      {member && requestedTab !== "courts" && (
+        <SubNav
+          view={view}
+          onChange={setView}
+          vi={language === "vi"}
+          label={language === "vi" ? "Trang dịch vụ" : "Services pages"}
+          labels={{
+            owned:
+              language === "vi" ? "Dịch vụ của hội viên" : "Member's services",
+            explore: language === "vi" ? "Gói dịch vụ" : "Packages",
+          }}
+        />
+      )}
       {member ? (
         requestedTab === "courts" ? (
-          <>
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={() => router.replace(`${pathname}?tab=all`)}
-            >
-              {language === "vi" ? "← Quay lại danh sách gói" : "← Back to packages"}
-            </button>
-            <CourtBookingCalendar
-              key={member.userId}
-              memberId={member.userId}
-              memberName={member.fullName || member.email}
-            />
-          </>
+          <CourtBookingCalendar
+            key={member.userId}
+            memberId={member.userId}
+            memberName={member.fullName || member.email}
+          />
+        ) : view === "owned" ? (
+          <MyServices
+            key={member.userId}
+            filter={filter}
+            onFilter={setFilter}
+            staffMember={member}
+          />
         ) : (
           <ExplorePackages
             key={`${member.userId}-${initialPlan ?? ""}`}

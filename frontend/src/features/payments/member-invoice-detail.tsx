@@ -64,7 +64,7 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   return (
     <>
       {refundSent && (
-        <p role="status" className="state">
+        <p role="status" className={styles.banner}>
           {t.finOps.refundSent}
         </p>
       )}

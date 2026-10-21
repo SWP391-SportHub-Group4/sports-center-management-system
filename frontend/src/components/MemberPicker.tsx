@@ -16,7 +16,7 @@ import type { Paged, UserAdminDto } from "@/lib/types";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
 import { AvatarImage } from "@/components/AvatarImage";
 
-const MIN_KEYWORD_LENGTH = 2;
+const MIN_KEYWORD_LENGTH = 1;
 
 /** Đổi mã QR/Barcode hội viên thành hội viên; lỗi trả về dạng câu đọc được, không ném. */
 export async function resolveMemberCode(
@@ -74,6 +74,7 @@ export function MemberPicker({
   placeholder,
   emptyHint,
   scanner = true,
+  hideLabel = false,
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
@@ -84,6 +85,8 @@ export function MemberPicker({
   emptyHint?: ReactNode;
   /** Hiện camera quét QR cho các luồng tiếp nhận tại quầy. */
   scanner?: boolean;
+  /** Ẩn nhãn phía trên ô chọn (vẫn giữ aria-label cho trình đọc màn hình). */
+  hideLabel?: boolean;
 }) {
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
@@ -145,7 +148,7 @@ export function MemberPicker({
   if (value) {
     return (
       <div className="field">
-        <span>{labelText}</span>
+        {!hideLabel && <span>{labelText}</span>}
         <div
           className="row spread"
           style={{
@@ -187,7 +190,7 @@ export function MemberPicker({
 
   return (
     <div className="field">
-      <span>{labelText}</span>
+      {!hideLabel && <span>{labelText}</span>}
       <input
         aria-label={labelText}
         autoFocus={autoFocus}

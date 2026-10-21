@@ -21,7 +21,8 @@ public sealed record InvoiceSummaryResponse(
     [property: SportHub.BuildingBlocks.Api.WireEnum] string? PaidVia = null,
     DateTime? PaidAtUtc = null,
     DateTime? CheckoutExpiresAtUtc = null,
-    bool ReconciliationRequired = false)
+    bool ReconciliationRequired = false,
+    string? ItemDescription = null)
 {
     /// <summary>Compatibility alias; beneficiary is the Member.</summary>
     public Guid MemberId => BeneficiaryUserId;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import type { MemberSupportRequestDto } from "@/lib/types";
@@ -138,11 +138,6 @@ export function SupportRequestActions({
         </p>
       )}
 
-      {closed && (
-        <p className={styles.closedHint}>
-          This request has been closed. Its final resolution is shown above.
-        </p>
-      )}
       {!closed && (!collapsible || expanded) && (
         <>
           <div className={styles.assignRow}>

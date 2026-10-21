@@ -294,6 +294,7 @@ export interface MemberPackageDto {
 
 export interface InvoiceSummaryDto {
   invoiceId: string;
+  itemDescription?: string | null;
   paidAtUtc?: string | null;
   checkoutExpiresAtUtc?: string | null;
   invoiceNumber: string;

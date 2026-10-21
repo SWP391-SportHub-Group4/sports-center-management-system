@@ -555,7 +555,11 @@ test("the selected Member follows the desk from check-in to sales and profile", 
   await expect(
     page.getByRole("region", { name: "Gym Membership" }),
   ).toBeVisible();
-  await expect(page.getByTestId("staff-owned")).toBeVisible();
+  await expect(page.getByTestId("staff-owned")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Member's services" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Packages" })).toBeVisible();
   await expect(page.getByText("Selling for Member A")).toHaveCount(0);
 
   await page

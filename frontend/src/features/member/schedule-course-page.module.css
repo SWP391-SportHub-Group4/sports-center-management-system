@@ -25,11 +25,20 @@
   align-items: center;
 }
 .coach {
-  margin: 0;
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: #103b36;
   color: white;
+}
+.coach .coachTrigger {
+  display: block;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.coach .coachTrigger:hover {
+  color: inherit;
 }
 .coach img {
   display: block;
@@ -38,12 +47,12 @@
   object-fit: cover;
   object-position: center 24%;
 }
-.coach figcaption {
+.coachCaption {
   display: grid;
   gap: var(--space-1);
   padding: var(--space-4);
 }
-.coach figcaption > span,
+.coachCaption > span,
 .coach small {
   font-size: var(--text-xs);
   color: #c6e7dd;
@@ -97,6 +106,38 @@
   font-size: var(--text-sm);
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+.progressFact {
+  grid-column: 1 / -1;
+}
+.progressFact dd {
+  display: grid;
+  gap: var(--space-2);
+}
+.progressCount {
+  font-variant-numeric: tabular-nums;
+}
+.progressBar {
+  display: block;
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  accent-color: var(--color-primary);
+}
+.progressBar::-webkit-progress-bar {
+  border-radius: 999px;
+  background: var(--border-subtle);
+}
+.progressBar::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+.progressBar::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--color-primary);
 }
 .sessions {
   margin-top: var(--space-6);
@@ -268,10 +309,15 @@
     display: grid;
     grid-template-columns: 110px minmax(0, 1fr);
   }
+  .coach .coachTrigger {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    grid-column: 1 / -1;
+  }
   .coach img {
     height: 150px;
   }
-  .coach figcaption {
+  .coachCaption {
     align-content: center;
   }
 }

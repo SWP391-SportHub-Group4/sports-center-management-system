@@ -86,23 +86,29 @@ export function SubNav({
   vi,
   ownedCount,
   label,
+  labels,
 }: {
   view: HubView;
   onChange: (next: HubView) => void;
   vi: boolean;
   ownedCount?: number;
   label: string;
+  /** Đổi chữ hai tab (vd. màn quầy: "Member's services" / "Packages"). */
+  labels?: { owned: string; explore: string };
 }) {
   const items: { id: HubView; text: string; extra?: ReactNode }[] = [
     {
       id: "owned",
-      text: vi ? "Dịch vụ của tôi" : "My services",
+      text: labels?.owned ?? (vi ? "Dịch vụ của tôi" : "My services"),
       extra:
         ownedCount === undefined ? null : (
           <span className={styles.count}>{ownedCount}</span>
         ),
     },
-    { id: "explore", text: vi ? "Khám phá gói" : "Explore packages" },
+    {
+      id: "explore",
+      text: labels?.explore ?? (vi ? "Khám phá gói" : "Explore packages"),
+    },
   ];
   return (
     <nav className={styles.subnav} aria-label={label}>

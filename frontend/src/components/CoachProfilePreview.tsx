@@ -34,10 +34,14 @@ export function CoachProfilePreview({
   coachId,
   name,
   sport,
+  children,
+  className,
 }: {
   coachId: string;
   name: string;
   sport?: string | null;
+  children?: React.ReactNode;
+  className?: string;
 }) {
   const id = useId();
   const mounted = useSyncExternalStore(
@@ -115,7 +119,7 @@ export function CoachProfilePreview({
       <button
         ref={trigger}
         type="button"
-        className={styles.trigger}
+        className={className ? `${styles.trigger} ${className}` : styles.trigger}
         popoverTarget={id}
         aria-expanded={open}
         aria-controls={id}
@@ -136,7 +140,7 @@ export function CoachProfilePreview({
           if (!panel.current?.contains(event.relatedTarget)) hideLater();
         }}
       >
-        {name}
+        {children ?? name}
       </button>
       {mounted &&
         createPortal(
