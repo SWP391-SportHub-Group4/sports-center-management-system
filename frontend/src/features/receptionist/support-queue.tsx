@@ -1,4 +1,5 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -8,6 +9,7 @@ import {
   Plus,
   Search,
   UserRound,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -97,7 +99,6 @@ export function SupportQueue({
           requests.
         </p>
         <div className={styles.toolbar}>
-<<<<<<< Updated upstream
           <button
             type="button"
             className="btn btn--secondary"
@@ -120,106 +121,99 @@ export function SupportQueue({
               Record a request
             </Link>
           )}
-=======
-          <Link
-            className="btn"
-            href={
-              workspace === "manager"
-                ? "/manager/requests?type=support&record=1"
-                : "/receptionist/members"
-            }
-          >
-            <Plus size={18} aria-hidden="true" />
-            Record a request
-          </Link>
->>>>>>> Stashed changes
         </div>
       </div>
-      <form
-        className={styles.filters}
-        onSubmit={(e) => {
-          e.preventDefault();
-          apply(filters);
-        }}
-      >
-        <label className={styles.searchField}>
-          Search
-          <span className={styles.searchInput}>
-            <Search size={18} aria-hidden="true" />
-            <input
-              type="search"
-              value={filters.search}
-              maxLength={200}
-              placeholder="Subject, member name or email"
+      <TableFilters>
+        <form
+          className={styles.filters}
+          onSubmit={(e) => {
+            e.preventDefault();
+            apply(filters);
+          }}
+        >
+          <label className={styles.searchField}>
+            Search
+            <span className={styles.searchInput}>
+              <Search size={18} aria-hidden="true" />
+              <input
+                type="search"
+                value={filters.search}
+                maxLength={200}
+                placeholder="Subject, member name or email"
+                onChange={(e) =>
+                  setFilters({ ...filters, search: e.target.value })
+                }
+              />
+            </span>
+          </label>
+          <label>
+            Status
+            <select
+              value={filters.status}
               onChange={(e) =>
-                setFilters({ ...filters, search: e.target.value })
-              }
-            />
-          </span>
-        </label>
-        <label>
-          Status
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            <option value="OPEN">Open</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN_PROGRESS">In progress</option>
-            <option value="CLOSED">Closed</option>
-          </select>
-        </label>
-        <label>
-          Assigned staff
-          <select
-            value={filters.assignedToUserId}
-            onChange={(e) =>
-              setFilters({ ...filters, assignedToUserId: e.target.value })
-            }
-          >
-            <option value="">All staff</option>
-            {assignees.data?.map((x) => (
-              <option key={x.userId} value={x.userId}>
-                {x.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={styles.filterActions}>
-          {user && (
-            <button
-              type="button"
-              className="btn btn--secondary"
-              aria-pressed={applied.assignedToUserId === user.userId}
-              onClick={() =>
-                apply({
-                  ...filters,
-                  assignedToUserId:
-                    applied.assignedToUserId === user.userId ? "" : user.userId,
-                })
+                setFilters({ ...filters, status: e.target.value })
               }
             >
-              Assigned to me
-            </button>
-          )}
-          <button type="submit" className="btn btn--secondary">
-            Apply filters
-          </button>
-          {(filtered ||
-            filters.search ||
-            filters.status ||
-            filters.assignedToUserId) && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => apply(emptyFilters)}
+              <option value="">All statuses</option>
+              <option value="OPEN">Open</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="IN_PROGRESS">In progress</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </label>
+          <label>
+            Assigned staff
+            <select
+              value={filters.assignedToUserId}
+              onChange={(e) =>
+                setFilters({ ...filters, assignedToUserId: e.target.value })
+              }
             >
-              Clear filters
+              <option value="">All staff</option>
+              {assignees.data?.map((x) => (
+                <option key={x.userId} value={x.userId}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className={styles.filterActions}>
+            {user && (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                aria-pressed={applied.assignedToUserId === user.userId}
+                onClick={() =>
+                  apply({
+                    ...filters,
+                    assignedToUserId:
+                      applied.assignedToUserId === user.userId
+                        ? ""
+                        : user.userId,
+                  })
+                }
+              >
+                Assigned to me
+              </button>
+            )}
+            <button type="submit" className="btn btn--secondary">
+              Apply filters
             </button>
-          )}
-        </div>
-      </form>
+            {(filtered ||
+              filters.search ||
+              filters.status ||
+              filters.assignedToUserId) && (
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => apply(emptyFilters)}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </form>
+      </TableFilters>
       <div className={styles.quickFilters} aria-label="Quick status filters">
         <span>Quick view</span>
         {[

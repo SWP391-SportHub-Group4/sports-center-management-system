@@ -5,7 +5,6 @@ import { vi } from "../src/locales/vi";
 import { previewSessions } from "../src/features/courses/preview";
 import { fillIncidentDateTime } from "./helpers/incident";
 import { todayIso } from "../src/lib/format";
-import { isoWeek } from "../src/features/manager/schedule-week";
 
 const managerId = "11111111-1111-4111-8111-111111111111";
 const coachId = "22222222-2222-4222-8222-222222222222";
@@ -302,7 +301,7 @@ test.beforeEach(async ({ page }, info) =>
     info.title.startsWith("Member cannot") ? "MEMBER" : "CENTER_MANAGER",
   ),
 );
-async function fillDraft(page: Page) {
+async function fillDraft(page: Page, proceed = true) {
   await page.goto("/manager/classes/new");
   await page.getByLabel(en.operations.code, { exact: true }).fill("TEST-NEW");
   await page
@@ -321,6 +320,7 @@ async function fillDraft(page: Page) {
     .getByLabel(en.operations.startDate, { exact: true })
     .fill("2030-10-03");
   await page.getByLabel(en.operations.day, { exact: true }).selectOption("4");
+  if (!proceed) return;
   await page
     .getByRole("button", { name: en.operations.next, exact: true })
     .click();
@@ -642,6 +642,7 @@ test("class quick views survive reload and reset pagination", async ({
   page,
 }) => {
   await page.goto("/manager/classes?page=3");
+  await page.locator("details > summary").first().click();
   await page
     .getByRole("button", { name: en.wireStatus.AT_RISK, exact: true })
     .click();
@@ -649,6 +650,7 @@ test("class quick views survive reload and reset pagination", async ({
   await expect(page).toHaveURL(/thresholdStatus=AT_RISK/);
   await expect(page).not.toHaveURL(/page=3/);
   await page.reload();
+  await page.locator("details > summary").first().click();
   await expect(
     page.getByRole("button", { name: en.wireStatus.AT_RISK, exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -2279,8 +2281,8 @@ test("schedule has one view selector and daily navigation moves one day", async 
     .getByRole("button", { name: en.mSchedule.currentWeek, exact: true })
     .click();
   await expect(
-    page.getByLabel(en.mSchedule.chooseWeek, { exact: true }),
-  ).toHaveValue(isoWeek(todayIso()));
+    page.getByLabel(en.operations.date, { exact: true }),
+  ).toHaveValue(todayIso());
 });
 
 test("Vietnamese copy and keyboard tabs preserve selected state", async ({
@@ -2730,4 +2732,128 @@ test("at-risk class cancellation remains available with enrolled students and re
   await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   expect(writes).toBe(1);
+});
+
+test("create schedule blocks Next during conflicts and unlocks after a valid replacement", async ({
+  page,
+}) => {
+  let blocked = true;
+  await page.route("**/api/manager/class-schedule/availability?**", (route) =>
+    route.fulfill({
+      json: {
+        available: !blocked,
+        roomName: "Court A",
+        coachName: "Coach",
+        reasons: blocked ? ["room_occupied"] : [],
+      },
+    }),
+  );
+  await fillDraft(page, false);
+  const next = page.getByRole("button", {
+    name: en.operations.next,
+    exact: true,
+  });
+  await expect(next).toBeDisabled();
+  await page
+    .getByLabel(en.operations.numSessions, { exact: true })
+    .press("Enter");
+  await expect(
+    page.getByLabel(en.operations.coach, { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "../.impeccable/review/operations-conflict-desktop.png",
+    animations: "disabled",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "../.impeccable/review/operations-conflict-mobile.png",
+    animations: "disabled",
+    fullPage: true,
+  });
+  blocked = false;
+  await page.getByLabel(en.operations.numSessions, { exact: true }).fill("3");
+  await expect(next).toBeEnabled();
+  await next.click();
+  await expect(
+    page.getByLabel(en.classWorkspace.price, { exact: true }),
+  ).toBeVisible();
+});
+
+test("below-threshold Manager cancellation previews immediate refunds and then notifies through the cancel API", async ({
+  page,
+}) => {
+  let cancelled = false,
+    cancels = 0;
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        status: cancelled ? "CANCELLED" : "PUBLISHED",
+        thresholdStatus: "AT_RISK",
+        thresholdResponseDeadlineUtc: null,
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/cancellation-preview", (route) =>
+    route.fulfill({
+      json: {
+        canCancel: true,
+        refundsImmediately: true,
+        previewToken: "current-roster",
+        totalSessions: 2,
+        sessionsNotProvided: 2,
+        confirmedCount: 4,
+        activeHoldCount: 0,
+        refundPoints: 1200,
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/cancel", (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      reason: "Not enough enrolled members",
+      previewToken: "current-roster",
+    });
+    cancels++;
+    cancelled = true;
+    return route.fulfill({ status: 204, body: "" });
+  });
+  await page.goto("/manager/classes/1?tab=threshold");
+  await page
+    .getByText("Cancel class and refund points", { exact: true })
+    .click();
+  const form = page.locator("details").filter({
+    has: page.locator("summary", {
+      hasText: "Cancel class and refund points",
+    }),
+  });
+  await form
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Not enough enrolled members");
+  await form
+    .getByRole("button", {
+      name: en.operations.cancellationPreview,
+      exact: true,
+    })
+    .click();
+  await expect(form.getByText(/immediately refunds/)).toBeVisible();
+  expect(cancels).toBe(0);
+  await page.screenshot({
+    path: "../.impeccable/review/operations-threshold-desktop.png",
+    animations: "disabled",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "../.impeccable/review/operations-threshold-mobile.png",
+    animations: "disabled",
+    fullPage: true,
+  });
+  await form
+    .getByRole("button", { name: en.operations.confirm, exact: true })
+    .click();
+  await expect.poll(() => cancels).toBe(1);
+  await expect(
+    page.getByText("Cancel class and refund points", { exact: true }),
+  ).toHaveCount(0);
 });

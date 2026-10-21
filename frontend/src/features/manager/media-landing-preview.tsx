@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { createElement, useState, type CSSProperties } from "react";
 import { ArrowRight, ImagePlus } from "lucide-react";
 import HomepageImage from "@/components/homepage/HomepageImage";
 import { heroCopy } from "@/components/homepage/PerformanceSections";
@@ -27,7 +27,6 @@ import {
 } from "@/components/homepage/image-specs";
 import { DEFAULT_AVATAR } from "@/lib/avatar";
 import { homepageIntroCopy } from "@/components/homepage/homepage-content";
-import { MediaInlineText } from "./media-inline-text";
 import arenaStyles from "@/components/homepage/interactive-arena-tour.module.css";
 import styles from "./media-editor.module.css";
 
@@ -91,14 +90,12 @@ export function MediaLandingPreview({
   changedKeys,
   disabled,
   onImage,
-  onTextChange,
   onCoaches,
 }: {
   showcaseData: HomepageShowcaseSources;
   changedKeys: string[];
   disabled: boolean;
   onImage: (target: MediaImageTarget) => void;
-  onTextChange: (key: string, value: string) => void;
   onCoaches: () => void;
 }) {
   const [categoryIndex, setCategoryIndex] = useState(0);
@@ -132,19 +129,7 @@ export function MediaLandingPreview({
     as: "h2" | "h3" | "p" | "span" | "small" | "figcaption" = "span",
     id?: string,
     onSelect?: () => void,
-  ) => (
-    <MediaInlineText
-      key={field}
-      as={as}
-      id={id}
-      field={field}
-      label={label}
-      value={value}
-      disabled={disabled}
-      onChange={onTextChange}
-      onSelect={onSelect}
-    />
-  );
+  ) => createElement(as, { key: field, id, onClick: onSelect }, value);
   const image = (target: MediaImageTarget) => (
     <EditableImage
       target={target}
@@ -223,7 +208,7 @@ export function MediaLandingPreview({
           {categoryIndex === 0 && (
             <button
               type="button"
-              className={styles.editCopy}
+              className={styles.chooseCoaches}
               disabled={disabled}
               onClick={onCoaches}
             >

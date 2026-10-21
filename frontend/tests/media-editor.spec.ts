@@ -39,7 +39,11 @@ const defaultSports: GallerySport[] = [
 
 async function setup(
   page: Page,
-  options: { sports?: GallerySport[]; values?: Record<string, string> } = {},
+  options: {
+    sports?: GallerySport[];
+    values?: Record<string, string>;
+    extraCoaches?: boolean;
+  } = {},
 ) {
   let document = {
     revision: "initial",
@@ -133,9 +137,16 @@ async function setup(
       });
     if (url.pathname === "/api/coaches")
       return route.fulfill({
-        json: coachIds.map((userId, index) => ({
+        json: [
+          ...coachIds,
+          ...(options.extraCoaches
+            ? ["00000000-0000-4000-8000-000000000004"]
+            : []),
+        ].map((userId, index) => ({
           userId,
-          fullName: ["Alex Nguyen", "Minh Tran", "Linh Pham"][index],
+          fullName: ["Alex Nguyen", "Minh Tran", "Linh Pham", "Jordan Le"][
+            index
+          ],
           avatarUrl: "/sporthub/avatar-default.svg",
           bio: null,
           sportIds: [3],
@@ -188,14 +199,19 @@ async function setup(
   });
   await page.goto("/manager/media");
   await expect(
-    page.getByRole("heading", { name: "A stronger community" }),
+    page.getByRole("heading", {
+      name: options.values?.["bookmarks.intro.title"] ?? "A stronger community",
+    }),
   ).toBeVisible();
   return calls;
 }
 
-async function chooseImage(page: Page) {
+async function chooseImage(
+  page: Page,
+  label: string | RegExp = /^Replace image: Photo banner.*Badminton$/,
+) {
   const button = page.getByRole("button", {
-    name: /^Replace image: Photo banner.*Badminton$/,
+    name: label,
     exact: true,
   });
   await button.locator("..").locator("..").hover();
@@ -206,6 +222,97 @@ async function chooseImage(page: Page) {
     page.getByRole("dialog", { name: "Frame your image" }),
   ).toBeVisible();
 }
+
+test("restored landing frames keep published Media images and text on desktop and mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await setup(page, {
+    values: {
+      "hero.title": "Your next session starts here",
+      "bookmarks.intro.title": "Our active community",
+      "gallery.sports.3.image": uploadUrl,
+      "booking.image": uploadUrl,
+      "booking.title": "Book your next game",
+    },
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", {
+      name: "Your next session starts here",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Our active community", exact: true }),
+  ).toBeVisible();
+  const coachFrame = page
+    .locator("#coaches-details article img")
+    .first()
+    .locator("..");
+  const gallery = page.locator('[aria-labelledby="training-gallery-title"]');
+  const arena = page.locator('[aria-labelledby="arena-tour-title"]');
+  const booking = page.locator("#book-court");
+  await expect(
+    gallery.locator('figure[data-sport-id="3"] img').first(),
+  ).toHaveAttribute("src", /hero-rally/);
+  await expect(
+    booking.getByRole("heading", { name: "Book your next game", exact: true }),
+  ).toBeVisible();
+  await expect(booking.locator("img")).toHaveAttribute("src", /hero-rally/);
+  await expect(coachFrame).toHaveCSS("aspect-ratio", "1.5 / 1");
+  await expect(gallery.locator("figure img").first().locator("..")).toHaveCSS(
+    "aspect-ratio",
+    "1.48 / 1",
+  );
+  await expect(booking.locator("img").locator("..")).toHaveCSS(
+    "min-height",
+    "540px",
+  );
+  for (const [label, width, height] of [
+    ["desktop", 1440, 1000],
+    ["mobile", 390, 844],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({
+      path: `../.impeccable/review/landing-restored-${label}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page.locator('[aria-labelledby="homepage-stats-title"]').screenshot({
+      path: `../.impeccable/review/landing-community-${label}.png`,
+      animations: "disabled",
+    });
+    await gallery.screenshot({
+      path: `../.impeccable/review/landing-gallery-${label}.png`,
+      animations: "disabled",
+    });
+    await arena.screenshot({
+      path: `../.impeccable/review/landing-arena-${label}.png`,
+      animations: "disabled",
+    });
+    await booking.screenshot({
+      path: `../.impeccable/review/landing-booking-${label}.png`,
+      animations: "disabled",
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await expect(coachFrame).toHaveCSS("aspect-ratio", "1.5 / 1");
+  await expect(gallery.locator("figure img").first().locator("..")).toHaveCSS(
+    "aspect-ratio",
+    "1.38 / 1",
+  );
+  await expect(booking.locator("img").locator("..")).toHaveCSS(
+    "aspect-ratio",
+    "4 / 3",
+  );
+});
 
 test("image crop stays in preview until Save changes publishes it", async ({
   page,
@@ -240,9 +347,7 @@ test("image crop stays in preview until Save changes publishes it", async ({
     page.getByRole("button", { name: "Save changes", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(
-    page.getByText("Changes are live", { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator("[class*=savedFeedback]")).toBeVisible();
   expect(calls.saves[0]["gallery.sports.3.image"]).toBe(uploadUrl);
   expect(calls.saves[0]["hero.lead"]).toBe("Published introduction");
   await expect(
@@ -262,16 +367,8 @@ test("Cancel restores all draft edits and navigation warns before leaving", asyn
   page,
 }) => {
   const calls = await setup(page);
-  await page
-    .getByRole("button", { name: "Edit Hero description", exact: true })
-    .dblclick();
-  await page
-    .getByRole("textbox", { name: "Edit Hero description", exact: true })
-    .fill("Draft introduction");
-  await page
-    .getByRole("textbox", { name: "Edit Hero description", exact: true })
-    .press("Enter");
-  await expect(page.locator("#media-hero")).toContainText("Draft introduction");
+  await chooseImage(page);
+  await page.getByRole("button", { name: "Apply image", exact: true }).click();
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.locator('a[href="/manager"]').first().click();
   await expect(page).toHaveURL(/\/manager\/media/);
@@ -345,80 +442,165 @@ test("dragging a crop follows the pointer, clamps to its frame and keeps control
   await expect(vertical).toHaveValue("60");
 });
 
-test("inline text supports double-click, keyboard, Escape, empty recovery and publishing", async ({
+test("copy stays read-only, Preview uses the unsaved draft and Restore keeps its fixed baseline after publishing", async ({
   page,
 }) => {
   const calls = await setup(page);
   await expect(
-    page.getByRole("button", { name: "Edit text", exact: true }),
+    page.getByRole("heading", { name: "Media", exact: true }),
   ).toHaveCount(0);
-  const title = page.getByRole("button", {
-    name: "Edit Hero title",
-    exact: true,
-  });
-  await title.dblclick();
-  const titleInput = page.getByRole("textbox", {
-    name: "Edit Hero title",
-    exact: true,
-  });
-  await titleInput.fill("Temporary title");
-  await titleInput.press("Escape");
-  await expect(page.locator("#media-hero h2")).toContainText("Every session");
   await expect(
-    page.getByRole("button", { name: "Save changes", exact: true }),
-  ).toBeHidden();
-  await title.focus();
-  await title.press("F2");
-  await titleInput.fill("");
-  await titleInput.press("Enter");
-  await expect(
-    page.getByText("Text cannot be empty. Previous text restored."),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Save changes", exact: true }),
-  ).toBeHidden();
-  await page
-    .getByRole("button", { name: "Edit Community title", exact: true })
-    .dblclick();
-  await page
-    .getByRole("textbox", { name: "Edit Community title", exact: true })
-    .fill("Built around your next session");
-  await page
-    .getByRole("textbox", { name: "Edit Community title", exact: true })
-    .press("Enter");
-  await page
-    .getByRole("button", { name: "Edit Hero title", exact: true })
-    .dblclick();
-  const caption = page.getByRole("textbox", {
-    name: "Edit Hero title",
-    exact: true,
-  });
-  await caption.fill("Court practice");
-  await caption.press("Shift+Enter");
-  await caption.pressSequentially("Every week");
-  await expect(caption).toHaveValue("Court practice\nEvery week");
-  await caption.press("Enter");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(
-    page.getByText("Changes are live", { exact: true }),
-  ).toBeVisible();
-  expect(calls.saves[0]["bookmarks.intro.title"]).toBe(
-    "Built around your next session",
+    page.getByRole("navigation", { name: "Homepage sections" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Open homepage" })).toHaveCount(
+    0,
   );
-  expect(calls.saves[0]["hero.title"]).toBe("Court practice\nEvery week");
-  await page.goto("/");
   await expect(
-    page.getByRole("heading", {
-      name: "Built around your next session",
+    page.getByRole("button", { name: /^Edit (Hero|Community)/ }),
+  ).toHaveCount(0);
+  await page.locator("#media-hero h2").dblclick();
+  await expect(page.locator('textarea,[contenteditable="true"]')).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Preview", exact: true }),
+  ).toBeHidden();
+  await chooseImage(page);
+  await page.getByRole("button", { name: "Apply image", exact: true }).click();
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  const popup = page.getByRole("dialog", {
+    name: "Homepage preview",
+    exact: true,
+  });
+  await expect(popup).toBeVisible();
+  const frame = page.frameLocator('iframe[title="Draft homepage"]');
+  await expect(
+    frame.locator('figure[data-sport-id="3"] img').first(),
+  ).toHaveAttribute("src", /hero-rally/);
+  expect(calls.saves).toHaveLength(0);
+  await frame.getByRole("link", { name: "Book a court", exact: true }).click();
+  expect(
+    page.frames().some((frame) => frame.url().includes("media-preview=true")),
+  ).toBe(true);
+  await frame.locator("#performance-title").press("Escape");
+  await expect(popup).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Preview", exact: true }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  expect(calls.saves[0]["gallery.sports.3.image"]).toBe(uploadUrl);
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Restore original", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Restore to draft", exact: true })
+    .click();
+  await expect(
+    page.locator('#media-gallery [data-sport-id="3"] img').first(),
+  ).toHaveAttribute("src", /course-badminton/);
+  expect(calls.saves).toHaveLength(1);
+  await expect(page.locator("#media-hero")).toContainText(
+    "Published introduction",
+  );
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  expect(calls.saves[1]["gallery.sports.3.image"]).toBe(
+    "/sporthub/court-volt/course-badminton.png",
+  );
+  expect(calls.saves[1]["hero.lead"]).toBe("Published introduction");
+});
+
+test("featured coaches reorder by pointer and keyboard, replace individually and publish only after Apply and Save", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const calls = await setup(page, { extraCoaches: true });
+  await page
+    .getByRole("button", { name: "Choose coaches", exact: true })
+    .click();
+  let dialog = page.getByRole("dialog", {
+    name: "Featured coaches",
+    exact: true,
+  });
+  await expect(dialog.getByText("Adjust homepage image")).toHaveCount(0);
+  await expect(dialog.getByText("Choose from your Coaches")).toHaveCount(0);
+  const row = dialog.getByRole("list", { name: "Homepage display order" });
+  const tops = await row
+    .locator("li")
+    .evaluateAll((cards) =>
+      cards.map((card) => card.getBoundingClientRect().top),
+    );
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(2);
+  await dialog
+    .getByRole("button", { name: "Reorder Alex Nguyen", exact: true })
+    .press("ArrowRight");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(calls.saves).toHaveLength(0);
+  await expect(page.locator("#media-bookmarks article h3")).toHaveText([
+    "Alex Nguyen",
+    "Minh Tran",
+    "Linh Pham",
+  ]);
+  await page
+    .getByRole("button", { name: "Choose coaches", exact: true })
+    .click();
+  dialog = page.getByRole("dialog", { name: "Featured coaches", exact: true });
+  const start = await dialog
+    .getByRole("button", { name: "Reorder Alex Nguyen", exact: true })
+    .boundingBox();
+  const end = await dialog
+    .getByRole("button", { name: "Reorder Linh Pham", exact: true })
+    .boundingBox();
+  await page.mouse.move(
+    start!.x + start!.width / 2,
+    start!.y + start!.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(end!.x + end!.width / 2, end!.y + end!.height / 2, {
+    steps: 12,
+  });
+  await page.mouse.up();
+  await expect(dialog.locator("li [class*=identity] strong")).toHaveText([
+    "Minh Tran",
+    "Linh Pham",
+    "Alex Nguyen",
+  ]);
+  await dialog
+    .getByRole("button", { name: "Reorder Alex Nguyen", exact: true })
+    .press("ArrowLeft");
+  await expect(dialog.locator("li [class*=identity] strong")).toHaveText([
+    "Minh Tran",
+    "Alex Nguyen",
+    "Linh Pham",
+  ]);
+  await dialog
+    .getByRole("button", { name: "Change coach: Minh Tran", exact: true })
+    .click();
+  await dialog.getByRole("searchbox", { name: "Find a coach" }).fill("jordan");
+  await dialog
+    .getByRole("button", { name: "Choose Jordan Le", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", {
+      name: "Change coach: Jordan Le",
       exact: true,
     }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", {
-      name: "Court practice Every week",
-      exact: true,
-    }),
-  ).toBeVisible();
+  ).toBeFocused();
+  await dialog
+    .getByRole("button", { name: "Apply changes", exact: true })
+    .click();
+  expect(calls.saves).toHaveLength(0);
+  await expect(page.locator("#media-bookmarks article h3")).toHaveText([
+    "Jordan Le",
+    "Alex Nguyen",
+    "Linh Pham",
+  ]);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  expect(calls.saves[0]["bookmarks.coachIds"]).toBe(
+    ["00000000-0000-4000-8000-000000000004", coachIds[0], coachIds[2]].join(
+      ",",
+    ),
+  );
 });
 
 test("failed upload can retry and a save conflict preserves the draft", async ({
@@ -645,15 +827,6 @@ test("creating and renaming a sport syncs open Media and landing tabs without lo
   await chooseImage(page);
   await page.getByRole("button", { name: "Apply image", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Edit Hero description", exact: true })
-    .dblclick();
-  await page
-    .getByRole("textbox", { name: "Edit Hero description", exact: true })
-    .fill("Draft stays while sports refresh");
-  await page
-    .getByRole("textbox", { name: "Edit Hero description", exact: true })
-    .press("Enter");
   const landing = await page.context().newPage();
   await landing.goto("/");
   const publicGallery = landing.locator(
@@ -713,7 +886,7 @@ test("creating and renaming a sport syncs open Media and landing tabs without lo
     page.locator('#media-gallery figure[data-sport-id="3"] img'),
   ).toHaveAttribute("src", /hero-rally/);
   await expect(page.locator("#media-hero")).toContainText(
-    "Draft stays while sports refresh",
+    "Published introduction",
   );
   expect(calls.saves).toHaveLength(0);
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
@@ -732,18 +905,14 @@ test("creating and renaming a sport syncs open Media and landing tabs without lo
 test("empty and failed sport refreshes do not manufacture entries or discard Media edits", async ({
   page,
 }) => {
-  const calls = await setup(page, { sports: [] });
+  const calls = await setup(page, {
+    sports: [],
+    values: { "booking.image": "/sporthub/court-volt/course-basketball.png" },
+  });
   await expect(page.locator("#media-gallery")).toContainText("Create a sport");
   await expect(page.locator("#media-gallery figure")).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Edit Hero description", exact: true })
-    .dblclick();
-  await page
-    .getByRole("textbox", { name: "Edit Hero description", exact: true })
-    .fill("Keep this edit");
-  await page
-    .getByRole("textbox", { name: "Edit Hero description", exact: true })
-    .press("Enter");
+  await chooseImage(page, "Replace image: Court booking");
+  await page.getByRole("button", { name: "Apply image", exact: true }).click();
   calls.galleryError = true;
   await page.evaluate(() =>
     window.dispatchEvent(new Event("sporthub:sport-catalog-changed")),
@@ -751,7 +920,10 @@ test("empty and failed sport refreshes do not manufacture entries or discard Med
   await expect(
     page.getByRole("button", { name: "Retry sports" }),
   ).toBeVisible();
-  await expect(page.locator("#media-hero")).toContainText("Keep this edit");
+  await expect(page.locator("#media-booking img")).toHaveAttribute(
+    "src",
+    /hero-rally/,
+  );
   calls.galleryError = false;
   calls.sports = structuredClone(defaultSports);
   await page.getByRole("button", { name: "Retry sports" }).click();
@@ -798,15 +970,69 @@ test("desktop and touch layouts keep image actions and save dock accessible", as
     animations: "disabled",
   });
   await page
-    .getByRole("button", { name: "Edit Hero title", exact: true })
-    .dblclick();
+    .getByRole("button", { name: "Choose coaches", exact: true })
+    .click();
   await page.screenshot({
-    path: "../.impeccable/review/desktop-inline.png",
+    path: "../.impeccable/review/media-coaches-desktop.png",
     animations: "disabled",
   });
   await page
-    .getByRole("textbox", { name: "Edit Hero title", exact: true })
-    .press("Escape");
+    .getByRole("dialog", { name: "Featured coaches", exact: true })
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(
+    page
+      .frameLocator("iframe")
+      .locator('figure[data-sport-id="3"] img')
+      .first(),
+  ).toHaveAttribute("src", /hero-rally/);
+  await page.screenshot({
+    path: "../.impeccable/review/media-preview-desktop.png",
+    animations: "disabled",
+  });
+  await page
+    .frameLocator("iframe")
+    .locator('[aria-labelledby="training-gallery-title"]')
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.frameLocator("iframe").locator('[data-home-section="facilities"]'),
+  ).not.toHaveAttribute("data-pending", "true");
+  await expect(
+    page.frameLocator("iframe").locator('[data-home-section="facilities"]'),
+  ).toHaveCSS("opacity", "1");
+  await expect
+    .poll(() =>
+      page
+        .frameLocator("iframe")
+        .locator('figure[data-sport-id="3"] img')
+        .first()
+        .evaluate(
+          (image) =>
+            (image as HTMLImageElement).complete &&
+            (image as HTMLImageElement).naturalWidth > 0,
+        ),
+    )
+    .toBe(true);
+  await page.screenshot({
+    path: "../.impeccable/review/media-preview-gallery-desktop.png",
+    animations: "disabled",
+  });
+  await page
+    .getByRole("dialog", { name: "Homepage preview", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Restore original", exact: true })
+    .click();
+  await page.screenshot({
+    path: "../.impeccable/review/media-restore-desktop.png",
+    animations: "disabled",
+  });
+  await page
+    .getByRole("dialog", { name: "Restore original homepage?", exact: true })
+    .getByRole("button", { name: "Keep editing", exact: true })
+    .click();
   const browser = page.context().browser()!;
   const mobile = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -817,18 +1043,16 @@ test("desktop and touch layouts keep image actions and save dock accessible", as
   const phone = await mobile.newPage();
   await setup(phone);
   await phone
-    .getByRole("button", { name: "Edit Hero title", exact: true })
-    .tap();
-  await expect(
-    phone.getByRole("textbox", { name: "Edit Hero title", exact: true }),
-  ).toBeVisible();
+    .getByRole("button", { name: "Choose coaches", exact: true })
+    .click();
   await phone.screenshot({
-    path: "../.impeccable/review/mobile-inline.png",
+    path: "../.impeccable/review/media-coaches-mobile.png",
     animations: "disabled",
   });
   await phone
-    .getByRole("textbox", { name: "Edit Hero title", exact: true })
-    .press("Escape");
+    .getByRole("dialog", { name: "Featured coaches", exact: true })
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
   const button = phone.getByRole("button", {
     name: /^Replace image: Photo banner.*Badminton$/,
     exact: true,
@@ -865,5 +1089,39 @@ test("desktop and touch layouts keep image actions and save dock accessible", as
     fullPage: true,
     animations: "disabled",
   });
+  await phone.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(
+    phone
+      .frameLocator("iframe")
+      .locator('figure[data-sport-id="3"] img')
+      .first(),
+  ).toHaveAttribute("src", /hero-rally/);
+  await phone.screenshot({
+    path: "../.impeccable/review/media-preview-mobile.png",
+    animations: "disabled",
+  });
+  await phone
+    .frameLocator("iframe")
+    .locator('[aria-labelledby="training-gallery-title"]')
+    .scrollIntoViewIfNeeded();
+  await phone.screenshot({
+    path: "../.impeccable/review/media-preview-gallery-mobile.png",
+    animations: "disabled",
+  });
+  await phone
+    .getByRole("dialog", { name: "Homepage preview", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await phone
+    .getByRole("button", { name: "Restore original", exact: true })
+    .click();
+  await phone.screenshot({
+    path: "../.impeccable/review/media-restore-mobile.png",
+    animations: "disabled",
+  });
+  await phone
+    .getByRole("dialog", { name: "Restore original homepage?", exact: true })
+    .getByRole("button", { name: "Keep editing", exact: true })
+    .click();
   await mobile.close();
 });

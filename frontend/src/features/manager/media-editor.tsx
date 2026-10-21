@@ -1,19 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import {
-  ArrowUpRight,
-  Check,
-  Save,
-  RotateCcw,
-  Type,
-  PanelsTopLeft,
-  Images,
-  Map as MapIcon,
-  CalendarDays,
-  MessagesSquare,
-  X,
-} from "lucide-react";
+import { Check, Save, RotateCcw, Eye, X } from "lucide-react";
 import { Dialog } from "@/components/ui";
 import { StateView } from "@/components/data";
 import { api, ApiError } from "@/lib/apiClient";
@@ -23,13 +10,7 @@ import {
   type LandingDocument,
   validLandingImage,
 } from "@/components/homepage/landing-content-context";
-import { heroCopy } from "@/components/homepage/PerformanceSections";
 import {
-  homepageCategories,
-  homepageIntroCopy,
-} from "@/components/homepage/homepage-content";
-import {
-  resolveHomepageShowcase,
   FEATURED_COACH_IDS,
   featuredCoachIds,
   suggestHomepageCoaches,
@@ -37,10 +18,6 @@ import {
   type HomepageOverview,
   type HomepageShowcaseSources,
 } from "@/components/homepage/homepage-showcase";
-import { sportGalleryTitle } from "@/components/homepage/sport-gallery";
-import { arenaCopy } from "@/components/homepage/InteractiveArenaTour";
-import { bookingCopy } from "@/components/homepage/CourtBookingSection";
-import { faqCopy } from "@/components/homepage/HomepageFAQ";
 import { imageSpecForField } from "@/components/homepage/image-specs";
 import { FeaturedCoachPicker } from "./featured-coach-picker";
 import { MediaImageCropper } from "./media-image-cropper";
@@ -48,133 +25,9 @@ import {
   MediaLandingPreview,
   type MediaImageTarget,
 } from "./media-landing-preview";
+import { restoreMediaBaseline } from "./media-restore";
+import { MediaHomepagePreview } from "./media-homepage-preview";
 import styles from "./media-editor.module.css";
-
-const sections = [
-  {
-    id: "hero",
-    label: "Hero",
-    icon: Type,
-    hint: "The first message visitors see.",
-    defaults: heroCopy.en,
-  },
-  {
-    id: "bookmarks",
-    label: "Bookmarks",
-    icon: PanelsTopLeft,
-    hint: "Coaches, courts and the Member community. Three images per category.",
-    defaults: homepageCategories,
-  },
-  {
-    id: "gallery",
-    label: "Photo banner",
-    icon: Images,
-    hint: "Images and captions in the scrolling gallery.",
-    defaults: { title: sportGalleryTitle },
-  },
-  {
-    id: "arena",
-    label: "Arena tour",
-    icon: MapIcon,
-    hint: "Introduce each sport and its training space.",
-    defaults: arenaCopy.en,
-  },
-  {
-    id: "booking",
-    label: "Court booking",
-    icon: CalendarDays,
-    hint: "Invite visitors to find their next court.",
-    defaults: bookingCopy,
-  },
-  {
-    id: "faq",
-    label: "FAQ",
-    icon: MessagesSquare,
-    hint: "Helpful answers before visitors sign in.",
-    defaults: faqCopy.en,
-  },
-];
-
-type ContentField = {
-  key: string;
-  label: string;
-  original: string;
-  image: boolean;
-};
-function fieldsFor(section: (typeof sections)[number]): ContentField[] {
-  const fields: ContentField[] = [];
-  function visit(value: unknown, path: string, names: string[]) {
-    if (section.id === "bookmarks" && path.startsWith("bookmarks.0.items."))
-      return;
-    if (typeof value === "string") {
-      const last = names.at(-1);
-      if (
-        ["vi", "href", "id", "suffix", "short"].includes(last ?? "") ||
-        names.includes("vi")
-      )
-        return;
-      if (
-        section.id === "hero" &&
-        ![
-          "title",
-          "lead",
-          "start",
-          "enter",
-          "badminton",
-          "basketball",
-          "gym",
-        ].includes(last ?? "")
-      )
-        return;
-      if (
-        section.id === "arena" &&
-        names.length === 1 &&
-        !["title", "lead"].includes(last ?? "")
-      )
-        return;
-      fields.push({
-        key: path,
-        label: names
-          .map((part, index) => {
-            if (part === "en") return section.id === "gallery" ? "Caption" : "";
-            if (part === "items" || part === "photos") return "";
-            if (/^\d+$/.test(part))
-              return section.id === "bookmarks" && index === 0
-                ? ["Coaches", "Courts", "Members"][Number(part)]
-                : `Item ${Number(part) + 1}`;
-            const labels: Record<string, string> = {
-              lead: "Description",
-              start: "Sign-in button",
-              enter: "Signed-in button",
-              src: "Image URL",
-              image: "Image URL",
-              alt: "Image description",
-              imageAlt: "Image description",
-              cta: "Button label",
-              specOne: "First specification",
-              specTwo: "Second specification",
-            };
-            const words =
-              labels[part] ?? part.replace(/([a-z])([A-Z])/g, "$1 $2");
-            return words.charAt(0).toUpperCase() + words.slice(1);
-          })
-          .filter(Boolean)
-          .join(" / "),
-        original: value,
-        image: ["image", "src"].includes(last ?? ""),
-      });
-    } else if (Array.isArray(value))
-      value.forEach((item, i) =>
-        visit(item, `${path}.${i}`, [...names, String(i)]),
-      );
-    else if (value && typeof value === "object")
-      Object.entries(value).forEach(([key, item]) =>
-        visit(item, `${path}.${key}`, [...names, key]),
-      );
-  }
-  visit(section.defaults, section.id, []);
-  return fields;
-}
 
 export function MediaEditor() {
   const state = useApi(async (signal) => {
@@ -239,6 +92,8 @@ function ContentEditor({
   const [conflict, setConflict] = useState(false);
   const [saved, setSaved] = useState(false);
   const [coachesOpen, setCoachesOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [crop, setCrop] = useState<{
     image: ImageBitmap;
@@ -253,29 +108,6 @@ function ContentEditor({
   const selectedCoachIds =
     featuredCoachIds(draft) ??
     suggestHomepageCoaches(showcaseData.coaches).map((coach) => coach.userId);
-  const editorSections = sections.map((section) =>
-    section.id === "bookmarks"
-      ? {
-          ...section,
-          defaults: resolveHomepageShowcase(
-            showcaseData.coaches,
-            showcaseData.overview,
-          ),
-        }
-      : section,
-  );
-  const allFields = [
-    ...editorSections.flatMap(fieldsFor),
-    ...Object.entries(homepageIntroCopy).map(([key, original]) => ({
-      key: `bookmarks.intro.${key}`,
-      label: key,
-      original,
-      image: false,
-    })),
-  ];
-  const defaults = Object.fromEntries(
-    allFields.map((field) => [field.key, field.original]),
-  );
   const changedKeys = [
     ...new Set([...Object.keys(draft), ...Object.keys(published.values)]),
   ].filter((key) => draft[key] !== published.values[key]);
@@ -329,9 +161,7 @@ function ContentEditor({
     setError("");
     setDraft((current) => {
       const next = { ...current };
-      if (value === defaults[key] && published.values[key] === undefined)
-        delete next[key];
-      else next[key] = value;
+      next[key] = value;
       return next;
     });
   };
@@ -348,19 +178,13 @@ function ContentEditor({
       setCoachesOpen(true);
       return;
     }
-    const invalid = allFields.find(
-      (field) =>
-        draft[field.key] !== undefined &&
-        (!draft[field.key].trim() ||
-          (field.image && !validLandingImage(draft[field.key]))),
-    );
-    if (invalid) {
-      setError("Complete the empty or invalid content before saving.");
-      window.document
-        .querySelector<HTMLElement>(
-          `[data-media-field="${invalid.key}"] [role="button"]`,
-        )
-        ?.focus();
+    if (
+      Object.entries(draft).some(
+        ([key, value]) =>
+          /\.(image|src)$/.test(key) && !validLandingImage(value),
+      )
+    ) {
+      setError("Choose a valid image before saving.");
       return;
     }
     setBusy(true);
@@ -399,39 +223,32 @@ function ContentEditor({
 
   return (
     <div className={styles.editor}>
-      <header className={styles.toolbar}>
-        <div className={styles.saveStatus}>
-          <p ref={status} tabIndex={-1} role="status">
-            <Check size={16} aria-hidden="true" />
-            {saved
-              ? "Changes are live"
-              : dirty
-                ? changedKeys.length + " unsaved changes"
-                : "Published homepage"}
-          </p>
-          <span id="media-inline-help">
-            {preparing
-              ? "Opening image…"
-              : "Double-click text to edit; tap on touch screens. Enter to finish, Shift+Enter for a new line, Esc to undo. Hover over an image to replace it."}
-          </span>
-        </div>
-        <Link
+      <div className={styles.restoreBar}>
+        <button
+          type="button"
           className="btn btn--secondary"
-          href="/"
-          target="_blank"
-          rel="noopener noreferrer"
+          disabled={working}
+          onClick={() => setRestoreOpen(true)}
         >
-          Open homepage
-          <ArrowUpRight size={16} aria-hidden="true" />
-        </Link>
-      </header>
-      <nav className={styles.sectionNav} aria-label="Homepage sections">
-        {sections.map((section) => (
-          <a key={section.id} href={"#media-" + section.id}>
-            {section.label}
-          </a>
-        ))}
-      </nav>
+          <RotateCcw size={16} aria-hidden="true" /> Restore original
+        </button>
+      </div>
+      <p
+        className={saved ? styles.savedFeedback : styles.srOnly}
+        ref={status}
+        tabIndex={-1}
+        role="status"
+      >
+        {saved ? (
+          <>
+            <Check size={16} aria-hidden="true" /> Changes are live
+          </>
+        ) : preparing ? (
+          "Opening image..."
+        ) : (
+          ""
+        )}
+      </p>
       {error && !dirty && (
         <div className={`${styles.error} ${styles.feedback}`} role="alert">
           <p>{error}</p>
@@ -453,7 +270,6 @@ function ContentEditor({
             target.current = image;
             fileInput.current?.click();
           }}
-          onTextChange={update}
           onCoaches={() => setCoachesOpen(true)}
         />
       </LandingContentProvider>
@@ -533,6 +349,14 @@ function ContentEditor({
               type="button"
               className="btn btn--secondary"
               disabled={working}
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Eye size={16} aria-hidden="true" /> Preview
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              disabled={working}
               onClick={() => setDiscardOpen(true)}
             >
               <RotateCcw size={16} aria-hidden="true" />
@@ -601,6 +425,42 @@ function ContentEditor({
           onClose={() => setCoachesOpen(false)}
         />
       )}
+      {previewOpen && (
+        <MediaHomepagePreview
+          values={draft}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
+      {restoreOpen && (
+        <Dialog
+          title="Restore original homepage?"
+          description="Restore the images and featured coaches from the current restore point. New sports stay in the gallery. Review the draft, then save to publish."
+          onClose={() => setRestoreOpen(false)}
+        >
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => setRestoreOpen(false)}
+            >
+              Keep editing
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setDraft(restoreMediaBaseline(draft, showcaseData.coaches));
+                setSaved(false);
+                setError("");
+                setConflict(false);
+                setRestoreOpen(false);
+              }}
+            >
+              Restore to draft
+            </button>
+          </div>
+        </Dialog>
+      )}
       {discardOpen && (
         <Dialog
           title="Discard your changes?"
@@ -651,23 +511,19 @@ function CoachEditor({
   onApply: (values: Record<string, string>) => void;
   onClose: () => void;
 }) {
-  const [values, setValues] = useState(draft);
   const [ids, setIds] = useState(selectedIds);
   return (
     <Dialog
       title="Featured coaches"
-      description="Coach photos stay linked to their profiles. Choose and frame the coaches shown on the homepage."
+      description="Drag to reorder. Use Change coach to replace someone."
+      className={styles.coachDialog}
       size="lg"
       onClose={onClose}
     >
       <FeaturedCoachPicker
         coaches={coaches}
         selectedIds={ids}
-        frameValues={values}
         onChange={setIds}
-        onFrameChange={(key, value) =>
-          setValues((current) => ({ ...current, [key]: value }))
-        }
       />
       <div className={styles.actions}>
         <button type="button" className="btn btn--secondary" onClick={onClose}>
@@ -676,9 +532,13 @@ function CoachEditor({
         <button
           type="button"
           className="btn"
-          disabled={ids.length !== 3}
+          disabled={
+            ids.length !== 3 ||
+            new Set(ids).size !== 3 ||
+            ids.some((id) => !coaches.some((coach) => coach.userId === id))
+          }
           onClick={() =>
-            onApply({ ...values, [FEATURED_COACH_IDS]: ids.join(",") })
+            onApply({ ...draft, [FEATURED_COACH_IDS]: ids.join(",") })
           }
         >
           Apply changes

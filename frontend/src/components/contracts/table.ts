@@ -76,6 +76,7 @@ export interface FilterField {
 }
 
 export interface FilterBarProps {
+  presets?: ReactNode;
   fields: FilterField[];
   /** Giá trị hiện tại — nguồn sự thật là URL query để reload/chia sẻ link giữ nguyên bộ lọc. */
   values: Record<string, string>;

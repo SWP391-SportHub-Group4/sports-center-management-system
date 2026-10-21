@@ -13,7 +13,6 @@ import { ArrowRight, Dumbbell, Grid2X2, UsersRound } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/apiClient";
 import { DEFAULT_AVATAR } from "@/lib/avatar";
-import { homepageImageSpecs } from "./image-specs";
 import {
   homepageCategories as categoryLabels,
   homepageIntroCopy,
@@ -340,15 +339,7 @@ export function HomepageStats({
                           } as CSSProperties
                         }
                       >
-                        <div
-                          className={`${styles.photo} ${item.id === "coaches" ? styles.coachPhoto : ""}`}
-                          style={{
-                            aspectRatio:
-                              item.id === "coaches"
-                                ? homepageImageSpecs.coach.ratio
-                                : homepageImageSpecs.landscape.ratio,
-                          }}
-                        >
+                        <div className={styles.photo}>
                           <Image
                             src={detail.image}
                             alt={detail.alt[language]}

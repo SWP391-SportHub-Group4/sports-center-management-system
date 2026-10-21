@@ -7,7 +7,6 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import styles from "./interactive-arena-tour.module.css";
 import { useLandingCopy } from "./landing-content-context";
-import { homepageImageSpecs } from "./image-specs";
 
 type Language = "en" | "vi";
 type ZoneId = "badminton" | "basketball" | "conditioning";
@@ -447,11 +446,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
           tabIndex={0}
           data-zone={activeZone}
         >
-          <div
-            className={styles.featurePhoto}
-            key={activeZone}
-            style={{ aspectRatio: homepageImageSpecs.landscape.ratio }}
-          >
+          <div className={styles.featurePhoto} key={activeZone}>
             <Image
               src={selected.image}
               alt={selected.imageAlt}

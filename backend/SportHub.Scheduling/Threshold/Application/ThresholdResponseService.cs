@@ -86,6 +86,8 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
 
     private async Task<ThresholdResponseResult> RespondHashedAsync(string tokenHash, ThresholdResponseChoice choice, int? targetClassId, Guid memberId, CancellationToken ct)
     {
+        if (choice == ThresholdResponseChoice.WaitNextCourse)
+            throw new BadRequestException("course_interests_removed", "Course interests are no longer available. Choose a points refund.");
         if (!Enum.IsDefined(choice)) throw new BadRequestException("invalid_threshold_response", "Invalid threshold response.");
         if (choice == ThresholdResponseChoice.Transfer && targetClassId is null) throw new BadRequestException("target_class_required", "Target class required.");
         if (choice != ThresholdResponseChoice.Transfer && targetClassId is not null) throw new BadRequestException("target_class_unexpected", "Target class unexpected.");

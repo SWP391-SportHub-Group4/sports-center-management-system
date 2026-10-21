@@ -563,11 +563,11 @@ export const en = {
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
     openingRulesHint:
-      "Review at least 72 hours before opening. Members have up to 48 hours to respond, ending at least 24 hours before the first session. Confirm immediately once the threshold is met.",
+      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation immediately refunds remaining paid balances as points and notifies the Coach and members.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
     cancelBelowThresholdHint:
-      "Cancel this class because it has not met its enrollment threshold. Members will be notified to choose a points refund or join Course interests for the next course. Both choices refund points; unanswered requests are refunded automatically after the deadline.",
+      "Cancel this class because it has not met its enrollment threshold. The system immediately refunds the remaining paid balance as points and notifies enrolled members and the teaching coach.",
   },
   managerCatalog: {
     editCourt: "Edit court",
@@ -1530,7 +1530,8 @@ export const en = {
     exception: "Request an exception",
     sports: "Sports at SportHub",
     paid: "Payment verified by server",
-    compensated: "VNPay amount credited to your point wallet; service was not granted.",
+    compensated:
+      "VNPay amount credited to your point wallet; service was not granted.",
     reconciliation: "Payment needs reconciliation. Contact reception.",
     invoice: "Invoice",
     legacyInvoice:
@@ -1877,6 +1878,7 @@ export const en = {
       SystemAdministrator: "System Administrator",
     },
     items: {
+      sport: "Sport",
       people: "People",
       requests: "Request",
       courseInterests: "Course interests",
@@ -2250,7 +2252,7 @@ export const en = {
     days: ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   },
   mSchedule: {
-    chooseWeek: "Choose week",
+    chooseWeek: "Choose date",
     prevWeek: "Previous week",
     currentWeek: "Current week",
     nextWeek: "Next week",

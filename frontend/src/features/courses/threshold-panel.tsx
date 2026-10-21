@@ -1,4 +1,5 @@
 "use client";
+import { CourseCancellation } from "./course-operations";
 import styles from "./course-management.module.css";
 import { createPortal } from "react-dom";
 import { useState } from "react";
@@ -99,7 +100,7 @@ export function ThresholdPanel({
               <p>
                 {vi
                   ? "Chưa mở cửa sổ phản hồi. Nếu không còn đủ thời gian, Manager phải chốt mở dưới ngưỡng, hủy hoặc dời khai giảng. Lớp chưa được chốt sẽ không tự bắt đầu."
-                  : "No member response window is open. If there is not enough time, decide now whether to run below threshold, cancel, or defer opening. An unconfirmed class will not start automatically."}
+                  : "This class is below its minimum enrollment. Approve running below threshold, defer opening, or cancel and refund all remaining paid balances as points. The Coach and enrolled members will be notified."}
               </p>
               <Link href={`/manager/classes/${course.classId}?tab=sessions`}>
                 Move the first session
@@ -132,6 +133,17 @@ export function ThresholdPanel({
           )}
         </div>
         {!editable && <p className="small muted">{copy.pricingLocked}</p>}
+        {course.status === "PUBLISHED" &&
+          course.thresholdStatus === "AT_RISK" && (
+            <details className={styles.guidance}>
+              <summary>Cancel class and refund points</summary>
+              <CourseCancellation
+                classId={course.classId}
+                onSaved={onSaved}
+                embedded
+              />
+            </details>
+          )}
         <details className={styles.guidance}>
           <summary>{copy.openingRules}</summary>
           <p>{l.thresholdHint}</p>

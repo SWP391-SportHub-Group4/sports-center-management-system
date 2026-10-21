@@ -88,7 +88,7 @@ public sealed class AvatarReportsController(ISportHubDbContext db, IAuditWriter 
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return NoContent();
     }
 
-    [HttpDelete("api/manager/users/{userId:guid}/avatar"), Authorize(Policy = SportHubPolicies.SystemAdministrator), EnableRateLimiting("avatar-write")]
+    [HttpDelete("api/admin/users/{userId:guid}/avatar"), Authorize(Policy = SportHubPolicies.SystemAdministrator), EnableRateLimiting("avatar-write")]
     public async Task<IActionResult> Remove(Guid userId, CancellationToken ct)
         => Ok(await avatars.ManagerDeleteMemberAsync(User.RequireUserId(), userId, ct, allowCoach: true));
 }

@@ -4,7 +4,103 @@
   min-width: 0;
   padding-bottom: 128px;
 }
-.toolbar,
+.restoreBar {
+  display: flex;
+  justify-content: flex-end;
+}
+.restoreBar :global(.btn) {
+  margin: 0;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.savedFeedback {
+  position: fixed;
+  bottom: var(--space-5);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-dropdown);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-brand-deep);
+  color: var(--text-on-inverse);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+.chooseCoaches {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.chooseCoaches:hover {
+  background: var(--volt-300);
+}
+.chooseCoaches:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.coachDialog {
+  --dialog-width: 940px;
+}
+.coachDialog :global(.dialog__body) > .actions {
+  margin-top: var(--space-5);
+}
+.homepageDialog {
+  --dialog-width: 1320px;
+  display: flex;
+  flex-direction: column;
+  height: min(920px, calc(100dvh - 32px));
+}
+.homepageDialog :global(.dialog__body) {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+.homepageDialog :global(.dialog__desc) {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+}
+.homepageFrame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--bg-brand-deep);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.previewLoading {
+  position: absolute;
+  align-self: center;
+  padding: var(--space-3);
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
 .actions,
 .headingRow,
 .dockRow {
@@ -14,52 +110,8 @@
   gap: var(--space-3);
   flex-wrap: wrap;
 }
-.toolbar {
-  padding-block: var(--space-2) var(--space-3);
-}
-.toolbar :global(.btn),
 .actions :global(.btn) {
   margin: 0;
-}
-.saveStatus {
-  display: grid;
-  gap: var(--space-1);
-}
-.saveStatus p {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  color: var(--text-strong);
-}
-.saveStatus span {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-}
-.sectionNav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding-bottom: var(--space-2);
-}
-.sectionNav a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  color: var(--text-body);
-  font-size: var(--text-sm);
-  text-decoration: none;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-.sectionNav a:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-soft-text);
 }
 .landing {
   min-width: 0;
@@ -135,10 +187,6 @@
 .hero .sectionTools {
   margin-bottom: var(--space-5);
 }
-.hero .editCopy {
-  color: var(--text-on-inverse);
-  background: var(--bg-inverse-raised);
-}
 .mockCta {
   display: inline-flex;
   align-items: center;
@@ -184,27 +232,6 @@
   gap: var(--space-2);
   margin-block: var(--space-3);
 }
-.editCopy {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  min-height: 44px;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-body);
-  background: var(--bg-surface-sunken);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--text-xs);
-  transition: background-color var(--duration-fast) var(--ease-out);
-}
-.editCopy:hover {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-soft-text);
-}
 .categoryTabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -234,10 +261,6 @@
   color: var(--color-primary);
   border-color: var(--color-primary);
   background: var(--color-primary-soft);
-}
-.categoryTab > .inlineText {
-  flex: 1;
-  min-width: 0;
 }
 .categoryTab button {
   min-width: 44px;
@@ -703,74 +726,8 @@
     transform: translate(-50%, 0);
   }
 }
-.inlineText {
-  position: relative;
-  display: block;
-  min-width: 0;
-}
-.editor .landing p.inlineText {
-  margin-block: var(--space-3);
-}
-.editor .hero p.inlineText {
-  margin-block: var(--space-5);
-}
-.inlineView {
-  display: block;
-  border-radius: var(--radius-sm);
-  outline: 1px solid transparent;
-  outline-offset: 4px;
-  cursor: text;
-  white-space: pre-line;
-  transition:
-    outline-color var(--duration-fast) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out);
-}
-.inlineView:hover {
-  outline-color: var(--border-control);
-}
-.inlineView:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 4px;
-}
-.editor .inlineText .inlineInput {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 1em;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 4px;
-  color: inherit;
-  background: transparent;
-  box-shadow: none;
-  font: inherit;
-  letter-spacing: inherit;
-  line-height: inherit;
-  resize: none;
-  overflow: hidden;
-}
-.inlineError {
-  display: block;
-  margin-top: var(--space-2);
-  font: var(--text-xs) / 1.5 var(--font-body);
-  color: var(--danger-text);
-  background: var(--danger-bg);
-  padding: var(--space-2);
-  border-radius: var(--radius-sm);
-}
 .mockCta {
   max-width: 100%;
-}
-.mockCta .inlineText {
-  flex: 1;
-  min-width: 0;
-}
-.hero .inlineView:hover {
-  outline-color: var(--text-on-inverse-muted);
 }
 .cropLayout {
   display: grid;
@@ -853,9 +810,6 @@
     --gallery-nav-size: 44px;
     --gallery-nav-gap: var(--space-2);
   }
-  .toolbar {
-    align-items: flex-start;
-  }
   .hero {
     padding: var(--space-5);
   }
@@ -887,7 +841,10 @@
   .dockRow .actions {
     width: 100%;
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dockRow .actions > button:first-child {
+    grid-column: 1 / -1;
   }
   .saveDock {
     padding: var(--space-3);

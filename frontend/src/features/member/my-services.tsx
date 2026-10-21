@@ -2,7 +2,6 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { CourseInterests } from "@/features/courses";
 import { isRetiredActivityPackage } from "@/features/membership";
 import { rentalApi } from "@/features/rentals";
 import { api } from "@/lib/apiClient";
@@ -59,13 +58,9 @@ function exploreHref(kind: ServiceKind, extra = "") {
 export function MyServices({
   filter,
   onFilter,
-  tab,
-  onTab,
 }: {
   filter: FilterValue;
   onFilter: (next: FilterValue) => void;
-  tab: string;
-  onTab: (next: string) => void;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -243,20 +238,6 @@ export function MyServices({
   const ended = visible
     .filter((it) => it.tone === "ended")
     .sort((a, b) => a.id.localeCompare(b.id));
-
-  if (tab === "interests")
-    return (
-      <div className={styles.page}>
-        <button
-          type="button"
-          className="btn btn--quiet"
-          onClick={() => onTab("")}
-        >
-          {tx("← Về dịch vụ của tôi", "← Back to my services")}
-        </button>
-        <CourseInterests />
-      </div>
-    );
 
   if (loading)
     return (

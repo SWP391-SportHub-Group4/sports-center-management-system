@@ -52,7 +52,7 @@ export function CashTrend({
     const value = daily.get(date);
     return { date, collected: value?.collected ?? 0, net: value?.net ?? 0 };
   });
-  const values = rows.flatMap((r) => [r.collected, r.net]);
+  const values = rows.map((r) => r.net);
   const rawHigh = Math.max(0, ...values);
   const rawLow = Math.min(0, ...values);
   const magnitude = 10 ** Math.floor(Math.log10(Math.max(rawHigh - rawLow, 1)));
@@ -76,15 +76,11 @@ export function CashTrend({
     { length: 5 },
     (_, i) => high - ((high - low) * i) / 4,
   );
-  const cashLine = line("collected");
-  const hasActivity = rows.some((r) => r.collected !== 0 || r.net !== 0);
+
+  const hasActivity = rows.some((r) => r.net !== 0);
   return (
     <div className={styles.trend}>
       <div className={styles.chartLegend}>
-        <span>
-          <i className={styles.cashKey} />
-          Cash collected
-        </span>
         <span>
           <i className={styles.netKey} />
           Net revenue
@@ -121,7 +117,7 @@ export function CashTrend({
             viewBox="0 0 1000 240"
             preserveAspectRatio="none"
             role="img"
-            aria-label={`Daily cash flow from ${formatDate(start)} to ${formatDate(end)}. Cash collected: ${formatMoney(report.totalCollected)}. Net revenue: ${formatMoney(report.netRevenue)}. Use the day selector for daily values.`}
+            aria-label={`Daily cash flow from ${formatDate(start)} to ${formatDate(end)}. Net revenue: ${formatMoney(report.netRevenue)}. Use the day selector for daily values.`}
           >
             {elapsed < visibleDays && (
               <rect
@@ -152,15 +148,6 @@ export function CashTrend({
               />
             )}
             <path
-              d={`${cashLine} L${x(elapsed - 1)},${y(0)} L${x(0)},${y(0)} Z`}
-              className={styles.area}
-            />
-            <path
-              d={cashLine}
-              className={styles.cashLine}
-              vectorEffect="non-scaling-stroke"
-            />
-            <path
               d={line("net")}
               className={styles.netLine}
               vectorEffect="non-scaling-stroke"
@@ -174,7 +161,7 @@ export function CashTrend({
             />
             <circle
               cx={x(selected - 1)}
-              cy={y(point.collected)}
+              cy={y(point.net)}
               r="5"
               className={styles.dot}
               vectorEffect="non-scaling-stroke"
@@ -207,10 +194,6 @@ export function CashTrend({
           {formatDate(point.date)}
         </span>
         <strong>
-          {formatMoney(point.collected)}
-          <small>collected</small>
-        </strong>
-        <strong>
           {formatMoney(point.net)}
           <small>net revenue</small>
         </strong>
@@ -227,7 +210,7 @@ export function CashTrend({
           value={selected}
           onChange={(event) => setInspected(Number(event.target.value))}
           aria-label="Inspect daily cash flow"
-          aria-valuetext={`${formatDate(point.date)}: ${formatMoney(point.collected)} collected, ${formatMoney(point.net)} net revenue`}
+          aria-valuetext={`${formatDate(point.date)}: ${formatMoney(point.net)} net revenue`}
         />
       </label>
     </div>

@@ -409,10 +409,9 @@ public sealed class ClassService(
         }
 
         var thresholdDays = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdDaysBeforeStart, ct);
-        var responseHours = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdResponseHours, ct);
-        if (responseHours is < 1 or > 48 || thresholdDays < 3 || thresholdDays * 24 < responseHours + 24)
+        if (thresholdDays < 3)
             throw new ConflictException("class_threshold_window_setting_invalid",
-                "The threshold review must start at least three days before class and allow the full member response period plus 24 hours for the final decision.");
+                "The Manager threshold review must start at least three days before class.");
 
         // Giờ mở cửa: kiểm mọi buổi trước khi chiếm chỗ để báo lỗi đọc được.
         var closed = new List<int>();

@@ -299,87 +299,31 @@ async function fixture(page: Page) {
   return calls;
 }
 
-test("manager navigation and course interests match the agreed workspace", async ({
+test("manager navigation omits course interests and redirects the retired page", async ({
   page,
 }) => {
   await fixture(page);
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("/manager/classes/interests");
+  await expect(page).toHaveURL(/\/manager\/classes$/);
   await page.getByRole("button", { name: "Services", exact: true }).click();
-  for (const name of [
-    "Sports",
-    "Court",
-    "Membership",
-    "Classes",
-    "Course interests",
-  ])
+  for (const name of ["Sport", "Court", "Membership", "Classes"])
     await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Room types", exact: true }),
+    page.getByRole("link", { name: "Course interests", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Services", exact: true }).click();
-  await expect(page.getByRole("columnheader")).toHaveText(["Member", "Sport"]);
-  await expect(
-    page.getByRole("cell", { name: "Member Sample", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("cell", { name: "Badminton", exact: true }),
-  ).toBeVisible();
 });
 
-test("avatar reports open account details and a removal closes the request", async ({
+test("manager requests omit avatar reports and reject the old tab", async ({
   page,
 }) => {
   const calls = await fixture(page);
   await page.goto("/manager/requests?type=avatar");
-  await expect(
-    page.getByRole("cell", {
-      name: "Inappropriate profile photo",
-      exact: true,
-    }),
-  ).toBeVisible();
-  for (const [name, width, height] of [
-    ["desktop", 1440, 900],
-    ["mobile", 390, 844],
-  ] as const) {
-    await page.setViewportSize({ width, height });
-    await page.screenshot({
-      path: `../.tmp/manager-workspace-request-${name}.png`,
-      fullPage: true,
-    });
-    await expect
-      .poll(() =>
-        page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-      )
-      .toBe(true);
-  }
-  await page.getByRole("link", { name: "View details", exact: true }).click();
-  await expect(
-    page.getByRole("tab", { name: "Memberships", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole("tab", { name: /Health/ })).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Assign coach", exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole("tab", { name: "Classes", exact: true }).click();
-  await expect(
-    page.getByRole("link", { name: "Badminton fundamentals", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Remove photo", exact: true }).click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Remove photo", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Remove photo", exact: true }),
-  ).toHaveCount(0);
-  expect(
-    calls.some((c) => c.method === "DELETE" && c.path.endsWith("/avatar")),
-  ).toBe(true);
-  await page.goto("/manager/requests?type=avatar");
-  await expect(
-    page.getByText("No avatar reports match these filters."),
-  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Coach absence/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Avatar reports/ })).toHaveCount(
+    0,
+  );
+  expect(calls.some((c) => c.path.includes("avatar-reports"))).toBe(false);
 });
 
 test("activation actions stay in the list and room creation selects only sport", async ({
@@ -580,7 +524,7 @@ test("Manager navigation uses the new labels and profile shortcuts", async ({
     nav.getByRole("button", { name: "Exception", exact: true }),
   ).toBeVisible();
   await expect(
-    nav.getByRole("button", { name: "Billing management", exact: true }),
+    nav.getByRole("button", { name: "Services", exact: true }),
   ).toBeVisible();
   await expect(
     nav.getByRole("link", { name: "Schedule", exact: true }),

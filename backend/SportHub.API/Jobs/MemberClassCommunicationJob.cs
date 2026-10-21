@@ -10,6 +10,5 @@ public sealed class MemberClassCommunicationJob(IServiceProvider services, ILogg
     protected override async Task RunOnceAsync(IServiceProvider scopedServices, CancellationToken ct)
     {
         await scopedServices.GetRequiredService<ClassSessionReminderService>().RunAsync(ct);
-        await scopedServices.GetRequiredService<CourseInterestService>().NotifyOpenClassesAsync(ct);
     }
 }

@@ -248,16 +248,9 @@ export function MonthlyAnalysis() {
 
       <section className={styles.metrics} aria-label="Monthly key figures">
         <Metric
-          label="Cash collected (VND)"
-          value={formatMoney(revenue.data?.totalCollected)}
-          hint={`${formatNumber(revenue.data?.paymentCount)} successful payments · month to date`}
-          loading={revenue.loading}
-          unavailable={!!revenue.error}
-        />
-        <Metric
           label="Net revenue (VND)"
           value={formatMoney(revenue.data?.netRevenue)}
-          hint="Cash collected less completed cash refunds"
+          hint="Revenue after completed refunds"
           loading={revenue.loading}
           unavailable={!!revenue.error}
         />
@@ -279,8 +272,8 @@ export function MonthlyAnalysis() {
 
       <div className={styles.primaryGrid}>
         <Panel
-          title="Daily cash flow"
-          description="Cash collected and net revenue by payment/refund date. Future dates have no results."
+          title="Daily net revenue"
+          description="Net revenue by payment/refund date. Future dates have no results."
         >
           <AsyncSection state={revenue}>
             {(report) => (
@@ -290,7 +283,7 @@ export function MonthlyAnalysis() {
         </Panel>
         <Panel
           title="Where collections come from"
-          description="Share of cash collected. Points used are excluded."
+          description="Share of successful payments. Points used are excluded."
         >
           <AsyncSection state={revenue}>
             {(report) => <RevenueMix report={report} />}

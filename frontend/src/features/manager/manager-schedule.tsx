@@ -7,7 +7,7 @@ import { useUrlQuery, choiceQuery } from "@/lib/useUrlQuery";
 import { todayIso, addDaysIso, formatDate } from "@/lib/format";
 import styles from "./manager-schedule.module.css";
 import { Button } from "@/components/primitives";
-import { mondayOf, isoWeek, weekMonday } from "./schedule-week";
+import { mondayOf } from "./schedule-week";
 import { AsyncSection, Card, Field } from "@/components/ui";
 import { FilterBar } from "@/components/data";
 import {
@@ -130,18 +130,16 @@ export function ManagerSchedule({
     <>
       <Card>
         <div className={styles.weekToolbar}>
-          <Field
-            label={values.view === "day" ? l.date : t.mSchedule.chooseWeek}
-          >
+          <Field label={l.date}>
             <input
-              type={values.view === "day" ? "date" : "week"}
-              value={values.view === "day" ? values.date : isoWeek(values.date)}
+              type="date"
+              value={values.date}
               onChange={(e) => {
                 if (e.target.value)
                   update(
                     values.view === "day"
                       ? { date: e.target.value }
-                      : { date: weekMonday(e.target.value), view: "week" },
+                      : { date: mondayOf(e.target.value), view: "week" },
                   );
               }}
             />

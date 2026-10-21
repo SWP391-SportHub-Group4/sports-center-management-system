@@ -115,7 +115,6 @@ function CheckoutFlow({
       : error?.cause instanceof ApiError &&
           error.cause.code === "member_schedule_conflict"
         ? t.apiErrors.memberScheduleConflict
-<<<<<<< Updated upstream
         : error?.cause instanceof ApiError &&
             error.cause.code === "payment_already_started"
           ? vi
@@ -131,13 +130,6 @@ function CheckoutFlow({
   const [lockedSessionId, setLockedSessionId] = useState<string | null>(null);
   const pointsLocked =
     !!checkout && lockedSessionId === checkout.checkoutSessionId;
-=======
-        : error?.cause instanceof Error
-          ? error.cause.message
-          : error
-            ? t.apiErrors.generic
-            : "";
->>>>>>> Stashed changes
   const retryKey = useRef<string | null>(null);
   const key = useRef<string | null>(null);
   const alive = useRef(true);

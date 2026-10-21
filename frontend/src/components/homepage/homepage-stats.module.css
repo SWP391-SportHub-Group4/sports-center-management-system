@@ -135,21 +135,15 @@
 }
 .photo {
   position: relative;
+  aspect-ratio: 1.5;
   overflow: hidden;
   border-radius: var(--radius-md);
   background: var(--bg-surface-sunken);
 }
 .photo img {
   object-fit: cover;
-  object-position: center;
+  object-position: center 30%;
   transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.coachPhoto {
-  background: var(--bg-surface-sunken);
-}
-.coachPhoto img {
-  object-fit: contain;
-  object-position: center;
 }
 .itemCopy {
   padding: 22px 0 0;

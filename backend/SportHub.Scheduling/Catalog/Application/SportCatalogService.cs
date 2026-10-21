@@ -127,6 +127,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         sport.Name = name;
         sport.Description = Clean(request.Description);
         sport.ImageUrl = Clean(request.ImageUrl);
+        if (request.IsActive.HasValue) sport.IsActive = request.IsActive.Value;
 
         // Đổi mặc định chỉ có tác dụng với lớp tạo sau, không sửa lịch cũ. Dịch vụ không còn trong yêu cầu chỉ bị TẮT,
         // không bị xóa: dịch vụ đã bán/đang có lịch vẫn đọc được.

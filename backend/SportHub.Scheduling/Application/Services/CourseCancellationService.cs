@@ -21,8 +21,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// <summary>Enrolled classes may only be cancelled after a below-threshold decision, before teaching is completed.</summary>
 public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCreditService refunds,
     ICheckoutLifecycleService checkouts, IClassEnrollmentFulfillment enrollments, IOccupancyService occupancy,
-    IAuditWriter audit, INotificationWriter notifications, IClock clock, IUserAccessReader users,
-    ISystemSettingProvider settings, IConfiguration configuration)
+    IAuditWriter audit, INotificationWriter notifications, IClock clock, IUserAccessReader users)
 {
     public async Task<CourseCancellationPreview> PreviewAsync(int classId, CancellationToken ct = default)
     {
@@ -139,7 +138,9 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
         if (course.CoachId is Guid coachId)
         {
             var eventId = Guid.NewGuid();
-            var message = $"Course {course.Name} was cancelled by the Manager because it did not meet its enrollment threshold. Enrolled members have received their points refunds. Reason: {request.Reason.Trim()}";
+            var message = current.RefundsImmediately
+                ? $"Course {course.Name} was cancelled by the Manager because it did not meet its enrollment threshold. Enrolled members have received their points refunds. Reason: {request.Reason.Trim()}"
+                : $"Course {course.Name} was cancelled by the Manager. Reason: {request.Reason.Trim()}";
             notifications.Queue(new(coachId, NotificationEvents.ClassCancelled, message, eventId));
             var coach = await users.GetAsync(coachId, ct);
             if (coach is not null)

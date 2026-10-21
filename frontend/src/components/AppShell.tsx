@@ -99,14 +99,13 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
-    { href: "/manager/sports", labelKey: "sports" },
+    { href: "/manager/sports", labelKey: "sport" },
     { href: "/manager/facilities", labelKey: "trainingRooms" },
     { href: "/manager/people", labelKey: "people" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
     { href: "/manager/media", labelKey: "media" },
     { href: "/manager/requests", labelKey: "requests" },
-    { href: "/manager/classes/interests", labelKey: "courseInterests" },
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/membership-plans", labelKey: "membershipPlans" },
     { href: "/manager/finance", labelKey: "finance" },
@@ -147,23 +146,24 @@ type NavEntry =
 const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
   CenterManager: [
     "/manager",
-    "/manager/people",
+    "/manager/sports",
     "/manager/media",
+    "/manager/people",
     [
       "catalog",
       [
-        "/manager/sports",
         "/manager/facilities",
         "/manager/membership-plans",
         "/manager/classes",
-        "/manager/classes/interests",
+        "/manager/finance",
+        "/manager/points",
+        "/manager/reports",
       ],
     ],
     [
       "supportCommunications",
       ["/manager/requests", "/manager/incidents", "/manager/notices"],
     ],
-    ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
   ],
   Coach: [
     "/coach",

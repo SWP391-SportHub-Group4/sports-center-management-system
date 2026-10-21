@@ -1,4 +1,5 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -59,41 +60,43 @@ export function CoachStudentDirectory() {
         </div>
         <Users size={32} aria-hidden="true" />
       </header>
-      <div className={styles.filters}>
-        <label>
-          {vi ? "Tìm học viên" : "Find a student"}
-          <span className={styles.search}>
-            <Search size={18} aria-hidden="true" />
-            <input
-              type="search"
-              value={search}
-              maxLength={150}
-              placeholder={vi ? "Tên hoặc email" : "Name or email"}
+      <TableFilters>
+        <div className={styles.filters}>
+          <label>
+            {vi ? "Tìm học viên" : "Find a student"}
+            <span className={styles.search}>
+              <Search size={18} aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                maxLength={150}
+                placeholder={vi ? "Tên hoặc email" : "Name or email"}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </span>
+          </label>
+          <label>
+            {vi ? "Bộ môn" : "Sport"}
+            <select
+              value={sport}
               onChange={(e) => {
-                setSearch(e.target.value);
+                setSport(e.target.value);
                 setPage(1);
               }}
-            />
-          </span>
-        </label>
-        <label>
-          {vi ? "Bộ môn" : "Sport"}
-          <select
-            value={sport}
-            onChange={(e) => {
-              setSport(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{vi ? "Tất cả bộ môn" : "All sports"}</option>
-            {sports.data?.sports.map((s) => (
-              <option key={s.sportId} value={s.sportId}>
-                {s.sportName}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+            >
+              <option value="">{vi ? "Tất cả bộ môn" : "All sports"}</option>
+              {sports.data?.sports.map((s) => (
+                <option key={s.sportId} value={s.sportId}>
+                  {s.sportName}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </TableFilters>
       <AsyncSection state={state}>
         {(data) => (
           <>
@@ -291,43 +294,49 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
         <StudentPhysicalProfile memberId={student.memberId} />
       ) : (
         <>
-          <div className={styles.filters}>
-            <label>
-              {vi ? "Bộ môn" : "Sport"}
-              <select
-                value={sport}
-                onChange={(e) => {
-                  if (!canLeave()) return;
-                  setSport(e.target.value);
-                  setClassId("");
-                }}
-              >
-                <option value="">{vi ? "Chọn bộ môn" : "Choose sport"}</option>
-                {sports.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
+          <TableFilters>
+            <div className={styles.filters}>
+              <label>
+                {vi ? "Bộ môn" : "Sport"}
+                <select
+                  value={sport}
+                  onChange={(e) => {
+                    if (!canLeave()) return;
+                    setSport(e.target.value);
+                    setClassId("");
+                  }}
+                >
+                  <option value="">
+                    {vi ? "Chọn bộ môn" : "Choose sport"}
                   </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {vi ? "Lớp hiện tại" : "Current class"}
-              <select
-                disabled={!sport}
-                value={selected ? String(selected.classId) : ""}
-                onChange={(e) => {
-                  if (canLeave()) setClassId(e.target.value);
-                }}
-              >
-                <option value="">{vi ? "Chọn lớp học" : "Choose class"}</option>
-                {classes.map((c) => (
-                  <option key={c.classId} value={c.classId}>
-                    {c.className}
+                  {sports.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                {vi ? "Lớp hiện tại" : "Current class"}
+                <select
+                  disabled={!sport}
+                  value={selected ? String(selected.classId) : ""}
+                  onChange={(e) => {
+                    if (canLeave()) setClassId(e.target.value);
+                  }}
+                >
+                  <option value="">
+                    {vi ? "Chọn lớp học" : "Choose class"}
                   </option>
-                ))}
-              </select>
-            </label>
-          </div>
+                  {classes.map((c) => (
+                    <option key={c.classId} value={c.classId}>
+                      {c.className}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </TableFilters>
           {selected ? (
             <>
               {tab === "current" ? (

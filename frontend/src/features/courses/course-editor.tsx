@@ -12,7 +12,7 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import { SportSelector, RoomSelector, catalogApi } from "@/features/catalog";
 import { CoachSelector } from "@/features/coaches";
 import { ScheduleRuleEditor } from "./schedule-rule-editor";
-import { ScheduleReview } from "./schedule-review";
+import { checkSchedule, ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
 import { ClassWeekSchedule } from "./class-week-schedule";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
@@ -226,6 +226,38 @@ export function CourseEditor({
    */
   const slots = previewSessions(schedule, minutes);
 
+  const scheduleFingerprint = JSON.stringify({
+    sportId: schedule.sportId,
+    defaultRoomId: schedule.defaultRoomId,
+    coachId: schedule.coachId,
+    capacity: schedule.capacity,
+    startDate: schedule.startDate,
+    numSessions: schedule.numSessions,
+    scheduleRules: schedule.scheduleRules,
+  });
+  const availability = useApi(
+    async (signal) => {
+      if (
+        step < 1 ||
+        !minutes ||
+        !schedule.sportId ||
+        !schedule.defaultRoomId ||
+        slots.length !== form.numSessions
+      )
+        return null;
+      const rows = await checkSchedule(schedule, minutes, signal);
+      return { fingerprint: scheduleFingerprint, rows };
+    },
+    [scheduleFingerprint, minutes, step >= 1],
+  );
+  const scheduleReady =
+    !!availability.data &&
+    availability.data.fingerprint === scheduleFingerprint &&
+    !availability.loading &&
+    !availability.error &&
+    availability.data.rows.length === form.numSessions &&
+    availability.data.rows.every((row) => row.available);
+
   const valid =
     form.code.trim().length >= 2 &&
     form.name.trim().length > 0 &&
@@ -245,11 +277,14 @@ export function CourseEditor({
       return;
     }
 
-    if (step === 1 && (!minutes || slots.length !== form.numSessions)) {
+    if (
+      step === 1 &&
+      (!minutes || slots.length !== form.numSessions || !scheduleReady)
+    ) {
       return;
     }
 
-    if (step === 2 && !valid) {
+    if (step === 2 && (!valid || !scheduleReady)) {
       return;
     }
 
@@ -289,7 +324,7 @@ export function CourseEditor({
             return;
           }
 
-          if (!valid) {
+          if (!valid || !scheduleReady) {
             return;
           }
 
@@ -481,6 +516,22 @@ export function CourseEditor({
                 )}
               </AsyncSection>
 
+              {availability.loading && <p role="status">{t.common.loading}</p>}
+              {availability.error && (
+                <p role="alert">
+                  {availability.error.message}{" "}
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={availability.reload}
+                  >
+                    {t.common.retry}
+                  </button>
+                </p>
+              )}
+              {availability.data && !scheduleReady && (
+                <p role="alert">{t.operations.conflict}</p>
+              )}
               <ClassWeekSchedule
                 key={form.startDate}
                 startDate={form.startDate}
@@ -617,13 +668,14 @@ export function CourseEditor({
                * Schedule step.
                */
               (step === 1 &&
-                (!form.defaultRoomId ||
+                (!scheduleReady ||
+                  !form.defaultRoomId ||
                   !minutes ||
                   slots.length !== form.numSessions)) ||
               /*
                * Pricing/review.
                */
-              (step >= 2 && (!valid || catalog.loading))
+              (step >= 2 && (!valid || catalog.loading || !scheduleReady))
             }
           >
             {step === 3 ? (

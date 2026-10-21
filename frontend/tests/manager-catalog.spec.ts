@@ -354,7 +354,7 @@ test("sport readiness and disabled services are visible; server errors keep serv
   ]);
 });
 
-test("Gym creates, edits without changing active state, and reactivates via the dedicated endpoint", async ({
+test("Gym edits preserve inactive status and reactivate through the edit switch", async ({
   page,
 }) => {
   const fixture = await setup(page);
@@ -370,17 +370,18 @@ test("Gym creates, edits without changing active state, and reactivates via the 
     path: "/api/membership-packages/71",
     body: { price: 330000, sessionLimit: null },
   });
-  expect(fixture.writes[0].body).not.toHaveProperty("isActive");
+  expect(fixture.writes[0].body?.isActive).toBe(false);
   await expect(row(page, "Gym 30 days").locator("summary")).toHaveCount(0);
   await row(page, "Gym 30 days")
-    .getByRole("button", { name: "Activate", exact: true })
+    .getByRole("button", { name: "Edit", exact: true })
     .click();
-  expect(fixture.writes).toHaveLength(1);
-  await dialog(page)
-    .getByRole("button", { name: "Confirm", exact: true })
-    .click();
+  await dialog(page).getByRole("switch").check();
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
-  expect(fixture.writes[1].path).toBe("/api/membership-packages/71/reactivate");
+  expect(fixture.writes[1]).toMatchObject({
+    path: "/api/membership-packages/71",
+    body: { isActive: true },
+  });
   await page
     .getByRole("button", { name: "Create Gym package", exact: true })
     .click();
@@ -430,38 +431,33 @@ test("court-rate creation validates days/window and uses actual compatible IDs",
     .toBeGreaterThan(1);
 });
 
-test("court activation PUT preserves the whole existing rate; cancel never writes", async ({
+test("court activity stays in Edit and preserves the complete rate", async ({
   page,
 }) => {
   const fixture = await setup(page);
   await page.goto("/manager/court-rates");
-  await page.getByRole("button", { name: "Deactivate", exact: true }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await dialog(page).getByRole("switch").uncheck();
   await dialog(page)
-    .getByRole("button", { name: "Cancel", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
     .click();
   expect(fixture.writes).toHaveLength(0);
-  await page.getByRole("button", { name: "Deactivate", exact: true }).click();
-  await dialog(page)
-    .getByRole("button", { name: "Deactivate", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(dialog(page).getByRole("switch")).toBeChecked();
+  await dialog(page).getByRole("switch").uncheck();
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
-  expect(fixture.writes[0]).toEqual({
+  expect(fixture.writes[0]).toMatchObject({
     path: "/api/manager/court-rates/91",
     method: "PUT",
     body: {
-      roomId: null,
+      isActive: false,
       roomTypeId: 51,
       sportId: 41,
       daysOfWeek: ["MON", "TUE"],
-      startTimeLocal: "06:00",
-      endTimeLocal: "12:00",
       pricePerHour: 100000,
-      isActive: false,
     },
   });
-  await expect(
-    page.getByRole("button", { name: "Activate", exact: true }),
-  ).toBeVisible();
 });
 
 for (const [status, code] of [
@@ -479,6 +475,7 @@ for (const [status, code] of [
     await dialog(page)
       .getByLabel("Price per hour (VND)", { exact: true })
       .fill("150000");
+    const readsBeforeSave = fixture.reads["/api/manager/court-rates"];
     await dialog(page)
       .getByRole("button", { name: "Save", exact: true })
       .click();
@@ -489,7 +486,7 @@ for (const [status, code] of [
     await expect(
       dialog(page).getByLabel("Price per hour (VND)", { exact: true }),
     ).toHaveValue("150000");
-    expect(fixture.reads["/api/manager/court-rates"]).toBe(1);
+    expect(fixture.reads["/api/manager/court-rates"]).toBe(readsBeforeSave);
     fixture.recover();
     await dialog(page)
       .getByRole("button", { name: "Save", exact: true })
@@ -498,25 +495,28 @@ for (const [status, code] of [
   });
 }
 
-test("filters and aliases survive reload; sport confirm issues a single mutation", async ({
+test("filters and aliases survive reload and sport status saves once", async ({
   page,
 }) => {
   const fixture = await setup(page, { slow: true });
   await page.goto("/manager/sports?q=Basket&status=active&keep=bookmark");
   await expect(row(page, "Basketball")).toBeVisible();
   await page.reload();
+  await page.locator("details > summary").first().click();
   await expect(page.getByLabel("Search", { exact: true })).toHaveValue(
     "Basket",
   );
   await row(page, "Basketball")
-    .getByRole("button", { name: "Deactivate", exact: true })
+    .getByRole("button", { name: "Edit", exact: true })
     .click();
-  await dialog(page)
-    .getByRole("button", { name: "Confirm", exact: true })
-    .dblclick();
+  await dialog(page).getByRole("switch").uncheck();
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
   expect(fixture.writes).toHaveLength(1);
-  expect(fixture.writes[0].path).toBe("/api/manager/sports/41/deactivate");
+  expect(fixture.writes[0]).toMatchObject({
+    path: "/api/manager/sports/41",
+    body: { isActive: false },
+  });
   await expect(
     page.getByText("No matching items", { exact: true }),
   ).toBeVisible();
@@ -615,29 +615,30 @@ test("empty room-type catalog explains the prerequisite and prevents rate creati
   ).toBeDisabled();
 });
 
-test("Gym stop-selling and sport activation use the supported endpoints", async ({
+test("Gym stop-selling and sport activation use their edit contracts", async ({
   page,
 }) => {
   const fixture = await setup(page);
   fixture.data.packages[0].isActive = true;
   fixture.data.sports[0].isActive = false;
   await page.goto("/manager/catalog?tab=gym");
-  await expect(row(page, "Gym 30 days").locator("summary")).toHaveCount(0);
-  await page.getByRole("button", { name: "Deactivate", exact: true }).click();
-  await dialog(page)
-    .getByRole("button", { name: "Confirm", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await dialog(page).getByRole("switch").uncheck();
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
-  expect(fixture.writes[0].path).toBe(
-    "/api/membership-packages/71/discontinue",
-  );
+  expect(fixture.writes[0]).toMatchObject({
+    path: "/api/membership-packages/71",
+    body: { isActive: false },
+  });
   await page.goto("/manager/catalog?tab=sports");
-  await page.getByRole("button", { name: "Activate", exact: true }).click();
-  await dialog(page)
-    .getByRole("button", { name: "Confirm", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await dialog(page).getByRole("switch").check();
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
-  expect(fixture.writes[1].path).toBe("/api/manager/sports/41/activate");
+  expect(fixture.writes[1]).toMatchObject({
+    path: "/api/manager/sports/41",
+    body: { isActive: true },
+  });
 });
 
 for (const role of ["MEMBER", "SYSTEM_ADMINISTRATOR"])
@@ -795,4 +796,59 @@ test("live Manager API list contracts and aliases match the rendered catalog", a
     path: "../output/manager-catalog-live.png",
     fullPage: true,
   });
+});
+
+test("table filters collapse and activity changes stay inside Edit until Save", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/manager/sports");
+  await expect(
+    page.getByRole("button", { name: "Deactivate", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("searchbox")).toBeHidden();
+  const filter = page.locator("details > summary").first();
+  await filter.click();
+  await expect(page.getByRole("searchbox")).toBeVisible();
+  await page.getByRole("searchbox").fill("Basket");
+  await expect(page).toHaveURL(/q=Basket/);
+  await page.screenshot({
+    path: "../.impeccable/review/operations-filters-desktop.png",
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "../.impeccable/review/operations-filters-mobile.png",
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("searchbox").press("Escape");
+  await expect(page.getByRole("searchbox")).toBeHidden();
+  await row(page, "Basketball")
+    .getByRole("button", { name: "Edit", exact: true })
+    .click();
+  await dialog(page).getByRole("switch").uncheck();
+  await dialog(page)
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  expect(fixture.writes).toHaveLength(0);
+  await row(page, "Basketball")
+    .getByRole("button", { name: "Edit", exact: true })
+    .click();
+  await expect(dialog(page).getByRole("switch")).toBeChecked();
+  await dialog(page).getByRole("switch").uncheck();
+  await page.screenshot({
+    path: "../.impeccable/review/operations-edit-desktop.png",
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "../.impeccable/review/operations-edit-mobile.png",
+    animations: "disabled",
+  });
+  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  expect(fixture.writes).toHaveLength(1);
+  expect(fixture.writes[0].body?.isActive).toBe(false);
 });

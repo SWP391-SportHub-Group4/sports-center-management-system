@@ -221,7 +221,7 @@ function OperationsRows({
   );
 }
 interface CancellationPreview {
-  requiresMemberDecision?: boolean;
+  refundsImmediately?: boolean;
   canCancel: boolean;
   previewToken: string;
   totalSessions: number;
@@ -290,12 +290,9 @@ export function CourseCancellation({
             {review.totalSessions}
           </p>
           <p>
-            {review.requiresMemberDecision
-              ? "Refundable points"
-              : l.refundTotal}
-            : {review.refundPoints}
+            {l.refundTotal}: {review.refundPoints}
           </p>
-          {review.requiresMemberDecision && (
+          {review.refundsImmediately && (
             <p>{t.classWorkspace.cancelBelowThresholdHint}</p>
           )}
           {!review.canCancel && (

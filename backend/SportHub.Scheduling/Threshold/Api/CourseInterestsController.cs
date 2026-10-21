@@ -10,7 +10,7 @@ using SportHub.Scheduling.Threshold.Application;
 
 namespace SportHub.Scheduling.Threshold.Api;
 
-[ApiController]
+[NonController]
 [Authorize(Roles = "Member,CenterManager")]
 [Route("api/course-interests")]
 public sealed class CourseInterestsController(ISportHubDbContext db, CourseInterestService interests) : ControllerBase
@@ -49,7 +49,7 @@ public sealed class CourseInterestsController(ISportHubDbContext db, CourseInter
 }
 
 // Retain the published member/manager contracts used by the cohort history UI.
-[ApiController]
+[NonController]
 public sealed class MemberCourseInterestsController(CourseInterestService interests) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.Member)]

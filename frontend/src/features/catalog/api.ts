@@ -13,11 +13,16 @@ import type {
 export type SaveSport = Pick<
   SportDto,
   "name" | "description" | "imageUrl" | "services"
-> & { code?: string; createRoomType?: boolean; roomTypeName?: string };
+> & {
+  code?: string;
+  createRoomType?: boolean;
+  roomTypeName?: string;
+  isActive?: boolean;
+};
 export type SavePackage = Pick<
   MembershipPackageDto,
   "name" | "price" | "durationDays" | "description" | "sessionLimit"
->;
+> & { isActive?: boolean };
 export type SaveRate = Omit<CourtRateDto, "rateId" | "daysOfWeek"> & {
   daysOfWeek: string[];
 };

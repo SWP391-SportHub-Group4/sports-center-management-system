@@ -4,12 +4,7 @@ import { useLanguage } from "@/lib/language";
 import { formatMoney, formatPoints } from "@/lib/format";
 import type { RevenueDimensionsDto, RevenueReportDto } from "@/lib/types";
 import { MemberName } from "@/components/RecordName";
-import {
-  CollectionCharts,
-  ReportMetrics,
-  ReportPanel,
-  ReportRecords,
-} from "./report-visuals";
+import { ReportMetrics, ReportPanel, ReportRecords } from "./report-visuals";
 import styles from "./reports.module.css";
 export function RevenueRows({
   rows,
@@ -33,7 +28,6 @@ export function RevenueRows({
         ...(showSource ? [l.source] : []),
         l.sport,
         t.ptOps.members,
-        l.cash,
         l.redeemedPoints,
         l.redeemed,
       ]}
@@ -56,7 +50,6 @@ export function RevenueRows({
               "—"
             )}
           </td>
-          <td>{formatMoney(r.cashCollected)}</td>
           <td>{formatPoints(r.pointsRedeemed)}</td>
           <td>{formatMoney(r.pointsRedeemed * 1000)}</td>
         </tr>
@@ -75,11 +68,6 @@ export function RevenueSummary({ report }: { report: RevenueDimensionsDto }) {
       <ReportMetrics
         items={[
           {
-            label: l.cash,
-            value: formatMoney(report.cashCollected),
-            hint: "Actual cash collected",
-          },
-          {
             label: l.redeemedPoints,
             value: formatPoints(
               report.rows.reduce((sum, row) => sum + row.pointsRedeemed, 0),
@@ -93,7 +81,7 @@ export function RevenueSummary({ report }: { report: RevenueDimensionsDto }) {
           },
         ]}
       />
-      <CollectionCharts report={report} />
+
       <ReportRecords
         title="Collection records"
         count={`${report.rows.length} rows`}

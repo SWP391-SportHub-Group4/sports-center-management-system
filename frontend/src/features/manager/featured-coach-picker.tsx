@@ -1,214 +1,291 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowUp, ArrowDown, X } from "lucide-react";
+import { useId, useRef, useState, type PointerEvent } from "react";
+import { GripHorizontal, Search, UserRound, X } from "lucide-react";
 import { AvatarImage } from "@/components/AvatarImage";
-import { Field } from "@/components/ui";
+import HomepageImage from "@/components/homepage/HomepageImage";
+import { DEFAULT_AVATAR } from "@/lib/avatar";
 import {
   coachSportsLabel,
-  suggestHomepageCoaches,
   type HomepageCoach,
 } from "@/components/homepage/homepage-showcase";
 import styles from "./featured-coach-picker.module.css";
-import { CoachImageFraming } from "./coach-image-framing";
 
 export function FeaturedCoachPicker({
   coaches,
   selectedIds,
   onChange,
-  frameValues,
-  onFrameChange,
 }: {
   coaches: HomepageCoach[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
-  frameValues: Record<string, string>;
-  onFrameChange: (key: string, value: string) => void;
 }) {
+  const helpId = useId();
+  const list = useRef<HTMLUListElement>(null);
+  const gesture = useRef<{
+    from: number;
+    over: number;
+    startX: number;
+    moved: boolean;
+  } | null>(null);
+  const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
+  const [changing, setChanging] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-  const suggestions = suggestHomepageCoaches(coaches);
-  const suggestedIds = new Set(suggestions.map((coach) => coach.userId));
-  const candidates = [...coaches]
-    .sort(
-      (a, b) =>
-        Number(!!b.avatarUrl) - Number(!!a.avatarUrl) ||
-        a.fullName.localeCompare(b.fullName),
+  const [announcement, setAnnouncement] = useState("");
+  const returnFocus = useRef<HTMLButtonElement | null>(null);
+  const candidates = coaches
+    .filter(
+      (coach) =>
+        !selectedIds.includes(coach.userId) &&
+        (coach.fullName + " " + coachSportsLabel(coach))
+          .toLowerCase()
+          .includes(search.trim().toLowerCase()),
     )
-    .filter((coach) =>
-      `${coach.fullName} ${coachSportsLabel(coach)}`
-        .toLowerCase()
-        .includes(search.trim().toLowerCase()),
-    );
-  const move = (index: number, offset: number) => {
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const move = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || to >= selectedIds.length) return;
     const next = [...selectedIds];
-    [next[index], next[index + offset]] = [next[index + offset], next[index]];
+    const [id] = next.splice(from, 1);
+    next.splice(to, 0, id);
     onChange(next);
+    setAnnouncement(
+      (coaches.find((coach) => coach.userId === id)?.fullName ?? "Coach") +
+        " moved " +
+        (to < from ? "left." : "right."),
+    );
+  };
+  const endDrag = (event: PointerEvent<HTMLButtonElement>, cancel = false) => {
+    const current = gesture.current;
+    if (!current) return;
+    if (!cancel && current.moved) move(current.from, current.over);
+    gesture.current = null;
+    setDrag(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const closeChoices = () => {
+    const slot = changing;
+    setChanging(null);
+    setSearch("");
+    requestAnimationFrame(() => {
+      if (returnFocus.current?.isConnected) returnFocus.current.focus();
+      if (slot !== null)
+        list.current?.children[slot]
+          ?.querySelector<HTMLButtonElement>("button[aria-expanded]")
+          ?.focus();
+    });
   };
   return (
     <section className={styles.picker} aria-label="Featured Coaches">
-      <header className={styles.header}>
-        <div>
-          <h3>
-            Featured Coaches <span>{selectedIds.length}/3</span>
-          </h3>
-          <p>
-            Choose three active Coaches. Names, photos and sports stay linked to
-            their profiles.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={suggestions.length < 3}
-          onClick={() => onChange(suggestions.map((coach) => coach.userId))}
-        >
-          Use suggestions
-        </button>
-      </header>
-      <ol className={styles.selection} aria-label="Homepage display order">
+      <p id={helpId} className={styles.srOnly}>
+        Drag the grip to reorder, or focus it and use the left/right arrow keys.
+      </p>
+      <ul
+        ref={list}
+        className={styles.selection}
+        aria-label="Homepage display order"
+      >
         {[0, 1, 2].map((index) => {
           const id = selectedIds[index];
           const coach = coaches.find((entry) => entry.userId === id);
           return (
-            <li key={index} data-empty={!id}>
-              <span
-                className={styles.position}
-                aria-label={`Position ${index + 1}`}
+            <li
+              key={id ?? "empty-" + index}
+              data-coach-id={id}
+              className={styles.slot}
+            >
+              <div
+                className={styles.coachCard}
+                data-dragging={drag?.from === index || undefined}
+                data-drop-target={
+                  (drag?.over === index && drag.from !== index) || undefined
+                }
               >
-                {index + 1}
-              </span>
-              {coach && (
-                <AvatarImage
-                  name={coach.fullName}
-                  avatarUrl={coach.avatarUrl}
-                  size={44}
-                />
-              )}
-              <div className={styles.identity}>
-                <strong>
-                  {coach?.fullName ??
-                    (id ? "Coach no longer available" : "Choose a Coach")}
-                </strong>
-                <span>
-                  {coach
-                    ? coachSportsLabel(coach)
-                    : id
-                      ? "Remove this selection and choose an active Coach."
-                      : "This position is empty."}
-                </span>
-              </div>
-              {id && (
-                <div className={styles.orderActions}>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    aria-label={`Move ${coach?.fullName ?? "Coach"} up`}
-                    disabled={index === 0}
-                    onClick={() => move(index, -1)}
-                  >
-                    <ArrowUp size={16} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    aria-label={`Move ${coach?.fullName ?? "Coach"} down`}
-                    disabled={index >= selectedIds.length - 1}
-                    onClick={() => move(index, 1)}
-                  >
-                    <ArrowDown size={16} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    aria-label={`Remove ${coach?.fullName ?? "unavailable Coach"}`}
-                    onClick={() =>
-                      onChange(
-                        selectedIds.filter((_, position) => position !== index),
-                      )
-                    }
-                  >
-                    <X size={16} aria-hidden="true" />
-                  </button>
+                <div className={styles.photo}>
+                  {coach ? (
+                    <HomepageImage
+                      src={coach.avatarUrl || DEFAULT_AVATAR}
+                      alt={coach.fullName}
+                      fallbackSrc={DEFAULT_AVATAR}
+                      fill
+                      sizes="240px"
+                      style={{ objectFit: "contain" }}
+                    />
+                  ) : (
+                    <UserRound size={48} aria-hidden="true" />
+                  )}
+                  {coach && (
+                    <button
+                      type="button"
+                      className={styles.grip}
+                      aria-label={"Reorder " + coach.fullName}
+                      aria-describedby={helpId}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key !== "ArrowLeft" &&
+                          event.key !== "ArrowRight"
+                        )
+                          return;
+                        event.preventDefault();
+                        move(
+                          index,
+                          index + (event.key === "ArrowLeft" ? -1 : 1),
+                        );
+                      }}
+                      onPointerDown={(event) => {
+                        if (!event.isPrimary || event.button !== 0) return;
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                        gesture.current = {
+                          from: index,
+                          over: index,
+                          startX: event.clientX,
+                          moved: false,
+                        };
+                      }}
+                      onPointerMove={(event) => {
+                        const current = gesture.current;
+                        if (!current) return;
+                        if (
+                          Math.abs(event.clientX - current.startX) < 8 &&
+                          !current.moved
+                        )
+                          return;
+                        current.moved = true;
+                        const cards = Array.from(list.current?.children ?? []);
+                        let nearest = current.from,
+                          distance = Infinity;
+                        cards.forEach((card, position) => {
+                          const rect = card.getBoundingClientRect();
+                          const delta = Math.abs(
+                            event.clientX - (rect.left + rect.width / 2),
+                          );
+                          if (
+                            delta < distance &&
+                            position < selectedIds.length
+                          ) {
+                            nearest = position;
+                            distance = delta;
+                          }
+                        });
+                        current.over = nearest;
+                        setDrag({ from: current.from, over: current.over });
+                      }}
+                      onPointerUp={(event) => endDrag(event)}
+                      onPointerCancel={(event) => endDrag(event, true)}
+                      onLostPointerCapture={() => {
+                        gesture.current = null;
+                        setDrag(null);
+                      }}
+                    >
+                      <GripHorizontal size={20} aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
-              )}
-              {coach && (
-                <CoachImageFraming
-                  key={`${coach.userId}:${coach.avatarUrl ?? "default"}`}
-                  coach={coach}
-                  values={frameValues}
-                  onChange={onFrameChange}
-                />
-              )}
+                <div className={styles.identity}>
+                  <strong>
+                    {coach?.fullName ??
+                      (id ? "Coach unavailable" : "Choose a coach")}
+                  </strong>
+                  <span>
+                    {coach
+                      ? coachSportsLabel(coach)
+                      : "Select an active coach below."}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.changeButton}
+                aria-label={
+                  "Change coach: " + (coach?.fullName ?? "empty position")
+                }
+                aria-expanded={changing === index}
+                aria-controls="coach-replacements"
+                onClick={(event) => {
+                  returnFocus.current = event.currentTarget;
+                  setChanging(changing === index ? null : index);
+                  setSearch("");
+                }}
+              >
+                {coach ? "Change coach" : "Choose coach"}
+              </button>
             </li>
           );
         })}
-      </ol>
-      <div className={styles.directoryHeader}>
-        <h4>Choose from your Coaches</h4>
-        <span>Coaches with a profile photo appear first.</span>
-      </div>
-      <Field label="Find a Coach">
-        <input
-          type="search"
-          placeholder="Search name or sport"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </Field>
-      <div className={styles.candidates}>
-        {candidates.map((coach) => {
-          const checked = selectedIds.includes(coach.userId);
-          return (
-            <label
-              key={coach.userId}
-              className={styles.candidate}
-              data-selected={checked}
+      </ul>
+      {changing !== null && (
+        <div id="coach-replacements" className={styles.replacements}>
+          <div className={styles.choiceHeader}>
+            <strong>Change coach</strong>
+            <button
+              type="button"
+              className={styles.closeChoices}
+              aria-label="Close coach choices"
+              onClick={closeChoices}
             >
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={!checked && selectedIds.length >= 3}
-                onChange={() =>
-                  onChange(
-                    checked
-                      ? selectedIds.filter((id) => id !== coach.userId)
-                      : [...selectedIds, coach.userId],
-                  )
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <label className={styles.search}>
+            <Search size={18} aria-hidden="true" />
+            <input
+              autoFocus
+              type="search"
+              aria-label="Find a coach"
+              placeholder="Search name or sport"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.stopPropagation();
+                  closeChoices();
                 }
-              />
-              <AvatarImage
-                name={coach.fullName}
-                avatarUrl={coach.avatarUrl}
-                size={48}
-              />
-              <span className={styles.identity}>
-                <strong>{coach.fullName}</strong>
-                <span>{coachSportsLabel(coach)}</span>
-                <small>
-                  {suggestedIds.has(coach.userId) && coach.avatarUrl
-                    ? "Suggested · Has profile photo"
-                    : coach.avatarUrl
-                      ? "Has profile photo"
-                      : "No profile photo yet"}
-                </small>
-              </span>
-            </label>
-          );
-        })}
-        {!candidates.length && (
-          <p className={styles.empty}>
-            {coaches.length
-              ? "No Coaches match your search."
-              : "No active Coaches are available yet."}
-          </p>
-        )}
-      </div>
-      <p className={styles.help} role="status">
-        {coaches.length < 3
-          ? "At least three active Coaches are needed before this page can be published."
-          : selectedIds.length < 3
-            ? `Choose ${3 - selectedIds.length} more ${selectedIds.length === 2 ? "Coach" : "Coaches"} before publishing.`
-            : "Three Coaches selected. Use the arrows to change their homepage order."}
+              }}
+            />
+          </label>
+          <div className={styles.candidates}>
+            {candidates.map((coach) => (
+              <button
+                type="button"
+                key={coach.userId}
+                className={styles.candidate}
+                aria-label={"Choose " + coach.fullName}
+                onClick={() => {
+                  const next = [...selectedIds];
+                  next[changing] = coach.userId;
+                  onChange(next);
+                  setAnnouncement(coach.fullName + " selected.");
+                  closeChoices();
+                }}
+              >
+                <AvatarImage
+                  name={coach.fullName}
+                  avatarUrl={coach.avatarUrl}
+                  size={40}
+                />
+                <span className={styles.identity}>
+                  <strong>{coach.fullName}</strong>
+                  <span>{coachSportsLabel(coach)}</span>
+                </span>
+              </button>
+            ))}
+            {!candidates.length && (
+              <p className={styles.empty}>
+                {search
+                  ? "No coaches match your search."
+                  : "No other active coaches are available."}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      {coaches.length < 3 && (
+        <p className={styles.help}>
+          At least three active coaches are needed to publish.
+        </p>
+      )}
+      <p className={styles.srOnly} role="status" aria-live="polite">
+        {announcement}
       </p>
     </section>
   );

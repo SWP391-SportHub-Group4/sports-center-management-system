@@ -6,7 +6,7 @@ export default function Page() {
   return (
     <AppShell
       title="Media"
-      description="Update images directly in a simplified preview of your homepage."
+      hidePageHeader
       allow={["CenterManager"]}
       operationalLayout
     >

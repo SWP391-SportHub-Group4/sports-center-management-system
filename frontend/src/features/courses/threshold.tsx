@@ -205,23 +205,7 @@ export function ThresholdPanel({
                 {data.resolutionStatus === "AWAITING_PAYMENT"
                   ? l.pendingPayment
                   : l.recorded}
-                {data.choice === "WAIT_NEXT_COURSE" && (
-                  <>
-                    {" "}
-                    <Link href="/member/services?section=courses&view=owned&tab=interests">
-                      {l.interests}
-                    </Link>
-                  </>
-                )}
               </p>
-            )}
-            {data.choice === "WAIT_NEXT_COURSE" && (
-              <Link
-                className="btn btn--secondary"
-                href="/member/services?view=owned&tab=interests"
-              >
-                Manage course interests
-              </Link>
             )}
             {!closed && (
               <>
@@ -232,13 +216,8 @@ export function ThresholdPanel({
                 >
                   <legend>{l.choose}</legend>
                   {(data.classCancelled
-                    ? (["REFUND", "WAIT_NEXT_COURSE"] as const)
-                    : ([
-                        "KEEP_PLACE",
-                        "TRANSFER",
-                        "WAIT_NEXT_COURSE",
-                        "REFUND",
-                      ] as const)
+                    ? (["REFUND"] as const)
+                    : (["KEEP_PLACE", "TRANSFER", "REFUND"] as const)
                   ).map((option) => (
                     <label
                       className={styles.choice}
@@ -270,9 +249,6 @@ export function ThresholdPanel({
                       you when a new course in this sport opens. No seat is
                       reserved.
                     </p>
-                    <Link href="/member/services?view=owned&tab=interests">
-                      {l.interests}
-                    </Link>
                   </div>
                 )}
                 {choice === "TRANSFER" && (

@@ -124,46 +124,44 @@ export function ManagerCourses() {
               )}
         </p>
         <div className={styles.primaryActions}>
-          <Link
-            className="btn btn--secondary"
-            href="/manager/classes/interests"
-          >
-            {copy.interests}
-          </Link>
           <Link className="btn" href="/manager/classes/new">
             {copy.create}
           </Link>
         </div>
       </div>
       <Card>
-        <div
-          className={styles.savedFilters}
-          role="group"
-          aria-label={m.savedFilters}
-        >
-          {[
-            [m.all, "", ""],
-            [statusLabel("DRAFT"), "DRAFT", ""],
-            [m.recruiting, "PUBLISHED", ""],
-            [statusLabel("AT_RISK"), "PUBLISHED", "AT_RISK"],
-            [statusLabel("IN_PROGRESS"), "IN_PROGRESS", ""],
-            [m.history, "COMPLETED", ""],
-          ].map(([label, status, thresholdStatus]) => (
-            <button
-              key={label}
-              type="button"
-              className="btn btn--secondary"
-              aria-pressed={
-                values.status === status &&
-                values.thresholdStatus === thresholdStatus
-              }
-              onClick={() => setValues({ status, thresholdStatus, page: "1" })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         <FilterBar
+          presets={
+            <div
+              className={styles.savedFilters}
+              role="group"
+              aria-label={m.savedFilters}
+            >
+              {[
+                [m.all, "", ""],
+                [statusLabel("DRAFT"), "DRAFT", ""],
+                [m.recruiting, "PUBLISHED", ""],
+                [statusLabel("AT_RISK"), "PUBLISHED", "AT_RISK"],
+                [statusLabel("IN_PROGRESS"), "IN_PROGRESS", ""],
+                [m.history, "COMPLETED", ""],
+              ].map(([label, status, thresholdStatus]) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="btn btn--secondary"
+                  aria-pressed={
+                    values.status === status &&
+                    values.thresholdStatus === thresholdStatus
+                  }
+                  onClick={() =>
+                    setValues({ status, thresholdStatus, page: "1" })
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          }
           values={values}
           onChange={(next) => setValues({ ...next, page: "1" })}
           onReset={() => setValues(defaults)}

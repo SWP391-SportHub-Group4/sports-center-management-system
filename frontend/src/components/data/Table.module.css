@@ -222,3 +222,8 @@
     white-space: nowrap;
   }
 }
+
+.actionHeading {
+  white-space: nowrap;
+  min-width: 76px;
+}

@@ -1,7 +1,7 @@
 export const thresholdCopy = {
   en: {
     cancelledIntro:
-      "This class was cancelled because it did not meet its enrollment threshold. Choose a points refund or wait for the next course. If you do not respond before the deadline, your points will be refunded automatically.",
+      "This class was cancelled because it did not meet its enrollment threshold. Refunds are returned as points. Check the status below and your points wallet.",
     intro:
       "Your class has not reached its opening threshold. Review the consequences and respond before the deadline.",
     choose: "Choose your response",

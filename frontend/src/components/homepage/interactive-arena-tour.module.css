@@ -423,8 +423,7 @@
 
 .featurePhoto {
   position: relative;
-  min-height: 0;
-  flex: none;
+  min-height: 242px;
   overflow: hidden;
   background: #10191b;
   animation: photoReveal 320ms ease both;
@@ -432,7 +431,7 @@
 
 .featurePhoto img {
   object-fit: cover;
-  object-position: center;
+  object-position: center 44%;
   transition: transform 750ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -882,11 +881,11 @@
   }
 
   .featurePhoto {
-    min-height: 0;
+    min-height: 210px;
   }
 
   .featurePhoto img {
-    object-position: center;
+    object-position: center 42%;
   }
 
   .featureBody {
@@ -956,7 +955,7 @@
   }
 
   .featurePhoto {
-    min-height: 0;
+    min-height: 220px;
   }
 
   .featureBody {

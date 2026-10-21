@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Audit;
@@ -18,7 +16,7 @@ using SportHub.Scheduling.Threshold.Domain;
 namespace SportHub.Scheduling.Threshold.Application;
 
 /// <summary>Evaluates published classes and queues one expiring, member-bound decision link per paid enrollment.</summary>
-public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingProvider settings,
+public sealed class ClassThresholdService(ISportHubDbContext db,
     SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader users,
     INotificationWriter notifications, IAuditWriter audit, IClock clock, IConfiguration configuration) : IClassThresholdService
 {
@@ -135,70 +133,19 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
                     await NotifyConfirmedAsync(entity, cancellationToken);
                 }
             }
-            else if (entity.ThresholdStatus == ThresholdStatus.NotEvaluated
-                || (entity.ThresholdStatus == ThresholdStatus.AtRisk && entity.ThresholdResponseDeadlineUtc is null))
+            else if (entity.ThresholdStatus == ThresholdStatus.NotEvaluated)
             {
-                var responseHours = await settings.GetIntAsync(SystemSettingKeys.ClassThresholdResponseHours, cancellationToken);
-                if (responseHours is < 1 or > 48)
-                    throw new ConflictException("class_threshold_response_setting_invalid", "Class threshold response setting invalid.");
-                var firstStart = await db.Set<ClassSession>().Where(x => x.ClassId == id && x.Status == ClassSessionStatus.Scheduled)
-                    .MinAsync(x => (DateTime?)x.StartAtUtc, cancellationToken);
-                // Give members the full response period from the moment they are notified.
-                // Publish schedules evaluation ten minutes early to absorb the five-minute job cadence.
-                var plannedResponseDeadline = clock.UtcNow.AddHours(responseHours);
-                var canOpenResponseWindow = firstStart is not null
-                    && firstStart.Value.AddHours(-24) >= plannedResponseDeadline
-                    && plannedResponseDeadline > clock.UtcNow;
-                if (!canOpenResponseWindow && entity.ThresholdStatus == ThresholdStatus.NotEvaluated)
-                {
-                    entity.ThresholdStatus = ThresholdStatus.AtRisk;
-                    entity.Version++;
-                    changed++;
-                    await NotifyStaffAsync(entity,
-                        $"Course {entity.Name} is below its enrollment threshold, and a full {responseHours}-hour response window cannot end 24 hours before the first session. Decide now whether to waive the threshold, cancel the course, or move its start date. Members have not been offered a shortened response window.",
-                        NotificationEvents.ClassThresholdAtRisk, cancellationToken);
-                    await NotifyLateMembersAsync(entity, cancellationToken);
-                }
-                if (!canOpenResponseWindow)
-                {
-                    await db.SaveChangesAsync(cancellationToken);
-                    await tx.CommitAsync(cancellationToken);
-                    continue;
-                }
                 entity.ThresholdStatus = ThresholdStatus.AtRisk;
-                entity.ThresholdResponseDeadlineUtc = plannedResponseDeadline;
                 entity.Version++;
                 changed++;
                 await NotifyStaffAsync(entity,
-                    $"Course {entity.Name} has {confirmed}/{entity.BreakEvenThreshold} confirmed enrollments. Review the class before {VietnamTime.ToLocal(entity.ThresholdResponseDeadlineUtc.Value):dd/MM/yyyy HH:mm} Vietnam time.",
+                    $"Course {entity.Name} has {confirmed}/{entity.BreakEvenThreshold} confirmed enrollments. Review the class and either waive the threshold, defer the start date, or cancel it. Cancellation immediately returns points to enrolled members and notifies the teaching Coach.",
                     NotificationEvents.ClassThresholdAtRisk, cancellationToken);
-            }
-
-            if (entity.ThresholdStatus == ThresholdStatus.AtRisk && entity.ThresholdResponseDeadlineUtc is DateTime deadline
-                && deadline > clock.UtcNow)
-            {
-                await QueueMissingResponsesAsync(entity, deadline, cancellationToken);
             }
             await db.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
         }
         return changed;
-    }
-
-    private async Task NotifyLateMembersAsync(Class entity, CancellationToken ct)
-    {
-        var memberIds = await db.Set<Enrollment>().Where(e => e.ClassId == entity.ClassId
-            && e.Status == EnrollmentStatus.Confirmed).Select(e => e.MemberId).Distinct().ToListAsync(ct);
-        var eventId = Guid.NewGuid();
-        var message = $"Course {entity.Name} has not been confirmed to run. There is not enough time for the member response window before opening. The Manager must confirm, defer or cancel the course; check your notifications and schedule for the decision. Your enrollment remains recorded.";
-        foreach (var memberId in memberIds)
-        {
-            var recipient = await users.GetAsync(memberId, ct);
-            if (recipient is null) continue;
-            notifications.Queue(new(memberId, NotificationEvents.ClassThresholdAtRisk, message, eventId));
-            notifications.QueueEmail(new(memberId, recipient.Email, NotificationEvents.ClassThresholdAtRisk,
-                eventId, "SportHub - Course awaiting opening decision", "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
-        }
     }
 
     private async Task NotifyConfirmedAsync(Class entity, CancellationToken ct)
@@ -257,36 +204,4 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
         }
     }
 
-    private async Task QueueMissingResponsesAsync(Class entity, DateTime deadline, CancellationToken ct)
-    {
-        var active = await db.Set<Enrollment>().AsNoTracking().Where(x => x.ClassId == entity.ClassId
-            && x.Status == EnrollmentStatus.Confirmed).Select(x => new { x.EnrollmentId, x.MemberId }).ToListAsync(ct);
-        var existing = await db.Set<ThresholdResponse>().Where(x => x.ClassId == entity.ClassId)
-            .Select(x => x.EnrollmentId).ToListAsync(ct);
-        foreach (var enrollment in active.Where(x => !existing.Contains(x.EnrollmentId)))
-        {
-            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-                .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-            var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-            var responseId = Guid.NewGuid();
-            db.Set<ThresholdResponse>().Add(new ThresholdResponse
-            {
-                ThresholdResponseId = responseId, ClassId = entity.ClassId,
-                EnrollmentId = enrollment.EnrollmentId, MemberId = enrollment.MemberId,
-                TokenHash = tokenHash, DeadlineUtc = deadline,
-                ResolutionStatus = ThresholdResolutionStatus.Pending, CreatedAtUtc = clock.UtcNow
-            });
-            notifications.Queue(new NotificationRequest(enrollment.MemberId, NotificationEvents.ClassThresholdAtRisk,
-                $"Course {entity.Name} has not met its enrollment threshold. Choose to keep your place, receive a points refund, or transfer before "
-                + $"{VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm} Vietnam time. Response link: /class-threshold-response?token={token}",
-                responseId));
-            var recipient = await users.GetAsync(enrollment.MemberId, ct);
-            if (recipient is not null)
-                notifications.QueueEmail(new EmailNotificationRequest(enrollment.MemberId, recipient.Email,
-                    NotificationEvents.ClassThresholdAtRisk, responseId, "SportHub - Course threshold not met",
-                    "<p>Course " + System.Net.WebUtility.HtmlEncode(entity.Name)
-                    + $" has not met its threshold. Choose to keep your place, receive a points refund, or transfer before {VietnamTime.ToLocal(deadline):dd/MM/yyyy HH:mm} Vietnam time."
-                    + " Open this link in SportHub: /class-threshold-response?token=" + token + "</p>"));
-        }
-    }
 }

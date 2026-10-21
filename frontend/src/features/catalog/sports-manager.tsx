@@ -1,4 +1,5 @@
 "use client";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -8,7 +9,6 @@ import type { SportDto, SportServiceType } from "@/lib/types";
 import { catalogApi, type SaveSport } from "./api";
 import {
   CatalogPanel,
-  ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
   CatalogFormDialog,
@@ -25,6 +25,7 @@ const SERVICE_TYPES: SportServiceType[] = [
 ];
 const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS"];
 interface FormState {
+  isActive: boolean;
   code: string;
   name: string;
   description: string;
@@ -34,6 +35,7 @@ interface FormState {
   defaultMaxCapacity: number;
 }
 const empty: FormState = {
+  isActive: true,
   code: "",
   name: "",
   enabled: {
@@ -55,7 +57,6 @@ export function SportsManager() {
   const mutation = useMutation();
   const [form, setForm] = useState(empty);
   const [editor, setEditor] = useState<{ id: number | null } | null>(null);
-  const [activity, setActivity] = useState<SportDto | null>(null);
   const serviceLabel: Record<SportServiceType, string> = {
     MEMBERSHIP_ACCESS: l.serviceMembershipAccess,
     GROUP_COURSE: l.serviceGroupCourse,
@@ -78,6 +79,7 @@ export function SportsManager() {
     setForm(
       row
         ? {
+            isActive: row.isActive,
             name: row.name,
             code: row.code,
             enabled: Object.fromEntries(
@@ -179,20 +181,10 @@ export function SportsManager() {
               >
                 {l.edit}
               </button>
-              <button
-                className="btn btn--ghost btn--sm"
-                disabled={mutation.busy}
-                onClick={() => {
-                  mutation.reset();
-                  setActivity(s);
-                }}
-              >
-                {s.isActive ? l.deactivate : l.activate}
-              </button>
             </>
           )}
         />
-        {!editor && !activity && <CatalogFeedback mutation={mutation} />}
+        {!editor && <CatalogFeedback mutation={mutation} />}
       </CatalogPanel>
       {editor && (
         <CatalogFormDialog
@@ -206,6 +198,7 @@ export function SportsManager() {
               ...(editor.id === null
                 ? { code: form.code.trim().toLowerCase() }
                 : {}),
+              isActive: form.isActive,
               name: form.name.trim(),
               description: form.description,
               imageUrl: form.imageUrl,
@@ -232,6 +225,12 @@ export function SportsManager() {
             }
           }}
         >
+          {editor.id !== null && (
+            <ActivitySwitch
+              checked={form.isActive ?? true}
+              onChange={(isActive) => setForm({ ...form, isActive })}
+            />
+          )}
           <div className="form-grid">
             <Field
               label={l.code}
@@ -327,20 +326,6 @@ export function SportsManager() {
             />
           </Field>
         </CatalogFormDialog>
-      )}
-      {activity && (
-        <ActivityDialog
-          name={activity.name}
-          active={activity.isActive}
-          mutation={mutation}
-          onClose={() => setActivity(null)}
-          onConfirm={async () => {
-            if (await mutation.run(() => catalogApi.setSportActive(activity))) {
-              setActivity(null);
-              state.reload();
-            }
-          }}
-        />
       )}
     </>
   );

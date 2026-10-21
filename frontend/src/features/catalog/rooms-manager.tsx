@@ -1,5 +1,6 @@
 "use client";
 import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { useState } from "react";
 import Link from "next/link";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
@@ -167,14 +168,10 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
               )}
             </AsyncSection>
           </div>
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-            />
-            {l.active}
-          </label>
+          <ActivitySwitch
+            checked={form.isActive}
+            onChange={(isActive) => setForm({ ...form, isActive })}
+          />
         </CatalogFormDialog>
       )}
       {!creatingRental && !detailId && (

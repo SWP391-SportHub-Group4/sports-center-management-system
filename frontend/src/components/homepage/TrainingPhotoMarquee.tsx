@@ -3,7 +3,6 @@
 import Image from "./HomepageImage";
 import styles from "./training-photo-marquee.module.css";
 import { useLandingCopy, useLandingValues } from "./landing-content-context";
-import { homepageImageSpecs } from "./image-specs";
 import { resolveSportGallery, sportGalleryTitle } from "./sport-gallery";
 import { useSportGallery } from "./use-sport-gallery";
 
@@ -57,12 +56,7 @@ export function TrainingPhotoMarquee({ language }: { language: "en" | "vi" }) {
                       data-repeat={repeat > 0 || undefined}
                       aria-hidden={repeat > 0 ? true : undefined}
                     >
-                      <div
-                        className={styles.imageFrame}
-                        style={{
-                          aspectRatio: homepageImageSpecs.landscape.ratio,
-                        }}
-                      >
+                      <div className={styles.imageFrame}>
                         <Image
                           src={photo.src}
                           alt=""

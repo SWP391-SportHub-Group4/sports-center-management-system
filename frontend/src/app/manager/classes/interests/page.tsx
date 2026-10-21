@@ -1,11 +1,4 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { ManagerCourseInterests } from "@/features/courses/manager-course-interests";
-
+import { redirect } from "next/navigation";
 export default function Page() {
-  return (
-    <OperationsPage title="courses" heading="interests">
-      <ManagerCourseInterests />
-    </OperationsPage>
-  );
+  redirect("/manager/classes");
 }
