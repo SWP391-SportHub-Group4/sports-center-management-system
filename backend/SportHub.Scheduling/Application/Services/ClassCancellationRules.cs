@@ -6,6 +6,11 @@ namespace SportHub.Scheduling.Application.Services;
 
 internal static class ClassCancellationRules
 {
+    public static bool IsBelowThresholdDecision(Class course, int confirmedCount)
+        => course.Status == ClassStatus.Published
+           && course.ThresholdStatus == SportHub.Scheduling.Threshold.Domain.ThresholdStatus.AtRisk
+           && course.BreakEvenThreshold is int minimum && confirmedCount < minimum;
+
     // Call after locking the class row; never rely on a cached ConfirmedCount or a preview token.
     public static async Task EnsureNoConfirmedEnrollmentsAsync(ISportHubDbContext db, int classId, CancellationToken ct)
     {

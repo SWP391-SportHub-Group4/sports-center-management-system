@@ -311,19 +311,7 @@ export function ManagerSchedule({
             onReset={() =>
               update({ roomId: "", coachId: "", classId: "", sourceType: "" })
             }
-            actions={
-              <>
-                <button
-                  className="btn btn--ghost"
-                  onClick={() => {
-                    state.reload();
-                    setSelected("");
-                  }}
-                >
-                  {l.refresh}
-                </button>
-              </>
-            }
+            actions={<></>}
           />
         </div>
       </Card>

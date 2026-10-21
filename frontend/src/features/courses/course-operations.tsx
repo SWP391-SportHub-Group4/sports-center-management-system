@@ -91,15 +91,6 @@ function OperationsRows({
               ? l.enrollments
               : l.thresholdResponses)
         }
-        actions={
-          <button
-            className="btn btn--ghost"
-            onClick={state.reload}
-            disabled={state.loading}
-          >
-            {l.refresh}
-          </button>
-        }
       >
         {kind === "holds" && toolbar && (
           <p className={styles.holdHint}>{t.managerOperations.holdHint}</p>
@@ -230,6 +221,7 @@ function OperationsRows({
   );
 }
 interface CancellationPreview {
+  requiresMemberDecision?: boolean;
   canCancel: boolean;
   previewToken: string;
   totalSessions: number;
@@ -298,9 +290,15 @@ export function CourseCancellation({
             {review.totalSessions}
           </p>
           <p>
-            {l.refundTotal}: {review.refundPoints}
+            {review.requiresMemberDecision
+              ? "Refundable points"
+              : l.refundTotal}
+            : {review.refundPoints}
           </p>
-          {(!review.canCancel || review.confirmedCount > 0) && (
+          {review.requiresMemberDecision && (
+            <p>{t.classWorkspace.cancelBelowThresholdHint}</p>
+          )}
+          {!review.canCancel && (
             <p role="alert">
               {review.confirmedCount > 0
                 ? t.classWorkspace.enrolledCancellationBlocked
@@ -309,9 +307,7 @@ export function CourseCancellation({
           )}
           <button
             className="btn btn--danger"
-            disabled={
-              mutation.busy || !review.canCancel || review.confirmedCount > 0
-            }
+            disabled={mutation.busy || !review.canCancel}
             onClick={async () => {
               const ok = await mutation.run(() =>
                 api.post(`/api/manager/classes/${classId}/cancel`, {

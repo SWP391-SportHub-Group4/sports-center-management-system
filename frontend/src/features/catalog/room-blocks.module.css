@@ -1,0 +1,105 @@
+.blocks {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.heading h3 {
+  margin: 0;
+}
+.form {
+  max-width: 800px;
+  width: 100%;
+}
+.fields {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-6);
+  min-width: 0;
+  margin: 0;
+}
+.dates > * {
+  min-width: 0;
+}
+.dates input {
+  min-width: 0;
+  max-width: 100%;
+}
+.dates dt {
+  margin-bottom: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.dates dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding-block: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.block:first-child {
+  padding-top: var(--space-2);
+}
+.details {
+  min-width: 0;
+  flex: 1;
+  max-width: 800px;
+}
+.reason {
+  margin: var(--space-3) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.block > .actions {
+  flex: none;
+}
+.error {
+  margin: 0;
+  color: var(--danger-text);
+}
+@media (max-width: 767px) {
+  .block {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+  }
+  .block > .actions {
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 480px) {
+  .dates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

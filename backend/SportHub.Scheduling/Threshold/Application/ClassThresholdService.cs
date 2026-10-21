@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
@@ -19,7 +20,7 @@ namespace SportHub.Scheduling.Threshold.Application;
 /// <summary>Evaluates published classes and queues one expiring, member-bound decision link per paid enrollment.</summary>
 public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingProvider settings,
     SportHub.BuildingBlocks.Abstractions.Identity.IUserAccessReader users,
-    INotificationWriter notifications, IAuditWriter audit, IClock clock) : IClassThresholdService
+    INotificationWriter notifications, IAuditWriter audit, IClock clock, IConfiguration configuration) : IClassThresholdService
 {
     public async Task ConfirmIfMetAsync(int classId, CancellationToken cancellationToken = default)
     {
@@ -239,14 +240,20 @@ public sealed class ClassThresholdService(ISportHubDbContext db, ISystemSettingP
             .Where(x => x.Status == UserStatus.Active && x.Role!.RoleName == UserRole.CenterManager)
             .Select(x => x.UserId).ToListAsync(ct);
         if (includeCoach && entity.CoachId is Guid coachId) managerIds.Add(coachId);
+        var sourceId = await db.Set<ClassSession>().Where(s => s.ClassId == entity.ClassId)
+            .OrderBy(s => s.SessionNo).Select(s => (Guid?)s.SessionId).FirstOrDefaultAsync(ct);
         foreach (var userId in managerIds.Distinct())
         {
             var recipient = await users.GetAsync(userId, ct);
             if (recipient is null || !recipient.IsActive) continue;
-            notifications.Queue(new NotificationRequest(userId, eventType, message));
+            var path = userId == entity.CoachId
+                ? $"/coach/classes/{entity.ClassId}" : $"/manager/classes/{entity.ClassId}?tab=threshold";
+            var baseUrl = (configuration["Frontend:BaseUrl"] ?? configuration["Cors:AllowedOrigins:0"] ?? "http://localhost:3000").TrimEnd('/');
+            notifications.Queue(new NotificationRequest(userId, eventType, message, sourceId));
             notifications.QueueEmail(new EmailNotificationRequest(userId, recipient.Email, eventType,
                 Guid.NewGuid(), "SportHub - Course threshold update",
-                "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p><p><a href=\""
+                + System.Net.WebUtility.HtmlEncode(baseUrl + path) + "\">View class and opening conditions</a></p>"));
         }
     }
 

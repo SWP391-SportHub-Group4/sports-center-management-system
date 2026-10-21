@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Check, RefreshCw } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Drawer } from "@/components/primitives";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
@@ -68,15 +68,6 @@ export function ManagerClassChangeRequests({
         <h2>
           {vi ? "Yêu cầu thay đổi lịch lớp" : "Class schedule change requests"}
         </h2>
-        <button
-          type="button"
-          className="btn btn--quiet btn--sm"
-          onClick={() => state.reload()}
-          disabled={state.loading}
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          {vi ? "Cập nhật" : "Refresh"}
-        </button>
       </header>
       <p className={styles.hint}>
         {vi
@@ -519,20 +510,7 @@ function ReviewDrawer({
                               ? "The current coach is unavailable at this time. Select another available coach."
                               : `${type === "SUBSTITUTE" ? alternatives.length : candidates.length} available coach(s) · ${formatDateTime(startUtc!)} – ${formatDateTime(endUtc!)}`}
                 </p>
-                {needsCoaches && (
-                  <button
-                    type="button"
-                    className="btn btn--quiet btn--sm"
-                    disabled={action.busy || coaches.loading}
-                    onClick={() => {
-                      setCoach("");
-                      coaches.reload();
-                    }}
-                  >
-                    <RefreshCw size={15} aria-hidden="true" /> Refresh
-                    availability
-                  </button>
-                )}
+
                 {type !== "SUBSTITUTE" && (
                   <label>
                     {vi ? "Sân / phòng" : "Court / room"}

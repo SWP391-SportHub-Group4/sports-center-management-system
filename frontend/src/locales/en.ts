@@ -325,7 +325,7 @@ export const en = {
     requests: "Change requests awaiting review",
     refunds: "Refund requests awaiting review",
     schedule: "Operations schedule",
-    facilities: "Rooms & Courts",
+    facilities: "Court",
     roomTypes: "Room types",
     contentStep: "Class information",
     scheduleStep: "Coach, room & schedule",
@@ -566,8 +566,20 @@ export const en = {
       "Review at least 72 hours before opening. Members have up to 48 hours to respond, ending at least 24 hours before the first session. Confirm immediately once the threshold is met.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
+    cancelBelowThresholdHint:
+      "Cancel this class because it has not met its enrollment threshold. Members will be notified to choose a points refund or join Course interests for the next course. Both choices refund points; unanswered requests are refunded automatically after the deadline.",
   },
   managerCatalog: {
+    editCourt: "Edit court",
+    blockTimes: "Blocked times",
+    addBlock: "Add block time",
+    editBlock: "Edit block time",
+    saveBlock: "Save changes",
+    savingBlock: "Saving…",
+    cancelBlock: "Cancel block time",
+    keepBlock: "Keep block",
+    pricePerHour: "Price per hour (VND)",
+    noRentalPrice: "Not set",
     createLinkedRoomType: "Create a room type with this sport",
     createLinkedRoomTypeHint:
       "Optional. Create a room or court type and link it to this sport when you save.",
@@ -767,6 +779,11 @@ export const en = {
     statusTitle: "Accounts by status",
     statusHint:
       "Current totals across all accounts. Select a status to open its filtered list.",
+    invitationQueue: "Staff invitations",
+    invitationQueueHint:
+      "Awaiting activation is a subset of Active accounts. Invitations expire 24 hours after account creation.",
+    expiringWithinSixHours: "Expiring within 6 hours",
+    systemActor: "System",
     recentTitle: "Recent activity",
     recentHint:
       "The five latest visible Manager, Administrator, Coach or system events.",
@@ -782,6 +799,13 @@ export const en = {
     lockAction: "Account locked / deactivated",
     unlockAction: "Account unlocked",
     viewDetail: "View details",
+    manageAccess: "Manage access",
+    manageInvitation: "Manage invitation",
+    expiringActivation: "Expiring soon",
+    viewAccountActivity: "View account activity",
+    personalAccount: "Personal account",
+    specialtiesManagedByManager:
+      "Existing Coach specialties are managed by the Center Manager. They are read-only here.",
     detailTitle: "Account details",
     backUsers: "Back to accounts",
     identityTitle: "Identity and access",
@@ -816,7 +840,7 @@ export const en = {
     activationActionFailed: "The action could not be completed.",
     optionalPhoneHint: "Optional. The recipient can add it after signing in.",
     activationHint:
-      "* An activation email with a link to set the first password will be sent directly to the staff member.",
+      "An activation email will be queued for the staff member. The link expires 24 hours after account creation; resending or correcting the email does not extend this deadline.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
     saveChanges: "Save changes",
@@ -830,12 +854,12 @@ export const en = {
     memberRoleLocked:
       "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
     roleBlockGuidance:
-      "This account has service resources that must be settled first. Contact a Center Manager or Receptionist to handle them, then retry the role change. Copy a direct member link to share with the appropriate staff member.",
+      "This Coach still has teaching assignments or active relationships. Ask a Center Manager to reassign or close them, then retry the role change. Share the Coach management link below.",
     roleBlockAccountLink: "View account details",
-    roleBlockCopyManager: "Copy Manager member link",
+    roleBlockCopyManager: "Copy Coach management link",
     roleBlockCopyReceptionist: "Copy Receptionist member link",
     roleBlockCopied:
-      "Member link copied. Share it with the appropriate staff member.",
+      "Coach management link copied. Share it with a Center Manager.",
     roleBlockCopyFailed:
       "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
@@ -846,7 +870,7 @@ export const en = {
     deactivateImpact:
       "The account will be deactivated and cannot access authenticated features until it is unlocked.",
     guardHint:
-      "You cannot lock yourself. The server also prevents locking or demoting the last active Administrator.",
+      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be locked or deactivated.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -1837,10 +1861,10 @@ export const en = {
     groups: {
       catalog: "Services",
       classesScheduling: "Classes & Scheduling",
-      supportCommunications: "Support & Communication",
+      supportCommunications: "Exception",
       operations: "Operations",
       people: "People",
-      finance: "Transaction & Report",
+      finance: "Billing management",
       system: "System",
       training: "Training",
       billing: "Billing",
@@ -1853,6 +1877,7 @@ export const en = {
       SystemAdministrator: "System Administrator",
     },
     items: {
+      people: "People",
       requests: "Request",
       courseInterests: "Course interests",
       finance: "Invoices",
@@ -1890,7 +1915,7 @@ export const en = {
       trainingPlans: "Training plans",
       progress: "Results & progress",
       aiSuggestions: "AI suggestions",
-      trainingRooms: "Courts & Rooms",
+      trainingRooms: "Court",
       classes: "Classes",
       classSchedule: "Class schedule",
       membershipPlans: "Membership",
@@ -1899,6 +1924,7 @@ export const en = {
       revenueReports: "Revenue reports",
       systemSettings: "System settings",
       auditLog: "Audit log",
+      media: "Media",
       usersRoles: "Account management",
       myRegistrations: "My registrations",
       myMembershipPlans: "My membership plans",

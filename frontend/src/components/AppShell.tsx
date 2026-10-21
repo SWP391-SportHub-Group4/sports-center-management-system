@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CalendarDays, History } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -100,19 +101,17 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/manager", labelKey: "overview" },
     { href: "/manager/sports", labelKey: "sports" },
     { href: "/manager/facilities", labelKey: "trainingRooms" },
-    { href: "/manager/coaches", labelKey: "coaches" },
-    { href: "/manager/schedule", labelKey: "activitySchedule" },
+    { href: "/manager/people", labelKey: "people" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
+    { href: "/manager/media", labelKey: "media" },
     { href: "/manager/requests", labelKey: "requests" },
     { href: "/manager/classes/interests", labelKey: "courseInterests" },
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/membership-plans", labelKey: "membershipPlans" },
     { href: "/manager/finance", labelKey: "finance" },
-    { href: "/manager/members", labelKey: "members" },
     { href: "/manager/points", labelKey: "wallet" },
     { href: "/manager/reports", labelKey: "revenueReports" },
-    { href: "/manager/audit-log", labelKey: "auditLog" },
   ],
   SystemAdministrator: [
     { href: "/admin", labelKey: "overview" },
@@ -148,6 +147,8 @@ type NavEntry =
 const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
   CenterManager: [
     "/manager",
+    "/manager/people",
+    "/manager/media",
     [
       "catalog",
       [
@@ -158,14 +159,11 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/classes/interests",
       ],
     ],
-    "/manager/schedule",
     [
       "supportCommunications",
       ["/manager/requests", "/manager/incidents", "/manager/notices"],
     ],
-    ["people", ["/manager/coaches", "/manager/members"]],
     ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
-    "/manager/audit-log",
   ],
   Coach: [
     "/coach",
@@ -212,7 +210,10 @@ function buildNav(items: NavItem[], role: Role, t: Translations): NavEntry[] {
 /** Trang gốc của nhánh chỉ sáng ở đúng nó; các mục còn lại khớp theo tiền tố. */
 function isActiveHref(pathname: string, href: string, root: string) {
   return (
-    pathname === href || (href !== root && pathname.startsWith(`${href}/`))
+    pathname === href ||
+    (href !== root && pathname.startsWith(`${href}/`)) ||
+    (href === "/manager/people" &&
+      /^\/manager\/(members|coaches)(\/|$)/.test(pathname))
   );
 }
 
@@ -561,6 +562,36 @@ export function AppFrame({
                       <IconClipboard size={15} aria-hidden="true" />
                       <span>{t.navigation.items.changeRequests}</span>
                     </Link>
+                  )}
+                  {user.role === "CenterManager" && (
+                    <>
+                      <Link
+                        href="/manager/schedule"
+                        className={`${shell.dropdownItem} ${styles.profileItem}`}
+                        aria-current={
+                          isActiveHref(pathname, "/manager/schedule", root)
+                            ? "page"
+                            : undefined
+                        }
+                        onClick={() => setUserMenu(false)}
+                      >
+                        <CalendarDays size={15} aria-hidden="true" />
+                        <span>{t.navigation.items.activitySchedule}</span>
+                      </Link>
+                      <Link
+                        href="/manager/audit-log"
+                        className={`${shell.dropdownItem} ${styles.profileItem}`}
+                        aria-current={
+                          isActiveHref(pathname, "/manager/audit-log", root)
+                            ? "page"
+                            : undefined
+                        }
+                        onClick={() => setUserMenu(false)}
+                      >
+                        <History size={15} aria-hidden="true" />
+                        <span>{t.navigation.items.auditLog}</span>
+                      </Link>
+                    </>
                   )}
                   {user.role === "CenterManager" && (
                     <Link

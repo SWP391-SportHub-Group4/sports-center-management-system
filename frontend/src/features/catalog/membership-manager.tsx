@@ -71,6 +71,7 @@ export function MembershipManager() {
       >
         <CatalogTable
           state={state}
+          visibleRowActions={3}
           filters={filters}
           caption={c.gymPackages}
           rows={(state.data ?? []).filter((p) =>

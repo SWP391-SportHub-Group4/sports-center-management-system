@@ -195,9 +195,7 @@ test("notice details show separate channel states, refresh them, and fit mobile"
   ).toBeVisible();
   await expect(page.getByText(l.channelCountHint)).toBeVisible();
   state.delivered = true;
-  await page
-    .getByRole("button", { name: en.operations.refresh, exact: true })
-    .click();
+  await page.reload();
   await expect(
     alice.getByText(en.wireStatus.SENT, { exact: true }),
   ).toBeVisible();

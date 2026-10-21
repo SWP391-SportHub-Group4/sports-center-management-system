@@ -9,6 +9,77 @@
   overflow-wrap: anywhere;
 }
 
+.filters {
+  min-width: 0;
+}
+
+.advancedFilters {
+  margin-top: var(--space-1);
+}
+
+.advancedFilters summary {
+  padding-block: var(--space-2);
+  cursor: pointer;
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.advancedFilters summary span {
+  color: var(--text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.advancedBody {
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.advancedBody > p {
+  max-width: 70ch;
+  margin: 0 0 var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.datePresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.datePresets .preset {
+  margin: 0;
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out,
+    border-color 160ms ease-out;
+}
+
+.datePresets .preset[aria-pressed="true"] {
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.dateHint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  max-width: 75ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .datePresets .preset {
+    transition: none;
+  }
+}
+
 .compact :global(.card) :global(table) :global(tbody) :global(td),
 .compact :global(.card) :global(table) :global(tbody) :global(th) {
   vertical-align: top;

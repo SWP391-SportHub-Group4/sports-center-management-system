@@ -179,7 +179,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
   );
   return (
     <div className={styles.page}>
-      <Link className="btn btn--ghost" href="/manager/members">
+      <Link className="btn btn--ghost" href="/manager/people?role=Member">
         {t.managerOperations.backToList}
       </Link>
       <AsyncSection state={member}>

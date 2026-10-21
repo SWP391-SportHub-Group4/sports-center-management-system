@@ -160,7 +160,7 @@ test("resend is available in the list and obeys the cooldown", async ({
 }) => {
   const { mutations } = await setup(page);
   await page.goto("/admin/users");
-  await page.getByRole("button", { name: /^More activation actions/ }).click();
+  await page.getByRole("button", { name: /^Manage invitation for/ }).click();
   await expect(
     page.getByRole("dialog", { name: "Staff account activation" }),
   ).toBeVisible();
@@ -169,7 +169,7 @@ test("resend is available in the list and obeys the cooldown", async ({
     .click();
   await expect(page.getByRole("button", { name: /Resend in/ })).toBeDisabled();
   await expect(page.getByRole("dialog")).toContainText(
-    "Activation email sent.",
+    "Activation email queued for delivery.",
   );
   expect(mutations).toHaveLength(1);
   await page.clock.fastForward(61_000);
@@ -178,7 +178,7 @@ test("resend is available in the list and obeys the cooldown", async ({
   ).toBeEnabled();
 });
 
-test("only Activation required rows have a More button, and its popup closes with Escape", async ({
+test("only Activation required rows have a Manage invitation button, and its popup closes with Escape", async ({
   page,
 }) => {
   await setup(page);
@@ -229,7 +229,7 @@ test("only Activation required rows have a More button, and its popup closes wit
     }),
   );
   await page.goto("/admin/users");
-  const more = page.getByRole("button", { name: /^More activation actions/ });
+  const more = page.getByRole("button", { name: /^Manage invitation for/ });
   await expect(more).toHaveCount(1);
   await expect(page.locator("details")).toHaveCount(0);
   await more.focus();
@@ -246,7 +246,7 @@ test("list email correction stays inside one popup and updates the recipient", a
   const { mutations } = await setup(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin/users");
-  await page.getByRole("button", { name: /^More activation actions/ }).click();
+  await page.getByRole("button", { name: /^Manage invitation for/ }).click();
   await page.getByRole("button", { name: "Edit email", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(1);
   await page
@@ -276,7 +276,7 @@ test("list email correction stays inside one popup and updates the recipient", a
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: /^More activation actions/ }),
+    page.getByRole("button", { name: /^Manage invitation for/ }),
   ).toBeFocused();
 });
 

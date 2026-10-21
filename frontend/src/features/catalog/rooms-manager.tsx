@@ -7,20 +7,13 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { todayIso, addDaysIso, formatDateTime } from "@/lib/format";
-import {
-  AsyncSection,
-  Card,
-  Field,
-  StatusChip,
-  Table,
-  Dialog,
-} from "@/components/ui";
-import { MutationFeedback, useMutation } from "@/features/operations";
-import { dayRange, vietnamUtc } from "@/lib/vietnam-time";
+import { formatMoney } from "@/lib/format";
+import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
+import { useMutation } from "@/features/operations";
+import { RoomBlocks } from "./room-blocks";
+import { courtHourlyPrices } from "./court-hourly-prices";
 import { OpeningHoursEditor } from "./opening-hours-editor";
 import { catalogApi } from "./api";
-import type { RoomBlockDto } from "@/lib/types";
 import {
   CatalogPanel,
   CatalogFormDialog,
@@ -34,186 +27,6 @@ import { Tabs } from "@/components/primitives";
 import { CourtRateEditor } from "./court-pricing";
 import { CreateRentalCourt } from "./create-rental-court";
 import type { RoomDto } from "@/lib/types";
-function Blocks({ roomId }: { roomId: number }) {
-  const { t } = useLanguage();
-  const l = t.operations;
-  const [from, setFrom] = useState(todayIso());
-  const [to, setTo] = useState(addDaysIso(todayIso(), 6));
-  const range = dayRange(from, to);
-  const state = useApi(
-    (s) => catalogApi.blocks(roomId, range.fromUtc, range.toUtc, s),
-    [roomId, from, to],
-  );
-  const mutation = useMutation();
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [reason, setReason] = useState("");
-  const [removing, setRemoving] = useState<RoomBlockDto | null>(null);
-  return (
-    <>
-      <h3>{l.blocks}</h3>
-      <div className={styles.facilityGrid}>
-        <Field label={l.from}>
-          <input
-            type="date"
-            required
-            value={from}
-            onChange={(e) => e.target.value && setFrom(e.target.value)}
-          />
-        </Field>
-        <Field label={l.to}>
-          <input
-            type="date"
-            required
-            min={from}
-            max={addDaysIso(from, 61)}
-            value={to}
-            onChange={(e) => e.target.value && setTo(e.target.value)}
-          />
-        </Field>
-      </div>
-      <AsyncSection state={state}>
-        {(rows) => (
-          <Table headers={[l.start, l.end, l.reason, ""]}>
-            {rows.map((b) => (
-              <tr key={b.blockId}>
-                <td>{formatDateTime(b.startAtUtc)}</td>
-                <td>{formatDateTime(b.endAtUtc)}</td>
-                <td>{b.reason}</td>
-                <td>
-                  {!b.incidentId ? (
-                    <button
-                      className="btn btn--ghost"
-                      disabled={mutation.busy}
-                      onClick={() => setRemoving(b)}
-                    >
-                      {l.remove}
-                    </button>
-                  ) : (
-                    <Link
-                      href={`/manager/incidents?roomId=${roomId}&incidentId=${b.incidentId}`}
-                    >
-                      {l.incidents}
-                    </Link>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </Table>
-        )}
-      </AsyncSection>
-      <form
-        className="stack"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (end <= start) return;
-          if (
-            await mutation.run(() =>
-              api.post("/api/manager/room-blocks", {
-                roomId,
-                startAtUtc: vietnamUtc(start),
-                endAtUtc: vietnamUtc(end),
-                reason,
-              }),
-            )
-          ) {
-            state.reload();
-            setStart("");
-            setEnd("");
-            setReason("");
-          }
-        }}
-      >
-        <div className={styles.facilityGrid}>
-          <Field label={l.start}>
-            <input
-              type="datetime-local"
-              required
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            />
-          </Field>
-          <Field label={l.end}>
-            <input
-              type="datetime-local"
-              required
-              min={start}
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-            />
-          </Field>
-        </div>
-        <Field label={l.reason}>
-          <textarea
-            required
-            minLength={3}
-            maxLength={500}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </Field>
-        <button
-          className="btn"
-          disabled={mutation.busy || !start || end <= start}
-        >
-          {l.create}
-        </button>
-      </form>
-      <MutationFeedback mutation={mutation} />
-      <p>{t.managerOperations.blockImpactHint}</p>
-      <Link
-        className="btn btn--secondary"
-        href={`/manager/incidents?roomId=${roomId}${start && end ? `&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}` : ""}`}
-      >
-        {l.incidents}
-      </Link>
-      {removing && (
-        <Dialog
-          showCloseButton={false}
-          title={l.remove}
-          onClose={() => {
-            if (!mutation.busy) setRemoving(null);
-          }}
-          footer={
-            <>
-              <button
-                className="btn"
-                disabled={mutation.busy}
-                onClick={async () => {
-                  if (
-                    await mutation.run(() =>
-                      api.del(`/api/manager/room-blocks/${removing.blockId}`),
-                    )
-                  ) {
-                    setRemoving(null);
-                    state.reload();
-                  }
-                }}
-              >
-                {l.confirm}
-              </button>
-              <button
-                className="btn btn--secondary"
-                disabled={mutation.busy}
-                onClick={() => setRemoving(null)}
-              >
-                {l.cancel}
-              </button>
-            </>
-          }
-        >
-          <p>{t.managerOperations.deleteBlockReview}</p>
-          <p>
-            {formatDateTime(removing.startAtUtc)} –{" "}
-            {formatDateTime(removing.endAtUtc)}
-          </p>
-          <p>{removing.reason}</p>
-          <MutationFeedback mutation={mutation} />
-        </Dialog>
-      )}
-    </>
-  );
-}
 export function RoomsManager({ detailId }: { detailId?: number } = {}) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -221,6 +34,8 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
   const filters = useCatalogFilters();
   const state = useApi((s) => catalogApi.rooms(s), []);
   const sports = useApi((s) => catalogApi.sports(s, true), []);
+  const rates = useApi((s) => catalogApi.rates(s), []);
+  const types = useApi((s) => catalogApi.roomTypes(s), []);
   const mutation = useMutation();
   const empty = { name: "", capacity: 12, sportId: "", isActive: true };
   const [form, setForm] = useState(empty);
@@ -252,6 +67,8 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
             setCreatedRental(room);
             state.reload();
             sports.reload();
+            rates.reload();
+            types.reload();
           }}
         />
       )}
@@ -276,7 +93,11 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
       )}
       {editing && (
         <CatalogFormDialog
-          title={`${id ? l.edit : l.create} ${l.room.toLocaleLowerCase()}`}
+          title={
+            id
+              ? t.managerCatalog.editCourt
+              : `${l.create} ${l.room.toLocaleLowerCase()}`
+          }
           busy={mutation.busy}
           mutation={mutation}
           onClose={() => {
@@ -409,6 +230,33 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
               },
               { id: "capacity", header: l.capacity, numeric: true },
               {
+                id: "pricePerHour",
+                header: t.managerCatalog.pricePerHour,
+                numeric: true,
+                cell: (room) => {
+                  if (rates.loading || types.loading) return t.common.loading;
+                  if (rates.error || types.error)
+                    return (
+                      <Link
+                        href={`/manager/facilities/${room.roomId}?tab=pricing`}
+                      >
+                        {t.rentalCourtSetup.viewPrices}
+                      </Link>
+                    );
+                  const prices = courtHourlyPrices(
+                    room,
+                    rates.data ?? [],
+                    types.data?.find(
+                      (type) => type.roomTypeId === room.roomTypeId,
+                    )?.sportIds[0],
+                  );
+                  if (!prices.length) return t.managerCatalog.noRentalPrice;
+                  return prices.length === 1
+                    ? formatMoney(prices[0])
+                    : `${formatMoney(prices[0])} – ${formatMoney(prices[prices.length - 1])}`;
+                },
+              },
+              {
                 id: "isActive",
                 header: l.status,
                 cell: (r) => (
@@ -511,29 +359,33 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           <p>
             {l.capacity}: {selectedRoom?.capacity}
           </p>
-          <Tabs
-            value={detailTab}
-            onChange={setDetailTab}
-            ariaLabel="Court settings"
-            tabs={[
-              { id: "hours", label: "Opening hours" },
-              { id: "pricing", label: "Rental pricing" },
-              { id: "blocks", label: "Blocked times" },
-            ]}
-          >
-            <div className="stack">
-              {detailTab === "hours" && (
-                <OpeningHoursEditor
-                  key={`hours-${selected}`}
-                  roomId={selected}
-                />
-              )}
-              {detailTab === "pricing" && <CourtRateEditor roomId={selected} />}
-              {detailTab === "blocks" && (
-                <Blocks key={`blocks-${selected}`} roomId={selected} />
-              )}
-            </div>
-          </Tabs>
+          <div className={styles.courtSettings}>
+            <Tabs
+              value={detailTab}
+              onChange={setDetailTab}
+              ariaLabel="Court settings"
+              tabs={[
+                { id: "hours", label: "Opening hours" },
+                { id: "pricing", label: "Rental pricing" },
+                { id: "blocks", label: "Blocked times" },
+              ]}
+            >
+              <div className="stack">
+                {detailTab === "hours" && (
+                  <OpeningHoursEditor
+                    key={`hours-${selected}`}
+                    roomId={selected}
+                  />
+                )}
+                {detailTab === "pricing" && (
+                  <CourtRateEditor roomId={selected} />
+                )}
+                {detailTab === "blocks" && (
+                  <RoomBlocks key={`blocks-${selected}`} roomId={selected} />
+                )}
+              </div>
+            </Tabs>
+          </div>
         </Card>
       )}
     </>

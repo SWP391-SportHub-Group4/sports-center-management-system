@@ -42,6 +42,9 @@
   margin-bottom: var(--space-4);
   font-weight: var(--weight-semibold);
 }
+.choices[data-cancelled="true"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .choice {
   display: flex;
   gap: var(--space-3);
@@ -155,7 +158,8 @@
   font-weight: var(--weight-semibold);
 }
 @media (max-width: 767px) {
-  .choices {
+  .choices,
+  .choices[data-cancelled="true"] {
     grid-template-columns: 1fr;
   }
 }

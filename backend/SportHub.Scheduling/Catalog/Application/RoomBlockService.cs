@@ -29,7 +29,12 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
             throw new BadRequestException("invalid_range", "Invalid range.");
         }
 
-        var query = db.Set<RoomBlock>().AsNoTracking().Where(b => b.StartAtUtc < to && b.EndAtUtc > from);
+        // Court settings show every upcoming block, including those beyond the calendar's 62-day window.
+        // Explicit ranges retain the bounded calendar contract.
+        var query = db.Set<RoomBlock>().AsNoTracking();
+        query = roomId is not null && fromUtc is null && toUtc is null
+            ? query.Where(b => b.EndAtUtc > clock.UtcNow)
+            : query.Where(b => b.StartAtUtc < to && b.EndAtUtc > from);
 
         if (roomId is int id)
         {
@@ -94,6 +99,44 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
         return ToResponse(block);
     }
 
+    public async Task<RoomBlockResponse> UpdateAsync(Guid blockId, CreateRoomBlockRequest request, Guid actorUserId, CancellationToken ct = default)
+    {
+        var start = DateTime.SpecifyKind(request.StartAtUtc, DateTimeKind.Utc);
+        var end = DateTime.SpecifyKind(request.EndAtUtc, DateTimeKind.Utc);
+        if (end <= start) throw new BadRequestException("invalid_range", "The end must be after the start.");
+        if (end <= clock.UtcNow) throw new BadRequestException("block_in_the_past", "Block in the past.");
+
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var block = await db.Set<RoomBlock>()
+            .FromSqlInterpolated($"SELECT * FROM room_blocks WHERE block_id = {blockId} FOR UPDATE")
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("room_block_not_found", "Room block not found.");
+        if (block.IncidentId is not null)
+            throw new ConflictException("room_block_from_incident", "Manage this block through its incident.");
+        if (request.RoomId != block.RoomId)
+            throw new BadRequestException("invalid_room", "A block must stay in its original court.");
+        var now = clock.UtcNow;
+        if (await db.Set<IncidentFence>().AnyAsync(f => f.Status == IncidentFenceStatus.Open && f.ExpiresAtUtc > now
+                && (f.Scope == IncidentScope.Center || f.RoomId == block.RoomId)
+                && ((f.StartAtUtc < block.EndAtUtc && f.EndAtUtc > block.StartAtUtc)
+                    || (f.StartAtUtc < end && f.EndAtUtc > start)), ct))
+            throw new ConflictException("room_under_incident_review", "Finish incident review before editing this block.");
+
+        var before = await DescribeAsync(block, ct);
+        var result = await occupancy.ReplaceAsync(new OccupancyRequest(
+            OccupancySources.RoomBlock, blockId, block.RoomId, CoachId: null, start, end), ct);
+        if (!result.Succeeded) throw new OccupancyConflictException(result.Conflicts);
+
+        block.StartAtUtc = start;
+        block.EndAtUtc = end;
+        block.Reason = request.Reason.Trim();
+        audit.Write(new AuditEntry(actorUserId, "UPDATE_ROOM_BLOCK", nameof(RoomBlock), blockId.ToString(),
+            OldValue: before, NewValue: await DescribeAsync(block, ct), Reason: block.Reason));
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return ToResponse(block);
+    }
+
     private async Task<string> DescribeAsync(RoomBlock block, CancellationToken ct)
     {
         var name = await db.Set<Room>().Where(r => r.RoomId == block.RoomId).Select(r => r.Name).SingleAsync(ct);
@@ -102,7 +145,10 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
 
     public async Task DeleteAsync(Guid blockId, Guid actorUserId, CancellationToken ct = default)
     {
-        var block = await db.Set<RoomBlock>().SingleOrDefaultAsync(b => b.BlockId == blockId, ct)
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var block = await db.Set<RoomBlock>()
+                    .FromSqlInterpolated($"SELECT * FROM room_blocks WHERE block_id = {blockId} FOR UPDATE")
+                    .SingleOrDefaultAsync(ct)
                     ?? throw new NotFoundException("room_block_not_found", "Room block not found.");
 
         // Block sinh từ sự cố phải gỡ qua quy trình sự cố (có thông báo/hoàn tiền), không xóa tay ở đây.
@@ -110,8 +156,6 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
         {
             throw new ConflictException("room_block_from_incident", "Room block from incident.");
         }
-
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         await occupancy.ReleaseAsync(OccupancySources.RoomBlock, blockId, ct);
         db.Set<RoomBlock>().Remove(block);

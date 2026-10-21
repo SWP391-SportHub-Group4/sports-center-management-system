@@ -2,11 +2,17 @@
 
 ## Manager workspace — 20 October 2026
 
-Luồng Manager đã chốt được mô tả tại [Manager workspace](Manager-Workspace.md): Overview giữ nguyên; Services, Schedule, Support & Communication, People, Transaction & Report và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Manager chọn Sport khi tạo sân; các khóa Room Type cũ được giữ nội bộ để bảo toàn lịch sử và bảng giá. Ví điểm chỉ xem; không còn cộng/trừ thủ công. Course interests có một đăng ký đang theo dõi cho mỗi Member/Sport, thông báo lớp mới cùng môn và kết thúc sau ghi danh đã thanh toán. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
+Luồng Manager đã chốt được mô tả tại [Manager workspace](Manager-Workspace.md): Overview giữ nguyên; Services, Schedule, Exception, People, Billing management và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Manager chọn Sport khi tạo sân; các khóa Room Type cũ được giữ nội bộ để bảo toàn lịch sử và bảng giá. Ví điểm chỉ xem; không còn cộng/trừ thủ công. Course interests có một đăng ký đang theo dõi cho mỗi Member/Sport, thông báo lớp mới cùng môn và kết thúc sau ghi danh đã thanh toán. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
 
 ## Activation and audit policy update — 14 October 2026
 
 The product owner confirmed the [staff activation and audit policy](api-contract.md#staff-activation-and-audit-policy-update--14-october-2026). It replaces account-only Administrator audit scope in this design. Each staff token expires at `CreatedAt + 24 hours`, including resends/corrections. `AuditLog.ActorRole` is an event-time snapshot; Admin sees Manager/Admin/Coach/System, Manager sees Manager/Receptionist/Coach/Member. Migration `AuditActorRoleSnapshot` preserves historical event payloads while reconstructing role metadata. Other role permissions remain independent of audit-read access.
+
+### Admin account administration
+
+Admin overview separates database status totals from invitation queues (awaiting activation and expiring within six hours). Queue counts use server-side account filters; awaiting-activation staff remain Active in the database. Account list state survives detail navigation. Access changes and invitation delivery are separate actions; existing Coach specialties can also be edited by Admin without changing the role, with a review of additions and removals; Manager retains Coach profile management. Email feedback confirms queuing, not delivery, and expired invitations retain the fixed 24-hour deadline.
+
+Role/status commands share a transaction-scoped administration lock, lock the target account and recheck the actor's Active/Admin access before mutation. The last-active-Admin guard, status/security stamp, audit and notification outbox are atomic. Coverage notices use a new transition ID for each effective Coach lock/deactivation; no-op retries do not emit duplicates. Audit filtering supports Vietnam calendar days, exact target records and existing event-role visibility. See the [API contract](api-contract.md#admin-account-administration). No schema migration is required for this refactor.
 
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn: Gym, cầu lông và bóng rổ; có khả năng mở rộng thêm môn trong tương lai**.

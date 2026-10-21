@@ -230,6 +230,113 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
     }
 
     [Fact]
+    public async Task Editing_room_block_excludes_itself_and_conflicts_preserve_the_original_reservation()
+    {
+        var roomId = await SeedRoomAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var created = await client.PostAsJsonAsync("api/manager/room-blocks", new
+        {
+            roomId, startAtUtc = At(10).UtcDateTime, endAtUtc = At(11).UtcDateTime, reason = "Maintenance"
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var blockId = JsonDocument.Parse(await created.Content.ReadAsStringAsync()).RootElement.GetProperty("blockId").GetGuid();
+        var path = $"api/manager/room-blocks/{blockId}";
+        var moved = await client.PutAsJsonAsync(path, new
+        {
+            roomId, startAtUtc = At(10, 30).UtcDateTime, endAtUtc = At(11, 30).UtcDateTime, reason = "Updated maintenance"
+        });
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        var updated = JsonDocument.Parse(await moved.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(blockId, updated.GetProperty("blockId").GetGuid());
+        Assert.Equal(manager.UserId, updated.GetProperty("createdByUserId").GetGuid());
+        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.CourtRental, roomId, null, At(14), At(15)))).Succeeded);
+        var rejected = await client.PutAsJsonAsync(path, new
+        {
+            roomId, startAtUtc = At(14).UtcDateTime, endAtUtc = At(15).UtcDateTime, reason = "Conflicting edit"
+        });
+        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
+        Assert.Equal("occupancy_conflict", JsonDocument.Parse(await rejected.Content.ReadAsStringAsync()).RootElement.GetProperty("error").GetString());
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            var block = await db.RoomBlocks.SingleAsync(b => b.BlockId == blockId);
+            Assert.Equal(At(10, 30).UtcDateTime, block.StartAtUtc);
+            Assert.Equal("Updated maintenance", block.Reason);
+            var slot = await db.RoomOccupancies.SingleAsync(o => o.SourceId == blockId);
+            Assert.True(slot.IsActive);
+            Assert.Equal(block.StartAtUtc, slot.StartAtUtc);
+            Assert.Equal(block.EndAtUtc, slot.EndAtUtc);
+        }
+        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.CourtRental, roomId, null, At(10), At(10, 30)))).Succeeded);
+        Assert.False((await ReserveInOwnTransactionAsync(Req(OccupancySources.CourtRental, roomId, null, At(11), At(11, 30)))).Succeeded);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync(path)).StatusCode);
+        Assert.True((await ReserveInOwnTransactionAsync(Req(OccupancySources.CourtRental, roomId, null, At(11), At(11, 30)))).Succeeded);
+    }
+
+    [Fact]
+    public async Task Block_editor_enforces_manager_access_validation_and_incident_ownership()
+    {
+        var roomId = await SeedRoomAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var body = new { roomId, startAtUtc = At(17).UtcDateTime, endAtUtc = At(18).UtcDateTime, reason = "Maintenance" };
+        var created = await client.PostAsJsonAsync("api/manager/room-blocks", body);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var blockId = JsonDocument.Parse(await created.Content.ReadAsStringAsync()).RootElement.GetProperty("blockId").GetGuid();
+        var path = $"api/manager/room-blocks/{blockId}";
+        foreach (var role in new[] { UserRole.Receptionist, UserRole.Coach, UserRole.Member, UserRole.SystemAdministrator })
+        {
+            var user = await factory.SeedUserAsync(role);
+            Assert.Equal(HttpStatusCode.Forbidden,
+                (await factory.CreateApiClient(user.UserId, role).PutAsJsonAsync(path, body)).StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(path, new
+        {
+            roomId, startAtUtc = At(18).UtcDateTime, endAtUtc = At(17).UtcDateTime, reason = "Maintenance"
+        })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(path, new
+        {
+            roomId = await SeedRoomAsync(), body.startAtUtc, body.endAtUtc, body.reason
+        })).StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            var incident = new SportHub.Scheduling.Rental.Domain.IncidentNotice
+            {
+                IncidentId = Guid.NewGuid(), Scope = SportHub.Scheduling.Rental.Domain.IncidentScope.Room,
+                RoomId = roomId, StartAtUtc = body.startAtUtc, EndAtUtc = body.endAtUtc,
+                Reason = "Incident maintenance", CreatedByUserId = manager.UserId, CreatedAtUtc = DateTime.UtcNow
+            };
+            db.Set<SportHub.Scheduling.Rental.Domain.IncidentNotice>().Add(incident);
+            (await db.RoomBlocks.SingleAsync(b => b.BlockId == blockId)).IncidentId = incident.IncidentId;
+            await db.SaveChangesAsync();
+        }
+        var response = await client.PutAsJsonAsync(path, body);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("room_block_from_incident", JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.GetProperty("error").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.DeleteAsync(path)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Court_settings_list_includes_far_future_blocks_while_calendar_ranges_stay_bounded()
+    {
+        var roomId = await SeedRoomAsync();
+        var otherRoomId = await SeedRoomAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        foreach (var room in new[] { roomId, otherRoomId })
+            Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("api/manager/room-blocks", new
+            {
+                roomId = room, startAtUtc = At(8).UtcDateTime, endAtUtc = At(9).UtcDateTime, reason = "Future maintenance"
+            })).StatusCode);
+        var rows = JsonDocument.Parse(await (await client.GetAsync($"api/manager/room-blocks?roomId={roomId}")).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(1, rows.GetArrayLength());
+        Assert.Equal(roomId, rows[0].GetProperty("roomId").GetInt32());
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"api/manager/room-blocks?roomId={roomId}&fromUtc=2031-01-01T00:00:00Z&toUtc=2032-01-01T00:00:00Z")).StatusCode);
+    }
+
+    [Fact]
     public async Task Only_the_manager_can_create_room_blocks()
     {
         var roomId = await SeedRoomAsync();

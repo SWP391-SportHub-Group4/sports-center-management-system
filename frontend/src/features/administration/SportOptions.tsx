@@ -19,15 +19,19 @@ export function SportOptions({
   value,
   onChange,
   singleSelect = false,
+  readOnly = false,
 }: {
   state: AsyncState<SportDto[]>;
   value: number[];
   onChange: (value: number[]) => void;
   singleSelect?: boolean;
+  readOnly?: boolean;
 }) {
   const { t } = useLanguage();
-  const rows = (state.data ?? []).filter(
-    (sport) => sport.isActive && hasService(sport, "GROUP_COURSE"),
+  const rows = (state.data ?? []).filter((sport) =>
+    readOnly
+      ? value.includes(sport.sportId)
+      : sport.isActive && hasService(sport, "GROUP_COURSE"),
   );
   const kind = state.loading
     ? "loading"
@@ -39,7 +43,20 @@ export function SportOptions({
   return (
     <fieldset className={styles.sportSelector}>
       <legend>{t.staffWork.specialties}</legend>
-      {kind === "ready" ? (
+      {readOnly && !state.loading && !state.error ? (
+        value.length ? (
+          <ul className={styles.specialtyNames}>
+            {value.map((id) => (
+              <li key={id}>
+                {rows.find((sport) => sport.sportId === id)?.name ??
+                  `Sport #${id}`}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>{t.adminWork.noSports}</p>
+        )
+      ) : kind === "ready" ? (
         rows.map((sport) => (
           <label key={sport.sportId} className={styles.sportOption}>
             <input

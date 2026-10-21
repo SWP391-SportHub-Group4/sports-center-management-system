@@ -8,7 +8,6 @@ import {
   CalendarDays,
   Download,
   GraduationCap,
-  RefreshCw,
   RotateCcw,
   SlidersHorizontal,
   UsersRound,
@@ -504,14 +503,6 @@ export function Reports() {
           </span>
         </div>
         <div className={styles.toolbarActions}>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            onClick={() => setFilters({ ...filters })}
-          >
-            <RefreshCw size={16} aria-hidden="true" />
-            Refresh
-          </button>
           <Link className="btn" href="/manager/reports/exports">
             <Download size={16} aria-hidden="true" />
             {f.exportsLink}

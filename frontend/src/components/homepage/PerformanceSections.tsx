@@ -6,21 +6,28 @@ import { CourtIcon } from "@/components/brand/CourtIcon";
 import { buttonClass } from "@/components/primitives/Button";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import styles from "./performance-sections.module.css";
+import { useLandingCopy } from "./landing-content-context";
 
 type Language = "en" | "vi";
 
-const copy = {
+export const heroCopy = {
   en: {
     title: "Every session\nhas a purpose.",
     lead: "Explore dedicated spaces for court sports and athletic training.",
     start: "Sign in to get started",
     enter: "Go to my space",
+    badminton: "Badminton",
+    basketball: "Basketball",
+    gym: "Gym",
   },
   vi: {
     title: "Mỗi buổi tập\nđều có mục tiêu.",
     lead: "Khám phá không gian dành cho thể thao sân đấu và rèn luyện thể lực.",
     start: "Đăng nhập để bắt đầu",
     enter: "Vào không gian của tôi",
+    badminton: "Cầu lông",
+    basketball: "Bóng rổ",
+    gym: "Gym",
   },
 } satisfies Record<Language, Record<string, string>>;
 
@@ -106,7 +113,7 @@ function MagneticAccountLink({
 }
 
 export function PerformanceSections({ language }: { language: Language }) {
-  const t = copy[language];
+  const t = useLandingCopy("hero", heroCopy[language]);
   const { user, loading: authLoading } = useAuth();
   const destination = user ? HOME_BY_ROLE[user.role] : "/login";
 
@@ -147,9 +154,9 @@ export function PerformanceSections({ language }: { language: Language }) {
         className={styles.disciplines}
         aria-label={language === "vi" ? "Các môn thể thao" : "Our sports"}
       >
-        <span>{language === "vi" ? "Cầu lông" : "Badminton"}</span>
-        <span>{language === "vi" ? "Bóng rổ" : "Basketball"}</span>
-        <span>Gym</span>
+        <span>{t.badminton}</span>
+        <span>{t.basketball}</span>
+        <span>{t.gym}</span>
       </div>
     </section>
   );

@@ -9,6 +9,9 @@ using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.Wallet.Application;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Threshold.Application;
+using SportHub.Scheduling.Threshold.Domain;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Scheduling.Tests.Integration;
 
@@ -111,6 +114,158 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         Assert.Equal(replacement.CoachId, updated.CoachId);
         Assert.Equal(ClassSessionStatus.Scheduled, updated.Status);
         Assert.Equal(EnrollmentStatus.Confirmed, await factory.QueryAsync(db => db.Enrollments.Where(e => e.ClassId == course.Id && e.MemberId == member).Select(e => e.Status).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Manager_cancels_under_threshold_then_member_chooses_refund_or_course_interest()
+    {
+        foreach (var choice in new[] { "REFUND", "WAIT_NEXT_COURSE" })
+        {
+            var course = await CourseTestData.CreateAsync(factory);
+            var memberId = await BuyAsync(course.Id);
+            await factory.QueryAsync(async db =>
+            {
+                await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.Name, $"Below threshold {course.Id}")
+                    .SetProperty(c => c.BreakEvenThreshold, 2).SetProperty(c => c.CostAmount, 200000)
+                    .SetProperty(c => c.ThresholdDeadlineUtc, DateTime.UtcNow.AddMinutes(-1)));
+                if (choice == "WAIT_NEXT_COURSE")
+                    await db.ClassSessions.Where(s => s.ClassId == course.Id && s.SessionNo == 1)
+                        .ExecuteUpdateAsync(s => s.SetProperty(s => s.StartAtUtc, DateTime.UtcNow.AddHours(12)));
+                return 0;
+            });
+            using (var scope = factory.Services.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
+            using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+            using var member = factory.CreateApiClient(memberId, UserRole.Member);
+            var managerAlerts = await Json(await manager.GetAsync("api/notifications"));
+            Assert.Contains(managerAlerts.EnumerateArray(), n => n.GetProperty("actionUrl").GetString() == $"/manager/classes/{course.Id}?tab=threshold");
+            // Exercise legacy staff alerts that had no source ID as well.
+            await factory.QueryAsync(async db =>
+            {
+                await db.Notifications.Where(n => n.UserId == course.ManagerId && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)
+                    .ExecuteUpdateAsync(s => s.SetProperty(n => n.SourceEntityId, (Guid?)null));
+                return 0;
+            });
+            managerAlerts = await Json(await manager.GetAsync("api/notifications"));
+            Assert.Contains(managerAlerts.EnumerateArray(), n => n.GetProperty("actionUrl").GetString() == $"/manager/classes/{course.Id}?tab=threshold");
+            if (choice == "REFUND")
+            {
+                var original = await factory.QueryAsync(db => db.ThresholdResponses.SingleAsync(r => r.ClassId == course.Id && r.MemberId == memberId));
+                Assert.True((await member.PostAsJsonAsync($"api/class-threshold-responses/{original.ThresholdResponseId}", new { choice = "KEEP_PLACE" })).IsSuccessStatusCode);
+            }
+            var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+            Assert.True(preview.GetProperty("canCancel").GetBoolean());
+            Assert.True(preview.GetProperty("requiresMemberDecision").GetBoolean());
+            Assert.Equal(100, preview.GetProperty("refundPoints").GetInt32());
+            var cancel = new { reason = "Not enough enrolled students", previewToken = preview.GetProperty("previewToken").GetString() };
+            var cancelled = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", cancel);
+            Assert.True(cancelled.IsSuccessStatusCode, await cancelled.Content.ReadAsStringAsync());
+            var response = await factory.QueryAsync(db => db.ThresholdResponses.SingleAsync(r => r.ClassId == course.Id && r.MemberId == memberId));
+            Assert.Null(response.Choice);
+            Assert.Equal(ThresholdResolutionStatus.Pending, response.ResolutionStatus);
+            Assert.True(response.DeadlineUtc > DateTime.UtcNow.AddHours(47));
+            Assert.Equal(ClassStatus.Cancelled, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
+            Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == memberId).Select(w => w.AvailablePoints).SingleAsync()));
+            Assert.All(await CourseTestData.SessionsAsync(factory, course.Id), s => Assert.Equal(ClassSessionStatus.Cancelled, s.Status));
+            var view = await Json(await member.GetAsync($"api/class-threshold-responses/{response.ThresholdResponseId}"));
+            Assert.True(view.GetProperty("classCancelled").GetBoolean());
+            using var stranger = factory.CreateApiClient((await factory.SeedUserAsync(UserRole.Member)).UserId, UserRole.Member);
+            Assert.Equal(HttpStatusCode.NotFound, (await stranger.GetAsync($"api/class-threshold-responses/{response.ThresholdResponseId}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await stranger.PostAsJsonAsync($"api/class-threshold-responses/{response.ThresholdResponseId}", new { choice = "REFUND" })).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await member.PostAsJsonAsync($"api/class-threshold-responses/{response.ThresholdResponseId}", new { choice = "KEEP_PLACE" })).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await member.GetAsync($"api/class-threshold-responses/{response.ThresholdResponseId}/transfer-quote?targetClassId={course.Id}")).StatusCode);
+            var inbox = await Json(await member.GetAsync("api/notifications"));
+            Assert.Contains(inbox.EnumerateArray(), n => n.GetProperty("actionUrl").GetString() == $"/member/services?section=courses&view=owned&responseId={response.ThresholdResponseId}");
+            var emails = await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == memberId
+                && n.SourceEntityId == response.ThresholdResponseId && n.Channel == NotificationChannel.Email
+                && n.SourceEventType == NotificationSourceEventType.ClassCancelled));
+            Assert.Equal(1, emails);
+            Assert.True((await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", cancel)).IsSuccessStatusCode);
+            Assert.Equal(emails, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == memberId
+                && n.SourceEntityId == response.ThresholdResponseId && n.Channel == NotificationChannel.Email
+                && n.SourceEventType == NotificationSourceEventType.ClassCancelled)));
+            for (var attempt = 0; attempt < 2; attempt++)
+            {
+                var submitted = await member.PostAsJsonAsync($"api/class-threshold-responses/{response.ThresholdResponseId}", new { choice });
+                Assert.True(submitted.IsSuccessStatusCode, await submitted.Content.ReadAsStringAsync());
+            }
+            Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == memberId).Select(w => w.AvailablePoints).SingleAsync()));
+            Assert.Equal(choice == "WAIT_NEXT_COURSE" ? 1 : 0,
+                await factory.QueryAsync(db => db.Set<CourseInterest>().CountAsync(i => i.MemberId == memberId && i.SportId == course.Request.SportId && i.Active)));
+            Assert.False(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.ClassId == course.Id && e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed)));
+        }
+    }
+
+    [Fact]
+    public async Task Cancelled_class_unanswered_decision_refunds_once_when_deadline_expires()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var memberId = await BuyAsync(course.Id);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.BreakEvenThreshold, 2).SetProperty(c => c.ThresholdStatus, ThresholdStatus.AtRisk));
+            return 0;
+        });
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+        Assert.True((await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new
+        {
+            reason = "Cancel below threshold", previewToken = preview.GetProperty("previewToken").GetString()
+        })).IsSuccessStatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s.SetProperty(c => c.ThresholdResponseDeadlineUtc, DateTime.UtcNow.AddMinutes(-1)));
+            await db.ThresholdResponses.Where(r => r.ClassId == course.Id).ExecuteUpdateAsync(s => s.SetProperty(r => r.DeadlineUtc, DateTime.UtcNow.AddMinutes(-1)));
+            return 0;
+        });
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            using var scope = factory.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<ThresholdResponseExpiryService>().ExpireAsync();
+        }
+        Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == memberId).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.False(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.ClassId == course.Id && e.Status == EnrollmentStatus.Confirmed)));
+        Assert.Equal(ThresholdResolutionStatus.Expired, await factory.QueryAsync(db => db.ThresholdResponses.Where(r => r.ClassId == course.Id).Select(r => r.ResolutionStatus).SingleAsync()));
+        Assert.False(await factory.QueryAsync(db => db.Set<CourseInterest>().AnyAsync(i => i.MemberId == memberId)));
+    }
+
+    [Fact]
+    public async Task Threshold_cancellation_rechecks_completed_sessions_and_manager_waiver_after_preview()
+    {
+        foreach (var delivered in new[] { false, true })
+        {
+            var course = await CourseTestData.CreateAsync(factory);
+            await BuyAsync(course.Id);
+            await factory.QueryAsync(async db =>
+            {
+                await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.BreakEvenThreshold, 2).SetProperty(c => c.ThresholdStatus, ThresholdStatus.AtRisk));
+                return 0;
+            });
+            using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+            var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+            Assert.True(preview.GetProperty("canCancel").GetBoolean());
+            await factory.QueryAsync(async db =>
+            {
+                if (delivered)
+                    await db.ClassSessions.Where(s => s.ClassId == course.Id && s.SessionNo == 1)
+                        .ExecuteUpdateAsync(s => s.SetProperty(s => s.Status, ClassSessionStatus.Completed));
+                else
+                    await db.Classes.Where(c => c.ClassId == course.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(c => c.ThresholdStatus, ThresholdStatus.WaivedByManager));
+                return 0;
+            });
+            var cancelled = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new
+            {
+                reason = "Stale threshold preview", previewToken = preview.GetProperty("previewToken").GetString()
+            });
+            Assert.Equal(HttpStatusCode.Conflict, cancelled.StatusCode);
+            Assert.Equal("class_has_enrollments", (await Json(cancelled)).GetProperty("error").GetString());
+            Assert.Equal(ClassStatus.Published, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
+            Assert.False(await factory.QueryAsync(db => db.ThresholdResponses.AnyAsync(r => r.ClassId == course.Id)));
+        }
     }
 
     [Fact]

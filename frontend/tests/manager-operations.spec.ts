@@ -242,6 +242,8 @@ async function fixture(
         ]),
       });
     if (p === "/api/manager/room-blocks") return route.fulfill({ json: [] });
+    if (p === "/api/manager/people")
+      return route.fulfill({ json: paged([coach]) });
     if (p === "/api/users")
       return route.fulfill({
         json: paged(
@@ -2291,7 +2293,7 @@ test("Vietnamese copy and keyboard tabs preserve selected state", async ({
       .locator("main")
       .getByRole("button", { name: "Refresh", exact: true })
       .last(),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   const report = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])
     .analyze();
@@ -2650,4 +2652,82 @@ test("enrolled class hides cancellation and keeps rescheduling available", async
     fullPage: true,
   });
   expect(cancellations).toBe(0);
+});
+
+test("at-risk class cancellation remains available with enrolled students and reviews member choices", async ({
+  page,
+}) => {
+  let cancelled = false;
+  let writes = 0;
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        status: cancelled ? "CANCELLED" : "PUBLISHED",
+        thresholdStatus: "AT_RISK",
+        enrollmentOpen: false,
+        thresholdResponseDeadlineUtc: null,
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/cancellation-preview", (route) =>
+    route.fulfill({
+      json: {
+        canCancel: true,
+        requiresMemberDecision: true,
+        previewToken: "threshold-preview",
+        confirmedCount: 4,
+        activeHoldCount: 0,
+        totalSessions: 2,
+        sessionsNotProvided: 2,
+        refundPoints: 1200,
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/cancel", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      reason: "Below enrollment threshold",
+      previewToken: "threshold-preview",
+    });
+    cancelled = true;
+    writes++;
+    return route.fulfill({ status: 204 });
+  });
+  await page.goto("/manager/classes/1?tab=threshold");
+  await page.getByRole("button", { name: "Cancel class", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Cancel class",
+    exact: true,
+  });
+  await dialog
+    .getByLabel("Reason", { exact: true })
+    .fill("Below enrollment threshold");
+  await dialog
+    .getByRole("button", {
+      name: en.operations.cancellationPreview,
+      exact: true,
+    })
+    .click();
+  await expect(dialog).toContainText("Course interests");
+  await expect(
+    dialog.getByRole("button", { name: "Confirm", exact: true }),
+  ).toBeEnabled();
+  for (const [device, width, height] of [
+    ["desktop", 1440, 900],
+    ["mobile", 390, 844],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.screenshot({
+      path: `../.tmp/manager-threshold-cancellation-${device}.png`,
+      fullPage: true,
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(writes).toBe(1);
 });

@@ -16,6 +16,12 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// </summary>
 public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit)
 {
+    public async Task<IReadOnlyList<SportGalleryResponse>> ListGalleryAsync(CancellationToken ct = default)
+        => await db.Set<Sport>().AsNoTracking()
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.SportId)
+            .Select(s => new SportGalleryResponse(s.SportId, s.Code, s.Name, s.ImageUrl, s.SortOrder, s.IsActive))
+            .ToListAsync(ct);
+
     /// <summary>Danh sách công khai chỉ gồm môn đang hoạt động và dịch vụ đang bật; Manager xem tất cả kèm readiness.</summary>
     public async Task<IReadOnlyList<SportResponse>> ListAsync(bool includeInactive, CancellationToken ct = default,
         SportServiceType? serviceFilter = null)

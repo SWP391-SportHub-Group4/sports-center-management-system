@@ -177,13 +177,7 @@ export function ScheduleRentalPage({
                       {t.operations.invoices}
                     </Link>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn--quiet"
-                    onClick={state.reload}
-                  >
-                    {t.operations.refresh}
-                  </button>
+
                   {detail.rental.status === "CONFIRMED" &&
                     Date.parse(detail.rental.startAtUtc) > now && (
                       <button

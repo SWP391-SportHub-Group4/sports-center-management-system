@@ -80,13 +80,6 @@ export function CourseInterests({ manager = false }: { manager?: boolean }) {
               Back to classes
             </Link>
             <div className="btn-row">
-              <button
-                className="btn btn--secondary"
-                type="button"
-                onClick={state.reload}
-              >
-                Refresh
-              </button>
               <Link className="btn" href="/manager/classes/new">
                 Create class
               </Link>
@@ -194,13 +187,6 @@ export function CourseInterests({ manager = false }: { manager?: boolean }) {
           >
             {manager ? "Back to classes" : "Browse classes"}
           </Link>
-          <button
-            type="button"
-            className="btn btn--quiet"
-            onClick={state.reload}
-          >
-            Refresh
-          </button>
         </div>
       )}
     </section>

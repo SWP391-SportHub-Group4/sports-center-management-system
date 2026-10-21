@@ -79,7 +79,7 @@ public class InvoicesController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
-        => Ok(await invoices.SearchAsync(memberId, status, keyword, page, pageSize, ct));
+        => Ok(await invoices.SearchAsync(memberId, status, keyword, page, pageSize, ct, excludeVoid: User.IsInRole(SportHubRoleNames.CenterManager) || User.IsInRole(SportHubRoleNames.SystemAdministrator)));
 
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("members/me/invoices")]
@@ -108,6 +108,8 @@ public class InvoicesController(
             throw new ForbiddenException("invoice_access_denied", "Invoice access denied.");
         var detail = await invoices.GetDetailAsync(invoiceId, ct);
 
+        if (User.IsInRole(SportHubRoleNames.CenterManager) && string.Equals(detail.Summary.Status, "Void", StringComparison.OrdinalIgnoreCase))
+            throw new NotFoundException("invoice_not_found", "Invoice not found.");
         if (!staff && detail.Summary.MemberId != User.RequireUserId())
         {
             throw new ForbiddenException("invoice_not_owned", "Invoice not owned.");

@@ -104,12 +104,6 @@ export function ThresholdPanel({
               <Link href={`/manager/classes/${course.classId}?tab=sessions`}>
                 Move the first session
               </Link>
-              {" · "}
-              <Link
-                href={`/manager/classes/${course.classId}?tab=overview#course-cancellation`}
-              >
-                Cancel the course
-              </Link>
             </div>
           )}
         {course.status === "PUBLISHED" &&

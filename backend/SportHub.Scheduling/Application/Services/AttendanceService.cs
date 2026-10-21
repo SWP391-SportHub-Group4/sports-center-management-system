@@ -91,6 +91,14 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
             throw new ConflictException("class_not_active", "Class not active.");
         }
 
+        // Result saves also hold the session lock. Apply this rule to both Coach and
+        // Receptionist routes, including retries and attendance without an existing row.
+        if (status == AttendanceStatus.Absent && await db.Set<ClassTeachingRecord>().AnyAsync(r =>
+                r.ClassId == session.ClassId && r.SessionId == sessionId
+                && r.MemberId == enrollment.MemberId && r.Kind == "RESULT", ct))
+            throw new ConflictException("attendance_result_exists",
+                "Attendance cannot be changed to Absent because this student already has a session result.");
+
         var existing = await db.Set<Attendance>()
             .SingleOrDefaultAsync(a => a.EnrollmentId == enrollmentId && a.SessionId == sessionId, ct);
         if (existing is not null && existing.Status == status)

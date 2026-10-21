@@ -6,7 +6,6 @@ import {
   ChevronDown,
   MessageSquare,
   Plus,
-  RefreshCw,
   Search,
   UserRound,
 } from "lucide-react";
@@ -98,6 +97,7 @@ export function SupportQueue({
           requests.
         </p>
         <div className={styles.toolbar}>
+<<<<<<< Updated upstream
           <button
             type="button"
             className="btn btn--secondary"
@@ -120,6 +120,19 @@ export function SupportQueue({
               Record a request
             </Link>
           )}
+=======
+          <Link
+            className="btn"
+            href={
+              workspace === "manager"
+                ? "/manager/requests?type=support&record=1"
+                : "/receptionist/members"
+            }
+          >
+            <Plus size={18} aria-hidden="true" />
+            Record a request
+          </Link>
+>>>>>>> Stashed changes
         </div>
       </div>
       <form

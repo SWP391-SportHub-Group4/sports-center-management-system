@@ -113,6 +113,13 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
       api.get<ManagerCourseDto>(`/api/manager/classes/${classId}`, { signal }),
     [classId],
   );
+  const thresholdCancellation =
+    state.data?.status === "PUBLISHED" &&
+    state.data.thresholdStatus === "AT_RISK" &&
+    state.data.breakEvenThreshold != null &&
+    state.data.confirmedCount < state.data.breakEvenThreshold;
+  const cancellationBlocked =
+    (state.data?.confirmedCount ?? 0) > 0 && !thresholdCancellation;
   const sessions = useApi(
     (signal) =>
       values.tab === "sessions"
@@ -166,9 +173,6 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   >
                     {t.classWorkspace.viewSchedule}
                   </Link>
-                  <button className="btn btn--ghost" onClick={reload}>
-                    {l.refresh}
-                  </button>
                 </>
               }
             >
@@ -451,24 +455,26 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   {!["CANCELLED", "COMPLETED"].includes(c.status) && (
                     <div
                       className={managementStyles.cancellation}
-                      data-blocked={c.confirmedCount > 0}
+                      data-blocked={cancellationBlocked}
                     >
-                      {c.confirmedCount > 0 && (
+                      {cancellationBlocked && (
                         <LockKeyhole size={20} aria-hidden="true" />
                       )}
                       <div>
                         <strong>
-                          {c.confirmedCount > 0
+                          {cancellationBlocked
                             ? t.classWorkspace.cancellationUnavailable
                             : t.classWorkspace.cancelClass}
                         </strong>
                         <p>
-                          {c.confirmedCount > 0
+                          {cancellationBlocked
                             ? t.classWorkspace.enrolledCancellationBlocked
-                            : t.classWorkspace.cancelClassHint}
+                            : thresholdCancellation
+                              ? t.classWorkspace.cancelBelowThresholdHint
+                              : t.classWorkspace.cancelClassHint}
                         </p>
                       </div>
-                      {c.confirmedCount === 0 ? (
+                      {!cancellationBlocked ? (
                         <button
                           className="btn btn--danger"
                           onClick={() => setCancelling(true)}
@@ -489,7 +495,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                 </div>
               )}
             </Tabs>
-            {cancelling && c.confirmedCount === 0 && (
+            {cancelling && !cancellationBlocked && (
               <Dialog
                 title={t.classWorkspace.cancelClass}
                 onClose={() => setCancelling(false)}

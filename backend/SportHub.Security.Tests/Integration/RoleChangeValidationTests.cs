@@ -242,7 +242,14 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
             && item.GetProperty("activeRelationships").GetInt32() == 1);
         using var verify = factory.Services.CreateScope();
         var dbCheck = verify.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        var statusAudit = await dbCheck.Set<SportHub.Audit.Domain.Entities.AuditLog>()
+            .SingleAsync(x => x.TargetEntity == nameof(UserAccount)
+                && x.TargetId == coachId.ToString() && x.Action == "LOCK_USER_ACCOUNT");
+        using var statusChange = JsonDocument.Parse(statusAudit.NewValue!);
+        var transitionId = statusChange.RootElement.GetProperty("transitionId").GetGuid();
+        Assert.NotEqual(Guid.Empty, transitionId);
         Assert.True(await dbCheck.Notifications.AnyAsync(x => x.UserId == manager.UserId
-            && x.SourceEntityId == coachId));
+            && x.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.CoachCoverageRequired
+            && x.SourceEntityId == transitionId));
     }
 }

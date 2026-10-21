@@ -5,6 +5,7 @@ import { Search, Users } from "lucide-react";
 import { useLanguage } from "@/lib/language";
 import type { TeachingMember } from "./teaching-api";
 import styles from "./class-students.module.css";
+import { AvatarImage } from "@/components/AvatarImage";
 
 export function ClassStudents({
   members,
@@ -52,9 +53,7 @@ export function ClassStudents({
       <ul className={styles.studentList}>
         {visible.map((member) => (
           <li key={member.memberId} className={styles.student}>
-            <span className={styles.avatar} aria-hidden="true">
-              {member.memberName.slice(0, 1)}
-            </span>
+            <AvatarImage name={member.memberName} size={40} />
             <div className={styles.studentBody}>
               <strong>{member.memberName}</strong>
               <span className={styles.email}>{member.email}</span>

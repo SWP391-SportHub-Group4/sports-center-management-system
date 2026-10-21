@@ -32,5 +32,6 @@ public enum NotificationSourceEventType
     ClassSessionReminder = 25,
     NextCourseAvailable = 26,
     CourseInterestOpened = NextCourseAvailable,
-    AvatarReported = 27
+    AvatarReported = 27,
+    CoachAttendanceReminder = 28
 }

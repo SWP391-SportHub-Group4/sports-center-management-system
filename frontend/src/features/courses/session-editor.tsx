@@ -174,14 +174,6 @@ function SessionChangeReview({
                 >
                   {t.managerOperations.editReview}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  disabled={busy || state.loading}
-                  onClick={state.reload}
-                >
-                  {l.refresh}
-                </button>
               </div>
             )}
             <button
@@ -207,16 +199,6 @@ function SessionChangeReview({
           >
             {t.managerOperations.editReview}
           </button>
-          {!compact && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              disabled={busy || state.loading}
-              onClick={state.reload}
-            >
-              {l.refresh}
-            </button>
-          )}
         </div>
       )}
     </div>

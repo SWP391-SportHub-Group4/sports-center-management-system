@@ -38,9 +38,8 @@ public sealed class CloudinaryAvatarStorage(IConfiguration configuration, HttpCl
         else form.Add(file, "file", "avatar");
         form.Add(new StringContent($"{Prefix}{userId:N}/{Guid.NewGuid():N}"), "public_id");
         form.Add(new StringContent("false"), "overwrite");
-        // The browser sends a square crop. This incoming transformation also enforces
-        // the stored dimensions for callers that bypass the browser.
-        form.Add(new StringContent("c_fill,g_center,w_512,h_512"), "transformation");
+        // Keep enough original detail for homepage portraits without enlarging small uploads.
+        form.Add(new StringContent("c_limit,w_1536,h_1536"), "transformation");
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{endpoint}/image/upload") { Content = form };
         request.Headers.Authorization = authorization;
         using var response = await SendAsync(request, ct);

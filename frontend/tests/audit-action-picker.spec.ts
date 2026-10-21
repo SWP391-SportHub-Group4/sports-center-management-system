@@ -65,17 +65,17 @@ test("Admin opens scoped actions, searches multiple words without case sensitivi
   const input = page.getByRole("combobox", { name: "Action", exact: true });
   await input.click();
   await expect(
-    page.getByRole("option", { name: "CREATE_STAFF_ACCOUNT", exact: true }),
+    page.getByRole("option", { name: "Staff account created", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("option", { name: "CREATE_CLASS", exact: true }),
+    page.getByRole("option", { name: "Class created", exact: true }),
   ).toHaveCount(0);
   await input.fill("  StAfF   CrEaTe  ");
   await expect(page.getByRole("option")).toHaveCount(1);
   await page
-    .getByRole("option", { name: "CREATE_STAFF_ACCOUNT", exact: true })
+    .getByRole("option", { name: "Staff account created", exact: true })
     .click();
-  await expect(input).toHaveValue("CREATE_STAFF_ACCOUNT");
+  await expect(input).toHaveValue("Staff account created");
   await expect(page.getByRole("listbox")).toHaveCount(0);
   expect(queries.at(-1)?.searchParams.get("action")).toBeNull();
   await page
@@ -84,10 +84,10 @@ test("Admin opens scoped actions, searches multiple words without case sensitivi
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("action"))
     .toBe("CREATE_STAFF_ACCOUNT");
-  expect(queries.at(-1)?.searchParams.get("targetEntity")).toBe("UserAccount");
+  expect(queries.at(-1)?.searchParams.get("targetEntity")).toBeNull();
   await input.click();
   await expect(
-    page.getByRole("option", { name: "CHANGE_USER_ROLE", exact: true }),
+    page.getByRole("option", { name: "Account role changed", exact: true }),
   ).toBeVisible();
   await page.getByRole("option", { name: "All actions", exact: true }).click();
   await page
@@ -131,7 +131,7 @@ test("Missing choices and load failures show useful states and retry succeeds", 
   await expect(page.getByText("Unable to load actions.")).toBeVisible();
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(
-    page.getByRole("option", { name: "CREATE_STAFF_ACCOUNT", exact: true }),
+    page.getByRole("option", { name: "Staff account created", exact: true }),
   ).toBeVisible();
   await input.fill("not a real action");
   await expect(page.getByText("No actions match your search.")).toBeVisible();

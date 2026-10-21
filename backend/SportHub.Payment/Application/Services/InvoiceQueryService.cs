@@ -40,12 +40,13 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
         string? keyword,
         int page,
         int pageSize,
-        CancellationToken ct = default, bool rentalOnly = false)
+        CancellationToken ct = default, bool rentalOnly = false, bool excludeVoid = false)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
         var query = db.Set<Invoice>().AsNoTracking();
+        if (excludeVoid) query = query.Where(i => i.Status != InvoiceStatus.Void);
         if (rentalOnly)
             query = query.Where(i => i.Items.Any(item => item.ItemType == InvoiceItemType.Rental));
 

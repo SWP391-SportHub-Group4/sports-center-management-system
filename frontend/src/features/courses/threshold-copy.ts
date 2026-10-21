@@ -1,5 +1,7 @@
 export const thresholdCopy = {
   en: {
+    cancelledIntro:
+      "This class was cancelled because it did not meet its enrollment threshold. Choose a points refund or wait for the next course. If you do not respond before the deadline, your points will be refunded automatically.",
     intro:
       "Your class has not reached its opening threshold. Review the consequences and respond before the deadline.",
     choose: "Choose your response",
@@ -7,11 +9,12 @@ export const thresholdCopy = {
     wait: "Wait for the next course",
     refund: "Refund 100% as points",
     keepPlace: "Keep my place and wait",
-    keepPlaceBody: "Stay enrolled while the center confirms this class. If it still cannot run by the decision deadline, your points will be refunded automatically.",
+    keepPlaceBody:
+      "Stay enrolled while the center confirms this class. If it still cannot run by the decision deadline, your points will be refunded automatically.",
     transferBody:
       "Choose an eligible class in the same sport. A higher price requires payment of the difference; the transfer completes only after payment is confirmed.",
     waitBody:
-      "Receive a 100% points refund now and hear when the next cohort of this program opens. This does not reserve a seat, enroll you, or preserve the old price. A start date is not yet guaranteed.",
+      "Receive a 100% points refund now and hear when a new course in this sport opens. This does not reserve a seat, enroll you, or preserve the old price. A start date is not yet guaranteed.",
     refundBody:
       "The remaining refundable value returns to your points wallet and your current enrollment ends. No cash or bank refund.",
     unavailable: "Not available yet",
@@ -58,6 +61,8 @@ export const thresholdCopy = {
     suggestions: "Suggested courses",
   },
   vi: {
+    cancelledIntro:
+      "Lớp đã bị hủy do không đủ ngưỡng mở lớp. Chọn hoàn điểm hoặc chờ đợt sau. Nếu không phản hồi trước hạn, hệ thống sẽ tự động hoàn điểm.",
     intro:
       "Lớp của bạn chưa đạt ngưỡng mở lớp. Xem hệ quả của từng phương án và phản hồi trước thời hạn.",
     choose: "Chọn phương án phản hồi",
@@ -65,7 +70,8 @@ export const thresholdCopy = {
     wait: "Chờ đợt sau",
     refund: "Hoàn 100% bằng điểm",
     keepPlace: "Giữ chỗ và tiếp tục chờ",
-    keepPlaceBody: "Tiếp tục ghi danh trong khi trung tâm chốt lớp. Nếu lớp vẫn không thể mở trước hạn quyết định, hệ thống sẽ tự hoàn điểm.",
+    keepPlaceBody:
+      "Tiếp tục ghi danh trong khi trung tâm chốt lớp. Nếu lớp vẫn không thể mở trước hạn quyết định, hệ thống sẽ tự hoàn điểm.",
     transferBody:
       "Chọn lớp hợp lệ cùng môn. Nếu giá cao hơn, bạn cần thanh toán phần chênh lệch; việc chuyển lớp chỉ hoàn tất sau khi thanh toán được xác nhận.",
     waitBody:

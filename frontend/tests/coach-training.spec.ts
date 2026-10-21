@@ -52,13 +52,13 @@ test("coach can only withdraw a pending request without editing its details", as
   ).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 900 });
   await page
-    .getByRole("button", { name: "Withdraw request", exact: true })
+    .getByRole("button", { name: "Cancel request", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Confirm withdrawal", exact: true })
+    .getByRole("button", { name: "Confirm cancellation", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Withdraw request", exact: true }),
+    page.getByRole("button", { name: "Cancel request", exact: true }),
   ).toHaveCount(0);
   expect(withdrawals).toBe(1);
   await page.reload();
@@ -94,7 +94,7 @@ test("requests never offer editing and only Pending requests offer withdrawal", 
       page.getByRole("button", { name: "Edit pending request", exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Withdraw request", exact: true }),
+      page.getByRole("button", { name: "Cancel request", exact: true }),
     ).toHaveCount(status === "PENDING" ? 1 : 0);
   }
 });
@@ -124,10 +124,10 @@ test("withdrawal reconciles a request already closed by Manager", async ({
   });
   await page.goto("/coach/change-requests");
   await page
-    .getByRole("button", { name: "Withdraw request", exact: true })
+    .getByRole("button", { name: "Cancel request", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Confirm withdrawal", exact: true })
+    .getByRole("button", { name: "Confirm cancellation", exact: true })
     .click();
   await expect(
     page.getByText(current.reviewNote!, { exact: true }),
@@ -284,7 +284,7 @@ test("manager updates show automatic closure instead of a coach withdrawal", asy
     ),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Withdraw request", exact: true }),
+    page.getByRole("button", { name: "Cancel request", exact: true }),
   ).toHaveCount(0);
 });
 

@@ -1,4 +1,5 @@
 import { api } from "@/lib/apiClient";
+import { notifySportCatalogChanged } from "@/lib/sport-catalog-events";
 import type {
   SportDto,
   RoomDto,
@@ -24,14 +25,20 @@ export const catalogApi = {
   deleteRoom: (id: number) => api.del(`/api/rooms/${id}`),
   deleteRoomType: (id: number) => api.del(`/api/manager/room-types/${id}`),
   deleteRate: (id: number) => api.del(`/api/manager/court-rates/${id}`),
-  saveSport: (id: number | null, body: SaveSport) =>
-    id === null
+  saveSport: async (id: number | null, body: SaveSport) => {
+    const result = await (id === null
       ? api.post("/api/manager/sports", body)
-      : api.put(`/api/manager/sports/${id}`, body),
-  setSportActive: (row: SportDto) =>
-    api.post(
+      : api.put(`/api/manager/sports/${id}`, body));
+    notifySportCatalogChanged();
+    return result;
+  },
+  setSportActive: async (row: SportDto) => {
+    const result = await api.post(
       `/api/manager/sports/${row.sportId}/${row.isActive ? "deactivate" : "activate"}`,
-    ),
+    );
+    notifySportCatalogChanged();
+    return result;
+  },
   packages: (signal?: AbortSignal) =>
     api.get<MembershipPackageDto[]>("/api/membership-packages", {
       signal,
@@ -60,6 +67,11 @@ export const catalogApi = {
     api.get<CourtRateDto[]>("/api/manager/court-rates", { signal }),
   hours: (roomId: number, signal?: AbortSignal) =>
     api.get<OpeningHourDto[]>(`/api/rooms/${roomId}/opening-hours`, { signal }),
+  upcomingBlocks: (roomId: number, signal?: AbortSignal) =>
+    api.get<RoomBlockDto[]>("/api/manager/room-blocks", {
+      signal,
+      query: { roomId },
+    }),
   blocks: (
     roomId: number,
     fromUtc: string,

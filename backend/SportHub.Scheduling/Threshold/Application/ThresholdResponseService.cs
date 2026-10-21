@@ -39,13 +39,13 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
         return new(response.ThresholdResponseId, course.ClassId, course.Name, course.SportId, remaining,
             response.DeadlineUtc, response.Choice?.ToString(), response.TargetClassId,
             resolvedByClass ? ThresholdResolutionStatus.Completed.ToString() : response.ResolutionStatus.ToString(),
-            response.AdditionalInvoiceId, clock.UtcNow);
+            response.AdditionalInvoiceId, clock.UtcNow, course.Status == ClassStatus.Cancelled);
     }
 
     public async Task<object> QuoteTransferAsync(Guid id, int targetClassId, Guid memberId, CancellationToken ct)
     {
         var source = await GetAsync(id, null, memberId, ct);
-        if (source.Choice is not null || source.DeadlineUtc <= clock.UtcNow)
+        if (source.ClassCancelled || source.Choice is not null || source.DeadlineUtc <= clock.UtcNow)
             throw new ConflictException("threshold_response_closed", "Threshold response closed.");
         if (targetClassId == source.ClassId) throw new BadRequestException("transfer_same_class", "Transfer same class.");
         var target = await GetTargetQuoteAsync(targetClassId, ct);
@@ -137,8 +137,10 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             throw new ConflictException("threshold_response_expired", "Threshold response expired.");
 
         var course = await db.Set<Class>().AsNoTracking().SingleAsync(x => x.ClassId == response.ClassId, ct);
-        if (course.Status != ClassStatus.Published || course.ThresholdStatus != ThresholdStatus.AtRisk)
+        if (course.Status is not (ClassStatus.Published or ClassStatus.Cancelled) || course.ThresholdStatus != ThresholdStatus.AtRisk)
             throw new ConflictException("threshold_response_closed", "The class threshold decision is closed.");
+        if (course.Status == ClassStatus.Cancelled && choice is not (ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse))
+            throw new ConflictException("cancelled_class_choice_invalid", "This class was cancelled. Choose a points refund or wait for the next course.");
 
         var enrollment = await db.Set<Enrollment>().SingleOrDefaultAsync(x => x.EnrollmentId == response.EnrollmentId
             && x.MemberId == memberId && x.Status == EnrollmentStatus.Confirmed, ct)
@@ -290,4 +292,5 @@ public sealed record ThresholdResponseResult(Guid ResponseId, [property: SportHu
 
 public sealed record ThresholdResponseView(Guid ResponseId, int ClassId, string ClassName, int SportId, decimal PaidValueVnd,
     DateTime DeadlineUtc, [property: SportHub.BuildingBlocks.Api.WireEnum] string? Choice, int? TargetClassId,
-    [property: SportHub.BuildingBlocks.Api.WireEnum] string ResolutionStatus, Guid? AdditionalInvoiceId, DateTime ServerNowUtc);
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ResolutionStatus, Guid? AdditionalInvoiceId, DateTime ServerNowUtc,
+    bool ClassCancelled = false);

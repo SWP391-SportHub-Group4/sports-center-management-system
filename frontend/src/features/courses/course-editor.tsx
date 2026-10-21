@@ -579,7 +579,6 @@ export function CourseEditor({
 
               {/* Validate the current form before saving. */}
               <ScheduleReview
-                showRefresh={!!course}
                 course={schedule}
                 minutes={minutes}
                 roomName={room?.name}

@@ -39,7 +39,7 @@ export function CoachDetail({ userId }: { userId: string }) {
   );
   return (
     <>
-      <Link href="/manager/coaches" className="btn btn--ghost">
+      <Link href="/manager/people?role=Coach" className="btn btn--ghost">
         {m.backToList}
       </Link>
       <AsyncSection state={state}>

@@ -713,6 +713,7 @@ export interface ClassEnrollmentReportDto {
   }[];
 }
 export interface ThresholdResponseDto {
+  classCancelled?: boolean;
   responseId: string;
   classId: number;
   className: string;

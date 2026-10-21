@@ -371,7 +371,7 @@ test("Gym creates, edits without changing active state, and reactivates via the 
     body: { price: 330000, sessionLimit: null },
   });
   expect(fixture.writes[0].body).not.toHaveProperty("isActive");
-  await row(page, "Gym 30 days").locator("summary").click();
+  await expect(row(page, "Gym 30 days").locator("summary")).toHaveCount(0);
   await row(page, "Gym 30 days")
     .getByRole("button", { name: "Activate", exact: true })
     .click();
@@ -622,7 +622,7 @@ test("Gym stop-selling and sport activation use the supported endpoints", async 
   fixture.data.packages[0].isActive = true;
   fixture.data.sports[0].isActive = false;
   await page.goto("/manager/catalog?tab=gym");
-  await row(page, "Gym 30 days").locator("summary").click();
+  await expect(row(page, "Gym 30 days").locator("summary")).toHaveCount(0);
   await page.getByRole("button", { name: "Deactivate", exact: true }).click();
   await dialog(page)
     .getByRole("button", { name: "Confirm", exact: true })

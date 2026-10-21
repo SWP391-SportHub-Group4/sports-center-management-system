@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Scheduling.Catalog.Domain;
 namespace SportHub.Training.Api;
 
 public sealed class UpdateMyCoachProfileRequest
@@ -22,7 +23,7 @@ public sealed class CoachCatalogController(ISportHubDbContext db) : ControllerBa
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] int? sportId, CancellationToken ct)
     {
-        var query = db.Set<UserAccount>().AsNoTracking().Where(u => u.Role != null && u.Role.RoleName == UserRole.Coach && u.Status == UserStatus.Active);
+        var query = db.Set<UserAccount>().AsNoTracking().Where(u => u.Role != null && u.Role.RoleName == UserRole.Coach && u.Status == UserStatus.Active && u.Profile != null);
         if (sportId is int id) query = query.Where(u => db.Set<UserSportSpecialty>().Any(s => s.UserId == u.UserId && s.SportId == id));
         return Ok(await query.OrderBy(u => u.Profile!.FullName).Take(500).Select(u => new {
             u.UserId, FullName = u.Profile!.FullName, AvatarUrl = u.Profile.AvatarUrl,
@@ -31,7 +32,9 @@ public sealed class CoachCatalogController(ISportHubDbContext db) : ControllerBa
             YearsExperience = u.CoachProfile != null ? u.CoachProfile.YearsExperience : null,
             StudentCount = u.CoachProfile != null ? u.CoachProfile.StudentCount : null,
             Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null,
-            SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray()
+            SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray(),
+            SportNames = db.Set<Sport>().Where(s => db.Set<UserSportSpecialty>().Any(specialty => specialty.UserId == u.UserId && specialty.SportId == s.SportId))
+                .OrderBy(s => s.Name).Select(s => s.Name).ToArray()
         }).ToListAsync(ct));
     }
 

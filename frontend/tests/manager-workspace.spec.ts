@@ -100,7 +100,28 @@ async function fixture(page: Page) {
     else if (path.includes("notifications"))
       data = path.endsWith("unread-count") ? { count: 0 } : [];
     else if (path === "/api/users") data = paged([member, pending]);
-    else if (path === `/api/users/${memberId}`) data = member;
+    else if (path === "/api/manager/people") {
+      const coach = {
+        ...member,
+        userId: "44444444-4444-4444-8444-444444444444",
+        fullName: "Basketball Coach",
+        email: "coach@example.com",
+        role: "COACH",
+        avatarUrl: null,
+      };
+      const role = url.searchParams.get("role")?.toLowerCase();
+      const keyword = url.searchParams.get("keyword")?.toLowerCase() ?? "";
+      data = paged(
+        [member, pending, coach].filter(
+          (user) =>
+            (!role || user.role.toLowerCase() === role) &&
+            [user.fullName, user.email, user.phone]
+              .join(" ")
+              .toLowerCase()
+              .includes(keyword),
+        ),
+      );
+    } else if (path === `/api/users/${memberId}`) data = member;
     else if (
       path === `/api/members/front-desk/${pendingId}/resend-activation`
     ) {
@@ -287,7 +308,7 @@ test("manager navigation and course interests match the agreed workspace", async
   await page.getByRole("button", { name: "Services", exact: true }).click();
   for (const name of [
     "Sports",
-    "Courts & Rooms",
+    "Court",
     "Membership",
     "Classes",
     "Course interests",
@@ -488,4 +509,93 @@ test("dismissing an avatar report refreshes both the queue and its pending count
   await expect(
     page.getByRole("tab", { name: "Avatar reports", exact: true }),
   ).toBeVisible();
+});
+
+test("People combines members and coaches with persistent role filters", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto("/manager/people");
+  const role = page.getByRole("combobox", { name: "Role", exact: true });
+  await expect(
+    page.getByRole("row").filter({ hasText: "coach@example.com" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: "member@example.com" }),
+  ).toBeVisible();
+  for (const [name, width, height] of [
+    ["desktop", 1440, 900],
+    ["mobile", 390, 844],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.screenshot({
+      path: `../.tmp/manager-people-${name}.png`,
+      fullPage: true,
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await role.selectOption("Coach");
+  await page.reload();
+  await expect(role).toHaveValue("Coach");
+  await expect(
+    page.getByRole("row").filter({ hasText: "member@example.com" }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("row")
+      .filter({ hasText: "coach@example.com" })
+      .getByRole("link", { name: "View details", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    "/manager/coaches/44444444-4444-4444-8444-444444444444",
+  );
+  await page.goto("/manager/members");
+  await expect(page).toHaveURL(/\/manager\/people\?role=Member$/);
+  await expect(role).toHaveValue("Member");
+  await expect(
+    page.getByRole("row").filter({ hasText: "coach@example.com" }),
+  ).toHaveCount(0);
+  await page.goto("/manager/coaches");
+  await expect(page).toHaveURL(/\/manager\/people\?role=Coach$/);
+});
+
+test("Manager navigation uses the new labels and profile shortcuts", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto("/manager/people");
+  const nav = page.getByRole("navigation", {
+    name: "Center Manager",
+    exact: true,
+  });
+  await expect(
+    nav.getByRole("link", { name: "People", exact: true }),
+  ).toHaveAttribute("href", "/manager/people");
+  await expect(
+    nav.getByRole("button", { name: "Exception", exact: true }),
+  ).toBeVisible();
+  await expect(
+    nav.getByRole("button", { name: "Billing management", exact: true }),
+  ).toBeVisible();
+  await expect(
+    nav.getByRole("link", { name: "Schedule", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    nav.getByRole("link", { name: "Audit log", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: "Center Manager", exact: true })
+    .click();
+  await expect(
+    page.getByRole("link", { name: "Schedule", exact: true }),
+  ).toHaveAttribute("href", "/manager/schedule");
+  await expect(
+    page.getByRole("link", { name: "Audit log", exact: true }),
+  ).toHaveAttribute("href", "/manager/audit-log");
 });

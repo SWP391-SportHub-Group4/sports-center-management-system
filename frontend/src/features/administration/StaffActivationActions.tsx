@@ -98,7 +98,7 @@ export function StaffActivationActions({
           setRetryAt(Date.now() + 60_000);
         throw cause;
       }
-    }, "Activation email sent.");
+    }, "Activation email queued for delivery.");
     if (updated) {
       setRetryAt(
         Date.parse(updated.activationResendAvailableAtUtc ?? "") ||
@@ -116,6 +116,19 @@ export function StaffActivationActions({
             {expired ? "Activation expired" : "Activation expires"}:{" "}
             {formatDateTime(deadline)}
           </p>
+          {expired && (
+            <div className={styles.expiredNotice} role="status">
+              <strong>Invitation expired</strong>
+              <p>
+                The fixed 24-hour activation window has ended. Resending or
+                correcting the email cannot extend it. Eligible unactivated
+                staff accounts are automatically removed to release the email.
+                Refresh the account list before creating a new invitation; if
+                the account remains, ask the system operator to check the expiry
+                job.
+              </p>
+            </div>
+          )}
           <div className="btn-row">
             <button
               className={embedded ? "btn" : "btn btn--secondary"}
@@ -124,7 +137,7 @@ export function StaffActivationActions({
               onClick={resend}
             >
               {action.busy && !editing
-                ? "Sending…"
+                ? "Queuing…"
                 : remaining
                   ? `Resend in ${remaining}s`
                   : "Resend activation email"}
@@ -203,8 +216,9 @@ export function StaffActivationActions({
                 <p>Reason: {reason.trim()}</p>
                 <p>Activation expires: {formatDateTime(deadline)}</p>
                 <p>
-                  The old link will stop working. A new activation link will be
-                  sent to the new email.
+                  The old link will stop working. A new activation email will be
+                  queued for the corrected address without extending the
+                  deadline.
                 </p>
               </div>
             ) : (

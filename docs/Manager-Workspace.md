@@ -1,21 +1,19 @@
 # Manager workspace
 
-Confirmed product scope on 20 October 2026. This update supersedes older Manager navigation, manual wallet adjustment, room-type selection, cohort-interest linking and incident-cancellation descriptions. It does not change staff account administration or role management, which remain with System Administrator.
+Confirmed product scope on 20 October 2026, with subsequent navigation refinements. This update supersedes older Manager navigation, manual wallet adjustment, room-type selection, cohort-interest linking and incident-cancellation descriptions. It does not change staff account administration or role management, which remain with System Administrator.
 
 ## Navigation
 
 - Overview: preserve the existing page, charts and data presentation.
-- Services: Sports, Courts & Rooms, Membership, Classes, Course interests.
-- Schedule: one calendar for class sessions, rentals and blocked times.
-- Support & Communication: Request, Incident, Manual notices.
-- People: Members and Coaches.
-- Transaction & Report: invoices, read-only point wallets, reports and exports.
-- Audit: the existing Manager audit scope.
-- Settings: retain operational settings under the account menu.
+- Services: Sports, Court, Membership, Classes, Course interests.
+- Exception: Request, Incident, Manual notices.
+- People: one paged directory for Members and Coaches; filter All / Member / Coach and search by name, email or phone.
+- Billing management: invoices, read-only point wallets, reports and exports.
+- Profile dropdown: Schedule, Audit log and operational Settings, alongside My account and Logout. Schedule retains its class sessions, rentals and blocked times; Audit retains its existing scope.
 
 ## People
 
-Members can be registered at the counter from the Member list. Pending accounts have resend-activation and email-correction actions in the list; cooldown, validation and audit still apply. View details contains memberships, classes and payment history. Remove the Manager health-profile UI and manual Coach–Member relationship UI; automatic relationships required by class access and historical records are preserved.
+Members can be registered at the counter from People. Old Member/Coach list bookmarks redirect to People with the corresponding role filter; detail routes remain compatible. Pending accounts have resend-activation and email-correction actions in the list; cooldown, validation and audit still apply. View details contains memberships, classes and payment history. Remove the Manager health-profile UI and manual Coach–Member relationship UI; automatic relationships required by class access and historical records are preserved.
 
 Coaches expose specialties, assigned classes and schedule through View details. Keep profile/specialty editing in this context. Admin locking a Coach continues to notify Managers; the notification opens that Coach's details. Show affected main classes and future sessions and allow eligible reassignment through the existing commands. Changing a main class Coach does not silently rewrite individual session assignments.
 
@@ -26,6 +24,8 @@ Manager can remove the current Member or Coach avatar from View details. Authent
 Managers choose Sport when creating a room or rental court; no Room type control or management page is exposed. Rooms have a direct nullable SportId. Migration fills only unambiguous legacy mappings. Existing internal room-type keys and rates remain for compatibility and historical references; new sport selection resolves the internal mapping automatically. Preserve previously blocked availability when migrating inactive types. Changing a room's sport must not invalidate existing sessions or prices.
 
 Rental court creation still saves opening hours and prices together. Rental pricing is available inside court details. Membership offers a paged list of Members registered for that package. Existing class detail tabs and automatic enrollment policy remain. The normal class/session cancellation restriction for active Confirmed enrollment remains enforced.
+
+Exception: after the threshold evaluation marks a Published class AtRisk, a Manager may cancel it while its paid roster is still below the threshold and no session has been completed. A fresh preview is required. Members receive bell/email links to choose a points refund or a refund plus Course interests; an unanswered decision receives an automatic refund after the configured response period. Ordinary enrolled classes and individual session cancellation remain restricted. “Your class needs a decision” alerts open the referenced class's Opening conditions, including legacy alerts when the stored class name identifies exactly one class.
 
 ## Incident-only makeup exception
 
@@ -41,7 +41,7 @@ Only a successfully fulfilled, paid Confirmed enrollment in that sport ends the 
 
 Request centralizes Coach absence, refunds, Member support and avatar reports. Categories show pending counts and retain their own statuses, authorization, transaction and review rules. Member support is recorded by staff; this does not add Member self-submission. Existing support, refund and schedule-request links lead to the shared Request entry point.
 
-Wallet balance/ledger and existing financial history remain readable. Manager credit/debit creation and approval/rejection of legacy manual point-credit requests are forbidden through HTTP as well as hidden in the UI. Refund/payment-driven point movements remain functional. Remove the reconciliation UI while retaining backend payment verification and automatic reconciliation. Reports and export history stay under Transaction & Report; Overview remains unchanged.
+Wallet balance/ledger and existing financial history remain readable. Manager credit/debit creation and approval/rejection of legacy manual point-credit requests are forbidden through HTTP as well as hidden in the UI. Refund/payment-driven point movements remain functional. Remove the reconciliation UI while retaining backend payment verification and automatic reconciliation. Reports and export history stay under Billing management; Overview remains unchanged.
 
 ## Deployment and validation
 
