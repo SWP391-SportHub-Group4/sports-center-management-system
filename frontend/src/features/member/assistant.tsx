@@ -2,15 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useUrlQuery } from "@/lib/useUrlQuery";
 import { useEffect, useRef, useState } from "react";
 import { Drawer } from "@/components/primitives";
 import { api, ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
-import { formatDate, formatTime, todayIso } from "@/lib/format";
-import { useApi } from "@/lib/useApi";
-import { memberSchedule } from "./api";
+import { formatTime } from "@/lib/format";
 import styles from "./assistant.module.css";
 
 interface ChatReply {
@@ -18,6 +14,7 @@ interface ChatReply {
   answer: string;
   createdAt: string;
 }
+
 interface Turn {
   id: string;
   from: "user" | "assistant";
@@ -27,24 +24,6 @@ interface Turn {
 
 const MAX = 2000;
 
-function ChatFormattedText({ text }: { text: string }) {
-  return (
-    <span className={styles.formattedAnswer}>
-      {text.split(/(\*\*[^*\n]+\*\*)/g).map((part, index) =>
-        part.startsWith("**") && part.endsWith("**") ? (
-          <strong key={index}>{part.slice(2, -2)}</strong>
-        ) : (
-          <span key={index}>{part}</span>
-        ),
-      )}
-    </span>
-  );
-}
-
-/**
- * Trợ lý hỏi đáp của Member (A18): chỉ đọc dữ liệu SportHub của chính mình, không thực hiện nghiệp vụ.
- * Câu trả lời là văn bản thuần (không render HTML). Có thể dừng khi đang chờ, thử lại khi lỗi, và mở cuộc trò chuyện mới.
- */
 export function AssistantDrawer({ onClose }: { onClose: () => void }) {
   const { t } = useLanguage();
   const l = t.assistant;
@@ -56,16 +35,6 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
   const previous = useRef<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const end = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-  const { values, setValues } = useUrlQuery({ date: "", event: "" });
-  const requestedDate = pathname === "/member/schedule" ? values.date : null;
-  const date =
-    requestedDate &&
-    /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
-    !Number.isNaN(Date.parse(`${requestedDate}T00:00:00Z`))
-      ? requestedDate
-      : todayIso();
-  const schedule = useApi((signal) => memberSchedule(date, 1, signal), [date]);
 
   useEffect(() => () => abort.current?.abort(), []);
   useEffect(() => {
@@ -79,9 +48,11 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
       setError(l.tooLong);
       return;
     }
+
     setError(null);
     setLastQuestion(text);
-    if (record)
+
+    if (record) {
       setTurns((all) => [
         ...all,
         {
@@ -91,17 +62,22 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
           at: new Date().toISOString(),
         },
       ]);
+    }
+
     setDraft("");
     setBusy(true);
     const controller = new AbortController();
     abort.current = controller;
+
     try {
       const reply = await api.post<ChatReply>(
         "/api/ai/chat",
         { question: text, previousInteractionId: previous.current },
         { signal: controller.signal },
       );
+
       if (controller.signal.aborted) return;
+
       previous.current = reply.interactionId;
       setTurns((all) => [
         ...all,
@@ -115,8 +91,7 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
     } catch (cause) {
       if (controller.signal.aborted) return;
       setError(
-        cause instanceof ApiError &&
-          (cause.status === 502 || cause.status === 503)
+        cause instanceof ApiError && (cause.status === 502 || cause.status === 503)
           ? l.unavailable
           : l.failed,
       );
@@ -195,23 +170,12 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
       }
     >
       <p className={styles.intro}>{l.intro}</p>
-      {pathname === "/member/schedule" && (
-        <p className={styles.intro}>
-          {false
-            ? "Bạn vẫn có thể thao tác trên lịch khi trò chuyện ở màn hình lớn."
-            : "You can keep using your calendar while chatting on a large screen."}
-        </p>
-      )}
       {turns.length === 0 && (
         <section aria-label={l.suggestionsLabel}>
           <ul className={styles.chips}>
             {l.suggestions.map((q) => (
               <li key={q}>
-                <button
-                  type="button"
-                  className={styles.chip}
-                  onClick={() => void ask(q)}
-                >
+                <button type="button" className={styles.chip} onClick={() => void ask(q)}>
                   {q}
                 </button>
               </li>
@@ -219,16 +183,14 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
           </ul>
         </section>
       )}
+
       <ol className={styles.thread} aria-live="polite">
         {turns.map((turn) => (
           <li key={turn.id} className={styles.msg} data-from={turn.from}>
             <span className={styles.who}>
-              {turn.from === "user" ? l.you : l.assistantName} ·{" "}
-              {formatTime(turn.at)}
+              {turn.from === "user" ? l.you : l.assistantName} · {formatTime(turn.at)}
             </span>
-            <p className={styles.bubble}>
-              {turn.from === "assistant" ? <ChatFormattedText text={turn.text} /> : turn.text}
-            </p>
+            <p className={styles.bubble}>{turn.text}</p>
           </li>
         ))}
         {busy && (
@@ -240,6 +202,7 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
           </li>
         )}
       </ol>
+
       {hasAnswer && (
         <p className={styles.links}>
           <span>{l.linksLabel}:</span>
@@ -248,62 +211,12 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
           <Link href="/member/finance">{l.linkFinance}</Link>
         </p>
       )}
-      {hasAnswer && (
-        <section
-          className={styles.scheduleLinks}
-          aria-label={
-            false ? "Lịch từ hệ thống" : "Schedule from SportHub"
-          }
-        >
-          <h3>
-            {false ? "Lịch từ hệ thống" : "Schedule from SportHub"}{" "}
-            · {formatDate(date)}
-          </h3>
-          <p className={styles.intro}>
-            {false
-              ? "Các buổi được tải trực tiếp từ lịch của bạn, độc lập với câu trả lời AI."
-              : "Sessions loaded directly from your calendar, independently of the AI answer."}
-          </p>
-          {schedule.loading ? (
-            <p role="status">{t.common.loading}</p>
-          ) : schedule.error ? (
-            <button className="btn btn--secondary" onClick={schedule.reload}>
-              {l.retry}
-            </button>
-          ) : !schedule.data?.length ? (
-            <p>{t.common.noData}</p>
-          ) : (
-            <ul className={styles.chips}>
-              {schedule.data.map((event) => (
-                <li key={event.id}>
-                  <Link
-                    onClick={(click) => {
-                      if (pathname === "/member/schedule") {
-                        click.preventDefault();
-                        setValues({ date, event: event.id });
-                      }
-                      onClose();
-                    }}
-                    href={`/member/schedule?date=${date}&event=${encodeURIComponent(event.id)}`}
-                  >
-                    {formatTime(event.startAtUtc)} · {event.title}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+
       {error && (
         <p className={styles.error} role="alert">
-          {error}{" "}
-          {lastQuestion && (
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              disabled={busy}
-              onClick={() => void ask(lastQuestion, false)}
-            >
+          {error}
+          {lastQuestion && !busy && (
+            <button type="button" className="btn btn--secondary btn--sm" onClick={() => void ask(lastQuestion, false)}>
               {l.retry}
             </button>
           )}
@@ -314,10 +227,12 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Nút mở trợ lý cố định trong MemberFrame, giữ trạng thái qua các trang Member. */
+
+/** Floating Member AI launcher. Restore the existing SportHub wolf mascot. */
 export function AssistantButton() {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+
   return (
     <>
       <div className={styles.launcher}>
@@ -340,7 +255,10 @@ export function AssistantButton() {
           />
         </button>
       </div>
-      {open && <AssistantDrawer onClose={() => setOpen(false)} />}
+
+      {open && (
+        <AssistantDrawer onClose={() => setOpen(false)} />
+      )}
     </>
   );
 }

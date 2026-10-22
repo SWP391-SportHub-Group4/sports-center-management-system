@@ -87,7 +87,7 @@ public class AiController(
 
     // Member self-service: advisory preview only, never creates an official Coach plan.
     // Member identity always comes from the authenticated JWT, never from a request parameter.
-    [Authorize(Policy = SportHubPolicies.Member)]
+    [Authorize(Roles = "Member,Receptionist,Coach,CenterManager")]
     [HttpPost("workout-suggestions/me")]
     public async Task<IActionResult> SuggestForSelf(CancellationToken ct, [FromQuery] string sport = "Gym")
     {

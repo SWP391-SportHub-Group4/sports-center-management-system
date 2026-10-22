@@ -1,5 +1,6 @@
 "use client";
 
+import { AssistantButton } from "@/features/member/assistant";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -697,6 +698,11 @@ export function AppFrame({
         <FrameContext.Provider value={true}>{children}</FrameContext.Provider>
       </main>
 
+      {(
+        user.role === "Receptionist" ||
+        user.role === "Coach" ||
+        user.role === "CenterManager"
+      ) && <AssistantButton />}
       {showShortcuts && user.role === "Receptionist" && (
         <div
           className="shortcut-modal__backdrop"
