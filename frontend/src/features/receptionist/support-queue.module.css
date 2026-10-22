@@ -212,7 +212,7 @@
 }
 .panel .requestBody {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   border: 0;
   border-radius: 0;
   border-top: 1px solid var(--border-subtle);
@@ -226,11 +226,14 @@
   padding-top: var(--space-5);
 }
 .requestContent {
-  padding-inline-end: var(--space-6);
+  padding-inline-end: 0;
 }
 .handling {
-  padding-inline-start: var(--space-6);
-  border-inline-start: 1px solid var(--border-subtle);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  padding-inline-start: 0;
+  border-inline-start: 0;
+  border-top: 1px solid var(--border-subtle);
 }
 .requestBody h4 {
   margin: 0 0 var(--space-4);
@@ -389,7 +392,7 @@
 /* Support queue summary and compact filter layout */
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-3);
 }
 .statCard {
@@ -414,9 +417,14 @@
 .statCard[data-status="OPEN"] .statValue { color: var(--warning-text); }
 .statCard[data-status="ASSIGNED"] .statValue { color: var(--info-text); }
 .statCard[data-status="IN_PROGRESS"] .statValue { color: var(--color-primary); }
-.statCard[data-status="CLOSED"] .statValue { color: var(--success-text); }
+.statCard[data-status="CLOSED"] .statValue,
+.statCard[data-status="DONE"] .statValue { color: var(--success-text); }
+.statCard[data-status="REJECTED"] .statValue { color: var(--danger-text); }
 .panel .filters { grid-template-columns: minmax(200px, 2fr) repeat(3, minmax(135px, 1fr)); }
 .filterActions { grid-column: 1 / -1; justify-content: flex-end; }
+@media (max-width: 1100px) and (min-width: 801px) {
+  .statsGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 800px) {
   .statsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .panel .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
