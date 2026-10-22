@@ -23,15 +23,16 @@ import {
 
 const emptyFilters = { status: "", category: "", search: "", assignedToUserId: "" };
 
-type SupportStats = { open: number; assigned: number; inProgress: number; closed: number };
+type SupportStats = { open: number; assigned: number; inProgress: number; done: number; rejected: number };
 const summaryCards: { key: keyof SupportStats; label: string; status: string }[] = [
   { key: "open", label: "Open", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "closed", label: "Closed", status: "CLOSED" },
+  { key: "done", label: "Done", status: "DONE" },
+  { key: "rejected", label: "Rejected", status: "REJECTED" },
 ];
 const categories: Record<string, string> = {
-  GENERAL: "Uncategorized",
+  GENERAL: "Other",
   PAYMENT: "Payment",
   MEMBERSHIP: "Membership",
   CLASS: "Coach",
@@ -41,7 +42,7 @@ const categories: Record<string, string> = {
   OTHER: "Other",
 };
 // Filter options are unique; legacy PT requests are included by the CLASS filter on the API.
-const categoryFilterOptions = ["GENERAL", "PAYMENT", "MEMBERSHIP", "CLASS", "FACILITY", "ACCOUNT", "OTHER"] as const;
+const categoryFilterOptions = ["PAYMENT", "MEMBERSHIP", "CLASS", "FACILITY", "ACCOUNT", "OTHER"] as const;
 
 export function SupportQueue({
   workspace = "receptionist",
@@ -160,7 +161,8 @@ export function SupportQueue({
             <option value="OPEN">Open</option>
             <option value="ASSIGNED">Assigned</option>
             <option value="IN_PROGRESS">In progress</option>
-            <option value="CLOSED">Closed</option>
+            <option value="DONE">Done</option>
+            <option value="REJECTED">Rejected</option>
           </select>
         </label>
         <label>
@@ -309,9 +311,9 @@ export function SupportQueue({
                       {request.subject}
                       <span
                         className={styles.status}
-                        data-status={request.status}
+                        data-status={request.status === "CLOSED" ? "DONE" : request.status}
                       >
-                        {request.status.replaceAll("_", " ")}
+                        {request.status === "CLOSED" ? "DONE" : request.status.replaceAll("_", " ")}
                       </span>
                     </h3>
                     <div className={styles.memberLine}>
@@ -334,7 +336,7 @@ export function SupportQueue({
                     </span>
                     <span>
                       {request.closedAt
-                        ? `Closed ${formatDateTime(request.closedAt)}`
+                        ? `${request.status === "REJECTED" ? "Rejected" : "Done"} ${formatDateTime(request.closedAt)}`
                         : `Created ${formatDateTime(request.createdAt)}`}
                     </span>
                   </div>
@@ -361,29 +363,11 @@ export function SupportQueue({
                     <div className={styles.requestContent}>
                       <h4>Request details</h4>
                       <p className={styles.message}>{request.description}</p>
-                      <dl className={styles.timeline}>
-                        <div>
-                          <dt>Recorded</dt>
-                          <dd>{formatDateTime(request.createdAt)}</dd>
-                        </div>
-                        {request.updatedAt && (
-                          <div>
-                            <dt>Last updated</dt>
-                            <dd>{formatDateTime(request.updatedAt)}</dd>
-                          </div>
-                        )}
-                      </dl>
-                      <Link
-                        className="btn btn--secondary btn--sm"
-                        href={`/${workspace}/members/${request.memberId}`}
-                      >
-                        Open member profile
-                      </Link>
                     </div>
                     <div className={styles.handling}>
                       <h4>
-                        {request.status === "CLOSED"
-                          ? "Resolution"
+                        {["DONE", "REJECTED", "CLOSED"].includes(request.status)
+                          ? "Final note"
                           : "Handle request"}
                       </h4>
                       <SupportRequestActions

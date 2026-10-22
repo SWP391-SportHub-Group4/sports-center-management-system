@@ -6,7 +6,6 @@ import {
 import { paymentApi, type PurchaseIntent } from "./api";
 export type { PurchaseIntent } from "./api";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { PaymentAttemptPanel } from "./payment-attempt-panel";
 import { PaymentResult } from "./payment-result";
 import { openPaymentGateway } from "./gateway-navigation";
 import { PointsSelector } from "./points-selector";
@@ -823,8 +822,7 @@ function CheckoutFlow({
                       const nextAttempt = await paymentApi.attempt(id!);
                       setAttempt(nextAttempt);
                       setLockedSessionId(checkout.checkoutSessionId);
-                      if (user?.role === "Member")
-                        openPaymentGateway(nextAttempt);
+                      openPaymentGateway(nextAttempt);
                     }
                   })
                 }
@@ -856,19 +854,7 @@ function CheckoutFlow({
                 {l.cancel}
               </Button>
             </div>
-            {user?.role !== "Member" &&
-              attempt &&
-              checkout.cashAmount > 0 &&
-              attempt.cashAmount === checkout.cashAmount &&
-              attempt.pointsApplied === checkout.pointsApplied &&
-              Date.parse(attempt.expiresAtUtc) > serverNow && (
-                <div className={styles.attempt}>
-                  <PaymentAttemptPanel
-                    key={attempt.paymentAttemptId}
-                    attempt={attempt}
-                  />
-                </div>
-              )}
+            
           </section>
         )}
         {showExpiredRetry && (

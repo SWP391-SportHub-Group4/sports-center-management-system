@@ -20,11 +20,11 @@ type Category = MemberSupportRequestDto["category"];
 
 /** Chip chọn nhanh; mã gửi lên vẫn là danh mục của API. */
 const CHIPS: { value: Category; en: string; vi: string }[] = [
-  { value: "PAYMENT", en: "Payment / Points", vi: "Payment / Points" },
-  { value: "MEMBERSHIP", en: "Membership / Package", vi: "Membership / Package" },
-  { value: "CLASS", en: "Schedule / Coach", vi: "Schedule / Coach" },
-  { value: "FACILITY", en: "Equipment / Facilities", vi: "Equipment / Facilities" },
-  { value: "ACCOUNT", en: "Account / App", vi: "Account / App" },
+  { value: "PAYMENT", en: "Payment", vi: "Payment" },
+  { value: "MEMBERSHIP", en: "Membership", vi: "Membership" },
+  { value: "CLASS", en: "Coach", vi: "Coach" },
+  { value: "FACILITY", en: "Facilities", vi: "Facilities" },
+  { value: "ACCOUNT", en: "Account", vi: "Account" },
   { value: "OTHER", en: "Other", vi: "Other" },
 ];
 
@@ -73,8 +73,8 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     .slice(0, RECENT_LIMIT);
 
   const categoryLabel = (value: string) => {
-    if (value === "GENERAL") return "Uncategorized";
-    if (value === "PT") return "Schedule / Coach";
+    if (value === "GENERAL") return "Other";
+    if (value === "PT") return "Coach";
     const chip = CHIPS.find((c) => c.value === value);
     if (chip) return vi ? chip.vi : chip.en;
     return value;
@@ -134,6 +134,11 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     >
       <div className={styles.head}>
         <h3>{vi ? "Hỗ trợ hội viên" : "Member support"}</h3>
+        <p>
+          {vi
+            ? "Ghi lại yêu cầu mà hội viên đang chọn báo tại quầy."
+            : "Record a request the selected member raised at the desk."}
+        </p>
       </div>
 
       <div className={styles.form}>
@@ -263,7 +268,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
               <li key={request.requestId} className={styles.request}>
                 <div className={styles.requestTop}>
                   <strong>{request.subject}</strong>
-                  <StatusChip value={request.status} />
+                  <StatusChip value={request.status === "CLOSED" ? "DONE" : request.status} />
                 </div>
                 <p className={styles.meta}>
                   {categoryLabel(request.category)} ·{" "}
@@ -278,7 +283,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
                   {request.closedAt && (
                     <>
                       {" "}
-                      · {vi ? "Đóng" : "Closed"}{" "}
+                      · {request.status === "REJECTED" ? "Rejected" : "Done"}{" "}
                       {formatDateTime(request.closedAt)}
                     </>
                   )}

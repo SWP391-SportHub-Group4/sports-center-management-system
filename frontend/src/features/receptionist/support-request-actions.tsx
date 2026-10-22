@@ -44,13 +44,13 @@ export function SupportRequestActions({
   collapsible?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [confirmClose, setConfirmClose] = useState(false);
-  const [closingMode, setClosingMode] = useState(false);
+  const [confirmFinal, setConfirmFinal] = useState(false);
+  const [mode, setMode] = useState<"progress" | "done" | "reject">("progress");
   const { language } = useLanguage();
   const vi = language === "vi";
   const [assigneeId, setAssigneeId] = useState(request.assignedToUserId ?? "");
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState<"assign" | "progress" | "close" | null>(
+  const [busy, setBusy] = useState<"assign" | "progress" | "done" | "reject" | null>(
     null,
   );
   const lock = useRef(false);
@@ -66,7 +66,7 @@ export function SupportRequestActions({
     : null;
 
   async function act(
-    kind: "assign" | "progress" | "close",
+    kind: "assign" | "progress" | "done" | "reject",
     body: Record<string, string>,
     success: string,
   ) {
@@ -98,7 +98,7 @@ export function SupportRequestActions({
     }
   }
 
-  const closed = request.status === "CLOSED";
+  const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const noteReady = note.trim().length >= 3;
   const chosen = assignees.find((x) => x.userId === assigneeId);
 
@@ -125,10 +125,10 @@ export function SupportRequestActions({
       {request.progressNote && (
         <p className={styles.latest}>
           <strong>
-            {request.status === "CLOSED"
+            {closed
               ? vi
                 ? "Kết quả xử lý: "
-                : "Resolution: "
+                : "Final note: "
               : vi
                 ? "Cập nhật gần nhất: "
                 : "Latest update: "}
@@ -137,6 +137,11 @@ export function SupportRequestActions({
         </p>
       )}
 
+      {closed && (
+        <p className={styles.closedHint}>
+          This request is finalized.
+        </p>
+      )}
       {!closed && (!collapsible || expanded) && (
         <>
           <div className={styles.assignRow}>
@@ -182,91 +187,66 @@ export function SupportRequestActions({
           </div>
 
           <div className={styles.actionMode} role="group" aria-label="Ticket action">
-            <button type="button" className={styles.actionModeButton} aria-pressed={!closingMode} onClick={() => { setClosingMode(false); setConfirmClose(false); }}>Add Progress Note</button>
-            <button type="button" className={styles.actionModeButton} aria-pressed={closingMode} onClick={() => setClosingMode(true)}>Close Ticket</button>
+            {(["progress", "done", "reject"] as const).map((action) => (
+              <button
+                key={action}
+                type="button"
+                className={styles.actionModeButton}
+                aria-pressed={mode === action}
+                disabled={busy !== null}
+                onClick={() => { setMode(action); setConfirmFinal(false); setNote(""); }}
+              >
+                {action === "progress" ? "Add Progress Note" : action === "done" ? "Mark as Done" : "Reject Request"}
+              </button>
+            ))}
           </div>
           <label className={styles.field}>
-            {closingMode ? "Final resolution" : "Progress note"}
+            {mode === "progress" ? "Progress note" : mode === "done" ? "Completion note" : "Rejection reason"}
             <textarea
               rows={3}
               value={note}
               maxLength={1000}
               disabled={busy !== null}
-              placeholder={closingMode ? "Explain how the issue was resolved (minimum 3 characters)." : "Record what has been checked or what happens next."}
-              onChange={(e) => setNote(e.target.value)}
+              placeholder={mode === "progress" ? "Record what has been checked or what happens next." : mode === "done" ? "Describe how the request was completed." : "Explain why this request is rejected."}
+              onChange={(e) => { setNote(e.target.value); setConfirmFinal(false); }}
             />
-            <span className={styles.counter}>
-              {closingMode ? "A final resolution is required to close this ticket." : "Saving a note keeps this ticket open."}{" "}
-              {note.length}/1000
-            </span>
+            <span className={styles.counter}>{note.length}/1000</span>
           </label>
           <div className={styles.buttons}>
-            {!closingMode && <button
-              type="button"
-              className="btn btn--secondary"
-              disabled={
-                busy !== null || !request.assignedToUserId || !noteReady
-              }
-              onClick={() =>
-                act(
-                  "progress",
-                  { note: note.trim() },
-                  vi ? "Đã cập nhật tiến độ." : "Progress updated.",
-                )
-              }
-            >
-              {busy === "progress"
-                ? vi
-                  ? "Đang lưu…"
-                  : "Saving…"
-                : vi
-                  ? "Cập nhật tiến độ"
-                  : "Update progress"}
-            </button>}
-            {closingMode && (confirmClose ? (
+            {mode === "progress" ? (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={busy !== null || !request.assignedToUserId || !noteReady}
+                onClick={() => act("progress", { note: note.trim() }, "Progress updated.")}
+              >
+                {busy === "progress" ? "Saving…" : "Update progress"}
+              </button>
+            ) : confirmFinal ? (
               <>
-                <button
-                  type="button"
-                  className="btn btn--secondary"
-                  disabled={busy !== null}
-                  onClick={() => setConfirmClose(false)}
-                >
-                  {vi ? "Hủy" : "Cancel"}
-                </button>
+                <button type="button" className="btn btn--secondary" disabled={busy !== null} onClick={() => setConfirmFinal(false)}>Cancel</button>
                 <button
                   type="button"
                   className="btn"
-                  disabled={busy !== null}
+                  disabled={busy !== null || !request.assignedToUserId || !noteReady}
                   onClick={async () => {
-                    await act(
-                      "close",
-                      { resolution: note.trim() },
-                      vi ? "Đã đóng yêu cầu." : "Request closed.",
-                    );
-                    setConfirmClose(false);
+                    await act(mode, { reason: note.trim() }, mode === "done" ? "Request completed." : "Request rejected.");
+                    setConfirmFinal(false);
                   }}
                 >
-                  {busy === "close"
-                    ? vi
-                      ? "Đang đóng…"
-                      : "Closing…"
-                    : vi
-                      ? "Xác nhận đóng"
-                      : "Confirm close"}
+                  {busy === mode ? "Saving…" : mode === "done" ? "Confirm Done" : "Confirm Reject"}
                 </button>
               </>
             ) : (
               <button
                 type="button"
                 className="btn"
-                disabled={
-                  busy !== null || !request.assignedToUserId || !noteReady
-                }
-                onClick={() => setConfirmClose(true)}
+                disabled={busy !== null || !request.assignedToUserId || !noteReady}
+                onClick={() => setConfirmFinal(true)}
               >
-                Close Ticket
+                {mode === "done" ? "Mark as Done" : "Reject Request"}
               </button>
-            ))}
+            )}
           </div>
         </>
       )}

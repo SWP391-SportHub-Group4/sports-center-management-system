@@ -51,9 +51,9 @@ public sealed class UpdateSupportProgress
 {
     [Required, MinLength(3), MaxLength(1000)] public string Note { get; set; } = string.Empty;
 }
-public sealed class CloseSupportRequest
+public sealed class FinishSupportRequest
 {
-    [Required, MinLength(3), MaxLength(1000)] public string Resolution { get; set; } = string.Empty;
+    [Required, MinLength(3), MaxLength(1000)] public string Reason { get; set; } = string.Empty;
 }
 
 [ApiController]
@@ -212,7 +212,8 @@ public sealed class MemberSupportRequestsController(
             open = Count("OPEN"),
             assigned = Count("ASSIGNED"),
             inProgress = Count("IN_PROGRESS"),
-            closed = Count("CLOSED")
+            done = Count("DONE") + Count("CLOSED"),
+            rejected = Count("REJECTED")
         });
     }
 
@@ -229,18 +230,23 @@ public sealed class MemberSupportRequestsController(
         if (!string.IsNullOrWhiteSpace(status))
         {
             var value = status.Trim().ToUpperInvariant();
-            if (value is not ("OPEN" or "ASSIGNED" or "IN_PROGRESS" or "CLOSED"))
+            if (value is not ("OPEN" or "ASSIGNED" or "IN_PROGRESS" or "DONE" or "REJECTED" or "CLOSED"))
                 throw new BadRequestException("support_status_invalid", "Invalid support request status.");
-            query = query.Where(x => x.Status == value);
+            query = value == "DONE"
+                ? query.Where(x => x.Status == "DONE" || x.Status == "CLOSED")
+                : query.Where(x => x.Status == value);
         }
         if (!string.IsNullOrWhiteSpace(category))
         {
             var value = category.Trim().ToUpperInvariant();
             if (value is not ("GENERAL" or "MEMBERSHIP" or "CLASS" or "PAYMENT" or "PT" or "FACILITY" or "ACCOUNT" or "OTHER"))
                 throw new BadRequestException("support_category_invalid", "Invalid support request category.");
-            query = value == "CLASS"
-                ? query.Where(x => x.Category == "CLASS" || x.Category == "PT")
-                : query.Where(x => x.Category == value);
+            query = value switch
+            {
+                "CLASS" => query.Where(x => x.Category == "CLASS" || x.Category == "PT"),
+                "OTHER" => query.Where(x => x.Category == "OTHER" || x.Category == "GENERAL"),
+                _ => query.Where(x => x.Category == value)
+            };
         }
         if (assignedToUserId is not null)
             query = query.Where(x => x.AssignedToUserId == assignedToUserId);
@@ -280,7 +286,7 @@ public sealed class MemberSupportRequestsController(
         if (!assignee) throw new BadRequestException("support_assignee_invalid", "Choose an active receptionist or manager.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
-        if (row.Status == "CLOSED") throw new ConflictException("support_request_closed", "Support request is closed.");
+        if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
         var old = row.AssignedToUserId;
         row.AssignedToUserId = body.AssigneeUserId;
         row.Status = "ASSIGNED";
@@ -301,7 +307,7 @@ public sealed class MemberSupportRequestsController(
             throw new BadRequestException("support_progress_invalid", "Progress note must have 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
-        if (row.Status == "CLOSED") throw new ConflictException("support_request_closed", "Support request is closed.");
+        if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before updating progress.");
         row.Status = "IN_PROGRESS";
@@ -314,22 +320,34 @@ public sealed class MemberSupportRequestsController(
         return Ok(Map(row));
     }
 
-    [HttpPost("{requestId:guid}/close")]
-    public async Task<IActionResult> Close(Guid requestId, [FromBody] CloseSupportRequest body, CancellationToken ct)
+    private static bool IsFinal(string status) => status is "DONE" or "REJECTED" or "CLOSED";
+
+    [HttpPost("{requestId:guid}/done")]
+    public Task<IActionResult> Done(Guid requestId, [FromBody] FinishSupportRequest body, CancellationToken ct)
+        => Finish(requestId, body, "DONE", ct);
+
+    [HttpPost("{requestId:guid}/reject")]
+    public Task<IActionResult> Reject(Guid requestId, [FromBody] FinishSupportRequest body, CancellationToken ct)
+        => Finish(requestId, body, "REJECTED", ct);
+
+    private async Task<IActionResult> Finish(Guid requestId, FinishSupportRequest body, string target, CancellationToken ct)
     {
-        var resolution = body.Resolution?.Trim();
-        if (resolution?.Length is not >= 3 or > 1000)
-            throw new BadRequestException("support_resolution_invalid", "Resolution must have 3 to 1000 characters.");
+        var reason = body.Reason?.Trim();
+        if (reason?.Length is not >= 3 or > 1000)
+            throw new BadRequestException("support_final_note_invalid", "Final note must contain 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
-        if (row.Status == "CLOSED") return Ok(Map(row));
+        if (IsFinal(row.Status))
+            throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
-            throw new ConflictException("support_request_unassigned", "Assign the request before closing it.");
-        row.Status = "CLOSED";
-        row.ProgressNote = resolution;
+            throw new ConflictException("support_request_unassigned", "Assign the request before finalizing it.");
+        row.Status = target;
+        row.ProgressNote = reason;
         row.ClosedAt = row.UpdatedAt = clock.UtcNow;
-        audit.Write(new AuditEntry(User.RequireUserId(), "CLOSE_SUPPORT_REQUEST", nameof(MemberSupportRequest),
-            requestId.ToString(), NewValue: JsonSerializer.Serialize("CLOSED"), Reason: resolution));
+        audit.Write(new AuditEntry(User.RequireUserId(),
+            target == "DONE" ? "COMPLETE_SUPPORT_REQUEST" : "REJECT_SUPPORT_REQUEST",
+            nameof(MemberSupportRequest), requestId.ToString(),
+            NewValue: JsonSerializer.Serialize(target), Reason: reason));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return Ok(Map(row));
