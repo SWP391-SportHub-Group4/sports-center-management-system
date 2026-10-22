@@ -116,6 +116,52 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
     }
 
     [Fact]
+    public async Task Receptionist_member_calendar_excludes_other_members_and_room_blocks()
+    {
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var other = await factory.SeedUserAsync(UserRole.Member);
+        var ownClass = await CourseTestData.CreateAsync(factory);
+        var otherClass = await CourseTestData.CreateAsync(factory);
+        await CourseTestData.EnrollmentAsync(factory, ownClass.Id, member.UserId);
+        await CourseTestData.EnrollmentAsync(factory, otherClass.Id, other.UserId);
+        var ownSession = (await CourseTestData.SessionsAsync(factory, ownClass.Id))[0];
+        var otherSession = (await CourseTestData.SessionsAsync(factory, otherClass.Id))[0];
+        var room = await CourseTestData.RoomAsync(factory);
+        var ownRentalId = Guid.NewGuid();
+        var otherRentalId = Guid.NewGuid();
+        await factory.QueryAsync(async db =>
+        {
+            foreach (var (id, owner) in new[] { (ownRentalId, member.UserId), (otherRentalId, other.UserId) })
+                db.Set<CourtRental>().Add(new()
+                {
+                    CourtRentalId = id, MemberId = owner, SportId = 3, RoomId = room,
+                    StartAtUtc = VietnamTime.StartOfDayUtc(CourseTestData.StartDate).AddHours(2),
+                    EndAtUtc = VietnamTime.StartOfDayUtc(CourseTestData.StartDate).AddHours(3),
+                    TotalPrice = 100_000m, Status = CourtRentalStatus.Confirmed, CreatedAtUtc = DateTime.UtcNow
+                });
+            db.Set<RoomBlock>().Add(new()
+            {
+                BlockId = Guid.NewGuid(), RoomId = room,
+                StartAtUtc = VietnamTime.StartOfDayUtc(CourseTestData.StartDate.AddDays(1)),
+                EndAtUtc = VietnamTime.StartOfDayUtc(CourseTestData.StartDate.AddDays(2)),
+                Reason = "Private member calendar fixture", CreatedByUserId = receptionist.UserId
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        using var client = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        var entries = await client.GetFromJsonAsync<List<CourtScheduleEntry>>(
+            $"/api/manager/court-schedule?fromDate={CourseTestData.StartDate:yyyy-MM-dd}&toDate={CourseTestData.StartDate.AddDays(20):yyyy-MM-dd}&memberId={member.UserId}");
+        Assert.NotNull(entries);
+        Assert.Contains(entries, x => x.SourceId == ownSession.SessionId);
+        Assert.Contains(entries, x => x.SourceId == ownRentalId);
+        Assert.DoesNotContain(entries, x => x.SourceId == otherSession.SessionId || x.SourceId == otherRentalId || x.SourceType == "RoomBlock");
+        Assert.All(entries.SelectMany(x => x.Participants), x => Assert.Equal(member.UserId, x.MemberId));
+    }
+
+    [Fact]
     public async Task Incident_requires_reschedule_then_can_block_original_slot_without_orphan_schedule()
     {
         var course = await CourseTestData.CreateAsync(factory);

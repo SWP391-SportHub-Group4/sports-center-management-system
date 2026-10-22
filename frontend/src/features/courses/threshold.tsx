@@ -13,7 +13,7 @@ import { thresholdCopy } from "./threshold-copy";
 import styles from "./threshold.module.css";
 
 export type ThresholdView = ThresholdResponseDto;
-type Choice = "TRANSFER" | "WAIT_NEXT_COURSE" | "REFUND" | "KEEP_PLACE";
+type Choice = "TRANSFER" | "REFUND" | "KEEP_PLACE";
 interface Quote {
   targetClassId: number;
   cashDifference: number;
@@ -117,22 +117,17 @@ export function ThresholdPanel({
     !state.loading &&
     !state.error &&
     !action.busy &&
-    (!d?.classCancelled ||
-      choice === "REFUND" ||
-      choice === "WAIT_NEXT_COURSE") &&
+    (!d?.classCancelled || choice === "REFUND") &&
     (choice === "REFUND" ||
-      choice === "WAIT_NEXT_COURSE" ||
       choice === "KEEP_PLACE" ||
       (choice === "TRANSFER" && validQuote));
   const labels = {
     TRANSFER: l.transfer,
-    WAIT_NEXT_COURSE: l.wait,
     REFUND: l.refund,
     KEEP_PLACE: l.keepPlace,
   };
   const bodies = {
     TRANSFER: l.transferBody,
-    WAIT_NEXT_COURSE: l.waitBody,
     REFUND: l.refundBody,
     KEEP_PLACE: l.keepPlaceBody,
   };
@@ -148,7 +143,6 @@ export function ThresholdPanel({
     if (
       submittedChoice !== "TRANSFER" &&
       submittedChoice !== "REFUND" &&
-      submittedChoice !== "WAIT_NEXT_COURSE" &&
       submittedChoice !== "KEEP_PLACE"
     )
       return;
@@ -242,15 +236,6 @@ export function ThresholdPanel({
                     </label>
                   ))}
                 </fieldset>
-                {choice === "WAIT_NEXT_COURSE" && !data.classCancelled && (
-                  <div className={styles.notice} role="status">
-                    <p>
-                      Your refundable balance returns as points. We will notify
-                      you when a new course in this sport opens. No seat is
-                      reserved.
-                    </p>
-                  </div>
-                )}
                 {choice === "TRANSFER" && (
                   <div className={styles.details}>
                     <p>{l.targetHint}</p>

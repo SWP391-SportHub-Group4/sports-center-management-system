@@ -32,7 +32,6 @@ async function install(
   });
   const writes: unknown[] = [];
   let choice: string | null = null;
-  let cancelled = false;
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -101,48 +100,6 @@ async function install(
     }
     if (url.pathname === "/api/sports")
       return json([{ sportId: 3, name: "Badminton" }]);
-    if (url.pathname === "/api/course-interests")
-      return json({
-        items: [
-          {
-            courseInterestId: responseId,
-            memberId: "member-1",
-            memberName: "Alex Nguyen",
-            sportName: "Badminton",
-          },
-        ],
-        page: 1,
-        pageSize: 20,
-        totalCount: 1,
-      });
-    if (
-      request.method() === "DELETE" &&
-      url.pathname.startsWith("/api/members/me/course-interests/")
-    ) {
-      cancelled = true;
-      writes.push({ cancel: url.pathname });
-      return route.fulfill({ status: 204 });
-    }
-    if (
-      [
-        "/api/members/me/course-interests",
-        "/api/manager/course-interests",
-      ].includes(url.pathname)
-    )
-      return json([
-        {
-          interestId: responseId,
-          memberId: "member-1",
-          memberName: "Alex Nguyen",
-          sportId: 3,
-          sportName: "Badminton",
-          sourceClassName: "Badminton basics",
-          refundedPoints: 600,
-          active: !cancelled,
-          createdAtUtc: "2030-06-10T00:00:00Z",
-          notifications: [],
-        },
-      ]);
     if (url.pathname === "/api/classes")
       return json({
         items: [
@@ -193,17 +150,17 @@ async function install(
   return writes;
 }
 
-test("threshold wait choice requires confirmation before refund and subscription", async ({
+test("threshold refund choice requires confirmation before refunding", async ({
   page,
 }, info) => {
   const writes = await install(page);
   await page.goto(`/member/threshold-responses/${responseId}`);
-  await expect(page.getByRole("radio")).toHaveCount(4);
+  await expect(page.getByRole("radio")).toHaveCount(3);
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Review response" }),
   ).toBeDisabled();
-  await page.getByRole("radio", { name: /^Wait for/ }).check();
+  await page.getByRole("radio", { name: /^Refund/ }).check();
   await expect(
     page.getByRole("button", { name: "Review response" }),
   ).toBeEnabled();
@@ -228,7 +185,7 @@ test("threshold wait choice requires confirmation before refund and subscription
   await expect(
     page.getByText("Your response has been recorded", { exact: false }),
   ).toBeVisible();
-  expect(writes).toEqual([{ choice: "WAIT_NEXT_COURSE", targetClassId: null }]);
+  expect(writes).toEqual([{ choice: "REFUND", targetClassId: null }]);
   await expect(page.getByRole("radio")).toHaveCount(0);
 });
 
@@ -396,42 +353,4 @@ test("AI retains modal keyboard behavior on mobile", async ({ page }, info) => {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(launcher).toBeFocused();
-});
-
-test("member can stop course notifications without changing refunded points", async ({
-  page,
-}) => {
-  const writes = await install(page);
-  await page.goto("/member/courses?tab=interests");
-  await expect(
-    page.getByText("600 points refunded", { exact: false }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Stop notifications" }).click();
-  await expect(
-    page.getByText("Notifications stopped", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("600 points refunded", { exact: false }),
-  ).toBeVisible();
-  expect(writes).toEqual([
-    { cancel: `/api/members/me/course-interests/${responseId}` },
-  ]);
-});
-
-test("manager can review member and sport interests without financial mutations", async ({
-  page,
-}) => {
-  const writes = await install(page, { manager: true });
-  await page.goto("/manager/classes/interests");
-  await expect(page.getByRole("columnheader")).toHaveText(["Member", "Sport"]);
-  await expect(
-    page.getByRole("cell", { name: "Alex Nguyen", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("cell", { name: "Badminton", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Stop notifications" }),
-  ).toHaveCount(0);
-  expect(writes).toHaveLength(0);
 });

@@ -37,7 +37,7 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
             && x.RescheduledFromSessionId != null).Select(x => x.RescheduledFromSessionId).ToHashSet();
         var remaining = originals.Count(x => x.Status != ClassSessionStatus.Completed && !completedMakeups.Contains(x.SessionId));
         var quotes = new List<CourseCancellationMember>();
-        var automaticRefund = ClassCancellationRules.IsBelowThresholdDecision(course, members.Count)
+        var automaticRefund = ClassCancellationRules.IsBelowThresholdDecision(course, members.Count, clock.UtcNow)
             && members.All(m => m.InvoiceItemId.HasValue)
             && sessions.All(s => s.Status != ClassSessionStatus.Completed);
         if (automaticRefund)
@@ -48,11 +48,22 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
             }
         var canCancel = course.Status is not (ClassStatus.Completed or ClassStatus.Cancelled)
             && (members.Count == 0 || automaticRefund);
+        string? blockedReason = canCancel ? null
+            : course.Status is ClassStatus.Completed or ClassStatus.Cancelled ? "class_closed"
+            : course.Status != ClassStatus.Published ? "class_not_published"
+            : sessions.Any(s => s.Status == ClassSessionStatus.Completed) ? "session_completed"
+            : course.ThresholdStatus == ThresholdStatus.WaivedByManager ? "threshold_waived"
+            : course.ThresholdStatus == ThresholdStatus.Met
+                || course.BreakEvenThreshold is int minimum && members.Count >= minimum ? "threshold_met"
+            : course.BreakEvenThreshold is null ? "threshold_missing"
+            : course.ThresholdStatus == ThresholdStatus.NotEvaluated
+                && (course.ThresholdDeadlineUtc is null || course.ThresholdDeadlineUtc > clock.UtcNow) ? "before_review_deadline"
+            : "enrollment_payment_missing";
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
             { course.Version, course.Status, course.ThresholdStatus, course.BreakEvenThreshold, automaticRefund, remaining,
                 total = originals.Count, quotes, holds = holds.Select(x => new { x.HoldId, x.InvoiceId }) }))));
         return new(canCancel, course.Version, originals.Count, remaining, members.Count, holds.Count,
-            quotes.Sum(x => x.RefundPoints), fingerprint, quotes, automaticRefund);
+            quotes.Sum(x => x.RefundPoints), fingerprint, quotes, automaticRefund, blockedReason);
     }
 
     public async Task CancelAsync(int classId, CancelClassRequest request, Guid actorId, CancellationToken ct = default)
@@ -160,4 +171,4 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
 public sealed record CourseCancellationMember(Guid EnrollmentId, Guid MemberId, Guid InvoiceItemId, decimal RemainingPaidValueVnd, int RefundPoints);
 public sealed record CourseCancellationPreview(bool CanCancel, int Version, int TotalSessions, int SessionsNotProvided,
     int ConfirmedCount, int ActiveHoldCount, int RefundPoints, string PreviewToken, IReadOnlyList<CourseCancellationMember> Members,
-    bool RefundsImmediately = false);
+    bool RefundsImmediately = false, string? BlockedReason = null);

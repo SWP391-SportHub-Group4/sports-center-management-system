@@ -128,7 +128,7 @@ test("any active member prices a 2-hour rental from the server and sends no owne
   // 2 giờ x 100.000 = 200.000: tổng do server báo, FE chỉ hiển thị.
   await expect(page.getByText(/200,000/).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Payment", exact: true }).click();
+  await page.getByRole("button", { name: "Go to checkout" }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(Object.keys(requests[0].body).sort()).toEqual([
     "endUtc",

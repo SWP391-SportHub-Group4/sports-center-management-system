@@ -141,7 +141,7 @@ public sealed class PackagePurchaseService(
             RelatedEntityId = memberPackageId, MemberPackageId = memberPackageId
         };
         db.Set<InvoiceItem>().Add(invoiceItem);
-        await notices.CreatedAsync(invoice, ct);
+        await notices.CreatedAsync(invoice, ct, invoiceItem.Description);
 
         audit.Write(new AuditEntry(
             actorUserId,

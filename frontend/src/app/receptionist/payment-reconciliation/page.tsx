@@ -1,10 +1,16 @@
 "use client";
 
-import { OperationsPage } from "@/features/operations/ui";
+import { AppShell } from "@/components/AppShell";
 import { FrontDeskPaymentReconciliation } from "@/features/receptionist/payment-reconciliation";
 
 export default function Page() {
-  return <OperationsPage title="invoices" roles={["Receptionist"]}>
-    <FrontDeskPaymentReconciliation />
-  </OperationsPage>;
+  return (
+    <AppShell
+      title="Payment and service reconciliation"
+      allow={["Receptionist"]}
+      operationalLayout
+    >
+      <FrontDeskPaymentReconciliation />
+    </AppShell>
+  );
 }

@@ -22,11 +22,7 @@ import { CheckoutPanel } from "@/features/payments";
 import { WalletBalance } from "@/features/wallet";
 import { WalletLedger } from "@/features/wallet";
 import { InvoiceList } from "@/features/payments";
-import {
-  MutationFeedback,
-  Pagination,
-  useMutation,
-} from "@/features/operations";
+import { Pagination } from "@/features/operations";
 import { courseApi, isCourseOpenForRegistration } from "@/features/courses";
 import styles from "./front-desk.module.css";
 import type {

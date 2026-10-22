@@ -6,6 +6,7 @@ public class UserSummaryResponse
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
+    public bool MustChangePassword { get; set; }
     [SportHub.BuildingBlocks.Api.WireEnum] public string Role { get; set; } = string.Empty;
 
 

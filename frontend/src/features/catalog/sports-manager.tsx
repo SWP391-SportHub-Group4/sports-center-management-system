@@ -1,6 +1,12 @@
 "use client";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { api, ApiError } from "@/lib/apiClient";
+import { validLandingImage } from "@/components/homepage/landing-content-context";
+import {
+  SportImageEditor,
+  type SportImageEditorHandle,
+} from "./sport-image-editor";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { Field, StatusChip } from "@/components/ui";
@@ -55,6 +61,9 @@ export function SportsManager() {
   const state = useApi((s) => catalogApi.sports(s, true), []);
   const filters = useCatalogFilters();
   const mutation = useMutation();
+  const imageEditor = useRef<SportImageEditorHandle>(null);
+  const imageUpload = useRef<{ blob: Blob; url: string } | null>(null);
+  const [preparingImage, setPreparingImage] = useState(false);
   const [form, setForm] = useState(empty);
   const [editor, setEditor] = useState<{ id: number | null } | null>(null);
   const serviceLabel: Record<SportServiceType, string> = {
@@ -73,6 +82,7 @@ export function SportsManager() {
     (type) => isGym || !GYM_ONLY.includes(type),
   );
   const edit = (row?: SportDto) => {
+    imageUpload.current = null;
     mutation.reset();
     setEditor({ id: row?.sportId ?? null });
     const group = row?.services.find((s) => s.serviceType === "GROUP_COURSE");
@@ -99,7 +109,25 @@ export function SportsManager() {
   return (
     <>
       <CatalogPanel
-        filters={<CatalogFilters filters={filters} />}
+        filters={
+          <CatalogFilters
+            filters={filters}
+            extra={[
+              {
+                id: "service",
+                label: l.services,
+                kind: "select",
+                options: [
+                  { value: "", label: l.all },
+                  ...SERVICE_TYPES.map((type) => ({
+                    value: type,
+                    label: serviceLabel[type],
+                  })),
+                ],
+              },
+            ]}
+          />
+        }
         actions={
           <button
             className="btn"
@@ -114,8 +142,15 @@ export function SportsManager() {
           state={state}
           filters={filters}
           caption={l.sports}
-          rows={(state.data ?? []).filter((s) =>
-            matchesCatalog(s, `${s.code} ${s.name}`, filters.values),
+          rows={(state.data ?? []).filter(
+            (s) =>
+              matchesCatalog(s, `${s.code} ${s.name}`, filters.values) &&
+              (!filters.values.service ||
+                s.services.some(
+                  (service) =>
+                    service.isEnabled &&
+                    service.serviceType === filters.values.service,
+                )),
           )}
           getRowId={(s) => String(s.sportId)}
           columns={[
@@ -190,10 +225,12 @@ export function SportsManager() {
         <CatalogFormDialog
           title={editor.id === null ? c.createSport : c.editSport}
           busy={mutation.busy}
+          canSubmit={!preparingImage}
           mutation={mutation}
           onClose={() => setEditor(null)}
           onSubmit={async (e) => {
             e.preventDefault();
+            if (preparingImage) return;
             const body: SaveSport = {
               ...(editor.id === null
                 ? { code: form.code.trim().toLowerCase() }
@@ -218,7 +255,32 @@ export function SportsManager() {
                 })),
             };
             if (
-              await mutation.run(() => catalogApi.saveSport(editor.id, body))
+              await mutation.run(async () => {
+                const blob = await imageEditor.current?.exportImage();
+                if (blob) {
+                  if (imageUpload.current?.blob !== blob) {
+                    const upload = new FormData();
+                    upload.append("file", blob, "sport-landing-image.jpg");
+                    upload.append("preset", "landscape");
+                    const result = await api.postForm<{ url: string }>(
+                      "/api/manager/media/images",
+                      upload,
+                    );
+                    if (
+                      typeof result.url !== "string" ||
+                      !validLandingImage(result.url)
+                    )
+                      throw new ApiError(
+                        0,
+                        "image_upload_failed",
+                        c.imageUploadFailed,
+                      );
+                    imageUpload.current = { blob, url: result.url };
+                  }
+                  body.imageUrl = imageUpload.current.url;
+                }
+                return catalogApi.saveSport(editor.id, body);
+              })
             ) {
               setEditor(null);
               state.reload();
@@ -289,14 +351,13 @@ export function SportsManager() {
                 </Field>
               </>
             )}
-            <Field label={l.image}>
-              <input
-                maxLength={500}
-                value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-              />
-            </Field>
           </div>
+          <SportImageEditor
+            ref={imageEditor}
+            value={form.imageUrl}
+            disabled={mutation.busy}
+            onPreparingChange={setPreparingImage}
+          />
           <fieldset className={styles.days}>
             <legend>{l.services}</legend>
             {visibleServices.map((type) => (

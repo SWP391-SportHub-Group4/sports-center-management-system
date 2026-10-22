@@ -464,7 +464,6 @@ public sealed class ClassService(
         }
 
         entity.Status = ClassStatus.Published;
-        entity.PublishedAtUtc = clock.UtcNow;
         entity.EnrollmentOpen = true;
         entity.EnrollmentClosedReason = null;
         entity.EnrollmentClosedAtUtc = null;
@@ -546,13 +545,6 @@ public sealed class ClassService(
         // Chạy thử bộ sinh lịch để báo sớm lỗi ngày bắt đầu lệch lịch lặp.
         CourseRules.GenerateSessions(request.StartDate, request.NumSessions, rules, Math.Max(sport.DefaultDurationMinutes, 1));
 
-        if (request.ContinuationOfClassId is int previous)
-        {
-            if (previous == entity.ClassId || !await db.Set<Class>().AnyAsync(c => c.ClassId == previous
-                && c.SportId == request.SportId && c.StartDate <= request.StartDate, ct))
-                throw new BadRequestException("invalid_previous_cohort", "Choose an earlier class in the same sport for the next cohort.");
-        }
-        entity.ContinuationOfClassId = request.ContinuationOfClassId;
         entity.Code = code;
         entity.Name = request.Name.Trim();
         entity.SportId = request.SportId;
@@ -694,7 +686,7 @@ public sealed class ClassService(
             r.Class.CreatedAt,
             r.Class.PublishedAt,
             r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [], r.Class.ContinuationOfClassId
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
         )).ToList();
     }
 

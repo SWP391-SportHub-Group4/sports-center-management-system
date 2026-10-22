@@ -32,8 +32,6 @@ public static class NotificationEvents
     public const string CoachAttendanceReminder = nameof(CoachAttendanceReminder);
     public const string AvatarReported = nameof(AvatarReported);
     public const string ClassSessionReminder = nameof(ClassSessionReminder);
-    public const string NextCourseAvailable = nameof(NextCourseAvailable);
-    public const string CourseInterestOpened = nameof(CourseInterestOpened);
     public const string ClassSessionChangeRequested =
         nameof(ClassSessionChangeRequested);
 

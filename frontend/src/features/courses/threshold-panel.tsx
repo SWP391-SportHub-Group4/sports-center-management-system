@@ -57,98 +57,95 @@ export function ThresholdPanel({
   return (
     <>
       <Card title={t.managerOperations.thresholdTab}>
-        <div className={styles.openingStatus}>
-          <StatusChip value={course.thresholdStatus} />
-          <p>
-            {l.confirmed}:{" "}
-            <strong>
-              {course.confirmedCount} /{" "}
-              {course.breakEvenThreshold ??
-                (course.price > 0
-                  ? Math.ceil(course.costAmount / course.price)
-                  : 0)}
-            </strong>
-          </p>
-        </div>
-        <dl className={styles.facts}>
-          <div>
-            <dt>{l.deadline}</dt>
-            <dd>{formatDateTime(course.thresholdDeadlineUtc)}</dd>
-          </div>
-          <div>
-            <dt>{t.classWorkspace.price}</dt>
-            <dd>{formatMoney(course.price)}</dd>
-          </div>
-          <div>
-            <dt>{t.classWorkspace.cost}</dt>
-            <dd>{formatMoney(course.costAmount)}</dd>
-          </div>
-        </dl>
-        {course.thresholdStatus === "AT_RISK" &&
-          course.thresholdResponseDeadlineUtc && (
+        <div className={styles.openingContent}>
+          <div className={styles.openingStatus}>
+            <StatusChip value={course.thresholdStatus} />
             <p>
-              {vi ? "Hạn phản hồi: " : "Member response deadline: "}
-              {formatDateTime(course.thresholdResponseDeadlineUtc)}.{" "}
-              {vi
-                ? "Chốt cho phép mở dưới ngưỡng trước hạn này nếu cần. Hết hạn vẫn thiếu và chưa có miễn ngưỡng thì hệ thống hủy lớp, hoàn điểm cho người còn ghi danh."
-                : "Approve running below threshold before this deadline if needed. If still below threshold without a waiver when it expires, the system cancels the class and refunds remaining enrollments."}
+              {l.confirmed}:{" "}
+              <strong>
+                {course.confirmedCount} /{" "}
+                {course.breakEvenThreshold ??
+                  (course.price > 0
+                    ? Math.ceil(course.costAmount / course.price)
+                    : 0)}
+              </strong>
             </p>
-          )}
-        {course.thresholdStatus === "AT_RISK" &&
-          !course.thresholdResponseDeadlineUtc && (
-            <div role="alert">
-              <p>
-                {vi
-                  ? "Chưa mở cửa sổ phản hồi. Nếu không còn đủ thời gian, Manager phải chốt mở dưới ngưỡng, hủy hoặc dời khai giảng. Lớp chưa được chốt sẽ không tự bắt đầu."
-                  : "This class is below its minimum enrollment. Approve running below threshold, defer opening, or cancel and refund all remaining paid balances as points. The Coach and enrolled members will be notified."}
-              </p>
-              <Link href={`/manager/classes/${course.classId}?tab=sessions`}>
-                Move the first session
-              </Link>
+          </div>
+          <dl className={styles.facts}>
+            <div>
+              <dt>{l.deadline}</dt>
+              <dd>{formatDateTime(course.thresholdDeadlineUtc)}</dd>
             </div>
-          )}
-        {course.status === "PUBLISHED" &&
-          openingPassed &&
-          !["MET", "WAIVED_BY_MANAGER"].includes(course.thresholdStatus) && (
-            <p role="alert">
-              {vi
-                ? "Đã qua giờ dự kiến nhưng lớp chưa được xác nhận. Dời lịch hoặc hủy lớp; không ghi nhận đã khai giảng."
-                : "The planned opening has passed without confirmation. Move the schedule or cancel; teaching has not been started."}
-            </p>
-          )}
+            <div>
+              <dt>{t.classWorkspace.price}</dt>
+              <dd>{formatMoney(course.price)}</dd>
+            </div>
+            <div>
+              <dt>{t.classWorkspace.cost}</dt>
+              <dd>{formatMoney(course.costAmount)}</dd>
+            </div>
+          </dl>
+          {course.thresholdStatus === "AT_RISK" &&
+            course.thresholdResponseDeadlineUtc && (
+              <p className={styles.openingNotice}>
+                {vi ? "Hạn phản hồi: " : "Member response deadline: "}
+                {formatDateTime(course.thresholdResponseDeadlineUtc)}.{" "}
+                {vi
+                  ? "Chốt cho phép mở dưới ngưỡng trước hạn này nếu cần. Hết hạn vẫn thiếu và chưa có miễn ngưỡng thì hệ thống hủy lớp, hoàn điểm cho người còn ghi danh."
+                  : "Approve running below threshold before this deadline if needed. If still below threshold without a waiver when it expires, the system cancels the class and refunds remaining enrollments."}
+              </p>
+            )}
+          {course.thresholdStatus === "AT_RISK" &&
+            !course.thresholdResponseDeadlineUtc && (
+              <div role="alert" className={styles.openingNotice}>
+                <p>
+                  {vi
+                    ? "Chưa mở cửa sổ phản hồi. Nếu không còn đủ thời gian, Manager phải chốt mở dưới ngưỡng, hủy hoặc dời khai giảng. Lớp chưa được chốt sẽ không tự bắt đầu."
+                    : "This class is below its minimum enrollment. Approve running below threshold, defer opening, or cancel and refund all remaining paid balances as points. The Coach and enrolled members will be notified."}
+                </p>
+                <Link href={`/manager/classes/${course.classId}?tab=sessions`}>
+                  Move the first session
+                </Link>
+              </div>
+            )}
+          {course.status === "PUBLISHED" &&
+            openingPassed &&
+            !["MET", "WAIVED_BY_MANAGER"].includes(course.thresholdStatus) && (
+              <p role="alert" className={styles.openingNotice}>
+                {vi
+                  ? "Đã qua giờ dự kiến nhưng lớp chưa được xác nhận. Dời lịch hoặc hủy lớp; không ghi nhận đã khai giảng."
+                  : "The planned opening has passed without confirmation. Move the schedule or cancel; teaching has not been started."}
+              </p>
+            )}
 
-        <div className={styles.actions}>
-          {editable && (
-            <button
-              className="btn btn--secondary"
-              onClick={() => openAction("pricing")}
-            >
-              {copy.editPricing}
-            </button>
-          )}
-          {canWaive && (
-            <button className="btn" onClick={() => openAction("waive")}>
-              {copy.approveBelowThreshold}
-            </button>
-          )}
+          <div className={styles.actions}>
+            {editable && (
+              <button
+                className="btn btn--secondary"
+                onClick={() => openAction("pricing")}
+              >
+                {copy.editPricing}
+              </button>
+            )}
+            {canWaive && (
+              <button className="btn" onClick={() => openAction("waive")}>
+                {copy.approveBelowThreshold}
+              </button>
+            )}
+          </div>
+          {!editable && <p className="small muted">{copy.pricingLocked}</p>}
+          {course.status === "PUBLISHED" &&
+            course.thresholdStatus === "AT_RISK" && (
+              <details className={styles.guidance}>
+                <summary>Cancel class and refund points</summary>
+                <CourseCancellation
+                  classId={course.classId}
+                  onSaved={onSaved}
+                  embedded
+                />
+              </details>
+            )}
         </div>
-        {!editable && <p className="small muted">{copy.pricingLocked}</p>}
-        {course.status === "PUBLISHED" &&
-          course.thresholdStatus === "AT_RISK" && (
-            <details className={styles.guidance}>
-              <summary>Cancel class and refund points</summary>
-              <CourseCancellation
-                classId={course.classId}
-                onSaved={onSaved}
-                embedded
-              />
-            </details>
-          )}
-        <details className={styles.guidance}>
-          <summary>{copy.openingRules}</summary>
-          <p>{l.thresholdHint}</p>
-          <p>{copy.openingRulesHint}</p>
-        </details>
       </Card>
       {action &&
         createPortal(
@@ -161,7 +158,7 @@ export function ThresholdPanel({
             description={
               action === "pricing" ? l.thresholdHint : copy.approveBelowHint
             }
-            size="md"
+            size={action === "pricing" ? "lg" : "md"}
             className={styles.actionDialog}
             onClose={() => !mutation.busy && setAction(null)}
             footer={
@@ -227,7 +224,7 @@ export function ThresholdPanel({
               <fieldset disabled={mutation.busy}>
                 {action === "pricing" && (
                   <>
-                    <div className="form-grid">
+                    <div className={styles.pricingFields}>
                       <Field label={t.classWorkspace.price}>
                         <input
                           required
@@ -249,14 +246,14 @@ export function ThresholdPanel({
                         />
                       </Field>
                     </div>
-                    <p>
-                      {l.threshold}:{" "}
+                    <p className={styles.pricingThreshold}>
+                      <span>{l.threshold}</span>
                       <strong>
                         {threshold} / {course.capacity}
                       </strong>
                     </p>
                     {threshold > course.capacity && (
-                      <p role="alert">
+                      <p role="alert" className={styles.openingNotice}>
                         {t.managerOperations.thresholdExceeded}
                       </p>
                     )}

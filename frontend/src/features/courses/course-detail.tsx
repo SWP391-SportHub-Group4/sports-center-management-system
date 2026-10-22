@@ -13,7 +13,7 @@ import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatMoney, formatDateTime } from "@/lib/format";
 import { Card, AsyncSection, Table, StatusChip, Dialog } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
-import { LockKeyhole } from "lucide-react";
+import { CourseCancellationAction } from "./course-cancellation-action";
 import { CoursePublishReview } from "./course-publish-review";
 import { SessionEditor } from "./session-editor";
 import { ThresholdPanel } from "./threshold-panel";
@@ -113,13 +113,6 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
       api.get<ManagerCourseDto>(`/api/manager/classes/${classId}`, { signal }),
     [classId],
   );
-  const thresholdCancellation =
-    state.data?.status === "PUBLISHED" &&
-    state.data.thresholdStatus === "AT_RISK" &&
-    state.data.breakEvenThreshold != null &&
-    state.data.confirmedCount < state.data.breakEvenThreshold;
-  const cancellationBlocked =
-    (state.data?.confirmedCount ?? 0) > 0 && !thresholdCancellation;
   const sessions = useApi(
     (signal) =>
       values.tab === "sessions"
@@ -410,21 +403,11 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     </Card>
                   )}
                   {managementSection === "threshold" && (
-                    <>
-                      <ThresholdPanel
-                        key={c.version + "-" + revision}
-                        course={c}
-                        onSaved={reload}
-                      />
-                      <details className={managementStyles.responses}>
-                        <summary>{l.thresholdResponses}</summary>
-                        <CourseOperations
-                          key={"responses-" + revision}
-                          classId={classId}
-                          kind="threshold-responses"
-                        />
-                      </details>
-                    </>
+                    <ThresholdPanel
+                      key={`threshold-${c.classId}-${c.version}-${revision}`}
+                      course={c}
+                      onSaved={reload}
+                    />
                   )}
                   {managementSection === "history" && (
                     <Card title={m.historyTab}>
@@ -453,49 +436,17 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     </Card>
                   )}
                   {!["CANCELLED", "COMPLETED"].includes(c.status) && (
-                    <div
-                      className={managementStyles.cancellation}
-                      data-blocked={cancellationBlocked}
-                    >
-                      {cancellationBlocked && (
-                        <LockKeyhole size={20} aria-hidden="true" />
-                      )}
-                      <div>
-                        <strong>
-                          {cancellationBlocked
-                            ? t.classWorkspace.cancellationUnavailable
-                            : t.classWorkspace.cancelClass}
-                        </strong>
-                        <p>
-                          {cancellationBlocked
-                            ? t.classWorkspace.enrolledCancellationBlocked
-                            : thresholdCancellation
-                              ? t.classWorkspace.cancelBelowThresholdHint
-                              : t.classWorkspace.cancelClassHint}
-                        </p>
-                      </div>
-                      {!cancellationBlocked ? (
-                        <button
-                          className="btn btn--danger"
-                          onClick={() => setCancelling(true)}
-                        >
-                          {t.classWorkspace.cancelClass}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn--secondary"
-                          onClick={() => setValues({ tab: "sessions" })}
-                        >
-                          {t.classWorkspace.viewSchedule}
-                        </button>
-                      )}
-                    </div>
+                    <CourseCancellationAction
+                      key={`${classId}-${revision}`}
+                      course={c}
+                      onCancel={() => setCancelling(true)}
+                      onViewSchedule={() => setValues({ tab: "sessions" })}
+                    />
                   )}
                 </div>
               )}
             </Tabs>
-            {cancelling && !cancellationBlocked && (
+            {cancelling && !["CANCELLED", "COMPLETED"].includes(c.status) && (
               <Dialog
                 title={t.classWorkspace.cancelClass}
                 onClose={() => setCancelling(false)}

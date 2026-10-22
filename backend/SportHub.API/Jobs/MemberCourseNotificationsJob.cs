@@ -24,8 +24,7 @@ public sealed class MemberCourseNotificationService(
 {
     public async Task QueueDueAsync(CancellationToken ct = default)
     {
-        // One worker owns reminders and linked-cohort notices across both API contracts.
+        // One worker owns class reminders across both API contracts.
         await reminders.RunAsync(ct, includeLateEnrollment: true);
-
     }
 }

@@ -25,9 +25,6 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                         && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct))
                         foreach (var id in ids) links[id] = "/coach/schedule";
                     break;
-                case "CourseInterestOpened":
-                    foreach (var n in group) result[n.NotificationId] = "/member/services?section=courses";
-                    break;
                 case "ClassSessionReminder":
                     foreach (var id in await db.ClassSessions.Where(s => ids.Contains(s.SessionId)
                         && s.Status == SportHub.Scheduling.Domain.Enums.ClassSessionStatus.Scheduled
@@ -57,13 +54,6 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                 case "ClassSessionChangeReviewed":
                     foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId) && r.RequestedByUserId == userId).Select(r => r.RequestId).ToListAsync(ct))
                         links[id] = "/coach/change-requests";
-                    break;
-                case "NextCourseAvailable":
-                    var deliveries = await (from d in db.Set<SportHub.Scheduling.Threshold.Domain.CourseInterestDelivery>()
-                                            join i in db.Set<SportHub.Scheduling.Threshold.Domain.CourseInterest>() on d.InterestId equals i.InterestId
-                                            where ids.Contains(d.DeliveryId) && i.MemberId == userId
-                                            select new { d.DeliveryId, d.ClassId }).ToListAsync(ct);
-                    foreach (var d in deliveries) links[d.DeliveryId] = $"/member/services?view=explore&course={d.ClassId}";
                     break;
                 case "ClassTeachingUpdated":
                     var teaching = await db.Set<SportHub.Scheduling.Domain.Entities.ClassTeachingRecord>()

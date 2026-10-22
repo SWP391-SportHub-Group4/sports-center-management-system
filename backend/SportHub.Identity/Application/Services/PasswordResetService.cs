@@ -110,6 +110,7 @@ public sealed class PasswordResetService(
         }
 
         user.SecurityStamp = Guid.NewGuid();
+        user.MustChangePassword = false;
 
         notifications.QueueEmail(new EmailNotificationRequest(user.UserId, user.Email, NotificationEvents.PasswordChanged,
             Guid.NewGuid(),

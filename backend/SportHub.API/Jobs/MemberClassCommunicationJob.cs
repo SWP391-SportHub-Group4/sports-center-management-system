@@ -1,5 +1,4 @@
 using SportHub.Scheduling.Application.Services;
-using SportHub.Scheduling.Threshold.Application;
 
 namespace SportHub.API.Jobs;
 

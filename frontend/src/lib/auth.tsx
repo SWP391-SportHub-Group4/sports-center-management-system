@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { api, setUnauthorizedHandler, TOKEN_STORAGE_KEY } from "./apiClient";
 
 /** Khớp tên member enum UserRole of backend (PascalCase — SSOT §5.6). */
@@ -23,6 +23,7 @@ export interface SessionUser {
   role: Role;
   /** Authoritative specialties from the API. */
   sportIds: number[];
+  mustChangePassword: boolean;
   approvalStatus?:
     "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "SUSPENDED" | null;
 }
@@ -59,6 +60,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -102,6 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       controller.abort();
     };
   }, [clearSession]);
+
+  useEffect(() => {
+    if (!loading && user?.mustChangePassword && pathname !== "/change-initial-password")
+      router.replace("/change-initial-password");
+  }, [loading, user, pathname, router]);
 
   // Bất kỳ 401 nào from API (token hết deadline, or account vừa bị khoá according to BR-6) đều dẫn về
   // trang đăng nhập — register ở a nơi thay because bắt lỗi ở each màn hình.
@@ -244,6 +251,7 @@ export interface WireSessionUser {
   role: string;
   sportIds?: number[];
   approvalStatus?: SessionUser["approvalStatus"];
+  mustChangePassword?: boolean;
 }
 const WIRE_ROLES: Record<string, Role> = {
   SYSTEM_ADMINISTRATOR: "SystemAdministrator",
@@ -266,6 +274,7 @@ export function adaptSessionUser(me: WireSessionUser): SessionUser {
     avatarUrl: me.avatarUrl ?? null,
     role,
     sportIds: me.sportIds ?? [],
+    mustChangePassword: me.mustChangePassword ?? false,
     approvalStatus: me.approvalStatus ?? null,
   };
 }

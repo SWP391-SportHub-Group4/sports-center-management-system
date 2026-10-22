@@ -141,13 +141,6 @@ export function MemberCancellations({
         >
           <h3>{tx("Quản lý Membership", "Membership management")}</h3>
 
-          <p className="small muted">
-            {tx(
-              "Hủy Membership hợp lệ sẽ hoàn điểm vào ví hội viên theo chính sách hệ thống. Không hoàn tiền mặt.",
-              "Eligible membership cancellations refund wallet points according to system policy. Cash refunds are not used.",
-            )}
-          </p>
-
           <ul>
             {membershipRows.map((row) => (
               <li key={row.id}>

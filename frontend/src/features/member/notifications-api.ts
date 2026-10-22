@@ -106,11 +106,13 @@ export function notificationPresentation(item: NotificationDto): {
     label = "Billing";
     title = /REFUND/.test(source)
       ? "Your refund update"
-      : /PAYMENT/.test(source)
-        ? "Your payment update"
-        : /INVOICE/.test(source)
-          ? "Your invoice update"
-          : "Your point wallet update";
+      : /PAYMENT/.test(source) && /^Top-up successful/.test(item.message)
+        ? "Points added to your wallet"
+        : /PAYMENT/.test(source)
+          ? "Your payment update"
+          : /INVOICE/.test(source)
+            ? "Your invoice update"
+            : "Your point wallet update";
   } else if (/TEACHING|HOMEWORK|ASSESSMENT|WORKOUT/.test(source)) {
     category = "training";
     label = "Training";
@@ -120,11 +122,9 @@ export function notificationPresentation(item: NotificationDto): {
     label = "Classes";
     title = /THRESHOLD/.test(source)
       ? "Your class needs a decision"
-      : /INTEREST|NEXT_COURSE/.test(source)
-        ? "A new course is available"
-        : /CANCELLED/.test(source)
-          ? "Your class has been cancelled"
-          : "Your class update";
+      : /CANCELLED/.test(source)
+        ? "Your class has been cancelled"
+        : "Your class update";
   } else if (/PACKAGE/.test(source)) {
     label = "Membership";
     title = "Your membership update";
@@ -171,14 +171,10 @@ export function notificationActionLabel(
       return "Review coach assignments";
     case "CLASS_SESSION_REMINDER":
       return "View upcoming session";
-    case "COURSE_INTEREST_OPENED":
-      return "Browse new courses";
     case "CLASS_SESSION_CHANGE_REQUESTED":
       return vi ? "Xử lý yêu cầu đổi lịch" : "Review change request";
     case "CLASS_SESSION_CHANGE_REVIEWED":
       return vi ? "Xem kết quả yêu cầu" : "View request outcome";
-    case "NEXT_COURSE_AVAILABLE":
-      return "View class";
     case "CLASS_TEACHING_UPDATED":
       return vi ? "Xem nội dung từ coach" : "View your coach’s update";
     case "INVOICE_CREATED":

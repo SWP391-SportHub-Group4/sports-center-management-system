@@ -1,12 +1,7 @@
 "use client";
 
 import { isCourseOpenForRegistration } from "@/features/courses";
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import {
@@ -18,7 +13,6 @@ import {
 import { Dialog } from "@/components/ui";
 import { CheckoutPanel, type PurchaseIntent } from "@/features/payments";
 import { api } from "@/lib/apiClient";
-import { pagedItems } from "@/lib/paged";
 import { addDaysIso, formatDate, formatMoney } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { hasService } from "@/lib/sports";
@@ -84,6 +78,27 @@ export function ExplorePackages({
   const checkout = useStartCheckout();
   const staffMemberId = staffMember?.userId;
   const [staffSale, setStaffSale] = useState<StaffSale | null>(null);
+  const staffEnrollments = useApi(
+    async (signal) => {
+      if (!staffMemberId) return [];
+      const rows: CourseEnrollmentDto[] = [];
+      for (let page = 1; ; page++) {
+        const result = await api.get<Paged<CourseEnrollmentDto>>(
+          `/api/members/${staffMemberId}/enrollments`,
+          { signal, query: { page, pageSize: 50 } },
+        );
+        rows.push(...result.items);
+        if (!result.items.length || rows.length >= result.totalCount)
+          return rows;
+      }
+    },
+    [staffMemberId],
+  );
+  const enrolledClassIds = new Set(
+    (staffEnrollments.data ?? [])
+      .filter((row) => row.status === "CONFIRMED")
+      .map((row) => row.classId),
+  );
 
   const owned = useApi(
     async (signal) =>
@@ -95,19 +110,6 @@ export function ExplorePackages({
           { signal },
         )
       ).filter((row) => !isRetiredActivityPackage(row.packageName)),
-    [staffMemberId],
-  );
-  // Chế độ quầy: lớp Member đang học, để Lễ tân thấy "đã có" trước khi bán thêm.
-  const enrolled = useApi(
-    async (signal) =>
-      staffMemberId
-        ? pagedItems(
-            await api.get<Paged<CourseEnrollmentDto>>(
-              `/api/members/${staffMemberId}/enrollments`,
-              { signal, query: { page: 1, pageSize: 50 } },
-            ),
-          ).filter((e) => e.status === "CONFIRMED" && !e.endedAt)
-        : [],
     [staffMemberId],
   );
   const today = useMembershipDay(owned.reload);
@@ -244,15 +246,6 @@ export function ExplorePackages({
         </label>
       </div>
 
-      {staffMember && (
-        <StaffOwned
-          owned={owned.data ?? []}
-          classes={enrolled.data ?? []}
-          today={today}
-          vi={vi}
-        />
-      )}
-
       {nothing && (
         <p className={styles.none} role="status">
           {tx(
@@ -369,6 +362,17 @@ export function ExplorePackages({
                   <ClassRow
                     key={c.classId}
                     course={c}
+                    unavailableReason={
+                      staffMember
+                        ? enrolledClassIds.has(c.classId)
+                          ? tx("Đã đăng ký", "Already enrolled")
+                          : staffEnrollments.error
+                            ? tx("Không thể kiểm tra ghi danh", "Cannot check enrollment")
+                            : !staffEnrollments.data
+                              ? tx("Đang kiểm tra ghi danh", "Checking enrollment")
+                              : null
+                        : null
+                    }
                     busy={checkout.busyId === `class:${c.classId}`}
                     error={
                       checkout.error?.id === `class:${c.classId}`
@@ -377,22 +381,26 @@ export function ExplorePackages({
                     }
                     index={order++}
                     onChoose={() =>
-                      staffMember
-                        ? setStaffSale({
-                            title: c.name,
-                            price: c.price,
-                            intent: {
-                              kind: "class",
-                              body: {
-                                classId: c.classId,
-                                targetMemberId: staffMember.userId,
+                      staffMember &&
+                      (enrolledClassIds.has(c.classId) ||
+                        !staffEnrollments.data)
+                        ? undefined
+                        : staffMember
+                          ? setStaffSale({
+                              title: c.name,
+                              price: c.price,
+                              intent: {
+                                kind: "class",
+                                body: {
+                                  classId: c.classId,
+                                  targetMemberId: staffMember.userId,
+                                },
                               },
-                            },
-                          })
-                        : checkout.start(`class:${c.classId}`, {
-                            kind: "class",
-                            body: { classId: c.classId },
-                          })
+                            })
+                          : checkout.start(`class:${c.classId}`, {
+                              kind: "class",
+                              body: { classId: c.classId },
+                            })
                     }
                   />
                 ))}
@@ -425,6 +433,7 @@ export function ExplorePackages({
         <Dialog
           title={`${staffSale.title} · ${staffMember.fullName || staffMember.email}`}
           size="lg"
+          className={styles.counterDialog}
           onClose={() => setStaffSale(null)}
         >
           <CheckoutPanel
@@ -434,7 +443,10 @@ export function ExplorePackages({
               title:
                 staffSale.intent.kind === "membership"
                   ? t.operations.purchaseReview
-                  : tx("Kiểm tra trước khi thanh toán", "Review before payment"),
+                  : tx(
+                      "Kiểm tra trước khi thanh toán",
+                      "Review before payment",
+                    ),
               submitLabel: t.operations.createInvoice,
               items: [
                 {
@@ -452,76 +464,13 @@ export function ExplorePackages({
             intent={staffSale.intent}
             onChange={() => {
               owned.reload();
-              enrolled.reload();
               courses.reload();
+              staffEnrollments.reload();
             }}
           />
         </Dialog>
       )}
     </div>
-  );
-}
-
-/** Quầy: các gói và lớp Member đã có, đặt trên danh sách gói khám phá. */
-function StaffOwned({
-  owned,
-  classes,
-  today,
-  vi,
-}: {
-  owned: MemberPackageDto[];
-  classes: CourseEnrollmentDto[];
-  today: string;
-  vi: boolean;
-}) {
-  const tx = (v: string, e: string) => (vi ? v : e);
-  const live = owned.filter(
-    (o) =>
-      ["ACTIVE", "PENDING_PAYMENT"].includes(o.status.toUpperCase()) &&
-      o.endDate.slice(0, 10) >= today,
-  );
-  return (
-    <section
-      className={styles.section}
-      aria-label={tx("Đã có", "Already owned")}
-      data-testid="staff-owned"
-    >
-      <header className={styles.sectionHead}>
-        <h2>{tx("Hội viên đã có", "Already owned")}</h2>
-      </header>
-      {!live.length && !classes.length ? (
-        <p className={styles.note}>
-          {tx(
-            "Chưa có gói hoặc lớp nào đang dùng.",
-            "No active plan or class yet.",
-          )}
-        </p>
-      ) : (
-        <ul className={styles.rows}>
-          {live.map((o) => (
-            <li key={o.memberPackageId} className={styles.row}>
-              <div className={styles.rowMain}>
-                <h3>{o.packageName}</h3>
-                <p className={styles.meta}>
-                  {tx("Đến", "Until")} {formatDate(o.endDate)}
-                </p>
-              </div>
-            </li>
-          ))}
-          {classes.map((e) => (
-            <li key={e.enrollmentId} className={styles.row}>
-              <div className={styles.rowMain}>
-                <h3>{e.className}</h3>
-                <p className={styles.meta}>
-                  {tx("Đã học", "Held")} {e.completedSessions ?? 0}/
-                  {e.numSessions} {tx("buổi", "sessions")}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 
@@ -681,12 +630,14 @@ function GymTier({
 
 function ClassRow({
   course,
+  unavailableReason,
   busy,
   error,
   index,
   onChoose,
 }: {
   course: CourseDto;
+  unavailableReason: string | null;
   busy: boolean;
   error: string | null;
   index: number;
@@ -706,7 +657,9 @@ function ClassRow({
   const low = course.availableSeats <= 3;
   const progressPct = Math.min(
     100,
-    Math.round(((course.sessionsPassed ?? 0) / (course.numSessions || 1)) * 100),
+    Math.round(
+      ((course.sessionsPassed ?? 0) / (course.numSessions || 1)) * 100,
+    ),
   );
   return (
     <li
@@ -787,10 +740,13 @@ function ClassRow({
         <button
           type="button"
           className={styles.cta}
-          disabled={busy}
+          disabled={busy || !!unavailableReason}
           onClick={onChoose}
         >
-          {busy ? tx("Đang chuyển…", "Redirecting…") : tx("Chọn gói", "Select")}
+          {unavailableReason ||
+            (busy
+              ? tx("Đang chuyển…", "Redirecting…")
+              : tx("Chọn gói", "Select"))}
         </button>
       </div>
       {error && (

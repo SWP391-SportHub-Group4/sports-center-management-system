@@ -27,6 +27,7 @@ const RESET = {
   course: "",
   responseId: "",
   section: "",
+  gymPackage: "",
 };
 
 export function MemberServiceHub() {
@@ -47,6 +48,7 @@ export function MemberServiceHub() {
       responseId: "",
       type: "",
       sport: "",
+      gymPackage: "",
     },
     {
       view: choiceQuery(["explore", "owned"], "explore"),
@@ -89,6 +91,7 @@ export function MemberServiceHub() {
       course: "",
       responseId: "",
       tab: "",
+      gymPackage: "",
     });
 
   return (
@@ -103,14 +106,14 @@ export function MemberServiceHub() {
                   "Choose a sport, date and time to find a court.",
                 )
               : view === "owned"
-                ? tx(
-                    "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
-                    "What you own, when it expires and how you used it.",
-                  )
-                : tx(
-                    "Chọn gói phù hợp, thanh toán xong dùng ngay.",
-                    "Pick a package, pay and start right away.",
-                  )}
+                  ? tx(
+                      "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
+                      "What you own, when it expires and how you used it.",
+                    )
+                  : tx(
+                      "Chọn gói phù hợp, thanh toán xong dùng ngay.",
+                      "Pick a package, pay and start right away.",
+                    )}
           </p>
         </div>
         <div className={styles.introActions}>
@@ -160,7 +163,11 @@ export function MemberServiceHub() {
             <CourseDetail key={values.course} classId={Number(values.course)} />
           </div>
         ) : view === "owned" ? (
-          <MyServices filter={filter} onFilter={setFilter} />
+          <MyServices
+            filter={filter}
+            onFilter={setFilter}
+            gymPackageId={values.gymPackage}
+          />
         ) : (
           <ExplorePackages
             filter={filter}

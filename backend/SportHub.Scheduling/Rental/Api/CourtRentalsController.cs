@@ -38,6 +38,13 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
     public async Task<IActionResult> Mine([FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc, CancellationToken ct)
         => Ok(await operations.MineAsync(User.RequireUserId(), fromUtc, toUtc, ct));
 
+    /// <summary>Front desk reads a member's rentals at the counter (the same list the member sees).</summary>
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    [HttpGet("api/members/{memberId:guid}/court-rentals")]
+    public async Task<IActionResult> MemberRentals(Guid memberId, [FromQuery] DateTime fromUtc, [FromQuery] DateTime toUtc,
+        CancellationToken ct)
+        => Ok(await operations.MineAsync(memberId, fromUtc, toUtc, ct));
+
     [Authorize(Policy = SportHubPolicies.CourtRental)]
     [HttpGet("api/court-rentals/availability")]
     public async Task<IActionResult> Availability([FromQuery] int sportId, [FromQuery] DateTime startUtc,

@@ -2,7 +2,7 @@
 
 ## Manager workspace — 20 October 2026
 
-Luồng Manager đã chốt được mô tả tại [Manager workspace](Manager-Workspace.md): Overview giữ nguyên; Services, Schedule, Exception, People, Billing management và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Manager chọn Sport khi tạo sân; các khóa Room Type cũ được giữ nội bộ để bảo toàn lịch sử và bảng giá. Ví điểm chỉ xem; không còn cộng/trừ thủ công. Course interests có một đăng ký đang theo dõi cho mỗi Member/Sport, thông báo lớp mới cùng môn và kết thúc sau ghi danh đã thanh toán. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
+Luồng Manager đã chốt được mô tả tại [Manager workspace](Manager-Workspace.md): Overview giữ nguyên; Services, Schedule, Support & Communication, People, Transaction & Report và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Manager chọn Sport khi tạo sân; các khóa Room Type cũ được giữ nội bộ để bảo toàn lịch sử và bảng giá. Ví điểm chỉ xem; không còn cộng/trừ thủ công. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
 
 ## Activation and audit policy update — 14 October 2026
 
@@ -43,7 +43,7 @@ Môn, chuyên môn Coach, loại phòng/sân, giờ mở cửa và giá là dữ
 
 Trong phạm vi: tài khoản, Membership Gym, vé Gym 1 ngày, môn/sân, khóa học, lịch, điểm danh, thuê sân, payment/ví điểm, hoàn điểm, thông báo, báo cáo và AI hỗ trợ.
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. “Chờ đợt sau” là hoàn điểm và lưu nguyện vọng nhận thông báo, không phải giữ chỗ tương lai.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. Không có tính năng “chờ đợt sau”/nguyện vọng khóa sau.
 
 ## 2. Vai trò và quyền hạn
 
@@ -184,7 +184,7 @@ Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và �
 
 Chuyển lớp kiểm tra chỗ, điều kiện lớp đích và chuỗi giá trị đã trả. Chênh lệch dương qua checkout riêng, chỉ chuyển sau fulfillment. Không cấp quyền lợi lớp đích mà bỏ quên kết thúc lớp nguồn.
 
-“Chờ đợt sau” (G02, đã có mã): hoàn 100% điểm ngay + lưu nguyện vọng nhận thông báo khóa phù hợp theo môn; không giữ tiền/chỗ hoặc tự ghi danh. Còn nghiệm thu trên staging (mục 13.2).
+Khi lớp dưới ngưỡng bị hủy lúc hết hạn phản hồi, Member còn ghi danh được hoàn 100% giá trị còn đủ điều kiện bằng điểm và nhận một thông báo (chuông + email) kèm số điểm hoàn và tối đa 3 khóa tương đương tại thời điểm đó (cùng môn, Published, đang mở đăng ký, còn chỗ, chưa bắt đầu, Member chưa ghi danh). Gợi ý chỉ là ảnh chụp lúc hủy: không lưu nguyện vọng, không gửi lại khi có lớp mới, không giữ chỗ hoặc tự ghi danh.
 
 ### 5.5 Thuê sân
 
@@ -338,7 +338,7 @@ G01–G13 có evidence và acceptance chi tiết. Endpoint đề xuất chưa ph
 | CAT-01 | Môn nhiều dịch vụ | Đã có schema, migration, API và UI. Còn nghiệm thu nâng cấp dữ liệu cũ và thanh toán VNPay sandbox trên staging. |
 | CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-141 | Ứng dụng chính có `Br141Seeder` và lệnh `--seed-br141=true` cho Development/local DB, không seed lúc startup; tạo 4 lớp × 12 buổi, 120 phút, mở tuyển sinh và giữ occupancy sân/HLV. Giữ dữ liệu hiện có khi chạy lại. `Br141SeederTests` chạy entry point thật với PostgreSQL test, kiểm tra lịch/occupancy, API danh sách lớp, chặn thuê trùng và bảo toàn dữ liệu khi retry. Còn nghiệm thu giao diện trên bản deploy. |
 | G01 | Public sân, availability/giá, Coach profile đầy đủ | DTO public an toàn, giá/availability tính server |
-| G02 | Chờ đợt sau + subscription | Đã có mã: hoàn 100% giá trị còn đủ điều kiện bằng điểm trong cùng transaction, lưu interest theo lớp nguồn/môn và hủy nhận tin. Chỉ gửi tin cho lớp kế tiếp liên kết bằng continuationOfClassId, cùng môn, Published, đang mở đăng ký, còn chỗ và buổi đầu trong tương lai; không gửi cho mọi lớp cùng môn. UI dùng API thật. Kết quả PostgreSQL `ThresholdTransferTests` 6/6 là bằng chứng đã ghi trước đây, không chạy lại trong đợt cập nhật tài liệu này; còn nghiệm thu staging. |
+| G02 | Gợi ý khóa tương đương khi lớp bị hủy | Đã có mã: tác vụ expiry hoàn 100% điểm, gửi thông báo chuông/email có số điểm và tối đa 3 khóa cùng môn đang mở, còn chỗ, chưa bắt đầu tại thời điểm hủy; không lưu gì thêm. Còn nghiệm thu staging. |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
 | G04 | Mã QR check-in do server cấp | Đã có mã: Member lấy mã do server ký, hết hạn cuối ngày giờ Việt Nam; lễ tân/Manager đổi mã ra Member qua server (sai chữ ký 400, hết hạn 409). Test backend đã viết; còn thử camera/quầy trên thiết bị thật. QR không phải chứng cứ payment/check-in. |
 | G06 | Incident history/detail, preview bồi hoàn/người nhận, fence xử lý | **Đã làm:** history/detail, preview theo từng hội viên + điểm dự kiến (server). **Fence + recovery đã làm:** giữ khung giờ chặn booking mới, danh sách “sự cố đang xử lý” với số việc còn lại, làm tiếp / giữ lại / nhả, tự hết hạn. **Bỏ sự cố + hoàn tác đã làm:** thay đổi lịch (dời buổi, hủy kèm buổi bù) làm khi đang giữ khung giờ được ghi vào `incident_fence_steps`; “Abandon and undo” nhả khung giờ rồi trả từng buổi về chỗ cũ nếu buổi chưa bị đổi tiếp và chỗ cũ còn trống, phần còn lại được liệt kê chứ không ép. **Còn thiếu:** hoàn tác việc gỡ room block; thay đổi làm ngoài khung giờ đang giữ không được ghi; không giả toàn luồng atomic |

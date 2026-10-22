@@ -252,15 +252,6 @@ async function fixture(page: Page) {
           isActive: true,
         },
       ];
-    else if (path === "/api/course-interests")
-      data = paged([
-        {
-          courseInterestId: "interest",
-          memberId,
-          memberName: member.fullName,
-          sportName: "Badminton",
-        },
-      ]);
     else if (path === "/api/reports/revenue")
       data = {
         fromDate: "2026-10-01",
@@ -299,18 +290,18 @@ async function fixture(page: Page) {
   return calls;
 }
 
-test("manager navigation omits course interests and redirects the retired page", async ({
-  page,
-}) => {
+test("manager navigation matches the agreed workspace", async ({ page }) => {
   await fixture(page);
   await page.setViewportSize({ width: 1600, height: 900 });
-  await page.goto("/manager/classes/interests");
-  await expect(page).toHaveURL(/\/manager\/classes$/);
+  await page.goto("/manager/classes");
   await page.getByRole("button", { name: "Services", exact: true }).click();
-  for (const name of ["Sport", "Court", "Membership", "Classes"])
+  for (const name of ["Sports", "Courts & Rooms", "Membership", "Classes"])
     await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Course interests", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Room types", exact: true }),
   ).toHaveCount(0);
 });
 

@@ -70,7 +70,7 @@ Guest không phải role account. Coach có nhiều chuyên môn, không chia ro
 - `TotalAmount = PointsApplied × 1.000 + CashAmount`; người dùng chọn điểm trước, không tự trừ khi mở trang.
 - Backend xác minh IPN/QueryDR trước khi ghi payment/cấp quyền lợi; return chỉ hiển thị. Thanh toán bằng toàn điểm không tạo attempt VNPay.
 - Hoàn trả chỉ bằng điểm theo item, quyền lợi đã dùng và cap hệ thống; không double credit khi retry. Hoàn chuẩn Membership Gym tối đa 50% khi còn từ 2/3 thời hạn; sự cố tạm thời của trung tâm không phải căn cứ hoàn (BR-91, BR-130).
-- Ngưỡng lớp hỗ trợ chuyển/hoàn điểm; “chờ đợt sau” hoàn 100% giá trị còn đủ điều kiện bằng điểm + lưu nguyện vọng nhận tin khi có đợt lớp mới phù hợp, không giữ chỗ hoặc tự ghi danh. Đã có mã API/UI; còn nghiệm thu staging theo G02 trong thiết kế.
+- Ngưỡng lớp hỗ trợ giữ chỗ/chuyển/hoàn điểm. Khi lớp dưới ngưỡng bị hủy lúc hết hạn phản hồi, Member còn ghi danh được hoàn 100% giá trị còn đủ điều kiện bằng điểm và nhận một thông báo (chuông + email) kèm số điểm hoàn và tối đa 3 khóa tương đương tại thời điểm đó (cùng môn, Published, đang mở đăng ký, còn chỗ, chưa bắt đầu, Member chưa ghi danh). Gợi ý chỉ là ảnh chụp lúc hủy: không lưu nguyện vọng, không gửi lại khi có lớp mới, không giữ chỗ hoặc tự ghi danh.
 - Incident preview và resolve recheck lịch; lớp xử lý phương án riêng trước bước cuối, không giả toàn luồng là một transaction.
 - Sự cố ảnh hưởng Gym (BR-130): email cho Member có Membership Active; Membership được gia hạn thêm số ngày Gym đóng cửa sửa chữa; buổi lớp bù vào lịch tiếp theo (BR-54); lượt thuê sân hoàn 100% bằng điểm. Đã triển khai (INC-01 trong thiết kế).
 - AI chỉ hỗ trợ; thao tác ghi qua command có xác nhận, authorization và kiểm nghiệp vụ.

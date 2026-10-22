@@ -94,24 +94,7 @@ export function SupportQueue({
   return (
     <section className={styles.panel} aria-label="Support requests">
       <div className={styles.header}>
-        <p className={styles.intro}>
-          Assign the right person, follow up on progress, and resolve member
-          requests.
-        </p>
         <div className={styles.toolbar}>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            disabled={queue.loading}
-            onClick={() => {
-              setNotice("");
-              queue.reload();
-              assignees.reload();
-            }}
-          >
-            <RefreshCw size={16} aria-hidden="true" />
-            Refresh
-          </button>
           {workspace !== "receptionist" && (
             <Link
               className="btn"

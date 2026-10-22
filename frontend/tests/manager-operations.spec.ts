@@ -559,11 +559,11 @@ for (const late of [false, true]) {
       return route.fulfill({ status: 204 });
     });
     await page.goto("/manager/classes/1?tab=threshold");
-    await page
-      .locator("summary")
-      .filter({ hasText: "How opening conditions work" })
-      .click();
-    await expect(page.getByText(/Review at least 72 hours/)).toBeVisible();
+    await expect(
+      page
+        .locator("summary")
+        .filter({ hasText: "How opening conditions work" }),
+    ).toHaveCount(0);
     const waive = page.getByRole("button", {
       name: "Approve below threshold",
       exact: true,
@@ -1159,41 +1159,82 @@ test("failed session availability never enables confirmation and retry keeps the
   ).toHaveValue("Keep this reason");
 });
 
-test("class threshold history retains refund and transfer responses alongside course interests", async ({
+test("threshold pricing saves and closes before refreshing the class", async ({
   page,
 }) => {
-  await page.route("**/api/manager/classes/1/threshold-responses?**", (route) =>
-    route.fulfill({
-      json: paged([
-        {
-          responseId: "refund",
-          memberName: "Member refunded",
-          choice: "REFUND",
-          resolutionStatus: "COMPLETED",
-        },
-        {
-          responseId: "transfer",
-          memberName: "Member transferring",
-          choice: "TRANSFER",
-          resolutionStatus: "AWAITING_PAYMENT",
-        },
-      ]),
-    }),
+  let price = course.price;
+  let saves = 0;
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({ json: { ...course, status: "PUBLISHED", price } }),
   );
+  await page.route("**/api/manager/classes/1/threshold/pricing", (route) => {
+    expect(route.request().method()).toBe("PUT");
+    expect(route.request().postDataJSON()).toEqual({
+      price: 500000,
+      costAmount: course.costAmount,
+      reason: "Adjust tuition for this class",
+    });
+    price = 500000;
+    saves++;
+    return route.fulfill({ status: 204 });
+  });
   await page.goto("/manager/classes/1?tab=threshold");
-  await page
-    .locator("summary")
-    .filter({ hasText: en.operations.thresholdResponses })
-    .click();
+  await page.getByRole("button", { name: "Edit pricing", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Edit pricing",
+    exact: true,
+  });
+  const tuition = dialog.getByLabel(en.classWorkspace.price, { exact: true });
+  const cost = dialog.getByLabel(en.classWorkspace.cost, { exact: true });
+  const save = dialog.getByRole("button", { name: "Save", exact: true });
+  await expect(tuition).toHaveValue(String(course.price));
+  await expect(cost).toHaveValue(String(course.costAmount));
+  await expect(save).toBeDisabled();
+  await dialog
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Adjust tuition for this class");
+  await cost.fill("6000000");
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(save).toBeDisabled();
+  await tuition.fill("500001");
+  await expect(save).toBeDisabled();
+  await tuition.fill("500000");
+  await cost.fill(String(course.costAmount));
+  await expect(dialog.getByText("4 / 12", { exact: true })).toBeVisible();
+  await save.click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit pricing", exact: true }).click();
+  await expect(tuition).toHaveValue("500000");
   await expect(
-    page.getByRole("row").filter({ hasText: "Member refunded" }),
-  ).toContainText(en.wireStatus.REFUND);
+    dialog.getByLabel(en.operations.reason, { exact: true }),
+  ).toBeEmpty();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(saves).toBe(1);
+});
+
+test("opening conditions omits guidance and threshold responses", async ({
+  page,
+}) => {
+  const responseReads: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/threshold-responses"))
+      responseReads.push(request.url());
+  });
+  await page.goto("/manager/classes/1?tab=threshold");
   await expect(
-    page.getByRole("row").filter({ hasText: "Member transferring" }),
-  ).toContainText(en.wireStatus.TRANSFER);
+    page.getByRole("heading", { name: en.managerOperations.thresholdTab }),
+  ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Wait.*next|Chờ.*sau/i }),
+    page
+      .locator("summary")
+      .filter({ hasText: en.operations.thresholdResponses }),
   ).toHaveCount(0);
+  await expect(
+    page.locator("summary").filter({ hasText: "How opening conditions work" }),
+  ).toHaveCount(0);
+  await expect(page.getByText(en.classWorkspace.pricingLocked)).toBeVisible();
+  expect(responseReads).toEqual([]);
 });
 
 test("schedule URL keeps day, room and activity filter through reload", async ({
@@ -2576,6 +2617,19 @@ test("full class shows automatic enrollment status without manual controls", asy
 test("enrolled class hides cancellation and keeps rescheduling available", async ({
   page,
 }) => {
+  await page.route("**/api/manager/classes/1/cancellation-preview", (route) =>
+    route.fulfill({
+      json: {
+        canCancel: false,
+        refundsImmediately: false,
+        confirmedCount: 4,
+        activeHoldCount: 0,
+        totalSessions: 2,
+        sessionsNotProvided: 2,
+        refundPoints: 0,
+      },
+    }),
+  );
   await page.route("**/api/manager/classes/1", (route) =>
     route.fulfill({
       json: { ...course, status: "PUBLISHED", enrollmentOpen: true },
@@ -2656,7 +2710,7 @@ test("enrolled class hides cancellation and keeps rescheduling available", async
   expect(cancellations).toBe(0);
 });
 
-test("at-risk class cancellation remains available with enrolled students and reviews member choices", async ({
+test("at-risk class cancellation remains available with enrolled students and reviews immediate refunds", async ({
   page,
 }) => {
   let cancelled = false;
@@ -2676,7 +2730,7 @@ test("at-risk class cancellation remains available with enrolled students and re
     route.fulfill({
       json: {
         canCancel: true,
-        requiresMemberDecision: true,
+        refundsImmediately: true,
         previewToken: "threshold-preview",
         confirmedCount: 4,
         activeHoldCount: 0,
@@ -2696,7 +2750,12 @@ test("at-risk class cancellation remains available with enrolled students and re
     return route.fulfill({ status: 204 });
   });
   await page.goto("/manager/classes/1?tab=threshold");
-  await page.getByRole("button", { name: "Cancel class", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: en.classWorkspace.cancelAndRefund,
+      exact: true,
+    })
+    .click();
   const dialog = page.getByRole("dialog", {
     name: "Cancel class",
     exact: true,
@@ -2710,7 +2769,10 @@ test("at-risk class cancellation remains available with enrolled students and re
       exact: true,
     })
     .click();
-  await expect(dialog).toContainText("Course interests");
+  await expect(dialog).toContainText(
+    en.classWorkspace.cancelBelowThresholdHint,
+  );
+  await expect(dialog).not.toContainText("Course interests");
   await expect(
     dialog.getByRole("button", { name: "Confirm", exact: true }),
   ).toBeEnabled();
@@ -2856,4 +2918,165 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
   await expect(
     page.getByText("Cancel class and refund points", { exact: true }),
   ).toHaveCount(0);
+});
+
+test("schedule explains past Vietnam times and keeps Next blocked until corrected", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/court-schedule?**", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.clock.setFixedTime(new Date("2030-10-03T12:00:00Z"));
+  await fillDraft(page, false);
+  const next = page.getByRole("button", {
+    name: en.operations.next,
+    exact: true,
+  });
+  const notice = page.locator('[class*="scheduleFeedback"][data-state]');
+  await expect(notice).toContainText(
+    en.managerOperations.scheduleValidation.issues.pastTime,
+  );
+  await expect(next).toBeDisabled();
+  await page
+    .getByLabel(en.operations.numSessions, { exact: true })
+    .press("Enter");
+  await expect(
+    page.getByLabel(en.operations.coach, { exact: true }),
+  ).toBeVisible();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({
+      path:
+        (process.env.SCHEDULE_REVIEW_DIR ?? "../.impeccable/review") +
+        "/class-schedule-past-" +
+        width +
+        ".png",
+      fullPage: true,
+      animations: "disabled",
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.getByLabel(en.operations.start, { exact: true }).fill("20:00");
+  await expect(next).toBeEnabled();
+  await page
+    .getByLabel(en.operations.startDate, { exact: true })
+    .fill("2030-10-02");
+  await expect(notice).toContainText(
+    en.managerOperations.scheduleValidation.issues.pastDate,
+  );
+  await expect(next).toBeDisabled();
+});
+
+test("schedule lists distinct reasons and blocks Next for every unavailable resource", async ({
+  page,
+}) => {
+  let reason = "room_busy";
+  await page.route("**/api/manager/class-schedule/availability?**", (route) =>
+    route.fulfill({
+      json: {
+        available: false,
+        roomName: "Court A",
+        coachName: "Coach",
+        reasons: [reason],
+      },
+    }),
+  );
+  await fillDraft(page, false);
+  const next = page.getByRole("button", {
+    name: en.operations.next,
+    exact: true,
+  });
+  const notice = page.locator('[class*="scheduleFeedback"][data-state]');
+  const reasons = en.managerOperations.scheduleValidation.reasons;
+  for (const [index, key] of [
+    "room_busy",
+    "coach_busy",
+    "outside_opening_hours",
+    "room_inactive",
+    "room_type_inactive",
+    "room_not_found",
+    "room_incompatible",
+    "room_capacity_exceeded",
+    "room_under_incident_review",
+    "coach_inactive",
+    "coach_specialty_mismatch",
+    "sport_inactive",
+    "unknown_reason",
+  ].entries()) {
+    reason = key;
+    await page
+      .getByLabel(en.operations.numSessions, { exact: true })
+      .fill(index % 2 === 0 ? "3" : "2");
+    await expect(notice).toContainText(
+      reasons[key as keyof typeof reasons] ?? reasons.unknown,
+    );
+    await expect(notice.locator("li")).toHaveCount(1);
+    await expect(next).toBeDisabled();
+  }
+});
+
+test("schedule stays blocked during checks and errors then retries without losing inputs", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let failed = true;
+  await page.route(
+    "**/api/manager/class-schedule/availability?**",
+    async (route) => {
+      await gate;
+      await route
+        .fulfill(
+          failed
+            ? {
+                status: 503,
+                json: {
+                  code: "unavailable",
+                  message: "Internal transport failure",
+                },
+              }
+            : {
+                json: {
+                  available: true,
+                  roomName: "Court A",
+                  coachName: "Coach",
+                  reasons: [],
+                },
+              },
+        )
+        .catch(() => {});
+    },
+  );
+  await fillDraft(page, false);
+  const next = page.getByRole("button", {
+    name: en.operations.next,
+    exact: true,
+  });
+  const notice = page.locator('[class*="scheduleFeedback"][data-state]');
+  await expect(notice).toContainText(
+    en.managerOperations.scheduleValidation.checking,
+  );
+  await expect(next).toBeDisabled();
+  await page.getByLabel(en.operations.start, { exact: true }).fill("20:00");
+  await expect(next).toBeDisabled();
+  release();
+  await expect(notice).toContainText(
+    en.managerOperations.scheduleValidation.checkFailed,
+  );
+  await expect(notice).not.toContainText("Internal transport failure");
+  await expect(next).toBeDisabled();
+  failed = false;
+  await notice
+    .getByRole("button", { name: en.common.retry, exact: true })
+    .click();
+  await expect(next).toBeEnabled();
+  await expect(
+    page.getByLabel(en.operations.startDate, { exact: true }),
+  ).toHaveValue("2030-10-03");
 });

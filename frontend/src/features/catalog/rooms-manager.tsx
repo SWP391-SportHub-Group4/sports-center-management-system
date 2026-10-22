@@ -208,7 +208,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
         >
           <CatalogTable
             state={state}
-            visibleRowActions={3}
+            visibleRowActions={2}
             filters={filters}
             caption={t.managerOperations.facilities}
             rows={(state.data ?? []).filter((r) =>
@@ -265,20 +265,12 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
             ]}
             actions={(r) => (
               <>
-                <button
+                <Link
                   className="btn btn--secondary btn--sm"
-                  onClick={() => {
-                    setId(r.roomId);
-                    setForm({
-                      ...r,
-                      sportId: r.sportId ? String(r.sportId) : "",
-                    });
-                    setEditing(true);
-                    mutation.reset();
-                  }}
+                  href={`/manager/facilities/${r.roomId}`}
                 >
-                  {l.edit}
-                </button>
+                  {t.managerCatalog.viewCourt}
+                </Link>
                 <ConfirmRecordAction
                   label={t.recordActions.delete}
                   title={t.recordActions.deleteRoom}
@@ -290,12 +282,6 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                     if (detailId) router.push("/manager/training-rooms");
                   }}
                 />
-                <button
-                  className="btn btn--ghost btn--sm"
-                  onClick={() => router.push("/manager/facilities/" + r.roomId)}
-                >
-                  {l.openingHours} / {l.blocks}
-                </button>
               </>
             )}
           />

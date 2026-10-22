@@ -408,3 +408,7 @@
   border-radius: inherit;
   background: var(--brand-500);
 }
+/* Quầy: cùng bề rộng và khoảng cách với trang thanh toán của Member. */
+.counterDialog {
+  width: min(1100px, 100%);
+}

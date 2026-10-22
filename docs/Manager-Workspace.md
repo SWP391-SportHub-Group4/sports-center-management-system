@@ -1,15 +1,16 @@
 # Manager workspace
 
-Confirmed product scope on 20 October 2026, with subsequent operations refinements documented in [Operations-Refresh.md](Operations-Refresh.md). This update supersedes older Manager navigation, manual wallet adjustment, room-type selection, cohort-interest linking and incident-cancellation descriptions. Staff account administration and role management remain with System Administrator.
+Confirmed product scope on 20 October 2026. This update supersedes older Manager navigation, manual wallet adjustment, room-type selection and incident-cancellation descriptions. It does not change staff account administration or role management, which remain with System Administrator.
 
 ## Navigation
 
-- Exactly six top-level entries: Overview, Sport, Media, People, Services and Exception. Sport links directly to `/manager/sports`.
-- Overview: retain net figures and calculations; remove the collected KPI and collected chart line.
-- Services: Court, Membership, Classes, Finance, read-only point wallets and reports/exports.
+- Top-level order: Overview, Sport, Media, People, Billing management, Exception.
+- Sport: Sports, Courts, Membership, Classes.
+- Billing management: Invoices, Point wallets, Report.
 - Exception: Request, Incident, Manual notices.
-- People: one paged directory for Members and Coaches; filter All / Member / Coach and search by name, email or phone.
-- Profile dropdown: Schedule, Audit log and operational Settings, alongside My account and Logout. Schedule retains its class sessions, rentals and blocked times; Audit retains its existing scope.
+- Media: homepage image management. People: Members and Coaches.
+- Overview preserves its current page, charts and data presentation.
+- Schedule, Audit log and operational Settings remain under the account menu.
 
 ## People
 
@@ -37,10 +38,6 @@ Exception: after threshold evaluation marks a Published class AtRisk, a Manager 
 
 A missed/interrupted session may receive one full-duration makeup in Incident even with active enrolled students. Keep the source, attendance, assessments and enrollment history. A valid matching held incident window is required. Future-session incident makeup has its own Manager command; ordinary cancellation cannot use this exception. Recheck room/Coach/member conflicts, opening hours and replacement timing. Retries must not create another makeup. A fully delivered session is recorded without a replacement.
 
-## Retired course interests
-
-Course/Member interests UI and HTTP controllers are retired; old Manager interests routes redirect to Classes. Interest notification work and new threshold Member-response windows stop. Historical interests, responses and legacy settlement remain available to compatibility services; no records are deleted.
-
 ## Requests and transactions
 
 Request centralizes only Coach absence, refunds and Member support. Categories show pending counts and retain their own statuses, authorization, transaction and review rules. Member support is recorded by staff; this does not add Member self-submission. Existing support, refund and schedule-request links lead to the shared Request entry point.
@@ -51,4 +48,4 @@ Table filters and quick views open from a funnel disclosure with an active-filte
 
 ## Deployment and validation
 
-Retain the existing ManagerWorkspace/CourseInterestLifecycle history; retirement does not delete its records. Application Docker rebuild is user-managed. Verification evidence belongs to the backend integration suites and focused frontend operations/workspace tests; fixture screenshots are not proof of live email delivery. See [Operations-Refresh.md](Operations-Refresh.md) for source and test commands.
+Apply the ManagerWorkspace and RemoveCourseInterest migrations with the backend deployment (RemoveCourseInterest drops the course-interest tables and the class "next cohort" link, and is not reversible). Do not rebuild or replace the running database/AI services for this change. Verification evidence belongs to the relevant backend integration suites and frontend Manager workspace tests; fixture screenshots are not proof of live email delivery.
