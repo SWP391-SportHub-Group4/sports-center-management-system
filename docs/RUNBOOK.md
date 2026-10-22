@@ -102,7 +102,7 @@ Lệnh in `database '...' trên '...'` trước khi ghi. Viết `--seed-br141=tr
 
 Phần demo Flow 1 + Flow 2 bên dưới là tài liệu fixture cũ trong project test. Ứng dụng chính không hỗ trợ `--seed-demo-flow12=true`; không dùng lệnh đó để thiết lập dữ liệu vận hành. Dữ liệu fixture: ba Member demo `demo.member1..3@sporthub.vn` mỗi người 3.000 điểm, Member 1 có gói Gym đang hoạt động và lớp `DEMO-SMALL-01` chỉ 2 chỗ. Startup ứng dụng chính không chạy seed demo.
 
-Các fixture cũ chỉ phục vụ database test cô lập. Kịch bản tham khảo: [DEMO-SCRIPT-FLOW-1-2-3.md](DEMO-SCRIPT-FLOW-1-2-3.md); dữ liệu Member/giao dịch trên môi trường chạy thật cần được tạo qua các luồng nghiệp vụ.
+Các fixture cũ chỉ phục vụ database test cô lập. Dữ liệu Member/giao dịch trên môi trường chạy thật cần được tạo qua các luồng nghiệp vụ.
 
 Reset dữ liệu dev (giữ tài khoản và cấu hình, xóa mọi dữ liệu phát sinh): sao lưu rồi chạy [reset-dev-data.sql](../backend/scripts/reset-dev-data.sql); đầu file có lệnh `pg_dump`/`psql` mẫu. Script chỉ chạy trên database tên `sporthub` và tạm tắt trigger chặn TRUNCATE của sổ điểm.
 
@@ -132,7 +132,7 @@ Member và staff là hai loại tài khoản tách biệt: không đổi Member 
 
 # 4. Bàn giao triển khai và nghiệm thu
 
-Hỗ trợ Member (hạng 5): trên local, chạy backend/frontend theo mục 3.2–3.3. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới. Xem [quy trình và các ca nghiệm thu](Member-Support-Workflow.md).
+Hỗ trợ Member (hạng 5): trên local, chạy backend/frontend theo mục 3.2–3.3. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới.
 
 Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở trên chỉ hướng dẫn chạy local.
 

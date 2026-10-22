@@ -103,7 +103,7 @@ export function CashTrend({
     { length: 4 },
     (_, i) => high - ((high - low) * i) / 3,
   );
-  const selectionText = `${formatDate(point.date)}: ${formatMoney(point.collected)} collected, ${formatMoney(point.refunded)} cash refunded, ${formatMoney(point.net)} net collected`;
+  const selectionText = `${formatDate(point.date)}: ${formatMoney(point.collected)} money received, ${formatMoney(point.refunded)} cash refunded, ${formatMoney(point.net)} after refunds`;
   const inspectAt = (element: HTMLElement, clientX: number) => {
     const bounds = element.getBoundingClientRect();
     inspectIndex(
@@ -124,11 +124,11 @@ export function CashTrend({
       <div className={overview.legend}>
         <span>
           <i className={overview.collectedKey} />
-          Collected
+          Money received
         </span>
         <span>
           <i className={overview.netKey} />
-          Net collected
+          After refunds
         </span>
       </div>
       <div className={overview.plot}>
@@ -244,7 +244,7 @@ export function CashTrend({
       <div className={overview.inspection}>
         <span>{point.date === today ? "Today" : formatDate(point.date)}</span>
         <span>
-          <small>Collected</small>
+          <small>Money received</small>
           <ExactMoney amount={point.collected} />
         </span>
         <span>
@@ -252,7 +252,7 @@ export function CashTrend({
           <ExactMoney amount={point.refunded} />
         </span>
         <span>
-          <small>Net collected</small>
+          <small>After refunds</small>
           <ExactMoney amount={point.net} />
         </span>
       </div>

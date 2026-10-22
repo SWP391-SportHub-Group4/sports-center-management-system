@@ -56,6 +56,18 @@ async function managerFixture(page: Page) {
           daily: [],
         },
       });
+    if (path === "/api/reports/court-bookings")
+      return route.fulfill({
+        json: {
+          fromDate: url.searchParams.get("fromDate"),
+          toDate: url.searchParams.get("toDate"),
+          totalBookings: 0,
+          totalBookedHours: 0,
+          bySport: [
+            { sportId: 3, sportName: "Badminton", bookings: 0, bookedHours: 0 },
+          ],
+        },
+      });
     if (path === "/api/reports/recorded-attendance")
       return route.fulfill({
         json: {
@@ -79,6 +91,17 @@ async function managerFixture(page: Page) {
           cashCollected: 100000,
           pointsRedeemedVnd: 200000,
           rows: [],
+        },
+      });
+    if (path === "/api/reports/class-status")
+      return route.fulfill({
+        json: { open: 6, completed: 4, unpublished: 2 },
+      });
+    if (path === "/api/reports/membership-summary")
+      return route.fulfill({
+        json: {
+          asOfDate: url.searchParams.get("asOfDate"),
+          membersWithActiveMembership: 7,
         },
       });
     if (path === "/api/reports/membership-period")
@@ -155,7 +178,7 @@ test("manager overview connects collections, class reviews and active Gym member
     page.getByRole("region", { name: "Active Gym members" }),
   ).toContainText("7");
   await expect(
-    page.getByText("3 members purchased Gym access this month"),
+    page.getByText(/Valid today ·/),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Classes needing review" }),

@@ -14,8 +14,6 @@ Cập nhật 16/10/2026: đã có rút Pending trong Requests, nhắc lịch và
 
 
 
-Hướng dẫn từng bước: [Flow-2-Manual-Test-Guide.md](Flow-2-Manual-Test-Guide.md).
-
 ## A. Danh mục và tài nguyên
 
 ### UC-F2-01 — Quản lý bộ môn

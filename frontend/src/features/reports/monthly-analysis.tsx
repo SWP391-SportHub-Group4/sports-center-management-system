@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { AsyncSection } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -11,6 +11,7 @@ import { reportsApi, type ReportFilters } from "./api";
 import { CashTrend, RevenueMix, ExactMoney } from "./monthly-analysis-charts";
 import styles from "./manager-overview.module.css";
 import { RecordedAttendance } from "./recorded-attendance";
+import { CourtBookingSummary } from "./court-booking-summary";
 
 export { currentCourseRows } from "./monthly-analysis-data";
 
@@ -61,6 +62,14 @@ export function MonthlyAnalysis() {
     };
     return {
       filters,
+      monthFilters: {
+        ...filters,
+        toDate: new Date(
+          Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
+        )
+          .toISOString()
+          .slice(0, 10),
+      },
       label: new Intl.DateTimeFormat("en-GB", {
         month: "long",
         year: "numeric",
@@ -77,27 +86,78 @@ export function MonthlyAnalysis() {
     [today],
   );
   const membership = useApi(
-    (signal) => reportsApi.membership(period.filters, signal),
-    [period],
+    (signal) => reportsApi.membershipSummary(today, signal),
+    [today],
+  );
+  const classStatus = useApi(
+    (signal) => reportsApi.classStatus(signal),
+    [today],
   );
   const reviewCount = review.data?.totalCount ?? 0;
+  const bookings = useApi(
+    (signal) => reportsApi.courtBookings(period.monthFilters, signal),
+    [period],
+  );
   const attendance = useApi(
     (signal) => reportsApi.attendance(period.filters, signal),
     [period],
   );
+  const { reload: reloadRevenue } = revenue;
+  const { reload: reloadReview } = review;
+  const { reload: reloadMembership } = membership;
+  const { reload: reloadBookings } = bookings;
+  const { reload: reloadAttendance } = attendance;
+  const { reload: reloadClassStatus } = classStatus;
+  useEffect(() => {
+    let lastRefresh = 0;
+    const refreshVisible = () => {
+      if (
+        document.visibilityState !== "visible" ||
+        Date.now() - lastRefresh < 1500
+      )
+        return;
+      lastRefresh = Date.now();
+      reloadRevenue();
+      reloadReview();
+      reloadMembership();
+      reloadBookings();
+      reloadAttendance();
+      reloadClassStatus();
+    };
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    const interval = window.setInterval(refreshVisible, 60_000);
+    return () => {
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      window.clearInterval(interval);
+    };
+  }, [
+    reloadRevenue,
+    reloadReview,
+    reloadMembership,
+    reloadBookings,
+    reloadAttendance,
+    reloadClassStatus,
+  ]);
   const selectedDate =
     selectedDay?.startsWith(today.slice(0, 7)) && selectedDay <= today
       ? selectedDay
       : today;
   const partialError =
-    revenue.error || review.error || membership.error || attendance.error;
+    revenue.error ||
+    review.error ||
+    membership.error ||
+    attendance.error ||
+    bookings.error ||
+    classStatus.error;
   return (
     <div className={styles.dashboard}>
       <header className={styles.header}>
         <div>
           <h1>Overview</h1>
           <p>
-            Month to date · {formatDate(period.filters.fromDate)} –{" "}
+            Collections & attendance · {formatDate(period.filters.fromDate)} –{" "}
             {formatDate(today)} · Vietnam time
           </p>
         </div>
@@ -124,6 +184,8 @@ export function MonthlyAnalysis() {
               if (review.error) review.reload();
               if (membership.error) membership.reload();
               if (attendance.error) attendance.reload();
+              if (bookings.error) bookings.reload();
+              if (classStatus.error) classStatus.reload();
             }}
           >
             Retry
@@ -185,21 +247,46 @@ export function MonthlyAnalysis() {
         </Metric>
         <Metric
           label="Active Gym members"
-          value={formatNumber(membership.data?.activeMembersAtPeriodEnd)}
+          value={formatNumber(membership.data?.membersWithActiveMembership)}
           loading={membership.loading}
           unavailable={!!membership.error}
         >
-          <p>
-            <strong>
-              {formatNumber(
-                membership.data?.membersPurchasingMembershipInPeriod,
-              )}
-            </strong>{" "}
-            members purchased Gym access this month
-          </p>
-          <small>Active count excludes day passes</small>
+          <p>Valid today · {formatDate(today)}</p>
+          <small>Each member counted once · excludes day passes</small>
         </Metric>
       </div>
+      <section
+        className={styles.classSummary}
+        aria-labelledby="class-status-title"
+      >
+        <header>
+          <h2 id="class-status-title">Classes</h2>
+          <p>Current status · all classes · cancelled excluded</p>
+        </header>
+        <AsyncSection state={classStatus}>
+          {(report) => (
+            <dl className={styles.classCounts}>
+              <div data-status="open">
+                <dt>Open</dt>
+                <dd>{formatNumber(report.open)}</dd>
+                <dd className={styles.classDescription}>
+                  Published or in progress
+                </dd>
+              </div>
+              <div data-status="completed">
+                <dt>Completed</dt>
+                <dd>{formatNumber(report.completed)}</dd>
+                <dd className={styles.classDescription}>Finished classes</dd>
+              </div>
+              <div data-status="unpublished">
+                <dt>Unpublished</dt>
+                <dd>{formatNumber(report.unpublished)}</dd>
+                <dd className={styles.classDescription}>Draft classes</dd>
+              </div>
+            </dl>
+          )}
+        </AsyncSection>
+      </section>
       <div className={styles.chartGrid}>
         <section
           className={`${styles.panel} ${styles.activityPanel}`}
@@ -240,6 +327,18 @@ export function MonthlyAnalysis() {
           <AsyncSection state={revenue}>
             {(report) => <RevenueMix report={report} />}
           </AsyncSection>
+          <section
+            className={styles.bookingSummary}
+            aria-labelledby="court-booking-title"
+          >
+            <header className={styles.panelHeader}>
+              <h2 id="court-booking-title">Court bookings</h2>
+              <p>Full month · Bookings and booked hours by sport</p>
+            </header>
+            <AsyncSection state={bookings}>
+              {(report) => <CourtBookingSummary report={report} />}
+            </AsyncSection>
+          </section>
         </section>
       </div>
       <p className={styles.footnote}>

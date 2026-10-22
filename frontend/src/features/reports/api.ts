@@ -24,6 +24,23 @@ export interface RecordedAttendanceReport {
     classAttendances: number;
   }[];
 }
+export interface CourtBookingReport {
+  fromDate: string;
+  toDate: string;
+  totalBookings: number;
+  totalBookedHours: number;
+  bySport: {
+    sportId: number;
+    sportName: string;
+    bookings: number;
+    bookedHours: number;
+  }[];
+}
+export interface ClassStatusReport {
+  open: number;
+  completed: number;
+  unpublished: number;
+}
 export interface ReconciliationCheck {
   name: string;
   reported: number;
@@ -79,6 +96,21 @@ export interface OperationsHealth {
 }
 
 export const reportsApi = {
+  membershipSummary: (asOfDate: string, signal?: AbortSignal) =>
+    api.get<{
+      asOfDate: string;
+      membersWithActiveMembership: number;
+    }>("/api/reports/membership-summary", {
+      signal,
+      query: { asOfDate },
+    }),
+  classStatus: (signal?: AbortSignal) =>
+    api.get<ClassStatusReport>("/api/reports/class-status", { signal }),
+  courtBookings: (f: ReportFilters, signal?: AbortSignal) =>
+    api.get<CourtBookingReport>("/api/reports/court-bookings", {
+      signal,
+      query: { fromDate: f.fromDate, toDate: f.toDate },
+    }),
   attendance: (f: ReportFilters, signal?: AbortSignal) =>
     api.get<RecordedAttendanceReport>("/api/reports/recorded-attendance", {
       signal,

@@ -15,7 +15,7 @@ M03/M04 cập nhật 18/10/2026: [Xử lý sự cố và bố trí buổi bù](I
 
 ## 1. Thứ tự nguồn và cách giải quyết mâu thuẫn
 
-Hạng 5 ngày 18/10/2026: [Quy trình hỗ trợ Member](Member-Support-Workflow.md). Receptionist và Manager có workspace tiếp nhận/phân công/cập nhật/đóng, cùng quyền FrontDesk theo FR-22; mọi nhân sự quầy được xử lý yêu cầu của người khác. Đoạn SRS cũ loại Support Request khỏi phạm vi không còn áp dụng. Tiến độ mới nhất nằm trên yêu cầu, các thao tác giữ trong audit; chưa có API Member tự gửi.
+Hạng 5 ngày 18/10/2026: Hỗ trợ Member. Receptionist và Manager có workspace tiếp nhận/phân công/cập nhật/đóng, cùng quyền FrontDesk theo FR-22; mọi nhân sự quầy được xử lý yêu cầu của người khác. Đoạn SRS cũ loại Support Request khỏi phạm vi không còn áp dụng. Tiến độ mới nhất nằm trên yêu cầu, các thao tác giữ trong audit; chưa có API Member tự gửi.
 
 M06 xác nhận 18/10/2026: [Chốt lớp thiếu học viên](Class-Opening-Decision.md). Đánh giá trước ít nhất 72 giờ; phản hồi tối đa 48 giờ, kết thúc ít nhất 24 giờ trước buổi đầu. Đạt ngưỡng thì xác nhận ngay và giữ người còn ghi danh, kể cả chưa phản hồi; lựa chọn đã xử lý vẫn có hiệu lực. Hết hạn vẫn thiếu và chưa được Manager miễn ngưỡng có lý do/audit thì hủy/hoàn. Kiểm tra muộn phải chốt hoặc dời khai giảng, không để lớp chưa xác nhận tự bắt đầu. Thông báo trong hệ thống/email cho Member, Manager và HLV liên quan. Nội dung này thay thế cách đọc BR-120/UC hết hạn cũ rằng luôn hoàn người chưa phản hồi dù lớp đã đạt ngưỡng.
 
