@@ -97,12 +97,22 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
         foreach (var invoiceId in holds.Where(h => h.InvoiceId.HasValue).Select(h => h.InvoiceId!.Value).Distinct().Order())
             await checkouts.ReleaseForSystemAsync(invoiceId, "ThresholdCancelled", ct);
 
+        // Suggestions are a snapshot taken at cancellation time only; nothing is stored or re-sent later.
+        var alternatives = await FindAlternativesAsync(entity, ct);
+        var memberIds = active.Select(x => x.MemberId).ToList();
+        var alternativeIds = alternatives.Select(a => a.ClassId).ToList();
+        var alreadyIn = (await db.Set<Enrollment>().AsNoTracking()
+            .Where(x => alternativeIds.Contains(x.ClassId) && memberIds.Contains(x.MemberId)
+                && x.Status == EnrollmentStatus.Confirmed && x.EndedAt == null)
+            .Select(x => new { x.MemberId, x.ClassId }).ToListAsync(ct))
+            .ToLookup(x => x.MemberId, x => x.ClassId);
         foreach (var enrollment in active)
         {
             if (enrollment.InvoiceItemId is not Guid itemId) continue;
             var response = pending.SingleOrDefault(x => x.EnrollmentId == enrollment.EnrollmentId)
                 ?? await db.Set<ThresholdResponse>().SingleOrDefaultAsync(x => x.EnrollmentId == enrollment.EnrollmentId, ct);
             var eventId = response?.ThresholdResponseId ?? Guid.NewGuid();
+            var refundedPoints = (int)(await refunds.GetRemainingItemValueVndAsync(itemId, ct) / 1000);
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
                 "Points refunded after the course was canceled for missing its break-even threshold", eventId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.CancelledByCenter, ct);
@@ -111,13 +121,21 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
                 response.ResolutionStatus = ThresholdResolutionStatus.Expired;
                 response.ResolvedAtUtc = clock.UtcNow;
             }
+            var taken = alreadyIn[enrollment.MemberId].ToHashSet();
+            var suggestions = alternatives.Where(a => !taken.Contains(a.ClassId)).Take(3).ToList();
+            var suggestionText = suggestions.Count == 0 ? ""
+                : " Similar courses open now: " + string.Join("; ", suggestions.Select(a =>
+                    $"{a.Name} (starts {a.FirstStartUtc:dd/MM/yyyy}, {a.Price:N0} VND)")) + ".";
             notifications.Queue(new NotificationRequest(enrollment.MemberId, NotificationEvents.ClassCancelled,
-                $"Course {entity.Name} was canceled because it did not meet the break-even threshold; points were returned to your wallet."));
+                $"Course {entity.Name} was canceled because it did not meet the break-even threshold; {refundedPoints:N0} points were returned to your wallet.{suggestionText}"));
             var recipient = await users.GetAsync(enrollment.MemberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(enrollment.MemberId, recipient.Email,
                     NotificationEvents.ClassCancelled, Guid.NewGuid(), "SportHub - Course cancelled",
-                    $"<p>Course {System.Net.WebUtility.HtmlEncode(entity.Name)} was cancelled because it did not reach the minimum enrollment. Your points were returned to your wallet.</p>"));
+                    $"<p>Course {System.Net.WebUtility.HtmlEncode(entity.Name)} was cancelled because it did not reach the minimum enrollment. {refundedPoints:N0} points were returned to your wallet.</p>"
+                    + (suggestions.Count == 0 ? "" : "<p>Similar courses open now:</p><ul>"
+                        + string.Concat(suggestions.Select(a => $"<li>{System.Net.WebUtility.HtmlEncode(a.Name)} - starts {a.FirstStartUtc:dd/MM/yyyy}, {a.Price:N0} VND</li>"))
+                        + "</ul>")));
         }
         foreach (var response in pending)
         {
@@ -171,5 +189,22 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return true;
+    }
+
+    private sealed record Alternative(int ClassId, string Name, decimal Price, DateTime FirstStartUtc);
+
+    /// <summary>Open courses of the same sport that a refunded member could join now, closest in price first.</summary>
+    private async Task<List<Alternative>> FindAlternativesAsync(Class cancelled, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var rows = await db.Set<Class>().AsNoTracking()
+            .Where(c => c.ClassId != cancelled.ClassId && c.SportId == cancelled.SportId
+                && c.Status == ClassStatus.Published && c.EnrollmentOpen && c.ReservedCount < c.Capacity
+                && c.Sessions.Any(s => s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc > now)
+                && !c.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now))
+            .Select(c => new Alternative(c.ClassId, c.Name, c.Price,
+                c.Sessions.Where(s => s.Status == ClassSessionStatus.Scheduled).Min(s => s.StartAtUtc)))
+            .ToListAsync(ct);
+        return rows.OrderBy(a => Math.Abs(a.Price - cancelled.Price)).ThenBy(a => a.FirstStartUtc).Take(20).ToList();
     }
 }

@@ -1,16 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/lib/language";
 import { MemberPicker } from "@/components/MemberPicker";
-import { Tabs } from "@/components/primitives";
-import { useDeskMember } from "./desk-context";
-import { CoursePurchase, PlanSales } from "./front-desk";
+import {
+  ExplorePackages,
+  MyServices,
+  SubNav,
+  type FilterValue,
+  type HubView,
+} from "@/features/member";
 import { CourtBookingCalendar } from "@/features/rentals";
+import { useDeskMember } from "./desk-context";
 import { RegistrationHint } from "./dashboard";
 import styles from "./desk.module.css";
 
-/** Bán dịch vụ cho hội viên đang chọn tại quầy. */
+/** Bán dịch vụ cho hội viên đang chọn tại quầy: cùng giao diện "Explore packages" của Member, kèm các gói Member đã có. */
 export function SalesDesk() {
   const { t, language } = useLanguage();
   const l = t.frontDesk;
@@ -19,55 +25,64 @@ export function SalesDesk() {
   const params = useSearchParams();
   const { member, setMember } = useDeskMember();
   const requestedTab = params.get("tab");
-  const tab =
-    requestedTab === "courses" || requestedTab === "courts"
-      ? requestedTab
-      : "membership";
   const planParam = Number(params.get("plan"));
   const initialPlan =
     Number.isInteger(planParam) && planParam > 0 ? planParam : null;
+  const [view, setView] = useState<HubView>("explore");
+  const [filter, setFilter] = useState<FilterValue>(
+    requestedTab === "courses"
+      ? "class"
+      : requestedTab === "membership"
+        ? "gym"
+        : "all",
+  );
 
   return (
-    <div className={styles.work}>
+    <div className={styles.salesWork}>
       <MemberPicker
         value={member}
         onChange={setMember}
         emptyHint={<RegistrationHint />}
+        hideLabel
       />
+      {member && requestedTab !== "courts" && (
+        <SubNav
+          view={view}
+          onChange={setView}
+          vi={language === "vi"}
+          label={language === "vi" ? "Trang dịch vụ" : "Services pages"}
+          labels={{
+            owned:
+              language === "vi" ? "Dịch vụ của hội viên" : "Member's services",
+            explore: language === "vi" ? "Gói dịch vụ" : "Packages",
+          }}
+        />
+      )}
       {member ? (
-        <>
-          <Tabs
-            tabs={[
-              { id: "membership", label: l.membership },
-              { id: "courses", label: l.tabCourses },
-              {
-                id: "courts",
-                label: language === "vi" ? "Thuê sân" : "Court rental",
-              },
-            ]}
-            value={tab}
-            ariaLabel={l.salesTabsLabel}
-            onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
-          >
-            <div className={styles.tabsBody}>
-              {tab === "courts" ? (
-                <CourtBookingCalendar
-                  key={member.userId}
-                  memberId={member.userId}
-                  memberName={member.fullName || member.email}
-                />
-              ) : tab === "courses" ? (
-                <CoursePurchase key={member.userId} memberId={member.userId} />
-              ) : (
-                <PlanSales
-                  key={`${member.userId}-${initialPlan ?? ""}`}
-                  member={member}
-                  initialPlan={initialPlan}
-                />
-              )}
-            </div>
-          </Tabs>
-        </>
+        requestedTab === "courts" ? (
+          <CourtBookingCalendar
+            key={member.userId}
+            memberId={member.userId}
+            memberName={member.fullName || member.email}
+          />
+        ) : view === "owned" ? (
+          <MyServices
+            key={member.userId}
+            filter={filter}
+            onFilter={setFilter}
+            staffMember={member}
+          />
+        ) : (
+          <ExplorePackages
+            key={`${member.userId}-${initialPlan ?? ""}`}
+            filter={filter}
+            onFilter={setFilter}
+            sportId={null}
+            staffMember={member}
+            initialPlanId={initialPlan}
+            onBookCourt={() => router.replace(`${pathname}?tab=courts`)}
+          />
+        )
       ) : (
         <p className={styles.hint}>{l.salesSelect}</p>
       )}

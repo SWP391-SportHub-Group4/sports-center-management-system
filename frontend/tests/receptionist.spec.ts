@@ -125,19 +125,12 @@ async function receptionistFixture(page: Page) {
       });
     }
 
-    if (path === "/api/gym-checkins/inside") {
-      return route.fulfill({
-        json: paged([]),
-      });
-    }
-
     if (path === "/api/gym-checkins" && request.method() === "POST") {
       return route.fulfill({
         json: {
           checkInId: "66666666-6666-4666-8666-666666666666",
           memberId,
           checkInTime: "2030-10-03T03:00:00Z",
-          checkOutTime: null,
         },
       });
     }
@@ -558,7 +551,15 @@ test("the selected Member follows the desk from check-in to sales and profile", 
     })
     .click();
 
-  await expect(page.getByRole("tab", { name: "Gym membership" })).toBeVisible();
+  // Quầy dùng cùng giao diện Explore của Member: gói Gym nằm trong mục "Gym Membership".
+  await expect(
+    page.getByRole("region", { name: "Gym Membership" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("staff-owned")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Member's services" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Packages" })).toBeVisible();
   await expect(page.getByText("Selling for Member A")).toHaveCount(0);
 
   await page

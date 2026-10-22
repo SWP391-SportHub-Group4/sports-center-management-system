@@ -1,10 +1,10 @@
 "use client";
-import { PtPage } from "@/features/pt/ui";
+import { StaffPage } from "@/features/coaching/ui";
 import { AuditLogView } from "@/components/AuditLogView";
 export default function Page() {
   return (
-    <PtPage title="audit" manager>
+    <StaffPage title="audit" manager>
       <AuditLogView />
-    </PtPage>
+    </StaffPage>
   );
 }

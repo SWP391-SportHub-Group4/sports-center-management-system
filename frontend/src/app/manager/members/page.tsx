@@ -1,7 +1,7 @@
 "use client";
 import { AppShell } from "@/components/AppShell";
 import { useLanguage } from "@/lib/language";
-import { ManagerMemberList } from "@/features/pt/manager-members";
+import { ManagerMemberList } from "@/features/coaching/manager-members";
 
 export default function Page() {
   const { t } = useLanguage();

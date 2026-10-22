@@ -60,7 +60,9 @@ public sealed class PointConfirmationService(
         notifications.QueueEmail(new EmailNotificationRequest(memberId, member.Email,
             NotificationEvents.PointConfirmationOtpRequested, confirmation.PointConfirmationId,
             "SportHub points confirmation code",
-            $"<p>Use this code to confirm {points} points for invoice {System.Net.WebUtility.HtmlEncode(invoice.InvoiceNumber)}: <strong>{code}</strong></p>"
+            SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Invoice", invoice.InvoiceNumber), ("Points to confirm", points.ToString()))
+            + "<p>Your confirmation code:</p>"
+            + $"<p style=\"font-size:28px;font-weight:bold;letter-spacing:4px;padding:16px;background:#f2f4ed;text-align:center;\"><strong>{code}</strong></p>"
             + $"<p>The code is valid for up to {otpMinutes} minutes. Do not share it outside this reception transaction.</p>"));
         audit.Write(new AuditEntry(receptionistId, "REQUEST_POINT_CONFIRMATION", nameof(Invoice), invoiceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { memberId, points, confirmation.PointConfirmationId })));
@@ -260,6 +262,9 @@ public sealed class PointConfirmationService(
     {
         if (invoice.MemberId != memberId)
             throw new ForbiddenException("invoice_not_owned", "Invoice not owned.");
+        if (await db.Set<CheckoutSession>().AnyAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId
+            && x.Kind == "WalletTopUp", ct))
+            throw new ConflictException("top_up_cash_only", "Wallet top-ups must be paid through VNPay.");
         if (invoice.Status != InvoiceStatus.Issued || invoice.CheckoutCycleId is null
             || invoice.HoldExpiresAtUtc is null || invoice.HoldExpiresAtUtc <= clock.UtcNow)
             throw new ConflictException("checkout_unavailable", "Checkout unavailable.");

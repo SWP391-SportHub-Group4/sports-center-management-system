@@ -1,11 +1,15 @@
 "use client";
+import { LockedCoachAssignments } from "./locked-coach-assignments";
+import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
+import { AvatarImage } from "@/components/AvatarImage";
+import { api } from "@/lib/apiClient";
+import type { Paged, ManagerCourseDto } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
-import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import { Card, AsyncSection, StatusChip } from "@/components/ui";
+import { Card, AsyncSection, StatusChip, Pager } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { catalogApi } from "@/features/catalog";
 import { CoachEditor } from "./coach-editor";
@@ -17,12 +21,21 @@ export function CoachDetail({ userId }: { userId: string }) {
   const [editing, setEditing] = useState(false);
   const { values, setValues } = useUrlQuery(
     { tab: "overview" },
-    { tab: choiceQuery(["overview", "schedule"], "overview") },
+    { tab: choiceQuery(["overview", "classes", "schedule"], "overview") },
   );
   const state = useApi(
     (signal) =>
       api.get<CoachAdminDto>(`/api/manager/coaches/${userId}`, { signal }),
     [userId],
+  );
+  const [classPage, setClassPage] = useState(1);
+  const classes = useApi(
+    (signal) =>
+      api.get<Paged<ManagerCourseDto>>("/api/manager/classes", {
+        signal,
+        query: { coachId: userId, page: classPage, pageSize: 20 },
+      }),
+    [userId, classPage],
   );
   return (
     <>
@@ -46,6 +59,18 @@ export function CoachDetail({ userId }: { userId: string }) {
                 </>
               }
             >
+              <AvatarImage
+                name={coach.fullName}
+                avatarUrl={coach.avatarUrl}
+                size={64}
+              />
+              {coach.avatarUrl && (
+                <RemoveMemberAvatarButton
+                  memberId={coach.userId}
+                  memberName={coach.fullName}
+                  onRemoved={state.reload}
+                />
+              )}
               <p>
                 {coach.email} · {coach.phone ?? "—"}
               </p>
@@ -56,6 +81,7 @@ export function CoachDetail({ userId }: { userId: string }) {
               ariaLabel={m.coachDetail}
               tabs={[
                 { id: "overview", label: m.overviewTab },
+                { id: "classes", label: "Assigned classes" },
                 { id: "schedule", label: m.assignedSchedule },
               ]}
             >
@@ -63,7 +89,36 @@ export function CoachDetail({ userId }: { userId: string }) {
                 <Card title={m.coachDetail}>
                   <p style={{ whiteSpace: "pre-wrap" }}>{coach.bio || "—"}</p>
                   <CoachSpecialties coach={coach} />
+                  {coach.status !== "ACTIVE" && (
+                    <LockedCoachAssignments
+                      coachId={userId}
+                      onChanged={classes.reload}
+                    />
+                  )}
                 </Card>
+              )}
+              {values.tab === "classes" && (
+                <AsyncSection state={classes}>
+                  {(data) => (
+                    <>
+                      <ul>
+                        {data.items.map((c) => (
+                          <li key={c.classId}>
+                            <Link href={`/manager/classes/${c.classId}`}>
+                              {c.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                      <Pager
+                        page={data.page}
+                        pageSize={data.pageSize}
+                        totalCount={data.totalCount}
+                        onChange={setClassPage}
+                      />
+                    </>
+                  )}
+                </AsyncSection>
               )}
               {values.tab === "schedule" && (
                 <ManagerSchedule coachId={coach.userId} />

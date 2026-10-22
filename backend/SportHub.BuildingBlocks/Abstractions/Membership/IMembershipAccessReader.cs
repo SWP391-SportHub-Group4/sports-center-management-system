@@ -1,7 +1,7 @@
 namespace SportHub.BuildingBlocks.Abstractions.Membership;
 
 /// <summary>
-/// Membership hiện có của hội viên; dùng cho Gym và điều kiện mua PT (không dùng cho ghi danh lớp).
+/// Membership hiện có của hội viên; dùng cho Gym (không dùng cho ghi danh lớp).
 /// Bản cài đặt ở Membership.
 /// </summary>
 public interface IMembershipAccessReader

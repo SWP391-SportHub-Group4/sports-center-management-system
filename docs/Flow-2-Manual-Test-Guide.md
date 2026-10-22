@@ -229,7 +229,7 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 3. Xác nhận nút đăng ký không dùng được; đăng ký/hóa đơn hiện có vẫn còn.
 4. Manager nhấn `Reopen enrollment`; Member reload và kiểm tra có thể đăng ký nếu còn chỗ.
 
-**Pass khi:** khả năng đăng ký thay đổi đúng, không hủy người đã đăng ký. **Test lỗi:** lớp đầy, đã bắt đầu, Completed hoặc Cancelled không được nhận đăng ký mới. Nếu gặp ghi chú `Waiting for API` cũ nhưng thao tác lỗi thật, lưu request/response và ghi Fail/Blocked theo nguyên nhân.
+**Pass khi:** khả năng đăng ký thay đổi đúng, không hủy người đã đăng ký. **Test lỗi:** lớp đầy, Completed, Cancelled hoặc không còn buổi sắp tới (`class_started`) không được nhận đăng ký mới. Lớp đã bắt đầu (IN_PROGRESS) còn chỗ **được** đăng ký giữa chừng: thẻ khóa ở Explore hiện số buổi đã học/còn lại, giá trọn khóa. Dữ liệu mẫu: chạy `--seed-started-class=true` (lớp `CAULONG-STARTED-01`, Thứ 3/5/7 06:00–08:00, bắt đầu 15/10/2026). Nếu gặp ghi chú `Waiting for API` cũ nhưng thao tác lỗi thật, lưu request/response và ghi Fail/Blocked theo nguyên nhân.
 
 #### UC-F2-13 — Thay coach
 
@@ -437,7 +437,7 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 3. Chọn `Transfer to another class` hoặc `Refund 100% as points`, nhấn `Review response`.
 4. Đọc màn hình xác nhận; chỉ dùng `Confirm response` khi đang chạy ca 31/32/33 tương ứng.
 
-**Pass khi:** đúng chủ sở hữu, đúng deadline và lựa chọn. **Test lỗi:** URL/token sai, Member B mở response A hoặc response đã hết hạn → không thực hiện được. `Wait for the next course` hiện chưa triển khai; xem ca 34.
+**Pass khi:** đúng chủ sở hữu, đúng deadline và lựa chọn. **Test lỗi:** URL/token sai, Member B mở response A hoặc response đã hết hạn → không thực hiện được.
 
 #### UC-F2-31 — Chuyển lớp bằng/thấp giá
 
@@ -471,29 +471,6 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 
 **Pass khi:** nhận 400 điểm nếu chưa hoàn trước, enrollment kết thúc, response đã xử lý. **Test lỗi:** lặp thao tác không nhận thêm; giá trị đã hoàn/chuyển trước không được hoàn lại vượt phần còn lại.
 
-#### UC-F2-34 — Chờ khóa tiếp theo
-
-**Vai trò:** Member A. **Chuẩn bị:** response thiếu ngưỡng còn hiệu lực, enrollment Confirmed đã thanh toán; ghi điểm ví trước thao tác.
-
-1. Mở response → `Wait for the next course`; đọc điều kiện hoàn điểm và không tự giữ chỗ lớp sau.
-2. Nhấn `Review response` → `Confirm response`.
-3. Mở `Manage course interests`; đối chiếu lớp nguồn, `Following next cohort` và số điểm thực hoàn.
-4. Reload, kiểm tra ví và ghi danh nguồn; gửi lại cùng lựa chọn để kiểm tra idempotency.
-
-**Pass khi:** hoàn đúng 100% phần giá trị còn được hoàn bằng điểm, kết thúc ghi danh nguồn, tạo đúng một interest; không có enrollment/hold lớp mới. **Test lỗi:** response đã hết hạn/khác Member bị chặn; không thể đổi lựa chọn đã chốt hoặc nhận điểm lần hai.
-
-#### UC-F2-35 — Quản lý quan tâm và nhận tin lớp mới
-
-**Vai trò:** Member A và Center Manager. **Chuẩn bị:** interest Active từ ca 34; SMTP hợp lệ để kiểm chứng email.
-
-1. Member mở `Services` → `Course interests`; kiểm tra lớp nguồn, môn, điểm hoàn và trạng thái.
-2. Manager mở `Classes` → `Course interests`; tạo draft đợt mới cùng môn, chọn `Next cohort of (optional)` đúng lớp nguồn.
-3. Publish, `Reopen enrollment`, giữ buổi đầu trong tương lai và còn chỗ; chờ job khoảng một phút.
-4. Member mở chuông → `View class`; đối chiếu giá/lịch mới; kiểm email trong inbox thật.
-5. Chạy job lại: không lặp thông báo. Member chọn `Stop notifications`, reload rồi thử công bố một đợt liên kết khác.
-
-**Pass khi:** Member tự quyết định mua, không tự ghi danh/thu tiền; dừng nhận tin được lưu và không đảo điểm đã hoàn. **Test lỗi:** Member B không quản lý interest của A; draft/lớp đóng/hết chỗ/đã bắt đầu/không liên kết không gửi tin. API hiện lấy tối đa 200 interest mới nhất; không giả định có phân trang.
-
 #### UC-F2-36 — Hết hạn phản hồi [Job / dữ liệu thời gian]
 
 **Chuẩn bị:** lớp At risk, Member A chưa phản hồi, Member B đã hoàn/chuyển; thêm một transfer chưa trả.
@@ -502,6 +479,7 @@ Các ca ghi **API / job** không hoàn thành chỉ bằng click UI. Các ca **C
 2. Kiểm tra A được hoàn phần còn lại, transfer hold quá hạn giải phóng.
 3. Manager xem lớp: thiếu ngưỡng và không waive → Cancelled; đủ điều kiện/waive → theo quyết định hợp lệ.
 4. Chạy job lại, đối chiếu wallet ledger và callback muộn theo ca 24.
+5. Chuẩn bị trước một lớp cùng môn đang Published, còn chỗ, chưa bắt đầu: thông báo hủy của A nêu số điểm hoàn và tên lớp đó (tối đa 3). Không có lớp như vậy thì thông báo chỉ nêu điểm. Tạo thêm lớp sau đó: A không nhận thêm thông báo.
 
 **Pass khi:** không hoàn B lần hai, không còn hold quá hạn, trạng thái và điểm nhất quán. **Blocked khi:** chưa có fixture thời gian; không chờ vài phút rồi kết luận khi deadline thực tế là 48 giờ.
 
@@ -799,7 +777,7 @@ Các ca callback muộn cần đối chiếu thêm bộ Payment và contract pay
 | Pass | Đã làm đủ bước và bằng chứng đúng mọi kiểm tra của ca |
 | Fail | Đã thao tác đúng nhưng kết quả khác expected; ghi bước đầu tiên bị lỗi |
 | Blocked | Thiếu tài khoản/dữ liệu/SMTP/gateway/fixture hoặc môi trường không hoạt động |
-| Not implemented | Phạm vi use case cần UI/API chưa có trong commit đang kiểm thử; UC-F2-34/35 đã có UI trong bản đối chiếu 16/10/2026 |
+| Not implemented | Phạm vi use case cần UI/API chưa có trong commit đang kiểm thử |
 | Not run | Chưa chạy; không thay bằng Pass do CI khác đã xanh |
 
 Mỗi use case có thể có nhiều scenario. Ví dụ hủy ≥5 ngày Pass nhưng <5 ngày chưa test → không ghi toàn UC-F2-25 Pass.

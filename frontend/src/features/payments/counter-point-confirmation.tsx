@@ -2,7 +2,6 @@
 import { Field } from "@/components/ui";
 import { Button, Input } from "@/components/primitives";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
 import styles from "./checkout-panel.module.css";
 export interface CounterConfirmation {
   confirmationId: string;
@@ -36,12 +35,18 @@ export function CounterPointConfirmation({
 }) {
   const { t } = useLanguage();
   const expired = serverNow >= Date.parse(confirmation.expiresAtUtc);
-  const locked = (confirmation.failedAttempts ?? 0) >= 5;
+  const attemptsLeft = Math.max(0, 5 - (confirmation.failedAttempts ?? 0));
+  const locked = attemptsLeft === 0;
+  const secondsLeft = Math.max(
+    0,
+    Math.ceil((Date.parse(confirmation.expiresAtUtc) - serverNow) / 1000),
+  );
+  const countdown = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`;
   return (
     <section className={styles.otp} aria-label={t.refactor.otp}>
       <Field
         label={t.refactor.otp}
-        hint={`${t.refactor.expires}: ${formatDateTime(confirmation.expiresAtUtc)} · ${Math.max(0, 5 - (confirmation.failedAttempts ?? 0))}/5`}
+        hint={`Time left: ${countdown} · Attempts left: ${attemptsLeft}`}
       >
         <Input
           className={styles.otpInput}

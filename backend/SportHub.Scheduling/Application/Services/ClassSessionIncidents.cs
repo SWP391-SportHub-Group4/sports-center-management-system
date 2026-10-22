@@ -17,6 +17,38 @@ namespace SportHub.Scheduling.Application.Services;
 
 public sealed partial class ClassSessionService
 {
+    public async Task<ClassSessionResponse> CreateIncidentMakeupAsync(Guid sessionId, IncidentMakeupRequest request,
+        Guid actorUserId, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var session = await LockAndLoadAsync(sessionId, ct);
+        var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
+        var fence = await db.Set<IncidentFence>().FromSqlInterpolated(
+            $"SELECT * FROM incident_fences WHERE fence_id={request.FenceId} FOR UPDATE").SingleOrDefaultAsync(ct);
+        if (fence is null || fence.Status != IncidentFenceStatus.Open || fence.ExpiresAtUtc <= clock.UtcNow
+            || fence.StartAtUtc >= session.EndAtUtc || fence.EndAtUtc <= session.StartAtUtc
+            || fence.Scope == IncidentScope.Room && fence.RoomId != session.RoomId)
+            throw new ConflictException("incident_window_required", "Hold the matching incident window first.");
+        // A retry returns the already created replacement, never another makeup.
+        var prior = await db.Set<IncidentFenceStep>().Where(s => s.FenceId == request.FenceId && s.SessionId == sessionId
+            && s.Kind == IncidentFenceStepKind.CancelWithMakeup && s.State == IncidentFenceStepState.Applied)
+            .FirstOrDefaultAsync(ct);
+        if (prior?.MakeupSessionId is Guid replacement)
+        {
+            if (prior.AfterStartUtc != DateTime.SpecifyKind(request.Makeup.StartAtUtc, DateTimeKind.Utc)
+                || prior.AfterRoomId != (request.Makeup.RoomId ?? session.RoomId)
+                || prior.AfterCoachId != (request.Makeup.CoachId ?? session.CoachId))
+                throw new ConflictException("incident_step_changed", "This incident already has a different replacement. Reload its history.");
+            await tx.CommitAsync(ct); return await GetAsync(replacement, null, ct);
+        }
+        EnsureEditable(session, cls);
+        if (request.Makeup.StartAtUtc < fence.EndAtUtc)
+            throw new BadRequestException("replacement_during_incident", "Choose a replacement after the incident ends.");
+        var result = await CancelWithMakeupCoreAsync(sessionId, request, actorUserId, ct, fence.FenceId);
+        await tx.CommitAsync(ct);
+        return result;
+    }
+
     private sealed record StoredIncident(string RequestKey, IncidentSessionReport Report);
     internal static IncidentSessionReport? ReadIncidentReport(string? json)
         => json is null ? null : JsonSerializer.Deserialize<StoredIncident>(json)?.Report;

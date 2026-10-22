@@ -11,7 +11,7 @@ const sports = [
     code: "gym",
     name: "Gym",
     isActive: true,
-    services: [{ serviceType: "PERSONAL_TRAINING", isEnabled: true }],
+    services: [{ serviceType: "MEMBERSHIP_ACCESS", isEnabled: true }],
   },
   {
     sportId: 3,
@@ -143,7 +143,7 @@ test("Khám phá: thẻ lớp đủ thông tin, lọc còn chỗ", async ({ page
   );
   await page.goto("/member/discover");
   await expect(
-    page.getByText("Tìm và mua khóa học, Membership Gym, PT hoặc đặt sân."),
+    page.getByText("Find and buy courses, Gym membership, day pass or a court booking."),
   ).toBeVisible();
 
   const br = page.locator("article").filter({ hasText: "Bóng rổ 01" });
@@ -174,9 +174,7 @@ test("Member xem hồ sơ đúng Coach của lớp đang chọn", async ({ page 
   await page.goto("/member/services?section=courses&view=explore");
 
   const row = page.locator("li").filter({ hasText: "Bóng rổ 01" });
-  await expect(
-    row.getByRole("link", { name: "Xem hồ sơ Coach" }),
-  ).toHaveAttribute("href", "/member/pt/coaches/c");
+  await expect(row).toContainText("Vũ Hải");
 });
 
 test("Khám phá: không có lớp thì hiện trạng thái trống có lối đi tiếp", async ({
@@ -427,26 +425,6 @@ test("Lịch của tôi trên điện thoại: tuần chia theo ngày, không cu
   page,
 }) => {
   await base(page);
-  await page.route("**/api/members/me/pt-sessions**", (r) =>
-    r.fulfill({
-      json: [
-        {
-          sessionId: "p1",
-          entitlementId: "e",
-          memberId: "m",
-          memberName: "An",
-          coachId: "c",
-          coachName: "Đỗ Quang",
-          startAtUtc: h(30),
-          endAtUtc: h(31.5),
-          status: "SCHEDULED",
-          quotaState: "RESERVED",
-          roomId: 3,
-          roomName: "Phòng PT 2",
-        },
-      ],
-    }),
-  );
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto("/member/schedule?date=" + vnDate(h(30)));
   await expect(page.locator("table")).toHaveCount(0);
@@ -454,6 +432,4 @@ test("Lịch của tôi trên điện thoại: tuần chia theo ngày, không cu
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(361);
-  await page.getByRole("button", { name: /Buổi PT/ }).click();
-  await expect(page.getByRole("dialog")).toContainText("Phòng PT 2");
 });

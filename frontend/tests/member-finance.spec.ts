@@ -57,6 +57,37 @@ async function setup(
   });
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (
+      path === "/api/checkouts/wallet-top-up" &&
+      route.request().method() === "POST"
+    )
+      return route.fulfill({
+        json: {
+          ...checkout,
+          kind: "WALLET_TOP_UP",
+          pointsApplied: 0,
+          totalAmount: 20000,
+          cashAmount: 20000,
+          beneficiaryUserId: "member-1",
+          initiatorUserId: "member-1",
+        },
+      });
+    if (
+      path === `/api/checkouts/${id}/attempts` &&
+      route.request().method() === "POST"
+    )
+      return route.fulfill({
+        json: {
+          paymentAttemptId: "attempt-1",
+          invoiceId: id,
+          transactionReference: "attempt-1",
+          cashAmount: 20000,
+          pointsApplied: 0,
+          expiresAtUtc: checkout.expiresAtUtc,
+          paymentUrl: "https://sandbox.vnpayment.vn/test-top-up",
+          state: "PENDING",
+        },
+      });
     if (path === "/api/users/me")
       return route.fulfill({
         json: {
@@ -102,6 +133,39 @@ async function setup(
   });
 }
 
+test("member can start a VNPay points top-up from an empty wallet", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("https://sandbox.vnpayment.vn/**", (route) =>
+    route.fulfill({ body: "VNPay test gateway" }),
+  );
+  await page.goto("/member/finance?tab=wallet");
+  await expect(page.getByText("Points never expire")).toHaveCount(0);
+  await page.getByRole("link", { name: "Add points" }).click();
+  await expect(page).toHaveURL(/\/member\/wallet\/top-up/);
+  const amount = page.getByRole("textbox", { name: "Amount in VND" });
+  const next = page.getByRole("button", { name: "Continue to payment" });
+  await amount.fill("5000");
+  await expect(next).toBeDisabled();
+  await amount.fill("20500");
+  await expect(next).toBeDisabled();
+  await amount.fill("20000");
+  await expect(page.getByText("You receive")).toBeVisible();
+  const create = page.waitForRequest((request) =>
+    request.url().endsWith("/api/checkouts/wallet-top-up"),
+  );
+  await next.click();
+  expect((await create).postDataJSON()).toEqual({ points: 20 });
+  await expect(page.getByText("Top up 20 points")).toBeVisible();
+  await expect(page.getByText("9704198526191432198")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Change amount" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Pay with VNPay" }).click();
+  await expect(page).toHaveURL("https://sandbox.vnpayment.vn/test-top-up");
+});
+
 test("checkout summary shows server split and one countdown", async ({
   page,
 }) => {
@@ -116,6 +180,29 @@ test("checkout summary shows server split and one countdown", async ({
   await expect(page.getByRole("spinbutton")).toBeVisible();
 });
 
+test("overview Pay now resumes the active checkout and its existing countdown", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.goto("/member");
+  const payNow = page.getByRole("link", { name: /Pay now.*INV-0001/i });
+  await expect(payNow).toHaveAttribute("href", `/checkout/${id}`);
+  await payNow.click();
+  await expect(page).toHaveURL(`/checkout/${id}`);
+  await expect(
+    page.getByRole("complementary", { name: "Order summary" }).locator("time"),
+  ).toHaveText(/^(9|10):\d\d$/);
+});
+
+test("invoice list Pay now resumes the active checkout", async ({ page }) => {
+  await setup(page);
+  await page.goto("/member/finance?tab=invoices");
+  const payNow = page.getByRole("link", { name: "Pay now" });
+  await expect(payNow).toHaveAttribute("href", `/checkout/${id}`);
+  await payNow.click();
+  await expect(page).toHaveURL(`/checkout/${id}`);
+});
+
 test("zero balance does not break points selection", async ({ page }) => {
   await setup(page, { pointsApplied: 0, cashAmount: 300000 });
   await page.goto(`/checkout/${id}`);
@@ -124,7 +211,7 @@ test("zero balance does not break points selection", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("spinbutton")).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "Confirm payment", exact: true }),
+    page.getByRole("button", { name: "Pay with VNPay", exact: true }),
   ).toBeEnabled();
 });
 
@@ -134,7 +221,7 @@ test("expired hold stops payment actions", async ({ page }) => {
   });
   await page.goto(`/checkout/${id}`);
   await expect(
-    page.getByRole("button", { name: "Confirm payment", exact: true }),
+    page.getByRole("button", { name: "Pay with VNPay", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -142,12 +229,12 @@ test("finance tabs, invoice detail and legacy aliases", async ({ page }) => {
   await setup(page);
   await page.goto("/member/wallet");
   await expect(page).toHaveURL(/\/member\/finance\?tab=wallet/);
-  await expect(page.locator("#main-content h1")).toHaveText("Finance");
+  await expect(page.locator("#main-content h1")).toHaveText("Billing");
   await page.getByRole("tab", { name: "Invoices" }).click();
   await expect(page).toHaveURL(/tab=invoices/);
   await expect(page.getByText("INV-0001")).toBeVisible();
-  await page.getByRole("link", { name: "Details" }).click();
-  await expect(page).toHaveURL(`/member/invoices/${id}`);
+  await page.getByRole("link", { name: "INV-0001" }).click();
+  await expect(page).toHaveURL(`/member/finance?tab=invoices&invoice=${id}`);
   await expect(
     page.getByRole("cell", { name: "Badminton course" }),
   ).toBeVisible();
@@ -155,7 +242,7 @@ test("finance tabs, invoice detail and legacy aliases", async ({ page }) => {
     page.getByRole("link", { name: "Continue payment" }),
   ).toHaveAttribute("href", `/checkout/${id}`);
   await page.goto(`/member/invoices?invoiceId=${id}`);
-  await expect(page).toHaveURL(`/member/invoices/${id}`);
+  await expect(page).toHaveURL(`/member/finance?tab=invoices&invoice=${id}`);
 });
 
 test("member can review their point refund and open its invoice", async ({
@@ -169,7 +256,7 @@ test("member can review their point refund and open its invoice", async ({
   await expect(page.getByText("Membership cancellation")).toBeVisible();
   await expect(page.getByText("150", { exact: false })).toBeVisible();
   await page.getByRole("link", { name: "View invoice" }).click();
-  await expect(page).toHaveURL(`/member/invoices/${id}`);
+  await expect(page).toHaveURL(`/member/finance?tab=invoices&invoice=${id}`);
 });
 
 test("reloaded day-pass checkout explains validity and no refunds before payment", async ({
@@ -201,6 +288,8 @@ test("member downloads the invoice PDF through the authenticated endpoint", asyn
   });
   await page.goto(`/member/finance?tab=invoices&invoice=${id}`);
   const downloaded = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download PDF" }).click();
-  expect((await downloaded).suggestedFilename()).toBe("INV-0001.pdf");
+  await page.getByRole("button", { name: "Download invoice" }).click();
+  expect((await downloaded).suggestedFilename()).toBe(
+    `SportHub-invoice-${id}.pdf`,
+  );
 });

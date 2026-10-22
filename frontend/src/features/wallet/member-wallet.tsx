@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Coins } from "lucide-react";
+import { ArrowRight, Coins, Plus } from "lucide-react";
+import { buttonClass } from "@/components/primitives";
 import { AsyncSection, PageNav } from "@/components/ui";
 import { EmptyPanel } from "@/components/EmptyPanel";
 import { useApi } from "@/lib/useApi";
@@ -31,28 +32,6 @@ export function MemberWallet() {
     EARN: w.earn,
     ADJUSTMENT: w.adjustment,
   };
-  const firstUse =
-    !!balance.data &&
-    !!ledger.data &&
-    !entryType &&
-    !ledger.data.length &&
-    balance.data.availablePoints + balance.data.heldPoints === 0;
-  if (firstUse)
-    return (
-      <div className={styles.wallet}>
-        <EmptyPanel
-          icon={<Coins size={22} />}
-          title={l.ledgerEmptyTitle}
-          body={`${l.ledgerEmptyBody} ${l.pointRate}.`}
-          action={
-            <Link href="/member/services">
-              {l.ledgerEmptyAction}
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          }
-        />
-      </div>
-    );
   return (
     <div className={styles.wallet}>
       <AsyncSection state={balance}>
@@ -70,7 +49,13 @@ export function MemberWallet() {
               <span className={styles.worth}>
                 {formatMoney(b.availablePoints * b.vndPerPoint)} · {l.pointRate}
               </span>
-              <span className={styles.note}>{l.pointRateHint}</span>
+              <Link
+                href="/member/wallet/top-up"
+                className={`${buttonClass({ size: "sm" })} ${styles.addPoints}`}
+              >
+                <Plus size={16} aria-hidden="true" />
+                Add points
+              </Link>
             </div>
             {b.heldPoints > 0 && (
               <dl className={styles.secondary}>
@@ -147,9 +132,11 @@ export function MemberWallet() {
             <>
               <ul className={styles.list}>
                 {rows.slice(0, PAGE_SIZE).map((row) => {
-                  const label =
-                    row.entryType === "EARN" &&
-                    row.referenceType === "PaymentAdjustment"
+                  const topUp = row.referenceType === "WalletTopUp";
+                  const label = topUp
+                    ? "Points top-up via VNPay"
+                    : row.entryType === "EARN" &&
+                        row.referenceType === "PaymentAdjustment"
                       ? w.refundEarn
                       : (events[row.entryType] ?? row.entryType);
                   const delta = row.availableDelta || row.heldDelta;
@@ -157,7 +144,23 @@ export function MemberWallet() {
                     <li key={row.id}>
                       <div className={styles.what}>
                         <strong>{label}</strong>
-                        {row.note && (
+                        {topUp && (
+                          <p>
+                            Paid {formatMoney(row.points * 1000)} · +
+                            {formatPoints(row.points)} points
+                            {row.sourceInvoiceId && (
+                              <>
+                                {" · "}
+                                <Link
+                                  href={`/member/finance?tab=invoices&invoice=${row.sourceInvoiceId}`}
+                                >
+                                  {l.refundInvoice}
+                                </Link>
+                              </>
+                            )}
+                          </p>
+                        )}
+                        {!topUp && row.note && (
                           <p>
                             {row.referenceType === "SystemEvent" &&
                             row.entryType === "EARN"
@@ -166,7 +169,7 @@ export function MemberWallet() {
                             {row.note}
                           </p>
                         )}
-                        {row.sourceDescription && (
+                        {!topUp && row.sourceDescription && (
                           <p>
                             {l.refundSource}: {row.sourceDescription}
                             {row.sourceInvoiceId && (

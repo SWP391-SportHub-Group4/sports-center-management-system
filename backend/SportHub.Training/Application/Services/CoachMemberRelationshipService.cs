@@ -94,6 +94,12 @@ public sealed class CoachMemberRelationshipService(
                 "class_based_is_automatic",
                 "Class based is automatic.");
         }
+        if (sourceType != RelationshipSourceType.AssignedByManager)
+        {
+            throw new BadRequestException(
+                "invalid_source_type",
+                "Only class-based manager assignments are supported.");
+        }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock_shared(105, 1)", ct);

@@ -11,8 +11,8 @@ public sealed class CourtScheduleController(CourtScheduleService schedule) : Con
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("api/manager/court-schedule")]
     public async Task<IActionResult> Staff([FromQuery] DateOnly fromDate, [FromQuery] DateOnly toDate,
-        [FromQuery] int? roomId, CancellationToken ct)
-        => Ok(await schedule.GetAsync(fromDate, toDate, roomId, User.RequireUserId(), ct));
+        [FromQuery] int? roomId, [FromQuery] Guid? memberId, CancellationToken ct)
+        => Ok(await schedule.GetAsync(fromDate, toDate, roomId, User.RequireUserId(), ct, memberId));
 
     [Authorize(Policy = SportHubPolicies.Coach)]
     [HttpGet("api/coaches/me/court-schedule")]

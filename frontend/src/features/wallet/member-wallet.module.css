@@ -40,10 +40,9 @@
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
-.note {
+.addPoints {
+  justify-self: start;
   margin-top: var(--space-3);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
 }
 .secondary {
   display: grid;

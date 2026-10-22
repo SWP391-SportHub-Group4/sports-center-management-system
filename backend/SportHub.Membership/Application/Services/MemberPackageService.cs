@@ -35,13 +35,14 @@ public sealed class MemberPackageService(
         string? keyword,
         int page,
         int pageSize,
-        CancellationToken ct = default)
+        CancellationToken ct = default, int? packageId = null)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
         var today = MemberPackageRules.Today(clock);
         var query = db.Set<MemberPackage>().AsNoTracking();
+        if (packageId is int selectedPackage) query = query.Where(mp => mp.PackageId == selectedPackage);
 
         if (!string.IsNullOrWhiteSpace(status))
         {

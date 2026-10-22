@@ -2,7 +2,7 @@
 import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { useEffect, useState } from "react";
-import { api, ApiError } from "@/lib/apiClient";
+import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
@@ -17,16 +17,13 @@ import {
 import { MemberPicker } from "@/components/MemberPicker";
 import { useDeskMember } from "./desk-context";
 import { RegistrationHint } from "./dashboard";
+import { SelectedMemberPanel } from "./selected-member";
 import { CheckoutPanel } from "@/features/payments";
 import { WalletBalance } from "@/features/wallet";
 import { WalletLedger } from "@/features/wallet";
 import { InvoiceList } from "@/features/payments";
-import {
-  MutationFeedback,
-  Pagination,
-  useMutation,
-} from "@/features/operations";
-import { courseApi } from "@/features/courses";
+import { Pagination } from "@/features/operations";
+import { courseApi, isCourseOpenForRegistration } from "@/features/courses";
 import styles from "./front-desk.module.css";
 import type {
   UserAdminDto,
@@ -63,11 +60,21 @@ export function MemberDesk({
   }, [initialId]);
   return (
     <>
-      <MemberPicker
-        value={member}
-        onChange={setMember}
-        emptyHint={<RegistrationHint />}
-      />
+      {mode === "gym" && member ? (
+        <SelectedMemberPanel
+          key={member.userId}
+          member={member}
+          onChange={setMember}
+          showProfileLink={false}
+          withExtras={false}
+        />
+      ) : (
+        <MemberPicker
+          value={member}
+          onChange={setMember}
+          emptyHint={<RegistrationHint />}
+        />
+      )}
       {member ? (
         <MemberWork
           key={`${member.userId}-${mode}`}
@@ -83,7 +90,6 @@ export function MemberDesk({
 export function CoursePurchase({ memberId }: { memberId: string }) {
   const { t } = useLanguage();
   const l = t.operations;
-  const [page, setPage] = useState(1);
   const [sportId, setSport] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
   const sports = useApi(
@@ -91,8 +97,13 @@ export function CoursePurchase({ memberId }: { memberId: string }) {
     [],
   );
   const courses = useApi(
-    (s) => courseApi.list({ page, pageSize: 20, sportId }, s),
-    [page, sportId],
+    async (s) => {
+      const result = await courseApi.list({ page: 1, pageSize: 100, sportId }, s);
+      return pagedItems(result).filter((c) =>
+        isCourseOpenForRegistration(c, Date.now()),
+      );
+    },
+    [sportId],
   );
   const schedule = useApi(
     (s) =>
@@ -110,7 +121,6 @@ export function CoursePurchase({ memberId }: { memberId: string }) {
           value={sportId}
           onChange={(e) => {
             setSport(e.target.value);
-            setPage(1);
             setSelected(null);
           }}
         >
@@ -138,7 +148,7 @@ export function CoursePurchase({ memberId }: { memberId: string }) {
                 "",
               ]}
             >
-              {pagedItems(data).map((c) => (
+              {data.map((c) => (
                 <tr key={c.classId}>
                   <td>{c.name}</td>
                   <td>{c.coachName}</td>
@@ -157,11 +167,6 @@ export function CoursePurchase({ memberId }: { memberId: string }) {
                 </tr>
               ))}
             </Table>
-            <Pagination
-              page={page}
-              count={data.totalCount}
-              onChange={setPage}
-            />
           </>
         )}
       </AsyncSection>
@@ -335,7 +340,6 @@ export function GymVisits({ memberId }: { memberId: string }) {
   const { t } = useLanguage();
   const l = t.operations;
   const [page, setPage] = useState(1);
-  const mutation = useMutation();
   const packages = useApi(
     (s) =>
       api.get<MemberPackageDto[]>(`/api/members/${memberId}/packages`, {
@@ -355,87 +359,26 @@ export function GymVisits({ memberId }: { memberId: string }) {
     <>
       <AsyncSection state={packages}>
         {(rows) => (
-          <>
-            <Table headers={[l.gym, l.status, l.end]}>
-              {rows.map((p) => (
-                <tr key={p.memberPackageId}>
-                  <td>{p.packageName}</td>
-                  <td>
-                    <StatusChip value={p.status} />
-                  </td>
-                  <td>{formatDate(p.endDate)}</td>
-                </tr>
-              ))}
-            </Table>
-            <button
-              className="btn"
-              disabled={
-                mutation.busy ||
-                !rows.some((p) => p.status === "ACTIVE" && p.isUsable)
-              }
-              onClick={async () => {
-                if (
-                  await mutation.run(async () => {
-                    try {
-                      await api.post("/api/gym-checkins", {
-                        targetMemberId: memberId,
-                      });
-                    } catch (error) {
-                      if (
-                        error instanceof ApiError &&
-                        error.code === "gym_already_checked_in"
-                      ) {
-                        history.reload();
-                        throw new ApiError(
-                          error.status,
-                          error.code,
-                          l.gymAlreadyInside,
-                          error.details,
-                        );
-                      }
-                      throw error;
-                    }
-                  })
-                )
-                  history.reload();
-              }}
-            >
-              {l.checkIn}
-            </button>
-          </>
+          <Table headers={[l.gym, l.status, l.end]}>
+            {rows.map((p) => (
+              <tr key={p.memberPackageId}>
+                <td>{p.packageName}</td>
+                <td>
+                  <StatusChip value={p.status} />
+                </td>
+                <td>{formatDate(p.endDate)}</td>
+              </tr>
+            ))}
+          </Table>
         )}
       </AsyncSection>
-      <MutationFeedback mutation={mutation} />
       <AsyncSection state={history}>
         {(data) => (
           <>
-            <Table headers={[l.start, l.end, ""]}>
+            <Table headers={[l.start]}>
               {pagedItems(data).map((v) => (
                 <tr key={v.checkInId}>
                   <td>{formatDateTime(v.checkInTime)}</td>
-                  <td>
-                    {v.checkOutTime ? formatDateTime(v.checkOutTime) : l.inside}
-                  </td>
-                  <td>
-                    {!v.checkOutTime && (
-                      <button
-                        className="btn btn--secondary"
-                        disabled={mutation.busy}
-                        onClick={async () => {
-                          if (
-                            await mutation.run(() =>
-                              api.post(
-                                `/api/gym-checkins/${v.checkInId}/checkout`,
-                              ),
-                            )
-                          )
-                            history.reload();
-                        }}
-                      >
-                        {l.checkOut}
-                      </button>
-                    )}
-                  </td>
                 </tr>
               ))}
             </Table>

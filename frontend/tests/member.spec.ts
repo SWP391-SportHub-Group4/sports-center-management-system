@@ -53,148 +53,6 @@ test("Member experience: resumed day-pass checkout shows its terms before paymen
   await expect(page.getByRole("note")).toContainText("not refundable");
 });
 
-test("Member experience: waiting for a cohort submits the refund choice and can stop notifications", async ({
-  page,
-}) => {
-  const responseId = "c5555555-5555-4555-8555-555555555555";
-  let choice: string | null = null;
-  let active = true;
-  await page.route(
-    `**/api/class-threshold-responses/${responseId}`,
-    async (route) => {
-      if (route.request().method() === "POST")
-        choice = route.request().postDataJSON().choice;
-      await route.fulfill({
-        json: {
-          responseId,
-          classId: 1,
-          className: "Badminton course",
-          sportId: 3,
-          paidValueVnd: 100000,
-          deadlineUtc: new Date(Date.now() + 86400000).toISOString(),
-          choice,
-          targetClassId: null,
-          resolutionStatus: choice ? "COMPLETED" : "PENDING",
-          additionalInvoiceId: null,
-          serverNowUtc: new Date().toISOString(),
-        },
-      });
-    },
-  );
-  await page.route("**/api/members/me/course-interests**", async (route) => {
-    if (route.request().method() === "DELETE") {
-      active = false;
-      return route.fulfill({ status: 204 });
-    }
-    await route.fulfill({
-      json: [
-        {
-          interestId: responseId,
-          sourceClassName: "Badminton course",
-          sportName: "Badminton",
-          active,
-          refundedPoints: 100,
-          createdAtUtc: new Date().toISOString(),
-          notifications: [
-            {
-              classId: 1,
-              className: "Next Badminton class",
-              queuedAtUtc: new Date().toISOString(),
-            },
-          ],
-        },
-      ],
-    });
-  });
-  await page.goto(`/member/services?view=owned&responseId=${responseId}`);
-  await page.getByRole("radio", { name: /Wait for the next course/ }).check();
-  await page
-    .getByRole("button", { name: "Review response", exact: true })
-    .click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Confirm response", exact: true })
-    .click();
-  await expect(
-    page.getByRole("link", { name: "Manage course interests", exact: true }),
-  ).toBeVisible();
-  expect(choice).toBe("WAIT_NEXT_COURSE");
-  await page
-    .getByRole("link", { name: "Manage course interests", exact: true })
-    .click();
-  await expect(
-    page.getByText("Following next cohort", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("link", { name: "Next Badminton class", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Badminton course", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Following next cohort", { exact: true }),
-  ).toHaveCount(0);
-  await page.goBack();
-  await expect(
-    page.getByText("Following next cohort", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Stop notifications", exact: true })
-    .click();
-  await expect(
-    page.getByText("Notifications stopped", { exact: true }),
-  ).toBeVisible();
-});
-
-test("Course interests sits with service navigation and opens the tracked cohort", async ({
-  page,
-}) => {
-  await page.route("**/api/members/me/course-interests", (route) =>
-    route.fulfill({
-      json: [
-        {
-          interestId: "interest-1",
-          sourceClassName: "Badminton course",
-          sportName: "Badminton",
-          active: true,
-          refundedPoints: 100,
-          createdAtUtc: new Date().toISOString(),
-          notifications: [],
-        },
-      ],
-    }),
-  );
-  await page.goto("/member/services");
-  const interestsButton = page.getByRole("button", {
-    name: "Course interests",
-  });
-  await expect(interestsButton).toBeVisible();
-  await expect(interestsButton).toHaveAttribute("aria-pressed", "false");
-  const nav = await page
-    .getByRole("navigation", { name: "Services pages" })
-    .boundingBox();
-  const button = await interestsButton.boundingBox();
-  expect(nav).not.toBeNull();
-  expect(button).not.toBeNull();
-  expect(Math.abs(nav!.y - button!.y)).toBeLessThan(24);
-  expect(button!.x).toBeLessThan(nav!.x);
-  await page.getByRole("button", { name: "My services" }).click();
-  await expect(interestsButton).toBeVisible();
-  await interestsButton.click();
-  await expect(page).toHaveURL(/tab=interests/);
-  expect(new URL(page.url()).searchParams.get("view")).toBe("owned");
-  await expect(
-    page.getByRole("heading", { name: "Course interests" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Badminton course" }),
-  ).toBeVisible();
-  await expect(interestsButton).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Explore packages" }).click();
-  await expect(interestsButton).toBeVisible();
-  await expect(interestsButton).toHaveAttribute("aria-pressed", "false");
-});
-
 test("Member experience: successful payment downloads the authenticated invoice PDF", async ({
   page,
 }) => {
@@ -401,6 +259,12 @@ test("Gym purchase: expired plans hide ownership and the day pass can be bought 
 test("Gym purchase: unpaid and cancelled purchases do not count as paid history", async ({
   page,
 }) => {
+  const invoiceId = "55555555-5555-4555-8555-555555555555";
+  let checkoutPosts = 0;
+  await page.route("**/api/checkouts/membership", async (route) => {
+    checkoutPosts++;
+    await route.fulfill({ json: { invoiceId } });
+  });
   await page.route("**/api/members/me/packages", (route) =>
     route.fulfill({
       json: [
@@ -418,9 +282,12 @@ test("Gym purchase: unpaid and cancelled purchases do not count as paid history"
       .getByRole("button", { name: "Choose plan", exact: true }),
   ).toBeEnabled();
   await expect(
-    plans.getByRole("button", { name: "Awaiting payment", exact: true }),
-  ).toBeDisabled();
+    plans.getByRole("button", { name: "Continue payment", exact: true }),
+  ).toBeEnabled();
   await expect(plans.getByText(/^Purchased · Until/)).toHaveCount(0);
+  await plans.getByRole("button", { name: "Continue payment" }).click();
+  await expect(page).toHaveURL(new RegExp(`/checkout/${invoiceId}$`));
+  expect(checkoutPosts).toBe(1);
 });
 
 test("Gym purchase: day pass expires at Vietnam midnight while the page stays open", async ({
@@ -535,20 +402,6 @@ test.beforeEach(async ({ page }) => {
               isEnabled: true,
               defaultSessionMinutes: 90,
               defaultMaxCapacity: 12,
-            },
-          ],
-          isActive: true,
-        },
-        {
-          sportId: 2,
-          name: "PT",
-          code: "gym",
-          services: [
-            {
-              serviceType: "PERSONAL_TRAINING",
-              isEnabled: true,
-              defaultSessionMinutes: null,
-              defaultMaxCapacity: null,
             },
           ],
           isActive: true,

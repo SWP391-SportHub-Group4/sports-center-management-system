@@ -227,31 +227,21 @@ function AttentionList({
           y.checkoutExpiresAtUtc ?? "9",
         ) || x.issuedAt.localeCompare(y.issuedAt),
     );
-  const [due, ...rest] = owed;
-  if (due) {
+  for (const due of owed) {
     const holdActive =
       !!due.checkoutExpiresAtUtc &&
       new Date(due.checkoutExpiresAtUtc).getTime() > now;
-    const extra = rest.length
-      ? l.moreUnpaid
-          .replace("{n}", String(rest.length))
-          .replace(
-            "{amount}",
-            formatMoney(rest.reduce((sum, i) => sum + i.outstanding, 0)),
-          )
-      : null;
     items.push({
-      key: "invoice",
-      text: `${due.invoiceNumber} · ${formatMoney(due.outstanding)}`,
+      key: `invoice-${due.invoiceId}`,
+      text: `${due.invoiceNumber} · ${due.itemDescription || "Service"} · ${formatMoney(due.outstanding)}`,
       detail: [
         holdActive
           ? l.heldUntil.replace("{time}", formatTime(due.checkoutExpiresAtUtc))
           : l.issuedOn.replace("{date}", formatDate(due.issuedAt)),
-        extra,
       ]
         .filter(Boolean)
         .join(" · "),
-      href: `/member/finance?tab=invoices&invoice=${due.invoiceId}`,
+      href: `/checkout/${due.invoiceId}`,
       action: l.payNow,
     });
   }
@@ -384,7 +374,7 @@ export default function MemberDashboardPage() {
     (signal) =>
       api.get<Paged<InvoiceSummaryDto>>("/api/members/me/invoices", {
         signal,
-        query: { page: 1, pageSize: 5, status: "ISSUED" },
+        query: { page: 1, pageSize: 100, status: "ISSUED" },
       }),
     [],
   );
@@ -482,21 +472,6 @@ export default function MemberDashboardPage() {
                 const todayGym = pagedItems(gymVisit.data).filter(
                   (visit) => vietnamDate(visit.checkInTime) === date,
                 );
-                const todayEntries: (
-                  | { kind: "session"; at: string; session: MemberEvent }
-                  | { kind: "gym"; at: string; visit: GymCheckInDto }
-                )[] = [
-                  ...todayRows.map((session) => ({
-                    kind: "session" as const,
-                    at: session.startAtUtc,
-                    session,
-                  })),
-                  ...todayGym.map((visit) => ({
-                    kind: "gym" as const,
-                    at: visit.checkInTime,
-                    visit,
-                  })),
-                ].sort((a, b) => a.at.localeCompare(b.at));
                 const upcoming = rows.filter(
                   (s) =>
                     new Date(s.startAtUtc).getTime() > now &&
@@ -508,52 +483,6 @@ export default function MemberDashboardPage() {
                 const countdown = next ? startsInLabel(next, now, l) : null;
                 return (
                   <>
-                    <div className={styles.todayAgenda}>
-                      <h3>{l.todayTitle}</h3>
-                      {todayEntries.length ? (
-                        <ul>
-                          {todayEntries.map((entry) =>
-                            entry.kind === "session" ? (
-                              <li key={entry.session.id}>
-                                <Link href={sessionHref(entry.session)}>
-                                  <strong>
-                                    {formatTime(entry.session.startAtUtc)}–
-                                    {formatTime(entry.session.endAtUtc)}
-                                  </strong>
-                                  <span>{entry.session.title}</span>
-                                  <KindTag session={entry.session} />
-                                  {entry.session.roomName && (
-                                    <small>{entry.session.roomName}</small>
-                                  )}
-                                  <CheckInTag
-                                    session={entry.session}
-                                    now={now}
-                                  />
-                                  <ExceptionChip value={entry.session.status} />
-                                </Link>
-                              </li>
-                            ) : (
-                              <li key={`gym:${entry.visit.checkInId}`}>
-                                <Link href="/member/services?section=gym&view=owned">
-                                  <strong>
-                                    {formatTime(entry.visit.checkInTime)}
-                                  </strong>
-                                  <span>{l.gymWalkIn}</span>
-                                  <span
-                                    className={styles.checkInTag}
-                                    data-state="present"
-                                  >
-                                    {l.checkinPresent}
-                                  </span>
-                                </Link>
-                              </li>
-                            ),
-                          )}
-                        </ul>
-                      ) : (
-                        <p>{l.todayEmpty}</p>
-                      )}
-                    </div>
                     {next ? (
                       <>
                         <h3 className={styles.nextHeading}>
@@ -638,7 +567,7 @@ export default function MemberDashboardPage() {
                           </div>
                         )}
                       </>
-                    ) : !todayEntries.length ? (
+                    ) : !todayRows.length ? (
                       <div
                         className={styles.emptySchedule}
                         data-surface="inverse"
@@ -662,6 +591,51 @@ export default function MemberDashboardPage() {
                         </div>
                       </div>
                     ) : null}
+                    {todayRows.length > 0 && (
+                      <div className={styles.todayAgenda}>
+                        <h3>{l.todayTitle}</h3>
+                        <ul>
+                          {todayRows.map((session) => (
+                            <li key={session.id}>
+                              <Link href={sessionHref(session)}>
+                                <strong>
+                                  {formatTime(session.startAtUtc)}–
+                                  {formatTime(session.endAtUtc)}
+                                </strong>
+                                <span>{session.title}</span>
+                                <KindTag session={session} />
+                                {session.roomName && (
+                                  <small>{session.roomName}</small>
+                                )}
+                                <CheckInTag session={session} now={now} />
+                                <ExceptionChip value={session.status} />
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {todayGym.length > 0 && (
+                      <div className={styles.todayAgenda}>
+                        <h3>{l.gymWalkIn}</h3>
+                        <ul>
+                          {todayGym.map((visit) => (
+                            <li key={visit.checkInId}>
+                              <Link href="/member/services?section=gym&view=owned">
+                                <strong>{formatTime(visit.checkInTime)}</strong>
+                                <span>{l.gymWalkIn}</span>
+                                <span
+                                  className={styles.checkInTag}
+                                  data-state="present"
+                                >
+                                  {l.checkinPresent}
+                                </span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </>
                 );
               }}
@@ -715,19 +689,6 @@ export default function MemberDashboardPage() {
                               ),
                             )}`}
                         </p>
-                        {(() => {
-                          const open = pagedItems(gymVisit.data).find(
-                            (v) => !v.checkOutTime,
-                          );
-                          return open ? (
-                            <p className={styles.statusLine} role="status">
-                              {l.insideGym.replace(
-                                "{time}",
-                                formatTime(open.checkInTime),
-                              )}
-                            </p>
-                          ) : null;
-                        })()}
                       </>
                     ) : (
                       <>

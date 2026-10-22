@@ -11,13 +11,12 @@ using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Security.Tests.Integration;
 
-/// <summary>BR-96 — chuyên môn theo môn thay CoachCategory: Manager quản lý Coach, guard PT dựa trên qualification dịch vụ PT của Gym.</summary>
+/// <summary>BR-96 — chuyên môn theo môn: Manager quản lý Coach lớp nhóm.</summary>
 [Collection(nameof(SportHubApiCollection))]
 public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
 {
     private const string Password = "Coach-Strong-Pass-1!";
     private const int GymSportId = 1;             // Gym: chỉ có Membership, không có Coach
-    private const int PersonalTrainingOfferingId = 2;
     private const int BadmintonSportId = 3;        // GroupCourse
     private const int BasketballSportId = 4;       // GroupCourse
 
@@ -115,6 +114,39 @@ public class CoachSpecialtyAuthorizationTests(SportHubApiFactory factory)
         var member = await factory.SeedUserAsync(NewEmail(), Password);
         Assert.Equal(HttpStatusCode.NotFound,
             (await manager.PutAsJsonAsync($"api/manager/coaches/{member.UserId}", new { sportIds = new[] { BadmintonSportId } })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Administrator_can_save_existing_coach_specialties_without_changing_role_or_sessions()
+    {
+        var admin = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.SystemAdministrator);
+        var coachId = await CreateCoachAsync(BadmintonSportId);
+        var client = Client(admin.UserId, UserRole.SystemAdministrator);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        var stamp = await db.UserAccounts.Where(u => u.UserId == coachId).Select(u => u.SecurityStamp).SingleAsync();
+
+        var response = await client.PutAsJsonAsync($"api/users/{coachId}/role", new
+        {
+            role = "COACH", reason = "Qualified for both sports", sportIds = new[] { BadmintonSportId, BasketballSportId }
+        });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(new[] { BadmintonSportId, BasketballSportId },
+            (await Json(response)).GetProperty("sportIds").EnumerateArray().Select(e => e.GetInt32()).OrderBy(x => x).ToArray());
+        Assert.Equal(stamp, await db.UserAccounts.Where(u => u.UserId == coachId).Select(u => u.SecurityStamp).SingleAsync());
+        var audit = await db.AuditLogs.SingleAsync(a => a.TargetId == coachId.ToString() && a.Action == "UPDATE_COACH_SPECIALTIES");
+        Assert.Equal("Qualified for both sports", JsonDocument.Parse(audit.NewValue!).RootElement.GetProperty("reason").GetString());
+
+        // Empty and non-coachable specialties must be rejected even when the role stays the same.
+        foreach (var ids in new[] { Array.Empty<int>(), new[] { GymSportId } })
+        {
+            var invalid = await client.PutAsJsonAsync($"api/users/{coachId}/role", new
+            {
+                role = "COACH", reason = "Invalid specialty change", sportIds = ids
+            });
+            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        }
+        Assert.Equal(2, await db.UserSportSpecialties.CountAsync(s => s.UserId == coachId));
     }
 
     [Fact]

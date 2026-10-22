@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { isCourseOpenForRegistration } from "@/features/courses";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import {
@@ -9,6 +10,8 @@ import {
   membershipPurchaseState,
   useMembershipDay,
 } from "@/features/membership";
+import { Dialog } from "@/components/ui";
+import { CheckoutPanel, type PurchaseIntent } from "@/features/payments";
 import { api } from "@/lib/apiClient";
 import { addDaysIso, formatDate, formatMoney } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
@@ -16,12 +19,14 @@ import { hasService } from "@/lib/sports";
 import { useApi } from "@/lib/useApi";
 import type {
   CourseDto,
+  CourseEnrollmentDto,
   CourtRateDto,
   MemberPackageDto,
   MembershipPackageDto,
   Paged,
   RoomTypeDto,
   SportDto,
+  UserAdminDto,
 } from "@/lib/types";
 import {
   emblemForSport,
@@ -47,29 +52,65 @@ function normalize(value: string) {
     .toLowerCase();
 }
 
+/** Lễ tân bán thay Member: cùng giao diện Explore nhưng đọc dữ liệu của Member đó và thanh toán ngay tại quầy. */
+type StaffSale = { title: string; intent: PurchaseIntent; price: number };
+
 export function ExplorePackages({
   filter,
   onFilter,
   sportId,
+  staffMember,
+  initialPlanId = null,
+  onBookCourt,
 }: {
   filter: FilterValue;
   onFilter: (next: FilterValue) => void;
   sportId: number | null;
+  /** Có giá trị = chế độ quầy: bán thay Member này. */
+  staffMember?: UserAdminDto;
+  initialPlanId?: number | null;
+  onBookCourt?: (sportId: number) => void;
 }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const [query, setQuery] = useState("");
   const checkout = useStartCheckout();
+  const staffMemberId = staffMember?.userId;
+  const [staffSale, setStaffSale] = useState<StaffSale | null>(null);
+  const staffEnrollments = useApi(
+    async (signal) => {
+      if (!staffMemberId) return [];
+      const rows: CourseEnrollmentDto[] = [];
+      for (let page = 1; ; page++) {
+        const result = await api.get<Paged<CourseEnrollmentDto>>(
+          `/api/members/${staffMemberId}/enrollments`,
+          { signal, query: { page, pageSize: 50 } },
+        );
+        rows.push(...result.items);
+        if (!result.items.length || rows.length >= result.totalCount)
+          return rows;
+      }
+    },
+    [staffMemberId],
+  );
+  const enrolledClassIds = new Set(
+    (staffEnrollments.data ?? [])
+      .filter((row) => row.status === "CONFIRMED")
+      .map((row) => row.classId),
+  );
 
   const owned = useApi(
     async (signal) =>
       (
-        await api.get<MemberPackageDto[]>("/api/members/me/packages", {
-          signal,
-        })
+        await api.get<MemberPackageDto[]>(
+          staffMemberId
+            ? `/api/members/${staffMemberId}/packages`
+            : "/api/members/me/packages",
+          { signal },
+        )
       ).filter((row) => !isRetiredActivityPackage(row.packageName)),
-    [],
+    [staffMemberId],
   );
   const today = useMembershipDay(owned.reload);
   const catalog = useApi(
@@ -87,7 +128,7 @@ export function ExplorePackages({
           anonymous: true,
           signal,
         })
-      ).items,
+      ).items.filter((c) => isCourseOpenForRegistration(c, Date.now())),
     [],
   );
   const sports = useApi(
@@ -104,6 +145,30 @@ export function ExplorePackages({
       api.get<RoomTypeDto[]>("/api/room-types", { signal }).catch(() => []),
     [],
   );
+  // Từ hồ sơ hội viên bấm "gia hạn" -> mở sẵn hộp thanh toán của gói đó (một lần).
+  const [planOpened, setPlanOpened] = useState(false);
+  useEffect(() => {
+    if (!staffMember || !initialPlanId || planOpened || !catalog.data) return;
+    const plan = catalog.data.find(
+      (p) => p.packageId === initialPlanId && p.isActive,
+    );
+    if (!plan) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setPlanOpened(true);
+    setStaffSale({
+      title: plan.name,
+      price: plan.price,
+      intent: {
+        kind: "membership",
+        body: {
+          packageId: plan.packageId,
+          targetMemberId: staffMember.userId,
+          allowStacking: false,
+        },
+      },
+    });
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [staffMember, initialPlanId, planOpened, catalog.data]);
   const needle = normalize(query.trim());
   const match = (...parts: (string | null | undefined)[]) =>
     !needle || normalize(parts.filter(Boolean).join(" ")).includes(needle);
@@ -115,11 +180,7 @@ export function ExplorePackages({
     gymPlans.find((p) => p.durationDays >= 28 && p.durationDays <= 31)?.price ??
     null;
   const classRows = (courses.data ?? []).filter(
-    (c) =>
-      c.status === "PUBLISHED" &&
-      c.enrollmentOpen &&
-      c.availableSeats > 0 &&
-      (!sportId || c.sportId === sportId),
+    (c) => !sportId || c.sportId === sportId,
   );
   const courtSports = (sports.data ?? []).filter(
     (s) => s.isActive && hasService(s, "COURT_RENTAL"),
@@ -247,10 +308,26 @@ export function ExplorePackages({
                     }
                     index={order++}
                     onChoose={() =>
-                      checkout.start(`gym:${p.packageId}`, {
-                        kind: "membership",
-                        body: { packageId: p.packageId, allowStacking: false },
-                      })
+                      staffMember
+                        ? setStaffSale({
+                            title: p.name,
+                            price: p.price,
+                            intent: {
+                              kind: "membership",
+                              body: {
+                                packageId: p.packageId,
+                                targetMemberId: staffMember.userId,
+                                allowStacking: false,
+                              },
+                            },
+                          })
+                        : checkout.start(`gym:${p.packageId}`, {
+                            kind: "membership",
+                            body: {
+                              packageId: p.packageId,
+                              allowStacking: false,
+                            },
+                          })
                     }
                   />
                 ))}
@@ -285,6 +362,17 @@ export function ExplorePackages({
                   <ClassRow
                     key={c.classId}
                     course={c}
+                    unavailableReason={
+                      staffMember
+                        ? enrolledClassIds.has(c.classId)
+                          ? tx("Đã đăng ký", "Already enrolled")
+                          : staffEnrollments.error
+                            ? tx("Không thể kiểm tra ghi danh", "Cannot check enrollment")
+                            : !staffEnrollments.data
+                              ? tx("Đang kiểm tra ghi danh", "Checking enrollment")
+                              : null
+                        : null
+                    }
                     busy={checkout.busyId === `class:${c.classId}`}
                     error={
                       checkout.error?.id === `class:${c.classId}`
@@ -293,10 +381,26 @@ export function ExplorePackages({
                     }
                     index={order++}
                     onChoose={() =>
-                      checkout.start(`class:${c.classId}`, {
-                        kind: "class",
-                        body: { classId: c.classId },
-                      })
+                      staffMember &&
+                      (enrolledClassIds.has(c.classId) ||
+                        !staffEnrollments.data)
+                        ? undefined
+                        : staffMember
+                          ? setStaffSale({
+                              title: c.name,
+                              price: c.price,
+                              intent: {
+                                kind: "class",
+                                body: {
+                                  classId: c.classId,
+                                  targetMemberId: staffMember.userId,
+                                },
+                              },
+                            })
+                          : checkout.start(`class:${c.classId}`, {
+                              kind: "class",
+                              body: { classId: c.classId },
+                            })
                     }
                   />
                 ))}
@@ -319,10 +423,52 @@ export function ExplorePackages({
                 rates={rates.data ?? []}
                 roomTypes={roomTypes.data ?? []}
                 index={order++}
+                onBook={onBookCourt}
               />
             ))}
           </div>
         </Section>
+      )}
+      {staffMember && staffSale && (
+        <Dialog
+          title={`${staffSale.title} · ${staffMember.fullName || staffMember.email}`}
+          size="lg"
+          className={styles.counterDialog}
+          onClose={() => setStaffSale(null)}
+        >
+          <CheckoutPanel
+            key={staffSale.title}
+            memberId={staffMember.userId}
+            review={{
+              title:
+                staffSale.intent.kind === "membership"
+                  ? t.operations.purchaseReview
+                  : tx(
+                      "Kiểm tra trước khi thanh toán",
+                      "Review before payment",
+                    ),
+              submitLabel: t.operations.createInvoice,
+              items: [
+                {
+                  label: t.operations.member,
+                  value: staffMember.fullName || staffMember.email,
+                },
+                { label: t.operations.email, value: staffMember.email },
+                { label: t.operations.name, value: staffSale.title },
+                {
+                  label: t.operations.price,
+                  value: formatMoney(staffSale.price),
+                },
+              ],
+            }}
+            intent={staffSale.intent}
+            onChange={() => {
+              owned.reload();
+              courses.reload();
+              staffEnrollments.reload();
+            }}
+          />
+        </Dialog>
       )}
     </div>
   );
@@ -455,28 +601,24 @@ function GymTier({
           </>
         )}
       </p>
-      {pending ? (
-        <button type="button" className={styles.cta} disabled>
-          {tx("Đang chờ thanh toán", "Awaiting payment")}
-        </button>
-      ) : (
-        <button
-          type="button"
-          className={styles.cta}
-          disabled={busy || ownershipLoading || dayPassOwned}
-          onClick={onChoose}
-        >
-          {ownershipLoading
-            ? tx("Đang tải…", "Loading…")
-            : dayPassOwned
-              ? tx("Đã mua", "Purchased")
-              : busy
-                ? tx("Đang chuyển…", "Redirecting…")
+      <button
+        type="button"
+        className={styles.cta}
+        disabled={busy || ownershipLoading || dayPassOwned}
+        onClick={onChoose}
+      >
+        {ownershipLoading
+          ? tx("Đang tải…", "Loading…")
+          : dayPassOwned
+            ? tx("Đã mua", "Purchased")
+            : busy
+              ? tx("Đang chuyển…", "Redirecting…")
+              : pending
+                ? tx("Tiếp tục thanh toán", "Continue payment")
                 : previouslyPurchased
                   ? tx("Gia hạn gói", "Renew plan")
                   : tx("Chọn gói", "Choose plan")}
-        </button>
-      )}
+      </button>
       {error && (
         <p className={styles.error} role="alert">
           {error}
@@ -488,12 +630,14 @@ function GymTier({
 
 function ClassRow({
   course,
+  unavailableReason,
   busy,
   error,
   index,
   onChoose,
 }: {
   course: CourseDto;
+  unavailableReason: string | null;
   busy: boolean;
   error: string | null;
   index: number;
@@ -504,10 +648,19 @@ function ClassRow({
   const tx = (v: string, e: string) => (vi ? v : e);
   const days = WEEKDAY[vi ? "vi" : "en"];
   const slots = course.scheduleRules.map(
-    (r) => `${days[r.dayOfWeek] ?? ""} ${r.startTimeLocal.slice(0, 5)}`,
+    (r) =>
+      `${days[r.dayOfWeek] ?? ""} ${r.startTimeLocal.slice(0, 5)}${
+        r.endTimeLocal ? `–${r.endTimeLocal.slice(0, 5)}` : ""
+      }`,
   );
   const sport = sportLabel(course.sportName, vi);
   const low = course.availableSeats <= 3;
+  const progressPct = Math.min(
+    100,
+    Math.round(
+      ((course.sessionsPassed ?? 0) / (course.numSessions || 1)) * 100,
+    ),
+  );
   return (
     <li
       className={styles.row}
@@ -528,6 +681,33 @@ function ClassRow({
           {" · "}
           {tx("khai giảng", "starts")} {formatDate(course.startDate)}
         </p>
+        {course.sessionsPassed ? (
+          <div className={styles.progress} data-testid="course-progress">
+            <div className={styles.progressHead}>
+              <span>
+                {tx("Đã học", "Held")}{" "}
+                <strong>
+                  {course.sessionsPassed}/{course.numSessions}
+                </strong>{" "}
+                {tx("buổi", "sessions")}
+              </span>
+              <strong>{progressPct}%</strong>
+            </div>
+            <div
+              className={styles.progressTrack}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progressPct}
+              aria-label={tx("Tiến độ khóa học", "Course progress")}
+            >
+              <div
+                className={styles.progressFill}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         {course.coachName && (
           <p className={styles.coachLine}>
             <span>
@@ -560,10 +740,13 @@ function ClassRow({
         <button
           type="button"
           className={styles.cta}
-          disabled={busy}
+          disabled={busy || !!unavailableReason}
           onClick={onChoose}
         >
-          {busy ? tx("Đang chuyển…", "Redirecting…") : tx("Chọn gói", "Select")}
+          {unavailableReason ||
+            (busy
+              ? tx("Đang chuyển…", "Redirecting…")
+              : tx("Chọn gói", "Select"))}
         </button>
       </div>
       {error && (
@@ -580,11 +763,13 @@ function CourtOffer({
   rates,
   roomTypes,
   index,
+  onBook,
 }: {
   sport: SportDto;
   rates: CourtRateDto[];
   roomTypes: RoomTypeDto[];
   index: number;
+  onBook?: (sportId: number) => void;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -638,12 +823,22 @@ function CourtOffer({
             )
           : tx("Đặt 1–4 giờ mỗi lần", "Book 1–4 hours at a time")}
       </p>
-      <Link
-        className={styles.cta}
-        href={`/member/services?section=courts&view=explore&sport=${sport.sportId}`}
-      >
-        {tx("Chọn gói", "Select")}
-      </Link>
+      {onBook ? (
+        <button
+          type="button"
+          className={styles.cta}
+          onClick={() => onBook(sport.sportId)}
+        >
+          {tx("Chọn gói", "Select")}
+        </button>
+      ) : (
+        <Link
+          className={styles.cta}
+          href={`/member/services?section=courts&view=explore&sport=${sport.sportId}`}
+        >
+          {tx("Chọn gói", "Select")}
+        </Link>
+      )}
     </article>
   );
 }

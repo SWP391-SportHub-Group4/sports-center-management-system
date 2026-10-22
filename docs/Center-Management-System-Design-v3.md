@@ -1,5 +1,9 @@
 # SportHub — Thiết kế hệ thống quản lý trung tâm thể thao
 
+## Manager workspace — 20 October 2026
+
+Luồng Manager đã chốt được mô tả tại [Manager workspace](Manager-Workspace.md): Overview giữ nguyên; Services, Schedule, Support & Communication, People, Transaction & Report và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Manager chọn Sport khi tạo sân; các khóa Room Type cũ được giữ nội bộ để bảo toàn lịch sử và bảng giá. Ví điểm chỉ xem; không còn cộng/trừ thủ công. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
+
 ## Activation and audit policy update — 14 October 2026
 
 The product owner confirmed the [staff activation and audit policy](api-contract.md#staff-activation-and-audit-policy-update--14-october-2026). It replaces account-only Administrator audit scope in this design. Each staff token expires at `CreatedAt + 24 hours`, including resends/corrections. `AuditLog.ActorRole` is an event-time snapshot; Admin sees Manager/Admin/Coach/System, Manager sees Manager/Receptionist/Coach/Member. Migration `AuditActorRoleSnapshot` preserves historical event payloads while reconstructing role metadata. Other role permissions remain independent of audit-read access.
@@ -17,7 +21,7 @@ Tài liệu này mô tả độc lập phạm vi, kiến trúc, dữ liệu, lu�
 
 | Môn | Dịch vụ | Đơn vị mua | Quyền lợi |
 |---|---|---|---|
-| Gym | Tập tự do | Membership có thời hạn hoặc vé Gym 1 ngày | Check-in/out tại quầy khi gói có hiệu lực |
+| Gym | Tập tự do | Membership có thời hạn hoặc vé Gym 1 ngày | Check-in tại quầy khi gói có hiệu lực; cooldown 10 giây mỗi Member |
 | Cầu lông | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
 | Bóng rổ | Khóa học; thuê sân | Gói cả khóa hoặc lượt thuê | Ghi danh nhiều buổi; Member được thuê sân khung trống |
 
@@ -33,7 +37,7 @@ Môn, chuyên môn Coach, loại phòng/sân, giờ mở cửa và giá là dữ
 
 Trong phạm vi: tài khoản, Membership Gym, vé Gym 1 ngày, môn/sân, khóa học, lịch, điểm danh, thuê sân, payment/ví điểm, hoàn điểm, thông báo, báo cáo và AI hỗ trợ.
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. “Chờ đợt sau” là hoàn điểm và lưu nguyện vọng nhận thông báo, không phải giữ chỗ tương lai.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. Không có tính năng “chờ đợt sau”/nguyện vọng khóa sau.
 
 ## 2. Vai trò và quyền hạn
 
@@ -41,7 +45,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngo
 |---|---|---|
 | Guest | Xem thông tin trung tâm, môn, khóa/gói công khai; đăng ký | Không phải role tài khoản; không đọc roster, ví hoặc lịch cá nhân |
 | Member | Mua dịch vụ; thuê/hủy sân còn trống; xem lịch, quyền lợi, hóa đơn, ví; yêu cầu hỗ trợ | Chỉ dữ liệu của mình; không tự xác nhận payment |
-| Receptionist | Tiếp đón, Gym check-in/out, điểm danh lớp, checkout hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
+| Receptionist | Tiếp đón, Gym check-in, điểm danh lớp, checkout thanh toán hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
 | Coach | Xem lịch được giao; lập giáo án, ghi kết quả và nhận xét cho lớp/học viên được phân công | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
 | CenterManager | Môn/sân, hồ sơ/chuyên môn của Coach (không tạo Coach), lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
 | SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach), đổi role giữa các role staff, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
@@ -136,7 +140,7 @@ Chi tiết tại [Phụ lục A — Từ điển dữ liệu](#phụ-lục-a--t�
 
 **Ngôn ngữ giao diện:** các trang xác thực (`/login`, `/register`, `/forgot-password`, `/reset-password`) luôn tiếng Anh, không đọc ngôn ngữ đã lưu và không có nút đổi ngôn ngữ; phần còn lại giữ EN/VI.
 
-Chọn Membership → snapshot và checkout → payment xác minh → kích hoạt gói. Receptionist check-in/out dựa trên hiệu lực gói. Không dùng SessionLimit/RemainingSessions legacy để giới hạn vào Gym. Gia hạn giữ snapshot quyền lợi, xử lý gói nối tiếp theo Business Rules.
+Chọn Membership → snapshot và checkout thanh toán → payment xác minh → kích hoạt gói. Receptionist check-in dựa trên hiệu lực gói; mỗi Member cách lần check-in trước ít nhất 10 giây. Không dùng SessionLimit/RemainingSessions legacy để giới hạn vào Gym. Gia hạn giữ snapshot quyền lợi, xử lý gói nối tiếp theo Business Rules.
 
 ### 5.2 Vé Gym 1 ngày
 
@@ -174,7 +178,7 @@ Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và �
 
 Chuyển lớp kiểm tra chỗ, điều kiện lớp đích và chuỗi giá trị đã trả. Chênh lệch dương qua checkout riêng, chỉ chuyển sau fulfillment. Không cấp quyền lợi lớp đích mà bỏ quên kết thúc lớp nguồn.
 
-“Chờ đợt sau” (G02, đã có mã): hoàn 100% điểm ngay + lưu nguyện vọng nhận thông báo khóa phù hợp theo môn; không giữ tiền/chỗ hoặc tự ghi danh. Còn nghiệm thu trên staging (mục 13.2).
+Khi lớp dưới ngưỡng bị hủy lúc hết hạn phản hồi, Member còn ghi danh được hoàn 100% giá trị còn đủ điều kiện bằng điểm và nhận một thông báo (chuông + email) kèm số điểm hoàn và tối đa 3 khóa tương đương tại thời điểm đó (cùng môn, Published, đang mở đăng ký, còn chỗ, chưa bắt đầu, Member chưa ghi danh). Gợi ý chỉ là ảnh chụp lúc hủy: không lưu nguyện vọng, không gửi lại khi có lớp mới, không giữ chỗ hoặc tự ghi danh.
 
 ### 5.5 Thuê sân
 
@@ -234,7 +238,7 @@ Cần nghiệm thu gateway sandbox, callback public, QR/payment-page journey, re
 
 | Đối tượng | Vòng đời |
 |---|---|
-| Class | Draft → Published → InProgress → Completed; Cancelled theo điều kiện |
+| Class | Draft → Published → InProgress → Completed; Cancelled theo điều kiện. Published và InProgress đều nhận ghi danh khi còn chỗ (ghi danh giữa chừng, giá trọn khóa, còn ≥ 1 buổi sắp tới) |
 | Enrollment | Confirmed; kết thúc TransferredOut, Refunded hoặc CancelledByCenter |
 | PaymentAttempt | Pending, Expired, Succeeded, Failed, ReconciliationRequired; event muộn qua đối soát |
 | Invoice | Issued, Paid, Void, PaidAfterReconciliation; expiry thuộc checkout/attempt |
@@ -328,7 +332,7 @@ G01–G13 có evidence và acceptance chi tiết. Endpoint đề xuất chưa ph
 | CAT-01 | Môn nhiều dịch vụ | Đã có schema, migration, API và UI. Còn nghiệm thu nâng cấp dữ liệu cũ và thanh toán VNPay sandbox trên staging. |
 | CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-141 | Ứng dụng chính có `Br141Seeder` và lệnh `--seed-br141=true` cho Development/local DB, không seed lúc startup; tạo 4 lớp × 12 buổi, 120 phút, mở tuyển sinh và giữ occupancy sân/HLV. Giữ dữ liệu hiện có khi chạy lại. `Br141SeederTests` chạy entry point thật với PostgreSQL test, kiểm tra lịch/occupancy, API danh sách lớp, chặn thuê trùng và bảo toàn dữ liệu khi retry. Còn nghiệm thu giao diện trên bản deploy. |
 | G01 | Public sân, availability/giá, Coach profile đầy đủ | DTO public an toàn, giá/availability tính server |
-| G02 | Chờ đợt sau + subscription | Đã có mã: hoàn 100% giá trị còn đủ điều kiện bằng điểm trong cùng transaction, lưu interest theo lớp nguồn/môn và hủy nhận tin. Chỉ gửi tin cho lớp kế tiếp liên kết bằng continuationOfClassId, cùng môn, Published, đang mở đăng ký, còn chỗ và buổi đầu trong tương lai; không gửi cho mọi lớp cùng môn. UI dùng API thật. Kết quả PostgreSQL `ThresholdTransferTests` 6/6 là bằng chứng đã ghi trước đây, không chạy lại trong đợt cập nhật tài liệu này; còn nghiệm thu staging. |
+| G02 | Gợi ý khóa tương đương khi lớp bị hủy | Đã có mã: tác vụ expiry hoàn 100% điểm, gửi thông báo chuông/email có số điểm và tối đa 3 khóa cùng môn đang mở, còn chỗ, chưa bắt đầu tại thời điểm hủy; không lưu gì thêm. Còn nghiệm thu staging. |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
 | G04 | Mã QR check-in do server cấp | Đã có mã: Member lấy mã do server ký, hết hạn cuối ngày giờ Việt Nam; lễ tân/Manager đổi mã ra Member qua server (sai chữ ký 400, hết hạn 409). Test backend đã viết; còn thử camera/quầy trên thiết bị thật. QR không phải chứng cứ payment/check-in. |
 | G06 | Incident history/detail, preview bồi hoàn/người nhận, fence xử lý | **Đã làm:** history/detail, preview theo từng hội viên + điểm dự kiến (server). **Fence + recovery đã làm:** giữ khung giờ chặn booking mới, danh sách “sự cố đang xử lý” với số việc còn lại, làm tiếp / giữ lại / nhả, tự hết hạn. **Bỏ sự cố + hoàn tác đã làm:** thay đổi lịch (dời buổi, hủy kèm buổi bù) làm khi đang giữ khung giờ được ghi vào `incident_fence_steps`; “Abandon and undo” nhả khung giờ rồi trả từng buổi về chỗ cũ nếu buổi chưa bị đổi tiếp và chỗ cũ còn trống, phần còn lại được liệt kê chứ không ép. **Còn thiếu:** hoàn tác việc gỡ room block; thay đổi làm ngoài khung giờ đang giữ không được ghi; không giả toàn luồng atomic |
@@ -785,7 +789,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 `PendingPayment` và `Confirmed` giữ dòng `ROOM_OCCUPANCIES`; `Expired`/hủy vô hiệu hóa chúng.
 
 #### `GYM_CHECKINS`
-**Mục đích:** ghi nhận Member ra vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-64. **Giữ nguyên ở v3** (Gym là môn `WalkIn` trong `SPORTS`; đảm bảo có `CheckOutTime`).
+**Mục đích:** ghi nhận thời điểm Member vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-64. Không theo dõi thời điểm rời Gym.
 
 | Field | Vai trò |
 |---|---|
@@ -793,9 +797,8 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 | `MemberId` (FK) | Ai check-in |
 | `CheckedInByUserId` (FK, not null) | Lễ tân nào thực hiện — luôn có giá trị, không phải self-service |
 | `CheckInTime` | Mốc check-in (UTC) |
-| `CheckOutTime` | Mốc check-out theo BR-64 |
 
-Điều kiện tạo (BR-64): Member phải có Membership `Active`; Gym không giới hạn trong Membership validity và không trừ quota/session.
+Điều kiện tạo (BR-64): Member phải có Membership `Active`; Gym không giới hạn số lượt trong thời hạn Membership và không trừ quota/session. Hai lượt của cùng Member cách nhau ít nhất 10 giây.
 
 ---
 

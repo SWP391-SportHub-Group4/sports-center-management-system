@@ -31,7 +31,6 @@ import { MemberPicker } from "@/components/MemberPicker";
 import { reportsApi, type ReportFilters } from "./api";
 import { RevenueSummary } from "./revenue-summary";
 import { PointsReport } from "./points-report";
-import { ReconciliationPanel } from "./reconciliation-panel";
 import { ClassEnrollmentReport } from "./class-enrollment-report";
 import { CourtRentalReport } from "./court-rental-report";
 import { ReportExportPanel, ReportTypeSelect } from "./report-export-panel";
@@ -387,9 +386,6 @@ function CenterWideRevenue({ filters: f }: { filters: ReportFilters }) {
       <AsyncSection state={summary}>
         {(report) => <PointsReport report={report} />}
       </AsyncSection>
-      <div className={styles.reconciliation}>
-        <ReconciliationPanel key={`${f.fromDate}-${f.toDate}`} filters={f} />
-      </div>
     </>
   );
 }
@@ -403,7 +399,7 @@ function RevenueTab({ filters: f }: { filters: ReportFilters }) {
         <p className={styles.scopeNotice} role="status">
           Showing collections for the selected filters. Clear sport, source and
           member filters to also see center-wide daily cash flow, the points
-          ledger and reconciliation.
+          ledger.
         </p>
       )}
       <AsyncSection state={dimensions}>

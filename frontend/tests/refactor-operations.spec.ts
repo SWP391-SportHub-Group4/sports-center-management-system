@@ -604,14 +604,13 @@ for (const language of ["en", "vi"] as const)
   });
 
 for (const language of ["en", "vi"] as const)
-  test(`Gym duplicate check-in reports the open visit in ${language} and allows re-entry after checkout`, async ({
+  test(`Gym check-in disables for 10 seconds in ${language}`, async ({
     page,
   }) => {
     await session(page, "RECEPTIONIST", language);
     const visits: {
       checkInId: string;
       checkInTime: string;
-      checkOutTime: string | null;
     }[] = [];
     let posts = 0;
     await page.route("**/api/users?**", (r) =>
@@ -648,57 +647,35 @@ for (const language of ["en", "vi"] as const)
     await page.route("**/api/gym-checkins", (r) => {
       expect(r.request().postDataJSON()).toEqual({ targetMemberId: memberId });
       posts++;
-      if (visits.some((v) => !v.checkOutTime))
-        return r.fulfill({
-          status: 409,
-          json: {
-            error: "gym_already_checked_in",
-            message:
-              "Member đã được ghi nhận vào Gym, vui lòng ghi nhận ra trước.",
-          },
-        });
       const visit = {
         checkInId: posts === 1 ? sessionId : rentalId,
         checkInTime: new Date().toISOString(),
-        checkOutTime: null,
       };
       visits.unshift(visit);
       return r.fulfill({ status: 201, json: visit });
     });
-    await page.route(`**/api/gym-checkins/${sessionId}/checkout`, (r) => {
-      visits[0].checkOutTime = new Date().toISOString();
-      return r.fulfill({ json: visits[0] });
-    });
     await page.goto("/receptionist/gym-checkin");
     await page.getByPlaceholder(/Enter name|Nhập tên/).fill("Alice");
     await page.getByRole("button", { name: /Alice/ }).click();
+    await page.clock.install();
     const checkIn = page.getByRole("button", {
       name: "Check in",
       exact: true,
     });
     await checkIn.click();
-    const checkOut = page.getByRole("button", {
-      name: "Check out",
-      exact: true,
-    });
-    await expect(checkOut).toHaveCount(1);
-    await checkIn.click();
-    await expect(page.getByRole("main").getByRole("alert")).toHaveText(
-      "This member is already checked in to the gym. Check them out before checking in again.",
-    );
+    const countdown = page.getByRole("button", { name: /Check[ -]in \(\d+s\)/i });
+    await expect(countdown).toBeDisabled();
     expect(visits).toHaveLength(1);
-    await expect(checkOut).toHaveCount(1);
+    expect(posts).toBe(1);
+    await page.clock.fastForward(10_000);
+    await expect(checkIn).toBeEnabled();
     await page.screenshot({
       path: `test-results/gym-duplicate-${language}.png`,
       fullPage: true,
     });
-    await checkOut.click();
-    await expect(checkOut).toHaveCount(0);
     await checkIn.click();
-    await expect(checkOut).toHaveCount(1);
-    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     expect(visits).toHaveLength(2);
-    expect(posts).toBe(3);
+    expect(posts).toBe(2);
   });
 
 test("notice validation rejection keeps the content editable", async ({
@@ -874,7 +851,7 @@ test("historical rental detail loads by owner ID with its snapshot and refund, w
   expect(rangeCalls).toBe(0);
 });
 
-test("course cancellation shows the server refund and discards a preview rejected as stale", async ({
+test("enrolled course cancellation cannot be opened through a direct link", async ({
   page,
 }) => {
   await session(page, "CENTER_MANAGER");
@@ -917,46 +894,29 @@ test("course cancellation shows the server refund and discards a preview rejecte
     }),
   );
   let cancellations = 0;
-  await page.route("**/api/manager/classes/1/cancel", (r) => {
+  await page.route("**/api/manager/classes/1/cancel", (route) => {
     cancellations++;
-    expect(r.request().postDataJSON()).toEqual({
-      reason: "Center closure",
-      previewToken: "server-quote",
-    });
-    return r.fulfill({
+    return route.fulfill({
       status: 409,
-      json: {
-        error: "class_cancellation_changed",
-        message: "Refund changed; preview again",
-      },
+      json: { error: "class_has_enrollments" },
     });
   });
-  await page.goto("/manager/classes/1");
-  await page.getByRole("tab", { name: "Management", exact: true }).click();
-  await page.getByRole("button", { name: "Cancel class", exact: true }).click();
-  const panel = page.getByRole("dialog", {
-    name: "Cancel class",
-    exact: true,
-  });
-  await panel.getByLabel("Reason", { exact: true }).fill("Center closure");
-  await panel
-    .getByRole("button", { name: "Preview course cancellation" })
-    .click();
+  await page.goto("/manager/classes/1?tab=management#course-cancellation");
   await expect(
-    panel.getByText("Estimated total refund points: 66", { exact: true }),
-  ).toBeVisible();
-  await panel.getByRole("button", { name: "Confirm", exact: true }).click();
-  await expect(panel.getByRole("alert")).toHaveText(
-    "Refund changed; preview again",
-  );
-  await expect(
-    panel.getByRole("button", { name: "Confirm", exact: true }),
+    page.getByRole("button", { name: "Cancel class", exact: true }),
   ).toHaveCount(0);
-  await expect(panel.getByLabel("Reason", { exact: true })).toHaveValue(
-    "Center closure",
-  );
-  expect(cancellations).toBe(1);
+  await expect(
+    page.getByRole("dialog", { name: "Cancel class", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "This class has enrolled students. Reschedule a session, change the room, or assign another coach instead.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect(cancellations).toBe(0);
 });
+
 const room = {
   roomId: 1,
   name: "Court A",
@@ -1771,9 +1731,6 @@ async function invoiceLinkFixture(page: Page) {
   });
   await page.route("**/api/manager/court-schedule?**", (route) =>
     route.fulfill({ json: [] }),
-  );
-  await page.route("**/api/gym-checkins/inside?**", (route) =>
-    route.fulfill({ json: { items: [], totalCount: 0 } }),
   );
   await page.route(`**/api/members/${owner.userId}/points`, (route) =>
     route.fulfill({

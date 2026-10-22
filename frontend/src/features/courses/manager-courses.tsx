@@ -124,12 +124,6 @@ export function ManagerCourses() {
               )}
         </p>
         <div className={styles.primaryActions}>
-          <Link
-            className="btn btn--secondary"
-            href="/manager/classes/interests"
-          >
-            {copy.interests}
-          </Link>
           <Link className="btn" href="/manager/classes/new">
             {copy.create}
           </Link>

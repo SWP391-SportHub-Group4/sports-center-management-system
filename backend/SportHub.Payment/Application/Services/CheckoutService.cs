@@ -66,6 +66,14 @@ public sealed class CheckoutService(ISportHubDbContext db,
         Guid? target = isFrontDesk ? invoice.MemberId : null;
         switch (old.Kind)
         {
+            case "WalletTopUp":
+            {
+                if (actorId != invoice.MemberId)
+                    throw new ForbiddenException("checkout_not_owned", "Checkout not owned.");
+                var item = await db.Set<InvoiceItem>().AsNoTracking()
+                    .SingleAsync(x => x.InvoiceId == oldInvoiceId && x.ItemType == InvoiceItemType.WalletTopUp, ct);
+                return await CreateWalletTopUpAsync(item.Quantity, idempotencyKey, actorId, ct);
+            }
             case "Membership":
             {
                 if (invoice.MemberPackageId is not Guid memberPackageId)
@@ -86,6 +94,83 @@ public sealed class CheckoutService(ISportHubDbContext db,
                 return await CreateCourtRentalAsync(await rentals.GetForRetryAsync(rentalId, ct), idempotencyKey, actorId, ct, isFrontDesk);
             default:
                 throw new ConflictException("checkout_kind_unsupported", "Checkout kind unsupported.");
+        }
+    }
+
+    public async Task<CheckoutResponse> CreateWalletTopUpAsync(int points, string idempotencyKey,
+        Guid memberId, CancellationToken ct)
+    {
+        if (points is < 1 or > 10_000)
+            throw new BadRequestException("top_up_points_invalid", "Choose between 1 and 10,000 points.");
+        RequireKey(idempotencyKey);
+        var now = clock.UtcNow;
+        var expiry = now.AddMinutes(await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct));
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT user_id FROM user_accounts WHERE user_id = {memberId} FOR UPDATE", ct);
+        var existing = await db.Set<CheckoutSession>().AsNoTracking()
+            .Where(x => x.IdempotencyKey == idempotencyKey)
+            .Join(db.Set<Invoice>().AsNoTracking(), s => s.InvoiceId, i => i.InvoiceId,
+                (s, i) => new { Session = s, Invoice = i }).SingleOrDefaultAsync(ct);
+        if (existing is not null)
+        {
+            if (existing.Invoice.MemberId != memberId || existing.Session.Kind != "WalletTopUp"
+                || existing.Invoice.TotalAmount != points * (decimal)SportHub.Payment.Wallet.Application.PointWalletService.VndPerPoint)
+                throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
+            await tx.CommitAsync(ct);
+            return await GetAsync(existing.Invoice.InvoiceId, memberId, false, ct);
+        }
+        await SupersedeOpenTopUpsAsync(memberId, ct);
+        var amount = points * (decimal)SportHub.Payment.Wallet.Application.PointWalletService.VndPerPoint;
+        var invoice = new Invoice
+        {
+            InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
+            MemberId = memberId, IssuedByUserId = memberId, TotalAmount = amount, CashAmount = amount,
+            CheckoutCycleId = Guid.NewGuid(), CheckoutRevision = 1, HoldExpiresAtUtc = expiry,
+            Status = InvoiceStatus.Issued, IssuedAt = now
+        };
+        db.Set<Invoice>().Add(invoice);
+        db.Set<InvoiceItem>().Add(new InvoiceItem
+        {
+            ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.WalletTopUp,
+            Description = $"Top up {points:N0} points", UnitPrice = SportHub.Payment.Wallet.Application.PointWalletService.VndPerPoint,
+            Quantity = points, LineAmount = amount
+        });
+        var session = new CheckoutSession
+        {
+            CheckoutSessionId = invoice.CheckoutCycleId.Value, InvoiceId = invoice.InvoiceId,
+            Revision = 1, IdempotencyKey = idempotencyKey, Kind = "WalletTopUp", State = "Active",
+            CreatedAtUtc = now, ExpiresAtUtc = expiry
+        };
+        db.Set<CheckoutSession>().Add(session);
+        audit.Write(new AuditEntry(memberId, "CREATE_WALLET_TOP_UP", nameof(Invoice), invoice.InvoiceId.ToString()));
+        await notices.CreatedAsync(invoice, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return ToResponse(invoice, session);
+    }
+
+    // One open top-up per member: choosing another amount closes the earlier unpaid one inside the
+    // member-locked transaction. A top-up with a capture awaiting reconciliation is left untouched
+    // (the new request is refused) so money in flight is never orphaned; a late capture on a closed
+    // top-up still credits through TryRenewWalletTopUpAsync.
+    private async Task SupersedeOpenTopUpsAsync(Guid memberId, CancellationToken ct)
+    {
+        var open = await db.Set<Invoice>()
+            .Where(i => i.MemberId == memberId && i.Status == InvoiceStatus.Issued
+                && db.Set<CheckoutSession>().Any(s => s.CheckoutSessionId == i.CheckoutCycleId
+                    && s.Kind == "WalletTopUp" && s.State == "Active"))
+            .ToListAsync(ct);
+        foreach (var invoice in open)
+        {
+            var session = await db.Set<CheckoutSession>()
+                .SingleAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct);
+            var attemptIds = await db.Set<PaymentAttempt>().Where(a => a.InvoiceId == invoice.InvoiceId)
+                .Select(a => a.PaymentAttemptId).ToListAsync(ct);
+            if (await db.Set<VerifiedGatewayEvent>().AnyAsync(e => attemptIds.Contains(e.PaymentAttemptId)
+                    && (e.ProcessingStatus == "Pending" || e.ProcessingStatus == "ReconciliationRequired"), ct))
+                throw new ConflictException("payment_reconciliation_pending", "Payment reconciliation pending.");
+            await fulfillment.ReleaseAsync(invoice, session, "Cancelled", memberId, ct);
         }
     }
 
@@ -111,6 +196,24 @@ public sealed class CheckoutService(ISportHubDbContext db,
                 throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             await tx.CommitAsync(ct);
             return await GetAsync(existing.Invoice.InvoiceId, actorId, isFrontDesk, ct);
+        }
+        // A member may leave the checkout page and return with a new client key. Reuse the
+        // active hold and its original deadline instead of trying to reserve a second seat.
+        var resumableInvoiceId = await db.Set<CheckoutSession>().AsNoTracking()
+            .Where(s => s.Kind == "Class" && s.ClassId == request.ClassId
+                && s.State == "Active" && s.ExpiresAtUtc > now)
+            .Join(db.Set<Invoice>().AsNoTracking(), s => s.InvoiceId, i => i.InvoiceId,
+                (s, i) => new { Session = s, Invoice = i })
+            .Where(x => x.Invoice.MemberId == memberId && x.Invoice.Status == InvoiceStatus.Issued
+                && x.Invoice.CheckoutCycleId == x.Session.CheckoutSessionId
+                && !x.Invoice.ReconciliationRequired)
+            .OrderByDescending(x => x.Session.CreatedAtUtc)
+            .Select(x => (Guid?)x.Invoice.InvoiceId)
+            .FirstOrDefaultAsync(ct);
+        if (resumableInvoiceId is Guid activeInvoiceId)
+        {
+            await tx.CommitAsync(ct);
+            return await GetAsync(activeInvoiceId, actorId, isFrontDesk, ct);
         }
         var quote = await classes.QuoteAsync(request.ClassId, memberId, ct);
         if (quote.Price <= 0 || quote.Price % 1000 != 0)
@@ -198,10 +301,11 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var startLocal = VietnamTime.ToLocal(request.StartUtc.UtcDateTime);
         var endLocal = VietnamTime.ToLocal(request.EndUtc.UtcDateTime);
         var rentalLabel = string.Join(" · ", new[] { sportName, roomName }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        var rentalDescription = $"Court rental {rentalLabel}, {startLocal:dd/MM/yyyy} {startLocal:HH:mm}-{endLocal:HH:mm} ({quote.Blocks.Count} hours)";
         db.Set<InvoiceItem>().Add(new InvoiceItem
         {
             ItemId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, ItemType = InvoiceItemType.Rental,
-            Description = $"Court rental {rentalLabel}, {startLocal:dd/MM/yyyy} {startLocal:HH:mm}-{endLocal:HH:mm} ({quote.Blocks.Count} hours)",
+            Description = rentalDescription,
             UnitPrice = quote.TotalPrice, Quantity = 1, LineAmount = quote.TotalPrice, RelatedEntityId = rentalId,
             CourtRentalId = rentalId, SportId = request.SportId,
             SportNameSnapshot = sportName
@@ -214,7 +318,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         };
         db.Set<CheckoutSession>().Add(session);
         audit.Write(new AuditEntry(actorId, "CREATE_COURT_RENTAL_CHECKOUT", nameof(Invoice), invoice.InvoiceId.ToString()));
-        await notices.CreatedAsync(invoice, ct);
+        await notices.CreatedAsync(invoice, ct, rentalDescription);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ToResponse(invoice, session);

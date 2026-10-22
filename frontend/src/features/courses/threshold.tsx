@@ -13,7 +13,7 @@ import { thresholdCopy } from "./threshold-copy";
 import styles from "./threshold.module.css";
 
 export type ThresholdView = ThresholdResponseDto;
-type Choice = "TRANSFER" | "WAIT_NEXT_COURSE" | "REFUND" | "KEEP_PLACE";
+type Choice = "TRANSFER" | "REFUND" | "KEEP_PLACE";
 interface Quote {
   targetClassId: number;
   cashDifference: number;
@@ -118,18 +118,15 @@ export function ThresholdPanel({
     !state.error &&
     !action.busy &&
     (choice === "REFUND" ||
-      choice === "WAIT_NEXT_COURSE" ||
       choice === "KEEP_PLACE" ||
       (choice === "TRANSFER" && validQuote));
   const labels = {
     TRANSFER: l.transfer,
-    WAIT_NEXT_COURSE: l.wait,
     REFUND: l.refund,
     KEEP_PLACE: l.keepPlace,
   };
   const bodies = {
     TRANSFER: l.transferBody,
-    WAIT_NEXT_COURSE: l.waitBody,
     REFUND: l.refundBody,
     KEEP_PLACE: l.keepPlaceBody,
   };
@@ -145,7 +142,6 @@ export function ThresholdPanel({
     if (
       submittedChoice !== "TRANSFER" &&
       submittedChoice !== "REFUND" &&
-      submittedChoice !== "WAIT_NEXT_COURSE" &&
       submittedChoice !== "KEEP_PLACE"
     )
       return;
@@ -202,23 +198,7 @@ export function ThresholdPanel({
                 {data.resolutionStatus === "AWAITING_PAYMENT"
                   ? l.pendingPayment
                   : l.recorded}
-                {data.choice === "WAIT_NEXT_COURSE" && (
-                  <>
-                    {" "}
-                    <Link href="/member/services?section=courses&view=owned&tab=interests">
-                      {l.interests}
-                    </Link>
-                  </>
-                )}
               </p>
-            )}
-            {data.choice === "WAIT_NEXT_COURSE" && (
-              <Link
-                className="btn btn--secondary"
-                href="/member/services?view=owned&tab=interests"
-              >
-                Manage course interests
-              </Link>
             )}
             {!closed && (
               <>
@@ -228,7 +208,6 @@ export function ThresholdPanel({
                     [
                       "KEEP_PLACE",
                       "TRANSFER",
-                      "WAIT_NEXT_COURSE",
                       "REFUND",
                     ] as const
                   ).map((option) => (
@@ -255,18 +234,6 @@ export function ThresholdPanel({
                     </label>
                   ))}
                 </fieldset>
-                {choice === "WAIT_NEXT_COURSE" && (
-                  <div className={styles.notice} role="status">
-                    <p>
-                      Your refundable balance returns as points. We will notify
-                      you when the next cohort of this program opens. No seat is
-                      reserved.
-                    </p>
-                    <Link href="/member/services?view=owned&tab=interests">
-                      {l.interests}
-                    </Link>
-                  </div>
-                )}
                 {choice === "TRANSFER" && (
                   <div className={styles.details}>
                     <p>{l.targetHint}</p>

@@ -17,7 +17,6 @@ public class ClassConfiguration : IEntityTypeConfiguration<Class>
             t.HasCheckConstraint("ck_classes_cost", "cost_amount >= 0");
         });
 
-        builder.HasOne<Class>().WithMany().HasForeignKey(x => x.ContinuationOfClassId).OnDelete(DeleteBehavior.Restrict);
         builder.HasKey(e => e.ClassId);
 
         builder.Property(e => e.Code).IsRequired();

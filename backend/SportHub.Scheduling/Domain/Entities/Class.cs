@@ -20,7 +20,6 @@ public class Class
     public int SportId { get; set; }
 
     /// <summary>Explicit next cohort of this program; only same-sport existing source classes are accepted.</summary>
-    public int? ContinuationOfClassId { get; set; }
 
     public Sport? Sport { get; set; }
 

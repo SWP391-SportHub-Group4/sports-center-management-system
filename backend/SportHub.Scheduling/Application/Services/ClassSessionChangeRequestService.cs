@@ -228,18 +228,21 @@ public sealed class ClassSessionChangeRequestService(ISportHubDbContext db, ICla
         } else r.Status = "REJECTED";
         r.ReviewedByUserId = managerId; r.ReviewedAtUtc = clock.UtcNow; r.ReviewNote = note;
         await NotifyCoachAsync(r.RequestedByUserId, NotificationEvents.ClassSessionChangeReviewed, r.RequestId,
-            $"Session change request {s.SessionNo} · {s.Class!.Name}: {r.Status}. {note}", ct);
+            $"Session change request {s.SessionNo} · {s.Class!.Name}: {r.Status}. {note}", ct,
+            SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(
+                ("Class", s.Class.Name), ("Session", s.SessionNo.ToString()),
+                ("Decision", input == null ? "Rejected" : "Approved"), ("Manager's note", note)));
         WriteAudit(managerId, input == null ? "REJECT" : "RESOLVE", r);
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
         return await GetAsync(id, null, ct);
     }
 
-    private async Task NotifyCoachAsync(Guid id, string type, Guid source, string message, CancellationToken ct)
+    private async Task NotifyCoachAsync(Guid id, string type, Guid source, string message, CancellationToken ct, string? emailBody = null)
     {
         notifications.Queue(new(id, type, message, source));
         var user = await users.GetAsync(id, ct);
         if (user != null) notifications.QueueEmail(new(id, user.Email, type, source, "SportHub · Schedule change request",
-            "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+            emailBody ?? SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message)));
     }
     private void WriteAudit(Guid actor, string action, ClassSessionChangeRequest r) => audit.Write(new(actor,
         action + "_CLASS_SESSION_CHANGE_REQUEST", nameof(ClassSessionChangeRequest), r.RequestId.ToString(),

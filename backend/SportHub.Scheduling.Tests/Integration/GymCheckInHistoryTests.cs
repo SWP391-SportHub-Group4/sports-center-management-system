@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Scheduling.Tests.Integration;
@@ -25,8 +26,8 @@ public sealed class GymCheckInHistoryTests(SchedulingApiFactory factory)
             Assert.Equal(HttpStatusCode.Created, created.StatusCode);
             var visit = await created.Content.ReadFromJsonAsync<JsonElement>();
             var id = visit.GetProperty("checkInId").GetGuid();
-            Assert.Equal(HttpStatusCode.OK,
-                (await receptionistClient.PostAsync($"/api/gym-checkins/{id}/checkout", null)).StatusCode);
+            await factory.QueryAsync(db => db.GymCheckIns.Where(x => x.CheckInId == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CheckInTime, DateTime.UtcNow.AddSeconds(-11))));
         }
 
         var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);

@@ -45,8 +45,10 @@ const categoryFilterOptions = ["GENERAL", "PAYMENT", "MEMBERSHIP", "CLASS", "FAC
 
 export function SupportQueue({
   workspace = "receptionist",
+  onChanged,
 }: {
   workspace?: "manager" | "receptionist";
+  onChanged?: () => void;
 }) {
   const { user } = useAuth();
   const stats = useApi((signal) => api.get<SupportStats>("/api/member-support-requests/stats", { signal }), []);
@@ -83,7 +85,9 @@ export function SupportQueue({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (queue.data) setLastResult(queue.data);
   }, [queue.data]);
-  const result = queue.data ?? lastResult;
+  // Do not render old results while a new filter or page is loading.
+  const result =
+    queue.loading || queue.error ? null : (queue.data ?? lastResult);
   const selected =
     expanded === undefined ? result?.items[0]?.requestId : expanded;
   const filtered = !!(
@@ -272,7 +276,9 @@ export function SupportQueue({
             <MessageSquare size={28} aria-hidden="true" />
             <h3>No requests match these filters</h3>
             <p>
-              Change the filters or open a member’s profile to record a request.
+              {workspace === "receptionist"
+                ? "Change the filters, or record a request from Today’s desk."
+                : "Change the filters or open a member’s profile to record a request."}
             </p>
             {filtered && (
               <button
@@ -392,6 +398,7 @@ export function SupportQueue({
                           }))
                         }
                         onChanged={() => {
+                          onChanged?.();
                           setNotice("Request updated.");
                           queue.reload();
                           stats.reload();
@@ -437,6 +444,7 @@ export function SupportQueue({
           </nav>
         )}
       </div>
+
     </section>
   );
 }

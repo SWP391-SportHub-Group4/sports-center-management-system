@@ -1,5 +1,5 @@
 {
-  "intro": "3.3 Use Case Specifications\nFlow 2 Quản lý lớp học lịch và thuê sân\nPhạm vi: danh mục tài nguyên, khóa học, ghi danh, ngưỡng mở lớp, lịch dạy, điểm danh, yêu cầu điều chỉnh, thuê sân và sự cố vận hành. Đối chiếu code ngày 16/10/2026; đặc tả không phải báo cáo đã kiểm thử thành công.\nMã UC-F2 là mã phân rã trong Flow 2, đối chiếu UC-07, UC-08, UC-09 và UC-10 của SRS. Thanh toán gọi UC-15, hoàn theo yêu cầu gọi UC-16 của Flow 3. Kế hoạch tập luyện, đánh giá và hồ sơ sức khỏe thuộc Flow 4/5; PT, Yoga và GroupX không thuộc phạm vi hiện tại.\nQuy ước chung: thời gian lưu UTC, hiển thị UTC+7; backend kiểm tra quyền và dữ liệu tại thời điểm ghi. 1 điểm = 1.000 VND; hoàn trả bằng điểm, không trả tiền mặt. Giao dịch lặp phải idempotent. Thông báo qua outbox không làm rollback nghiệp vụ khi gửi email lỗi.\nNguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_Report_SRS.docx (UC-07 đến UC-10); Center-Management-System-Design-v3.md; api-contract.md; Class-Session-Change-Requests.md. Khi khác nhau, ưu tiên phạm vi đã xác nhận và Business Rules theo 00-Source-of-Truth.md. BR-122 quy định hoàn trước khai giảng 100% nếu còn ít nhất 5 ngày, 50% nếu dưới 5 ngày; không dùng mô tả 100% chung trong SRS cũ.\nCập nhật 16/10/2026: đã có UI chờ đợt lớp sau, quản lý Course interests, sửa Pending trong Requests, nhắc lịch và tự đóng yêu cầu khi Manager đổi buổi trực tiếp. Email cần SMTP để kiểm chứng delivery. Các use case tự động dùng tác vụ hệ thống làm tác nhân khởi phát.\n\n",
+  "intro": "3.3 Use Case Specifications\nFlow 2 Quản lý lớp học lịch và thuê sân\nPhạm vi: danh mục tài nguyên, khóa học, ghi danh, ngưỡng mở lớp, lịch dạy, điểm danh, yêu cầu điều chỉnh, thuê sân và sự cố vận hành. Đối chiếu code ngày 16/10/2026; đặc tả không phải báo cáo đã kiểm thử thành công.\nMã UC-F2 là mã phân rã trong Flow 2, đối chiếu UC-07, UC-08, UC-09 và UC-10 của SRS. Thanh toán gọi UC-15, hoàn theo yêu cầu gọi UC-16 của Flow 3. Kế hoạch tập luyện, đánh giá và hồ sơ sức khỏe thuộc Flow 4/5; PT, Yoga và GroupX không thuộc phạm vi hiện tại.\nQuy ước chung: thời gian lưu UTC, hiển thị UTC+7; backend kiểm tra quyền và dữ liệu tại thời điểm ghi. 1 điểm = 1.000 VND; hoàn trả bằng điểm, không trả tiền mặt. Giao dịch lặp phải idempotent. Thông báo qua outbox không làm rollback nghiệp vụ khi gửi email lỗi.\nNguồn đối chiếu: SportManagement_BusinessRules_v2.0_updated.docx; SWP391_Report_SRS.docx (UC-07 đến UC-10); Center-Management-System-Design-v3.md; api-contract.md; Class-Session-Change-Requests.md. Khi khác nhau, ưu tiên phạm vi đã xác nhận và Business Rules theo 00-Source-of-Truth.md. BR-122 quy định hoàn trước khai giảng 100% nếu còn ít nhất 5 ngày, 50% nếu dưới 5 ngày; không dùng mô tả 100% chung trong SRS cũ.\nCập nhật 16/10/2026: đã có sửa Pending trong Requests, nhắc lịch và tự đóng yêu cầu khi Manager đổi buổi trực tiếp. Email cần SMTP để kiểm chứng delivery. Các use case tự động dùng tác vụ hệ thống làm tác nhân khởi phát.\n\n",
   "useCases": [
     {
       "group": "A. Danh mục và tài nguyên",
@@ -363,28 +363,6 @@
       "alt": "a. Đã hoàn một phần do chuyển lớp: không hoàn vượt phần còn lại.\nb. Phản hồi hết hạn/đã xử lý: từ chối hoặc trả kết quả cũ.\nc. Lỗi ghi điểm: rollback hủy đăng ký để không mất quyền lợi.",
       "post": "Chỗ được giải phóng; ví điểm và quyết định được ghi nhất quán.",
       "id": "UC-F2-33"
-    },
-    {
-      "group": "D. Ngưỡng mở lớp và lựa chọn học viên",
-      "title": "Chờ thông tin khóa tiếp theo",
-      "actor": "Member",
-      "priority": "Required",
-      "pre": "Member đăng nhập, có ghi danh Confirmed đã thanh toán và response thiếu ngưỡng của chính mình còn Pending, chưa hết hạn.",
-      "main": "1. Mở thông báo thiếu ngưỡng của lớp; chọn Wait for the next course.\n2. Đọc điều kiện: hoàn 100% giá trị còn được hoàn bằng điểm; không giữ chỗ, tự ghi danh hay bảo lưu giá.\n3. Nhấn Review response → Confirm response.\n4. Backend hoàn điểm, kết thúc ghi danh nguồn và tạo một Course interest trong cùng transaction.\n5. Nhấn Manage course interests để xem số điểm thực hoàn và trạng thái Following next cohort.",
-      "alt": "a. Sai chủ sở hữu, response đóng/hết hạn, ghi danh không còn Confirmed: từ chối.\nb. Gửi lại cùng lựa chọn không hoàn điểm hoặc tạo interest lần hai; đổi lựa chọn đã chốt: 409.\nc. Không tự giữ chỗ hay ghi danh lớp mới. Hủy nhận tin không thu hồi điểm đã hoàn.",
-      "post": "Ghi danh nguồn kết thúc; điểm hoàn đúng giá trị còn đủ điều kiện; một interest đang theo dõi đợt tiếp theo được lưu thật.",
-      "id": "UC-F2-34"
-    },
-    {
-      "group": "D. Ngưỡng mở lớp và lựa chọn học viên",
-      "title": "Quản lý quan tâm khóa tiếp theo",
-      "actor": "Member, Center Manager",
-      "priority": "Required",
-      "pre": "Member có quan tâm thuộc mình; Manager có quyền xem danh sách.",
-      "main": "1. Member mở Services → Course interests; xem lớp nguồn, môn, điểm đã hoàn, ngày tạo và Following next cohort / Notifications stopped.\n2. Chọn Stop notifications nếu không còn nhu cầu.\n3. Manager mở Classes → Course interests để xem Member và lớp nguồn.\n4. Khi tạo/sửa draft đợt mới cùng môn, Manager chọn Next cohort of (optional) = lớp nguồn.\n5. Sau khi publish và Reopen enrollment, job mỗi phút xét chỗ trống và buổi đầu tương lai; tạo thông báo chuông và email một lần cho mỗi interest/lớp.\n6. Member chọn View class trong thông báo để xem lịch/giá hiện hành và tự đăng ký.",
-      "alt": "a. Member chỉ đọc/hủy interest của mình; hủy lặp là idempotent và không đảo refund.\nb. Draft, lớp đóng đăng ký, đã bắt đầu, hết chỗ hoặc không liên kết đúng lớp nguồn: chưa gửi tin.\nc. Dừng nhận tin không ngăn truy cập danh mục công khai; thông báo không tự đăng ký/thu tiền.\nd. Danh sách API hiện trả tối đa 200 interest mới nhất; không mô tả filter/phân trang chưa có.",
-      "post": "Trạng thái theo dõi được lưu; delivery chống trùng tồn tại; Member tự quyết định mua lớp mới. Email thực tế phụ thuộc SMTP.",
-      "id": "UC-F2-35"
     },
     {
       "group": "D. Ngưỡng mở lớp và lựa chọn học viên",

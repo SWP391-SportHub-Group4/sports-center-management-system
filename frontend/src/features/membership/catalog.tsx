@@ -56,7 +56,7 @@ export function MembershipCatalog({
     ? activePackages
         .filter(
           (item) =>
-            /^\s*gym\b/i.test(item.name) && !/\bPT\b|personal/i.test(item.name),
+            /^\s*gym\b/i.test(item.name),
         )
         .sort((a, b) => a.durationDays - b.durationDays)
     : [];

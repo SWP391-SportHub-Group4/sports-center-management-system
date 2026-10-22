@@ -1,12 +1,12 @@
 namespace SportHub.BuildingBlocks.Abstractions.Scheduling;
 
 /// <summary>
-/// Đọc phần lịch đã bị chiếm của Coach và phòng theo dịch vụ, để module khác (PT tự đặt lịch) tính khung trống.
+/// Đọc phần lịch đã bị chiếm của Coach và phòng theo dịch vụ.
 /// Chỉ đọc; chống trùng thật vẫn do exclusion constraint của DB khi ghi. Bản cài đặt ở Scheduling/Occupancy.
 /// </summary>
 public interface ISchedulingAvailabilityReader
 {
-    /// <summary>Các khoảng Coach bị chiếm (lớp, PT, thuê sân, block) giao với [fromUtc, toUtc).</summary>
+    /// <summary>Các khoảng Coach bị chiếm (lớp, thuê sân, block) giao với [fromUtc, toUtc).</summary>
     Task<IReadOnlyList<TimeWindow>> GetCoachBusyAsync(
         Guid coachId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 

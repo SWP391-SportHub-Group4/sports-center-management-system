@@ -134,11 +134,6 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     >
       <div className={styles.head}>
         <h3>{vi ? "Hỗ trợ hội viên" : "Member support"}</h3>
-        <p>
-          {vi
-            ? "Ghi lại yêu cầu mà hội viên đang chọn báo tại quầy."
-            : "Record a request the selected member raised at the desk."}
-        </p>
       </div>
 
       <div className={styles.form}>

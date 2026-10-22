@@ -1,5 +1,19 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Manager workspace — 20 October 2026
+
+Scope and navigation: [Manager workspace](Manager-Workspace.md). These rules supersede older cancellation, wallet-adjustment and next-cohort-link descriptions.
+
+- `GET /api/manager/requests/summary`: CenterManager only; pending counts `{coach,refunds,support,avatar}`. Existing request types retain their own mutation APIs.
+- `POST /api/avatars/reports`: authenticated account; `{targetUserId,avatarUrl,reason}` for another Member/Coach's current photo. Same reporter/photo/open report is deduplicated. Audit and Manager notifications commit with the report.
+- `GET /api/manager/avatar-reports?status&search&page&pageSize`: Manager-only paged moderation inbox with target identity/role, reported/current photo and reason.
+- `POST /api/manager/avatar-reports/{reportId}/dismiss`: Manager-only, idempotent after resolution.
+- `DELETE /api/manager/users/{userId}/avatar`: Manager-only current Member/Coach photo removal; resolves open reports and retains history. Legacy member-only removal remains compatible.
+- `POST /api/class-sessions/{sessionId}/incident-makeup`: Manager-only `{fenceId,reason,makeup}`; requires a held, matching, unexpired Incident fence and a valid future replacement. Allows enrolled classes. Ordinary `/cancel` still rejects active Confirmed enrollment; historical `/incident` permits whole-session makeup under its validated Incident window.
+- Room create/update accepts direct `sportId`; rental setup no longer requires `roomTypeId` from the user. Room responses append nullable `sportId`. Legacy type/rate keys are retained internally. Existing scheduled/priced rooms cannot silently change sports.
+- `GET /api/member-packages` adds optional `packageId`; `GET /api/manager/classes` adds `coachId`, including main and noncancelled session assignments.
+- HTTP manual wallet adjustment creation and legacy point-credit approval/rejection return 403. Wallet read/ledger, payment and refund commands remain functional.
+
 ## Tạo Sport kèm Room Type tùy chọn — 19 October 2026
 
 `POST /api/manager/sports` bổ sung `createRoomType` (mặc định false) và `roomTypeName` (tên do Manager nhập, tối đa 100 ký tự). Khi chọn true, tên sau trim phải có nội dung và không trùng Room Type hiện có (không phân biệt hoa/thường); lỗi `invalid_room_type_name` hoặc `room_type_name_taken` không tạo Sport. Sport, Room Type Active, liên kết SportRoomType và audit được lưu cùng transaction. Khi false/bỏ trống, tên Room Type được bỏ qua và không tạo/sửa Room Type hay liên kết. `PUT` không hỗ trợ tạo Room Type (`room_type_creation_only` nếu bật flag). Response Sport giữ nguyên; Room Type mới xuất hiện trong `/api/room-types` kèm sportIds. Không tạo sân vật lý. Không cần migration.
@@ -53,24 +67,24 @@ Các API dưới đây bổ sung đúng dependency của frontend P2.06–P2.10,
 
 | Verb | Route | Actor / contract |
 |---|---|---|
-| GET | `/api/gym-checkins/inside?page&pageSize` | FrontDesk; PagedResult gồm `checkInId,memberId,memberName,checkInTime`; chỉ lượt chưa checkout, pageSize tối đa 100. `staleOnly=true` chỉ trả lượt mở từ trước 00:00 hôm nay (giờ Việt Nam). |
-| POST | `/api/gym-checkins` | Receptionist; `{targetMemberId}`. Nếu Member còn lượt `CheckOutTime=null` (kể cả ngày trước), trả 409 `gym_already_checked_in`. Gym đóng vì các phòng Gym đều bị chặn thì trả 409 `gym_closed` cho cả quầy và self check-in. Không tạo thêm lượt; yêu cầu đồng thời chỉ một lượt thành công. Sau check-out được vào lại, không giới hạn số lượt trong ngày. |
-| POST | `/api/gym-checkins/{checkInId}/forgotten-checkout` | Receptionist; `{departedAtUtc, reason(3-500)}`. Chỉ cho lượt mở từ ngày trước (409 `gym_checkout_not_stale` nếu là hôm nay); giờ rời phải sau check-in và không ở tương lai; ghi audit `RESOLVE_FORGOTTEN_GYM_CHECKOUT`. |
+| POST | `/api/gym-checkins` | Receptionist; `{targetMemberId}`. Member cần gói Gym còn hiệu lực; Gym đóng trả 409 `gym_closed`. Mỗi Member chỉ được ghi thêm lượt sau ít nhất 10 giây; gửi đồng thời hoặc trong cooldown trả 409 `gym_checkin_cooldown`. Lịch sử chỉ ghi thời điểm vào, không có thao tác check-out. |
 | PUT | `/api/manager/coaches/{userId}` | Manager; bổ sung `fullName?` (2–100 ký tự, validator hiện có), `phone?` (đúng định dạng, unique); null giữ giá trị cũ, chuỗi phone rỗng xóa số. Không đổi email/role/UserStatus. |
 | GET | `/api/manager/classes?thresholdStatus=AT_RISK` | Manager; thêm filter threshold, giữ sport/lifecycle/search/pagination hiện có. Enum wire UPPER_SNAKE_CASE. |
 | GET | `/api/manager/classes/{classId}/holds` | Manager; paged `holdId,memberId,memberName,invoiceId,status,expiresAtUtc,createdAt`. |
 | GET | `/api/manager/classes/{classId}/enrollments` | Manager; paged `enrollmentId,memberId,memberName,invoiceItemId,status,enrolledAt`; lấy invoice bằng endpoint by-item hiện có. |
 | GET | `/api/manager/classes/{classId}/threshold-responses` | Manager; paged `responseId,memberId,memberName,choice,targetClassId,resolutionStatus,additionalInvoiceId,deadlineUtc`. Không trả token/hash. |
-| GET | `/api/manager/classes/{classId}/cancellation-preview` | Manager; `canCancel,version,totalSessions,sessionsNotProvided,confirmedCount,activeHoldCount,refundPoints,previewToken,members[]`. Member quote gồm enrollment/member/item ID, remaining paid value VND, refund points. |
-| POST | `/api/manager/classes/{classId}/cancel` | Manager; `{reason,previewToken?}`; có paid enrollment/active hold phải gửi token preview mới. Server khóa và tính lại; stale/concurrent trả 409 `class_cancellation_changed`. Nhả pending checkout/holds/điểm giữ, hoàn phần chưa cung cấp vào wallet + kết thúc enrollment + hủy buổi Scheduled + occupancy + audit/outbox cùng transaction. Hủy lặp khóa Cancelled không hoàn thêm. |
-| POST | `/api/manager/classes/{classId}/enrollment/close` | Manager; body `{reason}` bắt buộc, 3–500 ký tự (thiếu/ngắn → 400 `enrollment_close_reason_required`). Chỉ đóng tuyển sinh lớp Published: checkout mới nhận 409 `enrollment_closed`; hold Active và ghi danh hiện có không bị hủy, hold hợp lệ vẫn hoàn tất thanh toán. Luôn gửi thông báo + email tiếng Anh cho Member đã ghi danh. Response `ClassManagerResponse` thêm `enrollmentClosedReason`, `enrollmentClosedAtUtc`. Đóng lặp là no-op. Hoàn điểm lỗi trung tâm dùng `/cancel`, không dùng endpoint này. |
-| POST | `/api/manager/classes/{classId}/enrollment/open` | Manager; mở lại, xóa lý do đóng. Member đã ghi danh nhận thông báo + email “đã xử lý xong”. |
+| GET | `/api/manager/classes/{classId}/cancellation-preview` | Manager; `canCancel,version,totalSessions,sessionsNotProvided,confirmedCount,activeHoldCount,refundPoints,previewToken,members[]`. Enrolled classes cannot be cancelled; `refundPoints=0`, `members=[]`. |
+| POST | `/api/manager/classes/{classId}/cancel` | Manager; `{reason,previewToken?}`. Active Confirmed enrollment: HTTP 409 `class_has_enrollments`, no state changes. Empty classes may cancel; active holds require a fresh preview token. Releases pending checkout/holds and held points, cancels Scheduled sessions, releases occupancy and writes audit/outbox atomically. Stale preview: 409 `class_cancellation_changed`. |
+| POST | `/api/manager/classes/{classId}/enrollment/close` | Manager; body `{reason}` bắt buộc, 3–500 ký tự (thiếu/ngắn → 400 `enrollment_close_reason_required`). Chỉ đóng tuyển sinh lớp Published: checkout mới nhận 409 `enrollment_closed`; hold Active và ghi danh hiện có không bị hủy, hold hợp lệ vẫn hoàn tất thanh toán. Luôn gửi thông báo + email tiếng Anh cho Member đã ghi danh. Response `ClassManagerResponse` thêm `enrollmentClosedReason`, `enrollmentClosedAtUtc`. Đóng lặp là no-op; không hủy lớp hoặc hoàn điểm. |
+| POST | `/api/manager/classes/{classId}/enrollment/open` | Legacy compatibility; không còn nút trong giao diện Manager. Không mở lại lớp đủ sĩ số (`class_full`). |
 | GET | `/api/members/me/class-holds` | Member; danh sách hold lớp còn hiệu lực của chính Member: `[{classId,invoiceId,expiresAtUtc}]` (Active, chưa hết hạn, có invoice). UI dùng để hiện “Hoàn tất thanh toán” cho lớp đã đóng tuyển sinh sau khi Member giữ chỗ; hold vẫn thanh toán được tới `expiresAtUtc`. |
 | POST | `/api/manager/notices` | Manager; body hiện có, thêm header `Idempotency-Key` UUID. Cùng Manager/key/payload nhận cùng noticeId và không tạo thêm outbox; đổi payload trả 409 `notice_idempotency_conflict`. Client cũ không có key vẫn được hỗ trợ. |
 | GET | `/api/manager/notices` | Manager; lịch sử của chính mình, query `search` theo tiêu đề, `fromDate`/`toDate` theo ngày Việt Nam (bao gồm hai đầu), `page`/`pageSize` (tối đa 50). Trả `PagedResult` với tiêu đề, người gửi, thời điểm, số người nhận và kênh đã chọn; mới nhất trước, tie-break bằng noticeId. |
 | GET | `/api/manager/notices/{noticeId}` | Manager đã gửi; giữ `{noticeId,delivery}`, thêm `subject,message,createdAtUtc,senderName,recipientCount,sendInApp,sendEmail,isLegacy`. Manager khác nhận 404. |
 | GET | `/api/manager/notices/{noticeId}/recipients` | Manager đã gửi; phân trang `page`/`pageSize` (tối đa 50). Mỗi người có `userId,name,email,inApp,emailDelivery`; mỗi kênh có `status,retryCount,sentAt,lastAttemptAt`, hoặc null khi không có bản ghi. Không trả payload email hay lỗi kỹ thuật của SMTP. Manager khác nhận 404. |
 | GET | `/api/manager/notices/by-key/{key}` | Manager đã gửi; phục hồi receipt sau timeout/F5, chờ transaction gửi cùng key hoàn tất. |
+
+**Manager cancellation rule:** A class with any active `Confirmed` enrollment (`EndedAt == null`) cannot be cancelled by a Manager. Preview returns `canCancel=false`, `refundPoints=0` and `members=[]`. Both `POST /api/manager/classes/{classId}/cancel` and cancellation-with-makeup paths (including Coach request resolution and incident replacement) return HTTP `409`, error `class_has_enrollments`. The check runs after locking the class row and does not trust cached counts or a prior preview. Rescheduling, changing room, and assigning another qualified Coach remain available. Automatic below-threshold resolution uses its existing separate services and is unchanged.
 
 Migration `AddManualNoticeHistory` tạo `manual_notice_records`. Lần gửi mới lưu nguyên văn nội dung và snapshot tên/email người nhận/người gửi trong cùng transaction với audit/outbox; thay hồ sơ sau này không đổi lịch sử. Khôi phục lịch sử cũ từ audit `SEND_MANUAL_NOTICE` và outbox ManualNotice: tiêu đề/ngày gửi/người gửi, người nhận còn có dữ liệu và nội dung in-app nếu còn; không giải mã email. Bản cũ có `isLegacy=true`, `message=null` nếu không khôi phục được, tên có thể lấy từ hồ sơ hiện tại. Không gửi lại thông báo trong migration. `recipientCount` là số người; `delivery.total` và các trạng thái đếm theo từng kênh, không phải số người. `Read` của chuông không chứng minh email đã được mở.
 | GET | `/api/manager/incidents/{incidentId}/notifications` | Manager; delivery tổng các notice IncidentResolution của rental thuộc incident. |
@@ -91,7 +105,7 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 |---|---|---|
 | GET / PUT | `/api/users/me`, `/api/users/me/profile` | Thêm `sportIds: number[]`, nullable `approvalStatus`. Role UPPER_SNAKE_CASE. F5 refresh profile trước cấp quyền trên UI; regression Security đã pass. |
 | GET | `/api/membership-packages/public` | Anonymous, chỉ catalog active; endpoint quản trị/auth cũ giữ chính sách riêng. |
-| GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public chỉ Published. |
+| GET | `/api/classes?fromDate=&toDate=&sportId=&page=&pageSize=` | DateOnly YYYY-MM-DD theo startDate khóa; validate khoảng ngày; danh sách public gồm khóa Published và InProgress (nhận ghi danh giữa chừng khi còn chỗ). Mỗi khóa có `sessionsPassed` (buổi đã bắt đầu, không tính buổi hủy) và `sessionsRemaining` (buổi Scheduled sắp tới). Đăng ký/checkout lớp không bị chặn vì đã qua buổi nào; chỉ trả 409 `class_started` khi không còn buổi sắp tới. Giá luôn là cả khóa; hạn giữ chỗ không vượt quá giờ bắt đầu buổi kế tiếp. |
 | GET | `/api/classes/{classId}/public-sessions` | Anonymous, chỉ khóa Published, lịch buổi/room/coach không có roster/attendance. |
 | GET | `/api/members/me/classes/{classId}/sessions` | Member có ghi danh còn hiệu lực (`Confirmed`, chưa `EndedAt`) trong khóa Published/InProgress/Completed (xem lại lịch sử sau khi lớp kết thúc); khóa Cancelled/Draft hoặc ghi danh đã kết thúc trả 403 `class_access_ended`. Không trả roster. |
 | GET | `/api/coaches?sportId=` | Member/Receptionist/Manager: Coach active cùng specialty (`sportId`), chỉ userId/fullName/sportIds. Không trả email hoặc credential. |
@@ -158,10 +172,13 @@ POST checkout trả 201 `CheckoutResponse`, yêu cầu header `Idempotency-Key` 
 | `/api/checkouts/membership` | `{packageId,targetMemberId?,allowStacking:false,stackingApprovalReason?}` | Member hoặc FrontDesk; stacking cần quyền Manager và lý do. |
 | `/api/checkouts/class` | `{classId,targetMemberId?}` | Member hoặc FrontDesk. |
 | `/api/checkouts/court-rental` | `{sportId,roomId,startUtc,endUtc}` | Member tự mua. |
+| `/api/checkouts/wallet-top-up` | `{points}` (1–10.000) | Chỉ Member tự nạp; 1 điểm = 1.000 VND, chỉ thanh toán VNPay. |
 
 FrontDesk là Manager/Lễ tân; staff mua cho Member phải có targetMemberId, Member chỉ mua cho mình. Lỗi chung: 400 `idempotency_key_required`/`target_member_required`, 403 `target_member_forbidden`/`checkout_not_owned`; conflict nghiệp vụ trả 409. GET checkout trả 200; attempts trả 200 `PaymentAttemptResponse` (`paymentAttemptId,invoiceId,transactionReference,cashAmount,pointsApplied,expiresAtUtc,paymentUrl,state`); không gửi giá do client tính.
 
 `CheckoutResponse`: `{invoiceId,checkoutSessionId,revision,kind,state,totalAmount,pointsApplied,cashAmount,expiresAtUtc,resourceHoldId,invoiceStatus,fulfillmentOutcome,reconciliationRequired}`. Số tiền server quyết định; FE không tự đánh dấu paid từ redirect return hoặc chỉ từ `state`.
+
+Wallet top-up dùng checkout/invoice/attempt/IPN/QueryDR và ledger hiện có. Chỉ cộng điểm sau khi VNPay xác minh khoản thu; callback lặp không cộng lại. Member không thể dùng điểm để thanh toán top-up. Giới hạn FE: 10.000–10.000.000 ₫ (bội số 1.000 ₫; BE chấp nhận 1–10.000 điểm). Mỗi Member chỉ có một top-up mở: `POST /api/checkouts/wallet-top-up` với key mới sẽ hủy top-up `Issued` chưa thanh toán trước đó (trả 409 `payment_reconciliation_pending` nếu top-up cũ đang chờ đối soát); cùng `Idempotency-Key` trả lại đúng checkout. "Change amount" ở FE gọi `POST /api/checkouts/{id}/cancel` rồi tạo checkout mới; thanh toán muộn trên checkout đã hủy vẫn được cộng điểm một lần. FE phục hồi bước thanh toán từ `?invoice=<id>` trên `/member/wallet/top-up` và chỉ tin trạng thái từ server (poll `GET /api/checkouts/{id}`). Khoản thu xác minh sau khi checkout hết hạn vẫn cộng điểm vào đúng ví và ghi `PAID_AFTER_RECONCILIATION` với `FULFILLED`.
 
 | fulfillmentOutcome | Ý nghĩa |
 |---|---|
@@ -258,6 +275,8 @@ Việc bổ sung không thay đổi quyền đọc audit, scope tài khoản c�
 Đăng nhập Google với email của staff chưa kích hoạt bị từ chối (401), vì staff chỉ vào được sau khi tự đặt mật khẩu bằng link.
 
 `PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
+
+Khi tài khoản đã là Coach và `role` vẫn là `COACH`, gửi `sportIds` để lưu chuyên môn (1–10 môn hợp lệ, có GroupCourse). Ghi audit `UPDATE_COACH_SPECIALTIES` kèm lý do và danh sách trước/sau; giữ nguyên phiên đăng nhập và lớp đã phân công, giống cập nhật chuyên môn của Manager. Nếu không gửi `sportIds` hoặc danh sách không đổi thì không ghi thay đổi.
 
 - **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
 - **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
@@ -459,6 +478,8 @@ Refund mới không còn tạo/duyệt qua route adjustment chung; refund legacy
 |---|---|
 | GET | `api/reports/class-utilization` |
 
+Enrollment is opened automatically in the publish transaction. The final confirmed, paid enrollment closes the class at capacity. A withdrawn enrollment reopens a class that was automatically closed as full only if its first session has not started. Active checkout holds still count against availability, and releasing or expiring a hold does not require a Manager action. The Manager UI no longer exposes manual enrollment controls. Existing published, upcoming classes are normalized by the AutomaticClassEnrollment data migration.
+
 ### EnrollmentsController — `api`
 
 | Verb | Path |
@@ -619,7 +640,6 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | POST | `api/class-sessions/{sessionId}/reschedule`, `.../cancel` | Manager | Kiểm lại room/coach/opening/capacity/lịch Member; hủy buộc có buổi bù hợp lệ. |
 | PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Receptionist | `{status:"Present"|"Absent"}`; từ 5 phút trước đầu buổi đến hết 24 giờ sau cuối buổi; ghi audit khi thay đổi. |
 | GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
-| POST | `api/gym-checkins/{checkInId}/checkout` | Receptionist | Giờ server, idempotent; checkin chưa tồn tại/giờ vào tương lai bị từ chối. |
 
 `IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. Lớp nhóm không tự tạo Present/Absent; điểm danh do Receptionist hoặc Coach được phân công ghi.
 
@@ -641,7 +661,7 @@ Lỗi truyền tải QueryDR trả `502 vnp_query_http_error` (message chứa HT
 
 Request QueryDR gửi `User-Agent: SportHub/1.0` và `Accept: application/json`. Kiểm tra sandbox ngày 15/10/2026 cho thấy cùng POST JSON rỗng nhận HTTP 403 với HttpClient không có User-Agent, và HTTP 200 kèm JSON lỗi nghiệp vụ khi có header này; probe rỗng chỉ kiểm tra khả năng truy cập, không xác nhận một giao dịch thanh toán.
 
-Route ghi payment thủ công không còn tạo khoản thu mới. `PAID_AFTER_RECONCILIATION` biểu thị khoản thu muộn, cần đọc `fulfillmentOutcome`: `FULFILLED` khi reacquire/cấp quyền lợi được; `COMPENSATED` khi bồi hoàn điểm; `RECONCILIATION_REQUIRED` khi không thể đổi chính xác tiền thực thu sang điểm. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency. CourtRental dùng `/api/checkouts/court-rental`.
+Route ghi payment thủ công không còn tạo khoản thu mới. `PAID_AFTER_RECONCILIATION` biểu thị khoản thu muộn, cần đọc `fulfillmentOutcome`: `FULFILLED` khi reacquire/cấp quyền lợi được; `COMPENSATED` khi bồi hoàn điểm; `RECONCILIATION_REQUIRED` khi không thể đổi chính xác tiền thực thu sang điểm. Khi hold lớp hết hạn, thanh toán kết hợp điểm và VNPay không được tự tái giữ chỗ; hệ thống nhả điểm đã giữ và bù phần tiền VNPay thực thu vào ví theo 1.000đ/điểm. Hóa đơn đã đóng không còn số tiền cần thanh toán (`outstanding = 0`), còn `totalAmount` giữ nguyên giá trị đơn ban đầu. `CheckoutSession` và `VerifiedGatewayEvent` giữ lịch sử/idempotency. CourtRental dùng `/api/checkouts/court-rental`.
 
 ## Phần H — P1.08 Refund bằng điểm
 
@@ -774,8 +794,6 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 - Successful direct reschedule, substitution, cancel-with-makeup or whole-course cancellation automatically closes affected Pending requests as `WITHDRAWN`, with `resolutionType: "SCHEDULE_UPDATED"`, reviewer/time/note and result session. Normal approvals remain `RESOLVED`. Closure, schedule, audit and bell/email outbox commit atomically. Conflicts preserve Pending.
 - Schedule changes notify primary, outgoing and incoming coaches once per recipient/channel, as well as enrolled Members. Bell actions lead to `/coach/schedule`; request results lead to `/coach/change-requests`. Incident-related manual class dispositions use the same commands. No new migration is required. See [manual checks](Coach-Access-and-Schedule-Manual-Test.md).
 
-- Threshold response accepts `WAIT_NEXT_COURSE` with `targetClassId: null` in `POST /api/class-threshold-responses/{id}` or the token route. It credits the remaining refundable value 100% as points, cancels source enrollment and creates one course-interest subscription in the same transaction. A repeated identical response returns the stored result; a different choice returns 409. A linked replacement cohort (`continuationOfClassId`) queues a bell/email notice once registration is open, seats remain and its first lesson is in the future. It never enrolls or reserves a seat.
-- `GET /api/members/me/course-interests` and `GET /api/manager/course-interests` return the latest 200 interests as an array. The Member route is owner scoped. `DELETE /api/members/me/course-interests/{id}` is owner scoped and idempotent, returns 204 and stops future notices without reversing the refund. Rows include `interestId`, `memberId`, `memberName`, `sourceClassId`, `sourceClassName`, `sportId`, `sportName`, `refundedPoints`, `active`, `createdAtUtc`, `cancelledAtUtc`, and `notifications: [{interestId,classId,className,queuedAtUtc}]`.
 
 
 ### Member class communication and content access — 2026-10-16
@@ -784,13 +802,13 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 - `GET /api/invoices/{invoiceId}/receipt.pdf` remains authenticated and owner scoped for Members. Billing details and confirmed payment results now expose **Download invoice**.
 - Member sessions and teaching records require Confirmed enrollment, no `endedAt`, and a Published/InProgress/Completed class. A Member may read their own lesson history after the final session or when the class is Completed. Ended enrollment or a Cancelled/Draft class returns `403 class_access_ended`; enrollment/financial history remains independent. Open Member class views recheck permission on focus and every 30 seconds. The narrower ongoing-class query for reminders and AI context still requires a future non-cancelled lesson.
 - The one-minute Member communication job creates bell reminders at the 24-hour and 1-hour windows. It skips cancelled lessons, inactive enrollments and reminder windows preceding enrollment. Unique `(session,member,start,hours)` receipts and transaction-scoped worker locks prevent duplicate outbox writes across replicas/restarts. Rescheduled starts have fresh reminder identities.
-- Manager draft create/update accepts nullable `continuationOfClassId`, validated against an earlier class in the same sport. Draft editor exposes **Next cohort of (optional)**. Course interest notices link to class purchase details; encrypted email uses `Frontend:BaseUrl`.
 - Member AI receives the current user's health profile, permitted course/individual lesson plans, recent assessments/coach comments, homework/notices, attendance summary and enrolled upcoming lessons. Bounded context includes source IDs/dates and truncation flags. It excludes other students and ended-class content. Provider continuation IDs are accepted only when an own successful interaction has the same current enrollment scope; otherwise a fresh context starts.
 - Schema: `20261016045838_MemberClassCommunication`, following the existing original-price migration. No operational rows are deleted. See [Member content-access use cases](Flow-4-Use-Cases-and-Manual-Test.md#uc-f4-24--thu-hồi-quyền-nội-dung-lớp-khi-ghi-danh-kết-thúc-hoặc-lớp-bị-hủy) and [Flow 2 communication use cases](Flow-2-Use-Cases.md).
-- Threshold response accepts `WAIT_NEXT_COURSE` with `targetClassId: null` in `POST /api/class-threshold-responses/{id}` or the token route. It credits the remaining refundable value 100% as points, cancels source enrollment and creates one course-interest subscription in the same transaction. A repeated identical response returns the stored result; a different choice returns 409. Notices require a linked next cohort (`continuationOfClassId` matches the source class), the same sport, Published status, open enrollment, remaining seats and a future first lesson; they never enroll or reserve a seat.
-- `GET /api/members/me/course-interests` and `GET /api/manager/course-interests` return `PagedResult<CourseInterestRow>` with optional `sportId`, `active`, `page`, `pageSize`. Member route is owner scoped. `POST /api/members/me/course-interests/{id}/unsubscribe` is owner scoped and idempotent, returns 204. `CourseInterestRow` includes `subscriptionId`, `memberId`, `memberName`, source class and sport IDs/names, `refundedPoints`, `isActive`, timestamps.
 
-## Hỗ trợ Member, đối soát và quan tâm khóa học
+- **Removed:** course interests (`/api/course-interests`, `/api/members/me/course-interests`, `/api/manager/course-interests`), threshold choice `WAIT_NEXT_COURSE`, `continuationOfClassId`, `NextCourseAvailable`/`CourseInterestOpened` notifications. Migration `RemoveCourseInterest` drops the tables/columns, converts stored `WAIT_NEXT_COURSE` responses to `REFUND` and deletes those notifications. Threshold responses accept `REFUND`, `TRANSFER` and `KEEP_PLACE` only.
+- When the response deadline passes below threshold without a waiver, `ThresholdResponseExpiryService` cancels the class, refunds 100% of the remaining refundable value as points and queues one bell/email `CLASS_CANCELLED` notice per Member stating the points returned and up to 3 similar courses at that moment (same sport, Published, enrollment open, seats left, not started, Member not enrolled; closest price first). Suggestions are not stored or resent.
+
+## Hỗ trợ Member và đối soát
 
 | Verb | Route | Hợp đồng / authority |
 |---|---|---|
@@ -800,5 +818,4 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 | GET | `/api/users`, `/api/users/{userId}` | Receptionist luôn bị ép `role=Member`; xem chi tiết tài khoản khác Member trả 404. |
 | GET | `/api/front-desk/payment-reconciliation?memberId&page&pageSize` | FrontDesk; gồm thanh toán đã xác minh chưa cấp dịch vụ và giao dịch chờ xác minh, kể cả sau khi hold hết hạn. |
 | POST | `/api/front-desk/payment-reconciliation/{invoiceId}/retry` | FrontDesk; thử cấp lại dịch vụ hoặc xác minh với cổng; ghi audit `FRONT_DESK_PAYMENT_RECONCILIATION_RETRY`. |
-| GET / POST | `/api/course-interests`, `/api/course-interests/{id}/cancel` | Member xem/hủy của mình, CenterManager xem theo `sportId`. Tạo khi chọn `WAIT_NEXT_COURSE` ở ngưỡng hoàn vốn (hoàn 100% điểm). Job nhắc không gửi cho Member đã ghi danh chính khóa mới. |
 | GET | `/api/members/me/class-holds` | Member; các giữ chỗ còn hạn có hóa đơn để tiếp tục thanh toán. |

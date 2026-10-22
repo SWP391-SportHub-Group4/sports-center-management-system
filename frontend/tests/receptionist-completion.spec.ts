@@ -16,7 +16,6 @@ async function install(page: Page) {
   const writes: { path: string; body: unknown }[] = [];
   let status = "OPEN";
   let assigned = false;
-  let corrected = false;
   let reconciled = false;
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -44,7 +43,6 @@ async function install(page: Page) {
       }
       if (path.endsWith("/progress")) status = "IN_PROGRESS";
       if (path.endsWith("/close")) status = "CLOSED";
-      if (path.endsWith("/forgotten-checkout")) corrected = true;
       if (path.endsWith("/retry")) reconciled = true;
       return json({ state: "FULFILLED" });
     }
@@ -71,21 +69,6 @@ async function install(page: Page) {
             assignedToUserId: assigned ? staffId : null,
           },
         ]),
-      );
-    if (path === "/api/gym-checkins/inside")
-      return json(
-        paged(
-          url.searchParams.get("staleOnly") === "true" && !corrected
-            ? [
-                {
-                  checkInId: id,
-                  memberId: id,
-                  memberName: "Forgotten visit member",
-                  checkInTime: "2026-10-14T01:00:00Z",
-                },
-              ]
-            : [],
-        ),
       );
     if (path === "/api/front-desk/payment-reconciliation")
       return json(
@@ -146,44 +129,20 @@ test("desk assigns, updates and closes support from the queue", async ({
   ]);
 });
 
-test("desk resolves yesterday's visit with Vietnam departure time and a reason", async ({
-  page,
-}) => {
-  const writes = await install(page);
-  await page.goto("/receptionist");
-  await page
-    .getByLabel("Actual departure (Vietnam time)")
-    .fill("2026-10-14T10:00");
-  await page
-    .getByLabel("Reason for correction")
-    .fill("Member forgot to check out");
-  await page
-    .getByRole("button", { name: "Resolve forgotten check-out" })
-    .click();
-  await expect(page.getByText("No forgotten check-outs.")).toBeVisible();
-  expect(writes).toEqual([
-    {
-      path: `/api/gym-checkins/${id}/forgotten-checkout`,
-      body: {
-        departedAtUtc: "2026-10-14T03:00:00.000Z",
-        reason: "Member forgot to check out",
-      },
-    },
-  ]);
-});
-
 test("desk retries an unfulfilled payment after hold expiry", async ({
   page,
 }) => {
   const writes = await install(page);
   await page.goto("/receptionist/payment-reconciliation");
-  await expect(
-    page.getByText(/INV-LATE-001.*ReconciliationRequired/),
-  ).toBeVisible();
+  await expect(page.getByText("INV-LATE-001")).toBeVisible();
+  await expect(page.getByText("Paid, service not delivered")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh" })).toHaveCount(0);
   await page
     .getByRole("button", { name: "Verify / retry fulfillment" })
     .click();
-  await expect(page.getByText("No cases need follow-up.")).toBeVisible();
+  await expect(
+    page.getByText("No payment attempts currently need follow-up."),
+  ).toBeVisible();
   expect(writes[0].path).toBe(
     `/api/front-desk/payment-reconciliation/${id}/retry`,
   );

@@ -305,6 +305,13 @@ export const en = {
     lookup: "Look up a notice by ID",
     openDetails: "View notice and recipients",
   },
+  classScheduleLookup: {
+    conflict: "Schedule conflict",
+    title: "Existing schedule",
+    navigation: "Week navigation",
+    empty: "No activities found for this week and selection.",
+    emptyDay: "No activities",
+  },
   managerOperations: {
     overview: "Operations overview",
     priorities: "Needs attention",
@@ -322,7 +329,7 @@ export const en = {
     roomTypes: "Room types",
     contentStep: "Class information",
     scheduleStep: "Coach, room & schedule",
-    pricingStep: "Price, cost & capacity",
+    pricingStep: "Tuition, cost & capacity",
     reviewStep: "Review generated sessions",
     saveDraft: "Save draft",
     draftHint:
@@ -331,7 +338,7 @@ export const en = {
     previewHint:
       "Preview only. The server validates the schedule again when saving and publishing.",
     thresholdExceeded:
-      "The opening threshold exceeds class capacity. Adjust cost, price or capacity.",
+      "The opening threshold exceeds class capacity. Adjust total class cost, tuition or capacity.",
     capacityExceeded: "Class capacity exceeds the room or sport limit.",
     missingDuration: "This sport has no group-course duration configured.",
     coachRequired: "Select a coach before publishing.",
@@ -351,8 +358,6 @@ export const en = {
     waitingApi: "Waiting for API",
     closeGap:
       "Closing enrollment only stops new registrations. Cancelling a class is a different action.",
-    interestGap:
-      "Next-course interest is not available yet. Members can currently choose a refund or transfer. The refund + notification option will appear here when supported.",
     previewConfirmationHint:
       "Room and coach availability is a preview. Confirmation checks the schedule again, including student conflicts and makeup rules; it does not reserve this slot.",
     availabilityReasons: {
@@ -381,6 +386,13 @@ export const en = {
     version: "Version",
     backToList: "Back to list",
     enrollmentTitle: "Enrollment",
+    enrollmentFull: "Class is full",
+    enrollmentOpensOnPublish:
+      "Enrollment opens automatically when this class is published.",
+    enrollmentAutomaticHint:
+      "Enrollment is managed automatically and closes when the class is full or starts.",
+    enrollmentFullHint:
+      "Enrollment is closed because all places are filled. A place released before the class starts reopens automatically.",
     enrollmentOpen: "Enrollment is open",
     enrollmentClosed: "Enrollment is closed",
     enrollmentClosedVisibilityHint:
@@ -507,16 +519,20 @@ export const en = {
     unchanged: "No changes in the recorded fields.",
   },
   classWorkspace: {
+    cancellationUnavailable: "Cancellation unavailable",
+    editSession: "Edit session",
+    enrolledCancellationBlocked:
+      "This class has enrolled students. Reschedule a session, change the room, or assign another coach instead.",
     classes: "Classes",
     classLabel: "Class",
     create: "Create class",
     edit: "Edit class",
     details: "Class details",
-    interests: "Course interests",
     enrolled: "Enrolled / capacity",
     holds: "Seat holds",
     opening: "Opening conditions",
-    price: "Course price (VND)",
+    price: "Tuition per student (VND)",
+    cost: "Total class cost (VND)",
     information: "Class information",
     schedule: "Activity schedule",
     viewSchedule: "View class schedule",
@@ -694,8 +710,6 @@ export const en = {
     gym: "Gym membership",
     visits: "Gym visits",
     checkIn: "Check-in",
-    checkOut: "Check-out",
-    inside: "Still at the gym",
     quota: "Quota",
     makeup: "Make-up session",
     unread: "Unread",
@@ -802,6 +816,13 @@ export const en = {
       "* An activation email with a link to set the first password will be sent directly to the staff member.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
+    saveChanges: "Save changes",
+    confirmUpdate: "Confirm update",
+    updateSpecialties: "Update specialties",
+    specialtiesAdded: "Specialties added",
+    specialtiesRemoved: "Specialties removed",
+    specialtyImpact:
+      "Existing class assignments are kept. Review their schedules separately when removing a specialty.",
     roleBlockTitle: "Resolve these items before changing the role",
     memberRoleLocked:
       "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
@@ -1140,7 +1161,7 @@ export const en = {
     rentals: "My rentals",
     profile: "Profile",
     wallet: "Points wallet",
-    catalog: "Service & Facilities",
+    catalog: "Services",
     name: "Name",
     code: "Code",
     sport: "Sport",
@@ -1195,14 +1216,10 @@ export const en = {
     end: "End",
     price: "Price (VND)",
     cost: "Cost (VND)",
-    classPriceHint:
-      "Tuition each member pays for the entire course, including all sessions.",
     classMinimumEnrollment: "Minimum enrollment to break even",
     classCapacity: "Class capacity",
     classSingleMember: "1 member",
     classMemberCount: "{count} members",
-    classCostHint:
-      "Total cost to run the entire course, such as coach, room and equipment costs. Used to calculate the break-even threshold.",
     priceHour: "Price per hour (VND)",
     openingHours: "Opening hours",
     blocks: "Room blocks",
@@ -1268,20 +1285,14 @@ export const en = {
     purchaseReview: "Review membership purchase",
     createInvoice: "Create invoice",
     membershipDuration: "Membership duration",
-    gymCheckin: "Gym check-in / check-out",
+    gymCheckin: "Gym check-in",
     checkIn: "Check in",
-    checkOut: "Check out",
-    inside: "Currently inside",
-    gymAlreadyInside:
-      "This member is already checked in to the gym. Check them out before checking in again.",
     history: "History",
     lookup: "Look up",
     scanHint: "Scanning only identifies a member. Confirm check-in separately.",
     pending: "Pending checkouts",
     invoices: "Invoices",
     dashboard: "Operations overview",
-    gymOverviewLimit:
-      "Select a member to review visits that have not been checked out.",
     snapshotHint:
       "Changes apply to new transactions; purchased invoices keep their snapshots. 1 point = 1,000 VND.",
     scope: "Scope",
@@ -1492,7 +1503,7 @@ export const en = {
     exception: "Request an exception",
     sports: "Sports at SportHub",
     paid: "Payment verified by server",
-    compensated: "Payment refunded to wallet; service was not fulfilled.",
+    compensated: "VNPay amount credited to your point wallet; service was not granted.",
     reconciliation: "Payment needs reconciliation. Contact reception.",
     invoice: "Invoice",
     legacyInvoice:
@@ -1821,12 +1832,12 @@ export const en = {
     shortcutsEscapeHint: "Press Escape to close",
     footerTagline: "Multidisciplinary Sports Centre",
     groups: {
-      catalog: "Service & Facilities",
+      catalog: "Services",
       classesScheduling: "Classes & Scheduling",
-      supportCommunications: "Support & Communications",
+      supportCommunications: "Support & Communication",
       operations: "Operations",
-      people: "Account",
-      finance: "Finance",
+      people: "People",
+      finance: "Transaction & Report",
       system: "System",
       training: "Training",
       billing: "Billing",
@@ -1839,7 +1850,8 @@ export const en = {
       SystemAdministrator: "System Administrator",
     },
     items: {
-      finance: "Finance",
+      requests: "Request",
+      finance: "Invoices",
       invoicesRefunds: "Invoices & refunds",
       scheduleRequests: "Schedule & requests",
       reports: "Reports",
@@ -1852,7 +1864,7 @@ export const en = {
       rates: "Court Rental Pricing",
       coaches: "Coaches",
       courtSchedule: "Court schedule",
-      activitySchedule: "Activity schedule",
+      activitySchedule: "Schedule",
       incidents: "Incidents",
       notices: "Manual notices",
       support: "Support requests",
@@ -1874,10 +1886,10 @@ export const en = {
       trainingPlans: "Training plans",
       progress: "Results & progress",
       aiSuggestions: "AI suggestions",
-      trainingRooms: "Rooms & Courts",
+      trainingRooms: "Courts & Rooms",
       classes: "Classes",
       classSchedule: "Class schedule",
-      membershipPlans: "Membership plans",
+      membershipPlans: "Membership",
       coachingRelationships: "Coaching relationships",
       paymentAdjustments: "Payment adjustments",
       revenueReports: "Revenue reports",
@@ -1896,8 +1908,8 @@ export const en = {
         desc: "Today's classes, pending checkouts and Gym visits",
       },
       gymCheckin: {
-        title: "Gym check-in / check-out",
-        desc: "Find a member, check their membership and confirm entry or exit",
+        title: "Gym check-in",
+        desc: "Find a member, check their membership and confirm entry",
       },
       sellPlans: {
         title: "Sell a service",
@@ -1948,14 +1960,9 @@ export const en = {
     membership: "Gym membership",
     noMembership: "No active Gym membership",
     membershipUntil: "Active until {date}",
-    insideSince: "In the Gym since {time}",
-    notInside: "Not in the Gym",
     checkIn: "Check in",
-    checkOut: "Check out",
     checkedIn: "Checked in at {time}",
-    checkedOut: "Checked out at {time}",
     needMembership: "Check-in needs an active Gym membership. Sell one first.",
-    alreadyInside: "This member is already inside. The status was refreshed.",
     attendance: "Class attendance",
     sell: "Sell a service",
     viewInvoices: "View invoices",

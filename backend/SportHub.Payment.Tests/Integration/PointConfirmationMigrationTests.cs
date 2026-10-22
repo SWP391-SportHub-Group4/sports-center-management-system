@@ -45,7 +45,7 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
         Assert.NotEqual(Guid.Empty, account.SecurityStamp);
         Assert.Equal(UserRole.Member, await db.Roles.Where(x => x.RoleId == 3).Select(x => x.RoleName).SingleAsync());
         Assert.False(await db.Roles.AnyAsync(x => x.RoleId == 6)); // BR-140: chỉ còn 5 role (RoleId 1-5)
-        Assert.Equal(3, await db.Sports.CountAsync()); // Gym, Cầu lông, Bóng rổ; PT là dịch vụ của Gym
+        Assert.Equal(3, await db.Sports.CountAsync()); // Gym, Cầu lông, Bóng rổ
         Assert.True(await db.Rooms.Where(x => x.RoomId == 991).Select(x => x.IsActive).SingleAsync());
         Assert.False(db.Database.HasPendingModelChanges());
     }
@@ -79,8 +79,13 @@ public sealed class PointConfirmationMigrationTests(PaymentApiFactory factory)
             RoleId = await db.Roles.Where(x => x.RoleName == UserRole.Receptionist).Select(x => x.RoleId).SingleAsync(),
             CreatedAt = DateTime.UtcNow
         };
-        db.UserAccounts.AddRange(member, receptionist);
-        await db.SaveChangesAsync();
+        // Seed the pre-multisport schema by its historical columns. The current
+        // UserAccount model includes fields added by later migrations.
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO user_accounts (user_id, email, role_id, status, created_at)
+            VALUES ({member.UserId}, {member.Email}, {member.RoleId}, {(int)member.Status}, {member.CreatedAt}),
+                   ({receptionist.UserId}, {receptionist.Email}, {receptionist.RoleId}, {(int)receptionist.Status}, {receptionist.CreatedAt});
+            """);
         var invoiceId = Guid.NewGuid();
         var now = DateTime.UtcNow;
         await db.Database.ExecuteSqlInterpolatedAsync($"""

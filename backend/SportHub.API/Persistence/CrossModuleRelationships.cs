@@ -13,8 +13,6 @@ public static class CrossModuleRelationships
 {
     public static void Configure(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<SportHub.Scheduling.Threshold.Domain.CourseInterest>()
-            .HasOne<UserAccount>().WithMany().HasForeignKey(x => x.MemberId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<Class>().WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<CourtRental>().WithMany().HasForeignKey(x => x.CourtRentalId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<SportHub.Membership.Domain.Entities.MemberPackage>().WithMany()
@@ -62,7 +60,6 @@ public static class CrossModuleRelationships
         modelBuilder.Entity<Attendance>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.RecordedByUserId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SeatHold>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<SeatHold>().HasOne<Invoice>().WithMany().HasForeignKey(e => e.InvoiceId).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<GymCheckIn>().HasOne<UserAccount>().WithMany().HasForeignKey(e => e.CheckedOutByUserId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<CourtRental>().HasOne<UserAccount>().WithMany()
             .HasForeignKey(e => e.MemberId).OnDelete(DeleteBehavior.Restrict);

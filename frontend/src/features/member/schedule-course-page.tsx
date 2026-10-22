@@ -8,16 +8,16 @@ import {
   Clock3,
   MapPin,
   UserRound,
-  Users,
 } from "lucide-react";
 import { AsyncSection, StatusChip } from "@/components/ui";
+import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import { api } from "@/lib/apiClient";
 import { useAccessGuard } from "@/lib/use-access-guard";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatTime } from "@/lib/format";
 import { courseApi } from "@/features/courses";
-import { MemberTeachingFeed } from "@/features/pt";
+import { MemberTeachingFeed } from "@/features/coaching";
 import { memberEnrollments } from "./api";
 import { CalendarSticker } from "./calendar-sticker";
 import styles from "./schedule-course-page.module.css";
@@ -79,7 +79,7 @@ export function ScheduleCoursePage({
   const coach = enrollment?.coachName ?? event?.coachName;
   const coaches = useApi(
     (signal) =>
-      api.get<{ fullName: string; avatarUrl: string | null }[]>(
+      api.get<{ userId: string; fullName: string; avatarUrl: string | null }[]>(
         "/api/coaches",
         {
           anonymous: true,
@@ -88,9 +88,33 @@ export function ScheduleCoursePage({
       ),
     [],
   );
+  const coachRecord = coaches.data?.find((row) => row.fullName === coach);
+  const coachId = enrollment?.coachId ?? coachRecord?.userId;
   const coachAvatar =
-    coaches.data?.find((row) => row.fullName === coach)?.avatarUrl ??
+    coachRecord?.avatarUrl ??
     "/sporthub/coaches/minh-khang.webp";
+  const completed = Math.max(0, enrollment?.completedSessions ?? 0);
+  const total = Math.max(0, enrollment?.numSessions ?? 0);
+  const coachPortrait = (
+    <>
+      <Image
+        src={coachAvatar}
+        width={800}
+        height={1000}
+        alt={
+          vi
+            ? "Ảnh minh họa huấn luyện viên tại trung tâm"
+            : "Illustrative portrait of a sports coach"
+        }
+        priority
+      />
+      <span className={styles.coachCaption}>
+        <span>{vi ? "Huấn luyện viên" : "Your coach"}</span>
+        <strong>{coach || (vi ? "Đang phân công" : "To be assigned")}</strong>
+        <small>{vi ? "Ảnh minh họa" : "Illustrative portrait"}</small>
+      </span>
+    </>
+  );
   if (
     revoked ||
     (state.error && "status" in state.error && state.error.status === 403)
@@ -118,26 +142,20 @@ export function ScheduleCoursePage({
           {enrollment && <StatusChip value={enrollment.status} />}
         </header>
         <div className={styles.overview}>
-          <figure className={styles.coach}>
-            <Image
-              src={coachAvatar}
-              width={800}
-              height={1000}
-              alt={
-                vi
-                  ? "Ảnh minh họa huấn luyện viên tại trung tâm"
-                  : "Illustrative portrait of a sports coach"
-              }
-              priority
-            />
-            <figcaption>
-              <span>{vi ? "Huấn luyện viên" : "Your coach"}</span>
-              <strong>
-                {coach || (vi ? "Đang phân công" : "To be assigned")}
-              </strong>
-              <small>{vi ? "Ảnh minh họa" : "Illustrative portrait"}</small>
-            </figcaption>
-          </figure>
+          <div className={styles.coach}>
+            {coachId && coach ? (
+              <CoachProfilePreview
+                coachId={coachId}
+                name={coach}
+                sport={sport}
+                className={styles.coachTrigger}
+              >
+                {coachPortrait}
+              </CoachProfilePreview>
+            ) : (
+              coachPortrait
+            )}
+          </div>
           <div className={styles.summary}>
             <div className={styles.sport}>
               <CalendarSticker kind="class" sport={sport} />
@@ -166,14 +184,18 @@ export function ScheduleCoursePage({
                 </dt>
                 <dd>{enrollment?.roomName ?? event?.roomName ?? "—"}</dd>
               </div>
-              <div>
-                <dt>
-                  <Users size={17} aria-hidden="true" />
-                  {vi ? "Hoàn thành" : "Completed"}
-                </dt>
+              <div className={styles.progressFact}>
+                <dt>{vi ? "Tiến độ hoàn thành" : "Course progress"}</dt>
                 <dd>
-                  {enrollment?.completedSessions ?? "—"}
-                  {enrollment ? ` / ${enrollment.numSessions}` : ""}
+                  <span className={styles.progressCount}>
+                    {enrollment ? `${completed}/${total}` : "—"}
+                  </span>
+                  <progress
+                    className={styles.progressBar}
+                    value={Math.min(completed, total)}
+                    max={Math.max(total, 1)}
+                    aria-label={vi ? "Số buổi đã hoàn thành" : "Completed sessions"}
+                  />
                 </dd>
               </div>
               {event && (

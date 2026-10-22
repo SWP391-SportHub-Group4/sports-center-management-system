@@ -1,6 +1,7 @@
 "use client";
 
-import { AssistantButton } from "@/features/member/assistant";
+import { CoachAiAssistant } from "@/features/coach/coach-ai-assistant";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -100,14 +101,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
     { href: "/manager/sports", labelKey: "sports" },
-    { href: "/manager/room-types", labelKey: "roomTypes" },
     { href: "/manager/facilities", labelKey: "trainingRooms" },
-    { href: "/manager/court-rates", labelKey: "rates" },
     { href: "/manager/coaches", labelKey: "coaches" },
     { href: "/manager/schedule", labelKey: "activitySchedule" },
     { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
-    { href: "/manager/support", labelKey: "support" },
+    { href: "/manager/requests", labelKey: "requests" },
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/membership-plans", labelKey: "membershipPlans" },
     { href: "/manager/finance", labelKey: "finance" },
@@ -154,21 +153,17 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
       "catalog",
       [
         "/manager/sports",
-        "/manager/room-types",
-        "/manager/court-rates",
         "/manager/facilities",
         "/manager/membership-plans",
+        "/manager/classes",
       ],
     ],
-    ["classesScheduling", ["/manager/classes", "/manager/schedule"]],
+    "/manager/schedule",
     [
       "supportCommunications",
-      ["/manager/incidents", "/manager/notices", "/manager/support"],
+      ["/manager/requests", "/manager/incidents", "/manager/notices"],
     ],
-    [
-      "people",
-      ["/manager/coaches", "/manager/members"],
-    ],
+    ["people", ["/manager/coaches", "/manager/members"]],
     ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
     "/manager/audit-log",
   ],
@@ -414,7 +409,6 @@ export function AppFrame({
   }
 
   const items = getNavForUser(user);
-  const ptNavigation = false;
   const root = items[0].href;
   const entries = buildNav(items, user.role, t);
   const roleDisplay = t.navigation.roleLabel[user.role];
@@ -430,6 +424,7 @@ export function AppFrame({
     <div
       className={`${shell.shell} ${usesStaffPalette ? styles.staffPalette : ""} ${roleShell}`}
     >
+      {user.role === "Coach" && <CoachAiAssistant />}
       <a href="#main-content" className="skip-link">
         {language === "en"
           ? "Skip to main content"
@@ -437,7 +432,7 @@ export function AppFrame({
       </a>
       <header className={shell.header} data-scrolled={scrolled || undefined}>
         <div
-          className={`${shell.headerInner} ${ptNavigation ? styles.ptHeader : ""} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""} ${user.role === "CenterManager" ? styles.managerHeader : ""}`}
+          className={`${shell.headerInner} ${user.role === "SystemAdministrator" ? styles.adminHeader : ""} ${user.role === "CenterManager" ? styles.managerHeader : ""}`}
         >
           <Link href={root} className={shell.brandGroup}>
             <span className={shell.brandLogo}>
@@ -447,7 +442,7 @@ export function AppFrame({
           </Link>
 
           <nav
-            className={`${styles.staffNav} ${ptNavigation ? styles.ptNav : ""} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
+            className={`${styles.staffNav} ${user.role === "SystemAdministrator" ? styles.adminNav : ""}`}
             aria-label={roleDisplay}
           >
             {entries.map((entry) =>
@@ -598,16 +593,14 @@ export function AppFrame({
                 </div>
               )}
             </div>
-            {!ptNavigation && (
-              <button
-                type="button"
-                className={styles.menuButton}
-                onClick={() => setDrawer(true)}
-                aria-label={t.nav.openNav}
-              >
-                <IconMenu size={20} />
-              </button>
-            )}
+            <button
+              type="button"
+              className={styles.menuButton}
+              onClick={() => setDrawer(true)}
+              aria-label={t.nav.openNav}
+            >
+              <IconMenu size={20} />
+            </button>
           </div>
         </div>
       </header>
@@ -696,13 +689,7 @@ export function AppFrame({
 
       <main id="main-content" className={styles.main} tabIndex={-1}>
         <FrameContext.Provider value={true}>{children}</FrameContext.Provider>
-      </main>
-
-      {(
-        user.role === "Receptionist" ||
-        user.role === "Coach" ||
-        user.role === "CenterManager"
-      ) && <AssistantButton />}
+      </main>
       {showShortcuts && user.role === "Receptionist" && (
         <div
           className="shortcut-modal__backdrop"

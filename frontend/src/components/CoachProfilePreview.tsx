@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
+import { ReportAvatarButton } from "./ReportAvatarButton";
 import { AvatarImage } from "./AvatarImage";
 import styles from "./coach-profile-preview.module.css";
 
@@ -33,10 +34,14 @@ export function CoachProfilePreview({
   coachId,
   name,
   sport,
+  children,
+  className,
 }: {
   coachId: string;
   name: string;
   sport?: string | null;
+  children?: React.ReactNode;
+  className?: string;
 }) {
   const id = useId();
   const mounted = useSyncExternalStore(
@@ -114,7 +119,7 @@ export function CoachProfilePreview({
       <button
         ref={trigger}
         type="button"
-        className={styles.trigger}
+        className={className ? `${styles.trigger} ${className}` : styles.trigger}
         popoverTarget={id}
         aria-expanded={open}
         aria-controls={id}
@@ -135,7 +140,7 @@ export function CoachProfilePreview({
           if (!panel.current?.contains(event.relatedTarget)) hideLater();
         }}
       >
-        {name}
+        {children ?? name}
       </button>
       {mounted &&
         createPortal(
@@ -175,6 +180,11 @@ export function CoachProfilePreview({
                 {sport && <p className={styles.sport}>{sport}</p>}
               </div>
             </div>
+            <ReportAvatarButton
+              userId={coachId}
+              name={coach?.fullName || name}
+              avatarUrl={coach?.avatarUrl}
+            />
             {details.loading ? (
               <p className={styles.note} role="status">
                 Loading coach profile…

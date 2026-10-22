@@ -137,11 +137,6 @@ export function SupportRequestActions({
         </p>
       )}
 
-      {closed && (
-        <p className={styles.closedHint}>
-          This request has been closed. Its final resolution is shown above.
-        </p>
-      )}
       {!closed && (!collapsible || expanded) && (
         <>
           <div className={styles.assignRow}>

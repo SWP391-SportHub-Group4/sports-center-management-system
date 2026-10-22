@@ -23,7 +23,6 @@ public sealed class SaveClassRequest
     public string Name { get; set; } = string.Empty;
 
     public int SportId { get; set; }
-    public int? ContinuationOfClassId { get; set; }
 
     /// <summary>Bắt buộc trước khi publish; phải có chuyên môn khớp môn.</summary>
     public Guid? CoachId { get; set; }

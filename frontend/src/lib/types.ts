@@ -75,7 +75,14 @@ export interface CourseDto {
   thresholdResponseClosed?: boolean;
   openingConfirmed?: boolean;
   firstSessionStartUtc: string | null;
-  scheduleRules: { dayOfWeek: number; startTimeLocal: string }[];
+  /** Buổi đã bắt đầu / còn lại: Member vào giữa chừng cần biết khóa đã chạy tới đâu. */
+  sessionsPassed?: number;
+  sessionsRemaining?: number;
+  scheduleRules: {
+    dayOfWeek: number;
+    startTimeLocal: string;
+    endTimeLocal?: string | null;
+  }[];
 }
 
 export interface CourseEnrollmentDto {
@@ -138,7 +145,7 @@ export interface CheckoutDto {
   invoiceId: string;
   checkoutSessionId: string;
   revision: number;
-  kind: "MEMBERSHIP" | "CLASS" | "COURT_RENTAL";
+  kind: "MEMBERSHIP" | "CLASS" | "COURT_RENTAL" | "WALLET_TOP_UP";
   state: string;
   totalAmount: number;
   pointsApplied: number;
@@ -164,6 +171,7 @@ export interface PaymentAttemptDto {
 }
 
 export interface RoomDto {
+  sportId?: number | null;
   roomTypeId: number | null;
   isActive: boolean;
   roomId: number;
@@ -286,6 +294,8 @@ export interface MemberPackageDto {
 
 export interface InvoiceSummaryDto {
   invoiceId: string;
+  itemDescription?: string | null;
+  paidAtUtc?: string | null;
   checkoutExpiresAtUtc?: string | null;
   invoiceNumber: string;
   memberId: string;
@@ -590,8 +600,6 @@ export interface ReportExportDto {
 }
 
 export interface GymCheckInDto {
-  checkOutTime: string | null;
-  checkedOutByUserId: string | null;
   checkInId: string;
   memberId: string;
   checkedInByUserId: string;
@@ -713,7 +721,7 @@ export interface ThresholdResponseDto {
   sportId: number;
   paidValueVnd: number;
   deadlineUtc: string;
-  choice: "REFUND" | "TRANSFER" | "WAIT_NEXT_COURSE" | "KEEP_PLACE" | null;
+  choice: "REFUND" | "TRANSFER" | "KEEP_PLACE" | null;
   targetClassId: number | null;
   resolutionStatus: string;
   additionalInvoiceId: string | null;
@@ -753,7 +761,6 @@ export interface CourtRentalDetailDto {
 }
 
 export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
-  continuationOfClassId?: number | null;
   status: "DRAFT" | CourseDto["status"];
   costAmount: number;
   breakEvenThreshold: number | null;

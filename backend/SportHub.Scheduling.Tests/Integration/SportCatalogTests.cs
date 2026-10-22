@@ -22,8 +22,8 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         using var manager = await ManagerAsync();
         var staff = await Json(await manager.GetAsync("api/manager/sports"));
         var gym = staff.EnumerateArray().Single(x => x.GetProperty("code").GetString() == "gym");
-        var pt = gym.GetProperty("services").EnumerateArray().Single(x => x.GetProperty("serviceType").GetString() == "MEMBERSHIP_ACCESS");
-        var offeringId = pt.GetProperty("offeringId").GetInt32();
+        var membership = gym.GetProperty("services").EnumerateArray().Single(x => x.GetProperty("serviceType").GetString() == "MEMBERSHIP_ACCESS");
+        var offeringId = membership.GetProperty("offeringId").GetInt32();
         var gymId = gym.GetProperty("sportId").GetInt32();
         Assert.True(offeringId > 0);
         using (var scope = factory.Services.CreateScope())

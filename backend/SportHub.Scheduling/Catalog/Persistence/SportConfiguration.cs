@@ -16,7 +16,7 @@ public class SportConfiguration : IEntityTypeConfiguration<Sport>
         builder.Property(e => e.Name).HasColumnType("citext").IsRequired();
         builder.HasIndex(e => e.Name).IsUnique();
 
-        // Dữ liệu tham chiếu khởi tạo (Design v3 §1.1, CAT-01). Personal Training không còn là môn: PT là dịch vụ của Gym.
+        // Dữ liệu tham chiếu khởi tạo (Design v3 §1.1, CAT-01).
         // Manager tự thêm/sửa môn sau đó.
         builder.HasData(
             new Sport { SportId = 1, Code = SportCodes.Gym, Name = "Gym", SortOrder = 1, IsActive = true },

@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -7,13 +6,11 @@ import { useLanguage } from "@/lib/language";
 import { useUrlQuery, pageQuery } from "@/lib/useUrlQuery";
 import { ApiTable, FilterBar, StatusChip } from "@/components/data";
 import { catalogApi } from "@/features/catalog";
-import { CoachEditor } from "./coach-editor";
 import type { CoachAdminDto, Paged } from "@/lib/types";
 import { AvatarImage } from "@/components/AvatarImage";
 export function CoachesManager() {
   const { t } = useLanguage();
   const l = t.operations;
-  const [editing, setEditing] = useState<CoachAdminDto | undefined>();
   const { values, setValues } = useUrlQuery(
     { keyword: "", sportId: "", page: "1" },
     { page: pageQuery },
@@ -76,18 +73,6 @@ export function CoachesManager() {
           },
           { id: "email", header: l.email },
           {
-            id: "sportIds",
-            header: l.specialties,
-            cell: (c) =>
-              c.sportIds
-                .map(
-                  (id) =>
-                    sports.data?.find((s) => s.sportId === id)?.name ??
-                    `#${id}`,
-                )
-                .join(", "),
-          },
-          {
             id: "status",
             header: l.status,
             cell: (c) => <StatusChip value={c.status} />,
@@ -101,22 +86,9 @@ export function CoachesManager() {
             >
               {l.details}
             </Link>
-            <button className="btn btn--ghost" onClick={() => setEditing(c)}>
-              {l.edit}
-            </button>
           </>
         )}
       />
-      {editing !== undefined && (
-        <CoachEditor
-          coach={editing}
-          onClose={() => setEditing(undefined)}
-          onSaved={() => {
-            setEditing(undefined);
-            state.reload();
-          }}
-        />
-      )}
     </>
   );
 }

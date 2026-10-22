@@ -73,12 +73,15 @@ public sealed class ClassService(
                 "class_not_found",
                 "Class not found.");
 
-        if (entity.Status != ClassStatus.Published)
+        if (entity.Status is not (ClassStatus.Published or ClassStatus.InProgress))
         {
             throw new ConflictException(
                 "class_not_published",
                 "Class not published.");
         }
+
+        if (open && entity.ConfirmedCount >= entity.Capacity)
+            throw new ConflictException("class_full", "Enrollment cannot open while the class is full.");
 
         if (entity.EnrollmentOpen == open)
         {
@@ -120,11 +123,16 @@ public sealed class ClassService(
                 $"Enrollment for \"{entity.Name}\" is temporarily closed because of an issue at the center: {trimmedReason} "
                 + "Your place and your sessions are unchanged. You can wait for the center to resolve it, or submit a refund request "
                 + "from your invoice and the manager will review it as a center-side issue.",
-                "SportHub - Course enrollment paused", ct);
+                "SportHub - Course enrollment paused", ct,
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Class", entity.Name), ("Status", "Enrollment temporarily closed"), ("Reason", trimmedReason!))
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("Your place and your sessions are unchanged.")
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("You can wait for the center to resolve the issue, or submit a refund request from your invoice for the manager to review."));
         else if (open && !string.IsNullOrEmpty(hadClosureReason))
             await NotifyEnrolledAsync(entity, NotificationEvents.ClassEnrollmentReopened,
                 $"The issue affecting \"{entity.Name}\" has been resolved and enrollment is open again. Your course continues as normal.",
-                "SportHub - Course enrollment reopened", ct);
+                "SportHub - Course enrollment reopened", ct,
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Class", entity.Name), ("Status", "Enrollment reopened"))
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph("The issue has been resolved. Your course continues as normal."));
 
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -132,7 +140,7 @@ public sealed class ClassService(
         return await GetManagerAsync(classId, ct);
     }
 
-    private async Task NotifyEnrolledAsync(Class course, string eventType, string message, string subject, CancellationToken ct)
+    private async Task NotifyEnrolledAsync(Class course, string eventType, string message, string subject, CancellationToken ct, string? emailBody = null)
     {
         var memberIds = await db.Set<Enrollment>().AsNoTracking()
             .Where(e => e.ClassId == course.ClassId && e.Status == EnrollmentStatus.Confirmed)
@@ -145,7 +153,7 @@ public sealed class ClassService(
             var recipient = await users.GetAsync(memberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new EmailNotificationRequest(memberId, recipient.Email, eventType, eventId,
-                    subject, "<p>" + System.Net.WebUtility.HtmlEncode(message) + "</p>"));
+                    subject, emailBody ?? SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message)));
         }
     }
 
@@ -155,7 +163,8 @@ public sealed class ClassService(
     {
         (page, pageSize) = Normalize(page, pageSize);
 
-        var query = db.Set<Class>().AsNoTracking().Where(c => c.Status == ClassStatus.Published);
+        var query = db.Set<Class>().AsNoTracking()
+            .Where(c => c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress);
         if (sportId is int sid)
         {
             query = query.Where(c => c.SportId == sid);
@@ -181,7 +190,8 @@ public sealed class ClassService(
 
     public async Task<ClassPublicResponse> GetPublicAsync(int classId, CancellationToken ct = default)
     {
-        var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId && c.Status == ClassStatus.Published))
+        var row = await Rows(db.Set<Class>().AsNoTracking().Where(c => c.ClassId == classId
+                      && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)))
                       .SingleOrDefaultAsync(ct)
                   ?? throw new NotFoundException("class_not_found", "Class not found.");
 
@@ -189,11 +199,13 @@ public sealed class ClassService(
     }
 
     public async Task<PagedResult<ClassManagerResponse>> ListManagerAsync(
-        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null)
+        string? status, int? sportId, string? keyword, int page, int pageSize, CancellationToken ct = default, string? thresholdStatus = null, Guid? coachId = null)
     {
         (page, pageSize) = Normalize(page, pageSize);
 
         var query = db.Set<Class>().AsNoTracking();
+
+        if (coachId is Guid coach) query = query.Where(c => c.CoachId == coach || c.Sessions.Any(s => s.CoachId == coach && s.Status != ClassSessionStatus.Cancelled));
 
         if (!string.IsNullOrWhiteSpace(thresholdStatus))
         {
@@ -453,6 +465,9 @@ public sealed class ClassService(
         }
 
         entity.Status = ClassStatus.Published;
+        entity.EnrollmentOpen = true;
+        entity.EnrollmentClosedReason = null;
+        entity.EnrollmentClosedAtUtc = null;
         entity.PublishedAt = now;
         entity.BreakEvenThreshold = threshold;
         entity.ThresholdStatus = ThresholdStatus.NotEvaluated;
@@ -466,6 +481,7 @@ public sealed class ClassService(
             NewValue: JsonSerializer.Serialize(new
             {
                 status = ClassStatus.Published.ToString(),
+                enrollmentOpen = true,
                 sessions = sessions.Count,
                 breakEvenThreshold = threshold,
                 thresholdDeadlineUtc = entity.ThresholdDeadlineUtc
@@ -530,13 +546,6 @@ public sealed class ClassService(
         // Chạy thử bộ sinh lịch để báo sớm lỗi ngày bắt đầu lệch lịch lặp.
         CourseRules.GenerateSessions(request.StartDate, request.NumSessions, rules, Math.Max(sport.DefaultDurationMinutes, 1));
 
-        if (request.ContinuationOfClassId is int previous)
-        {
-            if (previous == entity.ClassId || !await db.Set<Class>().AnyAsync(c => c.ClassId == previous
-                && c.SportId == request.SportId && c.StartDate <= request.StartDate, ct))
-                throw new BadRequestException("invalid_previous_cohort", "Choose an earlier class in the same sport for the next cohort.");
-        }
-        entity.ContinuationOfClassId = request.ContinuationOfClassId;
         entity.Code = code;
         entity.Name = request.Name.Trim();
         entity.SportId = request.SportId;
@@ -574,10 +583,23 @@ public sealed class ClassService(
             .OrderBy(r => r.DayOfWeek).ThenBy(r => r.StartTimeLocal)
             .ToListAsync(ct);
 
+        // Thời lượng buổi lấy từ buổi đã sinh (Draft chưa có buổi → không có giờ kết thúc).
+        var sessions = await db.Set<ClassSession>().AsNoTracking()
+            .Where(s => classIds.Contains(s.ClassId) && s.Status != ClassSessionStatus.Cancelled)
+            .GroupBy(s => s.ClassId)
+            .Select(g => new { ClassId = g.Key, Start = g.Min(s => s.StartAtUtc), End = g.Min(s => s.EndAtUtc) })
+            .ToListAsync(ct);
+        var minutes = sessions.ToDictionary(s => s.ClassId, s => (int)Math.Round((s.End - s.Start).TotalMinutes));
+
         return rows.GroupBy(r => r.ClassId).ToDictionary(
             g => g.Key,
             g => (IReadOnlyList<ClassScheduleRuleResponse>)g
-                .Select(r => new ClassScheduleRuleResponse(r.DayOfWeek, r.StartTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture)))
+                .Select(r => new ClassScheduleRuleResponse(
+                    r.DayOfWeek,
+                    r.StartTimeLocal.ToString(TimeFormat, CultureInfo.InvariantCulture),
+                    minutes.TryGetValue(r.ClassId, out var m) && m > 0
+                        ? r.StartTimeLocal.AddMinutes(m).ToString(TimeFormat, CultureInfo.InvariantCulture)
+                        : null))
                 .ToList());
     }
 
@@ -586,6 +608,18 @@ public sealed class ClassService(
         var rules = await RulesAsync(rows.Select(r => r.Class.ClassId).ToList(), ct);
         var names = await validator.CoachNamesAsync(rows.Select(r => r.Class.CoachId), ct);
         var now = clock.UtcNow;
+        var classIds = rows.Select(r => r.Class.ClassId).ToList();
+        // Tiến độ khóa cho Member vào giữa chừng: buổi đã bắt đầu / buổi còn lại (không tính buổi bị hủy).
+        var progress = await db.Set<ClassSession>().AsNoTracking()
+            .Where(s => classIds.Contains(s.ClassId) && s.Status != ClassSessionStatus.Cancelled)
+            .GroupBy(s => s.ClassId)
+            .Select(g => new
+            {
+                ClassId = g.Key,
+                Passed = g.Count(s => s.StartAtUtc <= now),
+                Remaining = g.Count(s => s.Status == ClassSessionStatus.Scheduled && s.StartAtUtc > now)
+            })
+            .ToDictionaryAsync(x => x.ClassId, ct);
 
         return rows.Select(r => new ClassPublicResponse(
             r.Class.ClassId,
@@ -603,14 +637,16 @@ public sealed class ClassService(
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.Price,
             r.Class.Status.ToString(),
-            r.Class.EnrollmentOpen && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
+            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > now && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now),
             r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now,
             r.FirstStart,
             rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [],
             r.Class.ThresholdStatus is ThresholdStatus.Met or ThresholdStatus.WaivedByManager
-                || r.Class.Status is ClassStatus.InProgress or ClassStatus.Completed
+                || r.Class.Status is ClassStatus.InProgress or ClassStatus.Completed,
+            progress.TryGetValue(r.Class.ClassId, out var p) ? p.Passed : 0,
+            progress.TryGetValue(r.Class.ClassId, out var p2) ? p2.Remaining : 0
         )).ToList();
     }
 
@@ -644,14 +680,14 @@ public sealed class ClassService(
             r.ActiveHolds,
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.CreatedByAi,
-            r.Class.EnrollmentOpen,
+            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > clock.UtcNow,
             r.Class.EnrollmentClosedReason,
             r.Class.EnrollmentClosedAtUtc,
             r.Class.Version,
             r.Class.CreatedAt,
             r.Class.PublishedAt,
             r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [], r.Class.ContinuationOfClassId
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
         )).ToList();
     }
 

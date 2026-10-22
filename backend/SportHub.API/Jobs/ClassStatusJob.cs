@@ -43,7 +43,8 @@ public sealed class ClassStatusJob(IServiceProvider services, ILogger<ClassStatu
             .Where(c => c.Status == ClassStatus.Published
                         && (c.ThresholdStatus == ThresholdStatus.Met || c.ThresholdStatus == ThresholdStatus.WaivedByManager)
                         && c.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.InProgress), ct);
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.InProgress)
+                .SetProperty(x => x.EnrollmentOpen, false), ct);
 
         var finished = await db.Classes
             .Where(c => c.Status == ClassStatus.InProgress

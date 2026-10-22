@@ -192,6 +192,18 @@ public sealed class PaymentFulfillmentService(
 
         switch (item.ItemType)
         {
+            case InvoiceItemType.WalletTopUp:
+            {
+                if (session.Kind != "WalletTopUp" || invoice.PointsApplied != 0
+                    || invoice.CashAmount != item.LineAmount || item.Quantity is < 1 or > 10_000
+                    || item.LineAmount != item.Quantity * (decimal)SportHub.Payment.Wallet.Application.PointWalletService.VndPerPoint)
+                    throw new ConflictException("top_up_checkout_invalid", "Wallet top-up checkout invalid.");
+                await wallets.EarnAsync(new WalletOperation(invoice.MemberId, item.Quantity,
+                    "WalletTopUp", invoice.InvoiceId, invoice.IssuedByUserId,
+                    $"VNPay top-up for invoice {invoice.InvoiceNumber}", item.ItemId), ct);
+                break;
+            }
+
             case InvoiceItemType.Membership:
             {
                 await packages

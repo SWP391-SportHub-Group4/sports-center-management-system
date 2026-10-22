@@ -88,50 +88,22 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Waiting_refunds_once_and_only_linked_open_cohorts_notify_then_member_can_unsubscribe()
+    public async Task Below_threshold_cancellation_refunds_points_and_suggests_similar_open_courses_once()
     {
         var p = await PaidAtRiskAsync();
-        using var member = factory.CreateApiClient(p.MemberId, UserRole.Member);
-        using var stranger = factory.CreateApiClient((await factory.SeedUserAsync(UserRole.Member)).UserId, UserRole.Member);
-        var endpoint = $"/api/class-threshold-responses/{p.Response.ThresholdResponseId}";
-        for (var n = 0; n < 2; n++) {
-            var response = await member.PostAsJsonAsync(endpoint, new { choice = "WAIT_NEXT_COURSE" });
-            Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
-        }
-        var interest = await factory.QueryAsync(db => db.Set<CourseInterest>().SingleAsync(i => i.MemberId == p.MemberId));
-        Assert.Equal(100, interest.RefundedPoints);
-        Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == p.MemberId).Select(w => w.AvailablePoints).SingleAsync()));
-        Assert.False(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.MemberId == p.MemberId && e.Status == EnrollmentStatus.Confirmed)));
-        Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync($"/api/members/me/classes/{p.Course.Id}/teaching-records")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await stranger.DeleteAsync($"/api/members/me/course-interests/{interest.InterestId}")).StatusCode);
-
-        var next = await CourseTestData.CreateAsync(factory, publish: false);
-        next.Request.ContinuationOfClassId = p.Course.Id;
-        using (var scope = factory.Services.CreateScope()) {
-            var classes = scope.ServiceProvider.GetRequiredService<IClassService>();
-            await classes.UpdateAsync(next.Id, next.Request, next.ManagerId);
-            await classes.PublishAsync(next.Id, new(), next.ManagerId);
-        }
-        async Task RunWorker() { using var scope = factory.Services.CreateScope(); await scope.ServiceProvider.GetRequiredService<CourseInterestService>().NotifyOpenClassesAsync(); }
-        await RunWorker();
-        Assert.False(await factory.QueryAsync(db => db.Set<CourseInterestDelivery>().AnyAsync(d => d.InterestId == interest.InterestId)));
+        var similar = await CourseTestData.CreateAsync(factory, time: "14:00");
+        var similarName = await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == similar.Id).Select(c => c.Name).SingleAsync());
         using (var scope = factory.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<IClassService>().SetEnrollmentOpenAsync(next.Id, true, next.ManagerId);
-        await RunWorker(); await RunWorker();
-        var delivery = await factory.QueryAsync(db => db.Set<CourseInterestDelivery>().SingleAsync(d => d.InterestId == interest.InterestId));
-        Assert.Equal(next.Id, delivery.ClassId);
-        Assert.Equal(2, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.SourceEntityId == delivery.DeliveryId)));
-        Assert.Empty(await stranger.GetFromJsonAsync<JsonElement[]>("/api/members/me/course-interests") ?? []);
-        var notices = await member.GetAsync("/api/notifications");
-        Assert.True(notices.IsSuccessStatusCode, await notices.Content.ReadAsStringAsync());
-        Assert.Contains($"course={next.Id}", await notices.Content.ReadAsStringAsync());
-        Assert.Equal(HttpStatusCode.NoContent, (await member.DeleteAsync($"/api/members/me/course-interests/{interest.InterestId}")).StatusCode);
-        // Reopening another linked class must not notify a cancelled subscription.
-        var another = await CourseTestData.CreateAsync(factory);
-        await factory.QueryAsync(async db => { await db.Classes.Where(c => c.ClassId == another.Id).ExecuteUpdateAsync(u => u
-            .SetProperty(c => c.ContinuationOfClassId, p.Course.Id).SetProperty(c => c.EnrollmentOpen, true)); return 0; });
-        await RunWorker();
-        Assert.Equal(1, await factory.QueryAsync(db => db.Set<CourseInterestDelivery>().CountAsync(d => d.InterestId == interest.InterestId)));
+            await ActivatorUtilities.CreateInstance<ThresholdResponseExpiryService>(scope.ServiceProvider,
+                new TestClock(p.Response.DeadlineUtc.AddSeconds(1))).ExpireAsync();
+        Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == p.MemberId).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.False(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.MemberId == p.MemberId && e.ClassId == p.Course.Id && e.Status == EnrollmentStatus.Confirmed)));
+        var notice = await factory.QueryAsync(db => db.Notifications.Where(n => n.UserId == p.MemberId
+            && n.SourceEventType == NotificationSourceEventType.ClassCancelled && n.Channel == NotificationChannel.InApp)
+            .Select(n => n.Message).SingleAsync());
+        Assert.Contains("100 points were returned", notice);
+        Assert.Contains(similarName, notice);
+        Assert.Contains("Similar courses open now", notice);
     }
 
     [Fact]

@@ -131,44 +131,45 @@ export function AvatarEditor({
 
   return (
     <div className={styles.layout}>
-      <div className={styles.current}>
-        <AvatarImage name={name} avatarUrl={avatarUrl} size={72} />
-        <span>{vi ? "Ảnh đại diện hiện tại" : "Current avatar"}</span>
+      <div className={styles.pick}>
+        <div className={styles.current}>
+          <AvatarImage name={name} avatarUrl={avatarUrl} size={72} />
+        </div>
+        <label className={styles.tools}>
+          <span>
+            {vi
+              ? "Chọn ảnh JPG, PNG hoặc WebP (tối đa 5 MB)"
+              : "Choose a JPG, PNG or WebP image (up to 5 MB)"}
+          </span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={busy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              if (
+                !ALLOWED.includes(file.type) ||
+                file.size > MAX_BYTES ||
+                file.size === 0
+              ) {
+                setError(
+                  vi
+                    ? "Ảnh phải là JPG, PNG hoặc WebP và không quá 5 MB."
+                    : "Use a JPG, PNG or WebP image up to 5 MB.",
+                );
+                return;
+              }
+              setError("");
+              setSuccess("");
+              setZoom(1);
+              setOffset({ x: 0, y: 0 });
+              setFileUrl(URL.createObjectURL(file));
+            }}
+          />
+        </label>
       </div>
-      <label className={styles.tools}>
-        <span>
-          {vi
-            ? "Chọn ảnh JPG, PNG hoặc WebP (tối đa 5 MB)"
-            : "Choose a JPG, PNG or WebP image (up to 5 MB)"}
-        </span>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          disabled={busy}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (!file) return;
-            if (
-              !ALLOWED.includes(file.type) ||
-              file.size > MAX_BYTES ||
-              file.size === 0
-            ) {
-              setError(
-                vi
-                  ? "Ảnh phải là JPG, PNG hoặc WebP và không quá 5 MB."
-                  : "Use a JPG, PNG or WebP image up to 5 MB.",
-              );
-              return;
-            }
-            setError("");
-            setSuccess("");
-            setZoom(1);
-            setOffset({ x: 0, y: 0 });
-            setFileUrl(URL.createObjectURL(file));
-          }}
-        />
-      </label>
       {fileUrl && (
         <>
           <p>

@@ -27,8 +27,13 @@ public sealed class AuditRoleMigrationTests
             RoleId = 1, Status = UserStatus.Active, CreatedAt = DateTime.UtcNow };
         var admin = new UserAccount { UserId = Guid.NewGuid(), Email = "migrated-admin@example.com",
             RoleId = 5, Status = UserStatus.Active, CreatedAt = DateTime.UtcNow };
-        db.UserAccounts.AddRange(actor, admin);
-        await db.SaveChangesAsync();
+        // This database intentionally stops before the audit migration. Insert using that
+        // historical schema: the current UserAccount model can contain columns added later.
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO user_accounts (user_id, email, role_id, status, security_stamp, created_at)
+            VALUES ({actor.UserId}, {actor.Email}, {actor.RoleId}, {(int)actor.Status}, {actor.SecurityStamp}, {actor.CreatedAt}),
+                   ({admin.UserId}, {admin.Email}, {admin.RoleId}, {(int)admin.Status}, {admin.SecurityStamp}, {admin.CreatedAt});
+            """);
         var beforeId = Guid.NewGuid(); var changeId = Guid.NewGuid(); var afterId = Guid.NewGuid(); var systemId = Guid.NewGuid();
         var now = DateTime.UtcNow;
         var before = now.AddHours(-2); var change = now.AddHours(-1);

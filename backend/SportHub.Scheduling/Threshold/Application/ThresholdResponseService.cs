@@ -147,20 +147,12 @@ public sealed class ThresholdResponseService(ISportHubDbContext db, IClassEnroll
             ?? throw new ConflictException("threshold_invoice_item_missing", "Threshold invoice item missing.");
 
         Guid? additionalInvoiceId = null;
-        if (choice is ThresholdResponseChoice.Refund or ThresholdResponseChoice.WaitNextCourse)
+        if (choice == ThresholdResponseChoice.Refund)
         {
             await refunds.LockPaidItemAsync(itemId, ct);
-            var refundValue = await refunds.GetRemainingItemValueVndAsync(itemId, ct);
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
                 "Points refunded by member choice after the course missed its break-even threshold", response.ThresholdResponseId), ct);
             await classes.CancelAsync(itemId, EnrollmentEndReason.Refunded, ct);
-            if (choice == ThresholdResponseChoice.WaitNextCourse)
-                db.Set<CourseInterest>().Add(new CourseInterest
-                {
-                    CourseInterestId = Guid.NewGuid(), MemberId = memberId, SportId = course.SportId,
-                    SourceClassId = course.ClassId, ThresholdResponseId = response.ThresholdResponseId,
-                    RefundedPoints = checked((int)(refundValue / 1000)), CreatedAtUtc = clock.UtcNow
-                });
         }
         else if (choice == ThresholdResponseChoice.Transfer)
         {

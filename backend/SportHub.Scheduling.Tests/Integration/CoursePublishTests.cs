@@ -125,18 +125,15 @@ public sealed class CoursePublishTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Cancellation_creates_makeup_and_retains_enrollment_and_effective_session_count()
+    public async Task Empty_class_cancellation_creates_makeup_and_retains_effective_session_count()
     {
         var c = await CourseTestData.CreateAsync(factory);
-        var member = await factory.SeedUserAsync(UserRole.Member);
-        var enrollment = await CourseTestData.EnrollmentAsync(factory, c.Id, member.UserId);
         var sessions = await CourseTestData.SessionsAsync(factory, c.Id);
         var makeup = await CourseTestData.RunAsync<IClassSessionService, SportHub.Scheduling.Application.DTOs.ClassSessionResponse>(factory,
             s => s.CancelWithMakeupAsync(sessions[0].SessionId, new() { Reason = "Bảo trì sân", Makeup = new() { StartAtUtc = sessions[^1].StartAtUtc.AddDays(7) } }, c.ManagerId));
         Assert.True(makeup.IsMakeup);
         Assert.Equal(sessions[0].SessionId, makeup.RescheduledFromSessionId);
         Assert.Equal(3, (await CourseTestData.SessionsAsync(factory, c.Id)).Count(s => s.Status != ClassSessionStatus.Cancelled));
-        Assert.Equal(EnrollmentStatus.Confirmed, await factory.QueryAsync(db => db.Enrollments.Where(e => e.EnrollmentId == enrollment).Select(e => e.Status).SingleAsync()));
         Assert.False(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == sessions[0].SessionId && o.IsActive)));
         Assert.True(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == makeup.SessionId && o.IsActive)));
     }
