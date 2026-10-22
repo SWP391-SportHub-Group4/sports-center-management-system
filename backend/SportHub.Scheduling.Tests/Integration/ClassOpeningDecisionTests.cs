@@ -95,9 +95,15 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
             .Select(x => x.ThresholdResponseDeadlineUtc).SingleAsync());
         Assert.Null(deadline);
         foreach (var id in new[] { c.ManagerId, c.CoachId })
-            foreach (var channel in new[] { NotificationChannel.InApp, NotificationChannel.Email })
-                Assert.Equal(1, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == id
-                    && n.Channel == channel && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)));
+        {
+            Assert.Equal(1, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == id
+                && n.Channel == NotificationChannel.InApp
+                && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk
+                && n.SourceEntityId == first.SessionId)));
+            Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == id
+                && n.Channel == NotificationChannel.Email
+                && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)));
+        }
         Assert.Equal(0, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == member.UserId
             && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)));
         var second = await factory.SeedUserAsync(UserRole.Member);
