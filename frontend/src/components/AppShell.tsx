@@ -1,5 +1,7 @@
 "use client";
 
+import { CoachAiAssistant } from "@/features/coach/coach-ai-assistant";
+
 import Link from "next/link";
 import { CalendarDays, History } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -100,17 +102,19 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
     { href: "/manager/sports", labelKey: "sports" },
-    { href: "/manager/facilities", labelKey: "courts" },
-    { href: "/manager/people", labelKey: "people" },
-    { href: "/manager/incidents", labelKey: "incident" },
+    { href: "/manager/facilities", labelKey: "trainingRooms" },
+    { href: "/manager/coaches", labelKey: "coaches" },
+    { href: "/manager/schedule", labelKey: "activitySchedule" },
+    { href: "/manager/incidents", labelKey: "incidents" },
     { href: "/manager/notices", labelKey: "notices" },
-    { href: "/manager/media", labelKey: "media" },
     { href: "/manager/requests", labelKey: "requests" },
     { href: "/manager/classes", labelKey: "classes" },
     { href: "/manager/membership-plans", labelKey: "membershipPlans" },
     { href: "/manager/finance", labelKey: "finance" },
-    { href: "/manager/points", labelKey: "pointWallets" },
-    { href: "/manager/reports", labelKey: "report" },
+    { href: "/manager/members", labelKey: "members" },
+    { href: "/manager/points", labelKey: "wallet" },
+    { href: "/manager/reports", labelKey: "revenueReports" },
+    { href: "/manager/audit-log", labelKey: "auditLog" },
   ],
   SystemAdministrator: [
     { href: "/admin", labelKey: "overview" },
@@ -155,13 +159,14 @@ const GROUP_SPEC: Partial<Record<Role, (string | [GroupKey, string[]])[]>> = {
         "/manager/classes",
       ],
     ],
-    "/manager/media",
-    "/manager/people",
-    ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
+    "/manager/schedule",
     [
       "supportCommunications",
       ["/manager/requests", "/manager/incidents", "/manager/notices"],
     ],
+    ["people", ["/manager/coaches", "/manager/members"]],
+    ["finance", ["/manager/finance", "/manager/points", "/manager/reports"]],
+    "/manager/audit-log",
   ],
   Coach: [
     "/coach",
@@ -208,10 +213,7 @@ function buildNav(items: NavItem[], role: Role, t: Translations): NavEntry[] {
 /** Trang gốc của nhánh chỉ sáng ở đúng nó; các mục còn lại khớp theo tiền tố. */
 function isActiveHref(pathname: string, href: string, root: string) {
   return (
-    pathname === href ||
-    (href !== root && pathname.startsWith(`${href}/`)) ||
-    (href === "/manager/people" &&
-      /^\/manager\/(members|coaches)(\/|$)/.test(pathname))
+    pathname === href || (href !== root && pathname.startsWith(`${href}/`))
   );
 }
 
@@ -423,6 +425,7 @@ export function AppFrame({
     <div
       className={`${shell.shell} ${usesStaffPalette ? styles.staffPalette : ""} ${roleShell}`}
     >
+      {user.role === "Coach" && <CoachAiAssistant />}
       <a href="#main-content" className="skip-link">
         {language === "en"
           ? "Skip to main content"

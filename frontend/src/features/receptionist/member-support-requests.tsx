@@ -20,11 +20,12 @@ type Category = MemberSupportRequestDto["category"];
 
 /** Chip chọn nhanh; mã gửi lên vẫn là danh mục của API. */
 const CHIPS: { value: Category; en: string; vi: string }[] = [
-  { value: "MEMBERSHIP", en: "Check-in issue", vi: "Lỗi check-in" },
-  { value: "GENERAL", en: "Locker request", vi: "Yêu cầu tủ đồ" },
-  { value: "CLASS", en: "Class", vi: "Lớp học" },
-  { value: "PAYMENT", en: "Payment query", vi: "Thanh toán" },
-  { value: "OTHER", en: "Feedback / incident", vi: "Góp ý / sự cố" },
+  { value: "PAYMENT", en: "Payment / Points", vi: "Payment / Points" },
+  { value: "MEMBERSHIP", en: "Membership / Package", vi: "Membership / Package" },
+  { value: "CLASS", en: "Schedule / Coach", vi: "Schedule / Coach" },
+  { value: "FACILITY", en: "Equipment / Facilities", vi: "Equipment / Facilities" },
+  { value: "ACCOUNT", en: "Account / App", vi: "Account / App" },
+  { value: "OTHER", en: "Other", vi: "Other" },
 ];
 
 const RECENT_LIMIT = 5;
@@ -58,7 +59,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     if (requests.data) setShown(requests.data);
   }, [requests.data]);
 
-  const [category, setCategory] = useState<Category>("MEMBERSHIP");
+  const [category, setCategory] = useState<Category>("PAYMENT");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,6 +73,8 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     .slice(0, RECENT_LIMIT);
 
   const categoryLabel = (value: string) => {
+    if (value === "GENERAL") return "Uncategorized";
+    if (value === "PT") return "Schedule / Coach";
     const chip = CHIPS.find((c) => c.value === value);
     if (chip) return vi ? chip.vi : chip.en;
     return value;

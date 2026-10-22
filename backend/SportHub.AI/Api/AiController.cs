@@ -87,7 +87,7 @@ public class AiController(
 
     // Member self-service: advisory preview only, never creates an official Coach plan.
     // Member identity always comes from the authenticated JWT, never from a request parameter.
-    [Authorize(Policy = SportHubPolicies.Member)]
+    [Authorize(Roles = "Member")]
     [HttpPost("workout-suggestions/me")]
     public async Task<IActionResult> SuggestForSelf(CancellationToken ct, [FromQuery] string sport = "Gym")
     {
@@ -95,7 +95,7 @@ public class AiController(
         return Ok(await recommendations.SuggestAsync(memberId, memberId, ct, sport));
     }
 
-    [Authorize(Policy = SportHubPolicies.Member)]
+    [Authorize(Roles = "Member,Coach")]
     [HttpPost("chat")]
     public async Task<ActionResult<AiChatResponse>> Chat(
         [FromBody] AiChatRequest request,
