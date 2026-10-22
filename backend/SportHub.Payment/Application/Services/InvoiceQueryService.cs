@@ -32,7 +32,8 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
         [property: SportHub.BuildingBlocks.Api.WireEnum] string? PaidVia,
         DateTime? PaidAtUtc,
         DateTime? CheckoutExpiresAtUtc,
-        bool ReconciliationRequired);
+        bool ReconciliationRequired,
+        string? ItemDescription);
 
     public async Task<PagedResult<InvoiceSummaryResponse>> SearchAsync(
         Guid? memberId,
@@ -168,7 +169,7 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
             row.Status.ToString(),
             row.IssuedAt,
             row.PointsSpent, row.CashAmount, row.PaidVia, row.PaidAtUtc,
-            row.CheckoutExpiresAtUtc, row.ReconciliationRequired);
+            row.CheckoutExpiresAtUtc, row.ReconciliationRequired, row.ItemDescription);
     }
 
     private static System.Linq.Expressions.Expression<Func<Invoice, InvoiceRow>> RowProjection()
@@ -199,7 +200,8 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
             i.PaidVia,
             i.PaidAtUtc,
             i.HoldExpiresAtUtc,
-            i.ReconciliationRequired);
+            i.ReconciliationRequired,
+            i.Items.OrderBy(item => item.ItemId).Select(item => item.Description).FirstOrDefault());
 
     internal static System.Linq.Expressions.Expression<Func<PaymentAdjustment, PaymentAdjustmentResponse>>
         AdjustmentProjection()

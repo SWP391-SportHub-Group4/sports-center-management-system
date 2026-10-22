@@ -25,7 +25,8 @@ public sealed record MyAccountResponse(
     DateTime CreatedAt,
     bool HasPassword,
     bool HasGoogleLink,
-    IReadOnlyList<int> SportIds)
+    IReadOnlyList<int> SportIds,
+    bool MustChangePassword)
 {
     public string? AvatarUrl { get; init; }
 }
@@ -74,7 +75,8 @@ public sealed class AccountService(
                    u.CreatedAt,
                    u.Credential != null && u.Credential.PasswordHash != null,
                    u.ExternalLogins.Any(),
-                   db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList())
+                   db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToList(),
+                   u.MustChangePassword)
                    { AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("user_not_found", "User not found.");
@@ -219,6 +221,7 @@ public sealed class AccountService(
         }
 
         credential.PasswordHash = passwordHasher.Hash(request.NewPassword);
+        user.MustChangePassword = false;
         user.SecurityStamp = Guid.NewGuid();
 
         // Cùng SaveChanges với đổi mật khẩu: không có trạng thái "đã đổi nhưng chưa có thư báo".

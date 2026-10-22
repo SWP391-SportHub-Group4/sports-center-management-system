@@ -92,10 +92,6 @@ export function SupportQueue({
   return (
     <section className={styles.panel} aria-label="Support requests">
       <div className={styles.header}>
-        <p className={styles.intro}>
-          Assign the right person, follow up on progress, and resolve member
-          requests.
-        </p>
         <div className={styles.toolbar}>
           {workspace !== "receptionist" && (
             <Link

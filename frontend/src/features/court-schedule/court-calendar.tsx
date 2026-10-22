@@ -34,10 +34,12 @@ export function CourtCalendar({
   classesOnly = false,
   planningLayout = false,
   refreshToken = 0,
+  memberId,
 }: {
   classesOnly?: boolean;
   planningLayout?: boolean;
   refreshToken?: number;
+  memberId?: string | null;
 }) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -64,6 +66,7 @@ export function CourtCalendar({
 
   const state = useApi(
     async (signal) => {
+      if (user?.role === "Receptionist" && !memberId) return [];
       const batches = await Promise.all(
         Array.from({ length: Math.ceil(range.days / 31) }, (_, index) =>
           courtScheduleApi.list(
@@ -72,6 +75,7 @@ export function CourtCalendar({
             roomId,
             user?.role === "Coach",
             signal,
+            memberId ?? undefined,
           ),
         ),
       );
@@ -83,7 +87,7 @@ export function CourtCalendar({
         ).values(),
       ];
     },
-    [range.start, range.days, roomId, user?.role, refreshToken],
+    [range.start, range.days, roomId, user?.role, refreshToken, memberId],
   );
 
   const labels = {

@@ -61,6 +61,14 @@ LoadRootEnvIfPresent();
 
 var builder = WebApplication.CreateBuilder(args);
 
+var bootstrapInitialAdmin = args.Contains("--bootstrap-initial-admin", StringComparer.Ordinal);
+if (bootstrapInitialAdmin && args.Length != 1)
+{
+    Console.Error.WriteLine("Use --bootstrap-initial-admin by itself.");
+    Environment.ExitCode = 1;
+    return;
+}
+
 // Reject invalid seed targets before requiring unrelated production integrations or opening a database.
 var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordinal)).ToArray();
 if (seedCommands.Length > 0)
@@ -302,7 +310,6 @@ builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ClassTeachingService>();
 builder.Services.AddScoped<ClassSessionReminderService>();
 builder.Services.AddScoped<CoachAttendanceReminderService>();
-builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.CourseInterestService>();
 builder.Services.AddScoped<ClassSessionChangeRequestService>();
 builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
@@ -454,11 +461,32 @@ builder.Services.AddControllers()
 builder.Services.AddSportHubSwagger();
 
 builder.Services.AddScoped<SystemValidationSeeder>();
+builder.Services.AddScoped<InitialAdminBootstrapper>();
 builder.Services.AddScoped<Br141Seeder>();
 builder.Services.AddScoped<StartedClassSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+if (bootstrapInitialAdmin)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+    try
+    {
+        if ((await db.Database.GetPendingMigrationsAsync()).Any())
+            throw new InvalidOperationException("Apply all migrations before bootstrapping the initial administrator.");
+        await scope.ServiceProvider.GetRequiredService<InitialAdminBootstrapper>().BootstrapAsync(
+            app.Configuration["InitialAdmin:Email"], Environment.GetEnvironmentVariable("InitialAdmin__Password"));
+        app.Logger.LogInformation("Initial administrator created; password change required on first sign-in.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError("Initial administrator bootstrap failed: {Reason}", ex.Message);
+        Environment.ExitCode = 1;
+    }
+    return;
+}
 
 if (seedCommands.Length > 0)
 {
@@ -522,6 +550,7 @@ app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors(CorsExtensions.PolicyName);
 app.UseAuthentication();
+app.UseMiddleware<InitialAdminPasswordMiddleware>();
 app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();

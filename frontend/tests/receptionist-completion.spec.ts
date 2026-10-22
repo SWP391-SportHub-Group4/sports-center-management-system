@@ -134,13 +134,15 @@ test("desk retries an unfulfilled payment after hold expiry", async ({
 }) => {
   const writes = await install(page);
   await page.goto("/receptionist/payment-reconciliation");
-  await expect(
-    page.getByText(/INV-LATE-001.*ReconciliationRequired/),
-  ).toBeVisible();
+  await expect(page.getByText("INV-LATE-001")).toBeVisible();
+  await expect(page.getByText("Paid, service not delivered")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh" })).toHaveCount(0);
   await page
     .getByRole("button", { name: "Verify / retry fulfillment" })
     .click();
-  await expect(page.getByText("No cases need follow-up.")).toBeVisible();
+  await expect(
+    page.getByText("No payment attempts currently need follow-up."),
+  ).toBeVisible();
   expect(writes[0].path).toBe(
     `/api/front-desk/payment-reconciliation/${id}/retry`,
   );

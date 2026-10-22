@@ -294,6 +294,8 @@ export interface MemberPackageDto {
 
 export interface InvoiceSummaryDto {
   invoiceId: string;
+  itemDescription?: string | null;
+  paidAtUtc?: string | null;
   checkoutExpiresAtUtc?: string | null;
   invoiceNumber: string;
   memberId: string;
@@ -719,7 +721,7 @@ export interface ThresholdResponseDto {
   sportId: number;
   paidValueVnd: number;
   deadlineUtc: string;
-  choice: "REFUND" | "TRANSFER" | "WAIT_NEXT_COURSE" | "KEEP_PLACE" | null;
+  choice: "REFUND" | "TRANSFER" | "KEEP_PLACE" | null;
   targetClassId: number | null;
   resolutionStatus: string;
   additionalInvoiceId: string | null;
@@ -759,7 +761,6 @@ export interface CourtRentalDetailDto {
 }
 
 export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
-  continuationOfClassId?: number | null;
   status: "DRAFT" | CourseDto["status"];
   costAmount: number;
   breakEvenThreshold: number | null;

@@ -227,27 +227,17 @@ function AttentionList({
           y.checkoutExpiresAtUtc ?? "9",
         ) || x.issuedAt.localeCompare(y.issuedAt),
     );
-  const [due, ...rest] = owed;
-  if (due) {
+  for (const due of owed) {
     const holdActive =
       !!due.checkoutExpiresAtUtc &&
       new Date(due.checkoutExpiresAtUtc).getTime() > now;
-    const extra = rest.length
-      ? l.moreUnpaid
-          .replace("{n}", String(rest.length))
-          .replace(
-            "{amount}",
-            formatMoney(rest.reduce((sum, i) => sum + i.outstanding, 0)),
-          )
-      : null;
     items.push({
-      key: "invoice",
-      text: `${due.invoiceNumber} · ${formatMoney(due.outstanding)}`,
+      key: `invoice-${due.invoiceId}`,
+      text: `${due.invoiceNumber} · ${due.itemDescription || "Service"} · ${formatMoney(due.outstanding)}`,
       detail: [
         holdActive
           ? l.heldUntil.replace("{time}", formatTime(due.checkoutExpiresAtUtc))
           : l.issuedOn.replace("{date}", formatDate(due.issuedAt)),
-        extra,
       ]
         .filter(Boolean)
         .join(" · "),
@@ -384,7 +374,7 @@ export default function MemberDashboardPage() {
     (signal) =>
       api.get<Paged<InvoiceSummaryDto>>("/api/members/me/invoices", {
         signal,
-        query: { page: 1, pageSize: 5, status: "ISSUED" },
+        query: { page: 1, pageSize: 100, status: "ISSUED" },
       }),
     [],
   );

@@ -10,7 +10,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { AsyncSection } from "@/components/ui";
-import { CheckoutPanel } from "@/features/payments";
+import { CheckoutPanel, useStartCheckout } from "@/features/payments";
 import { CourtIcon } from "@/components/brand/CourtIcon";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -60,6 +60,7 @@ export function CourtBookingCalendar({
   const { language } = useLanguage();
   const vi = language === "vi";
   const text = (viText: string, enText: string) => (vi ? viText : enText);
+  const checkout = useStartCheckout();
   const { values } = useUrlQuery({ checkout: "", sport: "" });
   const [sportPick, setSport] = useState<number | null>(null);
   const sportId =
@@ -206,42 +207,71 @@ export function CourtBookingCalendar({
           </div>
           <strong>{formatMoney(selected.totalPrice)}</strong>
         </div>
-        <CheckoutPanel
-          modal
-          memberId={memberId}
-          key={`${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`}
-          intent={{
-            kind: "court-rental",
-            body: {
-              sportId: selected.sportId,
-              roomId: selected.roomId,
-              startUtc: selected.startUtc,
-              endUtc: selected.endUtc,
-              ...(memberId ? { targetMemberId: memberId } : {}),
-            },
-          }}
-          onPaid={onPaid}
-          onChange={reload}
-          review={{
-            title: text("Thanh toán đặt sân", "Court booking payment"),
-            submitLabel: text("Thanh toán", "Pay"),
-            items: [
-              ...(memberName
-                ? [{ label: text("Hội viên", "Member"), value: memberName }]
-                : []),
-              { label: text("Môn", "Sport"), value: selected.sportName },
-              { label: text("Sân", "Court"), value: selected.roomName },
-              {
-                label: text("Ngày", "Date"),
-                value: formatDate(selected.date),
+        {memberId ? (
+          <CheckoutPanel
+            modal
+            memberId={memberId}
+            key={`${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`}
+            intent={{
+              kind: "court-rental",
+              body: {
+                sportId: selected.sportId,
+                roomId: selected.roomId,
+                startUtc: selected.startUtc,
+                endUtc: selected.endUtc,
+                ...(memberId ? { targetMemberId: memberId } : {}),
               },
-              {
-                label: text("Giờ", "Time"),
-                value: `${formatTime(selected.startUtc)}–${formatTime(selected.endUtc)}`,
-              },
-            ],
-          }}
-        />
+            }}
+            onPaid={onPaid}
+            onChange={reload}
+            review={{
+              title: text("Thanh toán đặt sân", "Court booking payment"),
+              submitLabel: text("Thanh toán", "Pay"),
+              items: [
+                ...(memberName
+                  ? [{ label: text("Hội viên", "Member"), value: memberName }]
+                  : []),
+                { label: text("Môn", "Sport"), value: selected.sportName },
+                { label: text("Sân", "Court"), value: selected.roomName },
+                {
+                  label: text("Ngày", "Date"),
+                  value: formatDate(selected.date),
+                },
+                {
+                  label: text("Giờ", "Time"),
+                  value: `${formatTime(selected.startUtc)}–${formatTime(selected.endUtc)}`,
+                },
+              ],
+            }}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              className="btn"
+              disabled={checkout.busyId !== null}
+              onClick={() =>
+                void checkout.start(
+                  `${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`,
+                  {
+                    kind: "court-rental",
+                    body: {
+                      sportId: selected.sportId,
+                      roomId: selected.roomId,
+                      startUtc: selected.startUtc,
+                      endUtc: selected.endUtc,
+                    },
+                  },
+                )
+              }
+            >
+              {checkout.busyId
+                ? text("Đang tạo hóa đơn…", "Creating invoice…")
+                : text("Đến trang thanh toán", "Go to checkout")}
+            </button>
+            {checkout.error && <p role="alert">{checkout.error.message}</p>}
+          </>
+        )}
         <p className={styles.policy}>
           {text(
             "Sân được giữ trong thời gian thanh toán. Lượt thuê chỉ được xác nhận khi thanh toán thành công.",
@@ -282,12 +312,12 @@ export function CourtBookingCalendar({
       {values.checkout && !memberId && !selected && !paid && (
         <section className={styles.resume}>
           <h3>{text("Tiếp tục thanh toán sân", "Resume court payment")}</h3>
-          <CheckoutPanel
-            modal
-            invoiceId={values.checkout}
-            onPaid={onPaid}
-            onChange={reload}
-          />
+          <Link
+            href={`/checkout/${encodeURIComponent(values.checkout)}`}
+            className="btn"
+          >
+            {text("Tiếp tục thanh toán", "Resume payment")}
+          </Link>
         </section>
       )}
       <section className={styles.sportSection}>

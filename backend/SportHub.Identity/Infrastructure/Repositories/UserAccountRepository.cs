@@ -40,7 +40,8 @@ public sealed class UserAccountRepository(ISportHubDbContext db) : IUserAccountR
         => db.Set<UserAccount>()
             .AsNoTracking()
             .Where(u => u.UserId == userId)
-            .Select(u => new UserAuthState(u.Status, u.Role!.RoleName.ToString(), u.SecurityStamp))
+            .Select(u => new UserAuthState(u.Status, u.Role!.RoleName.ToString(), u.SecurityStamp,
+                u.MustChangePassword))
             .SingleOrDefaultAsync(cancellationToken)!;
 
     public async Task AddAndSaveAsync(UserAccount account, CancellationToken cancellationToken = default)

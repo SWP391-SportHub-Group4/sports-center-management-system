@@ -1155,7 +1155,7 @@ test("failed session availability never enables confirmation and retry keeps the
   ).toHaveValue("Keep this reason");
 });
 
-test("class threshold history retains refund and transfer responses alongside course interests", async ({
+test("class threshold history retains refund and transfer responses", async ({
   page,
 }) => {
   await page.route("**/api/manager/classes/1/threshold-responses?**", (route) =>

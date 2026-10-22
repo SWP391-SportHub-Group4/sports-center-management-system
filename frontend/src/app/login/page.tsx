@@ -123,7 +123,9 @@ function LoginForm() {
 
       // Back to đúng trang user định into, but only when that là đường dẫn nội bộ —
       // nhận nguyên parameters will thành open redirect.
-      const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
+      const target = user.mustChangePassword
+        ? "/change-initial-password"
+        : safeReturnTo(next, HOME_BY_ROLE[user.role]);
 
       router.replace(target);
     } catch (cause) {
@@ -305,7 +307,9 @@ function LoginForm() {
                 setErrorSource(null);
                 try {
                   const user = await loginWithGoogle(idToken);
-                  const target = safeReturnTo(next, HOME_BY_ROLE[user.role]);
+                  const target = user.mustChangePassword
+                    ? "/change-initial-password"
+                    : safeReturnTo(next, HOME_BY_ROLE[user.role]);
                   router.replace(target);
                 } catch (cause) {
                   console.error("Google sign-in failed", cause);

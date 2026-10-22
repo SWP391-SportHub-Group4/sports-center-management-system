@@ -59,6 +59,8 @@ for (const points of [0, 500]) {
       .getByRole("button", { name: "Cancel membership", exact: true })
       .click();
     const dialog = page.getByRole("dialog", { name: "Cancel Gym membership" });
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
+    await expect(dialog.getByText("Keep membership")).toHaveCount(0);
     await expect(
       dialog.getByText(en.finOps.membershipRefundPolicy),
     ).toBeVisible();

@@ -1,7 +1,7 @@
 namespace SportHub.Identity.Application.Interfaces;
 
 /// <summary>Trạng thái xác thực hiện tại của một user, đọc từ DB ở mỗi request đã xác thực.</summary>
-public sealed record UserAuthState(UserStatus Status, string Role, Guid SecurityStamp);
+public sealed record UserAuthState(UserStatus Status, string Role, Guid SecurityStamp, bool MustChangePassword = false);
 
 public interface IUserAccountRepository
 {
