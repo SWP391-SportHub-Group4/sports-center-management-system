@@ -19,7 +19,6 @@ public sealed class ManagerRequestSummaryController(SportHubDbContext db) : Cont
         var coach = await db.Set<ClassSessionChangeRequest>().CountAsync(r => r.Status == "PENDING", ct);
         var refunds = await db.PaymentAdjustments.CountAsync(r => r.Type == PaymentAdjustmentType.Refund && r.Status == PaymentAdjustmentStatus.Requested, ct);
         var support = await db.MemberSupportRequests.CountAsync(r => r.Status != "CLOSED", ct);
-        var avatar = await db.Set<AvatarReport>().CountAsync(r => r.Status == "OPEN", ct);
-        return Ok(new { coach, refunds, support, avatar });
+        return Ok(new { coach, refunds, support });
     }
 }

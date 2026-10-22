@@ -1,4 +1,5 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ComponentProps, type ReactNode } from "react";
@@ -196,66 +197,68 @@ export function CoachWorkspace({
               )}
               {mode === "students" && (
                 <section>
-                  <div className={styles.filters}>
-                    <label>
-                      {vi ? "Chọn môn" : "Choose sport"}
-                      <select
-                        value={sportFilter}
-                        onChange={(e) => {
-                          setSportFilter(e.target.value);
-                          setClassFilter("");
-                          setSearch("");
-                          setSelection(null);
-                        }}
-                      >
-                        <option value="">
-                          {vi ? "Chọn bộ môn" : "Select a sport"}
-                        </option>
-                        {Array.from(
-                          new Map(
-                            classes.map((c) => [c.sportId, c.sportName]),
-                          ).entries(),
-                        ).map(([id, name]) => (
-                          <option key={id} value={id}>
-                            {name}
+                  <TableFilters>
+                    <div className={styles.filters}>
+                      <label>
+                        {vi ? "Chọn môn" : "Choose sport"}
+                        <select
+                          value={sportFilter}
+                          onChange={(e) => {
+                            setSportFilter(e.target.value);
+                            setClassFilter("");
+                            setSearch("");
+                            setSelection(null);
+                          }}
+                        >
+                          <option value="">
+                            {vi ? "Chọn bộ môn" : "Select a sport"}
                           </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      {vi ? "Chọn lớp" : "Choose class"}
-                      <select
-                        value={classFilter}
-                        disabled={!sportFilter}
-                        onChange={(e) => {
-                          setClassFilter(e.target.value);
-                          setSearch("");
-                          setSelection(null);
-                        }}
-                      >
-                        <option value="">
-                          {vi ? "Chọn lớp học" : "Select a class"}
-                        </option>
-                        {classes
-                          .filter((c) => String(c.sportId) === sportFilter)
-                          .map((c) => (
-                            <option key={c.classId} value={c.classId}>
-                              {c.name}
+                          {Array.from(
+                            new Map(
+                              classes.map((c) => [c.sportId, c.sportName]),
+                            ).entries(),
+                          ).map(([id, name]) => (
+                            <option key={id} value={id}>
+                              {name}
                             </option>
                           ))}
-                      </select>
-                    </label>
-                    <label>
-                      {vi ? "Tìm học viên" : "Find student"}
-                      <input
-                        type="search"
-                        disabled={!classFilter}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder={vi ? "Tên hoặc email" : "Name or email"}
-                      />
-                    </label>
-                  </div>
+                        </select>
+                      </label>
+                      <label>
+                        {vi ? "Chọn lớp" : "Choose class"}
+                        <select
+                          value={classFilter}
+                          disabled={!sportFilter}
+                          onChange={(e) => {
+                            setClassFilter(e.target.value);
+                            setSearch("");
+                            setSelection(null);
+                          }}
+                        >
+                          <option value="">
+                            {vi ? "Chọn lớp học" : "Select a class"}
+                          </option>
+                          {classes
+                            .filter((c) => String(c.sportId) === sportFilter)
+                            .map((c) => (
+                              <option key={c.classId} value={c.classId}>
+                                {c.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <label>
+                        {vi ? "Tìm học viên" : "Find student"}
+                        <input
+                          type="search"
+                          disabled={!classFilter}
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder={vi ? "Tên hoặc email" : "Name or email"}
+                        />
+                      </label>
+                    </div>
+                  </TableFilters>
                   {classes.find(
                     (c) =>
                       String(c.classId) === classFilter &&

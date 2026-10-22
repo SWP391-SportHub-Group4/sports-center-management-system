@@ -1,5 +1,7 @@
 "use client";
 
+import { CoachAiAssistant } from "@/features/coach/coach-ai-assistant";
+
 import Link from "next/link";
 import { CalendarDays, History } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
@@ -425,6 +427,7 @@ export function AppFrame({
     <div
       className={`${shell.shell} ${usesStaffPalette ? styles.staffPalette : ""} ${roleShell}`}
     >
+      {user.role === "Coach" && <CoachAiAssistant />}
       <a href="#main-content" className="skip-link">
         {language === "en"
           ? "Skip to main content"

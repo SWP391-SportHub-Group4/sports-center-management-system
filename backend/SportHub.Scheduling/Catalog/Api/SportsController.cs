@@ -12,6 +12,13 @@ namespace SportHub.Scheduling.Catalog.Api;
 [ApiController]
 public class SportsController(SportCatalogService sports) : ControllerBase
 {
+    /// <summary>Editorial gallery follows every catalog sport; this does not expose disabled services or allow bookings.</summary>
+    [AllowAnonymous]
+    [HttpGet("api/public/sports-gallery")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Gallery(CancellationToken ct)
+        => Ok(await sports.ListGalleryAsync(ct));
+
     /// <summary>Landing page: danh sách môn đang hoạt động, không cần đăng nhập.</summary>
     [AllowAnonymous]
     [HttpGet("api/sports")]

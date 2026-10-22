@@ -329,6 +329,7 @@ builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 // Payment
 builder.Services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
 builder.Services.AddScoped<IInvoiceQueryService, InvoiceQueryService>();
+builder.Services.AddScoped<IInvoiceClassNameReader, InvoiceClassNameReader>();
 builder.Services.AddScoped<IPackagePurchaseService, PackagePurchaseService>();
 builder.Services.AddScoped<IPaymentRecordingService, PaymentRecordingService>();
 builder.Services.AddScoped<IPackageActivationService, PackageActivationService>();

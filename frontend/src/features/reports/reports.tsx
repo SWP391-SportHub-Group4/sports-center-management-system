@@ -1,4 +1,5 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -101,178 +102,181 @@ export function ReportFilterForm({
     (["dimensions", "rentals"].includes(scope) &&
       draft.memberId !== initial.memberId);
   return (
-    <section className={styles.filterPanel} aria-label="Report filters">
-      <form
-        className={`form ${styles.filterForm}`}
-        onSubmit={(event) => {
-          event.preventDefault();
-          const days =
-            (Date.parse(draft.toDate) - Date.parse(draft.fromDate)) / 86400000;
-          if (!Number.isFinite(days) || days < 0 || days > 366) {
-            setError(true);
-            return;
-          }
-          setError(false);
-          const applied = {
-            ...draft,
-            sportId: scope === "period" ? "" : draft.sportId,
-            source: scope === "dimensions" ? draft.source : "",
-            memberId: ["dimensions", "rentals"].includes(scope)
-              ? draft.memberId
-              : "",
-          };
-          setDraft(applied);
-          if (!applied.memberId) setMember(null);
-          onApply(applied, applied.memberId ? member : null);
-          setAppliedNotice(true);
-        }}
-      >
-        <div className={styles.filterToolbar}>
-          <span className={styles.filterTitle}>
-            <SlidersHorizontal size={16} aria-hidden="true" />
-            Filters
-          </span>
-          <div
-            className={styles.presets}
-            role="group"
-            aria-label="Date presets"
-          >
-            {presets.map((p, index) => (
+    <TableFilters>
+      <section className={styles.filterPanel} aria-label="Report filters">
+        <form
+          className={`form ${styles.filterForm}`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const days =
+              (Date.parse(draft.toDate) - Date.parse(draft.fromDate)) /
+              86400000;
+            if (!Number.isFinite(days) || days < 0 || days > 366) {
+              setError(true);
+              return;
+            }
+            setError(false);
+            const applied = {
+              ...draft,
+              sportId: scope === "period" ? "" : draft.sportId,
+              source: scope === "dimensions" ? draft.source : "",
+              memberId: ["dimensions", "rentals"].includes(scope)
+                ? draft.memberId
+                : "",
+            };
+            setDraft(applied);
+            if (!applied.memberId) setMember(null);
+            onApply(applied, applied.memberId ? member : null);
+            setAppliedNotice(true);
+          }}
+        >
+          <div className={styles.filterToolbar}>
+            <span className={styles.filterTitle}>
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              Filters
+            </span>
+            <div
+              className={styles.presets}
+              role="group"
+              aria-label="Date presets"
+            >
+              {presets.map((p, index) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  aria-pressed={preset === index}
+                  onClick={() => {
+                    setDraft({ ...draft, fromDate: p.from, toDate: p.to });
+                    setError(false);
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {children}
+          <div className={styles.filterGrid}>
+            <Field label={l.from}>
+              <input
+                type="date"
+                required
+                value={draft.fromDate}
+                onChange={(event) =>
+                  setDraft({ ...draft, fromDate: event.target.value })
+                }
+              />
+            </Field>
+            <Field label={l.to}>
+              <input
+                type="date"
+                required
+                value={draft.toDate}
+                onChange={(event) =>
+                  setDraft({ ...draft, toDate: event.target.value })
+                }
+              />
+            </Field>
+            {scope !== "period" && (
+              <AsyncSection state={sports}>
+                {(rows) => (
+                  <Field label={l.sport}>
+                    <select
+                      value={draft.sportId}
+                      onChange={(event) =>
+                        setDraft({ ...draft, sportId: event.target.value })
+                      }
+                    >
+                      <option value="">{l.all}</option>
+                      {rows.map((sport) => (
+                        <option key={sport.sportId} value={sport.sportId}>
+                          {sport.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
+              </AsyncSection>
+            )}
+            {scope === "dimensions" && (
+              <Field label={l.source}>
+                <select
+                  value={draft.source}
+                  onChange={(event) =>
+                    setDraft({ ...draft, source: event.target.value })
+                  }
+                >
+                  <option value="">{l.all}</option>
+                  {[
+                    ["MEMBERSHIP", l.sourceMembership],
+                    ["CLASS_PACKAGE", l.sourceClass],
+                    ["RENTAL", l.sourceRental],
+                    ["RECONCILIATION", l.sourceReconciliation],
+                    ["LEGACY_UNCLASSIFIED", l.sourceLegacy],
+                  ].map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+            {["dimensions", "rentals"].includes(scope) && (
+              <MemberPicker
+                scanner={false}
+                placeholder={l.member}
+                label={l.member}
+                value={member}
+                onChange={(next) => {
+                  setMember(next);
+                  setDraft({ ...draft, memberId: next?.userId ?? "" });
+                }}
+              />
+            )}
+          </div>
+          {error && <p role="alert">{l.dateRange}</p>}
+          <div className={styles.filterFooter}>
+            <p
+              role="status"
+              className={changed ? styles.pendingFilters : undefined}
+            >
+              {changed
+                ? "Changes not applied. Press Apply to update the report."
+                : appliedNotice
+                  ? "Filters applied. Showing the selected report."
+                  : "Choose a period, refine the selection, then apply."}
+            </p>
+            <div className={styles.filterActions}>
               <button
-                key={p.label}
+                className="btn btn--ghost"
                 type="button"
-                aria-pressed={preset === index}
                 onClick={() => {
-                  setDraft({ ...draft, fromDate: p.from, toDate: p.to });
+                  const next = {
+                    fromDate: monthStart,
+                    toDate: today,
+                    sportId: "",
+                    source: "",
+                    memberId: "",
+                  };
+                  setDraft(next);
+                  setMember(null);
                   setError(false);
+                  onApply(next, null);
+                  setAppliedNotice(true);
                 }}
               >
-                {p.label}
+                <RotateCcw size={15} aria-hidden="true" />
+                Reset
               </button>
-            ))}
+              <button className="btn" type="submit">
+                {l.apply}
+                <ArrowUpRight size={15} aria-hidden="true" />
+              </button>
+            </div>
           </div>
-        </div>
-        {children}
-        <div className={styles.filterGrid}>
-          <Field label={l.from}>
-            <input
-              type="date"
-              required
-              value={draft.fromDate}
-              onChange={(event) =>
-                setDraft({ ...draft, fromDate: event.target.value })
-              }
-            />
-          </Field>
-          <Field label={l.to}>
-            <input
-              type="date"
-              required
-              value={draft.toDate}
-              onChange={(event) =>
-                setDraft({ ...draft, toDate: event.target.value })
-              }
-            />
-          </Field>
-          {scope !== "period" && (
-            <AsyncSection state={sports}>
-              {(rows) => (
-                <Field label={l.sport}>
-                  <select
-                    value={draft.sportId}
-                    onChange={(event) =>
-                      setDraft({ ...draft, sportId: event.target.value })
-                    }
-                  >
-                    <option value="">{l.all}</option>
-                    {rows.map((sport) => (
-                      <option key={sport.sportId} value={sport.sportId}>
-                        {sport.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-            </AsyncSection>
-          )}
-          {scope === "dimensions" && (
-            <Field label={l.source}>
-              <select
-                value={draft.source}
-                onChange={(event) =>
-                  setDraft({ ...draft, source: event.target.value })
-                }
-              >
-                <option value="">{l.all}</option>
-                {[
-                  ["MEMBERSHIP", l.sourceMembership],
-                  ["CLASS_PACKAGE", l.sourceClass],
-                  ["RENTAL", l.sourceRental],
-                  ["RECONCILIATION", l.sourceReconciliation],
-                  ["LEGACY_UNCLASSIFIED", l.sourceLegacy],
-                ].map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-          {["dimensions", "rentals"].includes(scope) && (
-            <MemberPicker
-              scanner={false}
-              placeholder={l.member}
-              label={l.member}
-              value={member}
-              onChange={(next) => {
-                setMember(next);
-                setDraft({ ...draft, memberId: next?.userId ?? "" });
-              }}
-            />
-          )}
-        </div>
-        {error && <p role="alert">{l.dateRange}</p>}
-        <div className={styles.filterFooter}>
-          <p
-            role="status"
-            className={changed ? styles.pendingFilters : undefined}
-          >
-            {changed
-              ? "Changes not applied. Press Apply to update the report."
-              : appliedNotice
-                ? "Filters applied. Showing the selected report."
-                : "Choose a period, refine the selection, then apply."}
-          </p>
-          <div className={styles.filterActions}>
-            <button
-              className="btn btn--ghost"
-              type="button"
-              onClick={() => {
-                const next = {
-                  fromDate: monthStart,
-                  toDate: today,
-                  sportId: "",
-                  source: "",
-                  memberId: "",
-                };
-                setDraft(next);
-                setMember(null);
-                setError(false);
-                onApply(next, null);
-                setAppliedNotice(true);
-              }}
-            >
-              <RotateCcw size={15} aria-hidden="true" />
-              Reset
-            </button>
-            <button className="btn" type="submit">
-              {l.apply}
-              <ArrowUpRight size={15} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </form>
-    </section>
+        </form>
+      </section>
+    </TableFilters>
   );
 }
 
@@ -356,14 +360,9 @@ function CenterWideRevenue({ filters: f }: { filters: ReportFilters }) {
               <ReportMetrics
                 items={[
                   {
-                    label: "Cash collected (VND)",
-                    value: formatMoney(report.totalCollected),
-                    hint: "Successful cash collections",
-                  },
-                  {
                     label: "Net revenue (VND)",
                     value: formatMoney(report.netRevenue),
-                    hint: "Cash collected less completed cash refunds",
+                    hint: "Revenue after completed refunds",
                   },
                   {
                     label: "Cash refunded (VND)",
@@ -607,7 +606,6 @@ export function ManagerOverview() {
         <AsyncSection state={summary}>
           {(report) => (
             <div className="stats-grid">
-              <Stat label={l.cash} value={formatMoney(report.totalCollected)} />
               <Stat
                 label={l.redeemedPoints}
                 value={formatPoints(report.pointsRedeemed)}

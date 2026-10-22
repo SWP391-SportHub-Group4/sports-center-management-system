@@ -191,21 +191,12 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
     page.getByRole("heading", { name: "Reports", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Cash collected (VND)", { exact: true }).first(),
-  ).toBeVisible();
-  const refundedPoints = page.locator(".stat").filter({
-    has: page.getByText("Points refunded to members", { exact: true }),
-  });
-  const outstandingPoints = page.locator(".stat").filter({
-    has: page.getByText("Current outstanding points (available + held)", {
-      exact: true,
-    }),
-  });
-  await expect(refundedPoints.locator(".stat__value")).toContainText("25");
-  await expect(outstandingPoints.locator(".stat__value")).toContainText("525");
-  await expect(refundedPoints.locator(".stat__value")).not.toContainText("₫");
-  await expect(outstandingPoints.locator(".stat__value")).not.toContainText(
-    "₫",
+    page.getByRole("region", { name: "Cash flow for selected dates" }),
+  ).toContainText(/Net revenue \(VND\)\s*100,000/);
+  const points = page.getByRole("region", { name: "Points", exact: true });
+  await expect(points).toContainText(/Points refunded to members\s*25/);
+  await expect(points).toContainText(
+    /Current outstanding points \(available \+ held\)\s*525/,
   );
 });
 

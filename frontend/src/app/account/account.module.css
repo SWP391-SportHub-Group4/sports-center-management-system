@@ -47,7 +47,7 @@
   background: var(--color-primary-soft);
 }
 .coachTabs button:focus-visible {
-  outline: var(--focus-ring);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -3px;
 }
 .coachPanel,
@@ -110,4 +110,89 @@
 .content :global(input[aria-invalid="true"]:focus),
 .form :global(input[aria-invalid="true"]:focus) {
   outline-color: var(--danger-solid);
+}
+
+.profileHero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+.profileHero > div {
+  flex: 1;
+  min-width: 0;
+}
+.profileHero h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: 1.1;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.profileHero p {
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--color-primary-soft-text);
+  font-weight: var(--weight-medium);
+}
+.profileHero span {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.coachTabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.content [hidden] {
+  display: none;
+}
+.content .accountPanel :global(.card__body) > :global(.stack) {
+  display: flex;
+  flex-direction: column;
+}
+.content .form {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-4);
+}
+.content .form > :global(.btn-row),
+.content .form > :global(.feedback),
+.content .form > :global(.btn) {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+@media (max-width: 640px) {
+  .profileHero {
+    flex-wrap: wrap;
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+  .profileHero h2 {
+    font-size: var(--text-2xl);
+  }
+  .content .form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.emailIdentity {
+  display: grid;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+.emailIdentity > span {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.formFeedback {
+  grid-column: 1 / -1;
+}
+.formFeedback:empty {
+  display: none;
 }

@@ -21,14 +21,49 @@ import {
   type SupportFeedback,
 } from "./support-request-actions";
 
-const emptyFilters = { status: "", search: "", assignedToUserId: "" };
+const emptyFilters = {
+  status: "",
+  category: "",
+  search: "",
+  assignedToUserId: "",
+};
+
+type SupportStats = {
+  open: number;
+  assigned: number;
+  inProgress: number;
+  closed: number;
+};
+const summaryCards: {
+  key: keyof SupportStats;
+  label: string;
+  status: string;
+}[] = [
+  { key: "open", label: "Open", status: "OPEN" },
+  { key: "assigned", label: "Assigned", status: "ASSIGNED" },
+  { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
+  { key: "closed", label: "Closed", status: "CLOSED" },
+];
 const categories: Record<string, string> = {
-  GENERAL: "General",
-  MEMBERSHIP: "Membership",
-  CLASS: "Class",
+  GENERAL: "Uncategorized",
   PAYMENT: "Payment",
+  MEMBERSHIP: "Membership",
+  CLASS: "Coach",
+  PT: "Coach",
+  FACILITY: "Facilities",
+  ACCOUNT: "Account",
   OTHER: "Other",
 };
+// Filter options are unique; legacy PT requests are included by the CLASS filter on the API.
+const categoryFilterOptions = [
+  "GENERAL",
+  "PAYMENT",
+  "MEMBERSHIP",
+  "CLASS",
+  "FACILITY",
+  "ACCOUNT",
+  "OTHER",
+] as const;
 
 export function SupportQueue({
   workspace = "receptionist",
@@ -38,6 +73,11 @@ export function SupportQueue({
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
+  const stats = useApi(
+    (signal) =>
+      api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
+    [],
+  );
   const assignees = useApi(
     (signal) =>
       api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
@@ -71,7 +111,7 @@ export function SupportQueue({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (queue.data) setLastResult(queue.data);
   }, [queue.data]);
-  // Never display a previous filter/page as though it belongs to the new query.
+  // Do not render old results while a new filter or page is loading.
   const result =
     queue.loading || queue.error ? null : (queue.data ?? lastResult);
   const selected =
@@ -79,10 +119,10 @@ export function SupportQueue({
   const filtered = !!(
     applied.search ||
     applied.status ||
+    applied.category ||
     applied.assignedToUserId
   );
   function apply(next: typeof filters) {
-    setLastResult(null);
     setFilters(next);
     setApplied({ ...next, search: next.search.trim() });
     setPage(1);
@@ -107,6 +147,28 @@ export function SupportQueue({
             </Link>
           )}
         </div>
+      </div>
+      <div className={styles.statsGrid} aria-label="Request statistics">
+        {summaryCards.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={styles.statCard}
+            data-status={item.status}
+            aria-pressed={applied.status === item.status}
+            onClick={() =>
+              apply({
+                ...filters,
+                status: applied.status === item.status ? "" : item.status,
+              })
+            }
+          >
+            <span className={styles.statLabel}>{item.label}</span>
+            <strong className={styles.statValue}>
+              {stats.data ? stats.data[item.key] : "—"}
+            </strong>
+          </button>
+        ))}
       </div>
       <form
         className={styles.filters}
@@ -141,6 +203,22 @@ export function SupportQueue({
             <option value="ASSIGNED">Assigned</option>
             <option value="IN_PROGRESS">In progress</option>
             <option value="CLOSED">Closed</option>
+          </select>
+        </label>
+        <label>
+          Request type
+          <select
+            value={filters.category}
+            onChange={(e) =>
+              setFilters({ ...filters, category: e.target.value })
+            }
+          >
+            <option value="">All types</option>
+            {categoryFilterOptions.map((key) => (
+              <option key={key} value={key}>
+                {categories[key]}
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -182,6 +260,7 @@ export function SupportQueue({
           {(filtered ||
             filters.search ||
             filters.status ||
+            filters.category ||
             filters.assignedToUserId) && (
             <button
               type="button"
@@ -193,26 +272,6 @@ export function SupportQueue({
           )}
         </div>
       </form>
-      <div className={styles.quickFilters} aria-label="Quick status filters">
-        <span>Quick view</span>
-        {[
-          { value: "", label: "All requests" },
-          { value: "OPEN", label: "New" },
-          { value: "ASSIGNED", label: "Assigned" },
-          { value: "IN_PROGRESS", label: "In progress" },
-          { value: "CLOSED", label: "Closed" },
-        ].map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={styles.quickFilter}
-            aria-pressed={applied.status === option.value}
-            onClick={() => apply({ ...filters, status: option.value })}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
       {notice && (
         <p className="alert alert--success" role="status">
           {notice}
@@ -238,9 +297,6 @@ export function SupportQueue({
               <span className={styles.count}>{result.totalCount}</span>
             )}
           </div>
-          <span className={styles.listHint}>
-            {filtered ? "Filtered results" : "All member requests"}
-          </span>
         </header>
         {queue.loading && (
           <p className={styles.loading} role="status">
@@ -377,7 +433,6 @@ export function SupportQueue({
                           : "Handle request"}
                       </h4>
                       <SupportRequestActions
-                        key={`${request.requestId}:${request.assignedToUserId ?? "unassigned"}`}
                         request={request}
                         assignees={assignees.data ?? []}
                         layout="queue"
@@ -392,6 +447,7 @@ export function SupportQueue({
                           onChanged?.();
                           setNotice("Request updated.");
                           queue.reload();
+                          stats.reload();
                         }}
                       />
                     </div>
@@ -413,7 +469,6 @@ export function SupportQueue({
                 className="btn btn--secondary btn--sm"
                 disabled={queue.loading || page <= 1}
                 onClick={() => {
-                  setLastResult(null);
                   setPage(page - 1);
                   setExpanded(undefined);
                 }}
@@ -425,7 +480,6 @@ export function SupportQueue({
                 className="btn btn--secondary btn--sm"
                 disabled={queue.loading || page * 20 >= result.totalCount}
                 onClick={() => {
-                  setLastResult(null);
                   setPage(page + 1);
                   setExpanded(undefined);
                 }}
@@ -436,13 +490,6 @@ export function SupportQueue({
           </nav>
         )}
       </div>
-      <p className={styles.footnote}>
-        {workspace === "receptionist"
-          ? "New requests are recorded from Today’s desk after selecting the member. "
-          : "Use Record a request to select a member. "}
-        Managers and receptionists can handle requests assigned to any staff
-        member.
-      </p>
     </section>
   );
 }

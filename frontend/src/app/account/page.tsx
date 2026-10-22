@@ -1,4 +1,6 @@
 "use client";
+import { AvatarImage } from "@/components/AvatarImage";
+import { UserRound, ShieldCheck } from "lucide-react";
 import { PasswordInput } from "@/components/primitives";
 
 import { useRef, useState } from "react";
@@ -31,6 +33,9 @@ export default function AccountPage() {
   const [coachSection, setCoachSection] = useState<
     "coach" | "account" | "security"
   >("coach");
+  const [accountSection, setAccountSection] = useState<"account" | "security">(
+    "account",
+  );
   const isCoach = user?.role === "Coach";
 
   const account = useApi(
@@ -234,15 +239,82 @@ export default function AccountPage() {
     >
       <AsyncSection state={account} emptyMessage={t.apiErrors.notFound}>
         {(data) => (
-          <div
-            className={
-              isCoach
-                ? styles.coachWorkspace
-                : (user?.role === "Member" || user?.role === "Receptionist")
-                  ? styles.content
-                  : "grid grid--2"
-            }
-          >
+          <div className={isCoach ? styles.coachWorkspace : styles.content}>
+            {!isCoach && (
+              <>
+                <header className={styles.profileHero}>
+                  <AvatarImage
+                    avatarUrl={data.avatarUrl}
+                    name={data.fullName || data.email}
+                    size={72}
+                  />
+                  <div>
+                    <h2>{data.fullName || data.email}</h2>
+                    <p>
+                      {t.navigation.roleLabel[
+                        (user?.role ?? data.role) as Role
+                      ] ?? data.role}
+                    </p>
+                    <span>
+                      {t.account.joinedOn} {formatDate(data.createdAt)}
+                    </span>
+                  </div>
+                  <StatusChip value={data.status} />
+                </header>
+                <nav
+                  className={styles.coachTabs}
+                  role="tablist"
+                  aria-label={
+                    language === "vi" ? "Cài đặt tài khoản" : "Account settings"
+                  }
+                >
+                  {(["account", "security"] as const).map((section, index) => (
+                    <button
+                      key={section}
+                      id={`profile-tab-${section}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={accountSection === section}
+                      aria-controls={`profile-panel-${section}`}
+                      tabIndex={accountSection === section ? 0 : -1}
+                      onClick={() => setAccountSection(section)}
+                      onKeyDown={(event) => {
+                        if (
+                          ["ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                            event.key,
+                          )
+                        ) {
+                          event.preventDefault();
+                          const next =
+                            event.key === "Home"
+                              ? "account"
+                              : event.key === "End"
+                                ? "security"
+                                : index === 0
+                                  ? "security"
+                                  : "account";
+                          setAccountSection(next);
+                          document
+                            .getElementById(`profile-tab-${next}`)
+                            ?.focus();
+                        }
+                      }}
+                    >
+                      {section === "account" ? (
+                        <UserRound size={18} aria-hidden="true" />
+                      ) : (
+                        <ShieldCheck size={18} aria-hidden="true" />
+                      )}
+                      {section === "account"
+                        ? t.account.profileTitle
+                        : language === "vi"
+                          ? "Bảo mật"
+                          : "Security"}
+                    </button>
+                  ))}
+                </nav>
+              </>
+            )}
             {isCoach && (
               <nav
                 className={styles.coachTabs}
@@ -301,29 +373,44 @@ export default function AccountPage() {
               </nav>
             )}
             <div
-              className={isCoach ? styles.accountPanel : styles.passThrough}
-              hidden={isCoach && coachSection !== "account"}
-              role={isCoach ? "tabpanel" : undefined}
-              id={isCoach ? "coach-settings-account" : undefined}
+              className={styles.accountPanel}
+              hidden={
+                isCoach
+                  ? coachSection !== "account"
+                  : accountSection !== "account"
+              }
+              role="tabpanel"
+              id={isCoach ? "coach-settings-account" : "profile-panel-account"}
               aria-labelledby={
-                isCoach ? "coach-settings-tab-account" : undefined
+                isCoach ? "coach-settings-tab-account" : "profile-tab-account"
               }
               tabIndex={isCoach ? 0 : undefined}
             >
               <Card title={t.account.profileTitle}>
                 <div className="stack">
-                  <div className="row spread">
-                    <div>
-                      <strong>{data.email}</strong>
-                      <div className="small muted">
-                        {t.navigation.roleLabel[data.role as Role] ?? data.role}{" "}
-                        · {t.account.joinedOn} {formatDate(data.createdAt)}
+                  {isCoach ? (
+                    <div className="row spread">
+                      <div>
+                        <strong>{data.email}</strong>
+                        <div className="small muted">
+                          {t.navigation.roleLabel[
+                            (user?.role ?? data.role) as Role
+                          ] ?? data.role}{" "}
+                          · {t.account.joinedOn} {formatDate(data.createdAt)}
+                        </div>
                       </div>
+                      <StatusChip value={data.status} />
                     </div>
-                    <StatusChip value={data.status} />
-                  </div>
+                  ) : (
+                    <div className={styles.emailIdentity}>
+                      <span>{t.account.email}</span>
+                      <strong>{data.email}</strong>
+                    </div>
+                  )}
 
-                  {(user?.role === "Member" || user?.role === "Coach" || user?.role === "Receptionist") && (
+                  {(user?.role === "Member" ||
+                    user?.role === "Coach" ||
+                    user?.role === "Receptionist") && (
                     <AvatarEditor
                       name={data.fullName || data.email}
                       avatarUrl={data.avatarUrl}
@@ -378,10 +465,12 @@ export default function AccountPage() {
                       />
                     </Field>
 
-                    <Feedback
-                      error={profileAction.error}
-                      success={profileAction.success}
-                    />
+                    <div className={styles.formFeedback}>
+                      <Feedback
+                        error={profileAction.error}
+                        success={profileAction.success}
+                      />
+                    </div>
 
                     <div>
                       <button
@@ -398,12 +487,18 @@ export default function AccountPage() {
             </div>
 
             <div
-              className={isCoach ? styles.securityPanel : styles.passThrough}
-              hidden={isCoach && coachSection !== "security"}
-              role={isCoach ? "tabpanel" : undefined}
-              id={isCoach ? "coach-settings-security" : undefined}
+              className={styles.securityPanel}
+              hidden={
+                isCoach
+                  ? coachSection !== "security"
+                  : accountSection !== "security"
+              }
+              role="tabpanel"
+              id={
+                isCoach ? "coach-settings-security" : "profile-panel-security"
+              }
               aria-labelledby={
-                isCoach ? "coach-settings-tab-security" : undefined
+                isCoach ? "coach-settings-tab-security" : "profile-tab-security"
               }
               tabIndex={isCoach ? 0 : undefined}
             >

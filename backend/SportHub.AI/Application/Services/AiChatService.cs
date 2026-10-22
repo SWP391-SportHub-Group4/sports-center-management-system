@@ -90,7 +90,7 @@ public sealed class AiChatService(
         {
             providerResponse =
                 await provider.AskAsync(
-                    SportHubAssistantSystemPrompt.ForQuestion(question),
+                    (contextDocument.RootElement.TryGetProperty("role", out var aiRole) && aiRole.GetString() == "Coach" ? CoachAiSystemPrompt.Content : SportHubAssistantSystemPrompt.ForQuestion(question)),
                     context,
                     question,
                     previousInteractionId,

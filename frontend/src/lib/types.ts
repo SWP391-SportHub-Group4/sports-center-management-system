@@ -8,7 +8,7 @@ export interface MemberSupportRequestDto {
   requestId: string;
   memberId: string;
   recordedByUserId: string;
-  category: "GENERAL" | "MEMBERSHIP" | "CLASS" | "PAYMENT" | "OTHER";
+  category: "GENERAL" | "MEMBERSHIP" | "CLASS" | "PAYMENT" | "PT" | "FACILITY" | "ACCOUNT" | "OTHER";
   subject: string;
   description: string;
   status: string;
@@ -715,6 +715,7 @@ export interface ClassEnrollmentReportDto {
   }[];
 }
 export interface ThresholdResponseDto {
+  classCancelled?: boolean;
   responseId: string;
   classId: number;
   className: string;

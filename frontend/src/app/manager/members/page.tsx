@@ -1,13 +1,4 @@
-"use client";
-import { AppShell } from "@/components/AppShell";
-import { useLanguage } from "@/lib/language";
-import { ManagerMemberList } from "@/features/coaching/manager-members";
-
+import { redirect } from "next/navigation";
 export default function Page() {
-  const { t } = useLanguage();
-  return (
-    <AppShell title={t.ptOps.members} allow={["CenterManager"]}>
-      <ManagerMemberList />
-    </AppShell>
-  );
+  redirect("/manager/people?role=Member");
 }

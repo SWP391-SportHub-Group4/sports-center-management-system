@@ -82,6 +82,7 @@ export function AccountMenu({
             </Link>
           ))}
           <button
+            data-account-action="logout"
             onClick={() => {
               setOpen(false);
               onSignOut();

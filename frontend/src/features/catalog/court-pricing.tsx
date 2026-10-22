@@ -1,4 +1,6 @@
 "use client";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
+
 import { useState } from "react";
 import { useApi, useAction } from "@/lib/useApi";
 import { formatMoney } from "@/lib/format";
@@ -158,34 +160,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                       >
                         Edit
                       </button>
-                      <ConfirmRecordAction
-                        label={r.isActive ? "Deactivate" : "Activate"}
-                        title={
-                          r.isActive
-                            ? "Deactivate rental price"
-                            : "Activate rental price"
-                        }
-                        description="Existing bookings keep their purchased price."
-                        recordName={formatMoney(r.pricePerHour)}
-                        disabled={!ready}
-                        onConfirm={() => {
-                          const { daysOfWeek } = r;
-                          const body = {
-                            roomId: r.roomId ?? null,
-                            roomTypeId: r.roomTypeId,
-                            sportId: r.sportId,
-                            startTimeLocal: r.startTimeLocal,
-                            endTimeLocal: r.endTimeLocal,
-                            pricePerHour: r.pricePerHour,
-                          };
-                          return catalogApi.saveRate(r.rateId, {
-                            ...body,
-                            daysOfWeek: daysOfWeek.split(","),
-                            isActive: !r.isActive,
-                          });
-                        }}
-                        onCompleted={rates.reload}
-                      />
+
                       <ConfirmRecordAction
                         label="Delete"
                         title="Delete rental price"
@@ -230,6 +205,10 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
               });
             }}
           >
+            <ActivitySwitch
+              checked={editor.form.isActive}
+              onChange={(isActive) => update({ isActive })}
+            />
             <div className="form-grid">
               <Field label="Sport" required={!editor.id}>
                 <select

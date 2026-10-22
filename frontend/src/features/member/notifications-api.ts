@@ -180,9 +180,13 @@ export function notificationActionLabel(
     case "INVOICE_CREATED":
       return vi ? "Xem và thanh toán hóa đơn" : "View and pay invoice";
     case "CLASS_THRESHOLD_AT_RISK":
-      return vi
-        ? "Chọn chuyển lớp hoặc hoàn điểm"
-        : "Choose transfer or refund";
+      return item.actionUrl?.startsWith("/manager/")
+        ? "Review class"
+        : "Review class decision";
+    case "CLASS_CANCELLED":
+      return item.actionUrl?.includes("responseId=")
+        ? "Choose refund or wait"
+        : "View class";
     case "SCHEDULE_CHANGED":
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 import { Dialog, Field } from "@/components/ui";
 import type { HomepageImageSpec } from "@/components/homepage/image-specs";
 import styles from "./media-editor.module.css";
@@ -49,6 +49,26 @@ export function MediaImageCropper({
   const [y, setY] = useState(50);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const helpId = useId();
+  const drag = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+    overflowX: number;
+    overflowY: number;
+  } | null>(null);
+  const clamp = (value: number) =>
+    Math.round(Math.max(0, Math.min(100, value)));
+  const stopDrag = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (drag.current?.pointerId !== event.pointerId) return;
+    drag.current = null;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+  };
   const ratio = spec.width / spec.height;
   const cropWidth = Math.min(image.width, image.height * ratio) / zoom;
   const outputWidth = Math.max(1, Math.floor(Math.min(spec.width, cropWidth)));
@@ -59,20 +79,96 @@ export function MediaImageCropper({
   return (
     <Dialog
       title="Frame your image"
-      description={`${spec.label}. This crop matches the homepage. Position the subject before uploading.`}
+      description={`${spec.label}. Position your image, then apply it to the Media preview. The homepage changes only after you save.`}
       size="lg"
       onClose={() => {
         if (!busy) onCancel();
       }}
     >
       <div className={styles.cropLayout}>
-        <div className={styles.cropPreview} style={{ aspectRatio: spec.ratio }}>
-          <canvas
-            ref={canvas}
-            width={600}
-            height={Math.round(600 / ratio)}
-            aria-label="Image crop preview"
-          />
+        <div>
+          <div
+            className={styles.cropPreview}
+            style={{ aspectRatio: spec.ratio }}
+          >
+            <canvas
+              ref={canvas}
+              width={600}
+              height={Math.round(600 / ratio)}
+              aria-label="Image crop preview"
+              aria-describedby={helpId}
+              aria-disabled={busy}
+              tabIndex={0}
+              data-dragging={dragging || undefined}
+              onPointerDown={(event) => {
+                if (busy || !event.isPrimary || event.button !== 0) return;
+                const bounds = event.currentTarget.getBoundingClientRect();
+                const scale =
+                  Math.max(
+                    bounds.width / image.width,
+                    bounds.height / image.height,
+                  ) * zoom;
+                drag.current = {
+                  pointerId: event.pointerId,
+                  startX: event.clientX,
+                  startY: event.clientY,
+                  x,
+                  y,
+                  overflowX: Math.max(0, image.width * scale - bounds.width),
+                  overflowY: Math.max(0, image.height * scale - bounds.height),
+                };
+                event.currentTarget.setPointerCapture(event.pointerId);
+                event.currentTarget.focus({ preventScroll: true });
+                setDragging(true);
+                event.preventDefault();
+              }}
+              onPointerMove={(event) => {
+                const current = drag.current;
+                if (!current || current.pointerId !== event.pointerId || busy)
+                  return;
+                if (current.overflowX > 0.5)
+                  setX(
+                    clamp(
+                      current.x -
+                        ((event.clientX - current.startX) * 100) /
+                          current.overflowX,
+                    ),
+                  );
+                if (current.overflowY > 0.5)
+                  setY(
+                    clamp(
+                      current.y -
+                        ((event.clientY - current.startY) * 100) /
+                          current.overflowY,
+                    ),
+                  );
+              }}
+              onPointerUp={stopDrag}
+              onPointerCancel={stopDrag}
+              onLostPointerCapture={() => {
+                drag.current = null;
+                setDragging(false);
+              }}
+              onKeyDown={(event) => {
+                if (busy) return;
+                const step = event.shiftKey ? 10 : 1;
+                if (event.key === "ArrowLeft")
+                  setX((current) => clamp(current + step));
+                else if (event.key === "ArrowRight")
+                  setX((current) => clamp(current - step));
+                else if (event.key === "ArrowUp")
+                  setY((current) => clamp(current + step));
+                else if (event.key === "ArrowDown")
+                  setY((current) => clamp(current - step));
+                else return;
+                event.preventDefault();
+              }}
+            />
+          </div>
+          <p id={helpId} className={styles.uploadHint}>
+            Drag the image to reposition it, or use the arrow keys. Zoom in for
+            more room to move.
+          </p>
         </div>
         <fieldset disabled={busy} className={styles.cropControls}>
           <legend className="sr-only">Crop position and zoom</legend>
@@ -160,7 +256,7 @@ export function MediaImageCropper({
                 }
               }}
             >
-              {busy ? "Uploading…" : "Use crop & upload"}
+              {busy ? "Uploading…" : "Apply image"}
             </button>
           </div>
         </fieldset>

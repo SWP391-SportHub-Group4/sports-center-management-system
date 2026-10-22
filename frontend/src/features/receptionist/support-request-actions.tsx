@@ -45,11 +45,10 @@ export function SupportRequestActions({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  const [closingMode, setClosingMode] = useState(false);
   const { language } = useLanguage();
   const vi = language === "vi";
   const [assigneeId, setAssigneeId] = useState(request.assignedToUserId ?? "");
-  // The queue refreshes its rows after assignments. Sync the selected assignee.
-  
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"assign" | "progress" | "close" | null>(
     null,
@@ -182,31 +181,27 @@ export function SupportRequestActions({
             </button>
           </div>
 
+          <div className={styles.actionMode} role="group" aria-label="Ticket action">
+            <button type="button" className={styles.actionModeButton} aria-pressed={!closingMode} onClick={() => { setClosingMode(false); setConfirmClose(false); }}>Add Progress Note</button>
+            <button type="button" className={styles.actionModeButton} aria-pressed={closingMode} onClick={() => setClosingMode(true)}>Close Ticket</button>
+          </div>
           <label className={styles.field}>
-            {vi ? "Tiến độ hoặc kết quả xử lý" : "Progress or resolution"}
+            {closingMode ? "Final resolution" : "Progress note"}
             <textarea
               rows={3}
               value={note}
               maxLength={1000}
               disabled={busy !== null}
-              placeholder={
-                request.assignedToUserId
-                  ? ""
-                  : vi
-                    ? "Gán người xử lý trước."
-                    : "Assign someone first."
-              }
+              placeholder={closingMode ? "Explain how the issue was resolved (minimum 3 characters)." : "Record what has been checked or what happens next."}
               onChange={(e) => setNote(e.target.value)}
             />
             <span className={styles.counter}>
-              {vi
-                ? "Ghi tiến độ để cập nhật, hoặc kết quả cuối cùng để đóng."
-                : "Write a progress note to update, or a final resolution to close."}{" "}
+              {closingMode ? "A final resolution is required to close this ticket." : "Saving a note keeps this ticket open."}{" "}
               {note.length}/1000
             </span>
           </label>
           <div className={styles.buttons}>
-            <button
+            {!closingMode && <button
               type="button"
               className="btn btn--secondary"
               disabled={
@@ -227,8 +222,8 @@ export function SupportRequestActions({
                 : vi
                   ? "Cập nhật tiến độ"
                   : "Update progress"}
-            </button>
-            {confirmClose ? (
+            </button>}
+            {closingMode && (confirmClose ? (
               <>
                 <button
                   type="button"
@@ -263,15 +258,15 @@ export function SupportRequestActions({
             ) : (
               <button
                 type="button"
-                className="btn btn--secondary"
+                className="btn"
                 disabled={
                   busy !== null || !request.assignedToUserId || !noteReady
                 }
                 onClick={() => setConfirmClose(true)}
               >
-                {vi ? "Đóng yêu cầu" : "Close request"}
+                Close Ticket
               </button>
-            )}
+            ))}
           </div>
         </>
       )}

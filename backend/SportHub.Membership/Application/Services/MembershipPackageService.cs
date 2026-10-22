@@ -85,6 +85,8 @@ public sealed class MembershipPackageService(
         if (isDayPass && request.DurationDays != DayPass.DurationDays)
             throw new ConflictException("day_pass_duration_fixed", "The Gym day pass lasts exactly one day.");
 
+        if (isDayPass && request.IsActive == false)
+            throw new ConflictException("day_pass_fixed", "The Gym day pass must remain available.");
         Validate(request, allowDayPassDuration: isDayPass);
 
         var before = Describe(package);
@@ -97,6 +99,7 @@ public sealed class MembershipPackageService(
         package.DurationDays = request.DurationDays;
         package.SessionLimit = null;
         package.Description = request.Description?.Trim();
+        if (request.IsActive.HasValue) package.IsActive = request.IsActive.Value;
 
         audit.Write(new AuditEntry(
             actorUserId, "UPDATE_MEMBERSHIP_PACKAGE", nameof(MembershipPackage), packageId.ToString(),

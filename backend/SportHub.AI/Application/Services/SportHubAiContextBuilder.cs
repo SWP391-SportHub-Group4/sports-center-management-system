@@ -1,3 +1,4 @@
+using SportHub.Identity.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using SportHub.AI.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -25,6 +26,34 @@ public sealed class SportHubAiContextBuilder(
     {
         var now = clock.UtcNow;
         var until = now.AddDays(UpcomingWindowDays);
+
+        // Coach context is scoped to the authenticated coach, never a member's user ID.
+        var isCoach = await db.Set<Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking().AnyAsync(u => u.UserId == userId && u.Role != null &&
+                u.Role.RoleName == UserRole.Coach, cancellationToken);
+        if (isCoach)
+        {
+            var coachSessions = await db.Set<ClassSession>().AsNoTracking()
+                .Where(s => s.CoachId == userId && s.StartAtUtc >= now.AddDays(-30) && s.StartAtUtc <= until)
+                .OrderBy(s => s.StartAtUtc).Take(40)
+                .Select(s => new { s.ClassId, s.SessionId, className = s.Class != null ? s.Class.Name : "Unknown",
+                    s.StartAtUtc, s.EndAtUtc, status = s.Status.ToString() })
+                .ToListAsync(cancellationToken);
+            var classIds = coachSessions.Select(s => s.ClassId).Distinct().ToArray();
+            var teachingRecords = await db.Set<ClassTeachingRecord>().AsNoTracking()
+                .Where(r => r.CoachId == userId && classIds.Contains(r.ClassId))
+                .OrderByDescending(r => r.UpdatedAtUtc).Take(20)
+                .Select(r => new { r.RecordId, r.ClassId, r.SessionId, r.Kind, r.Title,
+                    r.UpdatedAtUtc, content = r.Content.Length > 1200 ? r.Content.Substring(0, 1200) : r.Content })
+                .ToListAsync(cancellationToken);
+            return JsonSerializer.Serialize(new {
+                role = "Coach", generatedAtUtc = now,
+                accessScope = new { role = "Coach", coachId = userId, classIds },
+                coachSessions, teachingRecords,
+                note = "Read-only, limited to this coach's assigned sessions and own teaching records."
+            });
+        }
+
 
         var member = await db.Set<Identity.Domain.Entities.UserAccount>()
             .AsNoTracking()

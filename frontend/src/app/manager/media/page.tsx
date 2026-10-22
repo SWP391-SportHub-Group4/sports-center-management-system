@@ -6,7 +6,7 @@ export default function Page() {
   return (
     <AppShell
       title="Media"
-      description="Manage homepage copy, images and frequently asked questions."
+      hidePageHeader
       allow={["CenterManager"]}
       operationalLayout
     >

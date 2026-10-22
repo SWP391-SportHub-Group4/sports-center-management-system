@@ -162,6 +162,9 @@ public sealed class MemberSupportRequestsController(
             "MEMBERSHIP",
             "CLASS",
             "PAYMENT",
+            "PT",
+            "FACILITY",
+            "ACCOUNT",
             "OTHER"
         };
 
@@ -195,10 +198,29 @@ public sealed class MemberSupportRequestsController(
         return Ok(Map(entity));
     }
 
+    [HttpGet("stats")]
+    public async Task<IActionResult> Stats(CancellationToken ct = default)
+    {
+        var counts = await db.Set<MemberSupportRequest>()
+            .AsNoTracking()
+            .GroupBy(x => x.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        int Count(string status) => counts.FirstOrDefault(x => x.Status == status)?.Count ?? 0;
+        return Ok(new
+        {
+            open = Count("OPEN"),
+            assigned = Count("ASSIGNED"),
+            inProgress = Count("IN_PROGRESS"),
+            closed = Count("CLOSED")
+        });
+    }
+
     [HttpGet("queue")]
     public async Task<IActionResult> Queue([FromQuery] string? status = null,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery, MaxLength(200)] string? search = null, [FromQuery] Guid? assignedToUserId = null,
+        [FromQuery, MaxLength(50)] string? category = null,
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
@@ -210,6 +232,15 @@ public sealed class MemberSupportRequestsController(
             if (value is not ("OPEN" or "ASSIGNED" or "IN_PROGRESS" or "CLOSED"))
                 throw new BadRequestException("support_status_invalid", "Invalid support request status.");
             query = query.Where(x => x.Status == value);
+        }
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var value = category.Trim().ToUpperInvariant();
+            if (value is not ("GENERAL" or "MEMBERSHIP" or "CLASS" or "PAYMENT" or "PT" or "FACILITY" or "ACCOUNT" or "OTHER"))
+                throw new BadRequestException("support_category_invalid", "Invalid support request category.");
+            query = value == "CLASS"
+                ? query.Where(x => x.Category == "CLASS" || x.Category == "PT")
+                : query.Where(x => x.Category == value);
         }
         if (assignedToUserId is not null)
             query = query.Where(x => x.AssignedToUserId == assignedToUserId);

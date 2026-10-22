@@ -87,6 +87,22 @@
   font-weight: 600;
 }
 
+.retry {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font: inherit;
+  cursor: pointer;
+}
+.retry:focus-visible,
+.viewport:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
 @keyframes trainingMarquee {
   to {
     transform: translateX(-50%);
@@ -118,6 +134,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .photo[data-repeat] {
+    display: none;
+  }
+
   .track {
     animation: none;
     will-change: auto;

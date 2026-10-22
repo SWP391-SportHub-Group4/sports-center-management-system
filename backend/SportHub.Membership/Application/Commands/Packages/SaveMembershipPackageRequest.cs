@@ -4,6 +4,7 @@ namespace SportHub.Membership.Application.Commands;
 
 public sealed class SaveMembershipPackageRequest
 {
+    public bool? IsActive { get; set; }
     [Required, MinLength(2), MaxLength(120)]
     public string Name { get; set; } = string.Empty;
 

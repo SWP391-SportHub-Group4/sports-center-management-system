@@ -7,7 +7,6 @@ import { useAuth } from "@/lib/auth";
 import { buttonClass } from "@/components/primitives/Button";
 import styles from "./court-booking-section.module.css";
 import { useLandingCopy } from "./landing-content-context";
-import { homepageImageSpecs } from "./image-specs";
 
 export const bookingCopy = {
   image: "/sporthub/court-volt/hero-rally.png",
@@ -33,10 +32,7 @@ export function CourtBookingSection({ language }: { language: "en" | "vi" }) {
       className={styles.section}
       aria-labelledby="court-booking-title"
     >
-      <div
-        className={styles.photo}
-        style={{ aspectRatio: homepageImageSpecs.booking.ratio }}
-      >
+      <div className={styles.photo}>
         <Image
           src={content.image}
           alt={content.imageAlt}

@@ -1,5 +1,6 @@
 "use client";
 import styles from "./course-students.module.css";
+import managementStyles from "./course-management.module.css";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { pagedItems } from "@/lib/paged";
@@ -220,7 +221,9 @@ function OperationsRows({
     </div>
   );
 }
-interface CancellationPreview {
+export interface CancellationPreview {
+  blockedReason?: string | null;
+  refundsImmediately?: boolean;
   canCancel: boolean;
   previewToken: string;
   totalSessions: number;
@@ -274,24 +277,39 @@ export function CourseCancellation({
             }}
           />
         </Field>
-        <button className="btn btn--secondary" disabled={mutation.busy}>
+        <button
+          className="btn btn--secondary"
+          disabled={mutation.busy || reason.trim().length < 3}
+        >
           {l.cancellationPreview}
         </button>
       </form>
       {review && (
-        <>
-          <p>
-            {l.confirmed}: {review.confirmedCount} · {l.held}:{" "}
-            {review.activeHoldCount}
-          </p>
-          <p>
-            {l.sessionsRemaining}: {review.sessionsNotProvided}/
-            {review.totalSessions}
-          </p>
-          <p>
-            {l.refundTotal}: {review.refundPoints}
-          </p>
-          {(!review.canCancel || review.confirmedCount > 0) && (
+        <div className={managementStyles.cancellationReview}>
+          <dl className={managementStyles.cancellationPreviewFacts}>
+            <div>
+              <dt>{l.confirmed}</dt>
+              <dd>{review.confirmedCount}</dd>
+            </div>
+            <div>
+              <dt>{l.held}</dt>
+              <dd>{review.activeHoldCount}</dd>
+            </div>
+            <div>
+              <dt>{l.sessionsRemaining}</dt>
+              <dd>
+                {review.sessionsNotProvided} / {review.totalSessions}
+              </dd>
+            </div>
+          </dl>
+          <div className={managementStyles.cancellationRefund}>
+            <span>{l.refundTotal}</span>
+            <strong>{review.refundPoints}</strong>
+          </div>
+          {review.refundsImmediately && (
+            <p>{t.classWorkspace.cancelBelowThresholdHint}</p>
+          )}
+          {!review.canCancel && (
             <p role="alert">
               {review.confirmedCount > 0
                 ? t.classWorkspace.enrolledCancellationBlocked
@@ -301,7 +319,7 @@ export function CourseCancellation({
           <button
             className="btn btn--danger"
             disabled={
-              mutation.busy || !review.canCancel || review.confirmedCount > 0
+              mutation.busy || !review.canCancel || reason.trim().length < 3
             }
             onClick={async () => {
               const ok = await mutation.run(() =>
@@ -316,7 +334,7 @@ export function CourseCancellation({
           >
             {l.confirm}
           </button>
-        </>
+        </div>
       )}
       <MutationFeedback mutation={mutation} />
     </CancellationContainer>

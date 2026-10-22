@@ -48,6 +48,7 @@ export function useCatalogFilters() {
     q: params.get("q") ?? "",
     status: params.get("status") ?? "",
     roomType: params.get("roomType") ?? "",
+    service: params.get("service") ?? "",
   };
   const rawPage = Number(params.get("page"));
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
@@ -94,7 +95,9 @@ export function CatalogFilters({
       ]}
       values={filters.values}
       onChange={filters.set}
-      onReset={() => filters.set({ q: "", status: "", roomType: "" })}
+      onReset={() =>
+        filters.set({ q: "", status: "", roomType: "", service: "" })
+      }
     />
   );
 }

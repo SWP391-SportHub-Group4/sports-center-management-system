@@ -13,9 +13,9 @@ import { ArrowRight, Dumbbell, Grid2X2, UsersRound } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/apiClient";
 import { DEFAULT_AVATAR } from "@/lib/avatar";
-import { homepageImageSpecs } from "./image-specs";
 import {
   homepageCategories as categoryLabels,
+  homepageIntroCopy,
   type CategoryId,
   type HomepageLanguage,
 } from "./homepage-content";
@@ -153,6 +153,15 @@ export function HomepageStats({
   const tabs = useRef<Array<HTMLButtonElement | null>>([]);
   const { user, loading } = useAuth();
   const vi = language === "vi";
+  const intro = useLandingCopy(
+    "bookmarks.intro",
+    vi
+      ? {
+          title: "Cùng nhau tiến bộ",
+          lead: "Con người, không gian và cộng đồng cho mỗi buổi tập của bạn.",
+        }
+      : homepageIntroCopy,
+  );
   const memberPath =
     active === "facilities"
       ? "/member/services?section=courts&view=explore"
@@ -218,14 +227,8 @@ export function HomepageStats({
       data-home-section="sporthub"
     >
       <header className={styles.heading}>
-        <h2 id="homepage-stats-title">
-          {vi ? "Cùng nhau tiến bộ" : "A stronger community"}
-        </h2>
-        <p>
-          {vi
-            ? "Con người, không gian và cộng đồng cho mỗi buổi tập của bạn."
-            : "The people, places and community behind every session."}
-        </p>
+        <h2 id="homepage-stats-title">{intro.title}</h2>
+        <p>{intro.lead}</p>
       </header>
       <ScrollReveal>
         <div
@@ -336,15 +339,7 @@ export function HomepageStats({
                           } as CSSProperties
                         }
                       >
-                        <div
-                          className={`${styles.photo} ${item.id === "coaches" ? styles.coachPhoto : ""}`}
-                          style={{
-                            aspectRatio:
-                              item.id === "coaches"
-                                ? homepageImageSpecs.coach.ratio
-                                : homepageImageSpecs.landscape.ratio,
-                          }}
-                        >
+                        <div className={styles.photo}>
                           <Image
                             src={detail.image}
                             alt={detail.alt[language]}

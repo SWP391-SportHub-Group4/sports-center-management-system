@@ -21,6 +21,8 @@ public sealed record LandingPageDocument(Guid Revision, Dictionary<string, strin
 public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter audit, IClock clock) : ControllerBase
 {
     private static readonly Regex KeyPattern = new(@"^(hero|gallery|bookmarks|arena|booking|faq)\.[a-zA-Z0-9_.]{1,120}$", RegexOptions.Compiled);
+    private static readonly Regex LegacyGalleryCaption = new(@"^gallery\.photos\.[0-9]+\.(en|vi)$", RegexOptions.Compiled);
+    private static readonly Regex SportGalleryImage = new(@"^gallery\.sports\.[1-9][0-9]*\.image$", RegexOptions.Compiled);
 
     [HttpGet]
     [AllowAnonymous]
@@ -38,7 +40,9 @@ public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter au
     {
         if (request.Values is null || request.Values.Count > 300)
             throw new BadRequestException("invalid_landing_content", "Provide no more than 300 content fields.");
-        var values = request.Values.Where(pair => !pair.Key.StartsWith("bookmarks.0.items.", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value);
+        // Old editorial captions no longer own sport names. Retain existing image overrides.
+        var values = request.Values.Where(pair => !pair.Key.StartsWith("bookmarks.0.items.", StringComparison.Ordinal)
+            && !LegacyGalleryCaption.IsMatch(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
         var coachIds = values.GetValueOrDefault("bookmarks.coachIds")?.Split(',') ?? [];
         if (coachIds.Length != 3 || coachIds.Any(id => !Guid.TryParse(id, out _))
             || coachIds.Select(Guid.Parse).Distinct().Count() != 3)
@@ -47,6 +51,8 @@ public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter au
         values["bookmarks.coachIds"] = string.Join(',', featuredIds.Select(id => id.ToString()));
         foreach (var (key, value) in values)
         {
+            if (key.StartsWith("gallery.sports.", StringComparison.Ordinal) && !SportGalleryImage.IsMatch(key))
+                throw new BadRequestException("gallery_sport_name_read_only", "Gallery sport names come from the Sports catalog. Only the gallery image can be changed here.");
             if (!KeyPattern.IsMatch(key) || key.Split('.').Any(x => x is "__proto__" or "constructor" or "prototype" or "href" or "id" or "suffix")
                 || value is null || string.IsNullOrWhiteSpace(value) || value.Length > 2000)
                 throw new BadRequestException("invalid_landing_content", "Content fields must contain between 1 and 2,000 characters.");
@@ -91,5 +97,6 @@ public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter au
         : Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == "https" && string.IsNullOrEmpty(uri.UserInfo);
 
     private static LandingPageDocument Document(LandingPageContent row)
-        => new(row.Revision, JsonSerializer.Deserialize<Dictionary<string, string>>(row.ValuesJson) ?? [], row.UpdatedAt);
+        => new(row.Revision, (JsonSerializer.Deserialize<Dictionary<string, string>>(row.ValuesJson) ?? [])
+            .Where(pair => !LegacyGalleryCaption.IsMatch(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value), row.UpdatedAt);
 }

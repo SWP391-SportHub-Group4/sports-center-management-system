@@ -1,4 +1,5 @@
 "use client";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { StaffActivationActions } from "./StaffActivationActions";
 import Link from "next/link";
 import { useState } from "react";
@@ -511,6 +512,15 @@ export function EditUser({
                     change before confirming.
                   </p>
                 </div>
+                <ActivitySwitch
+                  checked={a.status !== "DEACTIVATED"}
+                  disabled={!validReason}
+                  label="Account enabled"
+                  hint="Turn off to deactivate sign-in access. You will review the change before confirming."
+                  onChange={(checked) =>
+                    setReview(checked ? "unlock" : "deactivate")
+                  }
+                />
                 <div className={styles.rowActions}>
                   {a.status !== "BANNED" && (
                     <button
@@ -530,16 +540,6 @@ export function EditUser({
                       onClick={() => setReview("unlock")}
                     >
                       {l.unlock}
-                    </button>
-                  )}
-                  {a.status !== "DEACTIVATED" && (
-                    <button
-                      type="button"
-                      className="btn btn--secondary"
-                      disabled={!validReason}
-                      onClick={() => setReview("deactivate")}
-                    >
-                      {l.deactivate}
                     </button>
                   )}
                 </div>

@@ -1,5 +1,12 @@
 "use client";
-import { useState } from "react";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
+import { useRef, useState } from "react";
+import { api, ApiError } from "@/lib/apiClient";
+import { validLandingImage } from "@/components/homepage/landing-content-context";
+import {
+  SportImageEditor,
+  type SportImageEditorHandle,
+} from "./sport-image-editor";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { Field, StatusChip } from "@/components/ui";
@@ -8,7 +15,6 @@ import type { SportDto, SportServiceType } from "@/lib/types";
 import { catalogApi, type SaveSport } from "./api";
 import {
   CatalogPanel,
-  ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
   CatalogFormDialog,
@@ -25,6 +31,7 @@ const SERVICE_TYPES: SportServiceType[] = [
 ];
 const GYM_ONLY: SportServiceType[] = ["MEMBERSHIP_ACCESS"];
 interface FormState {
+  isActive: boolean;
   code: string;
   name: string;
   description: string;
@@ -34,6 +41,7 @@ interface FormState {
   defaultMaxCapacity: number;
 }
 const empty: FormState = {
+  isActive: true,
   code: "",
   name: "",
   enabled: {
@@ -53,9 +61,11 @@ export function SportsManager() {
   const state = useApi((s) => catalogApi.sports(s, true), []);
   const filters = useCatalogFilters();
   const mutation = useMutation();
+  const imageEditor = useRef<SportImageEditorHandle>(null);
+  const imageUpload = useRef<{ blob: Blob; url: string } | null>(null);
+  const [preparingImage, setPreparingImage] = useState(false);
   const [form, setForm] = useState(empty);
   const [editor, setEditor] = useState<{ id: number | null } | null>(null);
-  const [activity, setActivity] = useState<SportDto | null>(null);
   const serviceLabel: Record<SportServiceType, string> = {
     MEMBERSHIP_ACCESS: l.serviceMembershipAccess,
     GROUP_COURSE: l.serviceGroupCourse,
@@ -72,12 +82,14 @@ export function SportsManager() {
     (type) => isGym || !GYM_ONLY.includes(type),
   );
   const edit = (row?: SportDto) => {
+    imageUpload.current = null;
     mutation.reset();
     setEditor({ id: row?.sportId ?? null });
     const group = row?.services.find((s) => s.serviceType === "GROUP_COURSE");
     setForm(
       row
         ? {
+            isActive: row.isActive,
             name: row.name,
             code: row.code,
             enabled: Object.fromEntries(
@@ -97,7 +109,25 @@ export function SportsManager() {
   return (
     <>
       <CatalogPanel
-        filters={<CatalogFilters filters={filters} />}
+        filters={
+          <CatalogFilters
+            filters={filters}
+            extra={[
+              {
+                id: "service",
+                label: l.services,
+                kind: "select",
+                options: [
+                  { value: "", label: l.all },
+                  ...SERVICE_TYPES.map((type) => ({
+                    value: type,
+                    label: serviceLabel[type],
+                  })),
+                ],
+              },
+            ]}
+          />
+        }
         actions={
           <button
             className="btn"
@@ -112,8 +142,15 @@ export function SportsManager() {
           state={state}
           filters={filters}
           caption={l.sports}
-          rows={(state.data ?? []).filter((s) =>
-            matchesCatalog(s, `${s.code} ${s.name}`, filters.values),
+          rows={(state.data ?? []).filter(
+            (s) =>
+              matchesCatalog(s, `${s.code} ${s.name}`, filters.values) &&
+              (!filters.values.service ||
+                s.services.some(
+                  (service) =>
+                    service.isEnabled &&
+                    service.serviceType === filters.values.service,
+                )),
           )}
           getRowId={(s) => String(s.sportId)}
           columns={[
@@ -179,33 +216,26 @@ export function SportsManager() {
               >
                 {l.edit}
               </button>
-              <button
-                className="btn btn--ghost btn--sm"
-                disabled={mutation.busy}
-                onClick={() => {
-                  mutation.reset();
-                  setActivity(s);
-                }}
-              >
-                {s.isActive ? l.deactivate : l.activate}
-              </button>
             </>
           )}
         />
-        {!editor && !activity && <CatalogFeedback mutation={mutation} />}
+        {!editor && <CatalogFeedback mutation={mutation} />}
       </CatalogPanel>
       {editor && (
         <CatalogFormDialog
           title={editor.id === null ? c.createSport : c.editSport}
           busy={mutation.busy}
+          canSubmit={!preparingImage}
           mutation={mutation}
           onClose={() => setEditor(null)}
           onSubmit={async (e) => {
             e.preventDefault();
+            if (preparingImage) return;
             const body: SaveSport = {
               ...(editor.id === null
                 ? { code: form.code.trim().toLowerCase() }
                 : {}),
+              isActive: form.isActive,
               name: form.name.trim(),
               description: form.description,
               imageUrl: form.imageUrl,
@@ -225,13 +255,44 @@ export function SportsManager() {
                 })),
             };
             if (
-              await mutation.run(() => catalogApi.saveSport(editor.id, body))
+              await mutation.run(async () => {
+                const blob = await imageEditor.current?.exportImage();
+                if (blob) {
+                  if (imageUpload.current?.blob !== blob) {
+                    const upload = new FormData();
+                    upload.append("file", blob, "sport-landing-image.jpg");
+                    upload.append("preset", "landscape");
+                    const result = await api.postForm<{ url: string }>(
+                      "/api/manager/media/images",
+                      upload,
+                    );
+                    if (
+                      typeof result.url !== "string" ||
+                      !validLandingImage(result.url)
+                    )
+                      throw new ApiError(
+                        0,
+                        "image_upload_failed",
+                        c.imageUploadFailed,
+                      );
+                    imageUpload.current = { blob, url: result.url };
+                  }
+                  body.imageUrl = imageUpload.current.url;
+                }
+                return catalogApi.saveSport(editor.id, body);
+              })
             ) {
               setEditor(null);
               state.reload();
             }
           }}
         >
+          {editor.id !== null && (
+            <ActivitySwitch
+              checked={form.isActive ?? true}
+              onChange={(isActive) => setForm({ ...form, isActive })}
+            />
+          )}
           <div className="form-grid">
             <Field
               label={l.code}
@@ -290,14 +351,13 @@ export function SportsManager() {
                 </Field>
               </>
             )}
-            <Field label={l.image}>
-              <input
-                maxLength={500}
-                value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-              />
-            </Field>
           </div>
+          <SportImageEditor
+            ref={imageEditor}
+            value={form.imageUrl}
+            disabled={mutation.busy}
+            onPreparingChange={setPreparingImage}
+          />
           <fieldset className={styles.days}>
             <legend>{l.services}</legend>
             {visibleServices.map((type) => (
@@ -327,20 +387,6 @@ export function SportsManager() {
             />
           </Field>
         </CatalogFormDialog>
-      )}
-      {activity && (
-        <ActivityDialog
-          name={activity.name}
-          active={activity.isActive}
-          mutation={mutation}
-          onClose={() => setActivity(null)}
-          onConfirm={async () => {
-            if (await mutation.run(() => catalogApi.setSportActive(activity))) {
-              setActivity(null);
-              state.reload();
-            }
-          }}
-        />
       )}
     </>
   );

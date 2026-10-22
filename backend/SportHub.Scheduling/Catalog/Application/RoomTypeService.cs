@@ -45,6 +45,13 @@ public sealed class RoomTypeService(ISportHubDbContext db, IAuditWriter audit)
     {
         var type = await FindAsync(roomTypeId, ct);
         var name = request.Name.Trim();
+        if (request.IsActive.HasValue && request.IsActive != type.IsActive)
+        {
+            if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 3)
+                throw new BadRequestException("reason_required", "Enter a reason with at least 3 characters.");
+            audit.Write(new AuditEntry(actorUserId, request.IsActive.Value ? "REACTIVATE_ROOM_TYPE" : "DISCONTINUE_ROOM_TYPE", nameof(RoomType), roomTypeId.ToString(), Reason: request.Reason.Trim()));
+            type.IsActive = request.IsActive.Value;
+        }
 
         if (await db.Set<RoomType>().AnyAsync(t => t.Name == name && t.RoomTypeId != roomTypeId, ct))
         {

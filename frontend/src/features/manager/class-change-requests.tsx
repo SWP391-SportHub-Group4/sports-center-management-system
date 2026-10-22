@@ -1,4 +1,5 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 import { useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import { Drawer } from "@/components/primitives";
@@ -74,59 +75,61 @@ export function ManagerClassChangeRequests({
           ? "Xem lý do từ Coach và xác nhận phương án phù hợp. Học viên chỉ nhận thay đổi lịch sau khi xử lý thành công."
           : "Review the Coach’s absence request and choose a substitute, reschedule or makeup, or reject it. Students receive schedule changes only after the operation succeeds."}
       </p>
-      <div className={styles.filters}>
-        <label>
-          {vi ? "Trạng thái" : "Status"}
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{vi ? "Tất cả" : "All"}</option>
-            {["PENDING", "RESOLVED", "REJECTED", "WITHDRAWN"].map((id) => (
-              <option key={id} value={id}>
-                {changeStatusLabel(id, vi)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {vi ? "Khóa học" : "Class"}
-          <select
-            value={classId}
-            onChange={(e) => {
-              setClassId(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{vi ? "Tất cả khóa" : "All classes"}</option>
-            {filters.data?.classes.map((c) => (
-              <option key={c.classId} value={c.classId}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {vi ? "Coach" : "Coach"}
-          <select
-            value={coachId}
-            onChange={(e) => {
-              setCoachId(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{vi ? "Tất cả Coach" : "All coaches"}</option>
-            {filters.data?.coaches.map((c) => (
-              <option key={c.coachId} value={c.coachId}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <TableFilters>
+        <div className={styles.filters}>
+          <label>
+            {vi ? "Trạng thái" : "Status"}
+            <select
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{vi ? "Tất cả" : "All"}</option>
+              {["PENDING", "RESOLVED", "REJECTED", "WITHDRAWN"].map((id) => (
+                <option key={id} value={id}>
+                  {changeStatusLabel(id, vi)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {vi ? "Khóa học" : "Class"}
+            <select
+              value={classId}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{vi ? "Tất cả khóa" : "All classes"}</option>
+              {filters.data?.classes.map((c) => (
+                <option key={c.classId} value={c.classId}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {vi ? "Coach" : "Coach"}
+            <select
+              value={coachId}
+              onChange={(e) => {
+                setCoachId(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{vi ? "Tất cả Coach" : "All coaches"}</option>
+              {filters.data?.coaches.map((c) => (
+                <option key={c.coachId} value={c.coachId}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </TableFilters>
       <AsyncSection state={state}>
         {(data) => (
           <>
