@@ -1,0 +1,195 @@
+.launcher {
+  position: fixed;
+  right: calc(20px + env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.launcherButton {
+  position: relative;
+  display: flex;
+  width: 112px;
+  height: 168px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.launcherButton::after {
+  position: absolute;
+  bottom: 1px;
+  width: 62px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgb(2 45 51 / 0.22);
+  filter: blur(4px);
+  content: "";
+  pointer-events: none;
+  animation: mascotShadow 2.8s ease-in-out infinite;
+}
+.launcherMascot {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: 50% 88%;
+  filter: drop-shadow(0 5px 8px rgb(2 45 51 / 0.18));
+  animation: mascotHop 2.8s ease-in-out infinite;
+}
+.launcherButton:hover {
+  transform: scale(1.06);
+}
+.launcherButton:hover .launcherMascot {
+  animation-duration: 1.6s;
+}
+@keyframes mascotHop {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  22% { transform: translateY(-12px) rotate(5deg); }
+  44% { transform: translateY(-3px) rotate(-4deg); }
+  66% { transform: translateY(-9px) rotate(3deg); }
+  84% { transform: translateY(-2px) rotate(-1deg); }
+}
+@keyframes mascotShadow {
+  0%, 44%, 84%, 100% { opacity: 0.7; transform: scale(1); }
+  22%, 66% { opacity: 0.38; transform: scale(0.74); }
+}
+.launcherButton:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .launcher {
+    right: calc(14px + env(safe-area-inset-right, 0px));
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .launcherButton {
+    width: 88px;
+    height: 132px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .launcherButton, .launcherButton::after, .launcherMascot {
+    animation: none;
+    transition: none;
+  }
+}
+.intro {
+  margin: 0 0 var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+.scheduleLinks {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.scheduleLinks h3 {
+  font-size: var(--text-md);
+}
+.scheduleLinks a {
+  display: inline-block;
+  padding-block: var(--space-3);
+}
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 92%;
+}
+.msg[data-from="user"] {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.who {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.bubble {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-sunken);
+  color: var(--text-body);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg[data-from="user"] .bubble {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chip {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.chip:hover {
+  border-color: var(--color-primary);
+}
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+.error {
+  margin: var(--space-3) 0 0;
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+.form textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* Chat replies remain safely escaped React text; only bold markers are interpreted. */
+.formattedAnswer { white-space: pre-wrap; line-height: 1.75; }
+.formattedAnswer strong { font-weight: 700; color: var(--text-strong); }
+.msg[data-from="assistant"] .bubble { border: 1px solid var(--border-subtle); border-radius: 16px 16px 16px 5px; max-width: 100%; }
+.msg[data-from="user"] .bubble { border-radius: 16px 16px 5px 16px; }
+@media (max-width: 640px) { .msg { max-width: 96%; } .bubble { padding: 12px 14px; font-size: 14px; } }

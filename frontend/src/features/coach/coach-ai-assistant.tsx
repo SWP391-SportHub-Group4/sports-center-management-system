@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Drawer } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
-import styles from "@/features/member/assistant.module.css";
+import styles from "./coach-ai-assistant.module.css";
 
 type Reply = { interactionId: string; answer: string };
 type Message = { role: "user" | "assistant"; content: string };
