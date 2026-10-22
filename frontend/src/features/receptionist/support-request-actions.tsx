@@ -15,8 +15,9 @@ export type SupportAssignee = {
 
 function roleLabel(role: string) {
   return role
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
     .toLowerCase()
-    .split("_")
+    .split(/[_\s]+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }

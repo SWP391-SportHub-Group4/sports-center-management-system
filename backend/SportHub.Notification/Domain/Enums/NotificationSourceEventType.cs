@@ -31,5 +31,6 @@ public enum NotificationSourceEventType
     CoachCoverageRequired = 24,
     ClassSessionReminder = 25,
     AvatarReported = 27,
-    CoachAttendanceReminder = 28
+    CoachAttendanceReminder = 28,
+    SupportRequestAssigned = 29
 }

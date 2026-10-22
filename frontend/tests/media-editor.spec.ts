@@ -442,7 +442,7 @@ test("dragging a crop follows the pointer, clamps to its frame and keeps control
   await expect(vertical).toHaveValue("60");
 });
 
-test("copy stays read-only, Preview uses the unsaved draft and Restore keeps its fixed baseline after publishing", async ({
+test("copy edits can be undone, Preview uses the unsaved draft and Restore keeps its fixed baseline after publishing", async ({
   page,
 }) => {
   const calls = await setup(page);
@@ -459,6 +459,12 @@ test("copy stays read-only, Preview uses the unsaved draft and Restore keeps its
     page.getByRole("button", { name: /^Edit (Hero|Community)/ }),
   ).toHaveCount(0);
   await page.locator("#media-hero h2").dblclick();
+  await expect(
+    page.getByRole("textbox", { name: "Hero title", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Hero title", exact: true })
+    .press("Escape");
   await expect(page.locator('textarea,[contenteditable="true"]')).toHaveCount(
     0,
   );
@@ -508,6 +514,167 @@ test("copy stays read-only, Preview uses the unsaved draft and Restore keeps its
     "/sporthub/court-volt/course-badminton.png",
   );
   expect(calls.saves[1]["hero.lead"]).toBe("Published introduction");
+});
+
+for (const width of [1440, 390]) {
+  test(`Media edits titles and content as plain text and publishes the draft at ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const calls = await setup(page);
+    const title = page.locator('[data-media-field="hero.title"]');
+    await title.dblclick();
+    const editor = page.getByRole("textbox", {
+      name: "Hero title",
+      exact: true,
+    });
+    await editor.fill("Train together. Play stronger.");
+    const inputBounds = await editor.boundingBox();
+    const titleBounds = await title.boundingBox();
+    expect(inputBounds!.width).toBeGreaterThan(180);
+    expect(inputBounds!.width).toBeLessThanOrEqual(titleBounds!.width + 1);
+    await page.screenshot({
+      path: info.outputPath(`media-editing-${width}.png`),
+      animations: "disabled",
+    });
+    await editor.press("Enter");
+    await expect(title).toHaveText("Train together. Play stronger.");
+    const lead = page.locator('[data-media-field="hero.lead"]');
+    await lead.focus();
+    await lead.press("Enter");
+    const body = page.getByRole("textbox", {
+      name: "Hero description",
+      exact: true,
+    });
+    await body.fill("A training home for every athlete.");
+    await body.press("End");
+    await body.press("Shift+Enter");
+    await body.pressSequentially("Find your next session.");
+    await body.press("Enter");
+    await expect(lead).toHaveText(
+      "A training home for every athlete.\nFind your next session.",
+    );
+    await title.dblclick();
+    await editor.fill("Discard this edit");
+    await editor.press("Escape");
+    await expect(title).toHaveText("Train together. Play stronger.");
+    await lead.dblclick();
+    await body.fill("");
+    await body.press("Tab");
+    await expect(lead).toHaveText(
+      "A training home for every athlete.\nFind your next session.",
+    );
+    const faq = page.locator('[data-media-field="faq.questions.0.question"]');
+    await faq.dblclick();
+    await page
+      .getByRole("textbox", { name: "FAQ question 1", exact: true })
+      .fill("<strong>Can I join?</strong>");
+    await page
+      .getByRole("textbox", { name: "FAQ question 1", exact: true })
+      .press("Enter");
+    await expect(faq).toHaveText("<strong>Can I join?</strong>");
+    await expect(faq.locator("strong")).toHaveCount(0);
+    await page.locator("#media-hero").scrollIntoViewIfNeeded();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`media-text-${width}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "Preview", exact: true }).click();
+    const frame = page.frameLocator('iframe[title="Draft homepage"]');
+    await expect(frame.locator("#performance-title")).toHaveText(
+      "Train together. Play stronger.",
+    );
+    await expect(
+      frame.getByText(
+        "A training home for every athlete.\nFind your next session.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    expect(calls.saves).toHaveLength(0);
+    await page
+      .getByRole("dialog", { name: "Homepage preview" })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect(
+      page.getByText("Changes are live", { exact: true }),
+    ).toBeVisible();
+    expect(calls.saves.at(-1)).toMatchObject({
+      "hero.title": "Train together. Play stronger.",
+      "hero.lead":
+        "A training home for every athlete.\nFind your next session.",
+      "faq.questions.0.question": "<strong>Can I join?</strong>",
+    });
+    await page.reload();
+    await expect(title).toHaveText("Train together. Play stronger.");
+  });
+}
+
+test("logo preserves original upload, previews before publishing and can be replaced", async ({
+  page,
+}) => {
+  const calls = await setup(page);
+  const chooseLogo = async () => {
+    const chooser = page.waitForEvent("filechooser");
+    await page
+      .getByRole("button", { name: "Change logo", exact: true })
+      .click();
+    await (await chooser).setFiles(imageFile);
+  };
+  const upload = page.waitForRequest((request) =>
+    request.url().endsWith("/api/manager/media/images"),
+  );
+  await chooseLogo();
+  expect((await upload).postDataBuffer()?.toString()).toContain(
+    'name="preset"\r\n\r\nlogo',
+  );
+  await expect(
+    page.getByRole("img", { name: "Homepage logo", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "Frame your image" }),
+  ).toHaveCount(0);
+  expect(calls.saves).toHaveLength(0);
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(
+    page
+      .frameLocator('iframe[title="Draft homepage"]')
+      .getByRole("banner")
+      .getByRole("img", { name: "SportHub", exact: true }),
+  ).toHaveAttribute("src", /hero-rally/);
+  await page
+    .getByRole("dialog", { name: "Homepage preview" })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByText("Changes are live", { exact: true }),
+  ).toBeVisible();
+  expect(calls.saves.at(-1)?.["brand.logo.image"]).toBe(uploadUrl);
+  await page.reload();
+  await expect(
+    page.getByRole("img", { name: "Homepage logo", exact: true }),
+  ).toBeVisible();
+  calls.uploadError = true;
+  await chooseLogo();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Upload failed. Try again." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: "Homepage logo", exact: true }),
+  ).toBeVisible();
+  calls.uploadError = false;
+  await chooseLogo();
+  await expect.poll(() => calls.uploads).toBe(3);
+  expect(calls.saves).toHaveLength(1);
 });
 
 test("featured coaches reorder by pointer and keyboard, replace individually and publish only after Apply and Save", async ({

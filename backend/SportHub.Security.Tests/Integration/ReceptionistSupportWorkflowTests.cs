@@ -5,12 +5,115 @@ using SportHub.Identity.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Security.Tests.Integration;
 
 [Collection(nameof(SportHubApiCollection))]
 public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
 {
+    [Theory]
+    [InlineData(UserRole.CenterManager)]
+    [InlineData(UserRole.Receptionist)]
+    [InlineData(UserRole.Member)]
+    [InlineData(UserRole.Coach)]
+    [InlineData(UserRole.SystemAdministrator)]
+    public async Task Only_manager_can_list_and_assign_active_administrators(UserRole actorRole)
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", null);
+        var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager);
+        var admin = await factory.SeedUserAsync($"support-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
+        var inactive = await factory.SeedUserAsync($"support-inactive-admin-{marker}@example.com", null,
+            UserStatus.Deactivated, UserRole.SystemAdministrator);
+        var actor = await factory.SeedUserAsync($"support-actor-{marker}@example.com", null, role: actorRole);
+        using var client = factory.CreateApiClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
+        var created = await client.PostAsJsonAsync("/api/member-support-requests", new {
+            memberId = member.UserId, category = "GENERAL", subject = "Escalate request", description = "Administrator assistance needed" });
+        created.EnsureSuccessStatusCode();
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+
+        client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(actor.UserId, actorRole));
+        var list = await client.GetAsync("/api/member-support-requests/assignees");
+        if (actorRole is UserRole.CenterManager or UserRole.Receptionist)
+        {
+            list.EnsureSuccessStatusCode();
+            var rows = (await list.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToList();
+            Assert.Equal(actorRole == UserRole.CenterManager,
+                rows.Any(x => x.GetProperty("userId").GetGuid() == admin.UserId));
+            Assert.DoesNotContain(rows, x => x.GetProperty("userId").GetGuid() == inactive.UserId);
+        }
+        else Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
+
+        var assigned = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = admin.UserId });
+        Assert.Equal(actorRole == UserRole.CenterManager ? HttpStatusCode.OK : HttpStatusCode.Forbidden, assigned.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        var row = await db.MemberSupportRequests.AsNoTracking().SingleAsync(x => x.RequestId == id);
+        Assert.Equal(actorRole == UserRole.CenterManager ? (Guid?)admin.UserId : null, row.AssignedToUserId);
+        Assert.Equal(actorRole == UserRole.CenterManager ? "ASSIGNED" : "OPEN", row.Status);
+        Assert.Equal(actorRole == UserRole.CenterManager ? 1 : 0,
+            await db.AuditLogs.CountAsync(x => x.TargetId == id.ToString() && x.Action == "ASSIGN_SUPPORT_REQUEST"));
+        Assert.Equal(actorRole == UserRole.CenterManager ? 1 : 0,
+            await db.Notifications.CountAsync(x => x.UserId == admin.UserId && x.SourceEventType == NotificationSourceEventType.SupportRequestAssigned));
+        if (actorRole == UserRole.CenterManager)
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(
+                $"/api/member-support-requests/{id}/assign", new { assigneeUserId = inactive.UserId })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_receives_assignment_in_bell_and_inbox_without_duplicate_notifications_on_retry()
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", null, fullName: "Member needing help");
+        var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager, fullName: "Assigning Manager");
+        var admin = await factory.SeedUserAsync($"support-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
+        var otherAdmin = await factory.SeedUserAsync($"support-other-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
+        using var client = factory.CreateApiClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
+        var created = await client.PostAsJsonAsync("/api/member-support-requests", new {
+            memberId = member.UserId, category = "PAYMENT", subject = $"Payment assistance {marker}", description = "Please investigate this member payment." });
+        created.EnsureSuccessStatusCode();
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+        var assignment = new { assigneeUserId = admin.UserId };
+        var results = await Task.WhenAll(
+            client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment),
+            client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment));
+        Assert.All(results, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
+        (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/progress", new { note = "Waiting for administrator review" })).EnsureSuccessStatusCode();
+        var retry = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment);
+        Assert.Equal("IN_PROGRESS", (await retry.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        using var recipient = factory.CreateApiClient();
+        recipient.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(admin.UserId, UserRole.SystemAdministrator));
+        var unread = await recipient.GetFromJsonAsync<JsonElement>("/api/notifications/unread-count");
+        Assert.Equal(1, unread.GetProperty("count").GetInt32());
+        var notices = await recipient.GetFromJsonAsync<JsonElement>("/api/notifications");
+        var notice = Assert.Single(notices.EnumerateArray());
+        Assert.Equal("SUPPORT_REQUEST_ASSIGNED", notice.GetProperty("sourceEventType").GetString());
+        var message = notice.GetProperty("message").GetString()!;
+        Assert.Contains("Assigning Manager", message);
+        Assert.Contains("Member needing help", message);
+        Assert.Contains($"Payment assistance {marker}", message);
+        Assert.Contains("Please investigate this member payment.", message);
+        var notificationId = notice.GetProperty("notificationId").GetGuid();
+        Assert.Equal(HttpStatusCode.OK, (await recipient.GetAsync($"/api/notifications/{notificationId}")).StatusCode);
+        (await recipient.PostAsync($"/api/notifications/{notificationId}/read", null)).EnsureSuccessStatusCode();
+        Assert.Equal(0, (await recipient.GetFromJsonAsync<JsonElement>("/api/notifications/unread-count")).GetProperty("count").GetInt32());
+        using var outsider = factory.CreateApiClient();
+        outsider.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(otherAdmin.UserId, UserRole.SystemAdministrator));
+        Assert.Empty((await outsider.GetFromJsonAsync<JsonElement>("/api/notifications")).EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await outsider.GetAsync($"/api/notifications/{notificationId}")).StatusCode);
+        // Reassignment away and back is a new occurrence, unlike retrying the same assignment.
+        (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = manager.UserId })).EnsureSuccessStatusCode();
+        (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment)).EnsureSuccessStatusCode();
+        Assert.Equal(1, (await recipient.GetFromJsonAsync<JsonElement>("/api/notifications/unread-count")).GetProperty("count").GetInt32());
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        Assert.Equal(2, await db.Notifications.CountAsync(x => x.UserId == admin.UserId && x.SourceEventType == NotificationSourceEventType.SupportRequestAssigned));
+        Assert.False(await db.Notifications.AnyAsync(x => x.UserId == manager.UserId && x.SourceEventType == NotificationSourceEventType.SupportRequestAssigned));
+    }
+
     [Theory]
     [InlineData(UserRole.Receptionist)]
     [InlineData(UserRole.CenterManager)]

@@ -40,7 +40,7 @@ export function MediaHomepagePreview({
   return (
     <Dialog
       title="Homepage preview"
-      description="Your draft images. Changes go live only after you save."
+      description="Your draft content, images and logo. Changes go live only after you save."
       className={styles.homepageDialog}
       size="lg"
       onClose={onClose}
