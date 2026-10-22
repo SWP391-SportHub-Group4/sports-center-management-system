@@ -9,6 +9,9 @@ using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.Wallet.Application;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Threshold.Application;
+using SportHub.Scheduling.Threshold.Domain;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Scheduling.Tests.Integration;
 
@@ -114,6 +117,107 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
     }
 
     [Fact]
+    public async Task Manager_cancellation_refunds_members_immediately_notifies_coach_and_is_idempotent()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var members = new[] { await BuyAsync(course.Id), await BuyAsync(course.Id) };
+        await factory.QueryAsync(async db => {
+            await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.BreakEvenThreshold, 3).SetProperty(c => c.CostAmount, 300000)
+                .SetProperty(c => c.ThresholdDeadlineUtc, DateTime.UtcNow.AddMinutes(-1)));
+            return 0;
+        });
+        using (var scope = factory.Services.CreateScope()) {
+            var service = scope.ServiceProvider.GetRequiredService<IClassThresholdService>();
+            await service.EvaluateDueAsync();
+            var count = await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == course.ManagerId));
+            await service.EvaluateDueAsync();
+            Assert.Equal(count, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == course.ManagerId)));
+        }
+        Assert.False(await factory.QueryAsync(db => db.ThresholdResponses.AnyAsync(r => r.ClassId == course.Id)));
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+        Assert.True(preview.GetProperty("canCancel").GetBoolean());
+        Assert.True(preview.GetProperty("refundsImmediately").GetBoolean());
+        Assert.Equal(200, preview.GetProperty("refundPoints").GetInt32());
+        var request = new { reason = "Minimum enrollment was not reached", previewToken = preview.GetProperty("previewToken").GetString() };
+        for (var attempt = 0; attempt < 2; attempt++) {
+            var response = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", request);
+            Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        }
+        foreach (var member in members) {
+            Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
+            Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == member && n.SourceEventType == NotificationSourceEventType.ClassCancelled && n.Channel == NotificationChannel.Email)));
+        }
+        Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == course.CoachId && n.SourceEventType == NotificationSourceEventType.ClassCancelled && n.Channel == NotificationChannel.Email)));
+        Assert.Equal(ClassStatus.Cancelled, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
+        Assert.False(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.ClassId == course.Id && e.Status == EnrollmentStatus.Confirmed)));
+        Assert.False(await factory.QueryAsync(db => db.ThresholdResponses.AnyAsync(r => r.ClassId == course.Id
+            && r.ResolutionStatus == ThresholdResolutionStatus.Pending)));
+        using var expiryScope = factory.Services.CreateScope();
+        await expiryScope.ServiceProvider.GetRequiredService<ThresholdResponseExpiryService>().ExpireAsync();
+        foreach (var member in members)
+            Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Management_invoice_list_excludes_void_before_pagination_and_direct_lookup_is_hidden()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var voidId = Guid.NewGuid(); var paidId = Guid.NewGuid();
+        await factory.QueryAsync(async db => {
+            db.Invoices.AddRange(new SportHub.Payment.Domain.Entities.Invoice { InvoiceId = voidId, InvoiceNumber = $"VOID-{voidId:N}", MemberId = member.UserId, IssuedByUserId = manager.UserId, TotalAmount = 100000, Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Void, IssuedAt = DateTime.UtcNow },
+                new SportHub.Payment.Domain.Entities.Invoice { InvoiceId = paidId, InvoiceNumber = $"PAID-{paidId:N}", MemberId = member.UserId, IssuedByUserId = manager.UserId, TotalAmount = 100000, Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Paid, IssuedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync(); return 0;
+        });
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var page = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&pageSize=1"));
+        Assert.Equal(1, page.GetProperty("totalCount").GetInt32());
+        Assert.Equal(paidId, page.GetProperty("items")[0].GetProperty("invoiceId").GetGuid());
+        var empty = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&status=VOID"));
+        Assert.Equal(0, empty.GetProperty("totalCount").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"api/invoices/{voidId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Threshold_cancellation_rechecks_completed_sessions_and_manager_waiver_after_preview()
+    {
+        foreach (var delivered in new[] { false, true })
+        {
+            var course = await CourseTestData.CreateAsync(factory);
+            await BuyAsync(course.Id);
+            await factory.QueryAsync(async db =>
+            {
+                await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                    .SetProperty(c => c.BreakEvenThreshold, 2).SetProperty(c => c.ThresholdStatus, ThresholdStatus.AtRisk));
+                return 0;
+            });
+            using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+            var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+            Assert.True(preview.GetProperty("canCancel").GetBoolean());
+            await factory.QueryAsync(async db =>
+            {
+                if (delivered)
+                    await db.ClassSessions.Where(s => s.ClassId == course.Id && s.SessionNo == 1)
+                        .ExecuteUpdateAsync(s => s.SetProperty(s => s.Status, ClassSessionStatus.Completed));
+                else
+                    await db.Classes.Where(c => c.ClassId == course.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(c => c.ThresholdStatus, ThresholdStatus.WaivedByManager));
+                return 0;
+            });
+            var cancelled = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new
+            {
+                reason = "Stale threshold preview", previewToken = preview.GetProperty("previewToken").GetString()
+            });
+            Assert.Equal(HttpStatusCode.Conflict, cancelled.StatusCode);
+            Assert.Equal("class_has_enrollments", (await Json(cancelled)).GetProperty("error").GetString());
+            Assert.Equal(ClassStatus.Published, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
+            Assert.False(await factory.QueryAsync(db => db.ThresholdResponses.AnyAsync(r => r.ClassId == course.Id)));
+        }
+    }
+
+    [Fact]
     public async Task Class_without_confirmed_students_can_still_be_cancelled()
     {
         var course = await CourseTestData.CreateAsync(factory);
@@ -121,5 +225,36 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         var response = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new { reason = "No students enrolled" });
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         Assert.Equal(ClassStatus.Cancelled, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Cancellation_uses_review_deadline_even_before_the_background_evaluation(bool deadlineReached)
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var member = await BuyAsync(course.Id);
+        await factory.QueryAsync(async db => {
+            await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.BreakEvenThreshold, 3)
+                .SetProperty(c => c.ThresholdStatus, ThresholdStatus.NotEvaluated)
+                .SetProperty(c => c.ThresholdDeadlineUtc, DateTime.UtcNow.AddHours(deadlineReached ? -1 : 1)));
+            return 0;
+        });
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+        Assert.Equal(deadlineReached, preview.GetProperty("canCancel").GetBoolean());
+        Assert.Equal(deadlineReached, preview.GetProperty("refundsImmediately").GetBoolean());
+        var response = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new {
+            reason = "Opening enrollment remains below threshold", previewToken = preview.GetProperty("previewToken").GetString()
+        });
+        Assert.Equal(deadlineReached ? HttpStatusCode.OK : HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(deadlineReached ? ClassStatus.Cancelled : ClassStatus.Published,
+            await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
+        Assert.Equal(deadlineReached ? 100 : 0,
+            await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
+        if (deadlineReached)
+            Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == member
+                && n.SourceEventType == NotificationSourceEventType.ClassCancelled)));
     }
 }

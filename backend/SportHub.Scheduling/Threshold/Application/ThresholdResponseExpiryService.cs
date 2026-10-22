@@ -23,12 +23,12 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
     public async Task<int> ExpireAsync(CancellationToken ct = default)
     {
         var now = clock.UtcNow;
-        var classIds = await db.Set<Class>().AsNoTracking().Where(x => x.Status == ClassStatus.Published
+        var classIds = await db.Set<Class>().AsNoTracking().Where(x => (x.Status == ClassStatus.Published || x.Status == ClassStatus.Cancelled)
             && x.ThresholdResponseDeadlineUtc <= now
             && (db.Set<ThresholdResponse>().Any(r => r.ClassId == x.ClassId
                     && (r.ResolutionStatus == ThresholdResolutionStatus.Pending
                         || r.ResolutionStatus == ThresholdResolutionStatus.AwaitingPayment))
-                || (x.ThresholdStatus == ThresholdStatus.AtRisk
+                || (x.Status == ClassStatus.Published && x.ThresholdStatus == ThresholdStatus.AtRisk
                     && db.Set<Enrollment>().Count(e => e.ClassId == x.ClassId
                         && e.Status == EnrollmentStatus.Confirmed) < x.BreakEvenThreshold)))
             .OrderBy(x => x.ClassId).Select(x => x.ClassId)
@@ -48,6 +48,13 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             $"SELECT pg_advisory_xact_lock(hashtextextended({$"threshold-class-expiry:{classId}"}, 0))", ct);
         var entity = await db.Set<Class>().SingleOrDefaultAsync(x => x.ClassId == classId, ct);
         if (entity is not null) await db.Entry(entity).ReloadAsync(ct);
+        if (entity is { Status: ClassStatus.Cancelled, ThresholdStatus: ThresholdStatus.AtRisk }
+            && entity.ThresholdResponseDeadlineUtc <= clock.UtcNow)
+        {
+            var settled = await SettleCancelledClassAsync(classId, ct);
+            await tx.CommitAsync(ct);
+            return settled;
+        }
         if (entity is null || entity.Status != ClassStatus.Published
             || entity.ThresholdResponseDeadlineUtc is null || entity.ThresholdResponseDeadlineUtc > clock.UtcNow)
         {
@@ -189,6 +196,30 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return true;
+    }
+
+    private async Task<bool> SettleCancelledClassAsync(int classId, CancellationToken ct)
+    {
+        // Member submissions lock their response first, then the paid item and class. Use the same order.
+        var responses = await db.Set<ThresholdResponse>().FromSqlInterpolated($"""
+            SELECT * FROM class_threshold_responses WHERE class_id = {classId}
+            AND resolution_status = {(int)ThresholdResolutionStatus.Pending} AND deadline_utc <= {clock.UtcNow}
+            ORDER BY threshold_response_id FOR UPDATE SKIP LOCKED
+            """).ToListAsync(ct);
+        foreach (var response in responses)
+        {
+            var enrollment = await db.Set<Enrollment>().SingleAsync(e => e.EnrollmentId == response.EnrollmentId, ct);
+            if (enrollment.Status == EnrollmentStatus.Confirmed && enrollment.InvoiceItemId is Guid itemId)
+            {
+                await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
+                    "Points refunded after the cancelled class response deadline passed", response.ThresholdResponseId), ct);
+                await classes.CancelAsync(itemId, EnrollmentEndReason.CancelledByCenter, ct);
+            }
+            response.ResolutionStatus = ThresholdResolutionStatus.Expired;
+            response.ResolvedAtUtc = clock.UtcNow;
+        }
+        await db.SaveChangesAsync(ct);
+        return responses.Count > 0;
     }
 
     private sealed record Alternative(int ClassId, string Name, decimal Price, DateTime FirstStartUtc);

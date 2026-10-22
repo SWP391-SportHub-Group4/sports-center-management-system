@@ -1,4 +1,5 @@
 ﻿"use client";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
@@ -24,6 +25,9 @@ export function RoomTypesManager() {
   const [id, setId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [sportIds, setSports] = useState<number[]>([]);
+  const [active, setActive] = useState(true);
+  const [originalActive, setOriginalActive] = useState(true);
+  const [statusReason, setStatusReason] = useState("");
   const [editing, setEditing] = useState(false);
   const [partial, setPartial] = useState(false);
   const filters = useCatalogFilters();
@@ -47,6 +51,8 @@ export function RoomTypesManager() {
                   if (target)
                     await api.put(`/api/manager/room-types/${target}`, {
                       name,
+                      isActive: active,
+                      reason: statusReason,
                     });
                   else {
                     const created = await api.post<{ roomTypeId: number }>(
@@ -76,6 +82,28 @@ export function RoomTypesManager() {
               className={styles.roomTypeFields}
               disabled={mutation.busy}
             >
+              {id !== null && (
+                <>
+                  <ActivitySwitch
+                    checked={active}
+                    onChange={setActive}
+                    hint="Inactive room types stop new bookings; existing bookings stay unchanged."
+                  />
+                  {active !== originalActive && (
+                    <Field label={l.reason} required>
+                      <textarea
+                        required
+                        minLength={3}
+                        maxLength={500}
+                        value={statusReason}
+                        onChange={(event) =>
+                          setStatusReason(event.target.value)
+                        }
+                      />
+                    </Field>
+                  )}
+                </>
+              )}
               <Field label={l.name} required>
                 <input
                   required
@@ -185,6 +213,9 @@ export function RoomTypesManager() {
               <button
                 className="btn btn--secondary"
                 onClick={() => {
+                  setActive(r.isActive !== false);
+                  setOriginalActive(r.isActive !== false);
+                  setStatusReason("");
                   setId(r.roomTypeId);
                   setName(r.name);
                   setSports(r.sportIds);
@@ -195,28 +226,7 @@ export function RoomTypesManager() {
               >
                 {l.edit}
               </button>
-              <ConfirmRecordAction
-                label={r.isActive !== false ? "Discontinue" : "Reactivate"}
-                title={
-                  r.isActive !== false
-                    ? "Discontinue room type"
-                    : "Reactivate room type"
-                }
-                description={
-                  r.isActive !== false
-                    ? "New bookings will be blocked in all rooms of this type. Existing bookings and each room’s own status stay unchanged."
-                    : "Rooms of this type can accept new bookings again if they are individually active."
-                }
-                recordName={r.name}
-                requireReason
-                onConfirm={(reason) =>
-                  api.post(
-                    `/api/manager/room-types/${r.roomTypeId}/${r.isActive !== false ? "discontinue" : "reactivate"}`,
-                    { reason },
-                  )
-                }
-                onCompleted={state.reload}
-              />
+
               <ConfirmRecordAction
                 label={t.recordActions.delete}
                 title={t.recordActions.deleteRoomType}

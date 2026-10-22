@@ -38,7 +38,7 @@ export function RequestOutcome({ request }: { request: ClassChangeRequest }) {
       : withdrawn
         ? vi
           ? "Đã rút yêu cầu"
-          : "Request withdrawn"
+          : "Request cancelled"
         : changeOutcomeLabel(action, vi);
   const Icon = pending ? Clock3 : rejected || withdrawn ? X : CheckCircle2;
 
@@ -91,7 +91,7 @@ export function RequestOutcome({ request }: { request: ClassChangeRequest }) {
             <p>
               {vi
                 ? "Coach đã rút yêu cầu. Thao tác này không thay đổi lịch học."
-                : "The Coach withdrew this request. The withdrawal did not change the teaching schedule."}
+                : "The Coach cancelled this request. Cancelling the request did not change the teaching schedule."}
             </p>
           )}
           {!rejected && !withdrawn && outcome && (

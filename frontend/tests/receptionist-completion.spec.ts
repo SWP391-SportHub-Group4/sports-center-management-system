@@ -105,7 +105,7 @@ test("desk assigns, updates and closes support from the queue", async ({
   const writes = await install(page);
   await page.goto("/receptionist/support");
   await page.getByLabel("Assign to").selectOption(staffId);
-  await page.getByRole("button", { name: "Assign / transfer" }).click();
+  await page.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: /Help with membership.*ASSIGNED/ }),
   ).toBeVisible();

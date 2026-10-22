@@ -49,7 +49,7 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
         Assert.Equal(ThresholdStatus.AtRisk, course.ThresholdStatus);
         Assert.Null(course.ThresholdResponseDeadlineUtc);
         Assert.Equal(ClassSessionStatus.Scheduled, (await CourseTestData.SessionsAsync(factory, c.Id))[0].Status);
-        Assert.Equal(2, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == member.UserId
+        Assert.Equal(0, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == member.UserId
             && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)));
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
         using (var scope = factory.Services.CreateScope()) {
@@ -80,7 +80,7 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Threshold_window_ends_24_hours_before_opening_and_confirmation_notifies_all_roles_once()
+    public async Task At_risk_alerts_staff_and_confirmation_notifies_all_roles_once()
     {
         var c = await CourseTestData.CreateAsync(factory);
         var member = await factory.SeedUserAsync(UserRole.Member);
@@ -93,11 +93,19 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
             await ActivatorUtilities.CreateInstance<ClassThresholdService>(scope.ServiceProvider, new TestClock(checkAt)).EvaluateDueAsync();
         var deadline = await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
             .Select(x => x.ThresholdResponseDeadlineUtc).SingleAsync());
-        Assert.Equal(first.StartAtUtc.AddHours(-24), deadline);
-        foreach (var id in new[] { member.UserId, c.ManagerId, c.CoachId })
-            foreach (var channel in new[] { NotificationChannel.InApp, NotificationChannel.Email })
-                Assert.Equal(1, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == id
-                    && n.Channel == channel && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)));
+        Assert.Null(deadline);
+        foreach (var id in new[] { c.ManagerId, c.CoachId })
+        {
+            Assert.Equal(1, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == id
+                && n.Channel == NotificationChannel.InApp
+                && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk
+                && n.SourceEntityId == first.SessionId)));
+            Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == id
+                && n.Channel == NotificationChannel.Email
+                && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)));
+        }
+        Assert.Equal(0, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == member.UserId
+            && n.SourceEventType == NotificationSourceEventType.ClassThresholdAtRisk)));
         var second = await factory.SeedUserAsync(UserRole.Member);
         await CourseTestData.EnrollmentAsync(factory, c.Id, second.UserId);
         var beforeConfirmation = new Dictionary<(Guid, NotificationChannel), int>();

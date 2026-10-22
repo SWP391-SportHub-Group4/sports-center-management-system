@@ -29,6 +29,7 @@ public sealed record EmailNotificationRequest(
 
 public static class NotificationEvents
 {
+    public const string CoachAttendanceReminder = nameof(CoachAttendanceReminder);
     public const string AvatarReported = nameof(AvatarReported);
     public const string ClassSessionReminder = nameof(ClassSessionReminder);
     public const string ClassSessionChangeRequested =

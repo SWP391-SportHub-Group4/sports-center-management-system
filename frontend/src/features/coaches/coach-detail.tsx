@@ -1,7 +1,9 @@
 "use client";
 import { LockedCoachAssignments } from "./locked-coach-assignments";
 import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
-import { AvatarImage } from "@/components/AvatarImage";
+import { PersonProfileHeader } from "@/components/PersonProfileHeader";
+import profileStyles from "@/components/PersonProfile.module.css";
+import { ChevronRight } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import type { Paged, ManagerCourseDto } from "@/lib/types";
 import { useState } from "react";
@@ -9,7 +11,7 @@ import Link from "next/link";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import { Card, AsyncSection, StatusChip, Pager } from "@/components/ui";
+import { AsyncSection, StatusChip, Pager } from "@/components/ui";
 import { Tabs } from "@/components/primitives";
 import { catalogApi } from "@/features/catalog";
 import { CoachEditor } from "./coach-editor";
@@ -38,92 +40,97 @@ export function CoachDetail({ userId }: { userId: string }) {
     [userId, classPage],
   );
   return (
-    <>
-      <Link href="/manager/coaches" className="btn btn--ghost">
+    <div className={profileStyles.page}>
+      <Link href="/manager/people?role=Coach" className="btn btn--ghost">
         {m.backToList}
       </Link>
       <AsyncSection state={state}>
         {(coach) => (
           <>
-            <Card
-              title={coach.fullName}
+            <PersonProfileHeader
+              name={coach.fullName}
+              avatarUrl={coach.avatarUrl}
+              status={<StatusChip value={coach.status} />}
+              contact={
+                <p>
+                  {coach.email} · {coach.phone ?? "—"}
+                </p>
+              }
               actions={
                 <>
-                  <StatusChip value={coach.status} />
                   <button
                     className="btn btn--secondary"
                     onClick={() => setEditing(true)}
                   >
                     {t.operations.edit}
                   </button>
-                </>
-              }
-            >
-              <AvatarImage
-                name={coach.fullName}
-                avatarUrl={coach.avatarUrl}
-                size={64}
-              />
-              {coach.avatarUrl && (
-                <RemoveMemberAvatarButton
-                  memberId={coach.userId}
-                  memberName={coach.fullName}
-                  onRemoved={state.reload}
-                />
-              )}
-              <p>
-                {coach.email} · {coach.phone ?? "—"}
-              </p>
-            </Card>
-            <Tabs
-              value={values.tab}
-              onChange={(tab) => setValues({ tab })}
-              ariaLabel={m.coachDetail}
-              tabs={[
-                { id: "overview", label: m.overviewTab },
-                { id: "classes", label: "Assigned classes" },
-                { id: "schedule", label: m.assignedSchedule },
-              ]}
-            >
-              {values.tab === "overview" && (
-                <Card title={m.coachDetail}>
-                  <p style={{ whiteSpace: "pre-wrap" }}>{coach.bio || "—"}</p>
-                  <CoachSpecialties coach={coach} />
-                  {coach.status !== "ACTIVE" && (
-                    <LockedCoachAssignments
-                      coachId={userId}
-                      onChanged={classes.reload}
+                  {coach.avatarUrl && (
+                    <RemoveMemberAvatarButton
+                      memberId={coach.userId}
+                      memberName={coach.fullName}
+                      onRemoved={state.reload}
                     />
                   )}
-                </Card>
-              )}
-              {values.tab === "classes" && (
-                <AsyncSection state={classes}>
-                  {(data) => (
-                    <>
-                      <ul>
-                        {data.items.map((c) => (
-                          <li key={c.classId}>
-                            <Link href={`/manager/classes/${c.classId}`}>
-                              {c.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                      <Pager
-                        page={data.page}
-                        pageSize={data.pageSize}
-                        totalCount={data.totalCount}
-                        onChange={setClassPage}
+                </>
+              }
+            />
+            <div className={profileStyles.tabs}>
+              <Tabs
+                value={values.tab}
+                onChange={(tab) => setValues({ tab })}
+                ariaLabel={m.coachDetail}
+                tabs={[
+                  { id: "overview", label: m.overviewTab },
+                  { id: "classes", label: "Assigned classes" },
+                  { id: "schedule", label: m.assignedSchedule },
+                ]}
+              >
+                {values.tab === "overview" && (
+                  <section
+                    className={`${profileStyles.surface} ${profileStyles.overview}`}
+                  >
+                    <h2>{m.coachDetail}</h2>
+                    <p className={profileStyles.bio}>{coach.bio || "—"}</p>
+                    <CoachSpecialties coach={coach} />
+                    {coach.status !== "ACTIVE" && (
+                      <LockedCoachAssignments
+                        coachId={userId}
+                        onChanged={classes.reload}
                       />
-                    </>
-                  )}
-                </AsyncSection>
-              )}
-              {values.tab === "schedule" && (
-                <ManagerSchedule coachId={coach.userId} />
-              )}
-            </Tabs>
+                    )}
+                  </section>
+                )}
+                {values.tab === "classes" && (
+                  <AsyncSection state={classes}>
+                    {(data) => (
+                      <div
+                        className={`${profileStyles.surface} ${profileStyles.classes}`}
+                      >
+                        <ul className={profileStyles.classList}>
+                          {data.items.map((c) => (
+                            <li key={c.classId}>
+                              <Link href={`/manager/classes/${c.classId}`}>
+                                <span>{c.name}</span>
+                                <ChevronRight size={18} aria-hidden="true" />
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                        <Pager
+                          page={data.page}
+                          pageSize={data.pageSize}
+                          totalCount={data.totalCount}
+                          onChange={setClassPage}
+                        />
+                      </div>
+                    )}
+                  </AsyncSection>
+                )}
+                {values.tab === "schedule" && (
+                  <ManagerSchedule coachId={coach.userId} />
+                )}
+              </Tabs>
+            </div>
             {editing && (
               <CoachEditor
                 coach={coach}
@@ -137,7 +144,7 @@ export function CoachDetail({ userId }: { userId: string }) {
           </>
         )}
       </AsyncSection>
-    </>
+    </div>
   );
 }
 function CoachSpecialties({ coach }: { coach: CoachAdminDto }) {
@@ -146,8 +153,8 @@ function CoachSpecialties({ coach }: { coach: CoachAdminDto }) {
   return (
     <AsyncSection state={state}>
       {(sports) => (
-        <p>
-          {t.operations.specialties}:{" "}
+        <p className={profileStyles.specialties}>
+          <strong>{t.operations.specialties}:</strong>{" "}
           {coach.sportIds
             .map(
               (id) =>

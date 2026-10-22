@@ -23,6 +23,7 @@ async function install(
     forbidden?: boolean;
     conflict?: boolean;
     manager?: boolean;
+    classCancelled?: boolean;
   } = {},
 ) {
   await page.addInitScript(() => {
@@ -46,6 +47,8 @@ async function install(
       });
     if (url.pathname.includes("notifications"))
       return json(url.pathname.endsWith("unread-count") ? { count: 0 } : []);
+    if (url.pathname === "/api/wallet/me")
+      return json({ availablePoints: 600, heldPoints: 0 });
     if (url.pathname.endsWith("/transfer-quote"))
       return json({
         targetClassId: Number(url.searchParams.get("targetClassId")),
@@ -80,6 +83,7 @@ async function install(
       // Actual backend serializes these fields with ToString() (PascalCase).
       return json({
         responseId,
+        classCancelled: options.classCancelled ?? false,
         classId: 7,
         className: "Badminton basics",
         sportId: 3,
@@ -185,6 +189,54 @@ test("threshold refund choice requires confirmation before refunding", async ({
   await expect(page.getByRole("radio")).toHaveCount(0);
 });
 
+for (const choice of ["REFUND", "WAIT_NEXT_COURSE"] as const) {
+  test(`cancelled threshold class offers exactly two choices and submits ${choice}`, async ({
+    page,
+  }) => {
+    const writes = await install(page, { classCancelled: true });
+    await page.goto(`/member/threshold-responses/${responseId}`);
+    await expect(page.getByRole("radio")).toHaveCount(2);
+    await expect(
+      page.getByRole("radio", { name: /^Keep my place|^Transfer to/ }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText(/This class was cancelled because/),
+    ).toBeVisible();
+    await page
+      .getByRole("radio", {
+        name: choice === "REFUND" ? /^Refund 100%/ : /^Wait for/,
+      })
+      .check();
+    if (choice === "WAIT_NEXT_COURSE") {
+      for (const [device, width, height] of [
+        ["desktop", 1440, 900],
+        ["mobile", 390, 844],
+      ] as const) {
+        await page.setViewportSize({ width, height });
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.screenshot({
+          path: `../.tmp/cancelled-threshold-${device}.png`,
+          fullPage: true,
+        });
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        ).toBe(true);
+      }
+    }
+    await page
+      .getByRole("button", { name: "Review response", exact: true })
+      .click();
+    expect(writes).toHaveLength(0);
+    await page
+      .getByRole("button", { name: "Confirm response", exact: true })
+      .click();
+    await expect(page.getByRole("radio")).toHaveCount(0);
+    expect(writes).toEqual([{ choice, targetClassId: null }]);
+  });
+}
+
 test("transfer filters destination classes and confirms server quote on mobile", async ({
   page,
 }, info) => {
@@ -263,9 +315,14 @@ test("AI leaves desktop calendar interactive and links to the exact server sessi
   await expect
     .poll(() => page.evaluate(() => document.body.style.overflow))
     .not.toBe("hidden");
-  await page.getByRole("button", { name: "Next week" }).click();
-  await expect(page.getByRole("columnheader")).toHaveCount(7);
-  await page.getByRole("button", { name: "Previous week" }).click();
+  await page.getByRole("button", { name: "Next month" }).click();
+  await expect(
+    page.getByRole("heading", { name: "July 2030", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Previous month" }).click();
+  await expect(
+    page.getByRole("heading", { name: "June 2030", exact: true }),
+  ).toBeVisible();
   await drawer.locator("textarea").fill("What is on my schedule?");
   await drawer.locator("textarea").press("Enter");
   await expect(

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Save, Send, Sparkles, X } from "lucide-react";
 import { Feedback } from "@/components/ui";
-import { useAction, useNow } from "@/lib/useApi";
+import { useAction, useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { CourseSessionDto } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
@@ -16,6 +16,7 @@ import styles from "./coach-workspace.module.css";
 import type { PlanScope } from "./training-plan-view";
 import { PlanContent } from "./training-plan-view";
 import { formatPlanContent } from "./plan-content";
+import { ptApi } from "./api";
 
 export function TeachingEditor({
   classId,
@@ -68,6 +69,36 @@ export function TeachingEditor({
     (!!homeworkSession &&
       !/cancel/i.test(homeworkSession.status) &&
       now >= Date.parse(homeworkSession.endAtUtc));
+  const resultRoster = useApi(
+    (signal) =>
+      kind === "RESULT" && session && student
+        ? ptApi.roster(session, signal)
+        : Promise.resolve(null),
+    [kind, session, student],
+  );
+  const resultEntry =
+    resultRoster.data?.session.sessionId === session
+      ? resultRoster.data.entries.find((entry) => entry.memberId === student)
+      : undefined;
+  const resultAllowed =
+    kind !== "RESULT" ||
+    (!resultRoster.loading &&
+      !resultRoster.error &&
+      resultEntry?.enrollmentStatus === "CONFIRMED" &&
+      resultEntry.attendanceStatus?.toUpperCase() === "PRESENT" &&
+      !!homeworkSession &&
+      !/cancel/i.test(homeworkSession.status) &&
+      now >= Date.parse(homeworkSession.startAtUtc));
+  const resultBlockedReason =
+    !session || !student
+      ? "Select a session and student before recording a result."
+      : resultRoster.loading
+        ? "Checking this student's attendance…"
+        : resultRoster.error
+          ? "Attendance could not be checked. Close and reopen this form to try again."
+          : resultEntry?.attendanceStatus?.toUpperCase() !== "PRESENT"
+            ? "Mark this student Present in Attendance before recording or editing a result."
+            : "Results can be recorded after the session starts, while the session and enrollment remain active.";
   const [goal, setGoal] = useState(
     members.find((m) => m.memberId === student)?.goal ?? "",
   );
@@ -95,7 +126,7 @@ export function TeachingEditor({
   };
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (lock.current || !homeworkAllowed) return;
+    if (lock.current || !homeworkAllowed || !resultAllowed) return;
     lock.current = true;
     try {
       const saved = await action.run(() =>
@@ -116,6 +147,7 @@ export function TeachingEditor({
         ),
       );
       if (saved) onSaved();
+      else if (kind === "RESULT") resultRoster.reload();
     } finally {
       lock.current = false;
     }
@@ -491,11 +523,21 @@ export function TeachingEditor({
               : "This student receives a bell notification when you save the assessment."}
           </p>
         )}
-        <Feedback error={action.error} />
+        {kind === "RESULT" && !resultAllowed && (
+          <p className={styles.muted} role="status">
+            {resultBlockedReason}
+          </p>
+        )}
+        <Feedback
+          error={
+            action.error ??
+            (kind === "RESULT" ? resultRoster.error?.message : undefined)
+          }
+        />
         <button
           type="submit"
           className="btn"
-          disabled={busy || !homeworkAllowed}
+          disabled={busy || !homeworkAllowed || !resultAllowed}
         >
           {kind === "NOTICE" || kind === "HOMEWORK" ? (
             <Send size={17} aria-hidden="true" />

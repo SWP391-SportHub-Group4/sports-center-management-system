@@ -30,6 +30,7 @@ public sealed record ServiceReadinessResponse(
 
 public sealed class SaveSportRequest
 {
+    public bool? IsActive { get; set; }
     /// <summary>Create-only opt-in. False leaves room types and their sport links untouched.</summary>
     public bool CreateRoomType { get; set; }
 
@@ -83,6 +84,8 @@ public sealed class SetRoomTypeStatusRequest
 
 public sealed class SaveRoomTypeRequest
 {
+    public bool? IsActive { get; set; }
+    [MaxLength(500)] public string? Reason { get; set; }
     [Required, MinLength(1), MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 }

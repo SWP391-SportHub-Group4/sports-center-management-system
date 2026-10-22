@@ -44,7 +44,7 @@ public sealed class ManagerMemberAvatarTests(SportHubApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden,
             (await deskClient.DeleteAsync($"/api/manager/members/{member.UserId}/avatar")).StatusCode);
         using var managerClient = Client(manager.UserId, UserRole.CenterManager);
-        Assert.Equal(HttpStatusCode.OK, (await managerClient.GetAsync("/api/manager/avatar-reports")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await managerClient.GetAsync("/api/admin/avatar-reports")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
             (await managerClient.DeleteAsync($"/api/manager/members/{coach.UserId}/avatar")).StatusCode);
         Assert.Equal(HttpStatusCode.OK,

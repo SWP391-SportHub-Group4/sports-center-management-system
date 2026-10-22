@@ -8,7 +8,7 @@ export default function Page() {
   const { t } = useLanguage();
   return (
     <AppShell
-      title={t.managerOperations.facilities}
+      title={t.managerCatalog.editCourt}
       allow={["CenterManager"]}
       operationalLayout
     >

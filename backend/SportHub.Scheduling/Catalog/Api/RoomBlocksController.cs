@@ -23,6 +23,11 @@ public class RoomBlocksController(RoomBlockService blocks) : ControllerBase
         => StatusCode(StatusCodes.Status201Created, await blocks.CreateAsync(request, User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CatalogManage)]
+    [HttpPut("api/manager/room-blocks/{blockId:guid}")]
+    public async Task<IActionResult> Update(Guid blockId, [FromBody] CreateRoomBlockRequest request, CancellationToken ct)
+        => Ok(await blocks.UpdateAsync(blockId, request, User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.CatalogManage)]
     [HttpDelete("api/manager/room-blocks/{blockId:guid}")]
     public async Task<IActionResult> Delete(Guid blockId, CancellationToken ct)
     {

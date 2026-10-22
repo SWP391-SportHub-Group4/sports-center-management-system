@@ -66,13 +66,11 @@ export function ScheduleReview({
   minutes,
   roomName,
   coachName,
-  showRefresh = true,
 }: {
   course: ScheduleDraft;
   minutes: number;
   roomName?: string;
   coachName?: string | null;
-  showRefresh?: boolean;
 }) {
   const { t } = useLanguage();
   const fingerprint = JSON.stringify(course);
@@ -122,11 +120,6 @@ export function ScheduleReview({
           </>
         )}
       </AsyncSection>
-      {showRefresh && (
-        <button type="button" className="btn btn--ghost" onClick={state.reload}>
-          {t.operations.refresh}
-        </button>
-      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 import { PackageMembers } from "./package-members";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -11,7 +12,6 @@ import { useMutation } from "@/features/operations";
 import { catalogApi, type SavePackage } from "./api";
 import {
   CatalogPanel,
-  ActivityDialog,
   CatalogFeedback,
   CatalogFilters,
   CatalogFormDialog,
@@ -20,6 +20,7 @@ import {
   useCatalogFilters,
 } from "./manager-shared";
 const empty: SavePackage = {
+  isActive: true,
   name: "",
   price: 100000,
   durationDays: 30,
@@ -36,13 +37,13 @@ export function MembershipManager() {
   const [form, setForm] = useState(empty);
   const [editor, setEditor] = useState<{ id: number | null } | null>(null);
   const [buyers, setBuyers] = useState<MembershipPackageDto | null>(null);
-  const [activity, setActivity] = useState<MembershipPackageDto | null>(null);
   const edit = (p?: MembershipPackageDto) => {
     mutation.reset();
     setEditor({ id: p?.packageId ?? null });
     setForm(
       p
         ? {
+            isActive: p.isActive,
             name: p.name,
             price: p.price,
             durationDays: p.durationDays,
@@ -71,6 +72,7 @@ export function MembershipManager() {
       >
         <CatalogTable
           state={state}
+          visibleRowActions={3}
           filters={filters}
           caption={c.gymPackages}
           rows={(state.data ?? []).filter((p) =>
@@ -110,22 +112,10 @@ export function MembershipManager() {
               >
                 {l.edit}
               </button>
-              {p.packageId !== DAY_PASS_PACKAGE_ID && (
-                <button
-                  className="btn btn--ghost btn--sm"
-                  disabled={mutation.busy}
-                  onClick={() => {
-                    mutation.reset();
-                    setActivity(p);
-                  }}
-                >
-                  {p.isActive ? l.deactivate : l.activate}
-                </button>
-              )}
             </>
           )}
         />
-        {!editor && !activity && <CatalogFeedback mutation={mutation} />}
+        {!editor && <CatalogFeedback mutation={mutation} />}
       </CatalogPanel>
       {editor && (
         <CatalogFormDialog
@@ -148,6 +138,12 @@ export function MembershipManager() {
             }
           }}
         >
+          {editor.id !== null && editor.id !== DAY_PASS_PACKAGE_ID && (
+            <ActivitySwitch
+              checked={form.isActive ?? true}
+              onChange={(isActive) => setForm({ ...form, isActive })}
+            />
+          )}
           <div className="form-grid">
             <Field label={l.name} required>
               <input
@@ -195,22 +191,6 @@ export function MembershipManager() {
             />
           </Field>
         </CatalogFormDialog>
-      )}
-      {activity && (
-        <ActivityDialog
-          name={activity.name}
-          active={activity.isActive}
-          mutation={mutation}
-          onClose={() => setActivity(null)}
-          onConfirm={async () => {
-            if (
-              await mutation.run(() => catalogApi.setPackageActive(activity))
-            ) {
-              setActivity(null);
-              state.reload();
-            }
-          }}
-        />
       )}
     </>
   );

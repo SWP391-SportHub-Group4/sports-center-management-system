@@ -1,4 +1,5 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 
 import { useState } from "react";
 import {
@@ -370,23 +371,25 @@ export function AttendanceBoard({
                         onChange={(event) => setSearch(event.target.value)}
                       />
                     </div>
-                    <div
-                      className={styles.filters}
-                      role="group"
-                      aria-label="Filter attendance"
-                    >
-                      {filters.map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          className={`${styles.filter} ${filter === item.key ? styles.filterActive : ""}`}
-                          aria-pressed={filter === item.key}
-                          onClick={() => setFilter(item.key)}
-                        >
-                          {item.label} ({item.count})
-                        </button>
-                      ))}
-                    </div>
+                    <TableFilters>
+                      <div
+                        className={styles.filters}
+                        role="group"
+                        aria-label="Filter attendance"
+                      >
+                        {filters.map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            className={`${styles.filter} ${filter === item.key ? styles.filterActive : ""}`}
+                            aria-pressed={filter === item.key}
+                            onClick={() => setFilter(item.key)}
+                          >
+                            {item.label} ({item.count})
+                          </button>
+                        ))}
+                      </div>
+                    </TableFilters>
                     {writable && (
                       <button
                         className="btn btn--secondary"

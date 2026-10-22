@@ -28,39 +28,31 @@ public sealed class OutboxDispatchTests(PaymentApiFactory factory)
         var sender = new ControlledSender();
         var clock = new MutableClock(DateTime.UtcNow.AddHours(1));
         var dispatcher = new EmailDispatchService(db, sender, protection, clock, NullLogger<EmailDispatchService>.Instance);
-        await dispatcher.DispatchBatchAsync();
-        db.ChangeTracker.Clear();
+        // Other integration tests may leave email rows in this shared database. Drain
+        // bounded batches until this notification is claimed by the dispatcher.
+        async Task<NotificationStatus> DispatchUntilAsync(NotificationStatus expected)
+        {
+            NotificationStatus status = default;
+            for (var batch = 0; batch < 20; batch++)
+            {
+                await dispatcher.DispatchBatchAsync();
+                db.ChangeTracker.Clear();
+                status = await db.Notifications.AsNoTracking().Where(x => x.SourceEntityId == source)
+                    .Select(x => x.Status).SingleAsync();
+                if (status == expected) break;
+            }
+            return status;
+        }
+        Assert.Equal(NotificationStatus.Failed, await DispatchUntilAsync(NotificationStatus.Failed));
         var failed = await db.Notifications.AsNoTracking().SingleAsync(x => x.SourceEntityId == source);
-        Assert.Equal(NotificationStatus.Failed, failed.Status);
         Assert.DoesNotContain("123456", failed.ProtectedEmailPayload!);
         Assert.Equal(nameof(InvalidOperationException), failed.LastError);
         sender.Fail = false;
         clock.UtcNow = clock.UtcNow.AddHours(2);
-
-        // This factory is shared by Payment integration tests. A dispatch batch
-        // claims at most 25 messages and prioritizes messages never attempted.
-        // Consequently the first batch after recovery might process other
-        // pending emails rather than retrying this specific notification.
-        const int maxRecoveryBatches = 24;
-        var current = failed;
-        for (var batch = 0; batch < maxRecoveryBatches; batch++)
-        {
-            await dispatcher.DispatchBatchAsync();
-            db.ChangeTracker.Clear();
-            current = await db.Notifications.AsNoTracking()
-                .SingleAsync(x => x.SourceEntityId == source);
-            if (current.Status == NotificationStatus.Sent)
-                break;
-        }
-
-        Assert.True(current.Status == NotificationStatus.Sent,
-            $"Outbox retry did not complete after {maxRecoveryBatches} batches. " +
-            $"Status={current.Status}, Attempts={current.RetryCount}, " +
-            $"LastError={current.LastError ?? "none"}.");
-        Assert.Null(current.ProtectedEmailPayload);
-        Assert.NotNull(current.SentAt);
-
-        // Running again must not deliver the already-sent notification.
+        Assert.Equal(NotificationStatus.Sent, await DispatchUntilAsync(NotificationStatus.Sent));
+        var sent = await db.Notifications.AsNoTracking().SingleAsync(x => x.SourceEntityId == source);
+        Assert.Null(sent.ProtectedEmailPayload);
+        Assert.NotNull(sent.SentAt);
         await dispatcher.DispatchBatchAsync();
         Assert.Single(sender.Delivered, x => x == $"{source:N}@example.test");
     }

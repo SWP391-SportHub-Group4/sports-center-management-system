@@ -274,7 +274,10 @@ test("uncertain cancellation does not allow blind retries", async ({
     dialog.getByRole("button", { name: "Cancel rental", exact: true }),
   ).toBeDisabled();
   expect(writes).toHaveLength(1);
-  await dialog.getByRole("button", { name: "Close and refresh" }).click();
+  await dialog
+    .getByRole("button", { name: "Close", exact: true })
+    .last()
+    .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 

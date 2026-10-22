@@ -73,7 +73,9 @@ export function Table<Row>({
         {all.length > visibleRowActions && (
           <details className={styles.more}>
             <summary>{labels.more}</summary>
-            <div className={styles.moreItems}>{all.slice(visibleRowActions)}</div>
+            <div className={styles.moreItems}>
+              {all.slice(visibleRowActions)}
+            </div>
           </details>
         )}
       </div>
@@ -207,7 +209,11 @@ export function Table<Row>({
                       )}
                     </th>
                   ))}
-                  {hasActions && <th scope="col">{t.common.actions}</th>}
+                  {hasActions && (
+                    <th scope="col" className={styles.actionHeading}>
+                      {t.common.actions}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>

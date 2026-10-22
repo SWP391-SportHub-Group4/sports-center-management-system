@@ -47,38 +47,37 @@ test("tài khoản Google chưa có mật khẩu: gửi mã, nhập mã và tạ
     return route.fulfill({ json: { accessToken: "fresh-token" } });
   });
   await page.goto("/account");
+  await page.getByRole("tab", { name: "Security", exact: true }).click();
 
   await expect(
-    page.getByText(/được tạo bằng Google nên chưa có mật khẩu/),
+    page.getByText(/created with Google and does not have a password/),
   ).toBeVisible();
-  await expect(page.getByLabel("Mật khẩu hiện tại")).toHaveCount(0);
+  await expect(page.getByLabel("Current password")).toHaveCount(0);
 
   // Chưa có mã thì không được gửi
   await page
-    .getByLabel("Mật khẩu mới", { exact: true })
+    .getByLabel("New password", { exact: true })
     .fill("Brand-New-Pass-2?");
-  await page.getByLabel("Xác nhận mật khẩu mới").fill("Brand-New-Pass-2?");
-  await page.getByRole("button", { name: "Đặt mật khẩu" }).click();
+  await page.getByLabel("Confirm new password").fill("Brand-New-Pass-2?");
+  await page.getByRole("button", { name: "Set password" }).click();
   await expect(
-    page.getByText("Nhập mã gồm 6 số trong email của bạn."),
+    page.getByText("Enter the 6-digit code from your email."),
   ).toBeVisible();
   expect(body).toBeNull();
 
-  await page.getByRole("button", { name: "Gửi mã xác nhận" }).click();
+  await page.getByRole("button", { name: "Send confirmation code" }).click();
   await expect(
-    page.getByText(/Đã gửi mã 6 số tới google.user@example.com/),
+    page.getByText(/We sent a 6-digit code to google.user@example.com/),
   ).toBeVisible();
   expect(otpRequests).toBe(1);
   // Đang chờ gửi lại: nút bị khóa và hiện đếm ngược
   await expect(
-    page.getByRole("button", { name: /Gửi lại mã sau \d+ giây/ }),
+    page.getByRole("button", { name: /Send a new code in \d+s/ }),
   ).toBeDisabled();
 
-  await page.getByLabel("Mã xác nhận").fill("123456");
-  await page.getByRole("button", { name: "Đặt mật khẩu" }).click();
-  await expect(
-    page.getByText("Đã cập nhật mật khẩu thành công."),
-  ).toBeVisible();
+  await page.getByLabel("Confirmation code").fill("123456");
+  await page.getByRole("button", { name: "Set password" }).click();
+  await expect(page.getByText("Password updated successfully.")).toBeVisible();
   expect(body).toMatchObject({
     otpCode: "123456",
     newPassword: "Brand-New-Pass-2?",
@@ -97,14 +96,15 @@ test("mã sai được báo lỗi từ máy chủ và không mất dữ liệu �
     }),
   );
   await page.goto("/account");
-  await page.getByLabel("Mã xác nhận").fill("000000");
+  await page.getByRole("tab", { name: "Security", exact: true }).click();
+  await page.getByLabel("Confirmation code").fill("000000");
   await page
-    .getByLabel("Mật khẩu mới", { exact: true })
+    .getByLabel("New password", { exact: true })
     .fill("Brand-New-Pass-2?");
-  await page.getByLabel("Xác nhận mật khẩu mới").fill("Brand-New-Pass-2?");
-  await page.getByRole("button", { name: "Đặt mật khẩu" }).click();
+  await page.getByLabel("Confirm new password").fill("Brand-New-Pass-2?");
+  await page.getByRole("button", { name: "Set password" }).click();
   await expect(page.getByText("Mã xác thực không đúng.")).toBeVisible();
-  await expect(page.getByLabel("Mật khẩu mới", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("New password", { exact: true })).toHaveValue(
     "Brand-New-Pass-2?",
   );
 });
@@ -114,11 +114,12 @@ test("tài khoản đã có mật khẩu vẫn đổi bằng mật khẩu hiện
 }) => {
   await signedIn(page, true);
   await page.goto("/account");
-  await expect(page.getByLabel("Mật khẩu hiện tại")).toBeVisible();
+  await page.getByRole("tab", { name: "Security", exact: true }).click();
+  await expect(page.getByLabel("Current password")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Gửi mã xác nhận" }),
+    page.getByRole("button", { name: "Send confirmation code" }),
   ).toHaveCount(0);
-  await expect(page.getByLabel("Mã xác nhận")).toHaveCount(0);
+  await expect(page.getByLabel("Confirmation code")).toHaveCount(0);
 });
 
 test("đăng nhập Google vào trang đăng nhập: không còn bước onboarding", async ({

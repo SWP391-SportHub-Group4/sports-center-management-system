@@ -8,7 +8,7 @@ using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
 
-public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQueryService
+public sealed class InvoiceQueryService(ISportHubDbContext db, IInvoiceClassNameReader classNames) : IInvoiceQueryService
 {
     public async Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct)
         => await db.Set<InvoiceItem>().AsNoTracking().Where(i => i.ItemId == itemId).Select(i => (Guid?)i.InvoiceId).SingleOrDefaultAsync(ct)
@@ -41,12 +41,13 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
         string? keyword,
         int page,
         int pageSize,
-        CancellationToken ct = default, bool rentalOnly = false)
+        CancellationToken ct = default, bool rentalOnly = false, bool excludeVoid = false)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
         var query = db.Set<Invoice>().AsNoTracking();
+        if (excludeVoid) query = query.Where(i => i.Status != InvoiceStatus.Void);
         if (rentalOnly)
             query = query.Where(i => i.Items.Any(item => item.ItemType == InvoiceItemType.Rental));
 
@@ -105,6 +106,21 @@ public sealed class InvoiceQueryService(ISportHubDbContext db) : IInvoiceQuerySe
                 it.RelatedEntityId, it.ClassId, it.CourtRentalId, it.MemberPackageId,
                 it.SportId, it.SportNameSnapshot, it.SourceInvoiceItemId))
             .ToListAsync(ct);
+
+        var classIds = items.Where(item => item.ItemType == InvoiceItemType.ClassPackage.ToString()
+                && item.ClassId.HasValue)
+            .Select(item => item.ClassId!.Value).Distinct().ToArray();
+        if (classIds.Length > 0)
+        {
+            var names = await classNames.GetNamesAsync(classIds, ct);
+            items = items.Select(item => item.ClassId is int classId
+                    && item.ItemType == InvoiceItemType.ClassPackage.ToString()
+                    && names.TryGetValue(classId, out var name)
+                    && !string.IsNullOrWhiteSpace(name)
+                        ? item with { Description = $"{name.Trim()} enrollment" }
+                        : item)
+                .ToList();
+        }
 
         var payments = await db.Set<Domain.Entities.Payment>()
             .AsNoTracking()

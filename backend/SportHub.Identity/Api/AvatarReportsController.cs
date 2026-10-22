@@ -49,18 +49,18 @@ public sealed class AvatarReportsController(ISportHubDbContext db, IAuditWriter 
         var report = new AvatarReport { ReportId = Guid.NewGuid(), TargetUserId = request.TargetUserId,
             ReporterUserId = reporter, AvatarUrl = request.AvatarUrl, Reason = request.Reason.Trim(), CreatedAtUtc = clock.UtcNow };
         db.Set<AvatarReport>().Add(report);
-        var managers = await db.Set<UserAccount>().Where(u => u.Role!.RoleName == UserRole.CenterManager
+        var managers = await db.Set<UserAccount>().Where(u => u.Role!.RoleName == UserRole.SystemAdministrator
             && u.Status == UserStatus.Active).Select(u => u.UserId).ToArrayAsync(ct);
         foreach (var manager in managers)
             notices.Queue(new NotificationRequest(manager, NotificationEvents.AvatarReported,
-                $"A profile photo was reported for {target.Profile.FullName ?? target.Email}. Review it in Request.", report.ReportId));
+                $"A profile photo was reported for {target.Profile.FullName ?? target.Email}. Review the account in Administration.", report.ReportId));
         audit.Write(new AuditEntry(reporter, "REPORT_AVATAR", nameof(AvatarReport), report.ReportId.ToString(), Reason: report.Reason));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return Ok(new { report.ReportId });
     }
 
-    [HttpGet("api/manager/avatar-reports"), Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/admin/avatar-reports"), Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     public async Task<IActionResult> List(string? status, string? search, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
         page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
@@ -76,7 +76,7 @@ public sealed class AvatarReportsController(ISportHubDbContext db, IAuditWriter 
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct), totalCount, page, pageSize });
     }
 
-    [HttpPost("api/manager/avatar-reports/{reportId:guid}/dismiss"), Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpPost("api/admin/avatar-reports/{reportId:guid}/dismiss"), Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     public async Task<IActionResult> Dismiss(Guid reportId, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -88,7 +88,7 @@ public sealed class AvatarReportsController(ISportHubDbContext db, IAuditWriter 
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return NoContent();
     }
 
-    [HttpDelete("api/manager/users/{userId:guid}/avatar"), Authorize(Policy = SportHubPolicies.CenterManager), EnableRateLimiting("avatar-write")]
+    [HttpDelete("api/admin/users/{userId:guid}/avatar"), Authorize(Policy = SportHubPolicies.SystemAdministrator), EnableRateLimiting("avatar-write")]
     public async Task<IActionResult> Remove(Guid userId, CancellationToken ct)
         => Ok(await avatars.ManagerDeleteMemberAsync(User.RequireUserId(), userId, ct, allowCoach: true));
 }

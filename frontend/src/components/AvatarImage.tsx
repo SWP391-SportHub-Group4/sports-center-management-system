@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import styles from "./avatar.module.css";
+import { DEFAULT_AVATAR } from "@/lib/avatar";
 
 export function AvatarImage({
   name,
@@ -15,7 +16,6 @@ export function AvatarImage({
   className?: string;
 }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
     <span
       className={`${styles.avatar} ${className}`}
@@ -32,7 +32,13 @@ export function AvatarImage({
           onError={() => setFailedUrl(avatarUrl)}
         />
       ) : (
-        initial
+        <Image
+          src={DEFAULT_AVATAR}
+          alt=""
+          width={size}
+          height={size}
+          unoptimized
+        />
       )}
     </span>
   );

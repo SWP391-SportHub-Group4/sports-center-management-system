@@ -8,13 +8,13 @@
   min-width: 0;
 }
 .managerHeader .staffNav {
-  justify-content: space-between;
+  justify-content: center;
   gap: var(--space-2);
 }
 @media (min-width: 1400px) {
   .managerShell > header > .managerHeader {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    column-gap: clamp(20px, 2vw, 32px);
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    column-gap: var(--space-6);
   }
 }
 .managerHeader .staffNav > a,

@@ -2,12 +2,23 @@
 export type HomepageLanguage = "en" | "vi";
 export type CategoryId = "coaches" | "facilities" | "membership";
 export type LocalizedText = Record<HomepageLanguage, string>;
+export const homepageIntroCopy = {
+  title: "A stronger community",
+  lead: "The people, places and community behind every session.",
+};
+export type CoachImageFrame = {
+  fit: "contain" | "cover";
+  x: number;
+  y: number;
+  zoom: number;
+};
 export type ShowcaseItem = {
   name: LocalizedText;
   detail: LocalizedText;
   highlight: LocalizedText;
   image: string;
   alt: LocalizedText;
+  frame?: CoachImageFrame;
 };
 
 export const homepageCategories: Array<{

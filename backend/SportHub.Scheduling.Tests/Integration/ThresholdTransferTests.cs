@@ -46,10 +46,7 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
         }
         using (var scope = factory.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
-        var response = await factory.QueryAsync(db => db.Set<ThresholdResponse>().AsNoTracking()
-            .SingleAsync(x => x.ClassId == source.Id && x.MemberId == member.UserId));
-        var token = await factory.QueryAsync(async db => (await db.Notifications
-            .Where(x => x.SourceEntityId == response.ThresholdResponseId && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp).Select(x => x.Message).SingleAsync()).Split("token=")[1]);
+        var (response, token) = await SeedHistoricalResponseAsync(source.Id, member.UserId);
         Guid invoiceId;
         using (var scope = factory.Services.CreateScope())
         {
@@ -139,12 +136,7 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
         }
         using (var scope = factory.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
-        var token = await factory.QueryAsync(async db =>
-        {
-            var response = await db.Set<ThresholdResponse>().SingleAsync(x => x.ClassId == source.Id && x.MemberId == member.UserId);
-            var message = await db.Notifications.Where(x => x.SourceEntityId == response.ThresholdResponseId && x.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp).Select(x => x.Message).SingleAsync();
-            return message.Split("token=")[1];
-        });
+        var (_, token) = await SeedHistoricalResponseAsync(source.Id, member.UserId);
         using var work = factory.Services.CreateScope();
         var service = work.ServiceProvider.GetRequiredService<ThresholdResponseService>();
         await Assert.ThrowsAsync<ForbiddenException>(() => service.RespondAsync(token, ThresholdResponseChoice.Transfer, target.Id, source.ManagerId));
@@ -167,5 +159,28 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
             Assert.Equal(0, wallet.HeldPoints);
             return 0;
         });
+    }
+    private async Task<(ThresholdResponse Response, string Token)> SeedHistoricalResponseAsync(int classId, Guid memberId)
+    {
+        var token = Guid.NewGuid().ToString("N");
+        var deadline = DateTime.UtcNow.AddHours(48);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        var enrollmentId = await db.Enrollments.Where(x => x.ClassId == classId && x.MemberId == memberId
+            && x.Status == EnrollmentStatus.Confirmed).Select(x => x.EnrollmentId).SingleAsync();
+        var response = new ThresholdResponse
+        {
+            ThresholdResponseId = Guid.NewGuid(), ClassId = classId, MemberId = memberId,
+            EnrollmentId = enrollmentId,
+            TokenHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(token))),
+            DeadlineUtc = deadline, CreatedAtUtc = DateTime.UtcNow,
+            ResolutionStatus = ThresholdResolutionStatus.Pending
+        };
+        db.Set<ThresholdResponse>().Add(response);
+        await db.Classes.Where(x => x.ClassId == classId).ExecuteUpdateAsync(s => s
+            .SetProperty(x => x.ThresholdResponseDeadlineUtc, deadline));
+        await db.SaveChangesAsync();
+        return (response, token);
     }
 }

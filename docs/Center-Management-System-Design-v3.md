@@ -8,6 +8,12 @@ Luồng Manager đã chốt được mô tả tại [Manager workspace](Manager-
 
 The product owner confirmed the [staff activation and audit policy](api-contract.md#staff-activation-and-audit-policy-update--14-october-2026). It replaces account-only Administrator audit scope in this design. Each staff token expires at `CreatedAt + 24 hours`, including resends/corrections. `AuditLog.ActorRole` is an event-time snapshot; Admin sees Manager/Admin/Coach/System, Manager sees Manager/Receptionist/Coach/Member. Migration `AuditActorRoleSnapshot` preserves historical event payloads while reconstructing role metadata. Other role permissions remain independent of audit-read access.
 
+### Admin account administration
+
+Admin overview separates database status totals from invitation queues (awaiting activation and expiring within six hours). Queue counts use server-side account filters; awaiting-activation staff remain Active in the database. Account list state survives detail navigation. Access changes and invitation delivery are separate actions; existing Coach specialties can also be edited by Admin without changing the role, with a review of additions and removals; Manager retains Coach profile management. Email feedback confirms queuing, not delivery, and expired invitations retain the fixed 24-hour deadline.
+
+Role/status commands share a transaction-scoped administration lock, lock the target account and recheck the actor's Active/Admin access before mutation. The last-active-Admin guard, status/security stamp, audit and notification outbox are atomic. Coverage notices use a new transition ID for each effective Coach lock/deactivation; no-op retries do not emit duplicates. Audit filtering supports Vietnam calendar days, exact target records and existing event-role visibility. See the [API contract](api-contract.md#admin-account-administration). No schema migration is required for this refactor.
+
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn: Gym, cầu lông và bóng rổ; có khả năng mở rộng thêm môn trong tương lai**.
 

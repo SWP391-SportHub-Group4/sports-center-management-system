@@ -1,5 +1,7 @@
 "use client";
 
+import { useAuth } from "@/lib/auth";
+import { TableFilters } from "@/components/data/TableFilters";
 import { pagedItems } from "@/lib/paged";
 
 import { useEffect, useState } from "react";
@@ -21,41 +23,61 @@ import { InvoiceDetail } from "./invoice-detail";
 
 // Keep print/download on the same authoritative server-rendered PDF path used by email receipts.
 async function printInvoice(invoiceId: string) {
-  await downloadFile(`/api/invoices/${invoiceId}/receipt.pdf`, `SportHub-${invoiceId}.pdf`);
+  await downloadFile(
+    `/api/invoices/${invoiceId}/receipt.pdf`,
+    `SportHub-${invoiceId}.pdf`,
+  );
 }
 
-const localDate = (value: string | null | undefined) => value
-  ? new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit", hour12: false,
-      timeZone: "Asia/Ho_Chi_Minh",
-    }).format(new Date(value))
-  : "";
+const localDate = (value: string | null | undefined) =>
+  value
+    ? new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "Asia/Ho_Chi_Minh",
+      }).format(new Date(value))
+    : "";
 
 const statusLabel = (status: string) => {
   switch (status.toUpperCase()) {
-    case "PAID": case "PAID_AFTER_RECONCILIATION": return "Paid";
-    case "ISSUED": return "Awaiting payment";
-    case "VOID": return "Void";
-    default: return status.replaceAll("_", " ");
+    case "PAID":
+    case "PAID_AFTER_RECONCILIATION":
+      return "Paid";
+    case "ISSUED":
+      return "Awaiting payment";
+    case "VOID":
+      return "Void";
+    default:
+      return status.replaceAll("_", " ");
   }
 };
 
 const methodLabel = (method: string) => {
   switch (method.toLowerCase()) {
-    case "vnpay": return "VNPay";
-    case "cash": return "Cash";
-    case "transfer": return "Bank transfer";
-    case "ewallet": return "E-wallet";
-    case "card": return "Card";
-    default: return method;
+    case "vnpay":
+      return "VNPay";
+    case "cash":
+      return "Cash";
+    case "transfer":
+      return "Bank transfer";
+    case "ewallet":
+      return "E-wallet";
+    case "card":
+      return "Card";
+    default:
+      return method;
   }
 };
 
 // Semicolon delimiter and BOM improve direct Excel opening on Vietnamese locale.
 // Protect text cells from CSV formula injection; leave numeric cells unquoted numerics.
 function csvValue(value: string | number | null | undefined) {
-  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  if (typeof value === "number")
+    return Number.isFinite(value) ? String(value) : "";
   const raw = String(value ?? "");
   const safe = /^[\s\t\r\n]*[=+@\-]/.test(raw) ? `'${raw}` : raw;
   return `"${safe.replaceAll('"', '""')}"`;
@@ -64,41 +86,100 @@ function csvValue(value: string | number | null | undefined) {
 async function exportInvoiceCsv(invoiceId: string) {
   const invoice = await api.get<InvoiceDetailDto>(`/api/invoices/${invoiceId}`);
   const summary = invoice.summary;
-  if (!["PAID", "PAID_AFTER_RECONCILIATION"].includes(summary.status.toUpperCase())) {
+  if (
+    !["PAID", "PAID_AFTER_RECONCILIATION"].includes(
+      summary.status.toUpperCase(),
+    )
+  ) {
     throw new Error("Only paid invoices can be exported.");
   }
-  const payments = invoice.payments.filter((p) => p.status.toLowerCase() === "success");
-  const paidAt = payments.length ? localDate(payments[payments.length - 1].paidAt) : "";
-  const methods = [...new Set(payments.map((p) => methodLabel(p.method)))].join(", ");
-  const references = [...new Set(payments.map((p) => p.referenceCode).filter((r): r is string => !!r))].join(", ");
-  const paid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(summary.status.toUpperCase());
+  const payments = invoice.payments.filter(
+    (p) => p.status.toLowerCase() === "success",
+  );
+  const paidAt = payments.length
+    ? localDate(payments[payments.length - 1].paidAt)
+    : "";
+  const methods = [...new Set(payments.map((p) => methodLabel(p.method)))].join(
+    ", ",
+  );
+  const references = [
+    ...new Set(
+      payments.map((p) => p.referenceCode).filter((r): r is string => !!r),
+    ),
+  ].join(", ");
+  const paid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(
+    summary.status.toUpperCase(),
+  );
   const voided = summary.status.toUpperCase() === "VOID";
   type CsvCell = string | number;
-  const rows: CsvCell[][] = [[
-    "Invoice number", "Issued at (GMT+7)", "Paid at (GMT+7)", "Member", "Email",
-    "Status", "Service", "Quantity", "Unit price (VND)", "Line amount (VND)",
-    "Points used", "Cash amount (VND)", "Payment method", "Transaction reference",
-    "Outstanding (VND)", "Invoice total (VND)",
-  ]];
+  const rows: CsvCell[][] = [
+    [
+      "Invoice number",
+      "Issued at (GMT+7)",
+      "Paid at (GMT+7)",
+      "Member",
+      "Email",
+      "Status",
+      "Service",
+      "Quantity",
+      "Unit price (VND)",
+      "Line amount (VND)",
+      "Points used",
+      "Cash amount (VND)",
+      "Payment method",
+      "Transaction reference",
+      "Outstanding (VND)",
+      "Invoice total (VND)",
+    ],
+  ];
   // Invoice-level amounts are populated only on the first service row.
   // This prevents SUM() from double-counting the same invoice across multiple items.
-  invoice.items.forEach((item, i) => rows.push([
-    summary.invoiceNumber, localDate(summary.issuedAt), paidAt,
-    summary.memberName, summary.memberEmail, statusLabel(summary.status),
-    item.description, item.quantity, item.unitPrice, item.lineAmount,
-    i === 0 && !voided ? summary.pointsSpent : "",
-    i === 0 && !voided ? summary.cashAmount : "",
-    paid ? methods : "", paid ? references : "",
-    i === 0 && !voided ? summary.outstanding : "",
-    i === 0 ? summary.totalAmount : "",
-  ]));
+  invoice.items.forEach((item, i) =>
+    rows.push([
+      summary.invoiceNumber,
+      localDate(summary.issuedAt),
+      paidAt,
+      summary.memberName,
+      summary.memberEmail,
+      statusLabel(summary.status),
+      item.description,
+      item.quantity,
+      item.unitPrice,
+      item.lineAmount,
+      i === 0 && !voided ? summary.pointsSpent : "",
+      i === 0 && !voided ? summary.cashAmount : "",
+      paid ? methods : "",
+      paid ? references : "",
+      i === 0 && !voided ? summary.outstanding : "",
+      i === 0 ? summary.totalAmount : "",
+    ]),
+  );
   if (!invoice.items.length) {
-    rows.push([summary.invoiceNumber, localDate(summary.issuedAt), paidAt,
-      summary.memberName, summary.memberEmail, statusLabel(summary.status),
-      "", "", "", "", "", "", "", "", "", summary.totalAmount]);
+    rows.push([
+      summary.invoiceNumber,
+      localDate(summary.issuedAt),
+      paidAt,
+      summary.memberName,
+      summary.memberEmail,
+      statusLabel(summary.status),
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      summary.totalAmount,
+    ]);
   }
-  const csv = "\uFEFFsep=;\r\n" + rows.map((row) => row.map(csvValue).join(";")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const csv =
+    "\uFEFFsep=;\r\n" +
+    rows.map((row) => row.map(csvValue).join(";")).join("\r\n");
+  const url = URL.createObjectURL(
+    new Blob([csv], { type: "text/csv;charset=utf-8" }),
+  );
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = `${summary.invoiceNumber}.csv`;
@@ -110,11 +191,16 @@ async function exportInvoiceCsv(invoiceId: string) {
 
 function invoiceDescription(status: string) {
   switch (status.toUpperCase()) {
-    case "VOID": return "This order was cancelled. No payment is currently due for this invoice.";
-    case "ISSUED": return "Payment is pending. Open Details to review this order or continue checkout.";
-    case "PAID": return "Payment confirmed. The receipt and transaction details are available.";
-    case "PAID_AFTER_RECONCILIATION": return "Payment confirmed after reconciliation. Review its final details below.";
-    default: return "Review this invoice's details and current payment status.";
+    case "VOID":
+      return "This order was cancelled. No payment is currently due for this invoice.";
+    case "ISSUED":
+      return "Payment is pending. Open Details to review this order or continue checkout.";
+    case "PAID":
+      return "Payment confirmed. The receipt and transaction details are available.";
+    case "PAID_AFTER_RECONCILIATION":
+      return "Payment confirmed after reconciliation. Review its final details below.";
+    default:
+      return "Review this invoice's details and current payment status.";
   }
 }
 
@@ -128,6 +214,9 @@ export function InvoiceList({
   rental?: boolean;
 }) {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const hideVoids =
+    user?.role === "CenterManager" || user?.role === "SystemAdministrator";
 
   const [page, setPage] = useState(1);
 
@@ -242,6 +331,9 @@ export function InvoiceList({
     }
   }
 
+  const visibleInvoices = pagedItems(state.data).filter(
+    (invoice) => !hideVoids || invoice.status.toUpperCase() !== "VOID",
+  );
   return (
     <>
       {linkError && <p role="alert">{linkError}</p>}
@@ -258,70 +350,117 @@ export function InvoiceList({
         />
       )}
 
-      <label>
-        {t.refactor.status}
+      <TableFilters>
+        <label>
+          {t.refactor.status}
 
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
 
-            setPage(1);
-          }}
-        >
-          <option value="">—</option>
+              setPage(1);
+            }}
+          >
+            <option value="">—</option>
 
-          {["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"].map((s) => (
-            <option key={s} value={s}>
-              {t.wireStatus[s as keyof typeof t.wireStatus]}
-            </option>
-          ))}
-        </select>
-      </label>
+            {["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"]
+              .filter((status) => !hideVoids || status !== "VOID")
+              .map((s) => (
+                <option key={s} value={s}>
+                  {t.wireStatus[s as keyof typeof t.wireStatus]}
+                </option>
+              ))}
+          </select>
+        </label>
+      </TableFilters>
 
       {state.loading ? (
         <p>{t.refactor.loading}</p>
       ) : state.error ? (
         <p role="alert">{state.error.message}</p>
-      ) : !pagedItems(state.data).length ? (
+      ) : !visibleInvoices.length ? (
         <p>{t.refactor.empty}</p>
       ) : (
-        pagedItems(state.data).map((i) => {
-          const isPaid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(i.status.toUpperCase());
+        visibleInvoices.map((i) => {
+          const isPaid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(
+            i.status.toUpperCase(),
+          );
           const isVoid = i.status.toUpperCase() === "VOID";
           return (
             <div className={styles.card} key={i.invoiceId}>
               <div className={styles.top}>
                 <div className={styles.headerInfo}>
                   <strong className={styles.number}>{i.invoiceNumber}</strong>
-                  <span className={styles.date}>Issued: {localDate(i.issuedAt)}</span>
+                  <span className={styles.date}>
+                    Issued: {localDate(i.issuedAt)}
+                  </span>
                 </div>
                 <StatusChip value={i.status} />
               </div>
-              <p className={styles.description}>{invoiceDescription(i.status)}</p>
+              <p className={styles.description}>
+                {invoiceDescription(i.status)}
+              </p>
               <dl className={styles.infoGrid}>
-                <div><dt>Member</dt><dd>{i.memberName || i.memberEmail || "Not available"}</dd></div>
-                <div><dt>Member email</dt><dd>{i.memberEmail || "Not available"}</dd></div>
-                <div><dt>Order value</dt><dd>{formatMoney(i.totalAmount)}</dd></div>
-                <div><dt>{isVoid ? "Payment obligation" : isPaid ? "Outstanding" : "Amount due"}</dt>
-                  <dd>{isVoid ? "Cancelled" : formatMoney(i.outstanding)}</dd></div>
+                <div>
+                  <dt>Member</dt>
+                  <dd>{i.memberName || i.memberEmail || "Not available"}</dd>
+                </div>
+                <div>
+                  <dt>Member email</dt>
+                  <dd>{i.memberEmail || "Not available"}</dd>
+                </div>
+                <div>
+                  <dt>Order value</dt>
+                  <dd>{formatMoney(i.totalAmount)}</dd>
+                </div>
+                <div>
+                  <dt>
+                    {isVoid
+                      ? "Payment obligation"
+                      : isPaid
+                        ? "Outstanding"
+                        : "Amount due"}
+                  </dt>
+                  <dd>{isVoid ? "Cancelled" : formatMoney(i.outstanding)}</dd>
+                </div>
               </dl>
               <p className={styles.detailHint}>
-                Open Details to view purchased services, their sport (if recorded), quantities, unit prices, and available payment records.
+                Open Details to view purchased services, their sport (if
+                recorded), quantities, unit prices, and available payment
+                records.
               </p>
               <div className={styles.actions}>
-                <button type="button" className="btn btn--secondary" onClick={() => setSelected(i.invoiceId)}>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => setSelected(i.invoiceId)}
+                >
                   {t.refactor.details}
                 </button>
                 {staff && isPaid && (
                   <>
-                    <button type="button" className="btn btn--secondary" disabled={exporting !== null}
-                      onClick={() => void runInvoiceAction(i.invoiceId, "print")}>
-                      {exporting === `print:${i.invoiceId}` ? "Preparing..." : "Print PDF"}
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={exporting !== null}
+                      onClick={() =>
+                        void runInvoiceAction(i.invoiceId, "print")
+                      }
+                    >
+                      {exporting === `print:${i.invoiceId}`
+                        ? "Preparing..."
+                        : "Print PDF"}
                     </button>
-                    <button type="button" className="btn btn--secondary" disabled={exporting !== null}
-                      onClick={() => void runInvoiceAction(i.invoiceId, "csv")}>
-                      {exporting === `csv:${i.invoiceId}` ? "Exporting..." : "Export CSV"}
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={exporting !== null}
+                      onClick={() => void runInvoiceAction(i.invoiceId, "csv")}
+                    >
+                      {exporting === `csv:${i.invoiceId}`
+                        ? "Exporting..."
+                        : "Export CSV"}
                     </button>
                   </>
                 )}

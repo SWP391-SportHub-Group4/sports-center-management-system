@@ -66,7 +66,7 @@ export function ThresholdPanel({
     !d || !!d.choice || expired || d.resolutionStatus !== "PENDING";
   const targets = useApi(
     async (signal) => {
-      if (!d || choice !== "TRANSFER" || closed) return [];
+      if (!d || d.classCancelled || choice !== "TRANSFER" || closed) return [];
       const rows: CourseDto[] = [];
       for (let page = 1; ; page++) {
         const result = await api.get<Paged<CourseDto>>("/api/classes", {
@@ -84,7 +84,7 @@ export function ThresholdPanel({
           return rows;
       }
     },
-    [d?.sportId, choice, closed],
+    [d?.sportId, d?.classCancelled, choice, closed],
   );
   const eligible = pagedItems(targets.data).filter(
     (c) =>
@@ -98,13 +98,13 @@ export function ThresholdPanel({
   const destination = eligible.find((c) => String(c.classId) === target);
   const quote = useApi(
     (signal) =>
-      d && destination && choice === "TRANSFER" && !closed
+      d && !d.classCancelled && destination && choice === "TRANSFER" && !closed
         ? api.get<Quote>(
             `/api/class-threshold-responses/${d.responseId}/transfer-quote`,
             { signal, query: { targetClassId: destination.classId } },
           )
         : Promise.resolve(null),
-    [d?.responseId, destination?.classId, choice, closed],
+    [d?.responseId, d?.classCancelled, destination?.classId, choice, closed],
   );
   // Bind the quote to its target; a stale response must not confirm a new selection.
   const validQuote =
@@ -117,6 +117,7 @@ export function ThresholdPanel({
     !state.loading &&
     !state.error &&
     !action.busy &&
+    (!d?.classCancelled || choice === "REFUND") &&
     (choice === "REFUND" ||
       choice === "KEEP_PLACE" ||
       (choice === "TRANSFER" && validQuote));
@@ -173,7 +174,7 @@ export function ThresholdPanel({
           <>
             <header className={styles.header}>
               <h2>{data.className}</h2>
-              <p>{l.intro}</p>
+              <p>{data.classCancelled ? l.cancelledIntro : l.intro}</p>
               <p>
                 <strong>{t.refactor.deadline}:</strong>{" "}
                 {formatDateTime(data.deadlineUtc)}
@@ -202,14 +203,15 @@ export function ThresholdPanel({
             )}
             {!closed && (
               <>
-                <fieldset className={styles.choices} disabled={action.busy}>
+                <fieldset
+                  className={styles.choices}
+                  data-cancelled={data.classCancelled || undefined}
+                  disabled={action.busy}
+                >
                   <legend>{l.choose}</legend>
-                  {(
-                    [
-                      "KEEP_PLACE",
-                      "TRANSFER",
-                      "REFUND",
-                    ] as const
+                  {(data.classCancelled
+                    ? (["REFUND"] as const)
+                    : (["KEEP_PLACE", "TRANSFER", "REFUND"] as const)
                   ).map((option) => (
                     <label
                       className={styles.choice}
@@ -335,13 +337,7 @@ export function ThresholdPanel({
         )}
       </AsyncSection>
       {action.error && <p role="alert">{action.error}</p>}
-      <button
-        className="btn btn--secondary"
-        disabled={action.busy}
-        onClick={state.reload}
-      >
-        {t.refactor.refresh}
-      </button>
+
       {review && !closed && choice && (
         <Dialog
           title={l.confirmation}
