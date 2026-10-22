@@ -1,19 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+} from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
-import { useApi } from "@/lib/useApi";
+import { useNow, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { todayIso, formatMoney } from "@/lib/format";
-import { Card, Field, AsyncSection } from "@/components/ui";
+import { Card, Field } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { SportSelector, RoomSelector, catalogApi } from "@/features/catalog";
 import { CoachSelector } from "@/features/coaches";
 import { ScheduleRuleEditor } from "./schedule-rule-editor";
-import { ScheduleReview } from "./schedule-review";
+import { checkSchedule, ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
+import { scheduleInputIssue } from "./schedule-validation";
 import { ClassWeekSchedule } from "./class-week-schedule";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
 import type { ManagerCourseDto } from "@/lib/types";
@@ -32,6 +39,9 @@ export function CourseEditor({
 
   const l = t.operations;
   const m = t.managerOperations;
+  const feedback = m.scheduleValidation;
+  const feedbackId = useId();
+  const now = useNow(1000);
 
   const { user } = useAuth();
 
@@ -222,6 +232,103 @@ export function CourseEditor({
    */
   const slots = previewSessions(schedule, minutes);
 
+  const scheduleFingerprint = JSON.stringify({
+    minutes,
+    sportId: schedule.sportId,
+    defaultRoomId: schedule.defaultRoomId,
+    coachId: schedule.coachId,
+    capacity: schedule.capacity,
+    startDate: schedule.startDate,
+    numSessions: schedule.numSessions,
+    scheduleRules: schedule.scheduleRules,
+  });
+  const inputIssue = scheduleInputIssue(schedule, minutes, now);
+  const canCheckSchedule =
+    step >= 1 && !catalog.loading && !catalog.error && !inputIssue;
+  const availability = useApi(
+    async (signal) => {
+      if (!canCheckSchedule) return null;
+      const rows = await checkSchedule(schedule, minutes, signal);
+      return { fingerprint: scheduleFingerprint, rows };
+    },
+    [scheduleFingerprint, minutes, step >= 1, canCheckSchedule],
+  );
+  const currentCheck = availability.data?.fingerprint === scheduleFingerprint;
+  const scheduleReady =
+    canCheckSchedule &&
+    currentCheck &&
+    !availability.loading &&
+    !availability.error &&
+    availability.data?.rows.length === form.numSessions &&
+    availability.data.rows.every((row) => row.available);
+  const checkingSchedule =
+    catalog.loading ||
+    (!inputIssue &&
+      !catalog.error &&
+      !availability.error &&
+      (!currentCheck || availability.loading));
+  const incompleteCheck =
+    !inputIssue &&
+    currentCheck &&
+    !availability.loading &&
+    availability.data?.rows.length !== form.numSessions;
+  const availabilityErrors: Record<string, string> = {
+    start_date_in_past: feedback.issues.pastDate,
+    first_session_in_past: feedback.issues.pastTime,
+    invalid_time: feedback.issues.time,
+    invalid_range: feedback.issues.durationLimit,
+  };
+  const scheduleMessage = catalog.error
+    ? feedback.settingsFailed
+    : catalog.loading
+      ? feedback.checking
+      : inputIssue
+        ? feedback.issues[inputIssue]
+        : availability.error
+          ? (availabilityErrors[availability.error.code] ??
+            feedback.checkFailed)
+          : checkingSchedule
+            ? feedback.checking
+            : incompleteCheck
+              ? feedback.incomplete
+              : scheduleReady
+                ? feedback.ready
+                : feedback.unavailable;
+  const scheduleReasons =
+    !inputIssue &&
+    currentCheck &&
+    !availability.loading &&
+    !availability.error &&
+    !incompleteCheck &&
+    !scheduleReady
+      ? [
+          ...new Set(
+            availability
+              .data!.rows.filter((row) => !row.available)
+              .flatMap((row) =>
+                row.reasons.length ? row.reasons : ["unknown"],
+              )
+              .map(
+                (reason) =>
+                  feedback.reasons[reason as keyof typeof feedback.reasons] ??
+                  feedback.reasons.unknown,
+              ),
+          ),
+        ]
+      : [];
+  const retrySchedule =
+    !!catalog.error || !!availability.error || incompleteCheck;
+  const feedbackState = scheduleReady
+    ? "ready"
+    : checkingSchedule
+      ? "checking"
+      : "blocked";
+  const FeedbackIcon = scheduleReady
+    ? CheckCircle2
+    : checkingSchedule
+      ? Clock3
+      : AlertCircle;
+
   const valid =
     form.code.trim().length >= 2 &&
     form.name.trim().length > 0 &&
@@ -241,11 +348,19 @@ export function CourseEditor({
       return;
     }
 
-    if (step === 1 && (!minutes || slots.length !== form.numSessions)) {
+    if (
+      step === 1 &&
+      (!scheduleReady || scheduleInputIssue(schedule, minutes, Date.now()))
+    ) {
       return;
     }
 
-    if (step === 2 && !valid) {
+    if (
+      step === 2 &&
+      (!valid ||
+        !scheduleReady ||
+        scheduleInputIssue(schedule, minutes, Date.now()))
+    ) {
       return;
     }
 
@@ -285,7 +400,11 @@ export function CourseEditor({
             return;
           }
 
-          if (!valid) {
+          if (
+            !valid ||
+            !scheduleReady ||
+            scheduleInputIssue(schedule, minutes, Date.now())
+          ) {
             return;
           }
 
@@ -423,6 +542,7 @@ export function CourseEditor({
                   <input
                     required
                     type="date"
+                    min={todayIso()}
                     value={form.startDate}
                     onChange={(event) =>
                       setForm({
@@ -464,18 +584,36 @@ export function CourseEditor({
                 }
               />
 
-              <AsyncSection state={catalog}>
-                {() => (
-                  <>
-                    {!minutes && <p role="alert">{m.missingDuration}</p>}
-
-                    {minutes > 0 && slots.length !== form.numSessions && (
-                      <p role="alert">{l.invalidSchedule}</p>
-                    )}
-                  </>
+              <div
+                id={feedbackId}
+                className={editorStyles.scheduleFeedback}
+                data-state={feedbackState}
+                role={feedbackState === "blocked" ? "alert" : "status"}
+                aria-busy={checkingSchedule || undefined}
+              >
+                <FeedbackIcon size={22} aria-hidden="true" />
+                <div className={editorStyles.scheduleFeedbackContent}>
+                  <strong>{scheduleMessage}</strong>
+                  {scheduleReasons.length > 0 && (
+                    <ul>
+                      {scheduleReasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {retrySchedule && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    onClick={
+                      catalog.error ? catalog.reload : availability.reload
+                    }
+                  >
+                    {t.common.retry}
+                  </button>
                 )}
-              </AsyncSection>
-
+              </div>
               <ClassWeekSchedule
                 key={form.startDate}
                 startDate={form.startDate}
@@ -574,7 +712,6 @@ export function CourseEditor({
 
               {/* Validate the current form before saving. */}
               <ScheduleReview
-                showRefresh={!!course}
                 course={schedule}
                 minutes={minutes}
                 roomName={room?.name}
@@ -607,19 +744,21 @@ export function CourseEditor({
             aria-label={step === 3 ? m.saveDraft : l.next}
             data-direction={step < 3 ? "next" : undefined}
             title={step === 3 ? m.saveDraft : l.next}
+            aria-describedby={step === 1 ? feedbackId : undefined}
             disabled={
               mutation.busy ||
               /*
                * Schedule step.
                */
               (step === 1 &&
-                (!form.defaultRoomId ||
+                (!scheduleReady ||
+                  !form.defaultRoomId ||
                   !minutes ||
                   slots.length !== form.numSessions)) ||
               /*
                * Pricing/review.
                */
-              (step >= 2 && (!valid || catalog.loading))
+              (step >= 2 && (!valid || catalog.loading || !scheduleReady))
             }
           >
             {step === 3 ? (

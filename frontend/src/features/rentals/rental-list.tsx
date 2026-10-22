@@ -74,9 +74,7 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
           </select>
         </Field>
       </div>
-      <button className="btn btn--ghost" onClick={state.reload}>
-        {l.refresh}
-      </button>
+
       <AsyncSection state={state}>
         {(data) => {
           const rows = data.filter((r) => !status || r.status === status);
@@ -193,9 +191,7 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
               >
                 {l.wallet}
               </Link>
-              <button className="btn btn--ghost" onClick={state.reload}>
-                {l.refresh}
-              </button>
+
               {detail.rental.status === "CONFIRMED" && (
                 <button
                   className="btn btn--secondary"

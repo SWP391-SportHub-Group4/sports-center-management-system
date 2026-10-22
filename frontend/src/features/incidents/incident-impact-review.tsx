@@ -200,14 +200,7 @@ export function IncidentImpactReview({
       {preview.blockReason && (
         <p className={styles.notice}>{preview.blockReason}</p>
       )}
-      {details.error && (
-        <p role="status">
-          {c.detailsUnavailable}{" "}
-          <button className="btn btn--ghost" onClick={details.reload}>
-            {l.refresh}
-          </button>
-        </p>
-      )}
+      {details.error && <p role="status">{c.detailsUnavailable} </p>}
       {!preview.impacts.length && <p>{t.incidentHistory.noImpacts}</p>}
       {!!preview.impacts.length && (
         <Table headers={[l.impact, l.room, l.coach, l.start, l.end, ""]}>

@@ -18,19 +18,7 @@ export function IncidentHistory({ refreshKey }: { refreshKey: string }) {
     [page, refreshKey],
   );
   return (
-    <Card
-      title={l.incidentHistory}
-      actions={
-        <button
-          type="button"
-          className="btn btn--secondary"
-          disabled={state.loading}
-          onClick={state.reload}
-        >
-          {t.operations.refresh}
-        </button>
-      }
-    >
+    <Card title={l.incidentHistory}>
       <div className={styles.history}>
         <ApiTable
           caption={l.incidentHistory}

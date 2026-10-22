@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  RefreshCw,
   Send,
   Users,
   UserRoundMinus,
@@ -88,7 +87,7 @@ export function CoachChangeRequests() {
         },
         vi
           ? "Đã rút yêu cầu. Lịch dạy vẫn giữ nguyên."
-          : "Request withdrawn. Your teaching schedule is unchanged.",
+          : "Request cancelled. Your teaching schedule is unchanged.",
       );
       if (result) {
         setConfirmWithdraw(false);
@@ -122,16 +121,6 @@ export function CoachChangeRequests() {
             ? "Tất cả yêu cầu · Mới nhất trước"
             : "All requests · Newest first"}
         </span>
-        <button
-          type="button"
-          className="btn btn--quiet"
-          disabled={state.loading || action.busy}
-          onClick={() => state.reload()}
-          aria-label={vi ? "Tải lại yêu cầu" : "Refresh requests"}
-          title={vi ? "Tải lại" : "Refresh"}
-        >
-          <RefreshCw size={18} aria-hidden="true" />
-        </button>
       </div>
       <Feedback error={action.error} success={action.success} />
       <AsyncSection state={state}>
@@ -334,8 +323,8 @@ export function CoachChangeRequests() {
                   <footer className={styles.detailFooter}>
                     {!confirmWithdraw && (
                       <p className={styles.hint}>
-                        Submitted requests cannot be edited. You can withdraw
-                        this request while it is pending.
+                        Submitted requests cannot be edited. You can cancel this
+                        request while it is pending.
                       </p>
                     )}
                     {confirmWithdraw ? (
@@ -343,7 +332,7 @@ export function CoachChangeRequests() {
                         <p>
                           {vi
                             ? "Rút yêu cầu này? Lịch dạy hiện tại vẫn giữ nguyên."
-                            : "Withdraw this request? Your current teaching schedule will remain unchanged."}
+                            : "Cancel this request? Your current teaching schedule will remain unchanged."}
                         </p>
                         <div>
                           <button
@@ -355,10 +344,10 @@ export function CoachChangeRequests() {
                             {action.busy
                               ? vi
                                 ? "Đang xử lý…"
-                                : "Withdrawing…"
+                                : "Cancelling…"
                               : vi
                                 ? "Xác nhận rút"
-                                : "Confirm withdrawal"}
+                                : "Confirm cancellation"}
                           </button>
                           <button
                             type="button"
@@ -378,7 +367,7 @@ export function CoachChangeRequests() {
                         onClick={() => setConfirmWithdraw(true)}
                       >
                         <X size={17} aria-hidden="true" />
-                        {vi ? "Rút yêu cầu" : "Withdraw request"}
+                        {vi ? "Rút yêu cầu" : "Cancel request"}
                       </button>
                     )}
                   </footer>

@@ -1,4 +1,5 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "@/lib/apiClient";
@@ -67,55 +68,46 @@ export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
     [filters, page, refreshKey],
   );
   return (
-    <Card
-      title={l.history}
-      actions={
-        <button
-          className="btn btn--secondary"
-          disabled={state.loading}
-          onClick={state.reload}
-        >
-          {t.operations.refresh}
-        </button>
-      }
-    >
+    <Card title={l.history}>
       <p>{l.ownOnly}</p>
-      <form
-        className={`${styles.filters} form-grid`}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (invalidRange) return;
-          setFilters({ search: search.trim(), fromDate, toDate });
-          setPage(1);
-        }}
-      >
-        <Field label={l.search}>
-          <input
-            type="search"
-            maxLength={150}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </Field>
-        <Field label={l.from}>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-        </Field>
-        <Field label={l.to}>
-          <input
-            type="date"
-            min={fromDate || undefined}
-            value={toDate}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </Field>
-        <button className="btn btn--secondary" disabled={invalidRange}>
-          {l.apply}
-        </button>
-      </form>
+      <TableFilters>
+        <form
+          className={`${styles.filters} form-grid`}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (invalidRange) return;
+            setFilters({ search: search.trim(), fromDate, toDate });
+            setPage(1);
+          }}
+        >
+          <Field label={l.search}>
+            <input
+              type="search"
+              maxLength={150}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </Field>
+          <Field label={l.from}>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </Field>
+          <Field label={l.to}>
+            <input
+              type="date"
+              min={fromDate || undefined}
+              value={toDate}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </Field>
+          <button className="btn btn--secondary" disabled={invalidRange}>
+            {l.apply}
+          </button>
+        </form>
+      </TableFilters>
       {invalidRange && <p role="alert">{l.invalidRange}</p>}
       <div className={styles.table}>
         <ApiTable
@@ -212,21 +204,7 @@ export function NoticeDetailsView({ id }: { id: string }) {
     <AsyncSection state={state}>
       {(notice) => (
         <>
-          <Card
-            title={notice.subject}
-            actions={
-              <button
-                className="btn btn--secondary"
-                disabled={state.loading || recipients.loading}
-                onClick={() => {
-                  state.reload();
-                  recipients.reload();
-                }}
-              >
-                {t.operations.refresh}
-              </button>
-            }
-          >
+          <Card title={notice.subject}>
             <dl className={styles.facts}>
               <div>
                 <dt>{l.sender}</dt>

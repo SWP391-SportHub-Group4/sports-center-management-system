@@ -266,10 +266,9 @@ test("class details keeps capacity readable and groups management actions", asyn
   await page.route("**/api/manager/classes/42/holds?**", (route) =>
     route.fulfill({ json: { items: [], totalCount: 0 } }),
   );
-  await page
-    .getByRole("tabpanel")
-    .getByRole("button", { name: "Refresh", exact: true })
-    .click();
+  await page.reload();
+  await page.getByRole("tab", { name: "Students", exact: true }).click();
+  await page.getByRole("button", { name: /^Seat holds/ }).click();
   await expect(page.getByText("No active seat holds.")).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole("tab", { name: "Management", exact: true }).click();

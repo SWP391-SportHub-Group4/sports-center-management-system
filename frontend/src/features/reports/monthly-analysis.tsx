@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId, useMemo, type ReactNode } from "react";
-import { ArrowUpRight, CalendarDays, RefreshCw } from "lucide-react";
+import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { AsyncSection, Stat } from "@/components/ui";
 import {
   formatDate,
@@ -72,7 +72,7 @@ function Metric({
           )
         }
       />
-      <p>{unavailable ? "Unavailable. Use Refresh to try again." : hint}</p>
+      <p>{unavailable ? "Unavailable. Retry the failed request." : hint}</p>
     </div>
   );
 }
@@ -204,7 +204,6 @@ export function MonthlyAnalysis() {
   );
   const capacity = courseRows.reduce((sum, row) => sum + row.capacity, 0);
   const occupancy = capacity ? Math.round((confirmed / capacity) * 100) : 0;
-  const busy = revenue.loading || courses.loading || membership.loading;
   const partialError = revenue.error || courses.error || membership.error;
   return (
     <div className={styles.dashboard}>
@@ -218,19 +217,7 @@ export function MonthlyAnalysis() {
             <CalendarDays size={17} aria-hidden="true" />
             {period.label}
           </span>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            disabled={busy}
-            onClick={() => {
-              revenue.reload();
-              courses.reload();
-              membership.reload();
-            }}
-          >
-            <RefreshCw size={16} aria-hidden="true" />
-            {busy ? "Refreshing…" : "Refresh"}
-          </button>
+
           <Link className="btn" href="/manager/reports">
             Reports
             <ArrowUpRight size={16} aria-hidden="true" />
@@ -242,24 +229,28 @@ export function MonthlyAnalysis() {
         {formatDate(today)} · Vietnam time (UTC+7)
       </p>
       {partialError && (
-        <p className={styles.errorNotice} role="alert">
+        <div className={styles.errorNotice} role="alert">
           Some statistics could not be loaded. Available sections remain
-          visible; refresh to retry.
-        </p>
+          visible.
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={() => {
+              if (revenue.error) revenue.reload();
+              if (courses.error) courses.reload();
+              if (membership.error) membership.reload();
+            }}
+          >
+            Retry
+          </button>
+        </div>
       )}
 
       <section className={styles.metrics} aria-label="Monthly key figures">
         <Metric
-          label="Cash collected (VND)"
-          value={formatMoney(revenue.data?.totalCollected)}
-          hint={`${formatNumber(revenue.data?.paymentCount)} successful payments · month to date`}
-          loading={revenue.loading}
-          unavailable={!!revenue.error}
-        />
-        <Metric
           label="Net revenue (VND)"
           value={formatMoney(revenue.data?.netRevenue)}
-          hint="Cash collected less completed cash refunds"
+          hint="Revenue after completed refunds"
           loading={revenue.loading}
           unavailable={!!revenue.error}
         />
@@ -281,8 +272,8 @@ export function MonthlyAnalysis() {
 
       <div className={styles.primaryGrid}>
         <Panel
-          title="Daily cash flow"
-          description="Cash collected and net revenue by payment/refund date. Future dates have no results."
+          title="Daily net revenue"
+          description="Net revenue by payment/refund date. Future dates have no results."
         >
           <AsyncSection state={revenue}>
             {(report) => (
@@ -292,7 +283,7 @@ export function MonthlyAnalysis() {
         </Panel>
         <Panel
           title="Where collections come from"
-          description="Share of cash collected. Points used are excluded."
+          description="Share of successful payments. Points used are excluded."
         >
           <AsyncSection state={revenue}>
             {(report) => <RevenueMix report={report} />}

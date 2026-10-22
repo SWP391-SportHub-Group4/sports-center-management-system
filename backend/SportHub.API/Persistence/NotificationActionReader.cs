@@ -19,6 +19,12 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "CoachAttendanceReminder":
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId
+                        && u.Status == SportHub.Identity.Domain.Enums.UserStatus.Active
+                        && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct))
+                        foreach (var id in ids) links[id] = "/coach/schedule";
+                    break;
                 case "ClassSessionReminder":
                     foreach (var id in await db.ClassSessions.Where(s => ids.Contains(s.SessionId)
                         && s.Status == SportHub.Scheduling.Domain.Enums.ClassSessionStatus.Scheduled
@@ -38,8 +44,8 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                             links[id] = "/manager/requests?type=coach";
                     break;
                 case "AvatarReported":
-                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
-                        foreach (var id in ids) links[id] = "/manager/requests?type=avatar";
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.SystemAdministrator, ct))
+                        foreach (var id in ids) links[id] = "/admin/users";
                     break;
                 case "CoachCoverageRequired":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
@@ -64,9 +70,24 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                         links[id] = $"/member/invoices/{id}";
                     break;
                 case "ClassThresholdAtRisk":
+                case "ClassThresholdConfirmed":
                     foreach (var id in await db.ThresholdResponses.Where(x => x.MemberId == userId && ids.Contains(x.ThresholdResponseId))
                                  .Select(x => x.ThresholdResponseId).ToListAsync(ct))
                         links[id] = $"/member/threshold?responseId={id}";
+                    var role = await db.UserAccounts.Where(u => u.UserId == userId).Select(u => u.Role!.RoleName).SingleAsync(ct);
+                    if (role == SportHub.Identity.Domain.Enums.UserRole.CenterManager)
+                    {
+                        foreach (var s in await db.ClassSessions.Where(s => ids.Contains(s.SessionId))
+                            .Select(s => new { s.SessionId, s.ClassId }).ToListAsync(ct))
+                            links[s.SessionId] = $"/manager/classes/{s.ClassId}?tab=threshold";
+                    }
+                    else if (role == SportHub.Identity.Domain.Enums.UserRole.Coach)
+                    {
+                        foreach (var s in await db.ClassSessions.Where(s => ids.Contains(s.SessionId)
+                            && (s.CoachId == userId || db.Classes.Any(c => c.ClassId == s.ClassId && c.CoachId == userId)))
+                            .Select(s => new { s.SessionId, s.ClassId }).ToListAsync(ct))
+                            links[s.SessionId] = $"/coach/classes/{s.ClassId}";
+                    }
                     break;
                 case "IncidentResolution":
                     foreach (var id in await db.CourtRentals.Where(x => x.MemberId == userId && ids.Contains(x.CourtRentalId))
@@ -75,6 +96,9 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                     break;
                 case "ScheduleChanged":
                 case "ClassCancelled":
+                    foreach (var id in await db.ThresholdResponses.Where(r => r.MemberId == userId && ids.Contains(r.ThresholdResponseId))
+                        .Select(r => r.ThresholdResponseId).ToListAsync(ct))
+                        links[id] = $"/member/services?section=courses&view=owned&responseId={id}";
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct))
                         foreach (var id in ids) links[id] = "/coach/schedule";
                     var sessions = await (from s in db.ClassSessions
@@ -100,6 +124,18 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
             }
             foreach (var n in group)
                 if (links.TryGetValue(n.SourceEntityId!.Value, out var url)) result[n.NotificationId] = url;
+        }
+        // Older staff alerts did not store a source ID. Resolve only an exact, unambiguous class name.
+        foreach (var notice in notifications.Where(n => n.SourceEntityId is null && n.SourceEventType == "ClassThresholdAtRisk"))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(notice.Message,
+                @"^Course (.+?) (?:is below its enrollment threshold|has \d+/\d+ confirmed enrollments)");
+            if (!match.Success) continue;
+            var role = await db.UserAccounts.Where(u => u.UserId == userId).Select(u => u.Role!.RoleName).SingleAsync(ct);
+            if (role != SportHub.Identity.Domain.Enums.UserRole.CenterManager) continue;
+            var name = match.Groups[1].Value;
+            var matches = await db.Classes.Where(c => c.Name == name).Select(c => c.ClassId).Take(2).ToListAsync(ct);
+            if (matches.Count == 1) result[notice.NotificationId] = $"/manager/classes/{matches[0]}?tab=threshold";
         }
         return result;
     }

@@ -325,7 +325,7 @@ export const en = {
     requests: "Change requests awaiting review",
     refunds: "Refund requests awaiting review",
     schedule: "Operations schedule",
-    facilities: "Rooms & Courts",
+    facilities: "Court",
     roomTypes: "Room types",
     contentStep: "Class information",
     scheduleStep: "Coach, room & schedule",
@@ -341,6 +341,48 @@ export const en = {
       "The opening threshold exceeds class capacity. Adjust total class cost, tuition or capacity.",
     capacityExceeded: "Class capacity exceeds the room or sport limit.",
     missingDuration: "This sport has no group-course duration configured.",
+    scheduleValidation: {
+      checking: "Checking the schedule…",
+      ready: "Schedule ready. You can continue.",
+      unavailable: "Update the schedule to continue.",
+      checkFailed: "Couldn’t check the schedule. Try again.",
+      settingsFailed: "Couldn’t load scheduling settings. Try again.",
+      incomplete: "Schedule check incomplete. Try again.",
+      issues: {
+        coach: "Select a coach.",
+        room: "Select a room.",
+        date: "Choose a valid start date.",
+        pastDate: "Start date is in the past. Choose today or later.",
+        pastTime: "Start time has passed. Choose a future time.",
+        count: "Enter 1–100 sessions.",
+        duration: "Set this sport’s session duration first.",
+        durationLimit: "Sessions must be 12 hours or shorter.",
+        rules: "Add a weekly session.",
+        time: "Set a valid weekday and start time.",
+        duplicate: "Remove duplicate weekly sessions.",
+        weekday: "Start date must match a selected weekday.",
+        incomplete: "Adjust the weekly schedule to generate all sessions.",
+        overlap: "Sessions overlap. Adjust their start times.",
+      },
+      reasons: {
+        sport_inactive: "Sport is inactive.",
+        room_not_found: "Room no longer exists.",
+        room_inactive: "Room is inactive.",
+        room_type_inactive: "Room is unavailable.",
+        room_incompatible: "Room does not support this sport.",
+        room_capacity_exceeded: "Class exceeds room capacity.",
+        outside_opening_hours: "Session is outside room opening hours.",
+        room_busy: "Room is occupied or blocked.",
+        room_occupied: "Room is occupied or blocked.",
+        room_under_incident_review: "Room is under incident review.",
+        coach_inactive: "Coach is inactive.",
+        coach_specialty_mismatch: "Coach does not teach this sport.",
+        coach_busy: "Coach has another session.",
+        coach_required: "Select a coach.",
+        draft_overlap: "Sessions overlap. Adjust their start times.",
+        unknown: "Schedule unavailable. Choose another room, coach or time.",
+      },
+    },
     coachRequired: "Select a coach before publishing.",
     noResults: "No classes match these filters.",
     overviewTab: "Overview",
@@ -520,6 +562,25 @@ export const en = {
   },
   classWorkspace: {
     cancellationUnavailable: "Cancellation unavailable",
+    checkingCancellation: "Checking cancellation eligibility",
+    checkingCancellationHint:
+      "Checking the latest enrollments and opening conditions.",
+    cancellationCheckFailed: "Cancellation could not be checked",
+    cancellationRetryHint:
+      "Try again to check whether this class can be cancelled.",
+    belowThresholdTitle: "Below enrollment threshold",
+    cancellationReviewFrom: "Review from",
+    cancelAndRefund: "Cancel class and refund points",
+    cancellationBeforeDeadline:
+      "Enrolled classes can be cancelled from the opening review deadline while still below threshold.",
+    cancellationTeachingCompleted:
+      "This class has completed sessions. Review the class schedule before making changes.",
+    cancellationWaived:
+      "This class has been approved to run below threshold. Review its schedule to make changes.",
+    cancellationThresholdMet:
+      "Enrollment has reached the required threshold. Review the class schedule to make changes.",
+    cancellationPaymentMissing:
+      "An enrollment has no linked payment. Review student records before cancelling.",
     editSession: "Edit session",
     enrolledCancellationBlocked:
       "This class has enrolled students. Reschedule a session, change the room, or assign another coach instead.",
@@ -560,11 +621,37 @@ export const en = {
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
     openingRulesHint:
-      "Review at least 72 hours before opening. Members have up to 48 hours to respond, ending at least 24 hours before the first session. Confirm immediately once the threshold is met.",
+      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation immediately refunds remaining paid balances as points and notifies the Coach and members.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
+    cancelBelowThresholdHint:
+      "Cancellation immediately refunds remaining paid balances as points and notifies enrolled members and the teaching coach.",
   },
   managerCatalog: {
+    viewCourt: "View details",
+    landingImage: "Landing page image",
+    browseImage: "Browse",
+    imageHint: "JPG, PNG or WebP, up to 10 MB. A landscape photo works best.",
+    imageDragHint:
+      "Drag to reposition, or use the arrow keys. Zoom in for more room to move.",
+    imageEmpty: "Choose a photo for this sport",
+    imagePreview: "Landing page image preview",
+    imageZoom: "Zoom",
+    imageReset: "Reset position",
+    imageLoading: "Preparing image…",
+    imageFileInvalid: "Choose a JPG, PNG or WebP image no larger than 10 MB.",
+    imageOpenFailed: "Could not open this image. Choose another file.",
+    imageUploadFailed: "Could not save the image. Please try again.",
+    editCourt: "Edit court",
+    blockTimes: "Blocked times",
+    addBlock: "Add block time",
+    editBlock: "Edit block time",
+    saveBlock: "Save changes",
+    savingBlock: "Saving…",
+    cancelBlock: "Cancel block time",
+    keepBlock: "Keep block",
+    pricePerHour: "Price per hour (VND)",
+    noRentalPrice: "Not set",
     createLinkedRoomType: "Create a room type with this sport",
     createLinkedRoomTypeHint:
       "Optional. Create a room or court type and link it to this sport when you save.",
@@ -764,6 +851,11 @@ export const en = {
     statusTitle: "Accounts by status",
     statusHint:
       "Current totals across all accounts. Select a status to open its filtered list.",
+    invitationQueue: "Staff invitations",
+    invitationQueueHint:
+      "Awaiting activation is a subset of Active accounts. Invitations expire 24 hours after account creation.",
+    expiringWithinSixHours: "Expiring within 6 hours",
+    systemActor: "System",
     recentTitle: "Recent activity",
     recentHint:
       "The five latest visible Manager, Administrator, Coach or system events.",
@@ -779,6 +871,13 @@ export const en = {
     lockAction: "Account locked / deactivated",
     unlockAction: "Account unlocked",
     viewDetail: "View details",
+    manageAccess: "Manage access",
+    manageInvitation: "Manage invitation",
+    expiringActivation: "Expiring soon",
+    viewAccountActivity: "View account activity",
+    personalAccount: "Personal account",
+    specialtiesManagedByManager:
+      "Existing Coach specialties are managed by the Center Manager. They are read-only here.",
     detailTitle: "Account details",
     backUsers: "Back to accounts",
     identityTitle: "Identity and access",
@@ -813,7 +912,7 @@ export const en = {
     activationActionFailed: "The action could not be completed.",
     optionalPhoneHint: "Optional. The recipient can add it after signing in.",
     activationHint:
-      "* An activation email with a link to set the first password will be sent directly to the staff member.",
+      "An activation email will be queued for the staff member. The link expires 24 hours after account creation; resending or correcting the email does not extend this deadline.",
     roleImpact:
       "Changing the role invalidates existing sessions. The user will need to sign in again.",
     saveChanges: "Save changes",
@@ -827,12 +926,12 @@ export const en = {
     memberRoleLocked:
       "Member accounts cannot be converted to staff. Create a staff account with a different email instead.",
     roleBlockGuidance:
-      "This account has service resources that must be settled first. Contact a Center Manager or Receptionist to handle them, then retry the role change. Copy a direct member link to share with the appropriate staff member.",
+      "This Coach still has teaching assignments or active relationships. Ask a Center Manager to reassign or close them, then retry the role change. Share the Coach management link below.",
     roleBlockAccountLink: "View account details",
-    roleBlockCopyManager: "Copy Manager member link",
+    roleBlockCopyManager: "Copy Coach management link",
     roleBlockCopyReceptionist: "Copy Receptionist member link",
     roleBlockCopied:
-      "Member link copied. Share it with the appropriate staff member.",
+      "Coach management link copied. Share it with a Center Manager.",
     roleBlockCopyFailed:
       "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
@@ -843,7 +942,7 @@ export const en = {
     deactivateImpact:
       "The account will be deactivated and cannot access authenticated features until it is unlocked.",
     guardHint:
-      "You cannot lock yourself. The server also prevents locking or demoting the last active Administrator.",
+      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be locked or deactivated.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -1503,7 +1602,8 @@ export const en = {
     exception: "Request an exception",
     sports: "Sports at SportHub",
     paid: "Payment verified by server",
-    compensated: "VNPay amount credited to your point wallet; service was not granted.",
+    compensated:
+      "VNPay amount credited to your point wallet; service was not granted.",
     reconciliation: "Payment needs reconciliation. Contact reception.",
     invoice: "Invoice",
     legacyInvoice:
@@ -1832,12 +1932,12 @@ export const en = {
     shortcutsEscapeHint: "Press Escape to close",
     footerTagline: "Multidisciplinary Sports Centre",
     groups: {
-      catalog: "Services",
+      catalog: "Sport",
       classesScheduling: "Classes & Scheduling",
-      supportCommunications: "Support & Communication",
+      supportCommunications: "Exception",
       operations: "Operations",
       people: "People",
-      finance: "Transaction & Report",
+      finance: "Billing management",
       system: "System",
       training: "Training",
       billing: "Billing",
@@ -1850,6 +1950,12 @@ export const en = {
       SystemAdministrator: "System Administrator",
     },
     items: {
+      courts: "Courts",
+      pointWallets: "Point wallets",
+      report: "Report",
+      incident: "Incident",
+      sport: "Sport",
+      people: "People",
       requests: "Request",
       finance: "Invoices",
       invoicesRefunds: "Invoices & refunds",
@@ -1886,7 +1992,7 @@ export const en = {
       trainingPlans: "Training plans",
       progress: "Results & progress",
       aiSuggestions: "AI suggestions",
-      trainingRooms: "Courts & Rooms",
+      trainingRooms: "Court",
       classes: "Classes",
       classSchedule: "Class schedule",
       membershipPlans: "Membership",
@@ -1895,6 +2001,7 @@ export const en = {
       revenueReports: "Revenue reports",
       systemSettings: "System settings",
       auditLog: "Audit log",
+      media: "Media",
       usersRoles: "Account management",
       myRegistrations: "My registrations",
       myMembershipPlans: "My membership plans",
@@ -2220,7 +2327,7 @@ export const en = {
     days: ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   },
   mSchedule: {
-    chooseWeek: "Choose week",
+    chooseWeek: "Choose date",
     prevWeek: "Previous week",
     currentWeek: "Current week",
     nextWeek: "Next week",

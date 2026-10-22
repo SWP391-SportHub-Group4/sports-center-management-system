@@ -10,7 +10,11 @@ export default function Page() {
   const { t } = useLanguage();
   const { id } = useParams<{ id: string }>();
   return (
-    <AppShell title={t.ptOps.members} allow={["CenterManager"]}>
+    <AppShell
+      title={t.ptOps.members}
+      allow={["CenterManager"]}
+      operationalLayout
+    >
       <Suspense fallback={<Loading />}>
         <ManagerMemberProfile memberId={id} />
       </Suspense>

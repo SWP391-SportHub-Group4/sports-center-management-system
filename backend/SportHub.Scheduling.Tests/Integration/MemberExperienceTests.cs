@@ -11,7 +11,6 @@ using SportHub.Membership.Domain.Entities;
 using SportHub.Notification.Domain.Enums;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.Wallet.Application;
-using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Application.Services;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
@@ -62,54 +61,62 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
         Assert.Null(provider.Continuations.Last());
     }
 
-    private async Task<(CourseData Course, Guid MemberId, Guid InvoiceId, ThresholdResponse Response)> PaidAtRiskAsync()
+    private async Task<(CourseData Course, Guid MemberId, Guid InvoiceId)> PaidClassAsync()
     {
-        var c = await CourseTestData.CreateAsync(factory);
+        var course = await CourseTestData.CreateAsync(factory);
         var member = await factory.SeedUserAsync(UserRole.Member);
-        using (var scope = factory.Services.CreateScope())
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        await using (var tx = await db.Database.BeginTransactionAsync())
         {
-            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-            await db.Classes.Where(x => x.ClassId == c.Id).ExecuteUpdateAsync(u => u
-                .SetProperty(x => x.CostAmount, 200_000m).SetProperty(x => x.BreakEvenThreshold, 2)
-                .SetProperty(x => x.ThresholdDeadlineUtc, DateTime.UtcNow.AddMinutes(-1)));
-            await using (var tx = await db.Database.BeginTransactionAsync())
-            {
-                await scope.ServiceProvider.GetRequiredService<IPointWalletService>().EarnAsync(new(member.UserId, 100, "TestCredit", Guid.NewGuid()));
-                await tx.CommitAsync();
-            }
-            var checkout = await scope.ServiceProvider.GetRequiredService<CheckoutService>()
-                .CreateClassAsync(new(c.Id, null), Guid.NewGuid().ToString(), member.UserId, false, default);
-            await scope.ServiceProvider.GetRequiredService<PointConfirmationService>().SelectSelfAsync(checkout.InvoiceId, 100, member.UserId, default);
-            await scope.ServiceProvider.GetRequiredService<CheckoutService>().StartPaymentAsync(checkout.InvoiceId, member.UserId, false, "127.0.0.1", default);
-            await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
-            var response = await db.Set<ThresholdResponse>().AsNoTracking().SingleAsync(r => r.ClassId == c.Id && r.MemberId == member.UserId);
-            return (c, member.UserId, checkout.InvoiceId, response);
+            await scope.ServiceProvider.GetRequiredService<IPointWalletService>()
+                .EarnAsync(new(member.UserId, 100, "TestCredit", Guid.NewGuid()));
+            await tx.CommitAsync();
         }
+        var checkout = await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+            .CreateClassAsync(new(course.Id, null), Guid.NewGuid().ToString(), member.UserId, false, default);
+        await scope.ServiceProvider.GetRequiredService<PointConfirmationService>()
+            .SelectSelfAsync(checkout.InvoiceId, 100, member.UserId, default);
+        await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+            .StartPaymentAsync(checkout.InvoiceId, member.UserId, false, "127.0.0.1", default);
+        return (course, member.UserId, checkout.InvoiceId);
     }
 
     [Fact]
-    public async Task Below_threshold_cancellation_refunds_points_and_suggests_similar_open_courses_once()
+    public async Task Historical_threshold_expiry_refunds_and_suggests_open_courses_once()
     {
-        var p = await PaidAtRiskAsync();
+        var paid = await PaidClassAsync();
         var similar = await CourseTestData.CreateAsync(factory, time: "14:00");
-        var similarName = await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == similar.Id).Select(c => c.Name).SingleAsync());
+        var similarName = await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == similar.Id)
+            .Select(c => c.Name).SingleAsync());
+        // Existing response deadlines remain eligible for the legacy expiry worker.
+        await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == paid.Course.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.BreakEvenThreshold, 2)
+                .SetProperty(c => c.ThresholdStatus, ThresholdStatus.AtRisk)
+                .SetProperty(c => c.ThresholdResponseDeadlineUtc, DateTime.UtcNow.AddMinutes(-1))));
         using (var scope = factory.Services.CreateScope())
-            await ActivatorUtilities.CreateInstance<ThresholdResponseExpiryService>(scope.ServiceProvider,
-                new TestClock(p.Response.DeadlineUtc.AddSeconds(1))).ExpireAsync();
-        Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == p.MemberId).Select(w => w.AvailablePoints).SingleAsync()));
-        Assert.False(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.MemberId == p.MemberId && e.ClassId == p.Course.Id && e.Status == EnrollmentStatus.Confirmed)));
-        var notice = await factory.QueryAsync(db => db.Notifications.Where(n => n.UserId == p.MemberId
+        {
+            var worker = scope.ServiceProvider.GetRequiredService<ThresholdResponseExpiryService>();
+            await worker.ExpireAsync();
+            await worker.ExpireAsync();
+        }
+        Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == paid.MemberId)
+            .Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.False(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.MemberId == paid.MemberId
+            && e.ClassId == paid.Course.Id && e.Status == EnrollmentStatus.Confirmed)));
+        var notices = await factory.QueryAsync(db => db.Notifications.Where(n => n.UserId == paid.MemberId
             && n.SourceEventType == NotificationSourceEventType.ClassCancelled && n.Channel == NotificationChannel.InApp)
-            .Select(n => n.Message).SingleAsync());
+            .Select(n => n.Message).ToListAsync());
+        var notice = Assert.Single(notices);
         Assert.Contains("100 points were returned", notice);
-        Assert.Contains(similarName, notice);
         Assert.Contains("Similar courses open now", notice);
+        Assert.Contains(similarName, notice);
     }
 
     [Fact]
     public async Task Member_can_download_own_invoice_pdf_but_not_another_members_invoice()
     {
-        var p = await PaidAtRiskAsync();
+        var p = await PaidClassAsync();
         using var member = factory.CreateApiClient(p.MemberId, UserRole.Member);
         using var stranger = factory.CreateApiClient((await factory.SeedUserAsync(UserRole.Member)).UserId, UserRole.Member);
         var path = $"/api/invoices/{p.InvoiceId}/receipt.pdf";

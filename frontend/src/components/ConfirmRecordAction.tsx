@@ -142,7 +142,7 @@ export function ConfirmRecordAction({
                   disabled={busy}
                   onClick={close}
                 >
-                  {unknown ? l.closeAndRefresh : t.operations.cancel}
+                  {unknown ? t.common.close : t.operations.cancel}
                 </button>
                 <button
                   type="submit"

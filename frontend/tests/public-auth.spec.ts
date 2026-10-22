@@ -442,6 +442,10 @@ for (const width of [1440, 1280, 390]) {
             facilities: [],
           },
         });
+      if (path === "/api/landing-page")
+        return route.fulfill({
+          json: { revision: "test", values: {}, updatedAt: null },
+        });
       return route.fulfill({ json: [] });
     });
     await page.goto("/");

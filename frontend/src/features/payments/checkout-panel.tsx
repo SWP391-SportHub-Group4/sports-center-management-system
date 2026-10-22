@@ -897,9 +897,6 @@ function CheckoutFlow({
           </div>
         )}
         <div className={styles.actions}>
-          <Button variant="quiet" disabled={busy} onClick={() => run(refresh)}>
-            {l.refresh}
-          </Button>
           {(user?.role === "Receptionist" || user?.role === "CenterManager") &&
             checkout.reconciliationRequired && (
               <Button

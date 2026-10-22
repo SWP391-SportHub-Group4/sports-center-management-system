@@ -69,6 +69,35 @@ namespace SportHub.API.Migrations
                     b.ToTable("ai_logs", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Administration.Domain.Entities.LandingPageContent", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("revision");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("ValuesJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("values_json");
+
+                    b.HasKey("Id")
+                        .HasName("pk_landing_page_content");
+
+                    b.ToTable("landing_page_content", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_landing_page_singleton", "id = 1");
+                        });
+                });
+
             modelBuilder.Entity("SportHub.Administration.Domain.Entities.ReportExport", b =>
                 {
                     b.Property<Guid>("ReportExportId")

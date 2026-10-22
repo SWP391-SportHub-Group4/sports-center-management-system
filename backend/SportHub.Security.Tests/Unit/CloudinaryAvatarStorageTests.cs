@@ -32,7 +32,7 @@ public sealed class CloudinaryAvatarStorageTests
         Assert.Equal("/v1_1/testcloud/image/upload", calls[0].Path);
         Assert.Equal("/v1_1/testcloud/image/destroy", calls[1].Path);
         Assert.All(calls, call => Assert.Equal("Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("testkey:testsecret")), call.Auth));
-        Assert.Contains("c_fill,g_center,w_512,h_512", calls[0].Body);
+        Assert.Contains("c_limit,w_1536,h_1536", calls[0].Body);
         Assert.Contains("sporthub/avatars/abc/photo", calls[1].Body);
         Assert.Contains("invalidate", calls[1].Body);
     }

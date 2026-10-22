@@ -215,6 +215,8 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<AvatarService>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(60));
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
@@ -326,6 +328,7 @@ builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 // Payment
 builder.Services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
 builder.Services.AddScoped<IInvoiceQueryService, InvoiceQueryService>();
+builder.Services.AddScoped<IInvoiceClassNameReader, InvoiceClassNameReader>();
 builder.Services.AddScoped<IPackagePurchaseService, PackagePurchaseService>();
 builder.Services.AddScoped<IPaymentRecordingService, PaymentRecordingService>();
 builder.Services.AddScoped<IPackageActivationService, PackageActivationService>();
@@ -425,6 +428,8 @@ builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddScoped<MemberCourseNotificationService>();
 builder.Services.AddHostedService<MemberCourseNotificationsJob>();
+builder.Services.AddScoped<CoachAttendanceReminderService>();
+builder.Services.AddHostedService<CoachAttendanceReminderJob>();
 builder.Services.AddHostedService<StaffInvitationExpiryJob>();
 builder.Services.AddHostedService<MemberInvitationExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();

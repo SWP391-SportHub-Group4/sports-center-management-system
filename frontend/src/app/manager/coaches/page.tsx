@@ -1,10 +1,4 @@
-"use client";
-import { OperationsPage } from "@/features/operations/ui";
-import { CoachesManager } from "@/features/coaches/coaches-manager";
+import { redirect } from "next/navigation";
 export default function Page() {
-  return (
-    <OperationsPage title="coaches">
-      <CoachesManager />
-    </OperationsPage>
-  );
+  redirect("/manager/people?role=Coach");
 }

@@ -7,6 +7,7 @@ import {
   formatNumber,
 } from "@/lib/format";
 import { auditDisplayText } from "./audit-display";
+import { auditActionLabel } from "./audit-action-label";
 import {
   auditReferenceKinds,
   currentReference,
@@ -289,7 +290,7 @@ export function auditEventModel(
     comparison,
     reason: reason == null ? null : auditDisplayText(String(reason)),
     summary,
-    action: readableAuditLabel(row.action),
+    action: auditActionLabel(row.action, row.newValue),
     type: auditRecordType(row, t),
     deletion: /^DELETE_|^REMOVE_/.test(row.action),
   };

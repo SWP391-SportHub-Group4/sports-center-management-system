@@ -1,6 +1,7 @@
 "use client";
+import { TableFilters } from "@/components/data/TableFilters";
 import { useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Check, RefreshCw } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Drawer } from "@/components/primitives";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
@@ -68,74 +69,67 @@ export function ManagerClassChangeRequests({
         <h2>
           {vi ? "Yêu cầu thay đổi lịch lớp" : "Class schedule change requests"}
         </h2>
-        <button
-          type="button"
-          className="btn btn--quiet btn--sm"
-          onClick={() => state.reload()}
-          disabled={state.loading}
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-          {vi ? "Cập nhật" : "Refresh"}
-        </button>
       </header>
       <p className={styles.hint}>
         {vi
           ? "Xem lý do từ Coach và xác nhận phương án phù hợp. Học viên chỉ nhận thay đổi lịch sau khi xử lý thành công."
           : "Review the Coach’s absence request and choose a substitute, reschedule or makeup, or reject it. Students receive schedule changes only after the operation succeeds."}
       </p>
-      <div className={styles.filters}>
-        <label>
-          {vi ? "Trạng thái" : "Status"}
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{vi ? "Tất cả" : "All"}</option>
-            {["PENDING", "RESOLVED", "REJECTED", "WITHDRAWN"].map((id) => (
-              <option key={id} value={id}>
-                {changeStatusLabel(id, vi)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {vi ? "Khóa học" : "Class"}
-          <select
-            value={classId}
-            onChange={(e) => {
-              setClassId(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{vi ? "Tất cả khóa" : "All classes"}</option>
-            {filters.data?.classes.map((c) => (
-              <option key={c.classId} value={c.classId}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {vi ? "Coach" : "Coach"}
-          <select
-            value={coachId}
-            onChange={(e) => {
-              setCoachId(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">{vi ? "Tất cả Coach" : "All coaches"}</option>
-            {filters.data?.coaches.map((c) => (
-              <option key={c.coachId} value={c.coachId}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <TableFilters>
+        <div className={styles.filters}>
+          <label>
+            {vi ? "Trạng thái" : "Status"}
+            <select
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{vi ? "Tất cả" : "All"}</option>
+              {["PENDING", "RESOLVED", "REJECTED", "WITHDRAWN"].map((id) => (
+                <option key={id} value={id}>
+                  {changeStatusLabel(id, vi)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {vi ? "Khóa học" : "Class"}
+            <select
+              value={classId}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{vi ? "Tất cả khóa" : "All classes"}</option>
+              {filters.data?.classes.map((c) => (
+                <option key={c.classId} value={c.classId}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {vi ? "Coach" : "Coach"}
+            <select
+              value={coachId}
+              onChange={(e) => {
+                setCoachId(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">{vi ? "Tất cả Coach" : "All coaches"}</option>
+              {filters.data?.coaches.map((c) => (
+                <option key={c.coachId} value={c.coachId}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </TableFilters>
       <AsyncSection state={state}>
         {(data) => (
           <>
@@ -519,20 +513,7 @@ function ReviewDrawer({
                               ? "The current coach is unavailable at this time. Select another available coach."
                               : `${type === "SUBSTITUTE" ? alternatives.length : candidates.length} available coach(s) · ${formatDateTime(startUtc!)} – ${formatDateTime(endUtc!)}`}
                 </p>
-                {needsCoaches && (
-                  <button
-                    type="button"
-                    className="btn btn--quiet btn--sm"
-                    disabled={action.busy || coaches.loading}
-                    onClick={() => {
-                      setCoach("");
-                      coaches.reload();
-                    }}
-                  >
-                    <RefreshCw size={15} aria-hidden="true" /> Refresh
-                    availability
-                  </button>
-                )}
+
                 {type !== "SUBSTITUTE" && (
                   <label>
                     {vi ? "Sân / phòng" : "Court / room"}

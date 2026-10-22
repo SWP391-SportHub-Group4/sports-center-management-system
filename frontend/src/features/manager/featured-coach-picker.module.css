@@ -1,0 +1,252 @@
+.picker {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.selection {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-1);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--color-primary) var(--bg-surface-sunken);
+  scrollbar-width: thin;
+}
+.slot {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+.coachCard {
+  min-width: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-sunken);
+  overflow: hidden;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+.coachCard[data-dragging] {
+  opacity: 0.55;
+  transform: scale(0.97);
+}
+.coachCard[data-drop-target] {
+  box-shadow: inset 0 0 0 3px var(--color-primary);
+}
+.photo {
+  position: relative;
+  aspect-ratio: 3/2;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+.grip {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-strong);
+  background: var(--bg-surface);
+  cursor: grab;
+  touch-action: none;
+}
+.grip:active {
+  cursor: grabbing;
+}
+.grip:focus-visible,
+.changeButton:focus-visible,
+.candidate:focus-visible,
+.closeChoices:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.identity {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.coachCard .identity {
+  padding: var(--space-4);
+  min-height: 92px;
+}
+.identity strong {
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: 1.5;
+}
+.identity > span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+.changeButton {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.changeButton:hover,
+.changeButton[aria-expanded="true"] {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+.replacements {
+  display: grid;
+  gap: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+  animation: choices-in var(--duration-base) var(--ease-out);
+}
+.choiceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.choiceHeader strong {
+  font-size: var(--text-sm);
+  color: var(--text-strong);
+}
+.closeChoices {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding-left: var(--space-3);
+  color: var(--text-muted);
+}
+.search:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.search input {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  min-height: 44px;
+  color: var(--text-strong);
+  caret-color: var(--color-primary);
+}
+.search input:focus {
+  outline: 0;
+  box-shadow: none;
+}
+.candidates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1);
+  scrollbar-color: var(--color-primary) var(--bg-surface-sunken);
+  scrollbar-width: thin;
+}
+.candidate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.candidate:hover {
+  background: var(--color-primary-soft);
+}
+.empty {
+  grid-column: 1/-1;
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@keyframes choices-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 640px) {
+  .selection {
+    grid-template-columns: repeat(3, minmax(200px, 1fr));
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
+  }
+  .candidates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .coachCard,
+  .changeButton,
+  .candidate {
+    transition: none;
+  }
+  .replacements {
+    animation: none;
+  }
+}

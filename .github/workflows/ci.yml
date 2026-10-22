@@ -110,6 +110,7 @@ jobs:
       POSTGRES_PASSWORD: ci-sporthub-password
       POSTGRES_DB: sporthub_e2e
       POSTGRES_PORT: 5435
+      FRONTEND_PORT: 3100
       JwtOptions__SecretKey: ci-only-sporthub-jwt-secret-key-at-least-32-characters
       Google__ClientId: ""
       VnPay__UseMock: "false"
@@ -123,7 +124,6 @@ jobs:
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: ci-test-client-id.apps.googleusercontent.com
       P2_LIVE_API: http://127.0.0.1:5000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
-      Cors__AllowedOrigins__1: http://127.0.0.1:3100
 
     steps:
       - uses: actions/checkout@v4
@@ -154,6 +154,19 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
+
+      - name: Configure isolated API
+        shell: bash
+        run: |
+          printf '%s\n' \
+            "JwtOptions__SecretKey=$JwtOptions__SecretKey" \
+            "Google__ClientId=$Google__ClientId" \
+            "VnPay__UseMock=$VnPay__UseMock" \
+            "VnPay__TmnCode=$VnPay__TmnCode" \
+            "VnPay__HashSecret=$VnPay__HashSecret" \
+            "VnPay__ReturnUrl=http://127.0.0.1:3100/payments/return" \
+            "Email__DemoLoggingEnabled=$Email__DemoLoggingEnabled" \
+            "Frontend__BaseUrl=http://127.0.0.1:3100" > .env
 
       - name: Start isolated PostgreSQL and API
         run: |

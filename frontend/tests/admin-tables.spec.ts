@@ -46,7 +46,14 @@ async function auth(page: Page) {
       });
     if (path === "/api/sports")
       return route.fulfill({
-        json: [{ sportId: 1, name: "Gym", isActive: true }],
+        json: [
+          {
+            sportId: 1,
+            name: "Badminton",
+            isActive: true,
+            services: [{ serviceType: "GROUP_COURSE", isEnabled: true }],
+          },
+        ],
       });
     if (path.includes("notifications")) return route.fulfill({ json: [] });
     return route.fulfill({
@@ -56,7 +63,7 @@ async function auth(page: Page) {
   });
 }
 
-test("users delegates pagination and sorting to API, resets page, keeps Edit", async ({
+test("users delegates pagination and sorting to API, resets page, keeps Manage access", async ({
   page,
 }) => {
   await auth(page);
@@ -91,22 +98,22 @@ test("users delegates pagination and sorting to API, resets page, keeps Edit", a
   ).toHaveAttribute("aria-sort", "ascending");
   await page.getByRole("button", { name: /^Full name/ }).click();
   await expect.poll(() => query.searchParams.get("sortDirection")).toBe("desc");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage access", exact: true })
+    .click();
   await expect(page.getByLabel("Reason", { exact: true })).toBeVisible();
-  const option = page.locator("fieldset label").filter({ hasText: "Gym" });
-  await expect(option.getByRole("checkbox")).toBeChecked();
-  const bounds = await option.evaluate((el) => {
-    const box = el.querySelector("input")!.getBoundingClientRect();
-    const name = el.querySelector("span")!.getBoundingClientRect();
-    return {
-      boxCenter: (box.top + box.bottom) / 2,
-      nameCenter: (name.top + name.bottom) / 2,
-      boxRight: box.right,
-      nameLeft: name.left,
-    };
-  });
-  expect(Math.abs(bounds.boxCenter - bounds.nameCenter)).toBeLessThan(2);
-  expect(bounds.boxRight).toBeLessThan(bounds.nameLeft);
+  const specialties = page
+    .getByRole("dialog")
+    .getByRole("group", { name: "Specialties" });
+  await expect(
+    specialties.getByRole("checkbox", { name: "Badminton", exact: true }),
+  ).toBeChecked();
+  await page
+    .getByLabel("Reason", { exact: true })
+    .fill("Inspect assigned specialties");
+  await expect(
+    page.getByRole("button", { name: "Save changes", exact: true }),
+  ).toBeDisabled();
 });
 
 test("empty users offers clear filters and reloads the list", async ({
@@ -224,7 +231,15 @@ test("Audit log keeps scope, metadata redaction, filtering and server pagination
   });
   await page.goto("/admin/audit-log");
   await expect(page.getByRole("table", { name: "Audit log" })).toBeVisible();
-  await expect(page.getByRole("table")).toContainText("After: Locked");
+  await page.getByRole("button", { name: /View details:/ }).click();
+  const details = page.getByRole("dialog");
+  await expect(
+    details.getByRole("columnheader", { name: "After", exact: true }),
+  ).toBeVisible();
+  await expect(details.getByRole("table")).toContainText("Locked");
+  await expect(details).not.toContainText("SECRET_OTP");
+  await expect(details).not.toContainText("SECRET_BODY");
+  await page.keyboard.press("Escape");
   expect(query.searchParams.get("targetEntity")).toBeNull();
   await expect(page.getByText(/SECRET_OTP|SECRET_BODY/)).toHaveCount(0);
   await page.getByRole("button", { name: "Next page", exact: true }).click();
@@ -268,7 +283,7 @@ test("both Admin tables fit desktop and mobile with working mobile sort", async 
       await page.goto(`/admin/${path}`);
       await expect(page.getByRole("table")).toBeVisible();
       await expect(
-        page.getByText(path === "users" ? "Coach sample" : "LOCK_USER", {
+        page.getByText(path === "users" ? "Coach sample" : "Account locked", {
           exact: true,
         }),
       ).toBeVisible();

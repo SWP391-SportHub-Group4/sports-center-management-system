@@ -16,7 +16,7 @@ public interface IUserAdminService
 {
     Task<PagedResult<UserAdminResponse>> SearchAsync(
         string? keyword, string? role, string? status, int page, int pageSize, CancellationToken ct = default,
-        string? sortBy = null, string? sortDirection = null);
+        string? sortBy = null, string? sortDirection = null, bool peopleOnly = false);
 
     Task<UserAdminResponse> GetAsync(Guid userId, CancellationToken ct = default);
 

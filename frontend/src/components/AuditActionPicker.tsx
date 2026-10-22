@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Input } from "@/components/primitives/Controls";
 import { useLanguage } from "@/lib/language";
 import type { AsyncState } from "@/lib/useApi";
+import { auditActionLabel } from "@/features/administration/audit-action-label";
 import styles from "./AuditActionPicker.module.css";
 
 function actionLabel(action: string) {
@@ -27,12 +28,14 @@ export function AuditActionPicker({
   onChange,
   actions,
   errorId,
+  humanReadable = false,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   actions: AsyncState<string[]>;
   errorId?: string;
+  humanReadable?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.filterBar;
@@ -46,9 +49,16 @@ export function AuditActionPicker({
   const keywords = searching
     ? value.toLowerCase().replaceAll("_", " ").split(/\s+/).filter(Boolean)
     : [];
-  const available = Array.isArray(actions.data) ? actions.data : [];
+  const available = Array.isArray(actions.data) ? [...actions.data] : [];
+  if (humanReadable)
+    available.sort(
+      (a, b) =>
+        auditActionLabel(a).localeCompare(auditActionLabel(b)) ||
+        a.localeCompare(b),
+    );
   const matches = available.filter((action) => {
-    const text = action.toLowerCase().replaceAll("_", " ");
+    const text =
+      `${action.replaceAll("_", " ")}${humanReadable ? ` ${auditActionLabel(action)}` : ""}`.toLowerCase();
     return keywords.every((keyword) => text.includes(keyword));
   });
   const options = searching && value.trim() ? matches : ["", ...matches];
@@ -124,7 +134,11 @@ export function AuditActionPicker({
           open && activeOption >= 0 ? `${listId}-${activeOption}` : undefined
         }
         placeholder={l.actionPlaceholder}
-        value={value}
+        value={
+          humanReadable && !searching && available.includes(value)
+            ? auditActionLabel(value)
+            : value
+        }
         onFocus={() => {
           setSearching(false);
           setOpen(true);
@@ -133,7 +147,10 @@ export function AuditActionPicker({
           setSearching(false);
           setOpen(true);
         }}
-        onBlur={() => setOpen(false)}
+        onBlur={() => {
+          setOpen(false);
+          if (available.includes(value)) setSearching(false);
+        }}
         onChange={(event) => {
           onChange(event.target.value);
           setActive(-1);
@@ -194,14 +211,25 @@ export function AuditActionPicker({
                       role="option"
                       tabIndex={-1}
                       aria-selected={value === action}
-                      aria-label={action || l.allActions}
+                      aria-label={
+                        action
+                          ? humanReadable
+                            ? auditActionLabel(action)
+                            : action
+                          : l.allActions
+                      }
+                      title={humanReadable && action ? action : undefined}
                       className={styles.option}
                       data-active={activeOption === index}
                       onMouseDown={(event) => event.preventDefault()}
                       onPointerMove={() => setActive(index)}
                       onClick={() => choose(action)}
                     >
-                      {action ? actionLabel(action) : l.allActions}
+                      {action
+                        ? humanReadable
+                          ? auditActionLabel(action)
+                          : actionLabel(action)
+                        : l.allActions}
                     </button>
                   ))}
                 </div>

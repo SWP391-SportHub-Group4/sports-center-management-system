@@ -121,22 +121,21 @@ async function managerFixture(page: Page) {
 
 test.beforeEach(async ({ page }) => managerFixture(page));
 
-test("manager overview uses server cash/points metrics and no profit claim", async ({
+test("manager overview uses server revenue and point metrics without a profit claim", async ({
   page,
 }) => {
   await page.goto("/manager");
   await expect(
     page.getByRole("heading", { name: "Overview", exact: true }),
   ).toBeVisible();
-  const cash = page
-    .locator(".stat")
-    .filter({ has: page.getByText("Cash collected (VND)", { exact: true }) });
-  const usedPoints = page.locator(".stat").filter({
-    has: page.getByText("Points used by members in period", { exact: true }),
+  await expect(
+    page.getByRole("region", { name: "Monthly key figures" }),
+  ).toContainText(/Net revenue \(VND\)\s*100,000/);
+  const points = page.getByRole("region", {
+    name: "Monthly points and current balance",
   });
-  await expect(cash.locator(".stat__value")).toContainText("100,000");
-  await expect(usedPoints.locator(".stat__value")).toContainText("200");
-  await expect(usedPoints.locator(".stat__value")).not.toContainText("₫");
+  await expect(points).toContainText(/Points used by members in period\s*200/);
+  await expect(points).toContainText(/Points refunded to members\s*25/);
   await expect(page.getByText(/profit/i)).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Reports", exact: true }),
@@ -149,21 +148,12 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
     page.getByRole("heading", { name: "Reports", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Cash collected (VND)", { exact: true }).first(),
-  ).toBeVisible();
-  const refundedPoints = page
-    .locator(".stat")
-    .filter({ has: page.getByText("Points refunded to members", { exact: true }) });
-  const outstandingPoints = page.locator(".stat").filter({
-    has: page.getByText("Current outstanding points (available + held)", {
-      exact: true,
-    }),
-  });
-  await expect(refundedPoints.locator(".stat__value")).toContainText("25");
-  await expect(outstandingPoints.locator(".stat__value")).toContainText("525");
-  await expect(refundedPoints.locator(".stat__value")).not.toContainText("₫");
-  await expect(outstandingPoints.locator(".stat__value")).not.toContainText(
-    "₫",
+    page.getByRole("region", { name: "Cash flow for selected dates" }),
+  ).toContainText(/Net revenue \(VND\)\s*100,000/);
+  const points = page.getByRole("region", { name: "Points", exact: true });
+  await expect(points).toContainText(/Points refunded to members\s*25/);
+  await expect(points).toContainText(
+    /Current outstanding points \(available \+ held\)\s*525/,
   );
 });
 

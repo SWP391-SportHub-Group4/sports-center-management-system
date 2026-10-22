@@ -256,6 +256,17 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             if (session.CoachId != coachId) throw new ForbiddenException("session_not_assigned", "You are not assigned to this session.");
             if (session.Status == ClassSessionStatus.Cancelled) throw new ConflictException("session_cancelled", "Session is cancelled.");
             if (kind == "RESULT" && clock.UtcNow < session.StartAtUtc) throw new ConflictException("result_not_open", "Results can be recorded after the session starts.");
+            // Attendance writes hold this same session lock, so an Absent correction cannot
+            // race the Present check and leave a result attached to an absent student.
+            if (kind == "RESULT" && !await (
+                from attendance in db.Set<Attendance>()
+                join enrollment in db.Set<Enrollment>() on attendance.EnrollmentId equals enrollment.EnrollmentId
+                where attendance.SessionId == session.SessionId && attendance.Status == AttendanceStatus.Present
+                    && enrollment.ClassId == classId && enrollment.MemberId == request.MemberId
+                    && enrollment.Status == EnrollmentStatus.Confirmed && enrollment.EndedAt == null
+                select attendance.AttendanceId).AnyAsync(ct))
+                throw new ConflictException("result_attendance_required",
+                    "Mark the student Present for this session before recording or editing a result.");
             if (kind == "HOMEWORK" && clock.UtcNow < session.EndAtUtc)
                 throw new ConflictException("homework_not_open", "Homework can only be assigned after the session ends.");
             if (kind == "HOMEWORK") homeworkSessionNo = session.SessionNo;

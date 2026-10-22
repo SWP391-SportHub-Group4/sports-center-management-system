@@ -5,10 +5,11 @@ import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { AvatarImage } from "@/components/AvatarImage";
 import styles from "./avatar-editor.module.css";
+import { homepageImageSpecs } from "@/components/homepage/image-specs";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const PREVIEW = 240;
-const OUTPUT = 512;
+const OUTPUT = homepageImageSpecs.coach.width;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
 function drawCrop(
@@ -16,6 +17,7 @@ function drawCrop(
   source: HTMLImageElement | null,
   zoom: number,
   offset: { x: number; y: number },
+  outputSize = PREVIEW,
 ) {
   const context = canvas?.getContext("2d");
   if (!context || !source) return;
@@ -33,8 +35,17 @@ function drawCrop(
     PREVIEW - height,
     Math.min(0, (PREVIEW - height) / 2 + offset.y),
   );
-  context.clearRect(0, 0, PREVIEW, PREVIEW);
-  context.drawImage(source, x, y, width, height);
+  const scale = outputSize / PREVIEW;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.clearRect(0, 0, outputSize, outputSize);
+  context.drawImage(
+    source,
+    x * scale,
+    y * scale,
+    width * scale,
+    height * scale,
+  );
 }
 
 export function AvatarEditor({
@@ -89,11 +100,22 @@ export function AvatarEditor({
     setSuccess("");
     try {
       const output = document.createElement("canvas");
-      output.width = OUTPUT;
-      output.height = OUTPUT;
-      output.getContext("2d")!.drawImage(canvas.current, 0, 0, OUTPUT, OUTPUT);
+      const resolution = Math.max(
+        1,
+        Math.min(
+          OUTPUT,
+          Math.floor(
+            Math.min(image.current.naturalWidth, image.current.naturalHeight) /
+              zoom,
+          ),
+        ),
+      );
+      output.width = resolution;
+      output.height = resolution;
+      // Render from original pixels, never upscale the 240px editor preview.
+      drawCrop(output, image.current, zoom, offset, resolution);
       const blob = await new Promise<Blob | null>((resolve) =>
-        output.toBlob(resolve, "image/jpeg", 0.9),
+        output.toBlob(resolve, "image/jpeg", 0.95),
       );
       if (!blob)
         throw new Error(

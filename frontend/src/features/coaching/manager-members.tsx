@@ -18,6 +18,8 @@ import { InvoiceList } from "@/features/payments";
 import type { MemberPackageDto, Paged, UserAdminDto } from "@/lib/types";
 import { trainingStyles as styles } from "@/features/training";
 import { AvatarImage } from "@/components/AvatarImage";
+import { PersonProfileHeader } from "@/components/PersonProfileHeader";
+import profileStyles from "@/components/PersonProfile.module.css";
 import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
 import { RegisterMemberDialog } from "@/features/receptionist";
 
@@ -178,102 +180,107 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
     [memberId, page],
   );
   return (
-    <div className={styles.page}>
-      <Link className="btn btn--ghost" href="/manager/members">
+    <div className={profileStyles.page}>
+      <Link className="btn btn--ghost" href="/manager/people?role=Member">
         {t.managerOperations.backToList}
       </Link>
       <AsyncSection state={member}>
         {(m) => (
-          <section className={styles.summary}>
-            <div>
-              <AvatarImage
-                name={m.fullName || m.email}
-                avatarUrl={m.avatarUrl}
-                size={64}
-              />
-              <h2>{m.fullName || m.email}</h2>
+          <PersonProfileHeader
+            name={m.fullName || m.email}
+            avatarUrl={m.avatarUrl}
+            contact={
               <p>
                 {m.email}
                 {m.phone ? ` · ${m.phone}` : ""}
               </p>
-              {m.avatarUrl && (
+            }
+            actions={
+              m.avatarUrl && (
                 <RemoveMemberAvatarButton
                   memberId={m.userId}
                   memberName={m.fullName || m.email}
                   onRemoved={member.reload}
                 />
-              )}
-            </div>
-            <StatusChip
-              value={m.activationPending ? "PENDING_ACTIVATION" : m.status}
-            />
-          </section>
+              )
+            }
+            status={
+              <StatusChip
+                value={m.activationPending ? "PENDING_ACTIVATION" : m.status}
+              />
+            }
+          />
         )}
       </AsyncSection>
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        ariaLabel="Member details"
-        tabs={[
-          { id: "packages", label: "Memberships" },
-          { id: "classes", label: "Classes" },
-          { id: "invoices", label: "Payment history" },
-        ]}
-      >
-        <div className={styles.tabBody}>
-          {tab === "packages" && (
-            <AsyncSection state={packages}>
-              {(rows) =>
-                rows.length ? (
-                  <Table headers={["Membership", "Start", "End", "Status"]}>
-                    {rows.map((p) => (
-                      <tr key={p.memberPackageId}>
-                        <td>{p.packageName}</td>
-                        <td>{formatDate(p.startDate)}</td>
-                        <td>{formatDate(p.endDate)}</td>
-                        <td>
-                          <StatusChip value={p.status} />
-                        </td>
-                      </tr>
-                    ))}
-                  </Table>
-                ) : (
-                  <p>No memberships yet.</p>
-                )
-              }
-            </AsyncSection>
-          )}
-          {tab === "classes" && (
-            <AsyncSection state={enrollments}>
-              {(data) => (
-                <>
-                  <Table headers={["Class", "Sport", "Status"]}>
-                    {data.items.map((e) => (
-                      <tr key={e.enrollmentId}>
-                        <td>
-                          <Link href={`/manager/classes/${e.classId}`}>
-                            {e.className}
-                          </Link>
-                        </td>
-                        <td>{e.sportName}</td>
-                        <td>
-                          <StatusChip value={e.status} />
-                        </td>
-                      </tr>
-                    ))}
-                  </Table>
-                  <Pagination
-                    page={page}
-                    count={data.totalCount}
-                    onChange={setPage}
-                  />
-                </>
-              )}
-            </AsyncSection>
-          )}
-          {tab === "invoices" && <InvoiceList staff memberId={memberId} />}
-        </div>
-      </Tabs>
+      <div className={profileStyles.tabs}>
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          ariaLabel="Member details"
+          tabs={[
+            { id: "packages", label: "Memberships" },
+            { id: "classes", label: "Classes" },
+            { id: "invoices", label: "Payment history" },
+          ]}
+        >
+          <div
+            className={profileStyles.tabBody}
+            data-surface={tab !== "invoices"}
+          >
+            {tab === "packages" && (
+              <AsyncSection state={packages}>
+                {(rows) =>
+                  rows.length ? (
+                    <Table headers={["Membership", "Start", "End", "Status"]}>
+                      {rows.map((p) => (
+                        <tr key={p.memberPackageId}>
+                          <td>{p.packageName}</td>
+                          <td>{formatDate(p.startDate)}</td>
+                          <td>{formatDate(p.endDate)}</td>
+                          <td>
+                            <StatusChip value={p.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </Table>
+                  ) : (
+                    <p className={profileStyles.empty}>No memberships yet.</p>
+                  )
+                }
+              </AsyncSection>
+            )}
+            {tab === "classes" && (
+              <AsyncSection state={enrollments}>
+                {(data) => (
+                  <>
+                    <Table headers={["Class", "Sport", "Status"]}>
+                      {data.items.map((e) => (
+                        <tr key={e.enrollmentId}>
+                          <td>
+                            <Link href={`/manager/classes/${e.classId}`}>
+                              {e.className}
+                            </Link>
+                          </td>
+                          <td>{e.sportName}</td>
+                          <td>
+                            <StatusChip value={e.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </Table>
+                    <Pagination
+                      page={page}
+                      count={data.totalCount}
+                      onChange={setPage}
+                    />
+                  </>
+                )}
+              </AsyncSection>
+            )}
+            {tab === "invoices" && <InvoiceList staff memberId={memberId} />}
+          </div>
+        </Tabs>
+      </div>
     </div>
   );
 }

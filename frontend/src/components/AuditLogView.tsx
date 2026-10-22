@@ -8,22 +8,28 @@ import {
   type TableColumn,
 } from "@/components/data";
 import type { SortDirection } from "@/components/contracts/table";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { useApi, type AsyncState } from "@/lib/useApi";
 import { AuditActionPicker } from "./AuditActionPicker";
 import { choiceQuery, pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
 import type { AuditLogDto, Paged, RoomTypeDto } from "@/lib/types";
 import { AuditEventDetails } from "@/features/administration/AuditEventDetails";
-import { auditRecordType } from "@/features/administration/audit-event-model";
+import {
+  auditRecordType,
+  readableAuditLabel,
+} from "@/features/administration/audit-event-model";
 import { auditDisplayText } from "@/features/administration/audit-display";
 import { needsCourtRateRoomNames } from "@/features/administration/CourtRateAuditChanges";
+import { auditActionLabel } from "@/features/administration/audit-action-label";
 import styles from "./AuditLogView.module.css";
 
 const auditQueryDefaults = {
   action: "",
   targetEntity: "",
+  targetId: "",
+  dateFrom: "",
+  dateTo: "",
   actorId: "",
   actor: "",
   actorRole: "",
@@ -42,10 +48,95 @@ const auditQueryValidators = {
 type AuditFilters = {
   action: string;
   targetEntity: string;
+  targetId: string;
+  dateFrom: string;
+  dateTo: string;
   actorId: string;
   actor: string;
   actorRole: string;
 };
+
+const vietnamTimeZone = "Asia/Ho_Chi_Minh";
+
+// TargetEntity values emitted by backend AuditEntry writers. Merge localized
+// historical types below so a readable select never hides a valid audit filter.
+const auditTargetEntities = [
+  "Attendance",
+  "AvatarReport",
+  "Class",
+  "ClassSession",
+  "ClassSessionChangeRequest",
+  "ClassTeachingRecord",
+  "CoachMemberRelationship",
+  "CourtRate",
+  "GymCheckIn",
+  "IncidentFence",
+  "IncidentNotice",
+  "Invoice",
+  "LandingPageContent",
+  "MemberPackage",
+  "MemberSupportRequest",
+  "MembershipPackage",
+  "Notification",
+  "PaymentAdjustment",
+  "PointCreditRequest",
+  "PointWallet",
+  "ReportExport",
+  "Room",
+  "RoomBlock",
+  "RoomType",
+  "Sport",
+  "SportServiceOffering",
+  "SystemSetting",
+  "ThresholdResponse",
+  "UserAccount",
+  "UserProfile",
+] as const;
+
+function validDay(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const instant = new Date(`${value}T00:00:00Z`);
+  return (
+    Number.isFinite(instant.getTime()) &&
+    instant.toISOString().slice(0, 10) === value &&
+    value >= "0001-01-01" &&
+    value < "9999-12-31"
+  );
+}
+
+function dateRangeError(from: string, to: string): string | null {
+  if ((from && !validDay(from)) || (to && !validDay(to)))
+    return "Enter valid dates in the From and To fields.";
+  if (from && to && from > to)
+    return "The end date must be on or after the start date.";
+  return null;
+}
+
+function shiftDay(day: string, offset: number): string {
+  const instant = new Date(`${day}T00:00:00Z`);
+  instant.setUTCDate(instant.getUTCDate() + offset);
+  return instant.toISOString().slice(0, 10);
+}
+
+function vietnamToday(): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: vietnamTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function auditDateTime(value: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: vietnamTimeZone,
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 function AuditFilterForm({
   values,
@@ -64,8 +155,47 @@ function AuditFilterForm({
   const l = t.staffWork;
   const [draft, setDraft] = useState<Record<string, string>>(values);
   const [invalidAction, setInvalidAction] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(
+    dateRangeError(values.dateFrom, values.dateTo),
+  );
   const actionErrorId = useId();
+  const rangeErrorId = useId();
+  const today = vietnamToday();
+  const presets = [
+    { label: "All time", from: "", to: "" },
+    { label: "Today", from: today, to: today },
+    { label: "Last 7 days", from: shiftDay(today, -6), to: today },
+    { label: "This month", from: `${today.slice(0, 7)}-01`, to: today },
+  ];
+  const selectedPeriod = presets.findIndex(
+    (preset) => preset.from === draft.dateFrom && preset.to === draft.dateTo,
+  );
+  const advancedCount = [
+    values.action,
+    values.targetEntity,
+    values.targetId,
+    values.actorRole,
+    values.actorId,
+  ].filter(Boolean).length;
+  const entityLabels: Record<string, string> = t.managerAudit.entities;
+  const entities: { value: string; label: string }[] = [
+    ...new Set([...auditTargetEntities, ...Object.keys(entityLabels)]),
+  ].map((value) => ({
+    value,
+    label: entityLabels[value] ?? readableAuditLabel(value),
+  }));
+  if (
+    draft.targetEntity &&
+    !entities.some((entity) => entity.value === draft.targetEntity)
+  ) {
+    entities.push({
+      value: draft.targetEntity,
+      label: readableAuditLabel(draft.targetEntity),
+    });
+  }
   const fields: FilterField[] = [
+    { id: "date", label: "Event dates · Vietnam (UTC+7)", kind: "dateRange" },
     {
       id: "action",
       label: l.action,
@@ -74,11 +204,26 @@ function AuditFilterForm({
         <AuditActionPicker
           {...props}
           actions={actions}
+          humanReadable={administrator}
           errorId={invalidAction ? actionErrorId : undefined}
         />
       ),
     },
-    { id: "targetEntity", label: t.adminWork.target, kind: "search" },
+    {
+      id: "targetEntity",
+      label: "Record type",
+      kind: "select",
+      options: [
+        { value: "", label: "All record types" },
+        ...entities.sort((a, b) => a.label.localeCompare(b.label)),
+      ],
+    },
+    {
+      id: "targetId",
+      label: "Record ID",
+      kind: "search",
+      placeholder: "Optional exact ID",
+    },
     {
       id: "actorRole",
       label: "Role at event time",
@@ -111,41 +256,131 @@ function AuditFilterForm({
   ];
   return (
     <form
+      className={styles.filters}
+      aria-describedby={rangeError ? rangeErrorId : undefined}
       onSubmit={(event) => {
         event.preventDefault();
+        const error = dateRangeError(draft.dateFrom ?? "", draft.dateTo ?? "");
+        setRangeError(error);
+        if (error) {
+          setMoreOpen(true);
+          return;
+        }
         const actionText = (draft.action ?? "").trim();
         const available = Array.isArray(actions.data) ? actions.data : [];
+        const labelMatches = administrator
+          ? available.filter(
+              (value) =>
+                auditActionLabel(value).toLowerCase() ===
+                actionText.toLowerCase(),
+            )
+          : [];
         const action = actionText
           ? (available.find((value) => value === actionText) ??
             available.find(
               (value) => value.toLowerCase() === actionText.toLowerCase(),
-            ))
+            ) ??
+            (labelMatches.length === 1 ? labelMatches[0] : undefined))
           : "";
         if (action === undefined) {
           setInvalidAction(true);
+          setMoreOpen(true);
           return;
         }
         setInvalidAction(false);
         onApply({
           action,
           targetEntity: (draft.targetEntity ?? "").trim(),
+          targetId: (draft.targetId ?? "").trim(),
+          dateFrom: draft.dateFrom ?? "",
+          dateTo: draft.dateTo ?? "",
           actorRole: draft.actorRole ?? "",
           actorId: draft.actor !== values.actor ? "" : values.actorId,
           actor: (draft.actor ?? "").trim(),
         });
       }}
     >
+      {!administrator && (
+        <div
+          className={styles.datePresets}
+          role="group"
+          aria-label="Date presets"
+        >
+          {presets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              className={`btn btn--secondary btn--sm ${styles.preset}`}
+              aria-pressed={
+                draft.dateFrom === preset.from && draft.dateTo === preset.to
+              }
+              onClick={() => {
+                setDraft((current) => ({
+                  ...current,
+                  dateFrom: preset.from,
+                  dateTo: preset.to,
+                }));
+                setRangeError(null);
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      )}
       <FilterBar
-        fields={fields}
+        fields={
+          administrator
+            ? [
+                fields.find((field) => field.id === "actor")!,
+                {
+                  id: "period",
+                  label: "Period",
+                  kind: "select" as const,
+                  render: ({ id }: { id: string }) => (
+                    <select
+                      id={id}
+                      value={
+                        selectedPeriod < 0 ? "custom" : String(selectedPeriod)
+                      }
+                      onChange={(event) => {
+                        if (event.target.value === "custom") {
+                          setMoreOpen(true);
+                          return;
+                        }
+                        const preset = presets[Number(event.target.value)];
+                        setDraft((current) => ({
+                          ...current,
+                          dateFrom: preset.from,
+                          dateTo: preset.to,
+                        }));
+                        setRangeError(null);
+                      }}
+                    >
+                      {presets.map((preset, index) => (
+                        <option key={preset.label} value={String(index)}>
+                          {preset.label}
+                        </option>
+                      ))}
+                      <option value="custom">Custom dates…</option>
+                    </select>
+                  ),
+                },
+              ]
+            : fields
+        }
         values={draft}
         onChange={(next) => {
           setDraft(next);
           setInvalidAction(false);
+          setRangeError(null);
         }}
         activeCount={
           [
             values.action,
             values.targetEntity,
+            values.targetId,
+            values.dateFrom || values.dateTo,
             values.actorRole,
             values.actorId,
             values.actor,
@@ -155,11 +390,16 @@ function AuditFilterForm({
           setDraft({
             action: "",
             targetEntity: "",
+            targetId: "",
+            dateFrom: "",
+            dateTo: "",
             actorId: "",
             actor: "",
             actorRole: "",
           });
           setInvalidAction(false);
+          setRangeError(null);
+          setMoreOpen(false);
           onReset();
         }}
         actions={
@@ -168,6 +408,40 @@ function AuditFilterForm({
           </button>
         }
       />
+      {administrator && (
+        <details
+          className={styles.advancedFilters}
+          open={moreOpen}
+          onToggle={(event) => setMoreOpen(event.currentTarget.open)}
+        >
+          <summary>
+            More filters
+            {advancedCount > 0 && <span> ({advancedCount} applied)</span>}
+          </summary>
+          <div className={styles.advancedBody}>
+            <FilterBar
+              fields={fields.filter((field) => field.id !== "actor")}
+              values={draft}
+              onChange={(next) => {
+                setDraft(next);
+                setInvalidAction(false);
+                setRangeError(null);
+              }}
+            />
+          </div>
+        </details>
+      )}
+      {!administrator && (
+        <p className={styles.dateHint}>
+          Dates include the entire selected day in Vietnam time (UTC+7). Choose
+          a preset or custom dates, then select Apply.
+        </p>
+      )}
+      {rangeError && (
+        <p id={rangeErrorId} className="field-error" role="alert">
+          {rangeError}
+        </p>
+      )}
       {invalidAction && (
         <p id={actionErrorId} className="field-error" role="alert">
           {t.filterBar.selectAction}
@@ -193,6 +467,9 @@ export function AuditLogView({
   const filters = {
     action: query.values.action,
     targetEntity: query.values.targetEntity,
+    targetId: query.values.targetId,
+    dateFrom: query.values.dateFrom,
+    dateTo: query.values.dateTo,
     actorRole: query.values.actorRole,
     actorId: query.values.actorId,
     actor: query.values.actor,
@@ -202,25 +479,41 @@ export function AuditLogView({
     [administrator],
   );
   const state = useApi(
-    (signal) =>
-      api.get<Paged<AuditLogDto>>("/api/audit-logs", {
+    async (signal) => {
+      const error = dateRangeError(filters.dateFrom, filters.dateTo);
+      if (error) throw new ApiError(400, "invalid_date_range", error);
+      return api.get<Paged<AuditLogDto>>("/api/audit-logs", {
         signal,
         query: {
           page,
           pageSize: 25,
           action: filters.action || undefined,
           targetEntity: filters.targetEntity || undefined,
+          targetId: filters.targetId || undefined,
+          fromUtc: filters.dateFrom
+            ? new Date(`${filters.dateFrom}T00:00:00+07:00`).toISOString()
+            : undefined,
+          // API upper bound is exclusive: include the whole selected final day.
+          toUtc: filters.dateTo
+            ? new Date(
+                `${shiftDay(filters.dateTo, 1)}T00:00:00+07:00`,
+              ).toISOString()
+            : undefined,
           actorRole: filters.actorRole || undefined,
           actorId: filters.actorId || undefined,
           actor: filters.actor || undefined,
           sortBy: sort.columnId,
           sortDirection: sort.direction,
         },
-      }),
+      });
+    },
     [
       page,
       filters.action,
       filters.targetEntity,
+      filters.targetId,
+      filters.dateFrom,
+      filters.dateTo,
       filters.actorId,
       filters.actor,
       filters.actorRole,
@@ -241,9 +534,9 @@ export function AuditLogView({
   const columns: TableColumn<AuditLogDto>[] = [
     {
       id: "timestamp",
-      header: l.time,
+      header: "Time (UTC+7)",
       sortable: true,
-      cell: (row) => formatDateTime(row.timestamp),
+      cell: (row) => auditDateTime(row.timestamp),
     },
     {
       id: "actorEmail",
@@ -298,7 +591,13 @@ export function AuditLogView({
       id: "action",
       header: l.action,
       sortable: true,
-      cell: (row) => <span className={styles.actionCode}>{row.action}</span>,
+      cell: (row) => (
+        <span className={styles.actionCode}>
+          {administrator
+            ? auditActionLabel(row.action, row.newValue)
+            : row.action}
+        </span>
+      ),
     },
     {
       id: "targetEntity",
@@ -318,6 +617,9 @@ export function AuditLogView({
     query.setValues({
       action: "",
       targetEntity: "",
+      targetId: "",
+      dateFrom: "",
+      dateTo: "",
       actorId: "",
       actor: "",
       actorRole: "",

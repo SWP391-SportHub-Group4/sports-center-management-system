@@ -104,7 +104,7 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
 
       price: 100000,
 
-      costAmount: 0,
+      costAmount: 100000,
 
       scheduleRules: [
         {
@@ -220,7 +220,7 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
 
   await page.goto(`/manager/classes/${course.classId}?tab=management`);
   await expect(
-    page.getByText(en.classWorkspace.enrolledCancellationBlocked, {
+    page.getByText(en.classWorkspace.cancellationThresholdMet, {
       exact: true,
     }),
   ).toBeVisible();
@@ -344,7 +344,7 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
 
   await page.goto(`/manager/classes/${course.classId}?tab=management`);
   await expect(
-    page.getByText(en.classWorkspace.enrolledCancellationBlocked, {
+    page.getByText(en.classWorkspace.cancellationThresholdMet, {
       exact: true,
     }),
   ).toBeVisible();

@@ -3,6 +3,7 @@
 import { CoachAiAssistant } from "@/features/coach/coach-ai-assistant";
 
 import Link from "next/link";
+import { CalendarDays, History } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -564,6 +565,36 @@ export function AppFrame({
                     </Link>
                   )}
                   {user.role === "CenterManager" && (
+                    <>
+                      <Link
+                        href="/manager/schedule"
+                        className={`${shell.dropdownItem} ${styles.profileItem}`}
+                        aria-current={
+                          isActiveHref(pathname, "/manager/schedule", root)
+                            ? "page"
+                            : undefined
+                        }
+                        onClick={() => setUserMenu(false)}
+                      >
+                        <CalendarDays size={15} aria-hidden="true" />
+                        <span>{t.navigation.items.activitySchedule}</span>
+                      </Link>
+                      <Link
+                        href="/manager/audit-log"
+                        className={`${shell.dropdownItem} ${styles.profileItem}`}
+                        aria-current={
+                          isActiveHref(pathname, "/manager/audit-log", root)
+                            ? "page"
+                            : undefined
+                        }
+                        onClick={() => setUserMenu(false)}
+                      >
+                        <History size={15} aria-hidden="true" />
+                        <span>{t.navigation.items.auditLog}</span>
+                      </Link>
+                    </>
+                  )}
+                  {user.role === "CenterManager" && (
                     <Link
                       href="/manager/settings"
                       className={`${shell.dropdownItem} ${styles.profileItem}`}
@@ -689,7 +720,8 @@ export function AppFrame({
 
       <main id="main-content" className={styles.main} tabIndex={-1}>
         <FrameContext.Provider value={true}>{children}</FrameContext.Provider>
-      </main>
+      </main>
+
       {showShortcuts && user.role === "Receptionist" && (
         <div
           className="shortcut-modal__backdrop"

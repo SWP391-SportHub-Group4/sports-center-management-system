@@ -100,3 +100,20 @@
     min-height: var(--control-height-lg);
   }
 }
+
+.wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.wrapper > details {
+  flex: 1;
+  min-width: 0;
+}
+.outerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

@@ -81,7 +81,11 @@ export function notificationPresentation(item: NotificationDto): {
   let category: NotificationCategory = "notice";
   let label = "Center update";
   let title = "An update from SportHub";
-  if (source === "AVATAR_REPORTED") {
+  if (source === "COACH_ATTENDANCE_REMINDER") {
+    category = "schedule";
+    label = "Attendance";
+    title = "Complete your session attendance";
+  } else if (source === "AVATAR_REPORTED") {
     label = "Profile photo";
     title = "A profile photo needs review";
   } else if (source === "COACH_COVERAGE_REQUIRED") {
@@ -159,6 +163,8 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "COACH_ATTENDANCE_REMINDER":
+      return "Complete attendance";
     case "AVATAR_REPORTED":
       return "Review avatar report";
     case "COACH_COVERAGE_REQUIRED":
@@ -174,9 +180,13 @@ export function notificationActionLabel(
     case "INVOICE_CREATED":
       return vi ? "Xem và thanh toán hóa đơn" : "View and pay invoice";
     case "CLASS_THRESHOLD_AT_RISK":
-      return vi
-        ? "Chọn chuyển lớp hoặc hoàn điểm"
-        : "Choose transfer or refund";
+      return item.actionUrl?.startsWith("/manager/")
+        ? "Review class"
+        : "Review class decision";
+    case "CLASS_CANCELLED":
+      return item.actionUrl?.includes("responseId=")
+        ? "Choose refund or wait"
+        : "View class";
     case "SCHEDULE_CHANGED":
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":
