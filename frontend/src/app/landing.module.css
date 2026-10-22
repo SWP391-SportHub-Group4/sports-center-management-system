@@ -14,7 +14,20 @@
   color: var(--text-strong);
   font-family: var(--font-display);
   font-weight: 600;
-  text-wrap: balance;
+  text-wrap: wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.page main h1,
+.page main h2,
+.page main h3 {
+  text-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+.page p {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: pre-line;
 }
 
 .page a {

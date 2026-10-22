@@ -2,6 +2,9 @@
 
 ## Landing page content
 
+- Media supports inline plain-text editing of titles and content by double-click (Enter/F2 also opens editing). Enter finishes, Shift+Enter inserts an intentional newline, Escape restores the prior value; blank edits revert. Catalog sport names and linked Coach profile details remain read-only. Draft text participates in Preview, Save changes, Cancel and revision conflict protection.
+- `brand.logo.image` is the only supported brand field in `values`. Media's **Change logo** uploads JPG/PNG/WebP using the existing image API with `preset=logo`; this preset preserves the original aspect ratio and transparent pixels without a crop/JPEG conversion. It keeps the existing type/signature/size checks, storage limits and audit. The public homepage header and its draft preview display the published/draft logo respectively; the Manager navbar stays unchanged. Restore original removes the custom logo in the draft.
+
 - `GET /api/landing-page`: public, no-store; returns `{ revision, values, updatedAt }`. With no published row, returns an empty GUID revision, empty overrides and null timestamp; the homepage keeps its existing editorial defaults.
 - `PUT /api/landing-page`: CenterManager only. Sends the revision read by the editor and the complete `values` dictionary. Supported section prefixes: `hero`, `bookmarks`, `gallery`, `arena`, `booking`, `faq`. Text is plain text, 1–2,000 characters per field, maximum 300 fields and 256 KB request. Image fields accept HTTPS URLs or local `/sporthub/` assets. No HTML, routes, account counts or operational prices are edited through this API.
 - Saving publishes immediately. A transaction-scoped lock serializes first creation and updates; a stale revision returns `409 landing_content_changed` without overwriting published content. `UPDATE_LANDING_PAGE` is audited in the same transaction.
@@ -842,8 +845,12 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 | Verb | Route | Hợp đồng / authority |
 |---|---|---|
 | GET | `/api/member-support-requests/queue?status&search&assignedToUserId&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/CLOSED. Search tối đa 200 ký tự trong subject/description/tên/email Member, không phân biệt hoa thường. Response đọc thêm memberName/memberEmail/assignedToName hiện tại. |
-| GET | `/api/member-support-requests/assignees` | FrontDesk; Receptionist/CenterManager đang Active. |
+| GET | `/api/member-support-requests/assignees` | FrontDesk; Receptionist/CenterManager đang Active. Chỉ người gọi CenterManager được nhận thêm SystemAdministrator đang Active trong danh sách. |
 | POST | `/api/member-support-requests/{id}/assign`, `/progress`, `/close` | FrontDesk; khóa dòng `FOR UPDATE`, ghi audit. Progress/close yêu cầu đã phân công. CLOSED chặn assign/progress với 409 `support_request_closed`; close lặp trả 200 kết quả cũ, không đổi kết quả/audit. Mọi nhân viên FrontDesk đều thao tác được, không giới hạn theo người được giao (FR-22). |
+
+Assign cho SystemAdministrator chỉ cho phép người gọi CenterManager; Receptionist bị từ chối 403 `support_admin_assignment_forbidden`, không thay đổi yêu cầu hoặc ghi audit phân công. Các role ngoài FrontDesk vẫn bị chặn bởi policy. Người nhận phải đang Active.
+
+Khi Manager phân công cho admin, giao dịch lưu thêm thông báo InApp `SUPPORT_REQUEST_ASSIGNED` cho đúng admin đó, gồm tên Manager/Member, tiêu đề, loại và nội dung yêu cầu. Admin đọc qua chuông và `/notifications`; chỉ chủ thông báo được xem/đánh dấu đã đọc. Gán lặp cùng người nhận không tạo thêm thông báo/audit và không đưa tiến độ về ASSIGNED. Chuyển đi rồi gán lại là lần phân công mới. Thông báo không mở quyền xử lý support request cho admin và không gửi email.
 | GET | `/api/users`, `/api/users/{userId}` | Receptionist luôn bị ép `role=Member`; xem chi tiết tài khoản khác Member trả 404. |
 | GET | `/api/front-desk/payment-reconciliation?memberId&page&pageSize` | FrontDesk; gồm thanh toán đã xác minh chưa cấp dịch vụ và giao dịch chờ xác minh, kể cả sau khi hold hết hạn. |
 | POST | `/api/front-desk/payment-reconciliation/{invoiceId}/retry` | FrontDesk; thử cấp lại dịch vụ hoặc xác minh với cổng; ghi audit `FRONT_DESK_PAYMENT_RECONCILIATION_RETRY`. |

@@ -90,6 +90,13 @@
   line-height: 1;
   text-transform: uppercase;
 }
+.customLogo {
+  display: block;
+  height: 44px;
+  width: auto;
+  max-width: min(180px, 38vw);
+  object-fit: contain;
+}
 
 .logoAccent {
   color: var(--color-primary);

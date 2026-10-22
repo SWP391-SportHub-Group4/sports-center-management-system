@@ -8,12 +8,18 @@ import { CourtIcon } from "@/components/brand/CourtIcon";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import styles from "./public-header.module.css";
+import HomepageImage from "@/components/homepage/HomepageImage";
+import {
+  useLandingValues,
+  validLandingImage,
+} from "@/components/homepage/landing-content-context";
 
 function navigationSection(id: string) {
   return ["coaches", "facilities", "membership"].includes(id) ? "sporthub" : id;
 }
 
 export function PublicHeader() {
+  const logo = useLandingValues()["brand.logo.image"];
   const [menuOpen, setMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
@@ -220,12 +226,24 @@ export function PublicHeader() {
         aria-label={copy.home}
         onClick={closeMenu}
       >
-        <span className={styles.logoMark} aria-hidden="true">
-          <CourtIcon name="gym" size={19} />
-        </span>
-        <span className={styles.logoWord}>
-          Sport<span className={styles.logoAccent}>Hub</span>
-        </span>
+        {logo && validLandingImage(logo) ? (
+          <HomepageImage
+            src={logo}
+            alt="SportHub"
+            width={180}
+            height={48}
+            className={styles.customLogo}
+          />
+        ) : (
+          <>
+            <span className={styles.logoMark} aria-hidden="true">
+              <CourtIcon name="gym" size={19} />
+            </span>
+            <span className={styles.logoWord}>
+              Sport<span className={styles.logoAccent}>Hub</span>
+            </span>
+          </>
+        )}
       </Link>
 
       <button

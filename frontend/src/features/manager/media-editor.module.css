@@ -131,7 +131,79 @@
   line-height: 1.08;
   letter-spacing: -0.025em;
   white-space: pre-line;
-  text-wrap: balance;
+  text-wrap: wrap;
+}
+.landing h2,
+.landing h3,
+.landing p,
+.editableText {
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.editableText {
+  cursor: text;
+  border-radius: var(--radius-sm);
+  outline: 1px solid transparent;
+  outline-offset: 4px;
+  transition: outline-color var(--duration-fast) var(--ease-out);
+}
+.editableText:hover,
+.editableText:focus-visible,
+.editableText[data-editing] {
+  outline-color: var(--color-primary);
+}
+.hero .editableText:hover,
+.hero .editableText:focus-visible,
+.hero .editableText[data-editing] {
+  outline-color: var(--color-accent);
+}
+.landing .inlineTextInput {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 1lh;
+  max-height: 60dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  caret-color: currentColor;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
+}
+.logoEditor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: var(--space-4);
+}
+.logoEditor :global(.btn) {
+  margin: 0;
+}
+.logoImage {
+  width: auto;
+  height: 56px;
+  max-width: 180px;
+  object-fit: contain;
+}
+.previewHeader {
+  flex-wrap: wrap;
+}
+.previewHeader > span {
+  max-width: 54ch;
 }
 .landing h3 {
   font-size: var(--text-lg);

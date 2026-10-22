@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
@@ -62,7 +63,8 @@ public sealed class FinishSupportRequest
 public sealed class MemberSupportRequestsController(
     ISportHubDbContext db,
     IClock clock,
-    IAuditWriter audit) : ControllerBase
+    IAuditWriter audit,
+    INotificationWriter notifications) : ControllerBase
 {
     private static MemberSupportRequestResponse Map(MemberSupportRequest x) => new(
         x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
@@ -270,27 +272,56 @@ public sealed class MemberSupportRequestsController(
 
     [HttpGet("assignees")]
     public async Task<IActionResult> Assignees(CancellationToken ct)
-        => Ok(await db.Set<UserAccount>().AsNoTracking()
+    {
+        var canAssignAdmin = User.IsInRole(nameof(UserRole.CenterManager));
+        return Ok(await db.Set<UserAccount>().AsNoTracking()
             .Where(x => x.Status == UserStatus.Active && x.Role != null
-                && (x.Role.RoleName == UserRole.Receptionist || x.Role.RoleName == UserRole.CenterManager))
+                && (x.Role.RoleName == UserRole.Receptionist || x.Role.RoleName == UserRole.CenterManager
+                    || (canAssignAdmin && x.Role.RoleName == UserRole.SystemAdministrator)))
             .OrderBy(x => x.Email)
             .Select(x => new { x.UserId, Name = x.Profile != null ? x.Profile.FullName : x.Email,
                 x.Email, Role = x.Role!.RoleName }).ToListAsync(ct));
+    }
 
     [HttpPost("{requestId:guid}/assign")]
     public async Task<IActionResult> Assign(Guid requestId, [FromBody] AssignSupportRequest body, CancellationToken ct)
     {
-        var assignee = await db.Set<UserAccount>().AsNoTracking().AnyAsync(x =>
-            x.UserId == body.AssigneeUserId && x.Status == UserStatus.Active && x.Role != null
-            && (x.Role.RoleName == UserRole.Receptionist || x.Role.RoleName == UserRole.CenterManager), ct);
-        if (!assignee) throw new BadRequestException("support_assignee_invalid", "Choose an active receptionist or manager.");
+        var assignee = await db.Set<UserAccount>().AsNoTracking()
+            .Where(x => x.UserId == body.AssigneeUserId && x.Status == UserStatus.Active && x.Role != null)
+            .Select(x => new { Role = x.Role!.RoleName }).SingleOrDefaultAsync(ct);
+        if (assignee?.Role == UserRole.SystemAdministrator
+            && !User.IsInRole(nameof(UserRole.CenterManager)))
+            return StatusCode(403, new { error = "support_admin_assignment_forbidden",
+                message = "Only a manager can assign requests to an administrator." });
+        if (assignee is null || (assignee.Role != UserRole.Receptionist
+            && assignee.Role != UserRole.CenterManager && assignee.Role != UserRole.SystemAdministrator))
+            throw new BadRequestException("support_assignee_invalid", "Choose an eligible active staff member.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
         if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
         var old = row.AssignedToUserId;
+        if (old == body.AssigneeUserId)
+        {
+            await tx.CommitAsync(ct);
+            return Ok(Map(row));
+        }
         row.AssignedToUserId = body.AssigneeUserId;
         row.Status = "ASSIGNED";
         row.UpdatedAt = clock.UtcNow;
+        if (assignee.Role == UserRole.SystemAdministrator)
+        {
+            var actorId = User.RequireUserId();
+            var names = await db.Set<UserAccount>().AsNoTracking()
+                .Where(x => x.UserId == actorId || x.UserId == row.MemberId)
+                .Select(x => new { x.UserId, Name = x.Profile != null ? x.Profile.FullName : x.Email })
+                .ToDictionaryAsync(x => x.UserId, x => x.Name, ct);
+            // The source identifies this assignment occurrence, allowing a later reassignment
+            // back to the same administrator without colliding with the notification unique index.
+            notifications.Queue(new NotificationRequest(body.AssigneeUserId, NotificationEvents.SupportRequestAssigned,
+                $"Manager {names.GetValueOrDefault(actorId)} assigned a member support request to you.\n"
+                + $"Subject: {row.Subject}\nMember: {names.GetValueOrDefault(row.MemberId)}\n"
+                + $"Category: {row.Category}\n{row.Description}", Guid.NewGuid()));
+        }
         audit.Write(new AuditEntry(User.RequireUserId(), "ASSIGN_SUPPORT_REQUEST", nameof(MemberSupportRequest),
             requestId.ToString(), OldValue: old is null ? null : JsonSerializer.Serialize(old),
             NewValue: JsonSerializer.Serialize(body.AssigneeUserId)));
