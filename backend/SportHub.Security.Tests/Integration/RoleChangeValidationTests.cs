@@ -246,7 +246,7 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
             .SingleAsync(x => x.TargetEntity == nameof(UserAccount)
                 && x.TargetId == coachId.ToString() && x.Action == "LOCK_USER_ACCOUNT");
         using var statusChange = JsonDocument.Parse(statusAudit.NewValue!);
-        var transitionId = statusChange.RootElement.GetProperty("transitionId").GetGuid();
+        var transitionId = statusChange.RootElement.GetProperty("value").GetProperty("transitionId").GetGuid();
         Assert.NotEqual(Guid.Empty, transitionId);
         Assert.True(await dbCheck.Notifications.AnyAsync(x => x.UserId == manager.UserId
             && x.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.CoachCoverageRequired

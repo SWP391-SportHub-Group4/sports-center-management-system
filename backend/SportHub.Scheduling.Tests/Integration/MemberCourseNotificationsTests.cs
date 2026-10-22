@@ -1,19 +1,12 @@
-using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Jobs;
-using SportHub.API.Persistence;
-using SportHub.BuildingBlocks.Abstractions.Wallet;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Notification.Domain.Enums;
-using SportHub.Payment.Application.Services;
-using SportHub.Payment.Wallet.Application;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
-using SportHub.Scheduling.Threshold.Application;
-using SportHub.Scheduling.Threshold.Domain;
 
 namespace SportHub.Scheduling.Tests.Integration;
 
@@ -54,4 +47,5 @@ public sealed class MemberCourseNotificationsTests(SchedulingApiFactory factory)
         using var scope = factory.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<MemberCourseNotificationService>().QueueDueAsync();
     }
+
 }
