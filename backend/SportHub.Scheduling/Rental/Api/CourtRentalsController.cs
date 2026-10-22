@@ -78,6 +78,14 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
     }
 
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    [HttpPost("api/court-rentals/{rentalId:guid}/check-in")]
+    public async Task<IActionResult> CheckIn(Guid rentalId, CancellationToken ct)
+    {
+        await rentals.CheckInAsync(rentalId, ct);
+        return NoContent();
+    }
+
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet("api/manager/court-schedule/rentals")]
     public async Task<IActionResult> StaffSchedule([FromQuery] int? roomId, [FromQuery] DateTime fromUtc,
         [FromQuery] DateTime toUtc, CancellationToken ct)

@@ -32,5 +32,6 @@ public enum NotificationSourceEventType
     ClassSessionReminder = 25,
     AvatarReported = 27,
     CoachAttendanceReminder = 28,
-    SupportRequestAssigned = 29
+    SupportRequestAssigned = 29,
+    SupportRequestReceived = 30
 }

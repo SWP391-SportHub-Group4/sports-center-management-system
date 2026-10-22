@@ -3,6 +3,10 @@
   gap: var(--space-5);
   max-width: 960px;
 }
+.staffMember {
+  margin: 0;
+  color: var(--text-body);
+}
 .card {
   display: grid;
   gap: var(--space-5);

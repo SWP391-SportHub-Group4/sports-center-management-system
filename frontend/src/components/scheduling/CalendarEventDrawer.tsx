@@ -144,7 +144,7 @@ export function CalendarEventDrawer({
       )}
       {manager &&
         entry.sourceType === "COURT_RENTAL" &&
-        entry.status === "CONFIRMED" &&
+        (entry.status === "CONFIRMED" || entry.status === "IN_USE") &&
         onChanged && (
           <ConfirmRecordAction
             label={t.recordActions.cancelRental}

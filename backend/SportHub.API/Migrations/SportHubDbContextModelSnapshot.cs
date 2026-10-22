@@ -216,7 +216,7 @@ namespace SportHub.API.Migrations
                             Key = "membership.expiry_notice_days",
                             Description = "BR-33 — Days before membership expiration to remind members.",
                             UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "7"
+                            Value = "10"
                         },
                         new
                         {
@@ -265,7 +265,7 @@ namespace SportHub.API.Migrations
                             Key = "rental.advance_days",
                             Description = "BR-128 — Maximum days to book a court in advance.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "30"
+                            Value = "3"
                         },
                         new
                         {
@@ -516,6 +516,90 @@ namespace SportHub.API.Migrations
                     b.ToTable("email_otps", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportAttachment", b =>
+                {
+                    b.Property<Guid>("AttachmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("attachment_id");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("content");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("file_name");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.HasKey("AttachmentId")
+                        .HasName("pk_member_support_attachments");
+
+                    b.HasIndex("RequestId")
+                        .HasDatabaseName("ix_member_support_attachments_request_id");
+
+                    b.ToTable("member_support_attachments", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportEvent", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<Guid?>("TargetUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_user_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.HasKey("EventId")
+                        .HasName("pk_member_support_events");
+
+                    b.HasIndex("RequestId", "CreatedAt")
+                        .HasDatabaseName("ix_member_support_events_request_id_created_at");
+
+                    b.ToTable("member_support_events", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>
                 {
                     b.Property<Guid>("RequestId")
@@ -532,6 +616,14 @@ namespace SportHub.API.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("category");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("COUNTER")
+                        .HasColumnName("channel");
 
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("timestamp with time zone")
@@ -857,6 +949,10 @@ namespace SportHub.API.Migrations
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date")
                         .HasColumnName("end_date");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
 
                     b.Property<Guid?>("InvoiceItemId")
                         .HasColumnType("uuid")
@@ -3962,6 +4058,26 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_coach_profiles_user_accounts_user_id");
 
                     b.Navigation("UserAccount");
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportAttachment", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportRequest", null)
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_attachments_member_support_requests_request_");
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportEvent", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportRequest", null)
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_events_member_support_requests_request_id");
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>

@@ -96,14 +96,14 @@ Manager đọc/cập nhật bằng `GET/PUT /api/system-settings/{key}`; backend
 
 | Key | Seed | Giá trị hợp lệ / ý nghĩa |
 |---|---:|---|
-| `membership.expiry_notice_days` | 7 ngày | 1–90 ngày trước hạn Membership |
+| `membership.expiry_notice_days` | 10 ngày | 1–90 ngày trước hạn Membership; nhắc qua hệ thống và email |
 | `class.threshold_days_before_start` | 3 ngày | 3–30 ngày trước buổi đầu để đánh giá ngưỡng |
 | `class.threshold_response_hours` | 48 giờ | 1–336 giờ; phải còn trọn cửa sổ phản hồi + 24 giờ để chốt trước lớp |
 | `hold.minutes` | 15 phút | **10–30 phút**; checkout mới của lớp, thuê sân, gói và chuyển lớp có chênh; không kéo dài checkout đã tạo |
 | `points.confirm_otp_minutes` | 5 phút | 1–15 phút, còn bị chặn bởi hạn hold |
 | `rental.slot_minutes` | 60 phút | Chỉ 30 hoặc 60 phút |
 | `rental.max_hours` | 4 giờ | 1–4 giờ |
-| `rental.advance_days` | 30 ngày | 1–30 ngày đặt trước |
+| `rental.advance_days` | 3 ngày | 1–30 ngày đặt trước; mặc định mở hôm nay + 3 ngày (4 ngày lịch) |
 | `rental.cancel_free_hours` | 24 giờ | 0–168 giờ trước lượt thuê để hủy miễn phí |
 
 `hold.minutes` là **trần cấu hình**, không bảo đảm mọi checkout kéo đủ thời gian đó: mốc bắt đầu lớp/sân hoặc deadline chuyển lớp có thể làm hạn thực tế sớm hơn. FE phải dùng `expiresAtUtc` BE trả về. Vé Gym ngày giá 50.000 VND, chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam và không hoàn. [Quy tắc thời hạn](00-Source-of-Truth.md).

@@ -20,7 +20,6 @@ import {
   formatDate,
   formatTime,
   formatMoney,
-  formatPoints,
   todayIso,
 } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
@@ -34,7 +33,11 @@ import type {
   Paged,
 } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "@/features/member/api";
-import { walletApi } from "@/features/wallet/api";
+import {
+  FitnessQuickCard,
+  RecommendedSection,
+  TrainingSummaryCard,
+} from "@/features/member/overview-widgets";
 import styles from "./dashboard.module.css";
 
 function sessionHref(session: MemberEvent) {
@@ -337,19 +340,7 @@ export default function MemberDashboardPage() {
   const { user } = useAuth();
   const now = useNow();
   const date = todayIso();
-  const monthStart = `${date.slice(0, 7)}-01`;
-  const monthDays =
-    Math.round(
-      (Date.parse(`${date}T00:00:00+07:00`) -
-        Date.parse(`${monthStart}T00:00:00+07:00`)) /
-        86_400_000,
-    ) + 1;
-  const wallet = useApi((signal) => walletApi.balance(signal), []);
   const schedule = useApi((signal) => memberSchedule(date, 30, signal), [date]);
-  const training = useApi(
-    (signal) => memberSchedule(monthStart, monthDays, signal),
-    [monthStart, monthDays],
-  );
   const packages = useApi(
     (signal) =>
       api.get<MemberPackageDto[]>("/api/members/me/packages", { signal }),
@@ -396,6 +387,13 @@ export default function MemberDashboardPage() {
       }),
     [],
   );
+  // Sports the member already trains, used to rank recommended classes.
+  const favoriteSports = [
+    ...(schedule.data ?? []).map((s) => s.sportName ?? ""),
+    ...(rentals.data ?? []).map(
+      (r) => sports.data?.find((x) => x.sportId === r.sportId)?.name ?? "",
+    ),
+  ].filter(Boolean);
   const dateLabel = new Intl.DateTimeFormat(
     language === "vi" ? "vi-VN" : "en-GB",
     { dateStyle: "full", timeZone: "Asia/Ho_Chi_Minh" },
@@ -436,211 +434,192 @@ export default function MemberDashboardPage() {
           </Link>
         </nav>
         <div className={styles.primaryGrid}>
-          <section
-            className={styles.schedule}
-            aria-labelledby="next-session-title"
-          >
-            <div className={styles.sectionHeading}>
-              <div>
-                <h2 id="next-session-title">{t.memberPages.schedule}</h2>
+          <div className={styles.main}>
+            <section
+              className={styles.schedule}
+              aria-labelledby="next-session-title"
+            >
+              <div className={styles.sectionHeading}>
+                <div>
+                  <h2 id="next-session-title">{t.memberPages.schedule}</h2>
+                </div>
+                <IconCalendar size={24} aria-hidden="true" />
               </div>
-              <IconCalendar size={24} aria-hidden="true" />
-            </div>
-            <AsyncSection state={schedule}>
-              {(classRows) => {
-                // Thuê sân xác nhận cũng là lịch của Member: gộp vào cùng dòng thời gian.
-                const rentalRows: MemberEvent[] = (rentals.data ?? [])
-                  .filter((r) => r.status === "CONFIRMED")
-                  .map((r) => ({
-                    id: r.courtRentalId,
-                    title: t.memberPages.courtRental,
-                    type: "COURT_RENTAL",
-                    startAtUtc: r.startAtUtc,
-                    endAtUtc: r.endAtUtc,
-                    roomName: null,
-                    status: null,
-                    sportName:
-                      sports.data?.find((s) => s.sportId === r.sportId)?.name ??
-                      null,
-                  }));
-                const rows = [...classRows, ...rentalRows].sort((a, b) =>
-                  a.startAtUtc.localeCompare(b.startAtUtc),
-                );
-                const todayRows = rows.filter(
-                  (s) => vietnamDate(s.startAtUtc) === date,
-                );
-                const todayGym = pagedItems(gymVisit.data).filter(
-                  (visit) => vietnamDate(visit.checkInTime) === date,
-                );
-                const upcoming = rows.filter(
-                  (s) =>
-                    new Date(s.startAtUtc).getTime() > now &&
-                    !["CANCELLED", "COMPLETED", "NO_SHOW"].includes(
-                      s.status ?? "",
-                    ),
-                );
-                const next = upcoming[0];
-                const countdown = next ? startsInLabel(next, now, l) : null;
-                return (
-                  <>
-                    {next ? (
-                      <>
-                        <h3 className={styles.nextHeading}>
-                          {t.memberPages.nextSession}
-                        </h3>
-                        <div
-                          className={styles.nextSession}
-                          data-surface="inverse"
-                          data-sport={sportTone(sportOf(next))}
-                        >
-                          <div className={styles.nextTop}>
-                            <span className={styles.activity}>
-                              {sportOf(next) ?? t.refactor.courses}
-                            </span>
-                            <KindTag session={next} />
-                            <CheckInTag session={next} now={now} />
-                            <ExceptionChip value={next.status} />
-                          </div>
-                          {countdown && (
-                            <p className={styles.startsIn}>{countdown}</p>
-                          )}
-                          <div className={styles.nextBody}>
-                            <DateTile value={next.startAtUtc} />
-                            <div className={styles.nextInfo}>
-                              <h3>{next.title}</h3>
-                              <p>
-                                <IconClock size={18} aria-hidden="true" />
-                                {formatTime(next.startAtUtc)} –{" "}
-                                {formatTime(next.endAtUtc)}
-                              </p>
-                              {(next.roomName ||
-                                next.type !== "COURT_RENTAL") && (
-                                <p>
-                                  <IconLocation size={18} aria-hidden="true" />
-                                  {next.roomName || l.notAssigned}
-                                </p>
-                              )}
-                              {next.coachName && <p>{next.coachName}</p>}
-                              {next.isMakeup && <p>{t.memberPages.makeup}</p>}
+              <AsyncSection state={schedule}>
+                {(classRows) => {
+                  // Thuê sân xác nhận cũng là lịch của Member: gộp vào cùng dòng thời gian.
+                  const rentalRows: MemberEvent[] = (rentals.data ?? [])
+                    .filter((r) => r.status === "CONFIRMED")
+                    .map((r) => ({
+                      id: r.courtRentalId,
+                      title: t.memberPages.courtRental,
+                      type: "COURT_RENTAL",
+                      startAtUtc: r.startAtUtc,
+                      endAtUtc: r.endAtUtc,
+                      roomName: null,
+                      status: null,
+                      sportName:
+                        sports.data?.find((s) => s.sportId === r.sportId)
+                          ?.name ?? null,
+                    }));
+                  const rows = [...classRows, ...rentalRows].sort((a, b) =>
+                    a.startAtUtc.localeCompare(b.startAtUtc),
+                  );
+                  const todayGym = pagedItems(gymVisit.data).filter(
+                    (visit) => vietnamDate(visit.checkInTime) === date,
+                  );
+                  const upcoming = rows.filter(
+                    (s) =>
+                      new Date(s.startAtUtc).getTime() > now &&
+                      !["CANCELLED", "COMPLETED"].includes(s.status ?? ""),
+                  );
+                  const next = upcoming[0];
+                  const countdown = next ? startsInLabel(next, now, l) : null;
+                  return (
+                    <>
+                      {next ? (
+                        <>
+                          <div
+                            className={styles.nextSession}
+                            data-surface="inverse"
+                            data-sport={sportTone(sportOf(next))}
+                          >
+                            <div className={styles.nextTop}>
+                              <span className={styles.activity}>
+                                {sportOf(next) ?? t.refactor.courses}
+                              </span>
+                              <KindTag session={next} />
+                              <CheckInTag session={next} now={now} />
+                              <ExceptionChip value={next.status} />
                             </div>
-                          </div>
-                          <Link
-                            href={sessionHref(next)}
-                            className={buttonClass()}
-                          >
-                            {l.openSchedule}
-                          </Link>
-                        </div>
-                        {upcoming.length > 1 && (
-                          <div className={styles.upcoming}>
-                            <h3>{l.upNext}</h3>
-                            <ul className={styles.agenda}>
-                              {upcoming.slice(1, 4).map((s) => {
-                                const sport = sportOf(s);
-                                return (
-                                  <li key={s.id} data-sport={sportTone(sport)}>
-                                    <DateTile value={s.startAtUtc} />
-                                    <div>
-                                      <Link href={sessionHref(s)}>
-                                        {s.title}
-                                      </Link>
-                                      <p>
-                                        {sport && (
-                                          <span className={styles.agendaSport}>
-                                            {sport}
-                                          </span>
-                                        )}
-                                        <KindTag session={s} />
-                                        {formatTime(s.startAtUtc)} –{" "}
-                                        {formatTime(s.endAtUtc)}
-                                        {(s.roomName ||
-                                          s.type !== "COURT_RENTAL") &&
-                                          ` · ${s.roomName || l.notAssigned}`}
-                                      </p>
-                                    </div>
-                                    <CheckInTag session={s} now={now} />
-                                    <ExceptionChip value={s.status} />
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        )}
-                      </>
-                    ) : !todayRows.length ? (
-                      <div
-                        className={styles.emptySchedule}
-                        data-surface="inverse"
-                      >
-                        <IconCalendar size={32} aria-hidden="true" />
-                        <h3>{l.noScheduleTitle}</h3>
-                        <p>{l.noScheduleBody}</p>
-                        <div className={styles.emptyActions}>
-                          <Link
-                            className={buttonClass()}
-                            href="/member/services"
-                          >
-                            {l.exploreCourses}
-                          </Link>
-                          <Link
-                            className={buttonClass({ variant: "secondary" })}
-                            href="/member/services?section=gym&view=explore"
-                          >
-                            {l.gymServices}
-                          </Link>
-                        </div>
-                      </div>
-                    ) : null}
-                    {todayRows.length > 0 && (
-                      <div className={styles.todayAgenda}>
-                        <h3>{l.todayTitle}</h3>
-                        <ul>
-                          {todayRows.map((session) => (
-                            <li key={session.id}>
-                              <Link href={sessionHref(session)}>
-                                <strong>
-                                  {formatTime(session.startAtUtc)}–
-                                  {formatTime(session.endAtUtc)}
-                                </strong>
-                                <span>{session.title}</span>
-                                <KindTag session={session} />
-                                {session.roomName && (
-                                  <small>{session.roomName}</small>
+                            {countdown && (
+                              <p className={styles.startsIn}>{countdown}</p>
+                            )}
+                            <div className={styles.nextBody}>
+                              <DateTile value={next.startAtUtc} />
+                              <div className={styles.nextInfo}>
+                                <h3>{next.title}</h3>
+                                <p>
+                                  <IconClock size={18} aria-hidden="true" />
+                                  {formatTime(next.startAtUtc)} –{" "}
+                                  {formatTime(next.endAtUtc)}
+                                </p>
+                                {(next.roomName ||
+                                  next.type !== "COURT_RENTAL") && (
+                                  <p>
+                                    <IconLocation
+                                      size={18}
+                                      aria-hidden="true"
+                                    />
+                                    {next.roomName || l.notAssigned}
+                                  </p>
                                 )}
-                                <CheckInTag session={session} now={now} />
-                                <ExceptionChip value={session.status} />
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {todayGym.length > 0 && (
-                      <div className={styles.todayAgenda}>
-                        <h3>{l.gymWalkIn}</h3>
-                        <ul>
-                          {todayGym.map((visit) => (
-                            <li key={visit.checkInId}>
-                              <Link href="/member/services?section=gym&view=owned">
-                                <strong>{formatTime(visit.checkInTime)}</strong>
-                                <span>{l.gymWalkIn}</span>
-                                <span
-                                  className={styles.checkInTag}
-                                  data-state="present"
-                                >
-                                  {l.checkinPresent}
-                                </span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
-                );
-              }}
-            </AsyncSection>
-          </section>
+                                {next.coachName && <p>{next.coachName}</p>}
+                                {next.isMakeup && <p>{t.memberPages.makeup}</p>}
+                              </div>
+                            </div>
+                            <Link
+                              href={sessionHref(next)}
+                              className={buttonClass()}
+                            >
+                              {l.openSchedule}
+                            </Link>
+                          </div>
+                          {upcoming.length > 1 && (
+                            <div className={styles.upcoming}>
+                              <h3>{l.upNext}</h3>
+                              <ul className={styles.agenda}>
+                                {upcoming.slice(1, 4).map((s) => {
+                                  const sport = sportOf(s);
+                                  return (
+                                    <li
+                                      key={s.id}
+                                      data-sport={sportTone(sport)}
+                                    >
+                                      <DateTile value={s.startAtUtc} />
+                                      <div>
+                                        <Link href={sessionHref(s)}>
+                                          {s.title}
+                                        </Link>
+                                        <p>
+                                          {sport && (
+                                            <span
+                                              className={styles.agendaSport}
+                                            >
+                                              {sport}
+                                            </span>
+                                          )}
+                                          <KindTag session={s} />
+                                          {formatTime(s.startAtUtc)} –{" "}
+                                          {formatTime(s.endAtUtc)}
+                                          {(s.roomName ||
+                                            s.type !== "COURT_RENTAL") &&
+                                            ` · ${s.roomName || l.notAssigned}`}
+                                        </p>
+                                      </div>
+                                      <CheckInTag session={s} now={now} />
+                                      <ExceptionChip value={s.status} />
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div
+                          className={styles.emptySchedule}
+                          data-surface="inverse"
+                        >
+                          <IconCalendar size={32} aria-hidden="true" />
+                          <h3>{l.noScheduleTitle}</h3>
+                          <p>{l.noScheduleBody}</p>
+                          <div className={styles.emptyActions}>
+                            <Link
+                              className={buttonClass()}
+                              href="/member/services"
+                            >
+                              {l.exploreCourses}
+                            </Link>
+                            <Link
+                              className={buttonClass({ variant: "secondary" })}
+                              href="/member/services?section=gym&view=explore"
+                            >
+                              {l.gymServices}
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+                      {todayGym.length > 0 && (
+                        <div className={styles.todayAgenda}>
+                          <h3>{l.gymWalkIn}</h3>
+                          <ul>
+                            {todayGym.map((visit) => (
+                              <li key={visit.checkInId}>
+                                <Link href="/member/services?section=gym&view=owned">
+                                  <strong>
+                                    {formatTime(visit.checkInTime)}
+                                  </strong>
+                                  <span>{l.gymWalkIn}</span>
+                                  <span
+                                    className={styles.checkInTag}
+                                    data-state="present"
+                                  >
+                                    {l.checkinPresent}
+                                  </span>
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  );
+                }}
+              </AsyncSection>
+            </section>
+            <RecommendedSection favoriteSports={favoriteSports} />
+          </div>
 
           <div className={styles.rail}>
             <section
@@ -706,75 +685,8 @@ export default function MemberDashboardPage() {
                 </AsyncSection>
               </section>
             </section>
-            <section
-              className={styles.walletCard}
-              aria-labelledby="wallet-title"
-            >
-              <div className={styles.sectionHeading}>
-                <h2 id="wallet-title">{l.walletTitle}</h2>
-                <Link href="/member/finance?tab=wallet">{l.walletHistory}</Link>
-              </div>
-              {wallet.data ? (
-                <div className={styles.walletBalance}>
-                  <span>{l.walletAvailable}</span>
-                  <strong>{formatPoints(wallet.data.availablePoints)}</strong>
-                  <span>
-                    {l.walletValue.replace(
-                      "{amount}",
-                      formatMoney(
-                        wallet.data.availablePoints * wallet.data.vndPerPoint,
-                      ),
-                    )}
-                  </span>
-                </div>
-              ) : (
-                <p
-                  className={styles.caption}
-                  role={wallet.error ? "status" : undefined}
-                >
-                  {wallet.loading ? "…" : l.walletUnavailable}
-                </p>
-              )}
-              <Link
-                className={styles.renewLink}
-                href="/member/services?section=gym&view=explore"
-              >
-                {l.quickRenew} <span aria-hidden="true">→</span>
-              </Link>
-            </section>
-            <section
-              className={styles.trainingCard}
-              aria-labelledby="training-title"
-            >
-              <div className={styles.sectionHeading}>
-                <h2 id="training-title">{l.trainingTitle}</h2>
-                <Link href="/member/schedule">{t.memberPages.schedule}</Link>
-              </div>
-              {training.data ? (
-                <>
-                  <div className={styles.trainingMetric}>
-                    <strong>
-                      {
-                        training.data.filter((session) =>
-                          session.type === "CLASS_SESSION"
-                            ? session.attendanceStatus?.toUpperCase() ===
-                              "PRESENT"
-                            : session.status?.toUpperCase() === "COMPLETED",
-                        ).length
-                      }
-                    </strong>
-                    <span>{l.sessionsThisMonth}</span>
-                  </div>
-                </>
-              ) : (
-                <p
-                  className={styles.caption}
-                  role={training.error ? "status" : undefined}
-                >
-                  {training.loading ? "…" : l.trainingUnavailable}
-                </p>
-              )}
-            </section>
+            <TrainingSummaryCard />
+            <FitnessQuickCard />
           </div>
         </div>
       </div>

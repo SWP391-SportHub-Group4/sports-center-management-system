@@ -26,6 +26,7 @@ import type {
 import { pagedItems } from "@/lib/paged";
 import { memberEnrollments } from "./api";
 import { RefundCancelDialog } from "@/features/payments";
+import { RentalCancelConfirm } from "./rental-cancel";
 import { ServiceEmblem } from "./service-emblem";
 import { GymPackageDetails } from "./gym-package-details";
 import {
@@ -257,15 +258,20 @@ export function MyServices({
           row={r}
           tone={tone}
           sportName={sport?.name}
+          onChanged={rentals.reload}
           index={i}
         />
       ),
     });
   });
 
-  const counts: Partial<Record<FilterValue, number>> = { all: items.length };
+  // Chỉ đếm dịch vụ đang khả dụng; mục đã kết thúc vẫn hiển thị nhưng không tính vào số đếm.
+  const available = items.filter((it) => it.tone !== "ended");
+  const counts: Partial<Record<FilterValue, number>> = {
+    all: available.length,
+  };
   SERVICE_KINDS.forEach((k) => {
-    counts[k] = items.filter((it) => it.kind === k).length;
+    counts[k] = available.filter((it) => it.kind === k).length;
   });
   const visible = items.filter((it) => filter === "all" || it.kind === filter);
   const live = visible
@@ -563,10 +569,10 @@ function GymCard({
       title={pkg.packageName}
       subtitle={tx(
         dayPass
-          ? "Vé Gym 1 ngày · chỉ dùng trong ngày thanh toán"
+          ? "Vé Gym 1 ngày · hiệu lực 24 giờ"
           : `Gym Membership · ${months} tháng`,
         dayPass
-          ? "Gym day pass · payment day only"
+          ? "Gym day pass · valid 24 hours"
           : `Gym membership · ${months} ${months === 1 ? "month" : "months"}`,
       )}
       metric={
@@ -761,15 +767,18 @@ function ClassCard({
               {tx("Xem chi tiết", "View details")}
             </Link>
           )}
-          {canCancel && (
+          {canCancel && started && (
+            <Link className={styles.cancel} href="/member/help?topic=PAYMENT">
+              {tx("Cần hoàn điểm? Trợ giúp", "Need a refund? Get help")}
+            </Link>
+          )}
+          {canCancel && !started && (
             <button
               type="button"
               className={styles.cancel}
               onClick={() => setCancelOpen(true)}
             >
-              {started
-                ? tx("Gửi đơn hoàn điểm", "Request refund")
-                : tx("Hủy ghi danh", "Cancel enrollment")}
+              {tx("Hủy ghi danh", "Cancel enrollment")}
             </button>
           )}
           {cancelOpen && (
@@ -795,16 +804,22 @@ function CourtCard({
   row,
   tone,
   sportName,
+  onChanged,
   index,
 }: {
   row: CourtRentalDto;
   tone: Tone;
   sportName?: string;
+  onChanged: () => void;
   index: number;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
+  const now = useNow();
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const canCancel =
+    row.status === "CONFIRMED" && new Date(row.startAtUtc).getTime() > now;
   const start = new Date(row.startAtUtc);
   const end = new Date(row.endAtUtc);
   const locale = vi ? "vi-VN" : "en-GB";
@@ -860,6 +875,25 @@ function CourtCard({
               ? tx("Gia hạn", "Book again")
               : tx("Xem chi tiết", "View details")}
           </Link>
+          {canCancel && (
+            <button
+              type="button"
+              className={styles.cancel}
+              onClick={() => setCancelOpen(true)}
+            >
+              {tx("Hủy thuê sân", "Cancel rental")}
+            </button>
+          )}
+          {cancelOpen && (
+            <RentalCancelConfirm
+              rental={row}
+              onClose={() => setCancelOpen(false)}
+              onCancelled={() => {
+                setCancelOpen(false);
+                onChanged();
+              }}
+            />
+          )}
         </>
       }
     />

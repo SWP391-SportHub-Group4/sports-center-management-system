@@ -286,7 +286,8 @@ function CheckoutFlow({
     }
   }
   function rememberInvoice(nextId: string) {
-    if (!modal) {
+    // Lễ tân bán hộ (memberId) ở lại màn đang làm việc: /checkout/... là trang công khai nên sẽ văng ra landing.
+    if (!modal && !memberId) {
       window.history.replaceState(null, "", `/checkout/${nextId}`);
       return;
     }
@@ -845,6 +846,7 @@ function CheckoutFlow({
                 onClick={() =>
                   run(async () => {
                     await api.post(`/api/checkouts/${id}/cancel`);
+                    forgetRememberedInvoice();
                     setAttempt(null);
                     setConfirmation(null);
                     await refresh();
@@ -978,7 +980,8 @@ export function CheckoutPanel(props: {
 }) {
   const { user } = useAuth();
   const [resumeInvoiceId] = useState(() => {
-    if (!props.modal || typeof window === "undefined") return undefined;
+    if (!(props.modal || props.memberId) || typeof window === "undefined")
+      return undefined;
     const query = new URLSearchParams(window.location.search);
     return query.get("checkoutIntent") === JSON.stringify(props.intent ?? null)
       ? (query.get("checkout") ?? undefined)

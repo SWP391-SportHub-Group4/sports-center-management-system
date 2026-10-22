@@ -489,7 +489,7 @@ public sealed partial class ClassSessionService(
                               select e.MemberId).Distinct().CountAsync(ct);
 
         var rentalConflict = await db.Set<CourtRental>().AnyAsync(r => members.Contains(r.MemberId)
-            && (r.Status == CourtRentalStatus.Confirmed || r.Status == CourtRentalStatus.PendingPayment)
+            && (r.Status == CourtRentalStatus.Confirmed || r.Status == CourtRentalStatus.InUse || r.Status == CourtRentalStatus.PendingPayment)
             && r.StartAtUtc < end && r.EndAtUtc > start, ct);
         if (affected > 0 || rentalConflict)
         {

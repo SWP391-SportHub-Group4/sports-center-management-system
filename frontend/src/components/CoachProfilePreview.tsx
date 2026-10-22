@@ -11,7 +11,6 @@ import {
 import { createPortal } from "react-dom";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
-import { ReportAvatarButton } from "./ReportAvatarButton";
 import { AvatarImage } from "./AvatarImage";
 import styles from "./coach-profile-preview.module.css";
 
@@ -180,11 +179,6 @@ export function CoachProfilePreview({
                 {sport && <p className={styles.sport}>{sport}</p>}
               </div>
             </div>
-            <ReportAvatarButton
-              userId={coachId}
-              name={coach?.fullName || name}
-              avatarUrl={coach?.avatarUrl}
-            />
             {details.loading ? (
               <p className={styles.note} role="status">
                 Loading coach profile…

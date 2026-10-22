@@ -2,7 +2,7 @@ using SportHub.Scheduling.Domain.Enums;
 
 namespace SportHub.Scheduling.Rental.Domain;
 
-public enum CourtRentalStatus { PendingPayment, Confirmed, Cancelled, Completed }
+public enum CourtRentalStatus { PendingPayment, Confirmed, Cancelled, Completed, InUse, NoShow }
 
 /// <summary>Lượt thuê sân của Member; giá và lịch được snapshot lúc checkout.</summary>
 public sealed class CourtRental

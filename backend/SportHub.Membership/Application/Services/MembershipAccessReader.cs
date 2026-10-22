@@ -18,7 +18,8 @@ public sealed class MembershipAccessReader(ISportHubDbContext db) : IMembershipA
     {
         var date = DateOnly.FromDateTime(VietnamTime.ToLocal(atUtc.UtcDateTime));
         return db.Set<MemberPackage>().AsNoTracking().Where(x => x.MemberId == memberId
-            && x.Status == MemberPackageStatus.Active && x.StartDate <= date && x.EndDate >= date)
+            && x.Status == MemberPackageStatus.Active && x.StartDate <= date && x.EndDate >= date
+            && (x.ExpiresAtUtc == null || x.ExpiresAtUtc > atUtc.UtcDateTime))
             .OrderBy(x => x.EndDate).ThenBy(x => x.MemberPackageId)
             .Select(x => new MembershipAccess(x.MemberPackageId, x.PackageId, x.StartDate, x.EndDate))
             .FirstOrDefaultAsync(cancellationToken);

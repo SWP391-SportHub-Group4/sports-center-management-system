@@ -67,17 +67,17 @@ test("member with an active Gym plan sees a scannable QR", async ({ page }) => {
   await expect(page.getByText("Valid today only")).toBeVisible();
 });
 
-test("member without a Gym plan is told why there is no code and where to buy", async ({
+test("member with no Gym plan, class or rental is told why there is no code", async ({
   page,
 }) => {
   await openCode(page, []);
-  await expect(page.getByText(/No check-in code yet/)).toBeVisible();
+  await expect(page.getByText(/No member code yet/)).toBeVisible();
   await expect(page.getByRole("img", { name: "Member code QR" })).toHaveCount(
     0,
   );
   await expect(
-    page.getByRole("link", { name: "Buy a Gym plan" }),
-  ).toHaveAttribute("href", "/member/services?section=gym&view=explore");
+    page.getByRole("link", { name: "Explore services" }),
+  ).toHaveAttribute("href", "/member/services");
 });
 
 test("receptionist sees the camera scanner ready in the member picker", async ({

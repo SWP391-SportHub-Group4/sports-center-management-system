@@ -4,6 +4,9 @@ namespace SportHub.Membership.Domain;
 public static class DayPass
 {
     public const int PackageId = 50000;
+
+    /// <summary>Vé hết hạn đúng ngần này giờ sau lúc thanh toán thành công.</summary>
+    public const int ValidHours = 24;
     /// <summary>Seed default only; the live price is managed in the package catalog.</summary>
     public const decimal PriceVnd = 50_000m;
     public const int DurationDays = 1;

@@ -1,17 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { CreditCard, FileText } from "lucide-react";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
 import { resolveMemberCode } from "@/components/MemberPicker";
 import { api } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import {
-  todayIso,
-  formatTime,
-} from "@/lib/format";
+import { todayIso, formatTime } from "@/lib/format";
 import { AsyncSection, StatusChip } from "@/components/ui";
 import { catalogApi } from "@/features/catalog";
 import { courseApi } from "@/features/courses";
@@ -58,6 +55,7 @@ export function RegistrationHint() {
 }
 
 const RENTAL_LOOKAHEAD_MS = 2 * 60 * 60 * 1000;
+const RENTAL_CHECKIN_LEAD_MS = 5 * 60 * 1000;
 
 /** Quầy hôm nay (H01): thanh tìm ghim đầu trang, dải việc cần xử lý, rồi lưới 3 cột vừa một màn hình (quét/hội viên | lớp hôm nay | Gym + thuê sân), mỗi panel tự cuộn. */
 export function ReceptionDashboard() {
@@ -74,6 +72,35 @@ export function ReceptionDashboard() {
       }),
     [today],
   );
+  useEffect(() => {
+    const timer = window.setInterval(schedule.reload, 60_000);
+    return () => window.clearInterval(timer);
+  }, [schedule.reload]);
+  const [checkingInRentalId, setCheckingInRentalId] = useState<string | null>(
+    null,
+  );
+  const [rentalCheckInError, setRentalCheckInError] = useState<string | null>(
+    null,
+  );
+  async function checkInRental(rentalId: string) {
+    setCheckingInRentalId(rentalId);
+    setRentalCheckInError(null);
+    try {
+      await api.post(`/api/court-rentals/${rentalId}/check-in`, {});
+      schedule.reload();
+    } catch (error) {
+      setRentalCheckInError(
+        error instanceof Error
+          ? error.message
+          : vi
+            ? "Không thể nhận sân."
+            : "Court check-in failed.",
+      );
+      schedule.reload();
+    } finally {
+      setCheckingInRentalId(null);
+    }
+  }
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const invoices = useApi(
     (signal) =>
@@ -130,7 +157,7 @@ export function ReceptionDashboard() {
     .filter(
       (r) =>
         r.sourceType === "COURT_RENTAL" &&
-        !/CANCEL/i.test(r.status) &&
+        (r.status === "CONFIRMED" || r.status === "IN_USE") &&
         Date.parse(r.endAtUtc) > now &&
         Date.parse(r.startAtUtc) < now + RENTAL_LOOKAHEAD_MS,
     )
@@ -199,140 +226,185 @@ export function ReceptionDashboard() {
         )}
 
         <div className={styles.side}>
-        <DeskPanel
-          title={
-            filterByMember
-              ? vi
-                ? "Lớp hôm nay của hội viên"
-                : "Member's classes today"
-              : l.sessionsToday
-          }
-          footer={
-            member ? (
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm"
-                onClick={() => setShowAllClasses((v) => !v)}
-              >
-                {showAllClasses
-                  ? vi
-                    ? "Chỉ hiện lớp của hội viên"
-                    : "Show only this member's classes"
-                  : vi
-                    ? "Xem tất cả lớp hôm nay"
-                    : "Show all classes today"}
-              </button>
-            ) : undefined
-          }
-          badge={
-            liveCount > 0 ? (
-              <StatusChip
-                value="LIVE"
-                tone="success"
-                label={
-                  vi ? `${liveCount} đang diễn ra` : `${liveCount} in progress`
-                }
-              />
-            ) : null
-          }
-        >
-          <AsyncSection state={schedule}>
-            {() =>
-              !sessions.length ? (
-                <p className={styles.empty}>
-                  {filterByMember
+          <DeskPanel
+            title={
+              filterByMember
+                ? vi
+                  ? "Lớp hôm nay của hội viên"
+                  : "Member's classes today"
+                : l.sessionsToday
+            }
+            footer={
+              member ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setShowAllClasses((v) => !v)}
+                >
+                  {showAllClasses
                     ? vi
-                      ? "Hội viên này không có lớp nào hôm nay."
-                      : "This member has no classes today."
-                    : l.noSessionsToday}
-                </p>
-              ) : (
-                <ol className={styles.rows}>
-                  {sessions.map((s) => {
-                    const live =
-                      Date.parse(s.startAtUtc) <= now &&
-                      now < Date.parse(s.endAtUtc);
-                    const done = Date.parse(s.endAtUtc) <= now;
-                    return (
-                      <li
-                        key={s.sourceId}
-                        className={styles.row}
-                        data-live={live || undefined}
-                        data-done={done || undefined}
-                      >
-                        <time className={styles.time}>
-                          <strong>{formatTime(s.startAtUtc)}</strong>
-                          <span>– {formatTime(s.endAtUtc)}</span>
-                        </time>
-                        <div className={styles.rowBody}>
-                          <strong>{s.title}</strong>
-                          <span>
-                            {[roomName(s.roomId), s.coachName]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </span>
-                          <ClassSeats classId={s.classId} />
-                        </div>
-                        <Link
-                          className={`btn btn--sm ${live ? "btn--primary" : "btn--secondary"}`}
-                          href={`/receptionist/attendance?date=${today}&session=${s.sourceId}`}
+                      ? "Chỉ hiện lớp của hội viên"
+                      : "Show only this member's classes"
+                    : vi
+                      ? "Xem tất cả lớp hôm nay"
+                      : "Show all classes today"}
+                </button>
+              ) : undefined
+            }
+            badge={
+              liveCount > 0 ? (
+                <StatusChip
+                  value="LIVE"
+                  tone="success"
+                  label={
+                    vi
+                      ? `${liveCount} đang diễn ra`
+                      : `${liveCount} in progress`
+                  }
+                />
+              ) : null
+            }
+          >
+            <AsyncSection state={schedule}>
+              {() =>
+                !sessions.length ? (
+                  <p className={styles.empty}>
+                    {filterByMember
+                      ? vi
+                        ? "Hội viên này không có lớp nào hôm nay."
+                        : "This member has no classes today."
+                      : l.noSessionsToday}
+                  </p>
+                ) : (
+                  <ol className={styles.rows}>
+                    {sessions.map((s) => {
+                      const live =
+                        Date.parse(s.startAtUtc) <= now &&
+                        now < Date.parse(s.endAtUtc);
+                      const done = Date.parse(s.endAtUtc) <= now;
+                      return (
+                        <li
+                          key={s.sourceId}
+                          className={styles.row}
+                          data-live={live || undefined}
+                          data-done={done || undefined}
                         >
-                          {vi ? "Điểm danh" : "Attendance"}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )
-            }
-          </AsyncSection>
-        </DeskPanel>
+                          <time className={styles.time}>
+                            <strong>{formatTime(s.startAtUtc)}</strong>
+                            <span>– {formatTime(s.endAtUtc)}</span>
+                          </time>
+                          <div className={styles.rowBody}>
+                            <strong>{s.title}</strong>
+                            <span>
+                              {[roomName(s.roomId), s.coachName]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                            <ClassSeats classId={s.classId} />
+                          </div>
+                          <Link
+                            className={`btn btn--sm ${live ? "btn--primary" : "btn--secondary"}`}
+                            href={`/receptionist/attendance?date=${today}&session=${s.sourceId}`}
+                          >
+                            {vi ? "Điểm danh" : "Attendance"}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )
+              }
+            </AsyncSection>
+          </DeskPanel>
 
-        <DeskPanel
-          title={vi ? "Thuê sân trong 2 giờ tới" : "Court rentals, next 2 hours"}
-          footer={
-            <Link href="/receptionist/court-schedule">
-              {vi ? "Xem lịch sân đầy đủ" : "Open the full court schedule"}
-            </Link>
-          }
-        >
-          <AsyncSection state={schedule}>
-            {() =>
-              !rentals.length ? (
-                <p className={styles.empty}>
-                  {vi
-                    ? "Không có lượt thuê sân trong 2 giờ tới."
-                    : "No court rentals in the next 2 hours."}
-                </p>
-              ) : (
-                <ul className={styles.rows}>
-                  {rentals.map((r) => (
-                    <li key={r.sourceId} className={styles.row}>
-                      <time className={styles.time}>
-                        <strong>{formatTime(r.startAtUtc)}</strong>
-                        <span>– {formatTime(r.endAtUtc)}</span>
-                      </time>
-                      <div className={styles.rowBody}>
-                        <strong>{r.memberName ?? r.title}</strong>
-                        <span>{roomName(r.roomId) ?? ""}</span>
-                      </div>
-                      {Date.parse(r.startAtUtc) <= now && (
-                        <StatusChip
-                          value="LIVE"
-                          tone="success"
-                          label={vi ? "Đang dùng" : "In use"}
-                        />
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )
+          <DeskPanel
+            title={
+              vi ? "Thuê sân trong 2 giờ tới" : "Court rentals, next 2 hours"
             }
-          </AsyncSection>
-        </DeskPanel>
+            footer={
+              <Link href="/receptionist/court-schedule">
+                {vi ? "Xem lịch sân đầy đủ" : "Open the full court schedule"}
+              </Link>
+            }
+          >
+            {rentalCheckInError && (
+              <p className={styles.scanError} role="alert">
+                {rentalCheckInError}
+              </p>
+            )}
+            <AsyncSection state={schedule}>
+              {() =>
+                !rentals.length ? (
+                  <p className={styles.empty}>
+                    {vi
+                      ? "Không có lượt thuê sân trong 2 giờ tới."
+                      : "No court rentals in the next 2 hours."}
+                  </p>
+                ) : (
+                  <ul className={styles.rows}>
+                    {rentals.map((r) => {
+                      const minutesUntilCheckIn = Math.ceil(
+                        (Date.parse(r.startAtUtc) -
+                          RENTAL_CHECKIN_LEAD_MS -
+                          now) /
+                          60_000,
+                      );
+                      const canCheckIn =
+                        r.status === "CONFIRMED" && minutesUntilCheckIn <= 0;
+                      return (
+                        <li key={r.sourceId} className={styles.row}>
+                          <time className={styles.time}>
+                            <strong>{formatTime(r.startAtUtc)}</strong>
+                            <span>– {formatTime(r.endAtUtc)}</span>
+                          </time>
+                          <div className={styles.rowBody}>
+                            <strong>{r.memberName ?? r.title}</strong>
+                            <span>{roomName(r.roomId) ?? ""}</span>
+                            {r.status === "CONFIRMED" && (
+                              <button
+                                type="button"
+                                className="btn btn--secondary btn--sm"
+                                disabled={
+                                  !canCheckIn || checkingInRentalId !== null
+                                }
+                                onClick={() => void checkInRental(r.sourceId)}
+                              >
+                                {checkingInRentalId === r.sourceId
+                                  ? vi
+                                    ? "Đang nhận sân…"
+                                    : "Checking in…"
+                                  : canCheckIn
+                                    ? vi
+                                      ? "Nhận sân"
+                                      : "Check in court"
+                                    : vi
+                                      ? `Nhận sân sau ${minutesUntilCheckIn} phút`
+                                      : `Check-in in ${minutesUntilCheckIn} min`}
+                              </button>
+                            )}
+                          </div>
+                          <StatusChip
+                            value={r.status}
+                            label={
+                              r.status === "IN_USE"
+                                ? vi
+                                  ? "Đang dùng"
+                                  : "In use"
+                                : vi
+                                  ? "Đã đặt"
+                                  : "Booked"
+                            }
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
+              }
+            </AsyncSection>
+          </DeskPanel>
         </div>
       </div>
-
     </>
   );
 }
@@ -428,16 +500,15 @@ function ClassSeats({ classId }: { classId: number | null }) {
   const { language } = useLanguage();
   const state = useApi(
     (signal) =>
-      classId
-        ? courseApi.detail(classId, signal)
-        : Promise.resolve(null),
+      classId ? courseApi.detail(classId, signal) : Promise.resolve(null),
     [classId],
   );
   if (!state.data) return null;
   const confirmed = state.data.capacity - state.data.availableSeats;
   return (
     <span className={styles.seats}>
-      {language === "vi" ? "Đã đặt chỗ" : "Booked"} {confirmed}/{state.data.capacity}
+      {language === "vi" ? "Đã đặt chỗ" : "Booked"} {confirmed}/
+      {state.data.capacity}
     </span>
   );
 }

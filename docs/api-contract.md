@@ -231,11 +231,14 @@ Invoice lịch sử vẫn đọc theo ownership/FrontDesk. Discount/correction k
 | GET | `/api/court-rentals/availability?sportId&startUtc&endUtc` | Member; chỉ trả sân trống + báo giá giờ, không trả lớp/Member/nguồn lịch bận. |
 | GET | `/api/court-rentals/calendar?sportId&date&hours` | Member đang hoạt động; ngày Việt Nam `yyyy-MM-dd`, thời lượng nguyên giờ (mặc định 1). Trả `{sportId,date,serverNowUtc,rooms:[{roomId,name,slots:[{startUtc,endUtc,status,totalPrice,blocks}]}]}`. Trạng thái `AVAILABLE/BOOKED/HELD/SCHEDULED/BLOCKED/UNAVAILABLE/NO_RATE`; chỉ `AVAILABLE` có báo giá và được chọn. Không trả danh tính khách, ID lượt đặt hay nguồn lịch bận. Checkout vẫn kiểm tra lại giá, giờ mở cửa và tranh chấp occupancy. UI chỉ báo thành công khi invoice `PAID` hoặc `PAID_AFTER_RECONCILIATION` và `fulfillmentOutcome=FULFILLED`. |
 | GET | `/api/court-rentals/mine?fromUtc&toUtc` | Member; lượt thuê của chính họ. |
+| POST | `/api/court-rentals/{rentalId}/check-in` | Receptionist/CenterManager qua `FrontDesk`; chỉ lượt `Confirmed`, từ 5 phút trước giờ bắt đầu đến trước giờ kết thúc. Chuyển sang `InUse`; ngoài cửa sổ hoặc bấm lặp trả 409. Tách biệt check-in Gym. |
 | POST | `/api/court-rentals/{rentalId}/cancel` | Chủ thuê; ≥24h trước giờ bắt đầu hoàn 100%, dưới 24h 0%; cùng transaction hủy occupancy. |
 | GET | `/api/manager/court-schedule/rentals?roomId&fromUtc&toUtc` | Manager/Receptionist qua `FrontDesk`; chỉ metadata thuê cần cho lịch, không roster Member. |
 | POST | `/api/manager/court-rentals/{rentalId}/cancel` | CenterManager; body `{reason}`; center fault hoàn 100% bằng điểm và release occupancy nguyên tử. |
 
 Invoice checkout giữ phòng bằng cùng occupancy constraints với class/block. Hết hạn/hủy nhả đúng một lần; IPN muộn không Spend lại điểm đã release, chỉ reacquire khi slot còn hợp lệ; nếu không thì theo cơ chế bồi hoàn khoản cash đã xác minh. Migration và PostgreSQL concurrency/ownership đã qua gate; chưa áp migration trên DB phát triển/chia sẻ.
+
+Job trạng thái chạy mỗi phút: lượt `InUse` hết giờ thành `Completed`, lượt `Confirmed` chưa nhận sân hết giờ thành `NoShow`. Cả hai đều nhả occupancy; `NoShow` không tự hoàn tiền.
 
 ## Phần A — Route baseline (trước refactor)
 
@@ -332,8 +335,8 @@ Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tạ
 ### Vé Gym 1 ngày (day pass) và mã check-in
 
 - Vé ngày là gói Membership `packageId = 50000`, 1 ngày, seed mặc định 50.000đ bằng migration `GymDayPass`. Mua qua `POST api/checkouts/membership` như gói thường. Manager sửa được giá/tên/mô tả qua `PUT api/membership-packages/50000`; đổi thời hạn trả 409 `day_pass_duration_fixed`, ngừng bán trả 409 `day_pass_fixed`.
-- Hiệu lực: bắt đầu và kết thúc đúng ngày thanh toán thành công theo giờ Việt Nam (không cộng dồn với gói dài). Đã có vé hôm nay mà mua thêm trả 409 `day_pass_already_active`. Gym đang đóng cửa vì sự cố (mọi phòng Gym bị block) trả 409 `gym_closed_today`.
-- Thanh toán xong: thông báo và email "SportHub - Your Gym day pass" nhắc vé và mã check-in chỉ dùng trong ngày.
+- Hiệu lực: bắt đầu lúc thanh toán thành công và hết hạn đúng 24 giờ sau (`expiresAtUtc` trong `MemberPackageResponse`; `endDate` chỉ là ngày giờ Việt Nam của mốc này; check-in, `isUsable` và job hết hạn đều xét `expiresAtUtc`; không cộng dồn với gói dài). Đã có vé hôm nay mà mua thêm trả 409 `day_pass_already_active`. Gym đang đóng cửa vì sự cố (mọi phòng Gym bị block) trả 409 `gym_closed_today`.
+- Thanh toán xong: thông báo và email "SportHub - Your Gym day pass" nhắc vé có hiệu lực 24 giờ và giờ hết hạn cụ thể.
 - Check-in: chỉ lễ tân thực hiện qua `POST api/gym-checkins` (Member không tự check-in; endpoint `api/gym-checkins/self` đã gỡ). Mã QR do server cấp và ký: Member gọi `GET api/members/me/checkin-code` (`{code, expiresAtUtc}`, mã dạng `SPORTHUB-CODE:{memberId}.{exp}.{chữ ký}`, hết hạn 00:00 giờ Việt Nam hôm sau, client không tự dựng được); lễ tân/Manager (policy `FrontDesk`) quét mã rồi gọi `POST api/members/checkin-code/resolve` (`{code}`) nhận `{memberId}`; mã giả/sai chữ ký trả 400 `checkin_code_invalid`, mã hết hạn 409 `checkin_code_expired`. Mã chỉ định danh Member; quyền vào Gym vẫn do check-in kiểm gói Active hôm nay.
 - Không nhắc hết hạn (`PackageExpiring`), không gia hạn khi sự cố đóng Gym, không hoàn trả (`RefundCalculator` trả 0).
 - Báo cáo: `GET api/reports/membership-summary` và `membership-period` không tính vé ngày vào hội viên Membership; thêm `membersWithDayPassToday` và `dayPassesSold`.
@@ -705,7 +708,7 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 | POST | `api/refunds/{adjustmentId}/approve` | Manager khác người yêu cầu | Body `{centerFault, percent?, reason}`. `percent` (0–100) chỉ được giảm so với số điểm hệ thống tính lại cho dịch vụ, không được vượt cap; cần căn cứ ≥ 10 ký tự. Bỏ trống thì theo quy tắc. Khóa invoice/item/refund; Earn + hủy quyền lợi + Completed nguyên tử. |
 | POST | `api/refunds/{adjustmentId}/reject` | Manager khác người yêu cầu | Body `{reason}`; từ chối yêu cầu chưa xử lý. |
 
-Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2; lỗi trung tâm theo phần ngày chưa dùng; vé Gym 1 ngày không hoàn), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h/no-show 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
+Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2; lỗi trung tâm theo phần ngày chưa dùng; vé Gym 1 ngày không hoàn), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
 
 Membership theo BR-91 tính cả ngày đầu/cuối: `TotalDays = EndDate − StartDate + 1`, `RemainingDays = clamp(EndDate − RefundRequestedDate + 1, 0, TotalDays)`, theo ngày Việt Nam. "Đã dùng quá mức" ở Membership là đã qua hơn 1/3 thời hạn, không tính số lần tới Gym hoặc số buổi còn lại. Gói gia hạn chưa bắt đầu vẫn được xét hoàn chuẩn tối đa 50%; gói Expired/Cancelled không có điểm hoàn. Khi duyệt, dùng ngày tạo yêu cầu, không thay bằng ngày duyệt. Ngoại lệ Center Fault cần lý do và căn cứ, hoàn theo phần ngày chưa dùng; đóng Gym tạm thời để sửa chữa xử lý gia hạn theo BR-130, không phải căn cứ hoàn.
 
@@ -847,6 +850,11 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 | GET | `/api/member-support-requests/queue?status&search&assignedToUserId&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/CLOSED. Search tối đa 200 ký tự trong subject/description/tên/email Member, không phân biệt hoa thường. Response đọc thêm memberName/memberEmail/assignedToName hiện tại. |
 | GET | `/api/member-support-requests/assignees` | FrontDesk; Receptionist/CenterManager đang Active. Chỉ người gọi CenterManager được nhận thêm SystemAdministrator đang Active trong danh sách. |
 | POST | `/api/member-support-requests/{id}/assign`, `/progress`, `/close` | FrontDesk; khóa dòng `FOR UPDATE`, ghi audit. Progress/close yêu cầu đã phân công. CLOSED chặn assign/progress với 409 `support_request_closed`; close lặp trả 200 kết quả cũ, không đổi kết quả/audit. Mọi nhân viên FrontDesk đều thao tác được, không giới hạn theo người được giao (FR-22). |
+| POST | `/api/member-support-requests` | FrontDesk tạo hộ member: `memberId, category, channel (COUNTER/PHONE/FANPAGE), description`, `subject` tùy chọn (tự sinh từ loại + mô tả), tùy chọn `assigneeUserId` + `handoverNote` để bàn giao ngay khi tạo. |
+| POST | `/api/member-support-requests/{id}/assign` (body `assigneeUserId, note`) | Chuyển lên vai trò cao hơn người thao tác (Receptionist → Manager → Administrator) bắt buộc `note` ≥ 3 ký tự, lỗi 400 `support_transfer_note_required`. |
+| GET | `/api/member-support-requests/{id}/events` | FrontDesk; lịch sử xử lý (CREATED, ASSIGNED, PROGRESS, DONE, REJECTED) kèm người thực hiện, ghi chú và thời điểm. |
+| POST | `/api/support/requests` (multipart) | Member tự gửi từ trang Trợ giúp: `category, description, files[]` (tối đa 3 ảnh JPG/PNG/WebP, 5 MB/ảnh); kênh ONLINE; tạo thông báo và email xác nhận. |
+| GET | `/api/support/requests/mine`, `/api/support/attachments/{id}` | Member xem yêu cầu của mình; ảnh đính kèm chỉ chủ yêu cầu, Receptionist hoặc CenterManager xem được. |
 
 Assign cho SystemAdministrator chỉ cho phép người gọi CenterManager; Receptionist bị từ chối 403 `support_admin_assignment_forbidden`, không thay đổi yêu cầu hoặc ghi audit phân công. Các role ngoài FrontDesk vẫn bị chặn bởi policy. Người nhận phải đang Active.
 

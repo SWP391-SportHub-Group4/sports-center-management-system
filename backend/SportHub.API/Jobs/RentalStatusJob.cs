@@ -9,6 +9,6 @@ public sealed class RentalStatusJob(IServiceProvider services, ILogger<RentalSta
     protected override async Task RunOnceAsync(IServiceProvider scopedServices, CancellationToken ct)
     {
         var count = await scopedServices.GetRequiredService<CourtRentalService>().CompleteDueAsync(ct);
-        if (count > 0) logger.LogInformation("RentalStatusJob completed {Count} court rentals.", count);
+        if (count > 0) logger.LogInformation("RentalStatusJob finalized {Count} court rentals.", count);
     }
 }

@@ -2,7 +2,7 @@
 
 import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -299,7 +299,7 @@ export function PlanSales({
                       {
                         label: "Lưu ý trước khi thanh toán",
                         value:
-                          "Vé Gym 1 ngày và mã check-in chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Hãy thông báo điều này cho Member trước khi thu tiền.",
+                          "Vé Gym 1 ngày chỉ có hiệu lực 24 giờ kể từ lúc thanh toán thành công. Hãy thông báo điều này cho Member trước khi thu tiền.",
                       },
                     ]
                   : []),

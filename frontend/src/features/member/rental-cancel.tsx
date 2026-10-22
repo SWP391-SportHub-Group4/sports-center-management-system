@@ -34,20 +34,14 @@ export function RentalCancelConfirm({
   return (
     <Dialog
       title={m.cancelTitle}
+      size="sm"
+      closeIconOnly
       onClose={() => !mutation.busy && onClose()}
       footer={
         <>
           <button
             type="button"
-            className="btn btn--secondary"
-            disabled={mutation.busy}
-            onClick={onClose}
-          >
-            {m.cancelKeep}
-          </button>
-          <button
-            type="button"
-            className="btn btn--danger"
+            className={`btn btn--danger ${styles.footStart}`}
             disabled={mutation.busy || policy.loading}
             onClick={async () => {
               if (

@@ -22,4 +22,7 @@ public sealed class MemberSupportRequest
     public string? ProgressNote { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
+
+    /// <summary>Kênh tiếp nhận: COUNTER, PHONE, FANPAGE (lễ tân ghi hộ) hoặc ONLINE (member tự gửi).</summary>
+    public string Channel { get; set; } = "COUNTER";
 }

@@ -501,7 +501,7 @@
       "title": "Đặt và thanh toán lượt thuê sân",
       "actor": "Member",
       "priority": "Required",
-      "pre": "Member ACTIVE; sân hợp môn; khung tương lai trống, có giá, trong giờ mở cửa. Mỗi lượt tối đa 4 giờ, đặt trước tối đa 30 ngày theo cấu hình (BR-128).",
+      "pre": "Member ACTIVE; sân hợp môn; khung tương lai trống, có giá, trong giờ mở cửa. Mỗi lượt tối đa 4 giờ, chỉ mở 4 ngày lịch kể từ hôm nay (hôm nay và 3 ngày tiếp theo, `rental.advance_days` = 3, BR-128).",
       "main": "1. Chọn bộ môn, ngày, sân và khung giờ theo block 60 phút.\n2. Hệ thống kiểm tra lại tài nguyên và lịch thuê của Member.\n3. Tính giá từng block, lưu snapshot và tạo hold/checkout.\n4. Thanh toán theo Flow 3.\n5. Sau xác minh và fulfillment, tạo lượt thuê xác nhận.\n6. Hiển thị thành công và gửi thông báo.",
       "alt": "a. Đặt chồng giờ của cùng Member hoặc sân đã bị chiếm: từ chối.\nb. Không có giá cho đủ các block: không thanh toán.\nc. Không yêu cầu gói Gym; thanh toán lỗi không tạo booking xác nhận; callback muộn dùng xử lý hold hết hạn.",
       "post": "Lượt thuê và giá thanh toán nhất quán; sân được chiếm chỗ đúng thời gian.",

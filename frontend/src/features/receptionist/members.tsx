@@ -200,26 +200,28 @@ export function MemberProfile({ memberId }: { memberId: string }) {
           );
         }}
       />
-      <Tabs
-        tabs={TABS.map((id) => ({ id, label: labels[id] }))}
-        value={tab}
-        ariaLabel={l.tabsLabel}
-        onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
-      >
-        <div className={styles.tabsBody}>
-          {tab === "overview" && <Overview memberId={current.userId} />}
-          {tab === "visits" && <GymVisits memberId={current.userId} />}
-          {tab === "wallet" && (
-            <>
-              <p className={styles.hint}>{l.walletNote}</p>
-              <MemberWallet memberId={current.userId} />
-            </>
-          )}
-          {tab === "invoices" && (
-            <InvoiceList staff memberId={current.userId} />
-          )}
-        </div>
-      </Tabs>
+      <div className={styles.profileTabs}>
+        <Tabs
+          tabs={TABS.map((id) => ({ id, label: labels[id] }))}
+          value={tab}
+          ariaLabel={l.tabsLabel}
+          onChange={(id) => router.replace(`${pathname}?tab=${id}`)}
+        >
+          <div className={styles.tabsBody}>
+            {tab === "overview" && <Overview memberId={current.userId} />}
+            {tab === "visits" && <GymVisits memberId={current.userId} />}
+            {tab === "wallet" && (
+              <>
+                <p className={styles.hint}>{l.walletNote}</p>
+                <MemberWallet memberId={current.userId} />
+              </>
+            )}
+            {tab === "invoices" && (
+              <InvoiceList staff memberId={current.userId} />
+            )}
+          </div>
+        </Tabs>
+      </div>
     </div>
   );
 }

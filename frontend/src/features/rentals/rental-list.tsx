@@ -64,13 +64,18 @@ function RentalRangeList({ initialDate }: { initialDate?: string }) {
         <Field label={l.status}>
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">{l.all}</option>
-            {["PENDING_PAYMENT", "CONFIRMED", "COMPLETED", "CANCELLED"].map(
-              (s) => (
-                <option value={s} key={s}>
-                  {t.wireStatus[s as keyof typeof t.wireStatus]}
-                </option>
-              ),
-            )}
+            {[
+              "PENDING_PAYMENT",
+              "CONFIRMED",
+              "IN_USE",
+              "COMPLETED",
+              "NO_SHOW",
+              "CANCELLED",
+            ].map((s) => (
+              <option value={s} key={s}>
+                {t.wireStatus[s as keyof typeof t.wireStatus]}
+              </option>
+            ))}
           </select>
         </Field>
       </div>

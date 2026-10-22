@@ -76,7 +76,7 @@ public sealed partial class CourtRentalService
                         OccupancySourceType.RoomBlock => "BLOCKED",
                         _ => "SCHEDULED"
                     };
-                    if (occupied is null && (start <= now.AddMinutes(holdMinutes) || start > now.AddDays(advanceDays)))
+                    if (occupied is null && (start <= now.AddMinutes(holdMinutes) || start >= VietnamTime.EndOfDayExclusiveUtc(VietnamTime.TodayLocal(clock).AddDays(advanceDays))))
                         status = "UNAVAILABLE";
                     CourtRentalQuote? quote = null;
                     if (status == "AVAILABLE")

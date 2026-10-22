@@ -9,7 +9,7 @@ import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
-import { formatDate, formatTime, todayIso } from "@/lib/format";
+import { formatDate, formatPoints, formatTime, todayIso } from "@/lib/format";
 
 import { StatusChip } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -17,8 +17,10 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import type {
   GymCheckInDto,
   MemberPackageDto,
+  MemberSupportRequestDto,
   Paged,
   UserAdminDto,
+  WalletBalanceDto,
 } from "@/lib/types";
 
 import styles from "./desk.module.css";
@@ -60,8 +62,10 @@ export function SelectedMemberPanel({
   const { language } = useLanguage();
   const vi = language === "vi";
   const mutation = useMutation();
-  const [note, setNote] = useState<string | null>(null);
-  const [localCooldown, setLocalCooldown] = useState({ memberId: "", until: 0 });
+  const [localCooldown, setLocalCooldown] = useState({
+    memberId: "",
+    until: 0,
+  });
   const now = useNow(250);
   const memberId = member.userId;
 
@@ -109,6 +113,11 @@ export function SelectedMemberPanel({
       }),
     [memberId],
   );
+  const points = useApi(
+    (signal) =>
+      api.get<WalletBalanceDto>(`/api/members/${memberId}/points`, { signal }),
+    [memberId],
+  );
   const visits = useApi(
     (signal) =>
       api.get<Paged<GymCheckInDto>>(`/api/members/${memberId}/gym-checkins`, {
@@ -117,6 +126,17 @@ export function SelectedMemberPanel({
       }),
     [memberId],
   );
+  const requests = useApi(
+    (signal) =>
+      api.get<MemberSupportRequestDto[]>("/api/member-support-requests", {
+        signal,
+        query: { memberId },
+      }),
+    [memberId],
+  );
+  const openRequests = (requests.data ?? []).filter(
+    (r) => !["DONE", "CLOSED", "REJECTED"].includes(r.status),
+  ).length;
   const usable = (packages.data ?? []).filter(
     (p) => p.status === "ACTIVE" && p.isUsable,
   );
@@ -139,8 +159,6 @@ export function SelectedMemberPanel({
     membership && daysLeft !== null && daysLeft <= EXPIRY_WARNING_DAYS;
 
   async function checkIn() {
-    setNote(null);
-
     const ok = await mutation.run(async () => {
       try {
         await api.post("/api/gym-checkins", { targetMemberId: memberId });
@@ -164,11 +182,7 @@ export function SelectedMemberPanel({
     });
 
     if (ok) {
-      const time = formatTime(new Date().toISOString());
       setLocalCooldown({ memberId, until: Date.now() + 10_000 });
-      setNote(
-        vi ? `Đã check-in lúc ${time}` : `Checked in at ${time}`,
-      );
       visits.reload();
     }
   }
@@ -182,34 +196,35 @@ export function SelectedMemberPanel({
       : "This account is locked, so check-in and sales are unavailable."
     : accessTip;
 
+  // Ba ô: gói Gym còn hiệu lực (kèm giờ hết hạn), lần check-in gần nhất, yêu cầu hỗ trợ cần xử lý.
+  // Vé ngày hết hạn đúng 24 giờ sau lúc thanh toán; gói tháng hết hạn cuối ngày EndDate.
+  const access = membership ?? dayPass;
+  const expiry = access
+    ? access.expiresAtUtc
+      ? `${formatTime(access.expiresAtUtc)} ${formatDate(access.expiresAtUtc)}`
+      : `23:59 ${formatDate(access.endDate)}`
+    : "";
+  const accessName = access
+    ? access.packageId === DAY_PASS_PACKAGE_ID
+      ? vi
+        ? "Vé ngày"
+        : "Day pass"
+      : access.packageName
+    : "";
   const tiles: { key: string; label: string; value: string; tone: Tone }[] = [
     {
       key: "membership",
       label: vi ? "Membership Gym" : "Gym membership",
       value: !ready
         ? "…"
-        : membership
+        : access
           ? vi
-            ? `Còn hạn đến ${formatDate(membership.endDate)}`
-            : `Active until ${formatDate(membership.endDate)}`
+            ? `${accessName} · hết hạn ${expiry}`
+            : `${accessName} · expires ${expiry}`
           : vi
-            ? "Chưa có Membership còn hạn"
-            : "No active Gym membership",
-      tone: !ready ? "neutral" : membership ? "ok" : "warn",
-    },
-    {
-      key: "daypass",
-      label: vi ? "Vé Gym 1 ngày" : "Day Pass",
-      value: !ready
-        ? "…"
-        : dayPass
-          ? vi
-            ? "Có hiệu lực hôm nay"
-            : "Valid today"
-          : vi
-            ? "Chưa có vé ngày"
-            : "No Day Pass",
-      tone: !ready ? "neutral" : dayPass ? "ok" : "neutral",
+            ? "Chưa có gói Gym còn hiệu lực"
+            : "No active Gym plan",
+      tone: !ready ? "neutral" : access ? "ok" : "warn",
     },
     {
       key: "gym",
@@ -224,6 +239,24 @@ export function SelectedMemberPanel({
             ? "Chưa có lượt check-in"
             : "No check-ins yet",
       tone: latestCheckIn ? "ok" : "neutral",
+    },
+    {
+      key: "requests",
+      label: vi ? "Yêu cầu hỗ trợ" : "Support requests",
+      value: requests.loading
+        ? "…"
+        : openRequests > 0
+          ? vi
+            ? `${openRequests} cần xử lý`
+            : `${openRequests} to handle`
+          : vi
+            ? "Không có yêu cầu chờ"
+            : "Nothing pending",
+      tone: requests.loading
+        ? "neutral"
+        : openRequests > 0
+          ? "warn"
+          : "neutral",
     },
   ];
 
@@ -279,7 +312,6 @@ export function SelectedMemberPanel({
             {member.email}
             {member.phone ? ` · ${member.phone}` : ""}
           </p>
-
         </div>
 
         <div className={styles.sideActions}>
@@ -290,6 +322,14 @@ export function SelectedMemberPanel({
           >
             {vi ? "Đổi hội viên" : "Change member"}
           </button>
+          <span className={styles.memberPoints}>
+            {vi ? "Điểm hiện có" : "Current points"}:{" "}
+            {points.data
+              ? formatPoints(points.data.availablePoints)
+              : points.loading
+                ? "…"
+                : "—"}
+          </span>
         </div>
       </div>
 
@@ -337,10 +377,7 @@ export function SelectedMemberPanel({
       )}
 
       <div className={styles.actions}>
-        <span
-          className={styles.tip}
-          title={blocked ? blockReason : undefined}
-        >
+        <span className={styles.tip} title={blocked ? blockReason : undefined}>
           <button
             type="button"
             className="btn"
@@ -351,7 +388,9 @@ export function SelectedMemberPanel({
             <CircleCheck size={18} aria-hidden="true" />
             {cooldownSeconds > 0
               ? `${vi ? "Check-in" : "Check in"} (${cooldownSeconds}s)`
-              : vi ? "Check-in" : "Check in"}
+              : vi
+                ? "Check-in"
+                : "Check in"}
           </button>
         </span>
 
@@ -369,17 +408,19 @@ export function SelectedMemberPanel({
             {vi ? "Mở hồ sơ" : "Open profile"}
           </Link>
         )}
+        {!locked && (
+          <Link
+            className="btn btn--ghost"
+            href={`/receptionist/members/${memberId}/add-points`}
+          >
+            {vi ? "Nạp điểm" : "Add points"}
+          </Link>
+        )}
       </div>
 
       {blocked && (
         <p className={styles.block} id="checkin-block-reason">
           {blockReason}
-        </p>
-      )}
-
-      {note && (
-        <p className={styles.note} role="status">
-          {note}
         </p>
       )}
 

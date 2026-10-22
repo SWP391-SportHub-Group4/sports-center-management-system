@@ -22,6 +22,9 @@ public class MemberPackage
 
     public DateOnly EndDate { get; set; } // hết hiệu lực nếu quá mốc này
 
+    /// <summary>Vé Gym 1 ngày: hết hiệu lực đúng 24 giờ sau lúc thanh toán (EndDate chỉ là ngày VN của mốc này). Null với gói tháng.</summary>
+    public DateTime? ExpiresAtUtc { get; set; }
+
     public int? RemainingSessions { get; set; } // trừ nguyên tử mỗi lần Enrollment; null = không giới hạn
 
     public MemberPackageStatus Status { get; set; } // PendingPayment/Active/Expired/Cancelled

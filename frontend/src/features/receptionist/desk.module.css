@@ -119,6 +119,13 @@
   min-height: 40px;
   justify-content: center;
 }
+.memberPoints {
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .identity {
   display: grid;
   gap: var(--space-1);
@@ -414,7 +421,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding-top: var(--space-5);
+  padding-top: var(--space-3);
+}
+.profileTabs {
+  margin-top: var(--space-6);
 }
 .search {
   max-width: 480px;
@@ -466,4 +476,9 @@
   gap: var(--space-5);
   min-width: 0;
   margin-bottom: var(--space-5);
+}
+.salesNav {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
 }

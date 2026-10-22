@@ -68,11 +68,11 @@ public sealed class CheckoutService(ISportHubDbContext db,
         {
             case "WalletTopUp":
             {
-                if (actorId != invoice.MemberId)
+                if (!isFrontDesk && actorId != invoice.MemberId)
                     throw new ForbiddenException("checkout_not_owned", "Checkout not owned.");
                 var item = await db.Set<InvoiceItem>().AsNoTracking()
                     .SingleAsync(x => x.InvoiceId == oldInvoiceId && x.ItemType == InvoiceItemType.WalletTopUp, ct);
-                return await CreateWalletTopUpAsync(item.Quantity, idempotencyKey, actorId, ct);
+                return await CreateWalletTopUpAsync(item.Quantity, idempotencyKey, invoice.MemberId, actorId, ct);
             }
             case "Membership":
             {
@@ -98,11 +98,14 @@ public sealed class CheckoutService(ISportHubDbContext db,
     }
 
     public async Task<CheckoutResponse> CreateWalletTopUpAsync(int points, string idempotencyKey,
-        Guid memberId, CancellationToken ct)
+        Guid memberId, Guid actorId, CancellationToken ct)
     {
         if (points is < 1 or > 10_000)
             throw new BadRequestException("top_up_points_invalid", "Choose between 1 and 10,000 points.");
         RequireKey(idempotencyKey);
+        if (!await db.Set<SportHub.Identity.Domain.Entities.UserAccount>().AnyAsync(u => u.UserId == memberId
+            && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Member, ct))
+            throw new BadRequestException("target_member_invalid", "Target must be a member.");
         var now = clock.UtcNow;
         var expiry = now.AddMinutes(await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct));
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -118,14 +121,14 @@ public sealed class CheckoutService(ISportHubDbContext db,
                 || existing.Invoice.TotalAmount != points * (decimal)SportHub.Payment.Wallet.Application.PointWalletService.VndPerPoint)
                 throw new ConflictException("idempotency_key_reused", "Idempotency key reused.");
             await tx.CommitAsync(ct);
-            return await GetAsync(existing.Invoice.InvoiceId, memberId, false, ct);
+            return await GetAsync(existing.Invoice.InvoiceId, actorId, actorId != memberId, ct);
         }
         await SupersedeOpenTopUpsAsync(memberId, ct);
         var amount = points * (decimal)SportHub.Payment.Wallet.Application.PointWalletService.VndPerPoint;
         var invoice = new Invoice
         {
             InvoiceId = Guid.NewGuid(), InvoiceNumber = await invoiceNumbers.NextAsync(now, ct),
-            MemberId = memberId, IssuedByUserId = memberId, TotalAmount = amount, CashAmount = amount,
+            MemberId = memberId, IssuedByUserId = actorId, TotalAmount = amount, CashAmount = amount,
             CheckoutCycleId = Guid.NewGuid(), CheckoutRevision = 1, HoldExpiresAtUtc = expiry,
             Status = InvoiceStatus.Issued, IssuedAt = now
         };
@@ -143,7 +146,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             CreatedAtUtc = now, ExpiresAtUtc = expiry
         };
         db.Set<CheckoutSession>().Add(session);
-        audit.Write(new AuditEntry(memberId, "CREATE_WALLET_TOP_UP", nameof(Invoice), invoice.InvoiceId.ToString()));
+        audit.Write(new AuditEntry(actorId, "CREATE_WALLET_TOP_UP", nameof(Invoice), invoice.InvoiceId.ToString()));
         await notices.CreatedAsync(invoice, ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

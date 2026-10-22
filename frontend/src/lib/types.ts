@@ -20,6 +20,9 @@ export interface MemberSupportRequestDto {
   progressNote: string | null;
   updatedAt: string | null;
   closedAt: string | null;
+  attachments?: { attachmentId: string; fileName: string }[] | null;
+  /** COUNTER, PHONE, FANPAGE (recorded by staff) or ONLINE (member self-service). */
+  channel?: string;
 }
 
 export type SportServiceType =
@@ -290,6 +293,8 @@ export interface MemberPackageDto {
   stackingApproved: boolean;
   stackingApprovalReason: string | null;
   invoiceItemId?: string | null;
+  /** Vé Gym 1 ngày: hết hạn đúng 24 giờ sau lúc thanh toán. Null với gói tháng. */
+  expiresAtUtc?: string | null;
 }
 
 export interface InvoiceSummaryDto {

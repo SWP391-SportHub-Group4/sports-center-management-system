@@ -18,6 +18,76 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
 {
     [Fact]
+    public async Task Court_checkin_opens_five_minutes_before_start_and_end_job_distinguishes_no_show()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var room = await CourseTestData.RoomAsync(factory);
+        var start = DateTime.UtcNow.AddHours(1);
+        var checkedInId = Guid.NewGuid();
+        var noShowId = Guid.NewGuid();
+        await factory.QueryAsync(async db =>
+        {
+            db.Set<CourtRental>().AddRange(
+                new CourtRental { CourtRentalId = checkedInId, MemberId = member.UserId, SportId = 3,
+                    RoomId = room, StartAtUtc = start, EndAtUtc = start.AddHours(1),
+                    Status = CourtRentalStatus.Confirmed, CreatedAtUtc = DateTime.UtcNow },
+                new CourtRental { CourtRentalId = noShowId, MemberId = member.UserId, SportId = 3,
+                    RoomId = room, StartAtUtc = start.AddHours(2), EndAtUtc = start.AddHours(3),
+                    Status = CourtRentalStatus.Confirmed, CreatedAtUtc = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+
+        using var scope = factory.Services.CreateScope();
+        var early = ActivatorUtilities.CreateInstance<CourtRentalService>(scope.ServiceProvider,
+            new TestClock(start.AddMinutes(-5).AddSeconds(-1)));
+        await Assert.ThrowsAsync<ConflictException>(() => early.CheckInAsync(checkedInId));
+        var onTime = ActivatorUtilities.CreateInstance<CourtRentalService>(scope.ServiceProvider,
+            new TestClock(start.AddMinutes(-5)));
+        await onTime.CheckInAsync(checkedInId);
+        await Assert.ThrowsAsync<ConflictException>(() => onTime.CheckInAsync(checkedInId));
+
+        var afterEnd = ActivatorUtilities.CreateInstance<CourtRentalService>(scope.ServiceProvider,
+            new TestClock(start.AddHours(3).AddMinutes(1)));
+        await Assert.ThrowsAsync<ConflictException>(() => afterEnd.CheckInAsync(noShowId));
+        await afterEnd.CompleteDueAsync();
+        var statuses = await factory.QueryAsync(db => db.Set<CourtRental>().AsNoTracking()
+            .Where(x => x.CourtRentalId == checkedInId || x.CourtRentalId == noShowId)
+            .ToDictionaryAsync(x => x.CourtRentalId, x => x.Status));
+        Assert.Equal(CourtRentalStatus.Completed, statuses[checkedInId]);
+        Assert.Equal(CourtRentalStatus.NoShow, statuses[noShowId]);
+    }
+
+    [Fact]
+    public async Task Only_front_desk_can_check_in_a_confirmed_court_rental()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        var room = await CourseTestData.RoomAsync(factory);
+        var rentalId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        await factory.QueryAsync(async db =>
+        {
+            db.Set<CourtRental>().Add(new CourtRental
+            {
+                CourtRentalId = rentalId, MemberId = member.UserId, SportId = 3, RoomId = room,
+                StartAtUtc = now.AddMinutes(4), EndAtUtc = now.AddMinutes(64),
+                Status = CourtRentalStatus.Confirmed, CreatedAtUtc = now
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        var url = $"/api/court-rentals/{rentalId}/check-in";
+        using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.PostAsync(url, null)).StatusCode);
+        using var deskClient = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        Assert.Equal(HttpStatusCode.NoContent, (await deskClient.PostAsync(url, null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await deskClient.PostAsync(url, null)).StatusCode);
+        Assert.Equal(CourtRentalStatus.InUse, await factory.QueryAsync(db => db.Set<CourtRental>()
+            .Where(x => x.CourtRentalId == rentalId).Select(x => x.Status).SingleAsync()));
+    }
+
+    [Fact]
     public async Task Repeated_schedule_changes_queue_distinct_encrypted_emails_and_rollback_on_conflict()
     {
         var course = await CourseTestData.CreateAsync(factory);

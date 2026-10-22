@@ -9,14 +9,17 @@ import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { api } from "@/lib/apiClient";
 import { todayIso } from "@/lib/format";
+import { memberEnrollments } from "@/features/member/api";
+import { rentalApi } from "@/features/rentals";
 import type { MemberPackageDto } from "@/lib/types";
 import type { MemberCheckInCode } from "@/lib/member-code";
 import styles from "./MemberShell.module.css";
 import codeStyles from "./MemberCodeCard.module.css";
 
 /**
- * Nút mã hội viên. Mã QR do server cấp chỉ để lễ tân nhận ra hội viên; chỉ hiện khi Member
- * đang có gói Gym còn hiệu lực (Membership hoặc vé ngày hôm nay), còn không thì gợi ý mua gói.
+ * Nút mã hội viên. Mã QR do server cấp chỉ để lễ tân nhận ra hội viên và là MỘT mã duy nhất cho
+ * mỗi hội viên, dùng chung cho Gym, lớp và thuê sân. Chỉ hiện khi Member đang có ít nhất một
+ * dịch vụ còn hiệu lực (gói Gym/vé ngày, lớp đang học hoặc lượt thuê sân chưa kết thúc).
  */
 export function MemberCodeButton({
   open: controlledOpen,
@@ -46,16 +49,37 @@ export function MemberCodeButton({
     const refresh = async () => {
       try {
         const today = todayIso();
-        const packages = await api.get<MemberPackageDto[]>(
-          "/api/members/me/packages",
-        );
-        const ok = packages.some(
+        const nowMs = Date.now();
+        const none = async <T,>(work: Promise<T[]>) =>
+          work.catch(() => [] as T[]);
+        const controller = new AbortController();
+        const [packages, enrollments, rentals] = await Promise.all([
+          none(api.get<MemberPackageDto[]>("/api/members/me/packages")),
+          none(memberEnrollments(controller.signal)),
+          none(
+            rentalApi.mine(
+              new Date(nowMs - 86_400_000).toISOString(),
+              new Date(nowMs + 31 * 86_400_000).toISOString(),
+            ),
+          ),
+        ]);
+        const hasGym = packages.some(
           (p) =>
             p.status.toUpperCase() === "ACTIVE" &&
             p.isUsable &&
             p.startDate.slice(0, 10) <= today &&
             p.endDate.slice(0, 10) >= today,
         );
+        const hasClass = enrollments.some(
+          (e) =>
+            e.status === "CONFIRMED" &&
+            !e.endedAt &&
+            (!e.lastSessionEndUtc || Date.parse(e.lastSessionEndUtc) >= nowMs),
+        );
+        const hasRental = rentals.some(
+          (x) => x.status === "CONFIRMED" && Date.parse(x.endAtUtc) >= nowMs,
+        );
+        const ok = hasGym || hasClass || hasRental;
         if (cancelled) return;
         setEligible(ok);
         if (!ok) return setDataUrl("");
@@ -114,15 +138,15 @@ export function MemberCodeButton({
               <>
                 <p>
                   {en
-                    ? "No check-in code yet: you don't have an active Gym membership or day pass."
-                    : "Chưa có mã check-in vì bạn chưa có gói Membership Gym hoặc vé ngày còn hiệu lực."}
+                    ? "No member code yet: you don't have an active Gym plan, class or court rental."
+                    : "Chưa có mã hội viên vì bạn chưa có gói Gym, lớp học hoặc lượt thuê sân còn hiệu lực."}
                 </p>
                 <Link
                   className="btn"
-                  href="/member/services?section=gym&view=explore"
+                  href="/member/services"
                   onClick={() => setOpen(false)}
                 >
-                  {en ? "Buy a Gym plan" : "Mua gói Gym"}
+                  {en ? "Explore services" : "Xem dịch vụ"}
                 </Link>
               </>
             ) : (

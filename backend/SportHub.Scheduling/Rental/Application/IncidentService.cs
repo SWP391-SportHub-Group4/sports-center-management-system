@@ -108,7 +108,8 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             .Select(x => new { x.CourtRentalId, x.MemberId, x.Status, x.InvoiceItemId }).ToListAsync(ct);
         foreach (var rental in rentals.OrderBy(x => x.CourtRentalId))
         {
-            var confirmed = rental.Status == CourtRentalStatus.Confirmed && rental.InvoiceItemId is not null;
+            var confirmed = (rental.Status is CourtRentalStatus.Confirmed or CourtRentalStatus.InUse)
+                && rental.InvoiceItemId is not null;
             int? points = null;
             if (confirmed)
             {
@@ -170,14 +171,14 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
                 throw new ConflictException("incident_checkout_reference_missing", "Incident checkout reference missing.");
             await checkouts.ReleaseForSystemAsync(invoiceId, "Cancelled", ct);
         }
-        foreach (var rental in rentalRows.Where(x => x.Status == CourtRentalStatus.Confirmed).OrderBy(x => x.InvoiceId))
+        foreach (var rental in rentalRows.Where(x => x.Status is CourtRentalStatus.Confirmed or CourtRentalStatus.InUse).OrderBy(x => x.InvoiceId))
         {
             if (rental.InvoiceItemId is not Guid itemId)
                 throw new ConflictException("incident_rental_item_missing", "Incident rental item missing.");
             await refunds.LockPaidItemAsync(itemId, ct);
         }
 
-        foreach (var rental in rentalRows.Where(x => x.Status == CourtRentalStatus.Confirmed))
+        foreach (var rental in rentalRows.Where(x => x.Status is CourtRentalStatus.Confirmed or CourtRentalStatus.InUse))
         {
             var itemId = rental.InvoiceItemId!.Value;
             await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,

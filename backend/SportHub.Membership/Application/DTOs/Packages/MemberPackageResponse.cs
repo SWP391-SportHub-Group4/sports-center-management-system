@@ -15,4 +15,5 @@ public sealed record MemberPackageResponse(
     bool IsUsable,
     bool StackingApproved,
     string? StackingApprovalReason,
-    Guid? InvoiceItemId = null);
+    Guid? InvoiceItemId = null,
+    DateTime? ExpiresAtUtc = null);

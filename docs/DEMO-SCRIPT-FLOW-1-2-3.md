@@ -78,7 +78,7 @@ Tài khoản seed gốc dùng làm **dự phòng** nếu email không tới: `ad
 
 ## 1.3c Khách lạ mua vé Gym 1 ngày (Hào + Member) — 2 phút
 1. **Tình huống:** một khách chưa có tài khoản tới Gym. **Hào** đăng ký Member cho khách (1.3b) hoặc khách tự đăng ký.
-2. **Nhắc khách trước khi trả tiền:** vé 50.000đ và mã check-in **chỉ dùng trong ngày**. Thẻ gói **Gym day pass** và màn bán của lễ tân cũng ghi rõ điều này.
+2. **Nhắc khách trước khi trả tiền:** vé 50.000đ và vé **chỉ có hiệu lực 24 giờ**. Thẻ gói **Gym day pass** và màn bán của lễ tân cũng ghi rõ điều này.
 3. Hào bán vé tại `/receptionist/sales` (hoặc khách tự mua ở `/member/services?section=gym&view=explore`) → thanh toán bằng điểm.
 4. Nhận thông báo + email "Your Gym day pass". Mở nút **Mã hội viên** trên header: QR do server ký, chỉ có hiệu lực hết hôm nay (giờ Việt Nam).
 5. **Hào check-in hộ** (`/receptionist/gym-checkin`); Member không tự check-in. Sang ngày sau mã và vé hết hiệu lực.

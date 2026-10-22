@@ -70,14 +70,17 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
             ?? throw new NotFoundException("rental_not_found", "Rental not found.");
         if (!centerFault && reference.MemberId != actorId)
             throw new ForbiddenException("rental_not_owned", "Rental not owned.");
-        if (reference.Status == CourtRentalStatus.Confirmed && reference.InvoiceItemId is Guid referencedItem)
+        if ((reference.Status == CourtRentalStatus.Confirmed ||
+             centerFault && reference.Status == CourtRentalStatus.InUse)
+            && reference.InvoiceItemId is Guid referencedItem)
             await refunds.LockPaidItemAsync(referencedItem, ct);
         var rental = await db.Set<CourtRental>().FromSqlInterpolated(
                 $"SELECT * FROM court_rentals WHERE court_rental_id = {rentalId} FOR UPDATE")
             .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("rental_not_found", "Rental not found.");
         if (reference.InvoiceItemId != rental.InvoiceItemId)
             throw new ConflictException("rental_item_changed", "Rental item changed.");
-        if (rental.Status != CourtRentalStatus.Confirmed || rental.InvoiceItemId is not Guid itemId)
+        if ((rental.Status != CourtRentalStatus.Confirmed &&
+             !(centerFault && rental.Status == CourtRentalStatus.InUse)) || rental.InvoiceItemId is not Guid itemId)
             throw new ConflictException("rental_not_cancellable", "Rental not cancellable.");
         if (!centerFault && rental.StartAtUtc <= clock.UtcNow)
             throw new ConflictException("rental_already_started", "Rental already started.");

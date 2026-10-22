@@ -31,6 +31,7 @@ public sealed class MemberSupportRequestConfiguration
             .IsRequired();
 
         builder.Property(x => x.ProgressNote).HasMaxLength(1000);
+        builder.Property(x => x.Channel).HasMaxLength(20).HasDefaultValue("COUNTER").IsRequired();
         builder.HasIndex(x => new { x.Status, x.UpdatedAt });
         builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.AssignedToUserId)
             .OnDelete(DeleteBehavior.Restrict);

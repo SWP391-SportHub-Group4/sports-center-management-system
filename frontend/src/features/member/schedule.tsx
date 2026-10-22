@@ -435,10 +435,6 @@ export function MemberSchedule({
         key={activeRental}
         rentalId={activeRental}
         onBack={returnToCalendar}
-        onCancelled={(rentalId) => {
-          showCancelledRentalThenDismiss(rentalId);
-          returnToCalendar();
-        }}
       />
     );
   if (activeCourse)

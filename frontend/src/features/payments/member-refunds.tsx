@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { AsyncSection, PageNav, StatusChip } from "@/components/ui";
 import { EmptyPanel } from "@/components/EmptyPanel";
 import { api } from "@/lib/apiClient";
@@ -31,12 +31,6 @@ export function MemberRefunds() {
     <section className={styles.panel} aria-label={l.tabRefunds}>
       <header className={styles.head}>
         <p className={styles.caption}>{l.refundFlow}</p>
-        {state.data && pagedItems(state.data).length > 0 && (
-          <a href="/member/finance?tab=invoices" className={styles.quietAction}>
-            {l.refundEmptyAction}
-            <ArrowRight size={16} aria-hidden="true" />
-          </a>
-        )}
       </header>
       <AsyncSection
         state={state}
@@ -46,12 +40,6 @@ export function MemberRefunds() {
             icon={<RotateCcw size={22} />}
             title={l.refundEmptyTitle}
             body={l.refundEmptyBody}
-            action={
-              <a href="/member/finance?tab=invoices">
-                {l.refundEmptyAction}
-                <ArrowRight size={16} aria-hidden="true" />
-              </a>
-            }
           />
         }
       >

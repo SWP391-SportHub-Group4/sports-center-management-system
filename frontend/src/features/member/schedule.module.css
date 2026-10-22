@@ -507,3 +507,7 @@
     width: 100%;
   }
 }
+
+.footStart {
+  margin-right: auto;
+}

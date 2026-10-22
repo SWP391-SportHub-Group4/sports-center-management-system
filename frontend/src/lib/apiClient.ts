@@ -275,6 +275,21 @@ export const api = {
     request<T>("DELETE", path, undefined, options),
 };
 
+/** Tải một tệp có kiểm quyền (Authorization header) và trả blob để hiển thị, ví dụ ảnh đính kèm. */
+export async function fetchBlob(path: string): Promise<Blob> {
+  const token = readToken();
+  const response = await fetch(buildUrl(path), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok)
+    throw new ApiError(
+      response.status,
+      `http_${response.status}`,
+      defaultMessageFor(response.status),
+    );
+  return response.blob();
+}
+
 /**
  * Tải tệp đã xuất (BR-44..BR-48). Không dùng thẻ <a href> trực tiếp: endpoint tải về cần
  * Authorization header để kiểm ownership (BR-45), mà điều hướng trình duyệt thì không gửi được.

@@ -592,7 +592,7 @@ function GymTier({
       </p>
       <p className={styles.meta}>
         {dayPass ? (
-          tx("Chỉ dùng trong hôm nay", "Valid today only")
+          tx("Có hiệu lực 24 giờ", "Valid for 24 hours")
         ) : (
           <>
             {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}

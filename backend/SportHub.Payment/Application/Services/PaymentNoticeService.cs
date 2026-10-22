@@ -74,7 +74,7 @@ public sealed class PaymentNoticeService(
                 invoice.MemberId,
                 NotificationEvents.PaymentReceived,
                 topUp is null
-                    ? $"Invoice {invoice.InvoiceNumber} was paid; the benefit was granted."
+                    ? $"Invoice {invoice.InvoiceNumber}{Describe(receipt.Items.Select(i => i.Description))}: {invoice.TotalAmount:N0} VND was paid; the benefit was granted."
                     : $"Top-up successful: +{topUp.Quantity:N0} points added to your wallet after paying {topUp.LineAmount:N0} VND via VNPay (invoice {invoice.InvoiceNumber}).",
                 invoice.InvoiceId));
 
@@ -106,5 +106,14 @@ public sealed class PaymentNoticeService(
                         "application/pdf",
                         pdf)
                 ]));
+    }
+
+    /// <summary>" · item A · item B (+N more)" so the notice says what the invoice was for.</summary>
+    private static string Describe(IEnumerable<string> descriptions)
+    {
+        var items = descriptions.Where(d => !string.IsNullOrWhiteSpace(d)).ToList();
+        if (items.Count == 0) return "";
+        var text = string.Join(" · ", items.Take(2));
+        return items.Count > 2 ? $" · {text} (+{items.Count - 2} more)" : $" · {text}";
     }
 }

@@ -141,7 +141,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         RequireTransaction();
         var rental = await LockAsync(courtRentalId, cancellationToken);
         if (rental.Status == CourtRentalStatus.Cancelled) return;
-        if (!centerFault && (rental.Status is CourtRentalStatus.Completed || rental.StartAtUtc <= clock.UtcNow))
+        if (!centerFault && (rental.Status is CourtRentalStatus.InUse or CourtRentalStatus.Completed or CourtRentalStatus.NoShow
+            || rental.StartAtUtc <= clock.UtcNow))
             throw new ConflictException("rental_already_started", "Rental already started.");
         rental.Status = CourtRentalStatus.Cancelled;
         rental.CancelledAtUtc = clock.UtcNow;
@@ -170,9 +171,24 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             row.Status == CourtRentalStatus.Cancelled && row.CancelReason?.StartsWith("CenterFault:", StringComparison.Ordinal) == true);
     }
 
+    /// <summary>Only front-desk staff may record arrival, from five minutes before start until the rental ends.</summary>
+    public async Task CheckInAsync(Guid courtRentalId, CancellationToken cancellationToken = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var rental = await LockAsync(courtRentalId, cancellationToken);
+        var now = clock.UtcNow;
+        if (rental.Status != CourtRentalStatus.Confirmed)
+            throw new ConflictException("rental_not_confirmed", "Only a confirmed rental can be checked in.");
+        if (now < rental.StartAtUtc.AddMinutes(-5) || now >= rental.EndAtUtc)
+            throw new ConflictException("rental_checkin_window_closed", "Court check-in is available from five minutes before start until the rental ends.");
+        rental.Status = CourtRentalStatus.InUse;
+        await db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+    }
+
     public async Task<int> CompleteDueAsync(CancellationToken cancellationToken = default)
     {
-        var ids = await db.Set<CourtRental>().AsNoTracking().Where(x => x.Status == CourtRentalStatus.Confirmed
+        var ids = await db.Set<CourtRental>().AsNoTracking().Where(x => (x.Status == CourtRentalStatus.Confirmed || x.Status == CourtRentalStatus.InUse)
                 && x.EndAtUtc <= clock.UtcNow).OrderBy(x => x.EndAtUtc).Select(x => x.CourtRentalId)
             .Take(100).ToListAsync(cancellationToken);
         var count = 0;
@@ -180,12 +196,12 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         {
             await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
             var rental = await LockAsync(id, cancellationToken);
-            if (rental.Status != CourtRentalStatus.Confirmed || rental.EndAtUtc > clock.UtcNow)
+            if (rental.Status is not (CourtRentalStatus.Confirmed or CourtRentalStatus.InUse) || rental.EndAtUtc > clock.UtcNow)
             {
                 await tx.RollbackAsync(cancellationToken);
                 continue;
             }
-            rental.Status = CourtRentalStatus.Completed;
+            rental.Status = rental.Status == CourtRentalStatus.InUse ? CourtRentalStatus.Completed : CourtRentalStatus.NoShow;
             await occupancy.ReleaseAsync(OccupancySources.CourtRental, id, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
@@ -235,7 +251,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             throw new BadRequestException("invalid_rental_request", "Invalid rental request.");
         var duration = request.EndUtc - request.StartUtc;
         if (slotMinutes is not (30 or 60) || maxHours is < 1 or > 4 || advanceDays is < 1 or > 30
-            || request.StartUtc <= clock.UtcNow || request.StartUtc > clock.UtcNow.AddDays(advanceDays)
+            || request.StartUtc <= clock.UtcNow || request.StartUtc.UtcDateTime >= VietnamTime.EndOfDayExclusiveUtc(VietnamTime.TodayLocal(clock).AddDays(advanceDays))
             || duration < TimeSpan.FromHours(1) || duration > TimeSpan.FromHours(maxHours)
             || duration.TotalMinutes % slotMinutes != 0 || request.StartUtc.Minute % slotMinutes != 0
             || request.StartUtc.Second != 0 || request.StartUtc.Millisecond != 0)
