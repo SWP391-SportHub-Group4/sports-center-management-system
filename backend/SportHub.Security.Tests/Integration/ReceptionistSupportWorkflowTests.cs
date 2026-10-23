@@ -46,7 +46,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         }
         else Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
 
-        var assigned = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = admin.UserId });
+        var assigned = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = admin.UserId, note = "Escalating for administrator review" });
         Assert.Equal(actorRole == UserRole.CenterManager ? HttpStatusCode.OK : HttpStatusCode.Forbidden, assigned.StatusCode);
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
@@ -76,7 +76,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
             memberId = member.UserId, category = "PAYMENT", subject = $"Payment assistance {marker}", description = "Please investigate this member payment." });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
-        var assignment = new { assigneeUserId = admin.UserId };
+        var assignment = new { assigneeUserId = admin.UserId, note = "Escalating for administrator review" };
         var results = await Task.WhenAll(
             client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment),
             client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment));
@@ -133,7 +133,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(
             $"/api/member-support-requests/{id}/assign", new { assigneeUserId = coach.UserId })).StatusCode);
         var assigned = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign",
-            new { assigneeUserId = handler.UserId });
+            new { assigneeUserId = handler.UserId, note = "Escalating for manager review" });
         Assert.True(assigned.StatusCode == HttpStatusCode.OK, await assigned.Content.ReadAsStringAsync());
         Assert.Equal("ASSIGNED", (await assigned.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
         var progress = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/progress",

@@ -35,7 +35,7 @@ public sealed class IncidentFenceTests(PaymentApiFactory factory)
                     DaysOfWeek = "MON,TUE,WED,THU,FRI,SAT,SUN", StartTimeLocal = new(6, 0),
                     EndTimeLocal = new(22, 0), PricePerHour = 100_000 });
             await db.SaveChangesAsync();
-            var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(6)).AddHours(10);
+            var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(2)).AddHours(10);
             return new CourtRentalRequest(member.UserId, 3, room.RoomId, start, start.AddHours(1));
         });
     }

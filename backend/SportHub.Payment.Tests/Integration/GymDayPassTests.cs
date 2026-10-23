@@ -21,7 +21,7 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class GymDayPassTests(PaymentApiFactory factory)
 {
     [Fact]
-    public async Task Paid_day_pass_starts_today_even_when_member_has_a_long_membership()
+    public async Task Paid_day_pass_starts_today_and_last_24_hours_even_when_member_has_a_long_membership()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
@@ -74,11 +74,11 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
                 && x.PackageId == DayPass.PackageId);
             Assert.Equal(MemberPackageStatus.Active, pass.Status);
             Assert.Equal(today, pass.StartDate);
-            Assert.Equal(today, pass.EndDate);
-            // Member được báo rõ vé và mã check-in chỉ dùng trong ngày (thông báo trong app và email).
+            Assert.Equal(today.AddDays(1), pass.EndDate);
+            // Member receives the 24-hour validity and check-in instructions in app and by email.
             var notices = await db.Notifications.Where(n => n.UserId == member.UserId && n.SourceEntityId == pass.MemberPackageId).ToListAsync();
             Assert.True(notices.Count >= 2);
-            Assert.Contains(notices, n => n.Message.Contains("valid only today"));
+            Assert.Contains(notices, n => n.Message.Contains("valid for 24 hours"));
             return 0;
         });
     }
