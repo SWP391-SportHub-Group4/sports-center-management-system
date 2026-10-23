@@ -1,5 +1,7 @@
 "use client";
+import Link from "next/link";
 import { AsyncSection, Dialog } from "@/components/ui";
+import { bankRefundHref } from "@/lib/bank-refund";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatPoints } from "@/lib/format";
@@ -16,7 +18,8 @@ export function RentalCancelDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
   const l = t.operations;
   const mutation = useMutation();
   const quote = useApi(
@@ -54,6 +57,21 @@ export function RentalCancelDialog({
         )}
       </AsyncSection>
       <MutationFeedback mutation={mutation} />
+      {rental.invoiceItemId && (
+        <p>
+          <strong>
+            {vi
+              ? "Hoặc yêu cầu hoàn tiền về tài khoản ngân hàng: "
+              : "Or ask for a refund to your bank account: "}
+          </strong>
+          <Link href={bankRefundHref(rental.invoiceItemId)}>
+            {vi ? "Gửi yêu cầu hoàn tiền" : "Request a bank refund"}
+          </Link>
+          {vi
+            ? " (Manager sẽ xem xét; chưa hủy hay hoàn gì cho đến khi được duyệt)."
+            : " (a manager reviews it; nothing is cancelled or returned until approved)."}
+        </p>
+      )}
     </Dialog>
   );
 }

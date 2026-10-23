@@ -76,6 +76,7 @@ public sealed class PointRefundService(
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
         await EnsureNotDayPassAsync(item, ct);
+        await RefundValue.EnsureNoCommittedBankRefundAsync(db, item.ItemId, ct);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, ct);
         var itemPaidVnd = await GetRemainingItemPaidVndAsync(invoice, item, ct);
         var calculated = await CalculatePointsAsync(item, itemPaidVnd, VietnamTime.TodayLocal(clock), false, ct, clock.UtcNow);
@@ -99,6 +100,7 @@ public sealed class PointRefundService(
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
         await EnsureNotDayPassAsync(item, cancellationToken);
+        await RefundValue.EnsureNoCommittedBankRefundAsync(db, item.ItemId, cancellationToken);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
         var itemPaidVnd = await GetRemainingItemPaidVndAsync(invoice, item, cancellationToken);
         var calculated = await CalculatePointsAsync(item, itemPaidVnd, VietnamTime.TodayLocal(clock), false, cancellationToken, clock.UtcNow);
@@ -155,6 +157,7 @@ public sealed class PointRefundService(
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
         await EnsureNotDayPassAsync(item, cancellationToken);
+        await RefundValue.EnsureNoCommittedBankRefundAsync(db, item.ItemId, cancellationToken);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
         var now = clock.UtcNow;
         if (isClass)
@@ -261,6 +264,7 @@ public sealed class PointRefundService(
             SELECT * FROM invoice_items WHERE item_id = {adjustment.InvoiceItemId.Value} FOR UPDATE
             """).SingleAsync(cancellationToken);
         await EnsureNotDayPassAsync(item, cancellationToken);
+        await RefundValue.EnsureNoCommittedBankRefundAsync(db, item.ItemId, cancellationToken);
         await EnsureNoUnmappedLegacyRefundAsync(invoice.InvoiceId, cancellationToken);
 
         var requestDate = DateOnly.FromDateTime(VietnamTime.ToLocal(adjustment.CreatedAt));
@@ -402,41 +406,8 @@ public sealed class PointRefundService(
         }
     }
 
-    private async Task<decimal> GetRemainingItemPaidVndAsync(Invoice invoice, InvoiceItem item, CancellationToken ct)
-    {
-        var totalItemValue = await db.Set<InvoiceItem>().Where(x => x.InvoiceId == invoice.InvoiceId)
-            .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
-        if (totalItemValue <= 0 || item.LineAmount <= 0)
-            throw new ConflictException("refund_item_value_invalid", "Refund item value invalid.");
-        var cash = await db.Set<Domain.Entities.Payment>().Where(x => x.InvoiceId == invoice.InvoiceId
-                && x.Status == PaymentStatus.Success).SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
-        var points = invoice.CheckoutCycleId is not null && SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia)
-            ? invoice.PointsApplied * (decimal)RefundCalculator.VndPerPoint : 0m;
-        var paidShare = Math.Min(item.LineAmount,
-            decimal.Floor((cash + points) * item.LineAmount / totalItemValue));
-        var paidTransferDifferences = await db.Set<InvoiceItem>().Where(x => x.SourceInvoiceItemId == item.ItemId
-                && (x.Invoice!.Status == InvoiceStatus.Paid || (x.Invoice.Status == InvoiceStatus.PaidAfterReconciliation && x.Invoice.PaidVia == "VnPayAfterReconciliation")))
-            .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
-        var priorPoints = await CompletedPointsForItemAsync(item.ItemId, ct);
-        var priorLegacyPayout = await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == item.ItemId
-                && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Completed
-                && x.ApprovedPoints == 0)
-            .SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
-        var priorSystemPoints = await db.Set<PointLedgerEntry>().Where(x => x.InvoiceItemId == item.ItemId
-                && x.ReferenceType == "SystemEvent" && x.EntryType == PointEntryType.Earn)
-            .SumAsync(x => (int?)x.Points, ct) ?? 0;
-        var priorTransferPoints = await db.Set<PointLedgerEntry>().Where(x => x.InvoiceItemId == item.ItemId
-                && x.ReferenceType == "ClassTransferDifference" && x.EntryType == PointEntryType.Earn)
-            .SumAsync(x => (int?)x.Points, ct) ?? 0;
-        return Math.Max(0m, paidShare + paidTransferDifferences - (priorPoints + priorSystemPoints)
-            * (decimal)RefundCalculator.VndPerPoint - priorLegacyPayout
-            - priorTransferPoints * (decimal)RefundCalculator.VndPerPoint);
-    }
-
-    private async Task<int> CompletedPointsForItemAsync(Guid invoiceItemId, CancellationToken ct)
-        => await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == invoiceItemId
-            && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Completed)
-            .SumAsync(x => (int?)x.ApprovedPoints, ct) ?? 0;
+    private Task<decimal> GetRemainingItemPaidVndAsync(Invoice invoice, InvoiceItem item, CancellationToken ct)
+        => RefundValue.RemainingAsync(db, invoice, item, null, ct);
 
     private async Task EnsureNoUnmappedLegacyRefundAsync(Guid invoiceId, CancellationToken ct)
     {

@@ -28,7 +28,9 @@ export function SalesDesk() {
   const planParam = Number(params.get("plan"));
   const initialPlan =
     Number.isInteger(planParam) && planParam > 0 ? planParam : null;
-  const [view, setView] = useState<HubView>("explore");
+  const [view, setView] = useState<HubView>(
+    params.get("view") === "owned" ? "owned" : "explore",
+  );
   const [filter, setFilter] = useState<FilterValue>(
     requestedTab === "courses"
       ? "class"
@@ -75,6 +77,7 @@ export function SalesDesk() {
             filter={filter}
             onFilter={setFilter}
             staffMember={member}
+            gymPackageId={params.get("gymPackage") ?? ""}
           />
         ) : (
           <ExplorePackages

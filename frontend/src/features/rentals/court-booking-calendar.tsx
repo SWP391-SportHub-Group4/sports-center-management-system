@@ -61,7 +61,11 @@ export function CourtBookingCalendar({
   const vi = language === "vi";
   const text = (viText: string, enText: string) => (vi ? viText : enText);
   const checkout = useStartCheckout();
-  const { values } = useUrlQuery({ checkout: "", sport: "" });
+  const { values } = useUrlQuery({
+    checkout: "",
+    checkoutIntent: "",
+    sport: "",
+  });
   const [sportPick, setSport] = useState<number | null>(null);
   const sportId =
     sportPick ??
@@ -70,6 +74,18 @@ export function CourtBookingCalendar({
   const [monthPick, setMonth] = useState<string | null>(null);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [paid, setPaid] = useState<CheckoutDto | null>(null);
+  const resumeStaffCheckout = (() => {
+    if (!memberId || !values.checkout || !values.checkoutIntent) return false;
+    try {
+      const saved = JSON.parse(values.checkoutIntent);
+      return (
+        saved?.kind === "court-rental" &&
+        saved.body?.targetMemberId === memberId
+      );
+    } catch {
+      return false;
+    }
+  })();
   const policy = useApi((signal) => rentalApi.policy(signal), []);
   const sports = useApi(
     (signal) =>
@@ -210,6 +226,7 @@ export function CourtBookingCalendar({
         {memberId ? (
           <CheckoutPanel
             modal
+            alwaysShowPoints
             memberId={memberId}
             key={`${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`}
             intent={{
@@ -318,6 +335,24 @@ export function CourtBookingCalendar({
           >
             {text("Tiếp tục thanh toán", "Resume payment")}
           </Link>
+        </section>
+      )}
+      {resumeStaffCheckout && !selected && !paid && (
+        <section className={styles.resume}>
+          <h3>{text("Tiếp tục thanh toán sân", "Resume court payment")}</h3>
+          <CheckoutPanel
+            modal
+            alwaysShowPoints
+            invoiceId={values.checkout}
+            memberId={memberId}
+            onPaid={onPaid}
+            onChange={reload}
+            review={{
+              title: text("Thanh toán đặt sân", "Court booking payment"),
+              submitLabel: text("Thanh toán", "Pay"),
+              items: [],
+            }}
+          />
         </section>
       )}
       <section className={styles.sportSection}>

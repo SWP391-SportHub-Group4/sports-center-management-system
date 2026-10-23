@@ -264,6 +264,15 @@
   color: var(--ink-500);
   font-size: 0.75rem;
 }
+.member .inactiveAccount {
+  color: #a02828;
+  font-weight: 700;
+}
+.optionCell {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
 .confirmed {
   display: inline-block;
   padding: 4px 8px;

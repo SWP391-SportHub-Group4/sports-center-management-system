@@ -89,7 +89,7 @@ async function setup(page: Page) {
   return writes;
 }
 
-test("personal settings preserve editing and separate security with keyboard tabs", async ({
+test("personal information and security sit side by side without tabs", async ({
   page,
 }) => {
   const writes = await setup(page);
@@ -98,16 +98,11 @@ test("personal settings preserve editing and separate security with keyboard tab
   await expect(
     page.getByRole("heading", { name: "Alex Nguyen", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
   await page
     .getByLabel(en.account.fullName, { exact: true })
     .fill("Alex SportHub");
-  await page
-    .getByRole("tab", { name: en.account.profileTitle, exact: true })
-    .focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(
-    page.getByRole("tab", { name: "Security", exact: true }),
-  ).toBeFocused();
+  // The security panel is already on screen next to the profile form.
   await expect(
     page.getByLabel(en.account.currentPassword, { exact: true }),
   ).toBeVisible();
@@ -116,7 +111,6 @@ test("personal settings preserve editing and separate security with keyboard tab
     animations: "disabled",
     fullPage: true,
   });
-  await page.keyboard.press("ArrowLeft");
   await expect(
     page.getByLabel(en.account.fullName, { exact: true }),
   ).toHaveValue("Alex SportHub");
@@ -146,7 +140,6 @@ test("personal settings preserve editing and separate security with keyboard tab
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.getByRole("tab", { name: "Security", exact: true }).click();
   await page.screenshot({
     path: "../.impeccable/review/operations-security-mobile.png",
     animations: "disabled",
@@ -163,16 +156,23 @@ test("manager navigation uses the requested order and invoices omit Void", async
   const nav = page.locator("header nav").first();
   await expect(nav.getByRole("link")).toHaveText([
     "Overview",
-    "Sport",
     "Media",
     "People",
   ]);
-  await expect(nav.getByRole("button")).toHaveText(["Services", "Exception"]);
-  await nav.getByRole("button", { name: "Services", exact: true }).click();
+  await expect(nav.getByRole("button")).toHaveText([
+    "Sport",
+    "Billing management",
+    "Exception",
+  ]);
+  await nav
+    .getByRole("button", { name: "Billing management", exact: true })
+    .click();
   await expect(
     page.getByRole("link", { name: "Invoices", exact: true }),
   ).toHaveAttribute("href", "/manager/finance");
-  await nav.getByRole("button", { name: "Services", exact: true }).click();
+  await nav
+    .getByRole("button", { name: "Billing management", exact: true })
+    .click();
   await expect(page.getByText("PAID-ORDER", { exact: true })).toBeVisible();
   await expect(page.getByText("VOID-ORDER", { exact: true })).toHaveCount(0);
   await page.locator("details > summary").click();

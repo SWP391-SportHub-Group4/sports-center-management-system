@@ -90,6 +90,11 @@
   color: var(--text-strong);
   font-weight: var(--weight-semibold);
 }
+.fact dd a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .factWarn dd {
   color: var(--warning-text);
 }

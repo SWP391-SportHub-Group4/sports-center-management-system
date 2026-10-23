@@ -511,3 +511,18 @@
 .footStart {
   margin-right: auto;
 }
+
+/* Second choice in the rental cancel dialog: ask for a bank refund instead of taking points. */
+.bankChoice {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+.bankChoice p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

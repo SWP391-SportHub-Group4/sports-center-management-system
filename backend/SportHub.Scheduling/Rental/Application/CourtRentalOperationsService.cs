@@ -56,6 +56,14 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
     public async Task CancelByOwnerAsync(Guid rentalId, Guid ownerId, CancellationToken ct = default)
         => await CancelAsync(rentalId, ownerId, false, "Canceled by member", ct);
 
+    public async Task CancelOnBehalfAsync(Guid rentalId, CancellationToken ct = default)
+    {
+        var ownerId = await db.Set<CourtRental>().AsNoTracking()
+            .Where(x => x.CourtRentalId == rentalId).Select(x => (Guid?)x.MemberId).SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("rental_not_found", "Rental not found.");
+        await CancelAsync(rentalId, ownerId, false, "Canceled at front desk", ct);
+    }
+
     public async Task CancelByCenterAsync(Guid rentalId, Guid managerId, string reason, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)

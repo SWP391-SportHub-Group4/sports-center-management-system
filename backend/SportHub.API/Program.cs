@@ -334,6 +334,9 @@ builder.Services.AddScoped<IPaymentRecordingService, PaymentRecordingService>();
 builder.Services.AddScoped<IPackageActivationService, PackageActivationService>();
 builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>();
 builder.Services.AddScoped<IPointRefundService, PointRefundService>();
+builder.Services.AddScoped<SportHub.Payment.BankRefunds.BankRefundService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IBankRefundIntake>(
+    sp => sp.GetRequiredService<SportHub.Payment.BankRefunds.BankRefundService>());
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IRefundCreditService, RefundCreditService>();
 builder.Services.AddScoped<IInvoiceReceiptService, InvoiceReceiptService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();

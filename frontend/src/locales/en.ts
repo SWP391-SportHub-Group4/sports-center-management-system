@@ -2208,7 +2208,7 @@ export const en = {
     refundRejected: "Rejected",
     refundViews: "Refund status",
     pointsOnly:
-      "Refunds go back to the member's wallet as points. Cash and card refunds are not available.",
+      "Requests here are refunded to the member's wallet as points. A refund to a bank account is a Payment request under Member support: the manager approves it and records the transfer made outside the system.",
     emptyRefunds: "No refund requests in this view.",
     requestedBy: "Requested by {name}",
     systemCalc: "Calculated by the system: {points} points ({vnd})",
@@ -2243,7 +2243,7 @@ export const en = {
     exportDone: "Export queued. It appears in the history below.",
     refundOpen: "Request a refund",
     refundHint:
-      "Refunds are returned as points to your wallet. The center reviews each request.",
+      "Refunds here are returned as points to the wallet. To refund to a bank account, send a Payment request from Help (members) or Member support (front desk).",
     refundEstimate: "Estimated refund: {points} points ({vnd})",
     refundSent:
       "Request sent. No points are returned until the center approves it.",

@@ -29,7 +29,7 @@ public interface ICourtRentalFulfillment
 }
 
 public sealed record CourtRentalRefundFacts(Guid RentalId, Guid OwnerId, DateTimeOffset StartUtc,
-    string Status, bool IsCancelledByCenter);
+    string Status, bool IsCancelledByCenter, DateTimeOffset? EndUtc = null);
 
 public sealed record CourtRentalRequest(
     Guid MemberId,

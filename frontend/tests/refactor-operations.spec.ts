@@ -663,7 +663,9 @@ for (const language of ["en", "vi"] as const)
       exact: true,
     });
     await checkIn.click();
-    const countdown = page.getByRole("button", { name: /Check[ -]in \(\d+s\)/i });
+    const countdown = page.getByRole("button", {
+      name: /Check[ -]in \(\d+s\)/i,
+    });
     await expect(countdown).toBeDisabled();
     expect(visits).toHaveLength(1);
     expect(posts).toBe(1);
@@ -1045,6 +1047,9 @@ test("attendance rejects one row without showing a successful present status", a
           classId: 1,
           title: "Course A",
           startAtUtc: "2030-10-03T02:00:00Z",
+          endAtUtc: "2030-10-03T03:30:00Z",
+          coachName: "Coach A",
+          participants: [],
         },
       ],
     }),
@@ -1052,7 +1057,14 @@ test("attendance rejects one row without showing a successful present status", a
   await page.route(`**/api/class-sessions/${sessionId}/roster`, (r) =>
     r.fulfill({
       json: {
-        session: { sessionId },
+        session: {
+          sessionId,
+          className: "Course A",
+          sessionNo: 1,
+          coachName: "Coach A",
+          startAtUtc: "2030-10-03T02:00:00Z",
+          endAtUtc: "2030-10-03T03:30:00Z",
+        },
         attendanceOpensAtUtc: "2030-10-03T02:00:00Z",
         attendanceClosesAtUtc: "2030-10-04T03:30:00Z",
         entries: [
@@ -1084,16 +1096,22 @@ test("attendance rejects one row without showing a successful present status", a
     },
   );
   await page.goto("/receptionist/attendance");
-  await page.getByLabel("Course registration").selectOption("1");
-  await page.getByLabel("Sessions", { exact: true }).selectOption(sessionId);
+  await page.getByRole("button", { name: /Course A/ }).click();
+  await page
+    .getByRole("row", { name: /Student A/ })
+    .getByRole("button", { name: "Options" })
+    .click();
   await page.getByRole("button", { name: "Present", exact: true }).click();
   await expect(page.locator("main [role=alert]")).toHaveText(
     "Attendance window closed",
   );
   expect(writes).toBe(1);
   await expect(
-    page.locator("tbody tr").filter({ hasText: "Student A" }).locator(".chip"),
-  ).toHaveCount(0);
+    page
+      .locator("tbody tr")
+      .filter({ hasText: "Student A" })
+      .getByText("Pending"),
+  ).toBeVisible();
 });
 
 test("switching members resets wallet data and fetches the selected member only", async ({

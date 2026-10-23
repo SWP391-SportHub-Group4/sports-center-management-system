@@ -100,6 +100,16 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             .Select(a => new { CompletedAt = a.CompletedAtUtc!.Value, a.Amount })
             .ToListAsync(ct);
 
+        // Bank refunds (cash transferred outside the system) count once, on the day the manager says the money left
+        // (PayoutAt, BR-43), and only after the transfer was recorded with proof. They are kept apart from point refunds.
+        var bankRefunds = await db.Set<BankRefunds.BankRefundRequest>()
+            .AsNoTracking()
+            .Where(b => b.Status == BankRefunds.BankRefundStatuses.Paid && b.PayoutAt != null
+                        && b.PayoutAt >= fromUtc && b.PayoutAt < toUtcExclusive)
+            .Select(b => new { CompletedAt = b.PayoutAt!.Value, Amount = b.PayoutAmount!.Value })
+            .ToListAsync(ct);
+        refunds.AddRange(bankRefunds);
+
         var obligationChanges = await db.Set<PaymentAdjustment>()
             .AsNoTracking()
             .Where(a => a.Status == PaymentAdjustmentStatus.Completed
@@ -224,6 +234,8 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             PointsRedeemed = pointsRedeemed,
             PointsIssued = pointsIssued,
             PointsRefunded = pointsRefunded,
+            BankRefundAmount = bankRefunds.Sum(b => b.Amount),
+            BankRefundCount = bankRefunds.Count,
             ManagerPointAdjustment = managerPointAdjustment,
             OutstandingPoints = outstandingPoints,
             OutstandingPointsAsOfUtc = outstandingPointsAsOfUtc,

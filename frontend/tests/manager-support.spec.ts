@@ -1,392 +1,317 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import {
+  coachStaffId,
+  installSupport,
+  memberId,
+  meId,
+  otherStaffId,
+  secondRequestId,
+} from "./helpers/support";
 
-const id = "22222222-2222-4222-8222-222222222222";
-const staff = "33333333-3333-4333-8333-333333333333";
-async function install(page: Page, role = "CENTER_MANAGER") {
-  await page.addInitScript(() => {
-    localStorage.setItem("sporthub.accessToken", "support-test");
-    localStorage.setItem("sporthub_lang", "en");
-  });
-  const state = {
-    status: "OPEN",
-    note: "",
-    assigned: "",
-    error: false,
-    reject: false,
-    empty: false,
-    multiple: false,
-  };
-  const queries: URL[] = [];
-  const writes: { path: string; body: Record<string, string> }[] = [];
-  await page.route("**/api/**", async (route) => {
-    const req = route.request();
-    const url = new URL(req.url());
-    const path = url.pathname;
-    const json = (body: unknown) => route.fulfill({ json: body });
-    if (path === "/api/users/me")
-      return json({
-        userId: staff,
-        role,
-        fullName: "Manager",
-        email: "manager@example.com",
-        sportIds: [],
-      });
-    if (path.includes("notifications"))
-      return json(path.endsWith("unread-count") ? { count: 0 } : []);
-    if (req.method() === "POST") {
-      const body = req.postDataJSON();
-      writes.push({ path, body });
-      if (state.reject)
-        return route.fulfill({
-          status: 409,
-          json: {
-            error: "support_request_closed",
-            message: "Support request is closed.",
-          },
-        });
-      if (path.endsWith("assign")) {
-        state.assigned = body.assigneeUserId;
-        state.status = "ASSIGNED";
-      }
-      if (path.endsWith("progress")) {
-        state.note = body.note;
-        state.status = "IN_PROGRESS";
-      }
-      if (path.endsWith("close")) {
-        state.note = body.resolution;
-        state.status = "CLOSED";
-      }
-      return json({ requestId: id });
-    }
-    if (path.endsWith("/assignees"))
-      return json([
-        {
-          userId: staff,
-          name: "Desk handler",
-          email: "handler@example.com",
-          role: "Receptionist",
-        },
-      ]);
-    const row = {
-      requestId: id,
-      memberId: id,
-      memberName: "Member An",
-      memberEmail: "an@example.com",
-      recordedByUserId: staff,
-      category: "GENERAL",
-      subject: "Help with membership",
-      description: "Please review my membership.\n<img src=x onerror=alert(1)>",
-      status: state.status,
-      createdAt: "2026-10-18T03:00:00Z",
-      updatedAt: "2026-10-18T04:00:00Z",
-      closedAt: state.status === "CLOSED" ? "2026-10-18T05:00:00Z" : null,
-      assignedToUserId: state.assigned || null,
-      assignedToName: state.assigned ? "Desk handler" : null,
-      progressNote: state.note || null,
-    };
-    if (path.endsWith("/queue")) {
-      queries.push(url);
-      if (state.error)
-        return route.fulfill({
-          status: 500,
-          json: { error: "unavailable", message: "Support unavailable" },
-        });
-      return json({
-        items: state.empty
-          ? []
-          : state.multiple
-            ? [
-                row,
-                {
-                  ...row,
-                  requestId: "44444444-4444-4444-8444-444444444444",
-                  subject: "Court booking question",
-                  memberName: "Member Binh",
-                  memberEmail: "binh@example.com",
-                  category: "CLASS",
-                  status: "OPEN",
-                  assignedToUserId: null,
-                  assignedToName: null,
-                  progressNote: null,
-                },
-              ]
-            : [row],
-        totalCount: state.empty ? 0 : 21,
-        page: Number(url.searchParams.get("page")),
-        pageSize: 20,
-      });
-    }
-    if (path === "/api/member-support-requests") return json([]);
-    if (path === `/api/users/${id}`)
-      return json({
-        userId: id,
-        fullName: "Member An",
-        email: "an@example.com",
-        role: "MEMBER",
-        status: "ACTIVE",
-      });
-    if (path === "/api/coach-member-relationships")
-      return json({ items: [], totalCount: 0 });
-    return json([]);
-  });
-  return { state, queries, writes };
-}
+const queue = "/manager/requests?type=support";
 
-test("manager assigns, records progress and closes with resolution in its workspace", async ({
+test("manager claims an unassigned request, updates progress and completes it", async ({
   page,
 }, info) => {
-  const { writes } = await install(page);
-  await page.goto("/manager/support");
+  const { writes } = await installSupport(page);
+  await page.goto(queue);
+  const row = page.getByRole("button", { name: /Help with membership/ });
+  await expect(row).toContainText("Unassigned");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Support requests" }),
+    page.getByRole("link", { name: "View profile" }),
+  ).toHaveAttribute("href", `/manager/members/${memberId}`);
+
+  await page.getByRole("button", { name: "Assign to me" }).click();
+  await expect(
+    page.getByText("You are now handling this request."),
   ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Member An · an@example.com" }),
-  ).toHaveAttribute("href", `/manager/members/${id}`);
-  await expect(page.locator('a[href^="/receptionist/"]')).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Close request", exact: true }),
-  ).toBeDisabled();
+  await expect(row).toContainText("Assigned");
+
   await page
-    .getByRole("combobox", { name: "Assign to", exact: true })
-    .selectOption(staff);
-  await page.getByRole("button", { name: "Assign", exact: true }).click();
-  await expect(
-    page
-      .locator("p")
-      .filter({ has: page.getByText("Assigned to", { exact: true }) })
-      .getByText("Desk handler", { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("textbox", { name: /^Progress or resolution/ })
+    .getByRole("textbox", { name: "Progress note", exact: true })
     .fill("Checking the account");
-  await page.getByRole("button", { name: "Update progress" }).click();
-  await expect(
-    page.getByText("Latest update: Checking the account"),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*IN PROGRESS/ }),
-  ).toBeVisible();
-  await page.getByRole("searchbox", { name: "Search", exact: true }).focus();
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(row).toContainText("In progress");
+
   await page.screenshot({
     path: info.outputPath("manager-support-desktop.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.evaluate(() => window.scrollTo(0, 0));
   expect(
-    await page.evaluate(() => document.documentElement.scrollWidth),
-  ).toBeLessThanOrEqual(391);
-  await page.screenshot({
-    path: info.outputPath("manager-support-mobile.png"),
-    fullPage: true,
-  });
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
   expect(
     (await new AxeBuilder({ page }).analyze()).violations.filter(
       (x) => x.impact === "serious" || x.impact === "critical",
     ),
   ).toEqual([]);
+
+  await page.getByRole("tab", { name: "Mark as done" }).click();
   await page
-    .getByRole("textbox", { name: /^Progress or resolution/ })
+    .getByRole("textbox", { name: "Resolution note", exact: true })
     .fill("Membership corrected");
-  await page
-    .getByRole("button", { name: "Close request", exact: true })
-    .click();
-  expect(writes.some((write) => write.path.endsWith("/close"))).toBe(false);
-  await page.getByRole("button", { name: "Confirm close" }).click();
+  await page.getByRole("button", { name: "Mark as done", exact: true }).click();
+  expect(writes.some((write) => write.path.endsWith("/done"))).toBe(false);
+  await page.getByRole("button", { name: "Confirm done" }).click();
+
+  const final = page.getByRole("region", { name: "Final note" });
+  await expect(final.getByText("Membership corrected")).toBeVisible();
+  await expect(row).toContainText("Done");
   await expect(
-    page.getByText("Resolution: Membership corrected"),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Close request", exact: true }),
+    page.getByRole("region", { name: "Handle request" }),
   ).toHaveCount(0);
-  await expect(page.getByText(/Closed 18\/10\/2026/)).toBeVisible();
   expect(writes.map((x) => x.path.split("/").at(-1))).toEqual([
     "assign",
     "progress",
-    "close",
+    "done",
   ]);
   expect(await page.locator('img[src="x"]').count()).toBe(0);
+});
+
+test("manager rejects a request that was sent by mistake", async ({ page }) => {
+  const { writes } = await installSupport(page, {
+    status: "ASSIGNED",
+    assigned: meId,
+  });
+  await page.goto(queue);
+  await page.getByRole("tab", { name: "Reject", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Rejection reason", exact: true })
+    .fill("Wrong request, member was contacted.");
+  await page.getByRole("button", { name: "Reject request" }).click();
+  await page.getByRole("button", { name: "Confirm rejection" }).click();
+  const final = page.getByRole("region", { name: "Final note" });
+  await expect(final.getByText("Rejection reason")).toBeVisible();
+  await expect(
+    final.getByText("Wrong request, member was contacted."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Help with membership/ }),
+  ).toContainText("Rejected");
+  expect(writes).toEqual([
+    {
+      path: expect.stringMatching(/\/reject$/),
+      body: { reason: "Wrong request, member was contacted." },
+    },
+  ]);
+});
+
+test("only the assigned handler can act on a request", async ({ page }) => {
+  const { writes } = await installSupport(page, {
+    status: "ASSIGNED",
+    assigned: otherStaffId,
+  });
+  await page.goto(queue);
+  const handler = page.getByRole("region", { name: "Current handler" });
+  await expect(handler.getByText("Other handler")).toBeVisible();
+  await expect(
+    handler.getByText(/Only the assigned handler can update or transfer/),
+  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Update progress" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("button", { name: "Transfer request" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Assign to me" })).toHaveCount(
+    0,
+  );
+  expect(writes).toEqual([]);
+});
+
+test("a request owned by someone who cannot act can be taken over", async ({
+  page,
+}) => {
+  const { writes } = await installSupport(page, {
+    status: "ASSIGNED",
+    assigned: otherStaffId,
+    assigneeCanAct: false,
+  });
+  await page.goto(queue);
+  await expect(
+    page.getByRole("region", { name: "Current handler" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Assign this request to yourself before updating it."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Assign to me" }).click();
+  await expect(
+    page.getByText("You are now handling this request."),
+  ).toBeVisible();
+  expect(writes[0].body).toMatchObject({ assigneeUserId: meId });
+});
+
+test("the handler can hand a request over, including to a coach", async ({
+  page,
+}) => {
+  const { writes } = await installSupport(page, {
+    status: "ASSIGNED",
+    assigned: meId,
+  });
+  await page.goto(queue);
+  const department = page.getByLabel("Department");
+  await expect(department.locator("option")).toContainText([
+    "Select a department",
+    "Receptionist",
+    "Coach",
+    "Manager",
+  ]);
+  await department.selectOption({ label: "Coach" });
+  await page.getByLabel("Staff member").selectOption(coachStaffId);
+  await page.getByRole("button", { name: "Transfer request" }).click();
+  await expect(page.getByText("Request transferred.")).toBeVisible();
+  expect(writes[0].body).toMatchObject({ assigneeUserId: coachStaffId });
+  // Once handed over the previous handler can no longer act on it.
+  await expect(
+    page.getByRole("region", { name: "Current handler" }),
+  ).toBeVisible();
+});
+
+test("a rejected write keeps the draft and shows the server message", async ({
+  page,
+}) => {
+  const { state } = await installSupport(page, {
+    status: "ASSIGNED",
+    assigned: meId,
+  });
+  await page.goto(queue);
+  const note = page.getByRole("textbox", {
+    name: "Progress note",
+    exact: true,
+  });
+  await note.fill("Do not lose this note");
+  state.forbidWrites = true;
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Only the staff member assigned to this request" }),
+  ).toBeVisible();
+  await expect(note).toHaveValue("Do not lose this note");
 });
 
 test("manager filters on the server, pages, retries and sees empty results", async ({
   page,
 }) => {
-  const { queries, state } = await install(page);
-  await page.goto("/manager/support");
+  const { queries, state } = await installSupport(page);
+  await page.goto(queue);
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get("page")).toBe("2");
+
   await page.getByLabel("Search", { exact: true }).fill(" Member An ");
-  await page
-    .getByRole("combobox", { name: "Status", exact: true })
-    .selectOption("ASSIGNED");
-  await page
-    .getByRole("combobox", { name: "Assigned staff", exact: true })
-    .selectOption(staff);
-  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("search"))
     .toBe("Member An");
-  expect(queries.at(-1)?.searchParams.get("status")).toBe("ASSIGNED");
-  expect(queries.at(-1)?.searchParams.get("assignedToUserId")).toBe(staff);
   expect(queries.at(-1)?.searchParams.get("page")).toBe("1");
-  state.error = true;
+
+  const stat = (name: string) =>
+    page
+      .getByRole("group", { name: "Filter by status" })
+      .getByRole("button", { name: new RegExp(`^${name}`) });
+  await stat("Assigned").click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("status"))
+    .toBe("ASSIGNED");
+  await expect(stat("Assigned")).toHaveAttribute("aria-pressed", "true");
+  await stat("Unassigned").click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("status"))
+    .toBe("OPEN");
+  await stat("In progress").click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("status"))
+    .toBe("IN_PROGRESS");
+  await expect(
+    page.getByRole("group", { name: "Filter by status" }).getByRole("button"),
+  ).toHaveCount(6);
+
   await page
-    .getByRole("button", { name: "Apply filters", exact: true })
-    .click();
+    .getByRole("combobox", { name: "Assigned staff", exact: true })
+    .selectOption(meId);
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("assignedToUserId"))
+    .toBe(meId);
+
+  state.error = true;
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(page.getByText("Support unavailable")).toBeVisible();
   state.error = false;
   state.empty = true;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(page.getByText(/No requests match these filters/)).toBeVisible();
+  await expect(page.getByText("No requests found")).toBeVisible();
 });
 
-test("assigned-to-me filter toggles the server query and resets pagination", async ({
+test("selecting another request shows its own details", async ({ page }) => {
+  await installSupport(page, { multiple: true });
+  await page.goto(queue);
+  await page.getByRole("button", { name: /Court booking question/ }).click();
+  await expect(
+    page.getByRole("button", { name: /Court booking question/ }),
+  ).toHaveAttribute("aria-current", "true");
+  await expect(page.getByText("Member Binh").last()).toBeVisible();
+  expect(secondRequestId).toBeTruthy();
+});
+
+test("manager records a request for a member with a required subject", async ({
   page,
 }) => {
-  const { queries } = await install(page);
-  await page.goto("/manager/support");
-  await page.getByRole("button", { name: "Next", exact: true }).click();
-  await expect.poll(() => queries.at(-1)?.searchParams.get("page")).toBe("2");
-  const mine = page.getByRole("button", {
-    name: "Assigned to me",
-    exact: true,
-  });
-  await mine.click();
-  await expect
-    .poll(() => queries.at(-1)?.searchParams.get("assignedToUserId"))
-    .toBe(staff);
-  await expect(mine).toHaveAttribute("aria-pressed", "true");
-  expect(queries.at(-1)?.searchParams.get("page")).toBe("1");
-  await mine.click();
-  await expect
-    .poll(() => queries.at(-1)?.searchParams.get("assignedToUserId") || null)
-    .toBeNull();
-  await expect(mine).toHaveAttribute("aria-pressed", "false");
-});
-
-test("a conflict retains the draft and refresh displays the closed result", async ({
-  page,
-}) => {
-  const { state } = await install(page);
-  state.assigned = staff;
-  state.status = "ASSIGNED";
-  await page.goto("/manager/support");
+  const { writes } = await installSupport(page);
+  await page.goto(queue);
   await page
-    .getByRole("textbox", { name: /^Progress or resolution/ })
-    .fill("Do not lose this note");
-  state.reject = true;
-  await page.getByRole("button", { name: "Update progress" }).click();
-  await expect(
-    page.getByRole("alert").filter({ hasText: "Support request is closed." }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("textbox", { name: /^Progress or resolution/ }),
-  ).toHaveValue("Do not lose this note");
-  state.status = "CLOSED";
-  state.note = "Closed by another staff member";
-  await page
-    .getByRole("button", { name: "Apply filters", exact: true })
+    .getByRole("button", { name: "Record a request for member" })
     .click();
-  await expect(
-    page.getByText("Resolution: Closed by another staff member"),
-  ).toBeVisible();
-});
-
-test("manager records a request from a member profile", async ({ page }) => {
-  const { writes } = await install(page);
-  await page.goto(`/manager/members/${id}`);
-  const support = page.getByRole("region", {
-    name: "Member support requests",
-    exact: true,
-  });
-  await support
-    .getByRole("button", { name: "Locker request", exact: true })
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByRole("textbox", { name: "Member", exact: true })
+    .fill("Member An");
+  await dialog
+    .getByRole("button", { name: /Member An.*an@example.com/ })
     .click();
-  await support.getByLabel("Subject", { exact: true }).fill("Membership help");
-  await support
-    .getByLabel(/^Description/)
-    .fill("Please check the expiry date.");
-  await support.getByRole("button", { name: "Record support request" }).click();
-  await expect(
-    support.getByText("Support request recorded successfully."),
-  ).toBeVisible();
-  expect(writes[0].body).toEqual({
-    memberId: id,
-    category: "GENERAL",
-    subject: "Membership help",
-    description: "Please check the expiry date.",
+  await dialog.getByLabel("Topic").selectOption("FACILITY");
+  await dialog.getByLabel("Description").fill("Please check the court lights.");
+  const create = dialog.getByRole("button", { name: "Create & handle myself" });
+  await expect(create).toBeDisabled();
+  await dialog.getByLabel("Subject").fill("Court light is broken");
+  await expect(create).toBeEnabled();
+  await create.click();
+  await expect(dialog).toHaveCount(0);
+  expect(writes[0].body).toMatchObject({
+    memberId,
+    category: "FACILITY",
+    subject: "Court light is broken",
+    description: "Please check the court lights.",
+    assigneeUserId: meId,
   });
 });
 
-test("request details retain unsent notes when switching requests and refreshing", async ({
+test("receptionist queue keeps member links in its own workspace and hides coaches", async ({
   page,
 }) => {
-  const { state } = await install(page);
-  state.status = "ASSIGNED";
-  state.assigned = staff;
-  state.multiple = true;
-  await page.goto("/manager/support");
-  await page
-    .getByRole("textbox", { name: /^Progress or resolution/ })
-    .fill("Keep this unfinished progress note");
-  await page
-    .getByRole("button", {
-      name: "View request: Court booking question",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByRole("button", {
-      name: "Collapse request: Court booking question",
-      exact: true,
-    }),
-  ).toHaveAttribute("aria-expanded", "true");
-  await page
-    .getByRole("button", {
-      name: "View request: Help with membership",
-      exact: true,
-    })
-    .click();
-  await expect(
-    page.getByRole("textbox", { name: /^Progress or resolution/ }),
-  ).toHaveValue("Keep this unfinished progress note");
-  await expect(
-    page.getByRole("button", { name: "Refresh", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("textbox", { name: /^Progress or resolution/ }),
-  ).toBeEnabled();
-  await expect(
-    page.getByRole("textbox", { name: /^Progress or resolution/ }),
-  ).toHaveValue("Keep this unfinished progress note");
-});
-
-test("receptionist queue keeps member links in its own workspace", async ({
-  page,
-}) => {
-  await install(page, "RECEPTIONIST");
+  await installSupport(page, {
+    role: "RECEPTIONIST",
+    status: "ASSIGNED",
+    assigned: meId,
+  });
   await page.goto("/receptionist/support");
   await expect(
-    page.getByRole("link", { name: "Member An · an@example.com" }),
-  ).toHaveAttribute("href", `/receptionist/members/${id}`);
-  // Lễ tân ghi yêu cầu ngay trên Today's desk, nên hàng đợi không còn nút "Record a request".
+    page.getByRole("link", { name: "View profile" }),
+  ).toHaveAttribute("href", `/receptionist/members/${memberId}`);
+  await expect(page.locator('a[href^="/manager/"]')).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Record a request" }),
+    page.getByLabel("Department").locator("option", { hasText: "Coach" }),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Assign", exact: true }),
-  ).toBeVisible();
 });
 
 test("member cannot enter manager support", async ({ page }) => {
-  const { writes } = await install(page, "MEMBER");
-  await page.goto("/manager/support");
+  const { writes } = await installSupport(page, { role: "MEMBER" });
+  await page.goto("/manager/requests?type=support");
   await expect(page).toHaveURL(/\/member$/);
-  await expect(
-    page.getByRole("combobox", { name: "Assign to", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Assign to me" })).toHaveCount(
+    0,
+  );
   expect(writes).toEqual([]);
 });

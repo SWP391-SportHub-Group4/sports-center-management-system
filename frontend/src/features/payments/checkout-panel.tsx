@@ -45,6 +45,7 @@ function CheckoutFlow({
   compact = false,
   modal = false,
   vnpayOnly = false,
+  alwaysShowPoints = false,
 }: {
   intent?: PurchaseIntent;
   invoiceId?: string;
@@ -55,8 +56,10 @@ function CheckoutFlow({
   review?: CheckoutReview;
   compact?: boolean;
   modal?: boolean;
-  /** Dịch vụ chỉ thu qua VNPay (ví dụ thuê sân): ẩn lựa chọn điểm và phương thức khác. */
+  /** Dịch vụ chỉ thu qua VNPay: ẩn lựa chọn điểm và phương thức khác. */
   vnpayOnly?: boolean;
+  /** Counter court checkout uses the same Points → Payment steps as class checkout. */
+  alwaysShowPoints?: boolean;
 }) {
   const { t, language } = useLanguage();
   const vi = language === "vi";
@@ -300,6 +303,7 @@ function CheckoutFlow({
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
+    window.dispatchEvent(new Event("sporthub:query-change"));
   }
   async function create() {
     if (!intent) return;
@@ -411,10 +415,13 @@ function CheckoutFlow({
       "",
       `${url.pathname}${url.search}${url.hash}`,
     );
+    window.dispatchEvent(new Event("sporthub:query-change"));
   }
-  /** Đóng hộp thanh toán mà chưa trả thì hủy checkout để nhả chỗ giữ, không để treo tới khi hết hạn. */
+  /** Court holds survive closing the dialog; the explicit Cancel action releases them. */
   async function closePayment() {
     setOpen(false);
+    if (checkout?.kind === "COURT_RENTAL" || intent?.kind === "court-rental")
+      return;
     if (
       !checkout ||
       checkout.invoiceStatus !== "ISSUED" ||
@@ -559,7 +566,7 @@ function CheckoutFlow({
             <p className={styles.note}>{t.checkout.loadingOrder}</p>
           )}
         </section>
-        {active && modal && !vnpayOnly && (
+        {active && modal && !vnpayOnly && !alwaysShowPoints && (
           <section
             className={styles.methods}
             aria-label={vi ? "Phương thức thanh toán" : "Payment method"}
@@ -604,6 +611,7 @@ function CheckoutFlow({
         {active &&
           canSelectPoints &&
           (!modal ||
+            alwaysShowPoints ||
             paymentChoice === "points" ||
             checkout.pointsApplied > 0) && (
             <section
@@ -776,6 +784,7 @@ function CheckoutFlow({
               <span className={styles.stepNo} aria-hidden="true">
                 {canSelectPoints &&
                 (!modal ||
+                  alwaysShowPoints ||
                   paymentChoice === "points" ||
                   checkout.pointsApplied > 0)
                   ? 3
@@ -856,7 +865,6 @@ function CheckoutFlow({
                 {l.cancel}
               </Button>
             </div>
-            
           </section>
         )}
         {showExpiredRetry && (
@@ -977,6 +985,7 @@ export function CheckoutPanel(props: {
   compact?: boolean;
   modal?: boolean;
   vnpayOnly?: boolean;
+  alwaysShowPoints?: boolean;
 }) {
   const { user } = useAuth();
   const [resumeInvoiceId] = useState(() => {

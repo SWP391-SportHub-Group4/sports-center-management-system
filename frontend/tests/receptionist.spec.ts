@@ -392,10 +392,13 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
 
   await page.goto("/receptionist/attendance");
 
-  await page.getByLabel("Class session").selectOption(sessionId);
+  await page.getByRole("button", { name: /Badminton group/ }).click();
 
   await expect(page.getByRole("row", { name: /Member A/ })).toBeVisible();
-
+  await page
+    .getByRole("row", { name: /Member A/ })
+    .getByRole("button", { name: "Options" })
+    .click();
   await page
     .getByRole("button", {
       name: "Present",
@@ -410,7 +413,110 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
     });
 });
 
-test("attendance finds the next class day when the selected day has no sessions", async ({
+test("attendance identifies an inactive member and blocks editing their row", async ({
+  page,
+}) => {
+  await page.route(`**/api/class-sessions/${sessionId}/roster`, (route) =>
+    route.fulfill({
+      json: {
+        session: {
+          sessionId,
+          className: "Badminton group",
+          sessionNo: 1,
+          coachName: "Coach A",
+          startAtUtc: "2030-10-03T02:30:00Z",
+          endAtUtc: "2030-10-03T04:00:00Z",
+        },
+        entries: [
+          {
+            enrollmentId,
+            memberId,
+            memberName: "Member A",
+            enrollmentStatus: "CONFIRMED",
+            attendanceStatus: null,
+            attendanceRecordedAt: null,
+            memberIsActive: false,
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/receptionist/attendance");
+  await page.getByRole("button", { name: /Badminton group/ }).click();
+  const row = page.getByRole("row", { name: /Member A/ });
+  await expect(row.getByText("Account locked / deactivated")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Options" })).toHaveCount(0);
+});
+
+test("one attendance calendar filters sessions by class, member and status", async ({
+  page,
+}) => {
+  await page.route("**/api/manager/court-schedule?*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          sourceType: "CLASS_SESSION",
+          sourceId: sessionId,
+          classId: 7,
+          title: "Badminton group",
+          status: "SCHEDULED",
+          coachName: "Coach A",
+          startAtUtc: "2030-10-03T02:30:00Z",
+          endAtUtc: "2030-10-03T04:00:00Z",
+          participants: [
+            {
+              memberId,
+              memberName: "Member A",
+              enrollmentId,
+              attendanceStatus: null,
+            },
+          ],
+        },
+        {
+          sourceType: "CLASS_SESSION",
+          sourceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          classId: 8,
+          title: "Basketball group",
+          status: "SCHEDULED",
+          coachName: "Coach B",
+          startAtUtc: "2030-10-03T06:00:00Z",
+          endAtUtc: "2030-10-03T07:00:00Z",
+          participants: [
+            {
+              memberId: "88888888-8888-4888-8888-888888888888",
+              memberName: "Member B",
+              enrollmentId: "55555555-5555-4555-8555-555555555555",
+              attendanceStatus: null,
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  await page.goto("/receptionist/attendance");
+  await expect(
+    page.getByRole("button", { name: /Badminton group/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Basketball group/ }),
+  ).toBeVisible();
+  await page
+    .getByLabel("Member", { exact: true })
+    .selectOption({ label: "Member A" });
+  await expect(
+    page.getByRole("button", { name: /Basketball group/ }),
+  ).toHaveCount(0);
+  await page.getByLabel("Class status").selectOption("live");
+  await expect(
+    page.getByRole("button", { name: /Badminton group/ }),
+  ).toBeVisible();
+  await page.getByLabel("Class status").selectOption("locked");
+  await expect(
+    page.getByRole("button", { name: /Badminton group/ }),
+  ).toHaveCount(0);
+});
+
+test("a day without classes points to the nearest day that has one", async ({
   page,
 }) => {
   await page.route("**/api/manager/court-schedule?*", (route) =>
@@ -423,8 +529,10 @@ test("attendance finds the next class day when the selected day has no sessions"
           title: "Badminton group",
           roomId: 3,
           status: "SCHEDULED",
+          coachName: "Coach A",
           startAtUtc: "2030-10-04T02:30:00Z",
           endAtUtc: "2030-10-04T04:00:00Z",
+          participants: [],
         },
       ],
     }),
@@ -432,37 +540,19 @@ test("attendance finds the next class day when the selected day has no sessions"
 
   await page.goto("/receptionist/attendance");
   await expect(
-    page.getByText("No class sessions are scheduled for 03/10/2030."),
+    page.getByText("No classes match the filters on 03/10/2030."),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Next class day: 04/10/2030 (1 session)" })
+    .getByRole("button", {
+      name: "Nearest class day: 04/10/2030 (1 sessions)",
+    })
     .click();
-  await page.getByLabel("Class session").selectOption(sessionId);
+  await expect(page.getByText("Class schedule · 04/10/2030")).toBeVisible();
+  await page.getByRole("button", { name: /Badminton group/ }).click();
   await expect(page.getByText("Member A")).toBeVisible();
-
-  const previousDay = await page
-    .getByRole("button", { name: "Previous day" })
-    .boundingBox();
-  const calendar = await page.getByLabel("Choose date").boundingBox();
-  expect(previousDay).not.toBeNull();
-  expect(calendar).not.toBeNull();
-  expect(Math.abs(previousDay!.y - calendar!.y)).toBeLessThan(2);
-
-  const summary = page.getByRole("region", { name: "Session summary" });
-  const status = await summary
-    .getByText("Status", { exact: true })
-    .locator("..")
-    .boundingBox();
-  const window = await summary
-    .getByText("Attendance window", { exact: true })
-    .locator("..")
-    .boundingBox();
-  expect(status).not.toBeNull();
-  expect(window).not.toBeNull();
-  expect(status!.width).toBeLessThan(window!.width);
 });
 
-test("attendance finds sessions beyond the first 30-day schedule window", async ({
+test("the calendar marks class days and follows the month", async ({
   page,
 }) => {
   await page.route("**/api/manager/court-schedule?*", (route) => {
@@ -480,8 +570,10 @@ test("attendance finds sessions beyond the first 30-day schedule window", async 
               title: "Badminton group",
               roomId: 3,
               status: "SCHEDULED",
+              coachName: "Coach A",
               startAtUtc: "2030-11-30T00:00:00Z",
               endAtUtc: "2030-11-30T02:00:00Z",
+              participants: [],
             },
           ]
         : [],
@@ -489,11 +581,200 @@ test("attendance finds sessions beyond the first 30-day schedule window", async 
   });
 
   await page.goto("/receptionist/attendance?date=2030-10-19");
+  await expect(page.getByText("Tháng 10/2030")).toBeVisible();
+  await page.getByRole("button", { name: "Tháng sau" }).click();
+  await expect(page.getByText("Tháng 11/2030")).toBeVisible();
+  const day = page.getByRole("button", { name: "30/11/2030, 1 sessions" });
+  await expect(day).toBeVisible();
+  await day.click();
+  await expect(
+    page.getByRole("button", { name: /Badminton group/ }),
+  ).toBeVisible();
+});
+
+test("class lookup shows the 24-hour correction window and locks old sessions", async ({
+  page,
+}) => {
+  const oldSessionId = "99999999-9999-4999-8999-999999999999";
+  const session = (id: string, no: number, start: string, end: string) => ({
+    sessionId: id,
+    classId: 7,
+    className: "Badminton 01",
+    sessionNo: no,
+    roomId: 3,
+    roomName: "Court 3",
+    coachId: "77777777-7777-4777-8777-777777777777",
+    coachName: "Coach A",
+    startAtUtc: start,
+    endAtUtc: end,
+    status: "COMPLETED",
+    isMakeup: false,
+    rescheduledFromSessionId: null,
+  });
+  const rosterFor = (
+    id: string,
+    no: number,
+    start: string,
+    end: string,
+    closes: string,
+    status: string | null,
+  ) => ({
+    session: session(id, no, start, end),
+    attendanceOpensAtUtc: start,
+    attendanceClosesAtUtc: closes,
+    entries: [
+      {
+        enrollmentId,
+        memberId,
+        memberName: "Member A",
+        enrollmentStatus: "CONFIRMED",
+        attendanceStatus: status,
+        attendanceRecordedAt: null,
+      },
+      {
+        enrollmentId: "55555555-5555-4555-8555-555555555555",
+        memberId: "88888888-8888-4888-8888-888888888888",
+        memberName: "Member B",
+        enrollmentStatus: "CONFIRMED",
+        attendanceStatus: "PRESENT",
+        attendanceRecordedAt: null,
+      },
+    ],
+  });
+  await page.route("**/api/classes?*", (route) =>
+    route.fulfill({
+      json: paged([{ classId: 7, name: "Badminton 01" }]),
+    }),
+  );
+  // Clock is 2030-10-03T03:00Z: the first session ended 2 hours ago, the second 2 days ago.
+  await page.route("**/api/classes/7/sessions", (route) =>
+    route.fulfill({
+      json: [
+        session(sessionId, 2, "2030-10-03T00:00:00Z", "2030-10-03T01:00:00Z"),
+        session(
+          oldSessionId,
+          1,
+          "2030-10-01T00:00:00Z",
+          "2030-10-01T01:00:00Z",
+        ),
+        {
+          ...session(
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            3,
+            "2030-10-10T00:00:00Z",
+            "2030-10-10T01:00:00Z",
+          ),
+          status: "SCHEDULED",
+        },
+      ],
+    }),
+  );
+  await page.route(`**/api/class-sessions/${sessionId}/roster`, (route) =>
+    route.fulfill({
+      json: rosterFor(
+        sessionId,
+        2,
+        "2030-10-03T00:00:00Z",
+        "2030-10-03T01:00:00Z",
+        "2030-10-04T01:00:00Z",
+        "PRESENT",
+      ),
+    }),
+  );
+  await page.route(`**/api/class-sessions/${oldSessionId}/roster`, (route) =>
+    route.fulfill({
+      json: rosterFor(
+        oldSessionId,
+        1,
+        "2030-10-01T00:00:00Z",
+        "2030-10-01T01:00:00Z",
+        "2030-10-02T01:00:00Z",
+        "ABSENT",
+      ),
+    }),
+  );
+  let payload: unknown = null;
+  await page.route(
+    `**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`,
+    (route) => {
+      payload = route.request().postDataJSON();
+      return route.fulfill({ json: { ok: true } });
+    },
+  );
+
+  await page.route("**/api/manager/court-schedule?*", (route) =>
+    route.fulfill({
+      json: [
+        {
+          sourceType: "CLASS_SESSION",
+          sourceId: sessionId,
+          classId: 7,
+          title: "Badminton 01",
+          roomId: 3,
+          coachName: "Coach A",
+          startAtUtc: "2030-10-03T00:00:00Z",
+          endAtUtc: "2030-10-03T01:00:00Z",
+          status: "COMPLETED",
+          participants: [
+            {
+              memberId,
+              memberName: "Member A",
+              enrollmentId,
+              attendanceStatus: "PRESENT",
+            },
+          ],
+        },
+        {
+          sourceType: "CLASS_SESSION",
+          sourceId: oldSessionId,
+          classId: 7,
+          title: "Badminton 01",
+          roomId: 3,
+          coachName: "Coach A",
+          startAtUtc: "2030-10-01T00:00:00Z",
+          endAtUtc: "2030-10-01T01:00:00Z",
+          status: "COMPLETED",
+          participants: [
+            {
+              memberId,
+              memberName: "Member A",
+              enrollmentId,
+              attendanceStatus: "ABSENT",
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  await page.goto("/receptionist/attendance");
   await page
-    .getByRole("button", { name: "Next class day: 30/11/2030 (1 session)" })
-    .click();
-  await expect(page.getByLabel("Class session")).toContainText(
-    "Badminton group",
+    .getByLabel("Class", { exact: true })
+    .selectOption({ label: "Badminton 01" });
+  await expect(page.getByText("Correction open").first()).toBeVisible();
+  await expect(page.getByText("Locked", { exact: true }).first()).toBeVisible();
+
+  // Within 24 hours: the roster opens in correction mode and Absent can be changed to Present.
+  await page.getByRole("button", { name: /Badminton 01/ }).click();
+  await page.getByRole("button", { name: "Sửa điểm danh" }).click();
+  const row = page.getByRole("row", { name: /Member A/ });
+  await row.getByRole("button", { name: "Options" }).click();
+  await expect(row.getByRole("button", { name: "Present" })).toBeEnabled();
+  await page.getByLabel("Tìm hội viên trong buổi học").fill("zzz");
+  await expect(
+    page.getByText("Không có hội viên phù hợp với tìm kiếm hoặc bộ lọc."),
+  ).toBeVisible();
+  await page.getByLabel("Tìm hội viên trong buổi học").fill("member a");
+  await row.getByRole("button", { name: "Absent" }).click();
+  await expect.poll(() => payload).toEqual({ status: "ABSENT" });
+
+  // Older than 24 hours: read-only.
+  await page.getByRole("button", { name: "Quay lại" }).click();
+  await page.getByLabel("Date", { exact: true }).fill("2030-10-01");
+  await page.getByRole("button", { name: /Badminton 01/ }).click();
+  await expect(page.getByText(/Đã quá 24 giờ/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Options" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sửa điểm danh" })).toHaveCount(
+    0,
   );
 });
 
@@ -629,14 +910,12 @@ test("no search result lets the front desk register a new member with an activat
   await expect(dialog.getByLabel("Password")).toHaveCount(0);
 });
 
-test("attendance deep link opens the right class session and explains a closed window", async ({
-  page,
-}) => {
+test("attendance deep link opens the right class session", async ({ page }) => {
   await page.goto(
     `/receptionist/attendance?date=2030-10-03&session=${sessionId}`,
   );
 
   await expect(page.getByRole("row", { name: /Member A/ })).toBeVisible();
-
-  await expect(page.getByText("0 of 1 recorded")).toBeVisible();
+  await expect(page.getByText("Đang điểm danh")).toBeVisible();
+  await expect(page.getByText("0/1")).toBeVisible();
 });

@@ -13,4 +13,5 @@ public sealed record CourtScheduleEntry([property: SportHub.BuildingBlocks.Api.W
     [SportHub.BuildingBlocks.Api.WireEnum]
     public string? IncidentScope { get; init; }
     public IReadOnlyList<int> AffectedRoomIds { get; init; } = [];
+    public DateTime? CheckedInAtUtc { get; init; }
 }

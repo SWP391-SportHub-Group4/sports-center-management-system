@@ -1,5 +1,7 @@
 # SportHub — Nguồn thống nhất về phạm vi và quy ước
 
+**Hoàn tiền ngân hàng — quyết định 23/10/2026:** [Quy trình hoàn tiền về tài khoản qua Support Request](Bank-Refund-Workflow.md). Support Request `PAYMENT` là yêu cầu xem xét hoàn tiền về tài khoản, gắn một `InvoiceItem` có kiểm tra sở hữu; chỉ CenterManager duyệt, chuyển khoản **ngoài hệ thống** và ghi nhận chứng từ mới đóng ticket. Hoàn điểm giữ nguyên. Quyết định này thay các câu "ngoài phạm vi hoàn tiền mặt/ngân hàng" và "chưa có API Member tự gửi" bên dưới.
+
 **Manager workspace — quyết định 20/10/2026:** [Luồng giao diện và chính sách mới](Manager-Workspace.md). Giữ nguyên Overview/chi tiết lớp; tập trung Request, Incident và thông báo trong Support & Communication; chọn Sport trực tiếp khi tạo sân, giữ khóa loại sân cũ cho tương thích dữ liệu. Bỏ cộng/trừ điểm thủ công, hồ sơ sức khỏe và giao diện quan hệ Coach–Member của Manager. Cho phép buổi bù có Incident hợp lệ dù lớp có học viên. Tính năng Course interests / “chờ đợt sau” đã bị loại bỏ hoàn toàn. Quyết định này thay thế các đoạn mô tả cũ mâu thuẫn bên dưới; tài khoản staff và phân quyền vẫn thuộc Admin.
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
@@ -57,6 +59,7 @@ M02 xác nhận 18/10/2026: [Vòng đời phân công Coach–Member](Coach-Memb
 | Payment | Khoản tiền đã được backend xác minh |
 | PointWallet/PointLedgerEntry | Ví và lịch sử điểm; 1 điểm = 1.000 VND, hoàn bằng điểm |
 | PaymentAdjustment | Persistence hoàn điểm theo invoice item; không có bảng Refund độc lập |
+| BankRefundRequest | Hoàn tiền về ngân hàng gắn 1-1 với Support Request PAYMENT; trạng thái, snapshot, số duyệt, chứng từ chuyển khoản; cùng trần lũy kế với hoàn điểm |
 
 ## 3. Vai trò và luồng
 
@@ -71,7 +74,7 @@ Năm role: SystemAdministrator, CenterManager, Receptionist, Coach, Member. Requ
 | AI workout | Gợi ý cho Coach trong phạm vi học viên được giao |
 | AI assistant | Member context chat; Manager xếp lịch/tạo nháp là phần chưa triển khai |
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, VNPay production và hoàn tiền mặt/ngân hàng. Không có waitlist hay đăng ký nhận tin khóa sau.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, VNPay production và hoàn tiền tự động qua cổng/ngân hàng (hoàn tiền về tài khoản chỉ qua quy trình Support Request do Manager chuyển khoản thủ công). Không có waitlist hay đăng ký nhận tin khóa sau.
 
 ## 4. Bất biến nghiệp vụ
 

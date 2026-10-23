@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Ban, CalendarClock, CircleCheck } from "lucide-react";
 
 import { api, ApiError } from "@/lib/apiClient";
+import { useAuth } from "@/lib/auth";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
@@ -60,6 +61,7 @@ export function SelectedMemberPanel({
   withExtras?: boolean;
 }) {
   const { language } = useLanguage();
+  const { user } = useAuth();
   const vi = language === "vi";
   const mutation = useMutation();
   const [localCooldown, setLocalCooldown] = useState({
@@ -134,9 +136,12 @@ export function SelectedMemberPanel({
       }),
     [memberId],
   );
-  const openRequests = (requests.data ?? []).filter(
-    (r) => !["DONE", "CLOSED", "REJECTED"].includes(r.status),
-  ).length;
+  const actionableRequests = (requests.data ?? []).filter(
+    (r) =>
+      ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(r.status) &&
+      (!r.assignedToUserId || r.assignedToUserId === user?.userId),
+  );
+  const openRequests = actionableRequests.length;
   const usable = (packages.data ?? []).filter(
     (p) => p.status === "ACTIVE" && p.isUsable,
   );
@@ -350,7 +355,17 @@ export function SelectedMemberPanel({
             }`}
           >
             <dt>{tile.label}</dt>
-            <dd>{tile.value}</dd>
+            <dd>
+              {tile.key === "requests" && actionableRequests.length > 0 ? (
+                <Link
+                  href={`/receptionist/support?request=${actionableRequests[0].requestId}`}
+                >
+                  {tile.value}
+                </Link>
+              ) : (
+                tile.value
+              )}
+            </dd>
           </div>
         ))}
       </dl>

@@ -6,4 +6,5 @@ public sealed record RosterEntryResponse(
     string MemberName,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string EnrollmentStatus,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string? AttendanceStatus,
-    DateTime? AttendanceRecordedAt);
+    DateTime? AttendanceRecordedAt,
+    bool? MemberIsActive);

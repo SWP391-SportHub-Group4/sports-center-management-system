@@ -41,7 +41,10 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
       if (revoked) URL.revokeObjectURL(revoked);
     };
   }, [attachment.attachmentId]);
-  if (!url) return <span className={styles.attachmentLoading}>{attachment.fileName}</span>;
+  if (!url)
+    return (
+      <span className={styles.attachmentLoading}>{attachment.fileName}</span>
+    );
   return (
     <a href={url} target="_blank" rel="noreferrer" title={attachment.fileName}>
       {/* eslint-disable-next-line @next/next/no-img-element */}

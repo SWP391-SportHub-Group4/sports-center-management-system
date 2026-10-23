@@ -57,7 +57,8 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
         foreach (var rental in rentals)
             result.Add(new("CourtRental", rental.CourtRentalId, rental.RoomId, rental.StartAtUtc, rental.EndAtUtc,
                 null, null, "Court rental", rental.Status.ToString(),
-                null, [], rental.MemberId, await Name(rental.MemberId)));
+                null, [], rental.MemberId, await Name(rental.MemberId))
+            { CheckedInAtUtc = rental.CheckedInAtUtc });
         if (memberId is not null) return result.OrderBy(x => x.StartAtUtc).ThenBy(x => x.SourceId).ToList();
         var blocks = await db.Set<RoomBlock>().AsNoTracking().Where(x => x.StartAtUtc < to && x.EndAtUtc > from
             && (roomId == null || x.RoomId == roomId)).ToListAsync(ct);

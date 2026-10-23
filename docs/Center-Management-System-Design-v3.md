@@ -43,7 +43,7 @@ Môn, chuyên môn Coach, loại phòng/sân, giờ mở cửa và giá là dữ
 
 Trong phạm vi: tài khoản, Membership Gym, vé Gym 1 ngày, môn/sân, khóa học, lịch, điểm danh, thuê sân, payment/ví điểm, hoàn điểm, thông báo, báo cáo và AI hỗ trợ.
 
-Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền mặt/chuyển khoản, VNPay Refund API và cổng thanh toán production. Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. Không có tính năng “chờ đợt sau”/nguyện vọng khóa sau.
+Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngoài, chia doanh thu với người thuê sân, quản lý người đi cùng khi Member thuê sân, mobile native, hoàn tiền tự động qua cổng/ngân hàng, VNPay Refund API và cổng thanh toán production. Hoàn tiền về tài khoản ngân hàng chỉ đi qua Support Request PAYMENT do Manager chuyển khoản thủ công, xem [Bank-Refund-Workflow.md](Bank-Refund-Workflow.md). Gói dịch vụ bổ sung và waitlist tự giữ chỗ chưa thuộc phạm vi. Không có tính năng “chờ đợt sau”/nguyện vọng khóa sau.
 
 ## 2. Vai trò và quyền hạn
 
@@ -229,6 +229,8 @@ UI phân biệt PENDING, FULFILLED, COMPENSATED, RECONCILIATION_REQUIRED. Nhận
 ### 6.4 Refund và báo cáo
 
 Refund theo invoice item, quyền lợi đã dùng và chuỗi chuyển lớp. Server tính cap; Manager duyệt theo policy. Ledger credit, hủy quyền lợi, audit/outbox phải nguyên tử, chống replay. Không rút/chuyển điểm hoặc dùng VNPay Refund API.
+
+**Hoàn tiền ngân hàng (23/10/2026).** `BankRefundRequest` (module Payment) gắn 1-1 với Support Request `PAYMENT` (module Identity) qua cổng `IBankRefundIntake` ở BuildingBlocks; Identity không tham chiếu Payment. Trần giá trị còn có thể hoàn do một hàm dùng chung cho điểm và tiền; duyệt khóa invoice→item, hủy quyền lợi và giữ chỗ số tiền trong cùng transaction; ghi nhận chuyển khoản (số tiền, thời điểm, ảnh biên lai) là điều kiện duy nhất để `DONE`, đồng thời queue thông báo + email (outbox) và vào báo cáo theo ngày thực chuyển. Chi tiết trạng thái, chống chạy đua và vận hành: [Bank-Refund-Workflow.md](Bank-Refund-Workflow.md).
 
 Báo cáo tách tiền VNPay thực thu, điểm dùng, điểm phát hành do hoàn/bồi hoàn và dịch vụ được cấp. Không cộng điểm hoàn thành doanh thu tiền mới. Dùng snapshot môn; dữ liệu không xác định được không tự gán vào Gym.
 

@@ -131,6 +131,12 @@ export function CalendarEventDrawer({
             <StatusChip value={entry.status} />
           </dd>
         </div>
+        {entry.sourceType === "COURT_RENTAL" && entry.checkedInAtUtc && (
+          <div className={styles.summaryRow}>
+            <dt>Checked in at</dt>
+            <dd>{formatDateTime(entry.checkedInAtUtc)}</dd>
+          </div>
+        )}
       </dl>
       {entry.incidentScope === "CENTER" && !!affectedRoomNames?.length && (
         <section>

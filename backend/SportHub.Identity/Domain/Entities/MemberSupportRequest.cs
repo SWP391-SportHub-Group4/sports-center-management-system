@@ -25,4 +25,10 @@ public sealed class MemberSupportRequest
 
     /// <summary>Kênh tiếp nhận: COUNTER, PHONE, FANPAGE (lễ tân ghi hộ) hoặc ONLINE (member tự gửi).</summary>
     public string Channel { get; set; } = "COUNTER";
+
+    /// <summary>
+    /// True với ticket PAYMENT tạo theo quy trình hoàn tiền ngân hàng (có bản ghi hoàn tiền bên Payment). Ticket PAYMENT cũ
+    /// (false) vẫn đóng bằng done/reject thường nhưng chỉ Manager được xử lý.
+    /// </summary>
+    public bool RequiresPayout { get; set; }
 }

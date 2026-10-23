@@ -171,6 +171,18 @@ export function chipTone(value: string | null | undefined): string {
   const normalized = value?.replace(/_/g, "").toLowerCase();
   const key =
     Object.keys(LABELS).find((k) => k.toLowerCase() === normalized) ?? value;
+  switch (normalized) {
+    case "open":
+      return "chip--neutral";
+    case "inprogress":
+      return "chip--warn";
+    case "assigned":
+      return "chip--info";
+    case "done":
+      return "chip--ok";
+    case "rejected":
+      return "chip--danger";
+  }
   switch (key) {
     case "Active":
     case "Paid":

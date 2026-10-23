@@ -122,7 +122,7 @@ test("refund queue shows a readable request, never raw ids, and needs a reason t
   await expect(page.getByText(/300 .*300,000/).first()).toBeVisible();
   await expect(page.getByText(itemId)).toHaveCount(0);
   await expect(
-    page.getByText(/Cash and card refunds are not available/),
+    page.getByText(/refunded to the member.s wallet as points/),
   ).toBeVisible();
   const approve = page.getByRole("button", { name: "Approve", exact: true });
   await expect(approve).toBeDisabled();

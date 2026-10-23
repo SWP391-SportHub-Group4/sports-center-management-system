@@ -54,9 +54,9 @@
   font-weight: var(--weight-regular);
 }
 .field textarea {
-  width: min(100%, 240px);
+  width: 100%;
   min-height: 140px;
-  border-color: var(--border-control);
+  border-color: var(--border-default);
   resize: vertical;
 }
 .field input[readonly] {
@@ -70,7 +70,6 @@
 }
 .counter {
   justify-self: start;
-  max-width: 240px;
   color: var(--text-muted);
   font-size: var(--text-xs);
   font-weight: var(--weight-regular);

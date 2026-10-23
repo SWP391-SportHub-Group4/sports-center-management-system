@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Dialog } from "@/components/ui";
 import { api, ApiError } from "@/lib/apiClient";
+import { bankRefundHref } from "@/lib/bank-refund";
 import { formatDate, formatPoints } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { useAction, useApi, useNow } from "@/lib/useApi";
@@ -107,6 +109,27 @@ export function RefundCancelDialog({
     onDone(message);
   }
 
+  /** Member-only second choice; nothing is cancelled or credited by following it. */
+  const bankChoice = !onBehalf && itemId && (
+    <div className={styles.alt}>
+      <strong>
+        {tx(
+          "Cách 2: Yêu cầu hoàn tiền về tài khoản ngân hàng",
+          "Option 2: Request a refund to your bank account",
+        )}
+      </strong>
+      <p className={styles.hint}>
+        {tx(
+          "Gửi yêu cầu để Manager xem xét. Việc này không tự cộng điểm, không tự hoàn tiền và không hủy quyền lợi cho đến khi Manager duyệt và chuyển khoản ngoài hệ thống.",
+          "Send a request for a manager to review. Nothing is cancelled, no points are added and no money is sent until a manager approves it and transfers it outside the system.",
+        )}
+      </p>
+      <Link className="btn btn--secondary" href={bankRefundHref(itemId)}>
+        {tx("Gửi yêu cầu hoàn tiền về ngân hàng", "Request a bank refund")}
+      </Link>
+    </div>
+  );
+
   const title = started
     ? tx("Gửi đơn hoàn điểm", "Request a refund")
     : kind === "gym"
@@ -151,7 +174,7 @@ export function RefundCancelDialog({
                 disabled={action.busy || reason.trim().length < 3}
                 onClick={request}
               >
-                {tx("Gửi đơn", "Send request")}
+                {tx("Gửi đơn hoàn điểm", "Send points refund request")}
               </button>
               <button
                 type="button"
@@ -161,9 +184,18 @@ export function RefundCancelDialog({
                 {tx("Đóng", "Close")}
               </button>
             </div>
+            {bankChoice}
           </>
         ) : (
           <>
+            {!onBehalf && (
+              <strong>
+                {tx(
+                  "Cách 1: Hủy và hoàn điểm ngay",
+                  "Option 1: Cancel and refund as points now",
+                )}
+              </strong>
+            )}
             <dl className={styles.facts}>
               <div>
                 <dt>
@@ -237,6 +269,7 @@ export function RefundCancelDialog({
                 {tx("Xác nhận hủy", "Confirm cancellation")}
               </button>
             </div>
+            {bankChoice}
           </>
         )}
       </div>

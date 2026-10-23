@@ -38,7 +38,7 @@ function localTime(value: string) {
   });
 }
 
-export function GymPackageDetails({ pkg }: { pkg: MemberPackageDto }) {
+export function GymPackageDetails({ pkg, memberId }: { pkg: MemberPackageDto; memberId?: string }) {
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
@@ -64,7 +64,7 @@ export function GymPackageDetails({ pkg }: { pkg: MemberPackageDto }) {
       let page = 1;
       while (true) {
         const result = await api.get<Paged<GymCheckInDto>>(
-          "/api/members/me/gym-checkins",
+          memberId ? `/api/members/${memberId}/gym-checkins` : "/api/members/me/gym-checkins",
           {
             signal,
             query: { page, pageSize: 100 },

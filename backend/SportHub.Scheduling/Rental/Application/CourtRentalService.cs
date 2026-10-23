@@ -168,7 +168,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var row = await db.Set<CourtRental>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceItemId == invoiceItemId, cancellationToken);
         return row is null ? null : new CourtRentalRefundFacts(row.CourtRentalId, row.MemberId,
             new DateTimeOffset(DateTime.SpecifyKind(row.StartAtUtc, DateTimeKind.Utc)), row.Status.ToString(),
-            row.Status == CourtRentalStatus.Cancelled && row.CancelReason?.StartsWith("CenterFault:", StringComparison.Ordinal) == true);
+            row.Status == CourtRentalStatus.Cancelled && row.CancelReason?.StartsWith("CenterFault:", StringComparison.Ordinal) == true,
+            new DateTimeOffset(DateTime.SpecifyKind(row.EndAtUtc, DateTimeKind.Utc)));
     }
 
     /// <summary>Only front-desk staff may record arrival, from five minutes before start until the rental ends.</summary>
@@ -182,6 +183,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         if (now < rental.StartAtUtc.AddMinutes(-5) || now >= rental.EndAtUtc)
             throw new ConflictException("rental_checkin_window_closed", "Court check-in is available from five minutes before start until the rental ends.");
         rental.Status = CourtRentalStatus.InUse;
+        rental.CheckedInAtUtc = now;
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
     }

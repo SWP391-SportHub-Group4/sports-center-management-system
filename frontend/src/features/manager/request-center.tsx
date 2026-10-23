@@ -1,25 +1,20 @@
 "use client";
-import { useState } from "react";
 import { Tabs } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import type { UserAdminDto } from "@/lib/types";
-import { MemberPicker } from "@/components/MemberPicker";
 import { ManagerClassChangeRequests } from "./class-change-requests";
 import { ManagerRefunds } from "@/features/payments";
-import { SupportQueue, MemberSupportRequests } from "@/features/receptionist";
+import { SupportQueue } from "@/features/receptionist";
 import styles from "./request-center.module.css";
+import { OperationsWorkspace } from "@/features/operations";
 
 const types = ["coach", "refunds", "support"];
 export function RequestCenter() {
   const { values, setValues } = useUrlQuery(
-    { type: "coach", record: "" },
-    { type: choiceQuery(types, "coach"), record: choiceQuery(["", "1"], "") },
+    { type: "coach" },
+    { type: choiceQuery(types, "coach") },
   );
-  const recording = values.record === "1";
-  const setRecording = (value: boolean) =>
-    setValues({ record: value ? "1" : "" });
   const counts = useApi(
     (signal) =>
       api.get<Record<string, number>>("/api/manager/requests/summary", {
@@ -33,15 +28,25 @@ export function RequestCenter() {
       {!!counts.data?.[type] && (
         <span className={styles.count}>{counts.data[type]}</span>
       )}
+      {type === "support" && !!counts.data?.payment && (
+        <span
+          className={styles.count}
+          title="Open Payment (bank refund) requests; they need a manager"
+        >
+          {counts.data.payment} refund
+          {counts.data.awaitingPayout
+            ? ` · ${counts.data.awaitingPayout} to transfer`
+            : ""}
+        </span>
+      )}
     </>
   );
-  const [member, setMember] = useState<UserAdminDto | null>(null);
   return (
     <div className={styles.page}>
       <Tabs
         value={values.type}
         onChange={(type) => {
-          setValues({ type, record: "" });
+          setValues({ type });
         }}
         ariaLabel="Request type"
         tabs={[
@@ -58,27 +63,9 @@ export function RequestCenter() {
             <ManagerRefunds onChanged={counts.reload} />
           )}
           {values.type === "support" && (
-            <>
-              {recording && (
-                <div className={styles.actions}>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => setRecording(!recording)}
-                  >
-                    {recording ? "Back to support queue" : "Record a request"}
-                  </button>
-                </div>
-              )}
-              {recording ? (
-                <div className="stack">
-                  <MemberPicker value={member} onChange={setMember} />
-                  {member && <MemberSupportRequests memberId={member.userId} />}
-                </div>
-              ) : (
-                <SupportQueue workspace="manager" onChanged={counts.reload} />
-              )}
-            </>
+            <OperationsWorkspace>
+              <SupportQueue workspace="manager" onChanged={counts.reload} />
+            </OperationsWorkspace>
           )}
         </div>
       </Tabs>

@@ -5,10 +5,15 @@ import { useUrlQuery } from "@/lib/useUrlQuery";
 
 /** Trợ giúp của Member: gửi mọi yêu cầu hỗ trợ (kể cả hoàn điểm); `?topic=PAYMENT` chọn sẵn loại. */
 export default function Page() {
-  const { values } = useUrlQuery({ topic: "" });
+  const { values } = useUrlQuery({ topic: "", itemId: "", ticket: "" });
   return (
     <MemberShell title="Help">
-      <HelpCenter initialTopic={values.topic} />
+      <HelpCenter
+        key={`${values.topic}-${values.itemId}`}
+        initialTopic={values.topic}
+        initialItemId={values.itemId}
+        initialTicket={values.ticket}
+      />
     </MemberShell>
   );
 }

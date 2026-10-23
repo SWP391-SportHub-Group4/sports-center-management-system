@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { installSupport } from "./helpers/support";
 
 const id = "22222222-2222-4222-8222-222222222222";
 const staffId = "33333333-3333-4333-8333-333333333333";
@@ -14,8 +15,6 @@ async function install(page: Page) {
     localStorage.setItem("sporthub.accessToken", "desk-token"),
   );
   const writes: { path: string; body: unknown }[] = [];
-  let status = "OPEN";
-  let assigned = false;
   let reconciled = false;
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -37,39 +36,9 @@ async function install(page: Page) {
         path,
         body: request.postData() ? request.postDataJSON() : null,
       });
-      if (path.endsWith("/assign")) {
-        assigned = true;
-        status = "ASSIGNED";
-      }
-      if (path.endsWith("/progress")) status = "IN_PROGRESS";
-      if (path.endsWith("/close")) status = "CLOSED";
       if (path.endsWith("/retry")) reconciled = true;
       return json({ state: "FULFILLED" });
     }
-    if (path === "/api/member-support-requests/assignees")
-      return json([
-        {
-          userId: staffId,
-          name: "Desk handler",
-          email: "desk@example.com",
-          role: "Receptionist",
-        },
-      ]);
-    if (path === "/api/member-support-requests/queue")
-      return json(
-        paged([
-          {
-            requestId: id,
-            memberId: id,
-            category: "GENERAL",
-            subject: "Help with membership",
-            description: "Please review my membership",
-            status,
-            createdAt: "2030-01-01T01:00:00Z",
-            assignedToUserId: assigned ? staffId : null,
-          },
-        ]),
-      );
     if (path === "/api/front-desk/payment-reconciliation")
       return json(
         paged(
@@ -99,33 +68,31 @@ async function install(page: Page) {
   return writes;
 }
 
-test("desk assigns, updates and closes support from the queue", async ({
+test("desk claims, updates and completes support from the queue", async ({
   page,
 }) => {
-  const writes = await install(page);
+  const { writes } = await installSupport(page, { role: "RECEPTIONIST" });
   await page.goto("/receptionist/support");
-  await page.getByLabel("Assign to").selectOption(staffId);
-  await page.getByRole("button", { name: "Assign", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*ASSIGNED/ }),
-  ).toBeVisible();
+  const row = page.getByRole("button", { name: /Help with membership/ });
+  await expect(row).toContainText("Unassigned");
+  await page.getByRole("button", { name: "Assign to me" }).click();
+  await expect(row).toContainText("Assigned");
   await page
-    .getByLabel("Progress or resolution")
+    .getByRole("textbox", { name: "Progress note", exact: true })
     .fill("Checking the membership");
-  await page.getByRole("button", { name: "Update progress" }).click();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*IN PROGRESS/ }),
-  ).toBeVisible();
-  await page.getByLabel("Progress or resolution").fill("Membership corrected");
-  await page.getByRole("button", { name: "Close request" }).click();
-  await page.getByRole("button", { name: "Confirm close" }).click();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*CLOSED/ }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(row).toContainText("In progress");
+  await page.getByRole("tab", { name: "Mark as done" }).click();
+  await page
+    .getByRole("textbox", { name: "Resolution note", exact: true })
+    .fill("Membership corrected");
+  await page.getByRole("button", { name: "Mark as done", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm done" }).click();
+  await expect(row).toContainText("Done");
   expect(writes.map((x) => x.path.split("/").at(-1))).toEqual([
     "assign",
     "progress",
-    "close",
+    "done",
   ]);
 });
 

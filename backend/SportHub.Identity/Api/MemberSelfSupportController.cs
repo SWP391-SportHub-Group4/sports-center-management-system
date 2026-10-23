@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -21,10 +22,25 @@ public sealed class SubmitSupportRequest
     [Required, MaxLength(50)]
     public string Category { get; set; } = string.Empty;
 
+    [Required, MinLength(3), MaxLength(200)]
+    public string Subject { get; set; } = string.Empty;
+
     [Required, MinLength(3), MaxLength(2000)]
     public string Description { get; set; } = string.Empty;
 
     public List<IFormFile>? Files { get; set; }
+
+    /// <summary>Chỉ dùng cho PAYMENT: giao dịch (InvoiceItem) cần hoàn tiền.</summary>
+    public Guid? InvoiceItemId { get; set; }
+
+    [MaxLength(100)]
+    public string? BankName { get; set; }
+
+    [MaxLength(40)]
+    public string? AccountNumber { get; set; }
+
+    [MaxLength(120)]
+    public string? AccountHolder { get; set; }
 }
 
 /// <summary>
@@ -38,10 +54,11 @@ public sealed class MemberSelfSupportController(
     ISportHubDbContext db,
     IClock clock,
     IAuditWriter audit,
-    INotificationWriter notifications) : ControllerBase
+    INotificationWriter notifications,
+    IBankRefundIntake bankRefunds) : ControllerBase
 {
-    public const int MaxFiles = 3;
-    public const int MaxFileBytes = 5 * 1024 * 1024;
+    public const int MaxFiles = SupportImageUploads.MaxFiles;
+    public const int MaxFileBytes = SupportImageUploads.MaxFileBytes;
 
     private static readonly Dictionary<string, string> CategoryLabels = new()
     {
@@ -66,49 +83,34 @@ public sealed class MemberSelfSupportController(
         if (description.Length < 3)
             throw new BadRequestException("support_request_invalid", "Please describe your issue in at least 3 characters.");
 
+        var subject = request.Subject.Trim();
+        if (subject.Length < 3)
+            throw new BadRequestException("support_subject_invalid", "Please enter a subject of at least 3 characters.");
+
         var files = request.Files ?? [];
-        if (files.Count > MaxFiles)
-            throw new BadRequestException("support_attachment_count", $"You can attach up to {MaxFiles} images.");
         var now = clock.UtcNow;
-        var attachments = new List<MemberSupportAttachment>();
-        foreach (var file in files)
-        {
-            if (file.Length == 0 || file.Length > MaxFileBytes)
-                throw new BadRequestException("support_attachment_size", "Each image must be no larger than 5 MB.");
-            await using var input = file.OpenReadStream();
-            await using var buffer = new MemoryStream();
-            await input.CopyToAsync(buffer, ct);
-            var bytes = buffer.ToArray();
-            var type = SniffImage(bytes)
-                ?? throw new BadRequestException("support_attachment_type", "Attachments must be JPG, PNG or WebP images.");
-            attachments.Add(new MemberSupportAttachment
-            {
-                AttachmentId = Guid.NewGuid(),
-                FileName = SafeName(file.FileName),
-                ContentType = type,
-                Content = bytes,
-                CreatedAt = now
-            });
-        }
+        var attachments = await SupportImageUploads.ReadAsync(files, SupportAttachmentKinds.Evidence, memberId, now,
+            required: false, ct);
+        var payment = SupportPaymentFields.Parse(category, request.InvoiceItemId, request.BankName,
+            request.AccountNumber, request.AccountHolder, attachments.Count);
 
         var member = await db.Set<UserAccount>().AsNoTracking()
             .Where(x => x.UserId == memberId)
             .Select(x => new { x.Email, Name = x.Profile != null ? x.Profile.FullName : x.Email })
             .SingleAsync(ct);
 
-        var snippet = description.ReplaceLineEndings(" ");
-        if (snippet.Length > 60) snippet = snippet[..60].TrimEnd() + "…";
         var entity = new MemberSupportRequest
         {
             RequestId = Guid.NewGuid(),
             MemberId = memberId,
             RecordedByUserId = memberId,
             Category = category,
-            Subject = $"{label}: {snippet}",
+            Subject = subject,
             Description = description,
             Status = "OPEN",
             Channel = "ONLINE",
-            CreatedAt = now
+            CreatedAt = now,
+            RequiresPayout = payment is not null
         };
         db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
         {
@@ -119,6 +121,9 @@ public sealed class MemberSelfSupportController(
 
         db.Set<MemberSupportRequest>().Add(entity);
         db.Set<MemberSupportAttachment>().AddRange(attachments);
+        // Ownership of the transaction, eligibility and the suggested amount are all decided server-side.
+        if (payment is not null)
+            await bankRefunds.AttachAsync(payment.ToIntake(entity.RequestId, memberId, memberId), ct);
         audit.Write(new AuditEntry(memberId, "CREATE_SUPPORT_REQUEST", nameof(MemberSupportRequest),
             entity.RequestId.ToString(), NewValue: JsonSerializer.Serialize(new { entity.MemberId, entity.Category, SelfService = true })));
 
@@ -136,6 +141,19 @@ public sealed class MemberSelfSupportController(
                 ("Your message", description),
                 ("Attachments", attachments.Count == 0 ? "None" : $"{attachments.Count} image(s)"),
                 ("Status", "Received"))));
+
+        // Tell the front desk and managers there is a new request waiting for an owner.
+        var isPaymentTicket = payment is not null;
+        var staffIds = await db.Set<UserAccount>().AsNoTracking()
+            .Where(x => x.Status == UserStatus.Active && x.Role != null
+                && (x.Role.RoleName == UserRole.CenterManager
+                    || (!isPaymentTicket && x.Role.RoleName == UserRole.Receptionist)))
+            .Select(x => x.UserId)
+            .ToListAsync(ct);
+        foreach (var staffId in staffIds)
+            notifications.Queue(new NotificationRequest(staffId, NotificationEvents.SupportRequestSubmitted,
+                $"{member.Name} submitted a {label} request (ref {reference}).\nSubject: {subject}\n{description}",
+                entity.RequestId));
 
         await db.SaveChangesAsync(ct);
         return Ok(new
@@ -159,33 +177,34 @@ public sealed class MemberSelfSupportController(
             {
                 x.RequestId,
                 x.Category,
+                x.Subject,
                 x.Description,
                 x.Status,
                 x.CreatedAt,
                 x.UpdatedAt,
-                Response = x.ProgressNote
+                x.ClosedAt,
+                x.RequiresPayout,
+                Response = x.ProgressNote,
+                Attachments = db.Set<MemberSupportAttachment>()
+                    .Where(a => a.RequestId == x.RequestId && a.Kind == SupportAttachmentKinds.Evidence)
+                    .OrderBy(a => a.CreatedAt).ThenBy(a => a.AttachmentId)
+                    .Select(a => new SupportAttachmentInfo(a.AttachmentId, a.FileName, a.Kind)).ToList(),
+                // Transfer receipts are the outcome of a refund and only become visible once the ticket is DONE.
+                ResultAttachments = x.Status != "DONE" ? new List<SupportAttachmentInfo>()
+                    : db.Set<MemberSupportAttachment>()
+                        .Where(a => a.RequestId == x.RequestId && a.Kind == SupportAttachmentKinds.PayoutProof)
+                        .OrderBy(a => a.CreatedAt).ThenBy(a => a.AttachmentId)
+                        .Select(a => new SupportAttachmentInfo(a.AttachmentId, a.FileName, a.Kind)).ToList()
             })
             .ToListAsync(ct);
         return Ok(rows);
     }
-
-    private static string? SniffImage(byte[] b)
-    {
-        if (b.Length > 12 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return "image/jpeg";
-        if (b.Length > 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return "image/png";
-        if (b.Length > 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
-            && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') return "image/webp";
-        return null;
-    }
-
-    private static string SafeName(string? name)
-    {
-        var value = Path.GetFileName(name ?? "image");
-        return string.IsNullOrWhiteSpace(value) ? "image" : value.Length > 120 ? value[^120..] : value;
-    }
 }
 
-/// <summary>Ảnh đính kèm: chủ yêu cầu (Member) hoặc nhân sự quầy/Manager mới xem được.</summary>
+/// <summary>
+/// Ảnh đính kèm. Chủ yêu cầu (Member) và Lễ tân/Manager xem được ảnh chứng cứ. Chứng từ chuyển khoản (PAYOUT_PROOF) chỉ lộ cho
+/// Member khi ticket đã DONE; Lễ tân và Manager xem được ở mọi trạng thái. Coach/Admin không có quyền.
+/// </summary>
 [ApiController]
 [Authorize]
 [Route("api/support/attachments")]
@@ -201,12 +220,17 @@ public sealed class SupportAttachmentsController(ISportHubDbContext db) : Contro
             {
                 a.Content,
                 a.ContentType,
+                a.Kind,
                 OwnerId = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
-                    .Select(r => r.MemberId).FirstOrDefault()
+                    .Select(r => r.MemberId).FirstOrDefault(),
+                Status = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
+                    .Select(r => r.Status).FirstOrDefault()
             })
             .SingleOrDefaultAsync(ct);
         var staff = User.IsInRole(nameof(UserRole.Receptionist)) || User.IsInRole(nameof(UserRole.CenterManager));
-        if (row is null || (row.OwnerId != userId && !staff))
+        var ownerMayView = row is not null && row.OwnerId == userId
+            && (row.Kind != SupportAttachmentKinds.PayoutProof || row.Status == "DONE");
+        if (row is null || (!ownerMayView && !staff))
             throw new NotFoundException("support_attachment_not_found", "Attachment not found.");
         Response.Headers.CacheControl = "private, max-age=300";
         return File(row.Content, row.ContentType);

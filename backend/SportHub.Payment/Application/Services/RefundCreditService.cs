@@ -144,38 +144,8 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         }
     }
 
-    private async Task<decimal> RemainingPaidValueVndAsync(Invoice invoice, InvoiceItem item, CancellationToken ct)
-    {
-        var totalItemValue = await db.Set<InvoiceItem>().Where(x => x.InvoiceId == invoice.InvoiceId)
-            .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
-        if (totalItemValue <= 0 || item.LineAmount <= 0)
-            throw new ConflictException("refund_item_value_invalid", "Refund item value invalid.");
-        var cash = await db.Set<Domain.Entities.Payment>().Where(x => x.InvoiceId == invoice.InvoiceId
-                && x.Status == PaymentStatus.Success).SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
-        var pointsSpent = invoice.CheckoutCycleId is not null
-            ? invoice.PointsApplied * (decimal)RefundCalculator.VndPerPoint : 0m;
-        var paidShare = Math.Min(item.LineAmount,
-            decimal.Floor((cash + pointsSpent) * item.LineAmount / totalItemValue));
-        var paidTransferDifferences = await db.Set<InvoiceItem>().Where(x => x.SourceInvoiceItemId == item.ItemId
-                && (x.Invoice!.Status == InvoiceStatus.Paid || (x.Invoice.Status == InvoiceStatus.PaidAfterReconciliation && x.Invoice.PaidVia == "VnPayAfterReconciliation")))
-            .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
-        var requestedPoints = await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == item.ItemId
-                && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Completed)
-            .SumAsync(x => (int?)x.ApprovedPoints, ct) ?? 0;
-        var systemPoints = await db.Set<PointLedgerEntry>().Where(x => x.InvoiceItemId == item.ItemId
-                && x.ReferenceType == "SystemEvent" && x.EntryType == PointEntryType.Earn)
-            .SumAsync(x => (int?)x.Points, ct) ?? 0;
-        var oldCash = await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == item.ItemId
-                && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Completed
-                && x.ApprovedPoints == 0)
-            .SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
-        var transferPoints = await db.Set<PointLedgerEntry>().Where(x => x.InvoiceItemId == item.ItemId
-                && x.ReferenceType == "ClassTransferDifference" && x.EntryType == PointEntryType.Earn)
-            .SumAsync(x => (int?)x.Points, ct) ?? 0;
-        return Math.Max(0m, paidShare + paidTransferDifferences - (requestedPoints + systemPoints)
-            * (decimal)RefundCalculator.VndPerPoint - oldCash
-            - transferPoints * (decimal)RefundCalculator.VndPerPoint);
-    }
+    private Task<decimal> RemainingPaidValueVndAsync(Invoice invoice, InvoiceItem item, CancellationToken ct)
+        => RefundValue.RemainingAsync(db, invoice, item, null, ct);
 
     private async Task LockItemAsync(InvoiceItem itemReference, Guid invoiceItemId, CancellationToken ct)
     {

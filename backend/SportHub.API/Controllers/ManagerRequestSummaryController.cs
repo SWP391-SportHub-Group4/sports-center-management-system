@@ -18,7 +18,10 @@ public sealed class ManagerRequestSummaryController(SportHubDbContext db) : Cont
     {
         var coach = await db.Set<ClassSessionChangeRequest>().CountAsync(r => r.Status == "PENDING", ct);
         var refunds = await db.PaymentAdjustments.CountAsync(r => r.Type == PaymentAdjustmentType.Refund && r.Status == PaymentAdjustmentStatus.Requested, ct);
-        var support = await db.MemberSupportRequests.CountAsync(r => r.Status != "CLOSED", ct);
-        return Ok(new { coach, refunds, support });
+        var support = await db.MemberSupportRequests.CountAsync(r => r.Status != "DONE" && r.Status != "REJECTED", ct);
+        // Payment (bank refund) tickets are manager-only work: surface them on their own so they stand out in the inbox.
+        var payment = await db.MemberSupportRequests.CountAsync(r => r.Category == "PAYMENT" && r.Status != "DONE" && r.Status != "REJECTED", ct);
+        var awaitingPayout = await db.MemberSupportRequests.CountAsync(r => r.Status == "APPROVED_AWAITING_PAYOUT", ct);
+        return Ok(new { coach, refunds, support, payment, awaitingPayout });
     }
 }

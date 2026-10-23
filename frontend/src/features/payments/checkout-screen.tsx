@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { MemberShell } from "@/components/MemberShell";
+import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { PaymentReturn } from "./payment-return";
@@ -24,6 +25,12 @@ export function CheckoutScreen({
       <MemberShell title={t.checkout.title}>
         <PaymentReturn invoiceId={invoiceId} embedded />
       </MemberShell>
+    );
+  if (!loading && user?.role === "Receptionist")
+    return (
+      <AppShell title={t.checkout.title} allow={["Receptionist"]}>
+        <PaymentReturn invoiceId={invoiceId} embedded />
+      </AppShell>
     );
   return (
     <>

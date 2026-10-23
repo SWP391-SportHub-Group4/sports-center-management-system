@@ -5,18 +5,16 @@ import { MessageSquare, Plus, Search, UserRound } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
-import { formatDateTime, label } from "@/lib/format";
-import { useLanguage } from "@/lib/language";
-import { StatusChip } from "@/components/ui";
+import { formatDateTime } from "@/lib/format";
 import {
   SUPPORT_CATEGORIES,
   supportCategoryLabel,
 } from "@/lib/support-categories";
 import type { MemberSupportRequestDto, Paged } from "@/lib/types";
-import type { SupportAssignee } from "./support-request-actions";
+import type { SupportAssignee } from "./support-shared";
 import { SupportCreateDialog } from "./support-create-dialog";
 import { SupportDetail } from "./support-detail";
-import { STATUS_LABELS, supportReference } from "./support-shared";
+import { STATUS_LABELS } from "./support-shared";
 import styles from "./support-center.module.css";
 
 const PAGE_SIZE = 20;
@@ -31,6 +29,7 @@ type SupportStats = {
   open: number;
   assigned: number;
   inProgress: number;
+  approvedAwaitingPayout: number;
   done: number;
   rejected: number;
 };
@@ -39,9 +38,14 @@ const summaryCards: {
   label: string;
   status: string;
 }[] = [
-  { key: "open", label: "New", status: "OPEN" },
+  { key: "open", label: "Unassigned", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
+  {
+    key: "approvedAwaitingPayout",
+    label: "Awaiting transfer",
+    status: "APPROVED_AWAITING_PAYOUT",
+  },
   { key: "done", label: "Done", status: "DONE" },
   { key: "rejected", label: "Rejected", status: "REJECTED" },
 ];
@@ -55,12 +59,7 @@ export function SupportQueue({
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
-  const { t } = useLanguage();
-  const isManager = workspace === "manager";
-  const statusLabel = (status: string) =>
-    isManager
-      ? (t.wireStatus[status as keyof typeof t.wireStatus] ?? label(status))
-      : (STATUS_LABELS[status] ?? status);
+  const statusLabel = (status: string) => STATUS_LABELS[status] ?? status;
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -158,8 +157,34 @@ export function SupportQueue({
 
   return (
     <section className={styles.page} aria-label="Support requests">
-      <div className={styles.head}>
-        <h2>Support requests</h2>
+      <div className={styles.statusRow}>
+        <div
+          className={styles.stats}
+          role="group"
+          aria-label="Filter by status"
+        >
+          {summaryCards.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={styles.stat}
+              aria-pressed={filters.status === item.status}
+              onClick={() =>
+                patch({
+                  status: filters.status === item.status ? "" : item.status,
+                })
+              }
+            >
+              <span className={styles.statLabel}>
+                <span className={styles.dot} data-status={item.status} />
+                {statusLabel(item.status)}
+              </span>
+              <strong className={styles.statValue}>
+                {stats.data ? stats.data[item.key] : "—"}
+              </strong>
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           className={`btn ${styles.primary}`}
@@ -168,30 +193,6 @@ export function SupportQueue({
           <Plus size={18} aria-hidden="true" />
           Record a request for member
         </button>
-      </div>
-
-      <div className={styles.stats} role="group" aria-label="Filter by status">
-        {summaryCards.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={styles.stat}
-            aria-pressed={filters.status === item.status}
-            onClick={() =>
-              patch({
-                status: filters.status === item.status ? "" : item.status,
-              })
-            }
-          >
-            <span className={styles.statLabel}>
-              <span className={styles.dot} data-status={item.status} />
-              {statusLabel(item.status)}
-            </span>
-            <strong className={styles.statValue}>
-              {stats.data ? stats.data[item.key] : "—"}
-            </strong>
-          </button>
-        ))}
       </div>
 
       <div className={styles.filters}>
@@ -203,36 +204,18 @@ export function SupportQueue({
               type="search"
               value={search}
               maxLength={200}
-              placeholder={
-                isManager
-                  ? "Search name, email, message…"
-                  : "Search name, email, subject…"
-              }
+              placeholder="Search name, email, subject…"
               onChange={(e) => setSearch(e.target.value)}
             />
           </span>
         </label>
         <label>
-          Status
-          <select
-            value={filters.status}
-            onChange={(e) => patch({ status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            {summaryCards.map((c) => (
-              <option key={c.status} value={c.status}>
-                {statusLabel(c.status)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {isManager ? "Topic" : "Request type"}
+          Request type
           <select
             value={filters.category}
             onChange={(e) => patch({ category: e.target.value })}
           >
-            <option value="">{isManager ? "All topics" : "All types"}</option>
+            <option value="">All types</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -334,13 +317,13 @@ export function SupportQueue({
           {items.length > 0 && (
             <ul className={styles.list} aria-busy={queue.loading}>
               {items.map((request) => {
-                const status =
-                  request.status === "CLOSED" ? "DONE" : request.status;
+                const status = request.status;
                 return (
                   <li key={request.requestId}>
                     <button
                       type="button"
                       className={styles.row}
+                      data-payment={request.category === "PAYMENT"}
                       aria-current={selected?.requestId === request.requestId}
                       onClick={() => {
                         setPicked(request.requestId);
@@ -356,42 +339,33 @@ export function SupportQueue({
                     >
                       <span className={styles.rowTop}>
                         <span className={styles.rowBadges}>
-                          {isManager ? (
-                            <StatusChip value={request.status} />
-                          ) : (
-                            <span className={styles.badge}>
-                              <span
-                                className={styles.dot}
-                                data-status={status}
-                              />
-                              {STATUS_LABELS[status] ?? status}
-                            </span>
-                          )}
+                          <span className={styles.badge}>
+                            <span className={styles.dot} data-status={status} />
+                            {STATUS_LABELS[status] ?? status}
+                          </span>
                         </span>
                         <span className={styles.rowDate}>
                           {formatDateTime(request.createdAt)}
                         </span>
                       </span>
                       <span className={styles.rowSubject}>
-                        {isManager
-                          ? supportCategoryLabel(request.category)
-                          : request.subject}
+                        {request.subject}
                       </span>
-                      {isManager && (
-                        <>
-                          <span className={styles.rowMember}>
-                            Ref {supportReference(request.requestId)}
-                          </span>
-                          <span className={styles.rowPreview}>
-                            {request.description}
-                          </span>
-                        </>
-                      )}
                       <span className={styles.rowMember}>
                         {request.memberName || request.memberEmail || "Member"}
                       </span>
                       <span className={styles.rowMeta}>
-                        <span>{supportCategoryLabel(request.category)}</span>
+                        <span>
+                          {supportCategoryLabel(request.category)}
+                          {request.requiresPayout && (
+                            <>
+                              {" "}
+                              <span className={styles.paymentTag}>
+                                Bank refund
+                              </span>
+                            </>
+                          )}
+                        </span>
                         <span>
                           <UserRound size={13} aria-hidden="true" />{" "}
                           {request.assignedToName ??
@@ -463,7 +437,6 @@ export function SupportQueue({
 
       {creating && (
         <SupportCreateDialog
-          workspace={workspace}
           assignees={assignees.data ?? []}
           onClose={() => setCreating(false)}
           onCreated={(message) => {

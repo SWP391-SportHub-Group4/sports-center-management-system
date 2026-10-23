@@ -20,6 +20,7 @@ export function AvatarImage({
     <span
       className={`${styles.avatar} ${className}`}
       style={{ width: size, height: size }}
+      role="img"
       aria-label={name}
     >
       {avatarUrl && avatarUrl !== failedUrl ? (

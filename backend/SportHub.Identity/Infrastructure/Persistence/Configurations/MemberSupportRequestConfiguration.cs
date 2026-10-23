@@ -27,11 +27,12 @@ public sealed class MemberSupportRequestConfiguration
             .IsRequired();
 
         builder.Property(x => x.Status)
-            .HasMaxLength(20)
+            .HasMaxLength(30)
             .IsRequired();
 
         builder.Property(x => x.ProgressNote).HasMaxLength(1000);
         builder.Property(x => x.Channel).HasMaxLength(20).HasDefaultValue("COUNTER").IsRequired();
+        builder.Property(x => x.RequiresPayout).HasDefaultValue(false);
         builder.HasIndex(x => new { x.Status, x.UpdatedAt });
         builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.AssignedToUserId)
             .OnDelete(DeleteBehavior.Restrict);

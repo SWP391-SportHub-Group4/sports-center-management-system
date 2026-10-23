@@ -19,6 +19,7 @@ public sealed class CourtRental
     public CourtRentalStatus Status { get; set; }
     public Guid? InvoiceItemId { get; set; }
     public DateTime CreatedAtUtc { get; set; }
+    public DateTime? CheckedInAtUtc { get; set; }
     public Guid? InvoiceId { get; set; }
     public Guid? CancellationIncidentId { get; set; }
     public DateTime? CancelledAtUtc { get; set; }

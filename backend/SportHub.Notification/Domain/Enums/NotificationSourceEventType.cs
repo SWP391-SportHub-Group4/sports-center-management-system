@@ -33,5 +33,8 @@ public enum NotificationSourceEventType
     AvatarReported = 27,
     CoachAttendanceReminder = 28,
     SupportRequestAssigned = 29,
-    SupportRequestReceived = 30
+    SupportRequestReceived = 30,
+    SupportRequestSubmitted = 31,
+    BankRefundApproved = 32,
+    BankRefundRejected = 33
 }

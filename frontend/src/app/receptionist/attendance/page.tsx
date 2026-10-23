@@ -2,15 +2,14 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { AttendanceBoard } from "@/components/AttendanceBoard";
+import { UnifiedAttendanceBoard } from "@/components/UnifiedAttendanceBoard";
 import { Loading } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
 
 function Board() {
   const params = useSearchParams();
   return (
-    <AttendanceBoard
-      coachOnly={false}
+    <UnifiedAttendanceBoard
       initialDate={params.get("date")}
       initialSessionId={params.get("session")}
     />

@@ -73,7 +73,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
         var created = await client.PostAsJsonAsync("/api/member-support-requests", new {
-            memberId = member.UserId, category = "PAYMENT", subject = $"Payment assistance {marker}", description = "Please investigate this member payment." });
+            memberId = member.UserId, category = "FACILITY", subject = $"Facility assistance {marker}", description = "Please investigate this member payment." });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
         var assignment = new { assigneeUserId = admin.UserId, note = "Escalating for administrator review" };
@@ -81,9 +81,11 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
             client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment),
             client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment));
         Assert.All(results, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
-        (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/progress", new { note = "Waiting for administrator review" })).EnsureSuccessStatusCode();
+        // Only the handler may log progress, and the administrator cannot work requests, so the manager is refused.
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/progress", new { note = "Waiting for administrator review" })).StatusCode);
         var retry = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", assignment);
-        Assert.Equal("IN_PROGRESS", (await retry.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        Assert.Equal("ASSIGNED", (await retry.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
         using var recipient = factory.CreateApiClient();
         recipient.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(admin.UserId, UserRole.SystemAdministrator));
         var unread = await recipient.GetFromJsonAsync<JsonElement>("/api/notifications/unread-count");
@@ -117,25 +119,37 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     [Theory]
     [InlineData(UserRole.Receptionist)]
     [InlineData(UserRole.CenterManager)]
-    public async Task Desk_assigns_updates_and_completes_a_member_request(UserRole actorRole)
+    public async Task Desk_claims_updates_and_completes_a_member_request(UserRole actorRole)
     {
         var member = await factory.SeedUserAsync($"support-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
         var desk = await factory.SeedUserAsync($"support-desk-{Guid.NewGuid():N}@example.com", null, role: actorRole);
-        var handler = await factory.SeedUserAsync($"support-handler-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
-        var coach = await factory.SeedUserAsync($"support-coach-{Guid.NewGuid():N}@example.com", null, role: UserRole.Coach);
+        var colleague = await factory.SeedUserAsync($"support-colleague-{Guid.NewGuid():N}@example.com", null, role: actorRole);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(desk.UserId, actorRole));
         var created = await client.PostAsJsonAsync("/api/member-support-requests",
             new { memberId = member.UserId, category = "OTHER", subject = "Membership help", description = "Needs assistance" });
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
-        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+        var createdBody = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var id = createdBody.GetProperty("requestId").GetGuid();
+        Assert.Equal("OPEN", createdBody.GetProperty("status").GetString());
 
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(
-            $"/api/member-support-requests/{id}/assign", new { assigneeUserId = coach.UserId })).StatusCode);
+            $"/api/member-support-requests/{id}/assign", new { assigneeUserId = member.UserId })).StatusCode);
         var assigned = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign",
-            new { assigneeUserId = handler.UserId, note = "Escalating for manager review" });
+            new { assigneeUserId = desk.UserId });
         Assert.True(assigned.StatusCode == HttpStatusCode.OK, await assigned.Content.ReadAsStringAsync());
         Assert.Equal("ASSIGNED", (await assigned.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        // A colleague who is not the handler cannot update, finalize or take the request.
+        using var other = factory.CreateApiClient();
+        other.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(colleague.UserId, actorRole));
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/progress", new { note = "Not my request" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/done", new { reason = "Not my request" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/assign", new { assigneeUserId = colleague.UserId })).StatusCode);
+
         var progress = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/progress",
             new { note = "Checking the account" });
         Assert.True(progress.StatusCode == HttpStatusCode.OK, await progress.Content.ReadAsStringAsync());
@@ -163,6 +177,53 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         var stored = await db.MemberSupportRequests.SingleAsync(x => x.RequestId == id);
         Assert.Equal("DONE", stored.Status);
         Assert.Equal("Account corrected", stored.ProgressNote);
+    }
+
+    [Fact]
+    public async Task Handler_can_transfer_a_request_and_loses_access_to_it()
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var member = await factory.SeedUserAsync($"support-transfer-member-{marker}@example.com", null);
+        var desk = await factory.SeedUserAsync($"support-transfer-desk-{marker}@example.com", null, role: UserRole.Receptionist);
+        var manager = await factory.SeedUserAsync($"support-transfer-manager-{marker}@example.com", null, role: UserRole.CenterManager);
+        var coach = await factory.SeedUserAsync($"support-transfer-coach-{marker}@example.com", null, role: UserRole.Coach);
+        using var deskClient = factory.CreateApiClient();
+        deskClient.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(desk.UserId, UserRole.Receptionist));
+        using var managerClient = factory.CreateApiClient();
+        managerClient.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
+        var created = await deskClient.PostAsJsonAsync("/api/member-support-requests",
+            new { memberId = member.UserId, category = "OTHER", subject = "Transfer me", description = "Out of the desk's scope" });
+        created.EnsureSuccessStatusCode();
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+        (await deskClient.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = desk.UserId })).EnsureSuccessStatusCode();
+        (await deskClient.PostAsJsonAsync($"/api/member-support-requests/{id}/progress", new { note = "Looking into it" })).EnsureSuccessStatusCode();
+
+        // Escalating to a higher role needs a note; only managers may hand work to a coach.
+        Assert.Equal(HttpStatusCode.BadRequest, (await deskClient.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/assign", new { assigneeUserId = manager.UserId })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await deskClient.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/assign", new { assigneeUserId = coach.UserId, note = "Coach question" })).StatusCode);
+        var transferred = await deskClient.PostAsJsonAsync($"/api/member-support-requests/{id}/assign",
+            new { assigneeUserId = manager.UserId, note = "Needs a manager decision" });
+        Assert.Equal(HttpStatusCode.OK, transferred.StatusCode);
+        Assert.Equal("ASSIGNED", (await transferred.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await deskClient.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/progress", new { note = "Still mine?" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await deskClient.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/reject", new { reason = "Still mine?" })).StatusCode);
+        var progress = await managerClient.PostAsJsonAsync($"/api/member-support-requests/{id}/progress", new { note = "Manager is on it" });
+        Assert.Equal("IN_PROGRESS", (await progress.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+
+        // The manager hands it to a coach, who cannot work requests yet, so the manager may take it back.
+        (await managerClient.PostAsJsonAsync($"/api/member-support-requests/{id}/assign",
+            new { assigneeUserId = coach.UserId })).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Forbidden, (await managerClient.PostAsJsonAsync(
+            $"/api/member-support-requests/{id}/done", new { reason = "Done for the coach" })).StatusCode);
+        var detail = await managerClient.GetFromJsonAsync<JsonElement>($"/api/member-support-requests/{id}");
+        Assert.False(detail.GetProperty("assigneeCanAct").GetBoolean());
+        (await managerClient.PostAsJsonAsync($"/api/member-support-requests/{id}/assign",
+            new { assigneeUserId = manager.UserId })).EnsureSuccessStatusCode();
     }
 
     [Theory]

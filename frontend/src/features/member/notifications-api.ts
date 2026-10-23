@@ -81,7 +81,10 @@ export function notificationPresentation(item: NotificationDto): {
   let category: NotificationCategory = "notice";
   let label = "Center update";
   let title = "An update from SportHub";
-  if (source === "SUPPORT_REQUEST_ASSIGNED") {
+  if (source === "SUPPORT_REQUEST_SUBMITTED") {
+    label = "Member support";
+    title = "A member submitted a support request";
+  } else if (source === "SUPPORT_REQUEST_ASSIGNED") {
     label = "Member support";
     title = "A support request has been assigned to you";
   } else if (source === "COACH_ATTENDANCE_REMINDER") {

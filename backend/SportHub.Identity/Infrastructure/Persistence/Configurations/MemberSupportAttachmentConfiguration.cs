@@ -14,7 +14,8 @@ public sealed class MemberSupportAttachmentConfiguration
         builder.Property(x => x.FileName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.ContentType).HasMaxLength(50).IsRequired();
         builder.Property(x => x.Content).IsRequired();
-        builder.HasIndex(x => x.RequestId);
+        builder.Property(x => x.Kind).HasMaxLength(20).HasDefaultValue("EVIDENCE").IsRequired();
+        builder.HasIndex(x => new { x.RequestId, x.Kind });
         builder.HasOne<MemberSupportRequest>()
             .WithMany()
             .HasForeignKey(x => x.RequestId)

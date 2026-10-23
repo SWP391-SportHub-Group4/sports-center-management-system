@@ -544,15 +544,27 @@ namespace SportHub.API.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("file_name");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("EVIDENCE")
+                        .HasColumnName("kind");
+
                     b.Property<Guid>("RequestId")
                         .HasColumnType("uuid")
                         .HasColumnName("request_id");
 
+                    b.Property<Guid?>("UploadedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by_user_id");
+
                     b.HasKey("AttachmentId")
                         .HasName("pk_member_support_attachments");
 
-                    b.HasIndex("RequestId")
-                        .HasDatabaseName("ix_member_support_attachments_request_id");
+                    b.HasIndex("RequestId", "Kind")
+                        .HasDatabaseName("ix_member_support_attachments_request_id_kind");
 
                     b.ToTable("member_support_attachments", (string)null);
                 });
@@ -652,10 +664,16 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("recorded_by_user_id");
 
+                    b.Property<bool>("RequiresPayout")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("requires_payout");
+
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
                     b.Property<string>("Subject")
@@ -1301,6 +1319,220 @@ namespace SportHub.API.Migrations
                         .HasFilter("user_id IS NOT NULL AND source_entity_id IS NOT NULL AND channel = 0");
 
                     b.ToTable("notifications", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Payment.BankRefunds.BankRefundRequest", b =>
+                {
+                    b.Property<Guid>("BankRefundId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("bank_refund_id");
+
+                    b.Property<string>("AccountHolder")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("account_holder");
+
+                    b.Property<string>("AccountNumber")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("account_number");
+
+                    b.Property<string>("ApprovalReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("approval_reason");
+
+                    b.Property<string>("ApprovalSnapshotJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("approval_snapshot_json");
+
+                    b.Property<decimal?>("ApprovedAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("approved_amount");
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at_utc");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by_user_id");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("bank_name");
+
+                    b.Property<bool>("CenterFault")
+                        .HasColumnType("boolean")
+                        .HasColumnName("center_fault");
+
+                    b.Property<Guid?>("CompletionKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completion_key");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<Guid>("InvoiceItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_item_id");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("item_type");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("member_id");
+
+                    b.Property<bool>("NeedsReconciliation")
+                        .HasColumnType("boolean")
+                        .HasColumnName("needs_reconciliation");
+
+                    b.Property<Guid?>("PaidByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("paid_by_user_id");
+
+                    b.Property<DateTime?>("PaidRecordedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_recorded_at_utc");
+
+                    b.Property<decimal?>("PayoutAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("payout_amount");
+
+                    b.Property<DateTime?>("PayoutAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("payout_at");
+
+                    b.Property<string>("PayoutNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("payout_note");
+
+                    b.Property<string>("PayoutReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("payout_reference");
+
+                    b.Property<decimal>("PolicyPercent")
+                        .HasPrecision(7, 4)
+                        .HasColumnType("numeric(7,4)")
+                        .HasColumnName("policy_percent");
+
+                    b.Property<DateTime?>("ReconciliationFlaggedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reconciliation_flagged_at_utc");
+
+                    b.Property<string>("ReconciliationNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reconciliation_note");
+
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rejected_at_utc");
+
+                    b.Property<Guid?>("RejectedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rejected_by_user_id");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<string>("RequestSnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("request_snapshot_json");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("SuggestedAmount")
+                        .HasPrecision(18)
+                        .HasColumnType("numeric(18,0)")
+                        .HasColumnName("suggested_amount");
+
+                    b.Property<Guid>("SupportRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("support_request_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("BankRefundId")
+                        .HasName("pk_bank_refund_requests");
+
+                    b.HasIndex("ApprovedByUserId")
+                        .HasDatabaseName("ix_bank_refund_requests_approved_by_user_id");
+
+                    b.HasIndex("InvoiceId")
+                        .HasDatabaseName("ix_bank_refund_requests_invoice_id");
+
+                    b.HasIndex("InvoiceItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_bank_refund_requests_active_item")
+                        .HasFilter("status IN ('PENDING','APPROVED_AWAITING_PAYOUT')");
+
+                    b.HasIndex("PaidByUserId")
+                        .HasDatabaseName("ix_bank_refund_requests_paid_by_user_id");
+
+                    b.HasIndex("PayoutAt")
+                        .HasDatabaseName("ix_bank_refund_requests_payout_at")
+                        .HasFilter("status = 'PAID'");
+
+                    b.HasIndex("RejectedByUserId")
+                        .HasDatabaseName("ix_bank_refund_requests_rejected_by_user_id");
+
+                    b.HasIndex("RequestedByUserId")
+                        .HasDatabaseName("ix_bank_refund_requests_requested_by_user_id");
+
+                    b.HasIndex("SupportRequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_bank_refund_requests_support_request_id");
+
+                    b.HasIndex("InvoiceItemId", "Status")
+                        .HasDatabaseName("ix_bank_refund_requests_invoice_item_id_status");
+
+                    b.HasIndex("MemberId", "CreatedAt")
+                        .HasDatabaseName("ix_bank_refund_requests_member_id_created_at");
+
+                    b.ToTable("bank_refund_requests", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_bank_refund_requests_amounts", "suggested_amount >= 0 AND (approved_amount IS NULL OR approved_amount > 0) AND (payout_amount IS NULL OR payout_amount > 0)");
+
+                            t.HasCheckConstraint("CK_bank_refund_requests_approved_fields", "status NOT IN ('APPROVED_AWAITING_PAYOUT','PAID') OR (approved_amount IS NOT NULL AND approved_by_user_id IS NOT NULL AND approved_at_utc IS NOT NULL AND approval_reason IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_bank_refund_requests_paid_fields", "status <> 'PAID' OR (payout_amount = approved_amount AND payout_at IS NOT NULL AND paid_by_user_id IS NOT NULL AND paid_recorded_at_utc IS NOT NULL AND payout_note IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_bank_refund_requests_rejected_fields", "status <> 'REJECTED' OR (rejection_reason IS NOT NULL AND rejected_by_user_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_bank_refund_requests_status", "status IN ('PENDING','APPROVED_AWAITING_PAYOUT','PAID','REJECTED')");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Payment.Domain.Entities.CheckoutSession", b =>
@@ -3426,6 +3658,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at_utc");
 
+                    b.Property<DateTime?>("CheckedInAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_in_at_utc");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
@@ -4248,6 +4484,62 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_notifications_user_accounts_user_id");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SportHub.Payment.BankRefunds.BankRefundRequest", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_bank_refund_requests_user_accounts_approved_by_user_id");
+
+                    b.HasOne("SportHub.Payment.Domain.Entities.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_bank_refund_requests_invoices_invoice_id");
+
+                    b.HasOne("SportHub.Payment.Domain.Entities.InvoiceItem", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_bank_refund_requests_invoice_items_invoice_item_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_bank_refund_requests_user_accounts_member_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PaidByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_bank_refund_requests_user_accounts_paid_by_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RejectedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_bank_refund_requests_user_accounts_rejected_by_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_bank_refund_requests_user_accounts_requested_by_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportRequest", null)
+                        .WithMany()
+                        .HasForeignKey("SupportRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_bank_refund_requests_member_support_requests_support_reques");
                 });
 
             modelBuilder.Entity("SportHub.Payment.Domain.Entities.CheckoutSession", b =>

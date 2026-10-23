@@ -12,6 +12,16 @@ import {
   type SupportCategory,
 } from "@/lib/support-categories";
 import { useApi } from "@/lib/useApi";
+import { STATUS_LABELS } from "@/features/receptionist";
+import {
+  BankRefundPanel,
+  EMPTY_PAYMENT_FIELDS,
+  PaymentFields,
+  SupportImages,
+  appendPaymentFields,
+  paymentFieldsReady,
+  type PaymentFieldsValue,
+} from "@/features/support-refund";
 import styles from "./help-center.module.css";
 
 const MAX_FILES = 3;
@@ -19,13 +29,23 @@ const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPT = "image/jpeg,image/png,image/webp";
 const MAX_LENGTH = 2000;
 
+interface MyAttachment {
+  attachmentId: string;
+  fileName: string;
+  kind?: string;
+}
+
 interface MyRequest {
   requestId: string;
   category: string;
+  subject?: string;
   description: string;
   status: string;
   createdAt: string;
   response: string | null;
+  requiresPayout?: boolean;
+  attachments?: MyAttachment[];
+  resultAttachments?: MyAttachment[];
 }
 
 interface Sent {
@@ -33,13 +53,28 @@ interface Sent {
 }
 
 /** Trợ giúp của Member: một biểu mẫu duy nhất cho mọi yêu cầu hỗ trợ; Lễ tân và Manager xử lý ở hàng đợi hỗ trợ. */
-export function HelpCenter({ initialTopic }: { initialTopic?: string }) {
+export function HelpCenter({
+  initialTopic,
+  initialItemId,
+  initialTicket,
+}: {
+  initialTopic?: string;
+  /** Transaction (invoice item) to preselect on the Payment topic, e.g. from a cancel dialog. */
+  initialItemId?: string;
+  /** Ticket to open in "My requests", e.g. from the refund email. */
+  initialTicket?: string;
+}) {
   const { user } = useAuth();
   const [category, setCategory] = useState<SupportCategory | "">(
     SUPPORT_CATEGORIES.some((c) => c.value === initialTopic)
       ? (initialTopic as SupportCategory)
       : "",
   );
+  const [payment, setPayment] = useState<PaymentFieldsValue>({
+    ...EMPTY_PAYMENT_FIELDS,
+    invoiceItemId: initialItemId ?? "",
+  });
+  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
@@ -67,8 +102,14 @@ export function HelpCenter({ initialTopic }: { initialTopic?: string }) {
     [previews],
   );
 
+  const isPayment = category === "PAYMENT";
   const ready =
-    category !== "" && message.trim().length >= 3 && consent && !busy;
+    category !== "" &&
+    subject.trim().length >= 3 &&
+    message.trim().length >= 3 &&
+    (!isPayment || (paymentFieldsReady(payment) && files.length >= 1)) &&
+    consent &&
+    !busy;
 
   function toast(text: string) {
     const id = Date.now() + Math.random();
@@ -112,13 +153,17 @@ export function HelpCenter({ initialTopic }: { initialTopic?: string }) {
     try {
       const form = new FormData();
       form.append("category", category);
+      form.append("subject", subject.trim());
       form.append("description", message.trim());
+      if (isPayment) appendPaymentFields(form, payment);
       files.forEach((file) => form.append("files", file));
       const result = await api.postForm<Sent>("/api/support/requests", form);
       setSent(result);
+      setSubject("");
       setMessage("");
       setFiles([]);
       setConsent(false);
+      setPayment(EMPTY_PAYMENT_FIELDS);
       mine.reload();
     } catch (e) {
       setError(
@@ -144,8 +189,8 @@ export function HelpCenter({ initialTopic }: { initialTopic?: string }) {
           <div className={styles.success} role="status">
             <h2>Request received</h2>
             <p>
-              Your reference is <strong>{sent.reference}</strong>. We have sent a
-              confirmation to {user?.email}.
+              Your reference is <strong>{sent.reference}</strong>. We have sent
+              a confirmation to {user?.email}.
             </p>
             <div>
               <button
@@ -184,6 +229,18 @@ export function HelpCenter({ initialTopic }: { initialTopic?: string }) {
             </label>
 
             <label className={styles.field}>
+              <span>Subject *</span>
+              <input
+                type="text"
+                value={subject}
+                maxLength={200}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Summarize your request in a few words"
+                required
+              />
+            </label>
+
+            <label className={styles.field}>
               <span>Your message *</span>
               <textarea
                 value={message}
@@ -197,10 +254,15 @@ export function HelpCenter({ initialTopic }: { initialTopic?: string }) {
               </span>
             </label>
 
+            {isPayment && (
+              <PaymentFields value={payment} onChange={setPayment} />
+            )}
+
             <div className={styles.upload}>
               <p className={styles.uploadNote}>
-                Please upload images showing the problem you are facing
-                (optional).
+                {isPayment
+                  ? "Upload at least one image of the transaction as evidence (required)."
+                  : "Please upload images showing the problem you are facing (optional)."}
               </p>
               <span className={styles.uploadTitle}>Upload images</span>
               <p className={styles.uploadHint}>
@@ -314,14 +376,30 @@ export function HelpCenter({ initialTopic }: { initialTopic?: string }) {
                 <li key={row.requestId}>
                   <div className={styles.historyHead}>
                     <strong>{supportCategoryLabel(row.category)}</strong>
-                    <StatusChip value={row.status} />
+                    <StatusChip
+                      value={row.status}
+                      label={STATUS_LABELS[row.status] ?? row.status}
+                    />
                   </div>
                   <span className={styles.meta}>
                     {formatDateTime(row.createdAt)}
                   </span>
                   <p>{row.description}</p>
-                  {row.response && (
+                  {row.attachments && row.attachments.length > 0 && (
+                    <SupportImages attachments={row.attachments} />
+                  )}
+                  {row.response && !row.requiresPayout && (
                     <p className={styles.meta}>Reply: {row.response}</p>
+                  )}
+                  {row.requiresPayout && (
+                    <details open={row.requestId === initialTicket}>
+                      <summary>Refund details and result</summary>
+                      <BankRefundPanel
+                        requestId={row.requestId}
+                        role="member"
+                        proofs={row.resultAttachments ?? []}
+                      />
+                    </details>
                   )}
                 </li>
               ))}

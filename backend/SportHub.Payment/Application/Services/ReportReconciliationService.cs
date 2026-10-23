@@ -45,6 +45,12 @@ public sealed class ReportReconciliationService(ISportHubDbContext db, IRevenueR
                         && a.CompletedAtUtc != null && a.CompletedAtUtc >= fromUtc && a.CompletedAtUtc < toUtc)
             .SumAsync(a => (decimal?)a.Amount, ct) ?? 0m;
 
+        var bankRefunded = await db.Set<BankRefunds.BankRefundRequest>().AsNoTracking()
+            .Where(b => b.Status == BankRefunds.BankRefundStatuses.Paid && b.PayoutAt != null
+                        && b.PayoutAt >= fromUtc && b.PayoutAt < toUtc)
+            .SumAsync(b => (decimal?)b.PayoutAmount, ct) ?? 0m;
+        refunded += bankRefunded;
+
         var ledger = db.Set<PointLedgerEntry>().AsNoTracking().Where(e => e.CreatedAtUtc >= fromUtc && e.CreatedAtUtc < toUtc);
         var spent = await ledger.Where(e => e.EntryType == PointEntryType.Spend).SumAsync(e => (long?)e.Points, ct) ?? 0L;
         var earned = await ledger.Where(e => e.EntryType == PointEntryType.Earn).SumAsync(e => (long?)e.Points, ct) ?? 0L;
@@ -56,6 +62,7 @@ public sealed class ReportReconciliationService(ISportHubDbContext db, IRevenueR
             Check("Cash collected", report.TotalCollected, cash + gatewayCash),
             Check("Payment count", report.PaymentCount, paymentCount),
             Check("Cash refunds", report.TotalRefunded, refunded),
+            Check("Bank refunds", report.BankRefundAmount, bankRefunded),
             Check("Net revenue", report.NetRevenue, cash + gatewayCash - refunded),
             Check("Points used", report.PointsRedeemed, spent),
             Check("Points credited", report.PointsIssued, earned),

@@ -78,6 +78,14 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
     }
 
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    [HttpPost("api/court-rentals/{rentalId:guid}/cancel-on-behalf")]
+    public async Task<IActionResult> CancelOnBehalf(Guid rentalId, CancellationToken ct)
+    {
+        await operations.CancelOnBehalfAsync(rentalId, ct);
+        return NoContent();
+    }
+
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpPost("api/court-rentals/{rentalId:guid}/check-in")]
     public async Task<IActionResult> CheckIn(Guid rentalId, CancellationToken ct)
     {

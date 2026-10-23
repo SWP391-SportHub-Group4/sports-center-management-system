@@ -24,7 +24,7 @@
 Scope and navigation: [Manager workspace](Manager-Workspace.md). These rules supersede older cancellation, wallet-adjustment and next-cohort-link descriptions.
 
 - `GET /api/manager/people?role&keyword&page&pageSize`: CenterManager only; restricts to Member/Coach before filtering and pagination, preserves activation metadata and excludes staff even when a staff role is supplied. UI uses one People directory; Schedule and Audit are accessed through the profile dropdown.
-- `GET /api/manager/requests/summary`: CenterManager only; pending counts `{coach,refunds,support,avatar}`. Existing request types retain their own mutation APIs.
+- `GET /api/manager/requests/summary`: CenterManager only; pending counts `{coach,refunds,support,payment,awaitingPayout,avatar}`; `payment` = Payment tickets chưa đóng, `awaitingPayout` = đã duyệt chờ chuyển khoản. Existing request types retain their own mutation APIs.
 - `POST /api/avatars/reports`: authenticated account; `{targetUserId,avatarUrl,reason}` for another Member/Coach's current photo. Same reporter/photo/open report is deduplicated. Audit and Manager notifications commit with the report.
 - `GET /api/manager/avatar-reports?status&search&page&pageSize`: Manager-only paged moderation inbox with target identity/role, reported/current photo and reason.
 - `POST /api/manager/avatar-reports/{reportId}/dismiss`: Manager-only, idempotent after resolution.
@@ -847,14 +847,30 @@ Request responses additionally return nullable `outcome: {action,sessionId,sessi
 
 | Verb | Route | Hợp đồng / authority |
 |---|---|---|
-| GET | `/api/member-support-requests/queue?status&search&assignedToUserId&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/CLOSED. Search tối đa 200 ký tự trong subject/description/tên/email Member, không phân biệt hoa thường. Response đọc thêm memberName/memberEmail/assignedToName hiện tại. |
+| GET | `/api/member-support-requests/queue?status&search&assignedToUserId&page&pageSize` | FrontDesk; `status` ∈ OPEN/ASSIGNED/IN_PROGRESS/APPROVED_AWAITING_PAYOUT/DONE/REJECTED. Search tối đa 200 ký tự trong subject/description/tên/email Member, không phân biệt hoa thường. Response đọc thêm memberName/memberEmail/assignedToName hiện tại. |
 | GET | `/api/member-support-requests/assignees` | FrontDesk; Receptionist/CenterManager đang Active. Chỉ người gọi CenterManager được nhận thêm SystemAdministrator đang Active trong danh sách. |
 | POST | `/api/member-support-requests/{id}/assign`, `/progress`, `/close` | FrontDesk; khóa dòng `FOR UPDATE`, ghi audit. Progress/close yêu cầu đã phân công. CLOSED chặn assign/progress với 409 `support_request_closed`; close lặp trả 200 kết quả cũ, không đổi kết quả/audit. Mọi nhân viên FrontDesk đều thao tác được, không giới hạn theo người được giao (FR-22). |
 | POST | `/api/member-support-requests` | FrontDesk tạo hộ member: `memberId, category, channel (COUNTER/PHONE/FANPAGE), description`, `subject` tùy chọn (tự sinh từ loại + mô tả), tùy chọn `assigneeUserId` + `handoverNote` để bàn giao ngay khi tạo. |
 | POST | `/api/member-support-requests/{id}/assign` (body `assigneeUserId, note`) | Chuyển lên vai trò cao hơn người thao tác (Receptionist → Manager → Administrator) bắt buộc `note` ≥ 3 ký tự, lỗi 400 `support_transfer_note_required`. |
 | GET | `/api/member-support-requests/{id}/events` | FrontDesk; lịch sử xử lý (CREATED, ASSIGNED, PROGRESS, DONE, REJECTED) kèm người thực hiện, ghi chú và thời điểm. |
-| POST | `/api/support/requests` (multipart) | Member tự gửi từ trang Trợ giúp: `category, description, files[]` (tối đa 3 ảnh JPG/PNG/WebP, 5 MB/ảnh); kênh ONLINE; tạo thông báo và email xác nhận. |
-| GET | `/api/support/requests/mine`, `/api/support/attachments/{id}` | Member xem yêu cầu của mình; ảnh đính kèm chỉ chủ yêu cầu, Receptionist hoặc CenterManager xem được. |
+| POST | `/api/support/requests` (multipart) | Member tự gửi từ trang Trợ giúp: `category, subject, description, files[]` (tối đa 3 ảnh JPG/PNG/WebP, 5 MB/ảnh); kênh ONLINE; tạo thông báo và email xác nhận. `category=PAYMENT` bắt buộc thêm `invoiceItemId, bankName, accountNumber (6–20 chữ số), accountHolder` và ≥ 1 ảnh (400 `support_payment_*`); các loại khác gửi các trường này → 400 `support_payment_fields_unexpected`. Server kiểm sở hữu item (403 `bank_refund_item_not_owned`), đủ điều kiện/chưa có yêu cầu đang xử lý (409 `bank_refund_not_eligible`) rồi tính snapshot và số gợi ý; client không gửi số tiền. |
+| GET | `/api/support/requests/mine`, `/api/support/attachments/{id}` | Member xem yêu cầu của mình, gồm `attachments` (chứng cứ), `resultAttachments` (biên lai chuyển khoản, chỉ khi `DONE`) và `requiresPayout`. Ảnh: chủ yêu cầu, Receptionist hoặc CenterManager xem được; biên lai (`PAYOUT_PROOF`) chỉ lộ cho Member khi ticket `DONE`. Coach/Admin: 404. |
+
+### Hoàn tiền ngân hàng (Support Request PAYMENT)
+
+Xem [Bank-Refund-Workflow.md](Bank-Refund-Workflow.md). `POST /api/member-support-requests` nhận thêm `multipart/form-data` (`Files[]`, `InvoiceItemId, BankName, AccountNumber, AccountHolder`); JSON vẫn dùng được cho loại khác, PAYMENT qua JSON → 400. Với PAYMENT: `ResolveNote` → 400 `support_payment_no_instant_resolve`; `assigneeUserId` chỉ CenterManager (400 `support_payment_assignee_invalid`); `assign/progress/done/reject` chỉ CenterManager (403 `support_payment_manager_only`); ticket theo quy trình hoàn tiền (`requiresPayout`) không đóng bằng `done/reject` thường (409 `support_payment_use_refund_workflow`). Response ticket thêm `requiresPayout`, `attachments[].kind`; `stats` thêm `approvedAwaitingPayout`.
+
+| Verb | Route | Hợp đồng / authority |
+|---|---|---|
+| GET | `/api/bank-refunds/items?memberId` | Member: giao dịch của mình (bỏ qua `memberId`). Receptionist/Manager: bắt buộc `memberId` của một Member. Trả `{invoiceItemId,itemType,description,invoiceNumber,paidAt,lineAmount,remainingRefundableVnd,eligible,ineligibleReason}` (Membership/lớp/thuê sân đã thanh toán; vé ngày, item có yêu cầu đang xử lý, hết giá trị → `eligible=false`). |
+| GET | `/api/bank-refunds/by-request/{requestId}` | Member chủ ticket, Receptionist (số tài khoản che `••••1234`), CenterManager (đầy đủ). Trả trạng thái, `service` (đã trả tiền/điểm, hoàn trước đó, còn hoàn được, quyền lợi, ngày, số đã dùng/chưa dùng, ghi chú), `policy` (`percent, suggestedVnd, basis, centerFault*`, `disclaimer`), `approvedAmount`, `payout`, `needsReconciliation`. Khi ticket đã duyệt/đóng, số liệu lấy từ snapshot đóng băng. Member khác → 404; Coach/Admin → 403. |
+| GET | `/api/bank-refunds?status&needsReconciliation&take` | FrontDesk; danh sách tóm tắt. |
+| POST | `/api/bank-refunds/by-request/{requestId}/approve` | CenterManager. Body `{amount, reason, centerFault}`. `amount` nguyên, 1…`remainingRefundableVnd` (409 `refund_exceeds_item_paid`); lý do ≥ 10 ký tự nếu khác gợi ý hoặc lỗi trung tâm (400). Khóa invoice→item, hủy quyền lợi (lần duyệt đầu), giữ chỗ số tiền, ticket `APPROVED_AWAITING_PAYOUT`, thông báo Member. Duyệt lại khi đang chờ chuyển chỉ chỉnh số tiền. |
+| POST | `/api/bank-refunds/by-request/{requestId}/reject` | CenterManager. Body `{reason}` (3–500). Chỉ khi `PENDING`; đã duyệt → 409 `bank_refund_already_approved`. Thông báo + email Member. |
+| POST | `/api/bank-refunds/by-request/{requestId}/complete` | CenterManager, multipart: `CompletionKey (guid), PayoutAmount (= số duyệt, 400 bank_refund_payout_mismatch), TransferredAt (không tương lai, không trước lúc duyệt), BankReference?, Note (≥ 10), Files[1..3]`. Ticket `DONE`, ảnh lưu `PAYOUT_PROOF`, audit, thông báo + email (không số tài khoản đầy đủ). Gửi lại cùng `CompletionKey` → 200 kết quả cũ; khóa khác → 409 `bank_refund_already_paid`. |
+| POST | `/api/bank-refunds/by-request/{requestId}/flag-payout` | CenterManager. Body `{note}` (≥ 10): đã chuyển nhưng chưa ghi nhận → cờ đối soát thủ công. |
+
+Revenue report: `totalRefunded`/`refundCount` gồm khoản `PAID` theo ngày thực chuyển; thêm `bankRefundAmount`, `bankRefundCount` (đã nằm trong tổng) tách khỏi `pointsRefunded`. Report reconciliation thêm check "Bank refunds".
 
 Assign cho SystemAdministrator chỉ cho phép người gọi CenterManager; Receptionist bị từ chối 403 `support_admin_assignment_forbidden`, không thay đổi yêu cầu hoặc ghi audit phân công. Các role ngoài FrontDesk vẫn bị chặn bởi policy. Người nhận phải đang Active.
 

@@ -1,11 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
+using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
@@ -42,6 +44,21 @@ public sealed class CreateMemberSupportRequest
     /// <summary>Giải quyết ngay tại quầy: yêu cầu được tạo, gán cho người tạo và đóng (DONE) với ghi chú này.</summary>
     [MaxLength(1000)]
     public string? ResolveNote { get; set; }
+
+    /// <summary>Ảnh đính kèm (tối đa 3, chỉ nhận khi gửi multipart). Bắt buộc ≥1 ảnh chứng cứ cho PAYMENT.</summary>
+    public List<IFormFile>? Files { get; set; }
+
+    /// <summary>Chỉ PAYMENT: giao dịch (InvoiceItem) của đúng Member này cần hoàn tiền.</summary>
+    public Guid? InvoiceItemId { get; set; }
+
+    [MaxLength(100)]
+    public string? BankName { get; set; }
+
+    [MaxLength(40)]
+    public string? AccountNumber { get; set; }
+
+    [MaxLength(120)]
+    public string? AccountHolder { get; set; }
 }
 
 public sealed record MemberSupportRequestResponse(
@@ -61,9 +78,13 @@ public sealed record MemberSupportRequestResponse(
     string? MemberEmail = null,
     string? AssignedToName = null,
     IReadOnlyList<SupportAttachmentInfo>? Attachments = null,
-    string Channel = "COUNTER");
+    string Channel = "COUNTER",
+    /// <summary>False when the current handler is inactive or cannot work requests; any front-desk staff may then take it over.</summary>
+    bool AssigneeCanAct = true,
+    /// <summary>True for a PAYMENT ticket that goes through the bank-refund workflow (Manager approves, then records the transfer).</summary>
+    bool RequiresPayout = false);
 
-public sealed record SupportAttachmentInfo(Guid AttachmentId, string FileName);
+public sealed record SupportAttachmentInfo(Guid AttachmentId, string FileName, string Kind = SupportAttachmentKinds.Evidence);
 
 public sealed record AssignSupportRequest(Guid AssigneeUserId, string? Note = null);
 
@@ -85,12 +106,18 @@ public sealed class MemberSupportRequestsController(
     ISportHubDbContext db,
     IClock clock,
     IAuditWriter audit,
-    INotificationWriter notifications) : ControllerBase
+    INotificationWriter notifications,
+    IBankRefundIntake bankRefunds) : ControllerBase
 {
+    private const string PaymentCategory = SupportPaymentFields.Category;
+    public static readonly string[] Statuses = ["OPEN", "ASSIGNED", "IN_PROGRESS", "APPROVED_AWAITING_PAYOUT", "DONE", "REJECTED"];
+
+    private bool IsManager => User.IsInRole(nameof(UserRole.CenterManager));
+
     private static MemberSupportRequestResponse Map(MemberSupportRequest x) => new(
         x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
         x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
-        x.ProgressNote, x.UpdatedAt, x.ClosedAt, Channel: x.Channel);
+        x.ProgressNote, x.UpdatedAt, x.ClosedAt, Channel: x.Channel, RequiresPayout: x.RequiresPayout);
 
     private IQueryable<MemberSupportRequestResponse> Project(IQueryable<MemberSupportRequest> query)
         => query.Select(x => new MemberSupportRequestResponse(
@@ -104,8 +131,12 @@ public sealed class MemberSupportRequestsController(
                 .Select(u => u.Profile != null ? u.Profile.FullName : u.Email).FirstOrDefault(),
             db.Set<MemberSupportAttachment>().Where(a => a.RequestId == x.RequestId)
                 .OrderBy(a => a.CreatedAt).ThenBy(a => a.AttachmentId)
-                .Select(a => new SupportAttachmentInfo(a.AttachmentId, a.FileName)).ToList(),
-            x.Channel));
+                .Select(a => new SupportAttachmentInfo(a.AttachmentId, a.FileName, a.Kind)).ToList(),
+            x.Channel,
+            x.AssignedToUserId == null || db.Set<UserAccount>().Any(u => u.UserId == x.AssignedToUserId
+                && u.Status == UserStatus.Active && u.Role != null
+                && (u.Role.RoleName == UserRole.Receptionist || u.Role.RoleName == UserRole.CenterManager)),
+            x.RequiresPayout));
 
     [HttpGet]
     public async Task<IActionResult> List(
@@ -143,10 +174,21 @@ public sealed class MemberSupportRequestsController(
         return Ok(rows);
     }
 
+    /// <summary>Tạo hộ bằng JSON (không ảnh). Yêu cầu PAYMENT cần ảnh chứng cứ nên phải gửi qua multipart.</summary>
     [HttpPost]
-    public async Task<IActionResult> Create(
-        [FromBody] CreateMemberSupportRequest request,
-        CancellationToken ct = default)
+    [Consumes("application/json")]
+    public Task<IActionResult> Create([FromBody] CreateMemberSupportRequest request, CancellationToken ct = default)
+        => CreateCore(request, [], ct);
+
+    /// <summary>Tạo hộ bằng multipart: tối đa 3 ảnh (JPG/PNG/WebP, ≤5 MB mỗi ảnh).</summary>
+    [HttpPost]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public Task<IActionResult> CreateWithFiles([FromForm] CreateMemberSupportRequest request, CancellationToken ct = default)
+        => CreateCore(request, request.Files ?? [], ct);
+
+    private async Task<IActionResult> CreateCore(CreateMemberSupportRequest request, IReadOnlyCollection<IFormFile> files,
+        CancellationToken ct)
     {
         var member = await db
             .Set<UserAccount>()
@@ -202,6 +244,15 @@ public sealed class MemberSupportRequestsController(
             });
         }
 
+        var actorId = User.RequireUserId();
+        var now = clock.UtcNow;
+        var attachments = await SupportImageUploads.ReadAsync(files, SupportAttachmentKinds.Evidence, actorId, now,
+            required: false, ct);
+        var payment = SupportPaymentFields.Parse(category, request.InvoiceItemId, request.BankName,
+            request.AccountNumber, request.AccountHolder, attachments.Count);
+        if (payment is not null && !string.IsNullOrWhiteSpace(request.ResolveNote))
+            throw new BadRequestException("support_payment_no_instant_resolve",
+                "A refund request cannot be resolved at creation; the manager must approve it and record the transfer.");
         var channel = (request.Channel ?? "COUNTER").Trim().ToUpperInvariant();
         if (channel is not ("COUNTER" or "PHONE" or "FANPAGE"))
             throw new BadRequestException("support_channel_invalid", "Invalid request channel.");
@@ -214,8 +265,6 @@ public sealed class MemberSupportRequestsController(
             subject = $"{CategoryLabel(category)}: {snippet}";
         }
 
-        var now = clock.UtcNow;
-        var actorId = User.RequireUserId();
         var entity = new MemberSupportRequest
         {
             RequestId = Guid.NewGuid(),
@@ -226,8 +275,10 @@ public sealed class MemberSupportRequestsController(
             Description = description,
             Status = "OPEN",
             Channel = channel,
-            CreatedAt = now
+            CreatedAt = now,
+            RequiresPayout = payment is not null
         };
+        foreach (var attachment in attachments) attachment.RequestId = entity.RequestId;
         AddEvent(entity.RequestId, "CREATED", null);
         if (!string.IsNullOrWhiteSpace(request.ResolveNote))
         {
@@ -242,6 +293,9 @@ public sealed class MemberSupportRequestsController(
         else if (request.AssigneeUserId is Guid assigneeId)
         {
             var role = await ValidateAssigneeAsync(assigneeId, request.HandoverNote, ct);
+            if (category == PaymentCategory && role != UserRole.CenterManager)
+                throw new BadRequestException("support_payment_assignee_invalid",
+                    "Payment requests can only be handed to a center manager.");
             entity.AssignedToUserId = assigneeId;
             entity.Status = "ASSIGNED";
             entity.UpdatedAt = now;
@@ -250,6 +304,10 @@ public sealed class MemberSupportRequestsController(
         }
 
         db.Set<MemberSupportRequest>().Add(entity);
+        db.Set<MemberSupportAttachment>().AddRange(attachments);
+        // Ownership of the transaction, eligibility and the suggested amount are all decided server-side.
+        if (payment is not null)
+            await bankRefunds.AttachAsync(payment.ToIntake(entity.RequestId, request.MemberId, actorId), ct);
         audit.Write(new AuditEntry(User.RequireUserId(), "CREATE_SUPPORT_REQUEST", nameof(MemberSupportRequest),
             entity.RequestId.ToString(), NewValue: JsonSerializer.Serialize(new { entity.MemberId, entity.Category, entity.Subject })));
 
@@ -279,6 +337,19 @@ public sealed class MemberSupportRequestsController(
                 ("Details", description),
                 ("Status", resolved ? "Resolved" : "Received"))));
 
+        // A refund request waits for a manager; tell the managers (the front desk can only follow it).
+        if (payment is not null)
+        {
+            var managerIds = await db.Set<UserAccount>().AsNoTracking()
+                .Where(x => x.Status == UserStatus.Active && x.Role != null && x.Role.RoleName == UserRole.CenterManager
+                    && x.UserId != actorId)
+                .Select(x => x.UserId).ToListAsync(ct);
+            foreach (var managerId in managerIds)
+                notifications.Queue(new NotificationRequest(managerId, NotificationEvents.SupportRequestSubmitted,
+                    $"{contact.Name} has a Payment (bank refund) request (ref {reference}) recorded by the front desk.\nSubject: {entity.Subject}",
+                    entity.RequestId));
+        }
+
         await db.SaveChangesAsync(ct);
 
         return Ok(Map(entity));
@@ -298,7 +369,8 @@ public sealed class MemberSupportRequestsController(
             open = Count("OPEN"),
             assigned = Count("ASSIGNED"),
             inProgress = Count("IN_PROGRESS"),
-            done = Count("DONE") + Count("CLOSED"),
+            approvedAwaitingPayout = Count("APPROVED_AWAITING_PAYOUT"),
+            done = Count("DONE"),
             rejected = Count("REJECTED")
         });
     }
@@ -316,11 +388,9 @@ public sealed class MemberSupportRequestsController(
         if (!string.IsNullOrWhiteSpace(status))
         {
             var value = status.Trim().ToUpperInvariant();
-            if (value is not ("OPEN" or "ASSIGNED" or "IN_PROGRESS" or "DONE" or "REJECTED" or "CLOSED"))
+            if (!Statuses.Contains(value))
                 throw new BadRequestException("support_status_invalid", "Invalid support request status.");
-            query = value == "DONE"
-                ? query.Where(x => x.Status == "DONE" || x.Status == "CLOSED")
-                : query.Where(x => x.Status == value);
+            query = query.Where(x => x.Status == value);
         }
         if (!string.IsNullOrWhiteSpace(category))
         {
@@ -357,11 +427,12 @@ public sealed class MemberSupportRequestsController(
     [HttpGet("assignees")]
     public async Task<IActionResult> Assignees(CancellationToken ct)
     {
-        var canAssignAdmin = User.IsInRole(nameof(UserRole.CenterManager));
+        var isManager = User.IsInRole(nameof(UserRole.CenterManager));
         return Ok(await db.Set<UserAccount>().AsNoTracking()
             .Where(x => x.Status == UserStatus.Active && x.Role != null
                 && (x.Role.RoleName == UserRole.Receptionist || x.Role.RoleName == UserRole.CenterManager
-                    || (canAssignAdmin && x.Role.RoleName == UserRole.SystemAdministrator)))
+                    || (isManager && (x.Role.RoleName == UserRole.SystemAdministrator
+                        || x.Role.RoleName == UserRole.Coach))))
             .OrderBy(x => x.Email)
             .Select(x => new { x.UserId, Name = x.Profile != null ? x.Profile.FullName : x.Email,
                 x.Email, Role = x.Role!.RoleName }).ToListAsync(ct));
@@ -374,12 +445,20 @@ public sealed class MemberSupportRequestsController(
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
         if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
+        if (row.Category == PaymentCategory)
+        {
+            RequireManagerForPayment();
+            if (assigneeRole != UserRole.CenterManager)
+                throw new BadRequestException("support_payment_assignee_invalid",
+                    "Payment requests can only be assigned to a center manager.");
+        }
         var old = row.AssignedToUserId;
         if (old == body.AssigneeUserId)
         {
             await tx.CommitAsync(ct);
             return Ok(Map(row));
         }
+        await RequireAssigneeAsync(row, "transfer", allowTakeover: true, ct);
         row.AssignedToUserId = body.AssigneeUserId;
         row.Status = "ASSIGNED";
         row.UpdatedAt = clock.UtcNow;
@@ -402,8 +481,10 @@ public sealed class MemberSupportRequestsController(
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
         if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
+        if (row.Category == PaymentCategory) RequireManagerForPayment();
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before updating progress.");
+        await RequireAssigneeAsync(row, "update", allowTakeover: false, ct);
         row.Status = "IN_PROGRESS";
         row.ProgressNote = note;
         row.UpdatedAt = clock.UtcNow;
@@ -415,7 +496,28 @@ public sealed class MemberSupportRequestsController(
         return Ok(Map(row));
     }
 
-    private static bool IsFinal(string status) => status is "DONE" or "REJECTED" or "CLOSED";
+    private static bool IsFinal(string status) => status is "DONE" or "REJECTED";
+
+    /// <summary>Payment tickets are handled by the center manager only; the front desk can create and follow them.</summary>
+    private void RequireManagerForPayment()
+    {
+        if (!IsManager)
+            throw new ForbiddenException("support_payment_manager_only",
+                "Only the center manager can handle Payment requests.");
+    }
+
+    /// <summary>Only the current assignee may update, finalize or transfer a request; unassigned requests can be claimed by anyone.</summary>
+    private async Task RequireAssigneeAsync(MemberSupportRequest row, string action, bool allowTakeover, CancellationToken ct)
+    {
+        if (row.AssignedToUserId is not Guid owner || owner == User.RequireUserId()) return;
+        // A request owned by someone who left or cannot work requests would otherwise be stuck forever.
+        if (allowTakeover && !await db.Set<UserAccount>().AsNoTracking().AnyAsync(u => u.UserId == owner
+                && u.Status == UserStatus.Active && u.Role != null
+                && (u.Role.RoleName == UserRole.Receptionist || u.Role.RoleName == UserRole.CenterManager), ct))
+            return;
+        throw new ForbiddenException("support_not_assignee",
+            $"Only the staff member assigned to this request can {action} it.");
+    }
 
     [HttpPost("{requestId:guid}/done")]
     public Task<IActionResult> Done(Guid requestId, [FromBody] FinishSupportRequest body, CancellationToken ct)
@@ -434,8 +536,16 @@ public sealed class MemberSupportRequestsController(
         var row = await LockAsync(requestId, ct);
         if (IsFinal(row.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
+        if (row.Category == PaymentCategory)
+        {
+            RequireManagerForPayment();
+            if (row.RequiresPayout)
+                throw new ConflictException("support_payment_use_refund_workflow",
+                    "Use the bank refund actions (approve, record transfer, reject) to finish a refund request.");
+        }
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before finalizing it.");
+        await RequireAssigneeAsync(row, "finalize", allowTakeover: false, ct);
         row.Status = target;
         row.ProgressNote = reason;
         row.ClosedAt = row.UpdatedAt = clock.UtcNow;
@@ -475,8 +585,12 @@ public sealed class MemberSupportRequestsController(
         if (assignee?.Role == UserRole.SystemAdministrator && !User.IsInRole(nameof(UserRole.CenterManager)))
             throw new ForbiddenException("support_admin_assignment_forbidden",
                 "Only a manager can assign requests to an administrator.");
+        if (assignee?.Role == UserRole.Coach && !User.IsInRole(nameof(UserRole.CenterManager)))
+            throw new ForbiddenException("support_coach_assignment_forbidden",
+                "Only a manager can assign requests to a coach.");
         if (assignee is null || (assignee.Role != UserRole.Receptionist
-            && assignee.Role != UserRole.CenterManager && assignee.Role != UserRole.SystemAdministrator))
+            && assignee.Role != UserRole.CenterManager && assignee.Role != UserRole.SystemAdministrator
+            && assignee.Role != UserRole.Coach))
             throw new BadRequestException("support_assignee_invalid", "Choose an eligible active staff member.");
         var actorRank = User.IsInRole(nameof(UserRole.CenterManager)) ? 1 : 0;
         if (Rank(assignee.Role) > actorRank && (note?.Trim().Length ?? 0) < 3)

@@ -13,7 +13,15 @@ import {
 } from "@/lib/support-categories";
 import { useApi } from "@/lib/useApi";
 import type { MemberPackageDto, UserAdminDto } from "@/lib/types";
-import type { SupportAssignee } from "./support-request-actions";
+import {
+  EMPTY_PAYMENT_FIELDS,
+  PaymentFields,
+  SupportImagePicker,
+  appendPaymentFields,
+  paymentFieldsReady,
+  type PaymentFieldsValue,
+} from "@/features/support-refund";
+import type { SupportAssignee } from "./support-shared";
 import { ROLE_LABELS, ROLE_RANK, roleKey } from "./support-shared";
 import styles from "./support-center.module.css";
 
@@ -50,24 +58,33 @@ export function SupportCreateDialog({
   assignees,
   onClose,
   onCreated,
-  workspace = "receptionist",
 }: {
   assignees: SupportAssignee[];
   onClose: () => void;
   onCreated: (message: string) => void;
-  workspace?: "manager" | "receptionist";
 }) {
   const { user } = useAuth();
-  const isManager = workspace === "manager";
   const [member, setMember] = useState<UserAdminDto | null>(null);
   const [category, setCategory] = useState<SupportCategory | "">("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [handoverTo, setHandoverTo] = useState("");
   const [handoverNote, setHandoverNote] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [payment, setPayment] =
+    useState<PaymentFieldsValue>(EMPTY_PAYMENT_FIELDS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
+
+  // A Payment request is a bank-refund review: only a manager can handle it, so staff may only hand it to one.
+  const isPayment = category === "PAYMENT";
+  const iAmManager = roleKey(user?.role) === "manager";
+  const candidates = assignees.filter(
+    (x) =>
+      x.userId !== user?.userId &&
+      (!isPayment || roleKey(x.role) === "manager"),
+  );
 
   const target = assignees.find((x) => x.userId === handoverTo);
   const myRank = ROLE_RANK[roleKey(user?.role)];
@@ -75,8 +92,9 @@ export function SupportCreateDialog({
   const baseReady =
     !!member &&
     category !== "" &&
-    (isManager || subject.trim().length >= 3) &&
-    description.trim().length >= 3;
+    subject.trim().length >= 3 &&
+    description.trim().length >= 3 &&
+    (!isPayment || (paymentFieldsReady(payment) && files.length >= 1));
   const handoverBlock = !handoverTo
     ? "Choose who to hand over to."
     : escalating && handoverNote.trim().length < 3
@@ -90,18 +108,28 @@ export function SupportCreateDialog({
     setBusy(true);
     setError(null);
     try {
-      await api.post("/api/member-support-requests", {
-        memberId: member.userId,
-        category,
-        subject: isManager ? undefined : subject.trim(),
-        description: description.trim(),
-        assigneeUserId: handover ? handoverTo : user?.userId,
-        handoverNote: handover ? handoverNote.trim() : undefined,
-      });
+      const form = new FormData();
+      form.append("memberId", member.userId);
+      form.append("category", category);
+      form.append("subject", subject.trim());
+      form.append("description", description.trim());
+      const assignee = handover
+        ? handoverTo
+        : isPayment && !iAmManager
+          ? ""
+          : (user?.userId ?? "");
+      if (assignee) form.append("assigneeUserId", assignee);
+      if (handover && handoverNote.trim())
+        form.append("handoverNote", handoverNote.trim());
+      if (isPayment) appendPaymentFields(form, payment);
+      files.forEach((file) => form.append("files", file));
+      await api.postForm("/api/member-support-requests", form);
       onCreated(
         handover
           ? `Request created and handed over to ${target?.name ?? "staff"}.`
-          : "Request created. You are handling it.",
+          : isPayment && !iAmManager
+            ? "Refund request created. It is waiting in the manager's queue."
+            : "Request created. You are handling it.",
       );
     } catch (e) {
       setError(
@@ -126,7 +154,10 @@ export function SupportCreateDialog({
         <div>
           <MemberPicker
             value={member}
-            onChange={setMember}
+            onChange={(picked) => {
+              setMember(picked);
+              setPayment((value) => ({ ...value, invoiceItemId: "" }));
+            }}
             label="Member"
             scanner={false}
             autoFocus
@@ -136,10 +167,14 @@ export function SupportCreateDialog({
         </div>
 
         <label className={styles.field}>
-          {isManager ? "What is your request about? *" : "Topic"}
+          Topic
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value as SupportCategory)}
+            onChange={(e) => {
+              setCategory(e.target.value as SupportCategory);
+              setHandoverTo("");
+              setHandoverNote("");
+            }}
           >
             <option value="">Select a topic</option>
             {SUPPORT_CATEGORIES.map((c) => (
@@ -150,35 +185,18 @@ export function SupportCreateDialog({
           </select>
         </label>
 
-        {isManager && (
-          <label className={styles.field}>
-            Email
-            <input
-              aria-label="Email"
-              type="email"
-              value={member?.email ?? ""}
-              readOnly
-            />
-            <span className={styles.muted}>
-              The email registered on the member’s account.
-            </span>
-          </label>
-        )}
-
-        {!isManager && (
-          <label className={styles.field}>
-            Subject
-            <input
-              value={subject}
-              maxLength={200}
-              placeholder="Short summary"
-              onChange={(e) => setSubject(e.target.value)}
-            />
-          </label>
-        )}
+        <label className={styles.field}>
+          Subject
+          <input
+            value={subject}
+            maxLength={200}
+            placeholder="Short summary"
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </label>
 
         <label className={styles.field}>
-          {isManager ? "Your message *" : "Description"}
+          Description
           <textarea
             value={description}
             maxLength={2000}
@@ -188,6 +206,30 @@ export function SupportCreateDialog({
           <span className={styles.muted}>{description.length}/2000</span>
         </label>
 
+        {isPayment && (
+          <PaymentFields
+            value={payment}
+            onChange={setPayment}
+            memberId={member?.userId ?? null}
+            disabled={busy}
+          />
+        )}
+
+        <SupportImagePicker
+          files={files}
+          onChange={setFiles}
+          disabled={busy}
+          required={isPayment}
+          title={
+            isPayment ? "Evidence of the transaction" : "Images (optional)"
+          }
+          hint={
+            isPayment
+              ? "Required: 1 to 3 images of the payment (.jpg, .png or .webp, 5 MB each)."
+              : "Up to 3 images (.jpg, .png or .webp), 5 MB each."
+          }
+        />
+
         <div className={styles.box}>
           <label className={styles.field}>
             Hand over to (optional)
@@ -196,13 +238,11 @@ export function SupportCreateDialog({
               onChange={(e) => setHandoverTo(e.target.value)}
             >
               <option value="">Select a staff member</option>
-              {assignees
-                .filter((x) => x.userId !== user?.userId)
-                .map((x) => (
-                  <option key={x.userId} value={x.userId}>
-                    {x.name} ({ROLE_LABELS[roleKey(x.role)]})
-                  </option>
-                ))}
+              {candidates.map((x) => (
+                <option key={x.userId} value={x.userId}>
+                  {x.name} ({ROLE_LABELS[roleKey(x.role)]})
+                </option>
+              ))}
             </select>
           </label>
           {escalating && (
@@ -251,7 +291,9 @@ export function SupportCreateDialog({
             disabled={busy || !baseReady}
             onClick={() => void submit(false)}
           >
-            Create &amp; handle myself
+            {isPayment && !iAmManager
+              ? "Create for manager review"
+              : "Create & handle myself"}
           </button>
         </div>
         {baseReady && handoverBlock && (

@@ -48,6 +48,13 @@
   font: inherit;
   resize: vertical;
 }
+.alt {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
 .actions {
   display: flex;
   flex-wrap: wrap;

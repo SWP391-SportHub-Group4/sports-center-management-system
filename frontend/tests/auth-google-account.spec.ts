@@ -47,7 +47,6 @@ test("tài khoản Google chưa có mật khẩu: gửi mã, nhập mã và tạ
     return route.fulfill({ json: { accessToken: "fresh-token" } });
   });
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Security", exact: true }).click();
 
   await expect(
     page.getByText(/created with Google and does not have a password/),
@@ -96,7 +95,6 @@ test("mã sai được báo lỗi từ máy chủ và không mất dữ liệu �
     }),
   );
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Security", exact: true }).click();
   await page.getByLabel("Confirmation code").fill("000000");
   await page
     .getByLabel("New password", { exact: true })
@@ -114,7 +112,6 @@ test("tài khoản đã có mật khẩu vẫn đổi bằng mật khẩu hiện
 }) => {
   await signedIn(page, true);
   await page.goto("/account");
-  await page.getByRole("tab", { name: "Security", exact: true }).click();
   await expect(page.getByLabel("Current password")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Send confirmation code" }),

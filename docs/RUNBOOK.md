@@ -136,6 +136,10 @@ Lệnh trên khởi động cả backend/frontend bằng image đã build. Sau k
 
 Member và staff là hai loại tài khoản tách biệt: không đổi Member thành staff được (409 `member_staff_role_change_not_allowed`). Muốn thêm Coach/Receptionist/Manager, đăng nhập Admin, tạo tài khoản staff bằng **email khác** với email Member; Coach phải kèm chuyên môn. Ở Development không có SMTP, mở log backend để lấy link kích hoạt (`Email__DemoLoggingEnabled`).
 
+# 3b. Vận hành hoàn tiền ngân hàng
+
+Hệ thống không chuyển tiền. Manager duyệt ticket Payment, tự chuyển khoản ngoài hệ thống rồi ghi nhận số tiền, giờ chuyển, mã giao dịch và ảnh biên lai trong ticket. Ticket "Approved · awaiting transfer" quá lâu là việc tồn đọng cần xử lý; ticket có cờ `needsReconciliation` (`GET /api/bank-refunds?needsReconciliation=true`) nghĩa là Manager báo đã chuyển nhưng chưa ghi nhận được: đối chiếu sao kê, **không chuyển lại**, rồi ghi nhận chứng từ để xóa cờ. Quy trình đầy đủ, chống chạy đua và giới hạn: [Bank-Refund-Workflow.md](Bank-Refund-Workflow.md). Migration `AddBankRefundRequests` phải chạy trước khi bật tính năng; kiểm thử tích hợp cần PostgreSQL riêng (`SPORTHUB_TEST_POSTGRES` hoặc Testcontainers).
+
 # 4. Bàn giao triển khai và nghiệm thu
 
 Hỗ trợ Member (hạng 5): trên local, chạy backend/frontend theo mục 3.2–3.3. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới. Xem [quy trình và các ca nghiệm thu](Member-Support-Workflow.md).

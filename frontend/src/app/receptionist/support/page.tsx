@@ -5,7 +5,7 @@ import { SupportQueue } from "@/features/receptionist/support-queue";
 
 export default function Page() {
   return (
-    <OperationsPage title="support" roles={["Receptionist"]}>
+    <OperationsPage title="support" roles={["Receptionist"]} hidePageHeader>
       <SupportQueue />
     </OperationsPage>
   );

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { AvatarImage } from "@/components/AvatarImage";
-import { StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -15,14 +14,13 @@ import type {
 import { supportCategoryLabel } from "@/lib/support-categories";
 import { useApi } from "@/lib/useApi";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
-import type { SupportAssignee } from "./support-request-actions";
+import { BankRefundPanel } from "@/features/support-refund";
+import type { SupportAssignee } from "./support-shared";
 import { SupportAttachments } from "./support-attachments";
 import {
   ROLE_LABELS,
   ROLE_RANK,
   STATUS_LABELS,
-  CHANNEL_LABELS,
-  supportReference,
   assigneesByRole,
   eventText,
   roleKey,
@@ -74,9 +72,19 @@ export function SupportDetail({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
-  const isManager = workspace === "manager";
-  const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
+  const closed = ["DONE", "REJECTED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
+  // Payment tickets are manager-only work: the front desk creates and follows them but cannot assign, approve or close.
+  const isPayment = request.category === "PAYMENT";
+  const isManagerUser = roleKey(user?.role) === "manager";
+  const refundTicket = isPayment && !!request.requiresPayout;
+  const paymentLocked = isPayment && !isManagerUser;
+  const evidence = (request.attachments ?? []).filter(
+    (a) => a.kind !== "PAYOUT_PROOF",
+  );
+  const proofs = (request.attachments ?? []).filter(
+    (a) => a.kind === "PAYOUT_PROOF",
+  );
 
   const member = useApi(
     (signal) =>
@@ -119,7 +127,9 @@ export function SupportDetail({
       )
     : null;
   const availableRoles = (Object.keys(ROLE_LABELS) as RoleKey[]).filter(
-    (role) => assigneesByRole(assignees, role).length > 0,
+    (role) =>
+      assigneesByRole(assignees, role).length > 0 &&
+      (!isPayment || role === "manager"),
   );
   const [targetRole, setTargetRole] = useState<RoleKey | "">("");
   const [targetUser, setTargetUser] = useState("");
@@ -183,11 +193,21 @@ export function SupportDetail({
   const copy = MODE_COPY[mode];
   const noteReady = note.trim().length >= 3;
   const unassigned = !request.assignedToUserId;
+  const isMine = !!user && request.assignedToUserId === user.userId;
+  // A request whose handler left or cannot work requests can be taken over by any staff member.
+  const takeover = !unassigned && request.assigneeCanAct === false;
+  const claimable = unassigned || takeover;
   const actionBlock = unassigned
     ? "Assign this request to someone before updating it."
-    : !noteReady
-      ? "Write at least 3 characters."
-      : null;
+    : takeover
+      ? "Assign this request to yourself before updating it."
+      : !noteReady
+        ? "Write at least 3 characters."
+        : null;
+
+  const assignedAt = [...(events.data ?? [])]
+    .reverse()
+    .find((e) => e.type === "ASSIGNED")?.createdAt;
 
   const timeline: SupportEventDto[] =
     events.data && events.data.length > 0
@@ -208,26 +228,14 @@ export function SupportDetail({
     <div className={styles.detail}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
-          {isManager ? (
-            <StatusChip value={request.status} />
-          ) : (
-            <span className={styles.badge}>
-              <span className={styles.dot} data-status={request.status} />
-              {STATUS_LABELS[request.status] ?? request.status}
-            </span>
-          )}
+          <span className={styles.badge}>
+            <span className={styles.dot} data-status={request.status} />
+            {STATUS_LABELS[request.status] ?? request.status}
+          </span>
           <time className={styles.createdAt} dateTime={request.createdAt}>
             Created {formatDateTime(request.createdAt)}
           </time>
         </div>
-        <h3>
-          {isManager ? supportCategoryLabel(request.category) : request.subject}
-        </h3>
-        {isManager && (
-          <p className={styles.muted}>
-            Reference: <strong>{supportReference(request.requestId)}</strong>
-          </p>
-        )}
       </header>
 
       <div className={styles.banner}>
@@ -259,10 +267,10 @@ export function SupportDetail({
       </div>
 
       <section className={styles.section} aria-label="Request message">
-        <h4>{isManager ? "Member request" : "Request"}</h4>
+        <h4>Request</h4>
         <dl className={styles.requestMetadata}>
           <div>
-            <dt>{isManager ? "Topic" : "Request type"}</dt>
+            <dt>Request type</dt>
             <dd>
               <span
                 className={styles.categoryBadge}
@@ -272,66 +280,35 @@ export function SupportDetail({
               </span>
             </dd>
           </div>
-          {!isManager && (
-            <div>
-              <dt>Subject</dt>
-              <dd>{request.subject}</dd>
-            </div>
-          )}
-          {isManager && (
-            <>
-              <div>
-                <dt>Email</dt>
-                <dd>
-                  {request.memberEmail || member.data?.email || "Not available"}
-                </dd>
-              </div>
-              <div>
-                <dt>Submitted via</dt>
-                <dd>
-                  {CHANNEL_LABELS[request.channel ?? ""] ?? "Not available"}
-                </dd>
-              </div>
-            </>
-          )}
           <div>
-            <dt>{isManager ? "Your message" : "Details"}</dt>
+            <dt>Subject</dt>
+            <dd>{request.subject}</dd>
+          </div>
+          <div>
+            <dt>Details</dt>
             <dd className={styles.message}>
               {request.description?.trim() || "No details provided."}
             </dd>
           </div>
         </dl>
-        {isManager ? (
-          <div className={styles.section}>
-            <h4>Attached images</h4>
-            {request.attachments?.length ? (
-              <SupportAttachments attachments={request.attachments} />
-            ) : (
-              <p className={styles.muted}>No images attached.</p>
-            )}
-          </div>
-        ) : (
-          <SupportAttachments attachments={request.attachments} />
-        )}
+        <SupportAttachments attachments={evidence} />
       </section>
 
-      {isManager && (
-        <section
-          className={styles.section}
-          aria-label="Reply visible to member"
-        >
-          <h4>Reply</h4>
-          <p className={styles.helper}>
-            This is the latest reply shown in the member’s My requests history.
-          </p>
-          <p className={styles.message}>
-            {request.progressNote || "No reply yet."}
-          </p>
-        </section>
+      {refundTicket && (
+        <BankRefundPanel
+          key={`${request.requestId}-${request.status}`}
+          requestId={request.requestId}
+          role={isManagerUser ? "manager" : "receptionist"}
+          proofs={proofs}
+          onChanged={() => {
+            events.reload();
+            onChanged();
+          }}
+        />
       )}
 
       {closed ? (
-        isManager ? null : (
+        refundTicket ? null : (
           <section className={styles.section} aria-label="Final note">
             <h4>
               {request.status === "REJECTED"
@@ -343,197 +320,239 @@ export function SupportDetail({
             </p>
           </section>
         )
+      ) : paymentLocked ? (
+        <section className={styles.section} aria-label="Payment request">
+          <h4>Handled by the manager</h4>
+          <p className={styles.helper}>
+            Payment requests are reviewed by the center manager. You can follow
+            the progress and the result here, but you cannot assign, approve or
+            close them.
+          </p>
+        </section>
       ) : (
         <>
-          <section className={styles.box} aria-label="Routing and escalation">
-            <h4 className={styles.muted} style={{ margin: 0 }}>
-              Assignment · currently{" "}
-              <strong>
-                {request.assignedToName ??
-                  (request.assignedToUserId ? "former staff" : "unassigned")}
-                {currentRole ? ` (${ROLE_LABELS[currentRole]})` : ""}
-              </strong>
-            </h4>
-            <div className={styles.grid2}>
-              <label className={styles.field}>
-                Department
-                <select
-                  value={targetRole}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setTargetRole(e.target.value as RoleKey | "");
-                    setTargetUser("");
-                  }}
-                >
-                  <option value="">Select a department</option>
-                  {availableRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={styles.field}>
-                Staff member
-                <select
-                  value={targetUser}
-                  disabled={busy || !targetRole}
-                  onChange={(e) => setTargetUser(e.target.value)}
-                >
-                  <option value="">Select a staff member</option>
-                  {staff.map((x) => (
-                    <option key={x.userId} value={x.userId}>
-                      {x.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {escalating && (
-              <label className={styles.field}>
-                Transfer note (required)
-                <textarea
-                  value={transferNote}
-                  maxLength={1000}
-                  disabled={busy}
-                  placeholder={`Why are you escalating this to the ${ROLE_LABELS[targetRole as RoleKey]}?`}
-                  onChange={(e) => setTransferNote(e.target.value)}
-                />
-              </label>
-            )}
-            <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn"
-                disabled={busy || transferBlock !== null}
-                onClick={() =>
-                  run(
-                    "assign",
-                    {
-                      assigneeUserId: targetUser,
-                      note: transferNote.trim(),
-                    },
-                    "Request transferred.",
-                  )
-                }
-              >
-                Transfer request
-              </button>
-              {user && request.assignedToUserId !== user.userId && (
-                <button
-                  type="button"
-                  className="btn btn--secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    run(
-                      "assign",
-                      { assigneeUserId: user.userId },
-                      "You are now handling this request.",
-                    )
-                  }
-                >
-                  Assign to me
-                </button>
-              )}
-            </div>
-            {transferBlock && (
-              <p className={`${styles.helper} ${styles.helperWarn}`}>
-                {transferBlock}
-              </p>
-            )}
-          </section>
-
-          <section className={styles.section} aria-label="Handle request">
-            <div className={styles.tabs} role="tablist" aria-label="Action">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.mode}
-                  type="button"
-                  role="tab"
-                  className={styles.tab}
-                  aria-selected={mode === tab.mode}
-                  disabled={busy}
-                  onClick={() => {
-                    setMode(tab.mode);
-                    setConfirming(false);
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <label className={styles.field}>
-              {copy.field}
-              <textarea
-                value={note}
-                maxLength={1000}
-                disabled={busy}
-                placeholder={copy.placeholder}
-                onChange={(e) => {
-                  setNote(e.target.value);
-                  setConfirming(false);
-                }}
-              />
-            </label>
-            {isManager && (
+          {!claimable && !isMine ? (
+            <section className={styles.section} aria-label="Current handler">
+              <h4>Handler</h4>
+              <dl className={styles.requestMetadata}>
+                <div>
+                  <dt>Handled by</dt>
+                  <dd>
+                    {request.assignedToName ?? "Former staff member"}
+                    {currentRole ? ` (${ROLE_LABELS[currentRole]})` : ""}
+                  </dd>
+                </div>
+                {assignedAt && (
+                  <div>
+                    <dt>Assigned on</dt>
+                    <dd>{formatDateTime(assignedAt)}</dd>
+                  </div>
+                )}
+              </dl>
               <p className={styles.helper}>
-                The member will see this text as their latest reply. It replaces
-                the previous reply in My requests.
+                Only the assigned handler can update or transfer this request.
               </p>
-            )}
-            <div className={styles.actions}>
-              {mode !== "progress" && confirming ? (
-                <>
+            </section>
+          ) : (
+            <>
+              <section
+                className={styles.box}
+                aria-label="Routing and escalation"
+              >
+                <h4 className={styles.muted} style={{ margin: 0 }}>
+                  Assignment · currently{" "}
+                  <strong>
+                    {request.assignedToName ??
+                      (request.assignedToUserId
+                        ? "former staff"
+                        : "unassigned")}
+                    {currentRole ? ` (${ROLE_LABELS[currentRole]})` : ""}
+                  </strong>
+                </h4>
+                <div className={styles.grid2}>
+                  <label className={styles.field}>
+                    Department
+                    <select
+                      value={targetRole}
+                      disabled={busy}
+                      onChange={(e) => {
+                        setTargetRole(e.target.value as RoleKey | "");
+                        setTargetUser("");
+                      }}
+                    >
+                      <option value="">Select a department</option>
+                      {availableRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {ROLE_LABELS[role]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={styles.field}>
+                    Staff member
+                    <select
+                      value={targetUser}
+                      disabled={busy || !targetRole}
+                      onChange={(e) => setTargetUser(e.target.value)}
+                    >
+                      <option value="">Select a staff member</option>
+                      {staff.map((x) => (
+                        <option key={x.userId} value={x.userId}>
+                          {x.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {escalating && (
+                  <label className={styles.field}>
+                    Transfer note (required)
+                    <textarea
+                      value={transferNote}
+                      maxLength={1000}
+                      disabled={busy}
+                      placeholder={`Why are you escalating this to the ${ROLE_LABELS[targetRole as RoleKey]}?`}
+                      onChange={(e) => setTransferNote(e.target.value)}
+                    />
+                  </label>
+                )}
+                <div className={styles.actions}>
                   <button
                     type="button"
                     className="btn"
-                    disabled={busy || actionBlock !== null}
+                    disabled={busy || transferBlock !== null}
                     onClick={() =>
                       run(
-                        mode,
-                        { reason: note.trim() },
-                        mode === "done"
-                          ? "Request marked as done."
-                          : "Request rejected.",
+                        "assign",
+                        {
+                          assigneeUserId: targetUser,
+                          note: transferNote.trim(),
+                        },
+                        "Request transferred.",
                       )
                     }
                   >
-                    {mode === "done" ? "Confirm done" : "Confirm rejection"}
+                    Transfer request
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    disabled={busy}
-                    onClick={() => setConfirming(false)}
-                  >
-                    Back
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={busy || actionBlock !== null}
-                  onClick={() =>
-                    mode === "progress"
-                      ? run(
-                          "progress",
-                          { note: note.trim() },
-                          "Progress updated.",
+                  {user && claimable && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        run(
+                          "assign",
+                          { assigneeUserId: user.userId },
+                          "You are now handling this request.",
                         )
-                      : setConfirming(true)
-                  }
-                >
-                  {copy.submit}
-                </button>
+                      }
+                    >
+                      Assign to me
+                    </button>
+                  )}
+                </div>
+                {transferBlock && (
+                  <p className={`${styles.helper} ${styles.helperWarn}`}>
+                    {transferBlock}
+                  </p>
+                )}
+              </section>
+
+              {!refundTicket && (
+                <section className={styles.section} aria-label="Handle request">
+                  <div
+                    className={styles.tabs}
+                    role="tablist"
+                    aria-label="Action"
+                  >
+                    {TABS.map((tab) => (
+                      <button
+                        key={tab.mode}
+                        type="button"
+                        role="tab"
+                        className={styles.tab}
+                        aria-selected={mode === tab.mode}
+                        disabled={busy}
+                        onClick={() => {
+                          setMode(tab.mode);
+                          setConfirming(false);
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className={styles.field}>
+                    {copy.field}
+                    <textarea
+                      value={note}
+                      maxLength={1000}
+                      disabled={busy}
+                      placeholder={copy.placeholder}
+                      onChange={(e) => {
+                        setNote(e.target.value);
+                        setConfirming(false);
+                      }}
+                    />
+                  </label>
+                  <div className={styles.actions}>
+                    {mode !== "progress" && confirming ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={busy || actionBlock !== null}
+                          onClick={() =>
+                            run(
+                              mode,
+                              { reason: note.trim() },
+                              mode === "done"
+                                ? "Request marked as done."
+                                : "Request rejected.",
+                            )
+                          }
+                        >
+                          {mode === "done"
+                            ? "Confirm done"
+                            : "Confirm rejection"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost"
+                          disabled={busy}
+                          onClick={() => setConfirming(false)}
+                        >
+                          Back
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={busy || actionBlock !== null}
+                        onClick={() =>
+                          mode === "progress"
+                            ? run(
+                                "progress",
+                                { note: note.trim() },
+                                "Progress updated.",
+                              )
+                            : setConfirming(true)
+                        }
+                      >
+                        {copy.submit}
+                      </button>
+                    )}
+                  </div>
+                  {actionBlock && (
+                    <p className={`${styles.helper} ${styles.helperWarn}`}>
+                      {actionBlock}
+                    </p>
+                  )}
+                </section>
               )}
-            </div>
-            {actionBlock && (
-              <p className={`${styles.helper} ${styles.helperWarn}`}>
-                {actionBlock}
-              </p>
-            )}
-          </section>
+            </>
+          )}
         </>
       )}
 

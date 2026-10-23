@@ -14,4 +14,15 @@ public sealed class MemberSupportAttachment
     public byte[] Content { get; set; } = [];
 
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>EVIDENCE: ảnh người gửi yêu cầu đính kèm; PAYOUT_PROOF: chứng từ chuyển khoản Manager tải lên khi hoàn tiền.</summary>
+    public string Kind { get; set; } = SupportAttachmentKinds.Evidence;
+
+    public Guid? UploadedByUserId { get; set; }
+}
+
+public static class SupportAttachmentKinds
+{
+    public const string Evidence = "EVIDENCE";
+    public const string PayoutProof = "PAYOUT_PROOF";
 }

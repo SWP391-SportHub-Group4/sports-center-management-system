@@ -10,14 +10,21 @@ import type { Role } from "@/lib/auth";
 import type { Translations } from "@/locales/en";
 import styles from "./operations.module.css";
 
+/** Shared spacing and form/table styles for operations screens, usable inside other layouts. */
+export function OperationsWorkspace({ children }: { children: ReactNode }) {
+  return <div className={styles.workspace}>{children}</div>;
+}
+
 export function OperationsPage({
   title,
   heading,
+  hidePageHeader = false,
   roles = ["CenterManager"],
   children,
 }: {
   title: keyof Omit<Translations["operations"], "weekdays">;
   heading?: keyof Translations["classWorkspace"];
+  hidePageHeader?: boolean;
   roles?: Role[];
   children: ReactNode;
 }) {
@@ -25,10 +32,11 @@ export function OperationsPage({
   return (
     <AppShell
       title={heading ? t.classWorkspace[heading] : t.operations[title]}
+      hidePageHeader={hidePageHeader}
       allow={roles}
       operationalLayout
     >
-      <div className={styles.workspace}>{children}</div>
+      <OperationsWorkspace>{children}</OperationsWorkspace>
     </AppShell>
   );
 }
@@ -95,10 +103,10 @@ export function MutationFeedback({
   const reasons = mutation.error?.details.reasons;
   const message =
     mutation.error?.code === "member_schedule_conflict"
-        ? t.operations.memberScheduleConflict
-        : mutation.error?.code === "unknown_error"
-          ? t.operations.unknownOutcome
-          : mutation.error?.message;
+      ? t.operations.memberScheduleConflict
+      : mutation.error?.code === "unknown_error"
+        ? t.operations.unknownOutcome
+        : mutation.error?.message;
   return (
     <>
       <Feedback error={message} success={mutation.success} />

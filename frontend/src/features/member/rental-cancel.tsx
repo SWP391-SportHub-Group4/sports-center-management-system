@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { Dialog } from "@/components/ui";
+import { bankRefundHref } from "@/lib/bank-refund";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { rentalApi } from "../rentals/api";
+import { api } from "@/lib/apiClient";
 import type { CourtRentalDto } from "@/lib/types";
 import styles from "./schedule.module.css";
 
@@ -13,12 +16,15 @@ export function RentalCancelConfirm({
   rental,
   onClose,
   onCancelled,
+  onBehalf = false,
 }: {
   rental: CourtRentalDto;
   onClose: () => void;
   onCancelled: () => void;
+  onBehalf?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
   const m = t.mSchedule;
   const mutation = useMutation();
   const policy = useApi(async (signal) => {
@@ -46,7 +52,13 @@ export function RentalCancelConfirm({
             onClick={async () => {
               if (
                 await mutation.run(
-                  () => rentalApi.cancel(rental.courtRentalId),
+                  () =>
+                    onBehalf
+                      ? api.post(
+                          `/api/court-rentals/${rental.courtRentalId}/cancel-on-behalf`,
+                          {},
+                        )
+                      : rentalApi.cancel(rental.courtRentalId),
                   m.cancelDone,
                 )
               )
@@ -62,6 +74,26 @@ export function RentalCancelConfirm({
         {(free ? m.cancelFree : m.cancelLate).replace("{hours}", String(hours))}
       </p>
       <MutationFeedback mutation={mutation} />
+      {!onBehalf && rental.invoiceItemId && (
+        <div className={styles.bankChoice}>
+          <strong>
+            {vi
+              ? "Hoặc yêu cầu hoàn tiền về tài khoản ngân hàng"
+              : "Or request a refund to your bank account"}
+          </strong>
+          <p>
+            {vi
+              ? "Gửi yêu cầu để Manager xem xét. Lượt thuê chưa bị hủy và chưa hoàn điểm hay tiền cho đến khi Manager duyệt."
+              : "A manager reviews the request. Your booking is not cancelled and no points or money are returned until a manager approves it."}
+          </p>
+          <Link
+            className="btn btn--secondary"
+            href={bankRefundHref(rental.invoiceItemId)}
+          >
+            {vi ? "Gửi yêu cầu hoàn tiền" : "Request a bank refund"}
+          </Link>
+        </div>
+      )}
     </Dialog>
   );
 }

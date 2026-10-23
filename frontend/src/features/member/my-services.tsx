@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { Dialog } from "@/components/ui";
 import { isRetiredActivityPackage } from "@/features/membership";
 import { rentalApi } from "@/features/rentals";
 import { api } from "@/lib/apiClient";
@@ -27,6 +28,7 @@ import { pagedItems } from "@/lib/paged";
 import { memberEnrollments } from "./api";
 import { RefundCancelDialog } from "@/features/payments";
 import { RentalCancelConfirm } from "./rental-cancel";
+import { bankRefundHref } from "@/lib/bank-refund";
 import { ServiceEmblem } from "./service-emblem";
 import { GymPackageDetails } from "./gym-package-details";
 import {
@@ -57,8 +59,8 @@ interface Owned {
   node: (index: number) => ReactNode;
 }
 
-/** Quầy: xem dịch vụ của Member đang chọn, không có thao tác (hủy, xem chi tiết) vì thuộc khu Member. */
-const ReadOnlyContext = createContext(false);
+/** Hội viên đang được lễ tân phục vụ; null là giao diện tự phục vụ của Member. */
+const StaffMemberContext = createContext<string | null>(null);
 
 const SOON_GYM_DAYS = 14;
 const SOON_CLASS_SESSIONS = 2;
@@ -76,7 +78,7 @@ export function MyServices({
   filter: FilterValue;
   onFilter: (next: FilterValue) => void;
   gymPackageId?: string;
-  /** Có giá trị = chế độ quầy: đọc dịch vụ của Member này, chỉ xem. */
+  /** Có giá trị = lễ tân xem và xử lý dịch vụ thay Member này. */
   staffMember?: UserAdminDto;
 }) {
   const { language } = useLanguage();
@@ -366,7 +368,7 @@ export function MyServices({
     ? items.find((item) => item.id === `gym:${selectedGym.memberPackageId}`)
     : undefined;
   return (
-    <ReadOnlyContext.Provider value={!!staffId}>
+    <StaffMemberContext.Provider value={staffId ?? null}>
       <div className={styles.page}>
         <div className={styles.toolbar}>
           <TypeFilter
@@ -381,7 +383,7 @@ export function MyServices({
         {selectedGym && selectedItem ? (
           <>
             <div className={styles.list}>{selectedItem.node(0)}</div>
-            <GymPackageDetails pkg={selectedGym} />
+            <GymPackageDetails pkg={selectedGym} memberId={staffId} />
           </>
         ) : gymPackageId ? (
           <p className={styles.status} role="alert">
@@ -432,7 +434,7 @@ export function MyServices({
           </>
         )}
       </div>
-    </ReadOnlyContext.Provider>
+    </StaffMemberContext.Provider>
   );
 }
 
@@ -467,7 +469,6 @@ function Shell({
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
-  const readOnly = useContext(ReadOnlyContext);
   return (
     <article
       className={styles.card}
@@ -487,7 +488,7 @@ function Shell({
         <p className={styles.subtitle}>{subtitle}</p>
         <div className={styles.metric}>{metric}</div>
       </div>
-      {!readOnly && <div className={styles.actions}>{actions}</div>}
+      <div className={styles.actions}>{actions}</div>
     </article>
   );
 }
@@ -537,6 +538,7 @@ function GymCard({
   index: number;
 }) {
   const { language } = useLanguage();
+  const staffMemberId = useContext(StaffMemberContext);
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const [cancelTarget, setCancelTarget] = useState<MemberPackageDto | null>(
@@ -621,18 +623,29 @@ function GymCard({
       actions={
         <>
           {pending ? (
-            <Link className="btn" href="/member/finance">
+            <Link
+              className="btn"
+              href={
+                staffMemberId
+                  ? `/receptionist/members/${staffMemberId}?tab=invoices`
+                  : "/member/finance"
+              }
+            >
               {tx("Xem hóa đơn", "View invoice")}
             </Link>
           ) : (
             <>
               <Link
                 className="btn"
-                href={`/member/services?view=owned&type=gym&gymPackage=${encodeURIComponent(pkg.memberPackageId)}`}
+                href={
+                  staffMemberId
+                    ? `/receptionist/sales?view=owned&gymPackage=${encodeURIComponent(pkg.memberPackageId)}`
+                    : `/member/services?view=owned&type=gym&gymPackage=${encodeURIComponent(pkg.memberPackageId)}`
+                }
               >
                 {tx("Xem chi tiết", "View details")}
               </Link>
-              {renew && (
+              {renew && !staffMemberId && (
                 <Link className="btn btn--quiet" href={exploreHref("gym")}>
                   {tx("Gia hạn", "Renew")}
                 </Link>
@@ -650,6 +663,7 @@ function GymCard({
           )}
           {cancelTarget && (
             <RefundCancelDialog
+              onBehalf={!!staffMemberId}
               target={{
                 kind: "gym",
                 name: cancelTarget.packageName,
@@ -682,9 +696,11 @@ function ClassCard({
   index: number;
 }) {
   const { language } = useLanguage();
+  const staffMemberId = useContext(StaffMemberContext);
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const canCancel = tone !== "ended" && !!row.invoiceItemId;
   const done = row.completedSessions ?? 0;
   const renew = tone === "soon" || tone === "ended";
@@ -752,13 +768,21 @@ function ClassCard({
       }
       actions={
         <>
-          {renew && !!row.sportId ? (
+          {renew && !!row.sportId && !staffMemberId ? (
             <Link
               className="btn"
               href={exploreHref("class", `&sport=${row.sportId}`)}
             >
               {tx("Gia hạn", "Renew")}
             </Link>
+          ) : staffMemberId ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setDetailOpen(true)}
+            >
+              {tx("Xem chi tiết", "View details")}
+            </button>
           ) : (
             <Link
               className="btn"
@@ -767,12 +791,43 @@ function ClassCard({
               {tx("Xem chi tiết", "View details")}
             </Link>
           )}
-          {canCancel && started && (
-            <Link className={styles.cancel} href="/member/help?topic=PAYMENT">
-              {tx("Cần hoàn điểm? Trợ giúp", "Need a refund? Get help")}
+          {detailOpen && (
+            <Dialog
+              title={row.className}
+              size="sm"
+              onClose={() => setDetailOpen(false)}
+            >
+              <p>
+                {tx("Môn", "Sport")}: {sport}
+              </p>
+              <p>
+                {tx("Huấn luyện viên", "Coach")}: {row.coachName || "—"}
+              </p>
+              <p>
+                {tx("Buổi đầu", "First session")}:{" "}
+                {formatDateTime(row.firstSessionStartUtc)}
+              </p>
+              <p>
+                {tx("Buổi cuối", "Last session")}:{" "}
+                {formatDateTime(row.lastSessionEndUtc)}
+              </p>
+              <p>
+                {tx("Đã học", "Completed")}: {done}/{row.numSessions}
+              </p>
+            </Dialog>
+          )}
+          {canCancel && started && !staffMemberId && (
+            <Link
+              className={styles.cancel}
+              href={bankRefundHref(row.invoiceItemId)}
+            >
+              {tx(
+                "Cần hoàn tiền? Gửi yêu cầu",
+                "Need a refund? Send a request",
+              )}
             </Link>
           )}
-          {canCancel && !started && (
+          {canCancel && (!started || !!staffMemberId) && (
             <button
               type="button"
               className={styles.cancel}
@@ -783,6 +838,7 @@ function ClassCard({
           )}
           {cancelOpen && (
             <RefundCancelDialog
+              onBehalf={!!staffMemberId}
               target={{
                 kind: "class",
                 name: row.className,
@@ -814,10 +870,12 @@ function CourtCard({
   index: number;
 }) {
   const { language } = useLanguage();
+  const staffMemberId = useContext(StaffMemberContext);
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const now = useNow();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const canCancel =
     row.status === "CONFIRMED" && new Date(row.startAtUtc).getTime() > now;
   const start = new Date(row.startAtUtc);
@@ -863,18 +921,45 @@ function CourtCard({
       }
       actions={
         <>
-          <Link
-            className="btn"
-            href={
-              tone === "ended"
-                ? exploreHref("court")
-                : `/member/schedule?rental=${row.courtRentalId}`
-            }
-          >
-            {tone === "ended"
-              ? tx("Gia hạn", "Book again")
-              : tx("Xem chi tiết", "View details")}
-          </Link>
+          {staffMemberId ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setDetailOpen(true)}
+            >
+              {tx("Xem chi tiết", "View details")}
+            </button>
+          ) : (
+            <Link
+              className="btn"
+              href={
+                tone === "ended"
+                  ? exploreHref("court")
+                  : `/member/schedule?rental=${row.courtRentalId}`
+              }
+            >
+              {tone === "ended"
+                ? tx("Gia hạn", "Book again")
+                : tx("Xem chi tiết", "View details")}
+            </Link>
+          )}
+          {detailOpen && (
+            <Dialog
+              title={sport ? `${sport} court` : tx("Thuê sân", "Court rental")}
+              size="sm"
+              onClose={() => setDetailOpen(false)}
+            >
+              <p>
+                {tx("Bắt đầu", "Starts")}: {formatDateTime(row.startAtUtc)}
+              </p>
+              <p>
+                {tx("Kết thúc", "Ends")}: {formatDateTime(row.endAtUtc)}
+              </p>
+              <p>
+                {tx("Trạng thái", "Status")}: {row.status}
+              </p>
+            </Dialog>
+          )}
           {canCancel && (
             <button
               type="button"
@@ -886,6 +971,7 @@ function CourtCard({
           )}
           {cancelOpen && (
             <RentalCancelConfirm
+              onBehalf={!!staffMemberId}
               rental={row}
               onClose={() => setCancelOpen(false)}
               onCancelled={() => {

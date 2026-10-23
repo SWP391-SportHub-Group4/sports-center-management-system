@@ -42,6 +42,13 @@ public sealed record RevenueReportResponse(
     /// </summary>
     public long PointsRefunded { get; init; }
 
+    /// <summary>
+    /// Cash refunded to members' bank accounts through the Support Request workflow, by transfer date. Already included in
+    /// <see cref="TotalRefunded"/> and <see cref="RefundCount"/>; separate from <see cref="PointsRefunded"/>.
+    /// </summary>
+    public decimal BankRefundAmount { get; init; }
+    public int BankRefundCount { get; init; }
+
     /// <summary>Net points changed by explicit Manager adjustments during the period.</summary>
     public long ManagerPointAdjustment { get; init; }
 

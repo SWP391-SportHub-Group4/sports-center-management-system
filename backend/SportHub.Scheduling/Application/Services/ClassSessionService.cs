@@ -85,7 +85,7 @@ public sealed partial class ClassSessionService(
             var info = await users.GetAsync(e.MemberId, ct);
             result.Add(new RosterEntryResponse(
                 e.EnrollmentId, e.MemberId, info?.FullName ?? string.Empty,
-                e.Status.ToString(), e.AttStatus?.ToString(), e.AttAt));
+                e.Status.ToString(), e.AttStatus?.ToString(), e.AttAt, info?.IsActive));
         }
 
         return new SessionRosterResponse(

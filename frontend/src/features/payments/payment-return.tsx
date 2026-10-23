@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckoutPanel } from "./checkout-panel";
 import { PaymentResult } from "./payment-result";
 import { derivePhase } from "./checkout.contract";
@@ -17,6 +18,7 @@ export function PaymentReturn({
   embedded = false,
 }: { invoiceId?: string; embedded?: boolean } = {}) {
   const { user, loading } = useAuth();
+  const router = useRouter();
   const userId = user?.userId;
   const [checkout, setCheckout] = useState<CheckoutDto | null>(null);
   const [checking, setChecking] = useState(true);
@@ -112,6 +114,17 @@ export function PaymentReturn({
   }, [invoiceId, userId, loading, refreshVersion]);
 
   const phase = checkout ? derivePhase(checkout) : null;
+  useEffect(() => {
+    if (
+      user?.role === "Receptionist" &&
+      checkout &&
+      checkout.kind !== "WALLET_TOP_UP" &&
+      phase === "FULFILLED" &&
+      ["PAID", "PAID_AFTER_RECONCILIATION"].includes(checkout.invoiceStatus)
+    ) {
+      router.replace("/receptionist/sales?view=owned");
+    }
+  }, [checkout, phase, router, user?.role]);
   useEffect(() => {
     if (
       !id ||

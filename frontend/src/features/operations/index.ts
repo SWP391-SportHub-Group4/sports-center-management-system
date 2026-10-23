@@ -1,5 +1,6 @@
 export {
   OperationsPage,
+  OperationsWorkspace,
   MutationFeedback,
   Pagination,
   useMutation,

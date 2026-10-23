@@ -16,11 +16,9 @@ import { STATUS_LABELS } from "./support-shared";
 import styles from "./support.module.css";
 
 const RECENT_LIMIT = 3;
-const DESK_RESOLUTION = "Resolved at the desk.";
 
 /**
- * Quick support logging at the desk. "Create & close now" resolves a simple inquiry on the spot;
- * "Send to support queue" hands the ticket to the Support requests page. Ticket handling itself
+ * Quick support logging at the desk. "Send to support queue" hands the ticket to the Support requests page. Ticket handling itself
  * (assignment, progress, done/reject) lives only on that page.
  */
 export function MemberSupportRequests({ memberId }: { memberId: string }) {
@@ -48,7 +46,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
   const [category, setCategory] = useState<SupportCategory>("PAYMENT");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [busy, setBusy] = useState<"close" | "queue" | null>(null);
+  const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -58,14 +56,22 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, RECENT_LIMIT);
 
-  async function submit(kind: "close" | "queue") {
+  function cancelDraft() {
+    setCategory("PAYMENT");
+    setSubject("");
+    setDescription("");
+    setError(null);
+    setSuccess(null);
+  }
+
+  async function submit() {
     if (submitting.current) return;
     if (!ready) {
       setError("Subject and description need at least 3 characters.");
       return;
     }
     submitting.current = true;
-    setBusy(kind);
+    setBusy(true);
     setError(null);
     setSuccess(null);
     try {
@@ -74,15 +80,10 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         category,
         subject: subject.trim(),
         description: description.trim(),
-        ...(kind === "close" ? { resolveNote: DESK_RESOLUTION } : {}),
       });
       setSubject("");
       setDescription("");
-      setSuccess(
-        kind === "close"
-          ? "Request created and closed."
-          : "Request sent to the support queue.",
-      );
+      setSuccess("Request sent to the support queue.");
       requests.reload();
     } catch (e) {
       setError(
@@ -92,7 +93,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
       );
     } finally {
       submitting.current = false;
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -112,7 +113,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
               type="button"
               className={styles.chip}
               aria-pressed={category === chip.value}
-              disabled={busy !== null}
+              disabled={busy}
               onClick={() => setCategory(chip.value)}
             >
               {chip.label}
@@ -125,7 +126,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
           <input
             value={subject}
             maxLength={200}
-            disabled={busy !== null}
+            disabled={busy}
             placeholder="Short summary"
             onChange={(e) => setSubject(e.target.value)}
           />
@@ -137,7 +138,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
             rows={3}
             maxLength={2000}
             value={description}
-            disabled={busy !== null}
+            disabled={busy}
             placeholder="What does the member need?"
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -148,23 +149,26 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
           <button
             type="button"
             className="btn btn--secondary"
-            disabled={busy !== null || !ready}
-            onClick={() => void submit("queue")}
+            disabled={busy || !ready}
+            onClick={() => void submit()}
           >
-            {busy === "queue" ? "Sending…" : "Send to support queue"}
+            {busy ? "Sending…" : "Send to support queue"}
           </button>
           <button
             type="button"
-            className="btn"
-            disabled={busy !== null || !ready}
-            onClick={() => void submit("close")}
+            className="btn btn--danger"
+            disabled={busy}
+            onClick={cancelDraft}
           >
-            {busy === "close" ? "Saving…" : "Create & close now"}
+            Cancel
           </button>
         </div>
 
         {error && (
-          <p className={`${styles.feedback} ${styles.feedbackError}`} role="alert">
+          <p
+            className={`${styles.feedback} ${styles.feedbackError}`}
+            role="alert"
+          >
             {error}
           </p>
         )}
@@ -203,8 +207,7 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         ) : (
           <ul className={styles.requests}>
             {recent.map((request) => {
-              const status =
-                request.status === "CLOSED" ? "DONE" : request.status;
+              const status = request.status;
               const open = !["DONE", "REJECTED"].includes(status);
               return (
                 <li key={request.requestId} className={styles.request}>

@@ -8,7 +8,15 @@ export interface MemberSupportRequestDto {
   requestId: string;
   memberId: string;
   recordedByUserId: string;
-  category: "GENERAL" | "MEMBERSHIP" | "CLASS" | "PAYMENT" | "PT" | "FACILITY" | "ACCOUNT" | "OTHER";
+  category:
+    | "GENERAL"
+    | "MEMBERSHIP"
+    | "CLASS"
+    | "PAYMENT"
+    | "PT"
+    | "FACILITY"
+    | "ACCOUNT"
+    | "OTHER";
   subject: string;
   description: string;
   status: string;
@@ -20,9 +28,15 @@ export interface MemberSupportRequestDto {
   progressNote: string | null;
   updatedAt: string | null;
   closedAt: string | null;
-  attachments?: { attachmentId: string; fileName: string }[] | null;
+  attachments?:
+    | { attachmentId: string; fileName: string; kind?: string }[]
+    | null;
+  /** True for a Payment ticket on the bank-refund workflow (manager approves, then records the transfer). */
+  requiresPayout?: boolean;
   /** COUNTER, PHONE, FANPAGE (recorded by staff) or ONLINE (member self-service). */
   channel?: string;
+  /** False when the current handler is inactive or cannot work requests, so any front-desk staff may take over. */
+  assigneeCanAct?: boolean;
 }
 
 export type SportServiceType =
@@ -794,6 +808,7 @@ export interface CourseRosterDto {
     enrollmentStatus: string;
     attendanceStatus: string | null;
     attendanceRecordedAt: string | null;
+    memberIsActive?: boolean | null;
   }[];
 }
 export interface CoachAdminDto {
@@ -828,6 +843,7 @@ export interface CourtScheduleEntryDto {
   /** Người thuê (chỉ với COURT_RENTAL). */
   memberId?: string | null;
   memberName?: string | null;
+  checkedInAtUtc?: string | null;
   participants: {
     memberId: string;
     memberName: string;
