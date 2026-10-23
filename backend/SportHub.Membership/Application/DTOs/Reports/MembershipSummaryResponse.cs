@@ -17,4 +17,7 @@ public sealed record MembershipSummaryResponse(
 public sealed record MembershipPeriodResponse(
     DateOnly FromDate, DateOnly ToDate, int NewMembers, int ActiveMembersAtPeriodEnd,
     int MembersPurchasingMembershipInPeriod = 0,
-    int DayPassesSold = 0);
+    int DayPassesSold = 0)
+{
+    public IReadOnlyList<Interfaces.MembershipPurchaseDay> Daily { get; init; } = [];
+}

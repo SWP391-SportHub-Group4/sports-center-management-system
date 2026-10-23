@@ -24,22 +24,16 @@ Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API t�
 
 ## 3. Khởi động
 
-Compose local chạy đầy đủ PostgreSQL, backend, frontend và AI. Để build và cập nhật web:
+Compose local chạy PostgreSQL và AI. Backend và frontend chạy trực tiếp trên host theo mục 3.2–3.3:
 
 ```bash
 docker compose up -d --build
 docker compose ps
 ```
 
-Frontend: `http://localhost:3000` (hoặc `FRONTEND_PORT`); API/Swagger: `http://localhost:5000/swagger` (hoặc `BACKEND_PORT`). Backend container dùng Development để tự áp migration, nối PostgreSQL qua `postgres:5432`, và giữ khóa Data Protection/tệp báo cáo trong named volumes. Không chạy backend/frontend trực tiếp cùng cổng khi đang dùng Compose.
-
-Sau khi sửa code, từ gốc dự án chạy `docker compose up -d --build backend frontend`. Nếu chỉ sửa giao diện, chạy `docker compose up -d --build --no-deps frontend`. Frontend Docker chạy bản build, nên cần build lại để thấy code mới. Các biến `NEXT_PUBLIC_*` cũng cần build lại frontend khi thay đổi.
-
-Nếu muốn chạy backend/frontend trực tiếp trên host theo mục 3.2–3.3, dừng hai container bằng `docker compose stop backend frontend`, rồi bật PostgreSQL bằng `docker compose up -d postgres`.
-
 AI được mở tại `http://localhost:8001`; backend mặc định gọi địa chỉ này. Cấu hình Gemini trong `ai-service/.env` được giữ riêng và không commit. Đổi cấu hình AI thì chạy `docker compose up -d --force-recreate ai-service`.
 
-Khi cập nhật Compose, dùng `docker compose up -d --build` để thay container bằng code mới và giữ nguyên named volumes/dữ liệu PostgreSQL.
+Khi chuyển từ Compose cũ, chạy `docker compose up -d --remove-orphans` để bỏ container backend/frontend cũ và giải phóng cổng 5000/3000. Lệnh giữ nguyên named volumes và dữ liệu PostgreSQL.
 
 ### 3.1 Database
 
@@ -108,7 +102,7 @@ Lệnh in `database '...' trên '...'` trước khi ghi. Viết `--seed-br141=tr
 
 Phần demo Flow 1 + Flow 2 bên dưới là tài liệu fixture cũ trong project test. Ứng dụng chính không hỗ trợ `--seed-demo-flow12=true`; không dùng lệnh đó để thiết lập dữ liệu vận hành. Dữ liệu fixture: ba Member demo `demo.member1..3@sporthub.vn` mỗi người 3.000 điểm, Member 1 có gói Gym đang hoạt động và lớp `DEMO-SMALL-01` chỉ 2 chỗ. Startup ứng dụng chính không chạy seed demo.
 
-Các fixture cũ chỉ phục vụ database test cô lập. Kịch bản tham khảo: [DEMO-SCRIPT-FLOW-1-2-3.md](DEMO-SCRIPT-FLOW-1-2-3.md); dữ liệu Member/giao dịch trên môi trường chạy thật cần được tạo qua các luồng nghiệp vụ.
+Các fixture cũ chỉ phục vụ database test cô lập. Dữ liệu Member/giao dịch trên môi trường chạy thật cần được tạo qua các luồng nghiệp vụ.
 
 Reset dữ liệu dev (giữ tài khoản và cấu hình, xóa mọi dữ liệu phát sinh): sao lưu rồi chạy [reset-dev-data.sql](../backend/scripts/reset-dev-data.sql); đầu file có lệnh `pg_dump`/`psql` mẫu. Script chỉ chạy trên database tên `sporthub` và tạm tắt trigger chặn TRUNCATE của sổ điểm.
 
@@ -130,7 +124,7 @@ Sau khi tắt Docker hoặc restart máy, chạy từ thư mục gốc:
 docker compose up -d
 ```
 
-Lệnh trên khởi động cả backend/frontend bằng image đã build. Sau khi sửa code, dùng `docker compose up -d --build backend frontend`. Chỉ cần `docker compose build ai-service` khi sửa source Python hoặc dependencies của AI. Giữ nguyên named volumes khi nâng cấp; không dùng `docker compose down -v` trên dữ liệu cần giữ.
+Chạy backend/frontend trong hai terminal như mục 3.2–3.3. Chỉ cần `docker compose build ai-service` khi sửa source Python hoặc dependencies của AI. Giữ nguyên named volumes khi nâng cấp; không dùng `docker compose down -v` trên dữ liệu cần giữ.
 
 ### 3.5 Tạo tài khoản nhân sự khi demo local
 
@@ -138,7 +132,7 @@ Member và staff là hai loại tài khoản tách biệt: không đổi Member 
 
 # 4. Bàn giao triển khai và nghiệm thu
 
-Hỗ trợ Member (hạng 5): trên local, chạy backend/frontend theo mục 3.2–3.3. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới. Xem [quy trình và các ca nghiệm thu](Member-Support-Workflow.md).
+Hỗ trợ Member (hạng 5): trên local, chạy backend/frontend theo mục 3.2–3.3. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới.
 
 Phần này dùng cho môi trường nghiệm thu thật; các mục 1–3 ở trên chỉ hướng dẫn chạy local.
 

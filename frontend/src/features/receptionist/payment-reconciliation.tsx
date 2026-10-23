@@ -91,7 +91,18 @@ export function FrontDeskPaymentReconciliation() {
         history.
       </p>
       {cases.loading && !cases.data && <p>Loading…</p>}
-      {cases.error && <p role="alert">{cases.error.message}</p>}
+      {cases.error && (
+        <div role="alert">
+          <p>{cases.error.message}</p>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={cases.reload}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {result && (
         <p role="status" className={styles.result}>
           {result}

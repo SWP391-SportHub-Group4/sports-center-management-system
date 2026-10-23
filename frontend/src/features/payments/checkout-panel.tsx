@@ -856,7 +856,7 @@ function CheckoutFlow({
                 {l.cancel}
               </Button>
             </div>
-            
+
           </section>
         )}
         {showExpiredRetry && (

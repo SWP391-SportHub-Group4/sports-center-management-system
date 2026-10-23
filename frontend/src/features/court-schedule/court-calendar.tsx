@@ -122,17 +122,6 @@ export function CourtCalendar({
                   ))}
                 </select>
               </Field>
-              {user?.role !== "Receptionist" && (
-                <button
-                  className="btn btn--secondary"
-                  onClick={() => {
-                    state.reload();
-                    clear();
-                  }}
-                >
-                  {l.refresh}
-                </button>
-              )}
             </div>
           ) : (
             <CourtFilters
@@ -167,19 +156,6 @@ export function CourtCalendar({
                 {label}
               </span>
             ))}
-
-          {user?.role !== "Receptionist" && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => {
-                state.reload();
-                clear();
-              }}
-            >
-              {l.refresh}
-            </button>
-          )}
         </div>
       )}
 
