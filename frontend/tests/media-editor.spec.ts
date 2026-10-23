@@ -442,7 +442,7 @@ test("dragging a crop follows the pointer, clamps to its frame and keeps control
   await expect(vertical).toHaveValue("60");
 });
 
-test("copy edits can be undone, Preview uses the unsaved draft and Restore keeps its fixed baseline after publishing", async ({
+test("copy edits can be undone, Preview uses the unsaved draft and Restore resets main defaults after publishing", async ({
   page,
 }) => {
   const calls = await setup(page);
@@ -484,7 +484,9 @@ test("copy edits can be undone, Preview uses the unsaved draft and Restore keeps
     frame.locator('figure[data-sport-id="3"] img').first(),
   ).toHaveAttribute("src", /hero-rally/);
   expect(calls.saves).toHaveLength(0);
-  await frame.getByRole("link", { name: "Book a court", exact: true }).click();
+  await frame
+    .getByRole("link", { name: "Book a court", exact: true })
+    .press("Enter");
   expect(
     page.frames().some((frame) => frame.url().includes("media-preview=true")),
   ).toBe(true);
@@ -507,16 +509,117 @@ test("copy edits can be undone, Preview uses the unsaved draft and Restore keeps
   ).toHaveAttribute("src", /course-badminton/);
   expect(calls.saves).toHaveLength(1);
   await expect(page.locator("#media-hero")).toContainText(
-    "Published introduction",
+    "Explore dedicated spaces for court sports and athletic training.",
   );
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  expect(calls.saves[1]["gallery.sports.3.image"]).toBe(
-    "/sporthub/court-volt/course-badminton.png",
-  );
-  expect(calls.saves[1]["hero.lead"]).toBe("Published introduction");
+  expect(calls.saves[1]["gallery.sports.3.image"]).toBeUndefined();
+  expect(calls.saves[1]["hero.lead"]).toBeUndefined();
 });
 
 for (const width of [1440, 390]) {
+  test(`Restore original resets all main copy and images and publishes the same landing page at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const calls = await setup(page, {
+      values: {
+        "hero.title": "Custom hero",
+        "hero.lead": "Custom introduction",
+        "bookmarks.intro.title": "Custom community",
+        "gallery.title": "Custom gallery",
+        "gallery.sports.3.image": uploadUrl,
+        "bookmarks.1.items.0.image": uploadUrl,
+        "arena.zones.conditioning.label": "Conditioning",
+        "arena.zones.conditioning.title": "Custom zone",
+        "arena.zones.badminton.image": uploadUrl,
+        "booking.title": "Custom booking",
+        "booking.image": "/sporthub/court-volt/course-basketball.png",
+        "faq.questions.0.answer": "Custom answer",
+        "brand.logo.image": uploadUrl,
+      },
+    });
+    await page
+      .getByRole("button", { name: "Restore original", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toContainText(
+      "all images, titles and content",
+    );
+    await page
+      .getByRole("button", { name: "Restore to draft", exact: true })
+      .click();
+    await expect(page.locator('[data-media-field="hero.title"]')).toHaveText(
+      "Every session\nhas a purpose.",
+    );
+    await expect(
+      page.locator('[data-media-field="bookmarks.intro.title"]'),
+    ).toHaveText("A stronger community");
+    await expect(page.locator('[data-media-field="gallery.title"]')).toHaveText(
+      "Energy across every court",
+    );
+    await expect(
+      page.locator('#media-gallery [data-sport-id="3"] img').first(),
+    ).toHaveAttribute("src", /course-badminton/);
+    await page
+      .getByRole("button", { name: "Show Gym zone", exact: true })
+      .click();
+    await expect(
+      page.locator('[data-media-field="arena.zones.conditioning.title"]'),
+    ).toHaveText("Gym");
+    expect(calls.saves).toHaveLength(0);
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({
+      path: `../.impeccable/review/media-main-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect(page.locator("[class*=savedFeedback]")).toBeVisible();
+    expect(Object.keys(calls.saves[0])).toEqual(["bookmarks.coachIds"]);
+    await page.reload();
+    await expect(page.locator('[data-media-field="hero.title"]')).toHaveText(
+      "Every session\nhas a purpose.",
+    );
+    await page.goto("/");
+    await expect(
+      page.getByRole("heading", {
+        name: "Every session has a purpose.",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(
+          '[aria-labelledby="training-gallery-title"] [data-sport-id="3"] img',
+        )
+        .first(),
+    ).toHaveAttribute("src", /course-badminton/);
+    const arena = page.locator('[aria-labelledby="arena-tour-title"]');
+    await arena.getByRole("tab", { name: "Gym", exact: true }).click();
+    await expect(
+      arena
+        .getByRole("tabpanel", { name: "Gym", exact: true })
+        .getByText("Gym", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("#book-court img")).toHaveAttribute(
+      "src",
+      /hero-rally/,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({
+      path: `../.impeccable/review/landing-main-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+  });
+
   test(`Media edits titles and content as plain text and publishes the draft at ${width}px`, async ({
     page,
   }, info) => {

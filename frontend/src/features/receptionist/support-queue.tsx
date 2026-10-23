@@ -5,7 +5,9 @@ import { MessageSquare, Plus, Search, UserRound } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, label } from "@/lib/format";
+import { useLanguage } from "@/lib/language";
+import { StatusChip } from "@/components/ui";
 import {
   SUPPORT_CATEGORIES,
   supportCategoryLabel,
@@ -14,7 +16,7 @@ import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportCreateDialog } from "./support-create-dialog";
 import { SupportDetail } from "./support-detail";
-import { STATUS_LABELS } from "./support-shared";
+import { STATUS_LABELS, supportReference } from "./support-shared";
 import styles from "./support-center.module.css";
 
 const PAGE_SIZE = 20;
@@ -53,6 +55,12 @@ export function SupportQueue({
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const isManager = workspace === "manager";
+  const statusLabel = (status: string) =>
+    isManager
+      ? (t.wireStatus[status as keyof typeof t.wireStatus] ?? label(status))
+      : (STATUS_LABELS[status] ?? status);
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -145,6 +153,7 @@ export function SupportQueue({
     onChanged?.();
     queue.reload();
     stats.reload();
+    linked.reload();
   }
 
   return (
@@ -176,7 +185,7 @@ export function SupportQueue({
           >
             <span className={styles.statLabel}>
               <span className={styles.dot} data-status={item.status} />
-              {item.label}
+              {statusLabel(item.status)}
             </span>
             <strong className={styles.statValue}>
               {stats.data ? stats.data[item.key] : "—"}
@@ -194,7 +203,11 @@ export function SupportQueue({
               type="search"
               value={search}
               maxLength={200}
-              placeholder="Search name, email, subject…"
+              placeholder={
+                isManager
+                  ? "Search name, email, message…"
+                  : "Search name, email, subject…"
+              }
               onChange={(e) => setSearch(e.target.value)}
             />
           </span>
@@ -208,18 +221,18 @@ export function SupportQueue({
             <option value="">All statuses</option>
             {summaryCards.map((c) => (
               <option key={c.status} value={c.status}>
-                {c.label}
+                {statusLabel(c.status)}
               </option>
             ))}
           </select>
         </label>
         <label>
-          Request type
+          {isManager ? "Topic" : "Request type"}
           <select
             value={filters.category}
             onChange={(e) => patch({ category: e.target.value })}
           >
-            <option value="">All types</option>
+            <option value="">{isManager ? "All topics" : "All types"}</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -343,18 +356,37 @@ export function SupportQueue({
                     >
                       <span className={styles.rowTop}>
                         <span className={styles.rowBadges}>
-                          <span className={styles.badge}>
-                            <span className={styles.dot} data-status={status} />
-                            {STATUS_LABELS[status] ?? status}
-                          </span>
+                          {isManager ? (
+                            <StatusChip value={request.status} />
+                          ) : (
+                            <span className={styles.badge}>
+                              <span
+                                className={styles.dot}
+                                data-status={status}
+                              />
+                              {STATUS_LABELS[status] ?? status}
+                            </span>
+                          )}
                         </span>
                         <span className={styles.rowDate}>
                           {formatDateTime(request.createdAt)}
                         </span>
                       </span>
                       <span className={styles.rowSubject}>
-                        {request.subject}
+                        {isManager
+                          ? supportCategoryLabel(request.category)
+                          : request.subject}
                       </span>
+                      {isManager && (
+                        <>
+                          <span className={styles.rowMember}>
+                            Ref {supportReference(request.requestId)}
+                          </span>
+                          <span className={styles.rowPreview}>
+                            {request.description}
+                          </span>
+                        </>
+                      )}
                       <span className={styles.rowMember}>
                         {request.memberName || request.memberEmail || "Member"}
                       </span>
@@ -431,6 +463,7 @@ export function SupportQueue({
 
       {creating && (
         <SupportCreateDialog
+          workspace={workspace}
           assignees={assignees.data ?? []}
           onClose={() => setCreating(false)}
           onCreated={(message) => {

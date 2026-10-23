@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { AvatarImage } from "@/components/AvatarImage";
+import { StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -20,6 +21,8 @@ import {
   ROLE_LABELS,
   ROLE_RANK,
   STATUS_LABELS,
+  CHANNEL_LABELS,
+  supportReference,
   assigneesByRole,
   eventText,
   roleKey,
@@ -71,6 +74,7 @@ export function SupportDetail({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const isManager = workspace === "manager";
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
 
@@ -204,15 +208,26 @@ export function SupportDetail({
     <div className={styles.detail}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
-          <span className={styles.badge}>
-            <span className={styles.dot} data-status={request.status} />
-            {STATUS_LABELS[request.status] ?? request.status}
-          </span>
+          {isManager ? (
+            <StatusChip value={request.status} />
+          ) : (
+            <span className={styles.badge}>
+              <span className={styles.dot} data-status={request.status} />
+              {STATUS_LABELS[request.status] ?? request.status}
+            </span>
+          )}
           <time className={styles.createdAt} dateTime={request.createdAt}>
             Created {formatDateTime(request.createdAt)}
           </time>
         </div>
-        <h3>{request.subject}</h3>
+        <h3>
+          {isManager ? supportCategoryLabel(request.category) : request.subject}
+        </h3>
+        {isManager && (
+          <p className={styles.muted}>
+            Reference: <strong>{supportReference(request.requestId)}</strong>
+          </p>
+        )}
       </header>
 
       <div className={styles.banner}>
@@ -244,10 +259,10 @@ export function SupportDetail({
       </div>
 
       <section className={styles.section} aria-label="Request message">
-        <h4>Request</h4>
+        <h4>{isManager ? "Member request" : "Request"}</h4>
         <dl className={styles.requestMetadata}>
           <div>
-            <dt>Request type</dt>
+            <dt>{isManager ? "Topic" : "Request type"}</dt>
             <dd>
               <span
                 className={styles.categoryBadge}
@@ -257,29 +272,77 @@ export function SupportDetail({
               </span>
             </dd>
           </div>
+          {!isManager && (
+            <div>
+              <dt>Subject</dt>
+              <dd>{request.subject}</dd>
+            </div>
+          )}
+          {isManager && (
+            <>
+              <div>
+                <dt>Email</dt>
+                <dd>
+                  {request.memberEmail || member.data?.email || "Not available"}
+                </dd>
+              </div>
+              <div>
+                <dt>Submitted via</dt>
+                <dd>
+                  {CHANNEL_LABELS[request.channel ?? ""] ?? "Not available"}
+                </dd>
+              </div>
+            </>
+          )}
           <div>
-            <dt>Subject</dt>
-            <dd>{request.subject}</dd>
-          </div>
-          <div>
-            <dt>Details</dt>
+            <dt>{isManager ? "Your message" : "Details"}</dt>
             <dd className={styles.message}>
               {request.description?.trim() || "No details provided."}
             </dd>
           </div>
         </dl>
-        <SupportAttachments attachments={request.attachments} />
+        {isManager ? (
+          <div className={styles.section}>
+            <h4>Attached images</h4>
+            {request.attachments?.length ? (
+              <SupportAttachments attachments={request.attachments} />
+            ) : (
+              <p className={styles.muted}>No images attached.</p>
+            )}
+          </div>
+        ) : (
+          <SupportAttachments attachments={request.attachments} />
+        )}
       </section>
 
-      {closed ? (
-        <section className={styles.section} aria-label="Final note">
-          <h4>
-            {request.status === "REJECTED" ? "Rejection reason" : "Resolution"}
-          </h4>
+      {isManager && (
+        <section
+          className={styles.section}
+          aria-label="Reply visible to member"
+        >
+          <h4>Reply</h4>
+          <p className={styles.helper}>
+            This is the latest reply shown in the member’s My requests history.
+          </p>
           <p className={styles.message}>
-            {request.progressNote ?? "No final note."}
+            {request.progressNote || "No reply yet."}
           </p>
         </section>
+      )}
+
+      {closed ? (
+        isManager ? null : (
+          <section className={styles.section} aria-label="Final note">
+            <h4>
+              {request.status === "REJECTED"
+                ? "Rejection reason"
+                : "Resolution"}
+            </h4>
+            <p className={styles.message}>
+              {request.progressNote ?? "No final note."}
+            </p>
+          </section>
+        )
       ) : (
         <>
           <section className={styles.box} aria-label="Routing and escalation">
@@ -412,6 +475,12 @@ export function SupportDetail({
                 }}
               />
             </label>
+            {isManager && (
+              <p className={styles.helper}>
+                The member will see this text as their latest reply. It replaces
+                the previous reply in My requests.
+              </p>
+            )}
             <div className={styles.actions}>
               {mode !== "progress" && confirming ? (
                 <>

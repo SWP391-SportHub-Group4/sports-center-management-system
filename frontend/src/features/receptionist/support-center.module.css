@@ -221,6 +221,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.rowPreview {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text-body);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
 .rowMeta {
   display: flex;
   flex-wrap: wrap;

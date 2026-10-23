@@ -1,11 +1,12 @@
 import type { SupportAssignee } from "./support-request-actions";
 
+/** Matches the reference returned when a member submits a support request. */
+export function supportReference(requestId: string): string {
+  return requestId.replaceAll("-", "").slice(0, 8).toUpperCase();
+}
+
 export type SupportStatus =
-  | "OPEN"
-  | "ASSIGNED"
-  | "IN_PROGRESS"
-  | "DONE"
-  | "REJECTED";
+  "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "DONE" | "REJECTED";
 
 export const STATUS_LABELS: Record<string, string> = {
   OPEN: "New",
