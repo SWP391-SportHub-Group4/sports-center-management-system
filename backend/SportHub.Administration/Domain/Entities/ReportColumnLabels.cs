@@ -67,9 +67,13 @@ public static class ReportColumnLabels
         "availableSeats", "fillRatio", "breakEvenThreshold", "pointsIssued", "managerPointAdjustment", "outstandingPoints"
     };
 
-    public static string For(string column) => Labels.GetValueOrDefault(column, column);
+    public static string For(string column) => column switch
+    {
+        "bookings" => "Confirmed bookings", "bookedHours" => "Booked hours", "dayPassesSold" => "Day passes sold", "startDate" => "Start date",
+        _ => Labels.GetValueOrDefault(column, column)
+    };
 
-    public static bool IsNumeric(string column) => NumericColumns.Contains(column);
+    public static bool IsNumeric(string column) => column is "bookings" or "bookedHours" or "dayPassesSold" || NumericColumns.Contains(column);
 
     public static string SourceName(string source) => source switch
     {
@@ -80,6 +84,8 @@ public static class ReportColumnLabels
 
     public static string ReportTitle(string reportType) => reportType switch
     {
+        ReportTypes.CourtBookings => "Court bookings by rental date",
+        ReportTypes.ClassStatus => "Classes by start date (current status)",
         ReportTypes.Revenue => "Invoices by issue date",
         ReportTypes.RevenueDaily => "Revenue by collection date",
         ReportTypes.RevenueSummary => "Revenue and points summary",

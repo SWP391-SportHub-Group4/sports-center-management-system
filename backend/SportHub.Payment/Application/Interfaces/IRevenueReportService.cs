@@ -7,5 +7,6 @@ namespace SportHub.Payment.Application.Interfaces;
 
 public interface IRevenueReportService
 {
-    Task<RevenueReportResponse> GetAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct = default);
+    Task<RevenueReportResponse> GetAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct = default,
+        int? sportId = null, string? source = null, Guid? memberId = null);
 }

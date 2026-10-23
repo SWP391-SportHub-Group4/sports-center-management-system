@@ -29,6 +29,7 @@ export interface CourtBookingReport {
   toDate: string;
   totalBookings: number;
   totalBookedHours: number;
+  daily?: { date: string; bookings: number; bookedHours: number }[];
   bySport: {
     sportId: number;
     sportName: string;
@@ -40,6 +41,17 @@ export interface ClassStatusReport {
   open: number;
   completed: number;
   unpublished: number;
+  classes?: {
+    classId: number;
+    name: string;
+    sportId: number;
+    sportName: string;
+    startDate: string;
+    status: string;
+    capacity: number;
+    confirmedCount: number;
+    thresholdStatus: string;
+  }[];
 }
 export interface ReconciliationCheck {
   name: string;
@@ -104,12 +116,26 @@ export const reportsApi = {
       signal,
       query: { asOfDate },
     }),
-  classStatus: (signal?: AbortSignal) =>
-    api.get<ClassStatusReport>("/api/reports/class-status", { signal }),
+  classStatus: (signal?: AbortSignal, f?: ReportFilters) =>
+    api.get<ClassStatusReport>("/api/reports/class-status", {
+      signal,
+      query: f
+        ? {
+            fromDate: f.fromDate,
+            toDate: f.toDate,
+            sportId: f.sportId || undefined,
+          }
+        : undefined,
+    }),
   courtBookings: (f: ReportFilters, signal?: AbortSignal) =>
     api.get<CourtBookingReport>("/api/reports/court-bookings", {
       signal,
-      query: { fromDate: f.fromDate, toDate: f.toDate },
+      query: {
+        fromDate: f.fromDate,
+        toDate: f.toDate,
+        sportId: f.sportId || undefined,
+        memberId: f.memberId || undefined,
+      },
     }),
   attendance: (f: ReportFilters, signal?: AbortSignal) =>
     api.get<RecordedAttendanceReport>("/api/reports/recorded-attendance", {
@@ -136,7 +162,13 @@ export const reportsApi = {
   summary: (f: ReportFilters, signal?: AbortSignal) =>
     api.get<RevenueReportDto>("/api/reports/revenue", {
       signal,
-      query: { fromDate: f.fromDate, toDate: f.toDate },
+      query: {
+        fromDate: f.fromDate,
+        toDate: f.toDate,
+        sportId: f.sportId || undefined,
+        source: f.source || undefined,
+        memberId: f.memberId || undefined,
+      },
     }),
   dimensions: (f: ReportFilters, signal?: AbortSignal) =>
     api.get<RevenueDimensionsDto>("/api/reports/revenue-dimensions", {
@@ -163,6 +195,7 @@ export const reportsApi = {
       activeMembersAtPeriodEnd: number;
       membersPurchasingMembershipInPeriod: number;
       dayPassesSold?: number;
+      daily?: { date: string; buyers: number }[];
     }>("/api/reports/membership-period", {
       signal,
       query: { fromDate: f.fromDate, toDate: f.toDate },

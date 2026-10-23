@@ -49,3 +49,11 @@ ai/**/.venv/
 
 # Local persistent runtime data, including Data Protection keys.
 /.sporthub-local/
+
+# Local keys, build caches and review workspaces.
+*.pem
+/.worktrees/
+**/.next/
+/frontend/frontend/
+/output/local-sync-backup-*/
+/.tmp-*.log
