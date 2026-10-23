@@ -18,6 +18,32 @@ services:
       retries: 20
       start_period: 5s
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: SportHub.API/Dockerfile
+    container_name: sporthub-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      AiService__BaseUrl: http://ai-service:8001
+      DataProtection__KeysPath: /var/lib/sporthub/dataprotection-keys
+      Reports__StorageRoot: /var/lib/sporthub/reports
+      Cors__AllowedOrigins__0: "http://localhost:${FRONTEND_PORT:-3000}"
+      Cors__AllowedOrigins__1: "http://127.0.0.1:${FRONTEND_PORT:-3000}"
+    ports:
+      - "${BACKEND_PORT:-5000}:8080"
+    volumes:
+      - sporthub_dataprotection:/var/lib/sporthub/dataprotection-keys
+      - sporthub_reports:/var/lib/sporthub/reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   ai-service:
     build: ./ai-service
     container_name: sporthub-ai
@@ -33,3 +59,5 @@ services:
 
 volumes:
   sporthub_pgdata:
+  sporthub_dataprotection:
+  sporthub_reports:
