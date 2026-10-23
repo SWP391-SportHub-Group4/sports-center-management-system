@@ -27,7 +27,7 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
             new SystemSetting
             {
                 Key = SystemSettingKeys.PackageExpiringReminderDays,
-                Value = "7",
+                Value = "10",
                 Description = "BR-33 — Days before membership expiration to remind members.",
                 UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, DateTimeKind.Utc)
             },
@@ -76,7 +76,7 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
             new SystemSetting
             {
                 Key = SystemSettingKeys.RentalAdvanceDays,
-                Value = "30",
+                Value = "3",
                 Description = "BR-128 — Maximum days to book a court in advance.",
                 UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
             },

@@ -264,3 +264,78 @@
 .actionModeButton { flex: 1; min-height: 42px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text-body); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
 .actionModeButton[aria-pressed="true"] { background: var(--bg-surface); border-color: var(--border-default); color: var(--color-primary); }
 .actionModeButton:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.attachments img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+.attachmentLoading {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.pill {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-subtle, #f1f5f9);
+  color: var(--text-body);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+.dot[data-status="OPEN"] {
+  background: #2563eb;
+}
+.dot[data-status="ASSIGNED"] {
+  background: #7c3aed;
+}
+.dot[data-status="IN_PROGRESS"] {
+  background: #d97706;
+}
+.dot[data-status="DONE"] {
+  background: #16a34a;
+}
+.dot[data-status="REJECTED"] {
+  background: #dc2626;
+}
+.badgeDate {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.requestTitle {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+.viewLink {
+  justify-self: start;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+}

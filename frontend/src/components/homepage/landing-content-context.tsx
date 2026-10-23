@@ -73,7 +73,7 @@ export function LandingContentProvider({
           entries.length > 300 ||
           entries.some(
             ([key, value]) =>
-              !/^(hero|gallery|bookmarks|arena|booking|faq)\.[a-zA-Z0-9_.]+$/.test(
+              !/^((hero|gallery|bookmarks|arena|booking|faq)\.[a-zA-Z0-9_.]+|brand\.logo\.image)$/.test(
                 key,
               ) ||
               typeof value !== "string" ||

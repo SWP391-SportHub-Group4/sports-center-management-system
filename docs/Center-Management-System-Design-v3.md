@@ -150,7 +150,7 @@ Chọn Membership → snapshot và checkout thanh toán → payment xác minh �
 
 ### 5.2 Vé Gym 1 ngày
 
-gói cố định `package_id = 50000`, 50.000đ, 1 ngày (Manager không sửa/ngừng). Hiệu lực đúng ngày thanh toán thành công theo giờ Việt Nam; mã check-in do server ký và cấp (`GET /api/members/me/checkin-code`, hết hạn 00:00 giờ Việt Nam hôm sau; lễ tân quét rồi `POST /api/members/checkin-code/resolve` để server đổi ra Member) chỉ có hiệu lực trong ngày, và Member được báo rõ trước khi trả tiền (màn checkout, thẻ gói, màn bán của lễ tân, thông báo + email sau khi thanh toán). Tình huống khách lạ: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó lễ tân hỗ trợ mua vé hoặc khách tự mua trên web; chỉ lễ tân check-in cho Member (Member không tự check-in). Không bán khi Gym đóng cửa vì sự cố (409 `gym_closed_today`), không gia hạn khi đóng Gym, không hoàn trả, không nhắc hết hạn; báo cáo tách riêng vé ngày khỏi hội viên Membership. Phòng Gym được nhận biết qua loại phòng thuộc môn Gym (`sport_room_types`).
+gói cố định `package_id = 50000`, 50.000đ, 1 ngày (Manager không sửa/ngừng). Hiệu lực đúng 24 giờ kể từ lúc thanh toán thành công (cột `member_packages.expires_at_utc`; mua 12:00 ngày 18/11 thì hết hạn 12:00 ngày 19/11); mã check-in do server ký và cấp (`GET /api/members/me/checkin-code`, hết hạn 00:00 giờ Việt Nam hôm sau; lễ tân quét rồi `POST /api/members/checkin-code/resolve` để server đổi ra Member) chỉ có hiệu lực hết ngày (mã QR hội viên); vé ngày hết hạn theo `expires_at_utc`, và Member được báo rõ trước khi trả tiền (màn checkout, thẻ gói, màn bán của lễ tân, thông báo + email sau khi thanh toán). Tình huống khách lạ: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó lễ tân hỗ trợ mua vé hoặc khách tự mua trên web; chỉ lễ tân check-in cho Member (Member không tự check-in). Không bán khi Gym đóng cửa vì sự cố (409 `gym_closed_today`), không gia hạn khi đóng Gym, không hoàn trả, không nhắc hết hạn; báo cáo tách riêng vé ngày khỏi hội viên Membership. Phòng Gym được nhận biết qua loại phòng thuộc môn Gym (`sport_room_types`).
 
 ### 5.3 Khóa cầu lông và bóng rổ
 
@@ -174,7 +174,7 @@ Frontend mở URL chi tiết lớp dưới quyền dạy thay bằng **Substitut
 
 **Yêu cầu vắng và quyết định của Manager:** Coach gửi ABSENCE kèm Reason khi còn ít nhất 6 giờ trước buổi Scheduled, hoặc rút yêu cầu Pending. Nội dung đã gửi bất biến; không có API PUT sửa. Manager quyết định dạy thay/dời/hủy kèm bù; dropdown dùng availability đúng môn và toàn bộ khoảng giờ, có `excludeSessionId` để chỉ loại occupancy của buổi đang xử lý. Backend vẫn kiểm lại khi lưu. Quy tắc chỉ tạo ABSENCE chưa được áp dụng cho mọi client ở backend: API tạo còn nhận các loại đề xuất cũ; theo dõi tại COACH-01 bên dưới. Chi tiết [request contract](Class-Session-Change-Requests.md).
 
-Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và đã xác nhận: `ConfirmedCount <= ReservedCount <= Capacity`. Tăng/giảm trong transaction với row lock/conditional update, không read-then-write rời rạc. Lớp nhóm dùng Present/Absent; không áp dụng booking restriction do No-show hoặc hạn mức theo ngày của mô hình lớp theo buổi.
+Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và đã xác nhận: `ConfirmedCount <= ReservedCount <= Capacity`. Tăng/giảm trong transaction với row lock/conditional update, không read-then-write rời rạc. Lớp nhóm dùng Present/Absent; không áp dụng booking restriction hoặc hạn mức theo ngày của mô hình lớp theo buổi.
 
 ### 5.4 Ngưỡng lớp và chuyển lớp
 
@@ -785,14 +785,14 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 |---|---|
 | `RentalId` (PK) | Định danh |
 | `MemberId` (FK → USER_ACCOUNTS) / `RoomId` (FK) | Ai thuê, sân nào |
-| `StartAtUtc` / `EndAtUtc` | **Bội số 60 phút** (`rental.slot_minutes`), tối đa `rental.max_hours` (4), đặt trước tối đa `rental.advance_days` (30), phải nằm trong giờ hoạt động |
+| `StartAtUtc` / `EndAtUtc` | **Bội số 60 phút** (`rental.slot_minutes`), tối đa `rental.max_hours` (4), đặt trước tối đa `rental.advance_days` (3 ngày tiếp theo, tức hôm nay + 3 = 4 ngày lịch), phải nằm trong giờ hoạt động |
 | `HourlyRateSnapshot` / `TotalAmount` | Đơn giá snapshot từ `COURT_RATES` và tổng tiền — đổi giá sau không ảnh hưởng lượt đã đặt |
-| `Status` | `CourtRentalStatus`: `PendingPayment`, `Confirmed`, `Expired`, `CancelledByMember`, `CancelledByCenter`, `Completed` |
+| `Status` | `CourtRentalStatus`: `PendingPayment`, `Confirmed`, `InUse`, `NoShow`, `Cancelled`, `Completed`. Lễ tân/Manager nhận sân từ 5 phút trước giờ bắt đầu; hết giờ `InUse` → `Completed`, `Confirmed` → `NoShow`. |
 | `HoldExpiresAt` (nullable) | Hạn giữ sân khi `PendingPayment` |
 | `InvoiceId` (FK) | Hóa đơn item `CourtRental` |
 | `CancelledAt` / `CancelReason` (nullable) | Hủy: miễn phí nếu trước `rental.cancel_free_hours` (24) |
 
-`PendingPayment` và `Confirmed` giữ dòng `ROOM_OCCUPANCIES`; `Expired`/hủy vô hiệu hóa chúng.
+`PendingPayment`, `Confirmed` và `InUse` giữ dòng `ROOM_OCCUPANCIES`; hủy, `Completed` và `NoShow` giải phóng dòng này. `NoShow` không tự hoàn tiền.
 
 #### `GYM_CHECKINS`
 **Mục đích:** ghi nhận thời điểm Member vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-64. Không theo dõi thời điểm rời Gym.
@@ -1018,9 +1018,9 @@ Cột **Tham chiếu** của lịch sử điểm trình bày cặp `ReferenceTyp
 | `points.confirm_otp_minutes` | 5 | 139 | Hiệu lực OTP xác nhận dùng điểm tại quầy |
 | `rental.slot_minutes` | 60 | 126 | Đơn vị thuê sân |
 | `rental.max_hours` | 4 | 128 | Số giờ tối đa mỗi lượt thuê |
-| `rental.advance_days` | 30 | 128 | Đặt trước tối đa |
+| `rental.advance_days` | 3 | 128 | Đặt trước tối đa |
 | `rental.cancel_free_hours` | 24 | 129 | Hủy miễn phí nếu trước giờ thuê tối thiểu |
-| `membership.expiry_notice_days` | 7 | 33 | Báo sắp hết hạn Membership |
+| `membership.expiry_notice_days` | 10 | 33 | Báo sắp hết hạn Membership qua hệ thống và email |
 
 ---
 
@@ -1188,7 +1188,6 @@ Entry point — đăng ký DI cho toàn bộ hệ thống:
 |---|---|---|---|
 | `MemberPackageExpiryJob.cs` | 4.2KB | Quét gói thành viên hết hạn → đánh dấu Expired | BR-11, BR-33 |
 | `ClassStatusJob.cs` | 2.6KB | Cập nhật trạng thái lớp học (mở/đóng tự động) | Lifecycle lớp học |
-| `AttendanceFinalizerJob.cs` | 1.7KB | Chốt điểm danh buổi học đã kết thúc → đánh dấu No-show | BR-20, BR-53 |
 | `SeatHoldExpiryJob.cs` | 1.1KB | Giải phóng giữ chỗ (SeatHold) quá hạn | Tránh block capacity |
 | `PointHoldExpiryJob.cs` | 1.0KB | Giải phóng điểm bị hold quá hạn | Wallet system |
 | `NotificationDispatchJob.cs` | 2.0KB | Gửi batch thông báo chưa dispatch | BR-34 |
@@ -1446,7 +1445,7 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 | `ClassSessionService.cs` | 18.8KB | **Logic buổi học**: generate sessions từ recurrence rules, reschedule (kiểm occupancy mới), cancel, capacity management |
 | `ClassEnrollmentFulfillment.cs` | 15.2KB | Implement `IClassEnrollmentFulfillment` — fulfill đăng ký khi thanh toán: tạo Enrollment, trừ session quota, tạo SeatHold |
 | `EnrollmentService.cs` | 1.7KB | Orchestrate enrollment: gọi SeatHoldService → PackagePurchaseService |
-| `AttendanceService.cs` | 5.7KB | Điểm danh: mark Present/Absent, tính No-show |
+| `AttendanceService.cs` | 5.7KB | Điểm danh: mark Present/Absent |
 | `RoomService.cs` | 7.4KB | CRUD phòng tập + validate không xoá phòng đang có lớp |
 | `GymCheckInService.cs` | 2.8KB | Check-in gym: validate membership active, ghi GymCheckIn |
 | `ClassEnrollmentReportService.cs` | 3.1KB | Báo cáo: tổng hợp enrollment/attendance theo lớp/ngày |
@@ -1473,8 +1472,8 @@ Module **lớn nhất**, chia thành core + 3 sub-module (Catalog, Occupancy, Th
 |---|---|
 | `ClassStatus.cs` | Draft, Active, Suspended, Archived |
 | `ClassSessionStatus.cs` | Scheduled, InProgress, Completed, Cancelled |
-| `EnrollmentStatus.cs` | Confirmed, Cancelled, NoShow |
-| `AttendanceStatus.cs` | Present, Absent, NoShow |
+| `EnrollmentStatus.cs` | Confirmed, Cancelled |
+| `AttendanceStatus.cs` | Present, Absent |
 | `SeatHoldStatus.cs` | Active, Released, Expired |
 
 #### Domain/Exceptions/

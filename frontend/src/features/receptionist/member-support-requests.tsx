@@ -1,45 +1,34 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-
-import { api, ApiError } from "@/lib/apiClient";
-import { useApi } from "@/lib/useApi";
-import { useLanguage } from "@/lib/language";
+import { ApiError, api } from "@/lib/apiClient";
+import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import { StatusChip } from "@/components/ui";
-import type { MemberSupportRequestDto } from "@/lib/types";
-
 import {
-  SupportRequestActions,
-  type SupportAssignee,
-  type SupportFeedback,
-} from "./support-request-actions";
+  SUPPORT_CATEGORIES,
+  supportCategoryLabel,
+  type SupportCategory,
+} from "@/lib/support-categories";
+import { useApi } from "@/lib/useApi";
+import type { MemberSupportRequestDto } from "@/lib/types";
+import { STATUS_LABELS } from "./support-shared";
 import styles from "./support.module.css";
 
-type Category = MemberSupportRequestDto["category"];
+const RECENT_LIMIT = 3;
+const DESK_RESOLUTION = "Resolved at the desk.";
 
-/** Chip chọn nhanh; mã gửi lên vẫn là danh mục của API. */
-const CHIPS: { value: Category; en: string; vi: string }[] = [
-  { value: "PAYMENT", en: "Payment / Points", vi: "Payment / Points" },
-  { value: "MEMBERSHIP", en: "Membership / Package", vi: "Membership / Package" },
-  { value: "CLASS", en: "Schedule / Coach", vi: "Schedule / Coach" },
-  { value: "FACILITY", en: "Equipment / Facilities", vi: "Equipment / Facilities" },
-  { value: "ACCOUNT", en: "Account / App", vi: "Account / App" },
-  { value: "OTHER", en: "Other", vi: "Other" },
-];
-
-const RECENT_LIMIT = 5;
-
+/**
+ * Quick support logging at the desk. "Create & close now" resolves a simple inquiry on the spot;
+ * "Send to support queue" hands the ticket to the Support requests page. Ticket handling itself
+ * (assignment, progress, done/reject) lives only on that page.
+ */
 export function MemberSupportRequests({ memberId }: { memberId: string }) {
-  const { language } = useLanguage();
-  const vi = language === "vi";
-  const assignees = useApi(
-    (signal) =>
-      api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
-        signal,
-      }),
-    [],
-  );
+  const { user } = useAuth();
+  const base =
+    user?.role === "CenterManager"
+      ? "/manager/requests?type=support"
+      : "/receptionist/support?";
   const requests = useApi(
     (signal) =>
       api.get<MemberSupportRequestDto[]>("/api/member-support-requests", {
@@ -49,20 +38,17 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     [memberId],
   );
 
-  // Tải lại sau mỗi thao tác không được làm danh sách và thông báo biến mất.
+  // Reloading must not blank the list.
   const [shown, setShown] = useState<MemberSupportRequestDto[] | null>(null);
-  const [notices, setNotices] = useState<
-    Record<string, SupportFeedback | null>
-  >({});
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (requests.data) setShown(requests.data);
   }, [requests.data]);
 
-  const [category, setCategory] = useState<Category>("PAYMENT");
+  const [category, setCategory] = useState<SupportCategory>("PAYMENT");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"close" | "queue" | null>(null);
   const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -72,108 +58,87 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, RECENT_LIMIT);
 
-  const categoryLabel = (value: string) => {
-    if (value === "GENERAL") return "Uncategorized";
-    if (value === "PT") return "Schedule / Coach";
-    const chip = CHIPS.find((c) => c.value === value);
-    if (chip) return vi ? chip.vi : chip.en;
-    return value;
-  };
-
-  async function submit() {
+  async function submit(kind: "close" | "queue") {
     if (submitting.current) return;
     if (!ready) {
-      setError(
-        vi
-          ? "Tiêu đề và mô tả cần ít nhất 3 ký tự."
-          : "Subject and description must contain at least 3 characters.",
-      );
+      setError("Subject and description need at least 3 characters.");
       return;
     }
-
     submitting.current = true;
-    setBusy(true);
+    setBusy(kind);
     setError(null);
     setSuccess(null);
-
     try {
       await api.post("/api/member-support-requests", {
         memberId,
         category,
         subject: subject.trim(),
         description: description.trim(),
+        ...(kind === "close" ? { resolveNote: DESK_RESOLUTION } : {}),
       });
       setSubject("");
       setDescription("");
       setSuccess(
-        vi
-          ? "Đã ghi nhận yêu cầu hỗ trợ."
-          : "Support request recorded successfully.",
+        kind === "close"
+          ? "Request created and closed."
+          : "Request sent to the support queue.",
       );
       requests.reload();
     } catch (e) {
       setError(
         e instanceof ApiError || e instanceof Error
           ? e.message
-          : vi
-            ? "Không thể ghi nhận yêu cầu."
-            : "Unable to record support request.",
+          : "Could not create the request.",
       );
     } finally {
       submitting.current = false;
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   return (
-    <section
-      className={styles.panel}
-      aria-label={
-        vi ? "Yêu cầu hỗ trợ của hội viên" : "Member support requests"
-      }
-    >
+    <section className={styles.panel} aria-label="Member support">
       <div className={styles.head}>
-        <h3>{vi ? "Hỗ trợ hội viên" : "Member support"}</h3>
+        <h3>Member support</h3>
+        <p>Log a request the selected member raised at the desk.</p>
       </div>
 
       <div className={styles.form}>
         <fieldset className={styles.chips}>
-          <legend>{vi ? "Loại yêu cầu" : "Request type"}</legend>
-          {CHIPS.map((chip) => (
+          <legend>Request type</legend>
+          {SUPPORT_CATEGORIES.map((chip) => (
             <button
               key={chip.value}
               type="button"
               className={styles.chip}
               aria-pressed={category === chip.value}
-              disabled={busy}
+              disabled={busy !== null}
               onClick={() => setCategory(chip.value)}
             >
-              {vi ? chip.vi : chip.en}
+              {chip.label}
             </button>
           ))}
         </fieldset>
 
         <label className={styles.field}>
-          {vi ? "Tiêu đề" : "Subject"}
+          Subject
           <input
             value={subject}
             maxLength={200}
-            disabled={busy}
-            placeholder={vi ? "Tóm tắt ngắn" : "Short summary"}
+            disabled={busy !== null}
+            placeholder="Short summary"
             onChange={(e) => setSubject(e.target.value)}
           />
         </label>
 
         <label className={styles.field}>
-          {vi ? "Mô tả" : "Description"}
+          Description
           <textarea
             rows={3}
             maxLength={2000}
             value={description}
-            disabled={busy}
-            placeholder={
-              vi ? "Hội viên cần hỗ trợ điều gì?" : "What does the member need?"
-            }
+            disabled={busy !== null}
+            placeholder="What does the member need?"
             onChange={(e) => setDescription(e.target.value)}
           />
           <span className={styles.counter}>{description.length}/2000</span>
@@ -182,25 +147,24 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         <div className={styles.submitRow}>
           <button
             type="button"
-            className="btn"
-            disabled={busy || !ready}
-            onClick={submit}
+            className="btn btn--secondary"
+            disabled={busy !== null || !ready}
+            onClick={() => void submit("queue")}
           >
-            {busy
-              ? vi
-                ? "Đang ghi nhận…"
-                : "Recording…"
-              : vi
-                ? "Ghi nhận yêu cầu"
-                : "Record support request"}
+            {busy === "queue" ? "Sending…" : "Send to support queue"}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={busy !== null || !ready}
+            onClick={() => void submit("close")}
+          >
+            {busy === "close" ? "Saving…" : "Create & close now"}
           </button>
         </div>
 
         {error && (
-          <p
-            className={`${styles.feedback} ${styles.feedbackError}`}
-            role="alert"
-          >
+          <p className={`${styles.feedback} ${styles.feedbackError}`} role="alert">
             {error}
           </p>
         )}
@@ -213,33 +177,16 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
 
       <div className={styles.recent}>
         <div className={styles.recentHead}>
-          <h4>{vi ? "Yêu cầu gần đây" : "Recent requests"}</h4>
+          <h4>Recent requests</h4>
           {(shown?.length ?? 0) > RECENT_LIMIT && (
             <span>
-              {vi
-                ? `${RECENT_LIMIT} mới nhất trên ${shown?.length}`
-                : `Latest ${RECENT_LIMIT} of ${shown?.length}`}
+              Latest {RECENT_LIMIT} of {shown?.length}
             </span>
           )}
         </div>
 
-        {assignees.error && (
-          <p role="alert">
-            {vi
-              ? "Không thể tải danh sách nhân viên."
-              : "Could not load staff."}{" "}
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              onClick={assignees.reload}
-            >
-              {vi ? "Thử lại" : "Retry"}
-            </button>
-          </p>
-        )}
-
         {requests.loading && !shown ? (
-          <p className={styles.empty}>{vi ? "Đang tải…" : "Loading…"}</p>
+          <p className={styles.empty}>Loading…</p>
         ) : requests.error ? (
           <div role="alert">
             <p>{requests.error.message}</p>
@@ -248,53 +195,48 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
               className="btn btn--secondary btn--sm"
               onClick={requests.reload}
             >
-              {vi ? "Thử lại" : "Retry"}
+              Retry
             </button>
           </div>
         ) : !recent.length ? (
-          <p className={styles.empty}>
-            {vi
-              ? "Chưa có yêu cầu hỗ trợ nào."
-              : "No support requests recorded."}
-          </p>
+          <p className={styles.empty}>No support requests yet.</p>
         ) : (
           <ul className={styles.requests}>
-            {recent.map((request) => (
-              <li key={request.requestId} className={styles.request}>
-                <div className={styles.requestTop}>
-                  <strong>{request.subject}</strong>
-                  <StatusChip value={request.status} />
-                </div>
-                <p className={styles.meta}>
-                  {categoryLabel(request.category)} ·{" "}
-                  {formatDateTime(request.createdAt)}
-                  {request.updatedAt && (
-                    <>
-                      {" "}
-                      · {vi ? "Cập nhật" : "Updated"}{" "}
-                      {formatDateTime(request.updatedAt)}
-                    </>
-                  )}
-                  {request.closedAt && (
-                    <>
-                      {" "}
-                      · {vi ? "Đóng" : "Closed"}{" "}
-                      {formatDateTime(request.closedAt)}
-                    </>
-                  )}
-                </p>
-                <p className={styles.body}>{request.description}</p>
-                <SupportRequestActions
-                  request={request}
-                  assignees={assignees.data ?? []}
-                  feedback={notices[request.requestId] ?? null}
-                  onFeedback={(next) =>
-                    setNotices((all) => ({ ...all, [request.requestId]: next }))
-                  }
-                  onChanged={requests.reload}
-                />
-              </li>
-            ))}
+            {recent.map((request) => {
+              const status =
+                request.status === "CLOSED" ? "DONE" : request.status;
+              const open = !["DONE", "REJECTED"].includes(status);
+              return (
+                <li key={request.requestId} className={styles.request}>
+                  <div className={styles.badges}>
+                    <span className={styles.pill}>
+                      {supportCategoryLabel(request.category)}
+                    </span>
+                    <span className={styles.pill}>
+                      <span className={styles.dot} data-status={status} />
+                      {STATUS_LABELS[status] ?? status}
+                    </span>
+                    <span className={styles.badgeDate}>
+                      {formatDateTime(request.createdAt)}
+                    </span>
+                  </div>
+                  <strong className={styles.requestTitle}>
+                    {request.subject}
+                  </strong>
+                  <p className={styles.meta}>
+                    {request.assignedToUserId
+                      ? `${open ? "Handled by" : "Closed by"}: ${request.assignedToName ?? "Former staff member"}`
+                      : "Waiting in the queue"}
+                  </p>
+                  <Link
+                    className={styles.viewLink}
+                    href={`${base}${base.endsWith("?") ? "" : "&"}request=${request.requestId}`}
+                  >
+                    View details &amp; handle →
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

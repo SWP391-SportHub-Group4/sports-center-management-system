@@ -264,9 +264,9 @@ Nguồn đối chiếu: các controller, service và job trong `backend/`; `Spor
 | Tác nhân | Member (tự mua); Receptionist, Center Manager (mua hộ, phải chỉ rõ Member) |
 | Mức ưu tiên | Required |
 | Tiền điều kiện | Đã đăng nhập; gói đang bán; Member đích ở trạng thái Active. |
-| Luồng chính | 1. Client gửi `POST /api/checkouts/membership` với `Idempotency-Key`; hệ thống lấy giá và thời hạn hiện tại của gói.<br>2. Hệ thống tạo Membership `PendingPayment`, hóa đơn `Issued` và phiên checkout trong một giao dịch; gói thường bắt đầu sau gói Active còn hiệu lực có ngày kết thúc muộn nhất, hoặc từ hôm nay.<br>3. Thanh toán và đối soát do Flow 3 xử lý. Khi hóa đơn được xác nhận trả thành công, Membership chuyển `Active`, tính lại ngày bắt đầu/kết thúc bằng giờ Việt Nam và snapshot thời hạn, ghi audit `ACTIVATE_MEMBER_PACKAGE` và xếp thông báo.<br>4. Khi phiên/hóa đơn được hủy hoặc giải phóng theo luồng thanh toán, Membership còn `PendingPayment` chuyển `Cancelled`.<br>5. Vé Gym 1 ngày dùng giá hiện hành trong danh mục (seed mặc định 50.000 VND); khi kích hoạt, ngày bắt đầu và kết thúc đều là ngày thanh toán thành công, kèm thông báo trong ứng dụng và email về hiệu lực trong ngày. |
+| Luồng chính | 1. Client gửi `POST /api/checkouts/membership` với `Idempotency-Key`; hệ thống lấy giá và thời hạn hiện tại của gói.<br>2. Hệ thống tạo Membership `PendingPayment`, hóa đơn `Issued` và phiên checkout trong một giao dịch; gói thường bắt đầu sau gói Active còn hiệu lực có ngày kết thúc muộn nhất, hoặc từ hôm nay.<br>3. Thanh toán và đối soát do Flow 3 xử lý. Khi hóa đơn được xác nhận trả thành công, Membership chuyển `Active`, tính lại ngày bắt đầu/kết thúc bằng giờ Việt Nam và snapshot thời hạn, ghi audit `ACTIVATE_MEMBER_PACKAGE` và xếp thông báo.<br>4. Khi phiên/hóa đơn được hủy hoặc giải phóng theo luồng thanh toán, Membership còn `PendingPayment` chuyển `Cancelled`.<br>5. Vé Gym 1 ngày dùng giá hiện hành trong danh mục (seed mặc định 50.000 VND); khi kích hoạt, vé hết hạn đúng 24 giờ sau lúc thanh toán thành công, kèm thông báo trong ứng dụng và email về hiệu lực trong ngày. |
 | Luồng thay thế / ngoại lệ | a. Thiếu hoặc dùng lại `Idempotency-Key` cho Member/gói khác: từ chối; cùng khóa hợp lệ trả lại checkout cũ.<br>b. Member mua hộ người khác hoặc nhân sự không chỉ rõ Member: từ chối.<br>c. Gói không tồn tại, ngừng bán, giá không hợp lệ hoặc Member không Active: từ chối.<br>d. Nếu có checkout chưa thanh toán cùng gói còn hiệu lực, hệ thống tiếp tục dùng checkout đó; nếu vẫn có `PendingPayment` khác thì chặn, trừ khi Center Manager duyệt mua chồng kèm lý do.<br>e. Gym đang đóng do sự cố hoặc Member đã có vé ngày Active hôm nay: không bán vé ngày. |
-| Hậu điều kiện | Member được vào Gym khi có gói `Active` và hôm nay nằm trong khoảng ngày hiệu lực. Gia hạn gói thường được xếp nối tiếp; vé ngày áp dụng riêng cho ngày thanh toán. Thanh toán, thử lại và đối soát thuộc Flow 3. |
+| Hậu điều kiện | Member được vào Gym khi có gói `Active` và hôm nay nằm trong khoảng ngày hiệu lực. Gia hạn gói thường được xếp nối tiếp; vé ngày áp dụng riêng trong 24 giờ kể từ lúc thanh toán. Thanh toán, thử lại và đối soát thuộc Flow 3. |
 
 ### UC-F1-21 — Xem gói đã mua và hạn dùng
 
@@ -285,10 +285,10 @@ Nguồn đối chiếu: các controller, service và job trong `backend/`; `Spor
 |---|---|
 | Tác nhân | Hệ thống (tác vụ chạy mỗi 15 phút) |
 | Mức ưu tiên | Required |
-| Tiền điều kiện | Tác vụ được bật; hệ thống có ngày hiện tại theo giờ Việt Nam và số ngày nhắc hạn đã cấu hình (mặc định 7 ngày, Center Manager chỉnh được). |
-| Luồng chính | 1. Gói Active có ngày kết thúc trước hôm nay chuyển sang Expired.<br>2. Gói Active sắp hết hạn trong số ngày cấu hình được xếp một thông báo nhắc hạn cho Member.<br>3. Mỗi gói chỉ được nhắc một lần; vé Gym 1 ngày không được nhắc. |
-| Luồng thay thế / ngoại lệ | a. Gói đã có thông báo `PackageExpiring`: không xếp thêm.<br>b. Lỗi ghi thông báo: tác vụ thử lại ở lượt chạy sau; trạng thái gói đã hết hạn được cập nhật riêng. |
-| Hậu điều kiện | Gói quá ngày kết thúc chuyển `Expired`; mỗi gói đủ điều kiện có tối đa một thông báo nhắc hạn trong hệ thống. |
+| Tiền điều kiện | Tác vụ được bật; hệ thống có ngày hiện tại theo giờ Việt Nam và số ngày nhắc hạn đã cấu hình (mặc định 10 ngày, Center Manager chỉnh được). |
+| Luồng chính | 1. Gói Active có ngày kết thúc trước hôm nay chuyển sang Expired.<br>2. Gói Active còn tối đa 10 ngày (hoặc số ngày cấu hình) được xếp thông báo trong hệ thống và email cho Member.<br>3. Mỗi kênh chỉ được xếp một lần cho mỗi gói; vé Gym 1 ngày không được nhắc. |
+| Luồng thay thế / ngoại lệ | a. Kênh đã có thông báo `PackageExpiring`: chỉ xếp kênh còn thiếu.<br>b. Lỗi ghi thông báo: tác vụ thử lại ở lượt chạy sau; trạng thái gói đã hết hạn được cập nhật riêng. |
+| Hậu điều kiện | Gói quá ngày kết thúc chuyển `Expired`; mỗi gói đủ điều kiện có tối đa một thông báo trong hệ thống và một email nhắc hạn. |
 
 ## E. Dữ liệu và hỗ trợ
 

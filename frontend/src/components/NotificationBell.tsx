@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
+import { useUrlQuery } from "@/lib/useUrlQuery";
 import { IconBell } from "@/components/icons";
 import {
   notificationInboxHref,
@@ -24,6 +25,7 @@ import styles from "./NotificationBell.module.css";
  */
 export function NotificationBell() {
   const { t } = useLanguage();
+  const { setValues } = useUrlQuery({ message: "" });
   const [actionError, setActionError] = useState("");
   const panelId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -152,7 +154,20 @@ export function NotificationBell() {
                   className={styles.item}
                   data-unread={item.status !== "READ"}
                   href={notificationInboxHref(item)}
-                  onClick={() => setOpen(false)}
+                  onClick={(event) => {
+                    setOpen(false);
+                    if (
+                      window.location.pathname === "/notifications" &&
+                      event.button === 0 &&
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      !event.shiftKey &&
+                      !event.altKey
+                    ) {
+                      event.preventDefault();
+                      setValues({ message: item.notificationId });
+                    }
+                  }}
                 >
                   <span className={styles.dot} aria-hidden="true" />
                   <span className={styles.preview}>

@@ -3,6 +3,13 @@
   width: 100%;
   margin-bottom: var(--space-4);
 }
+.inline {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-sunken);
+}
 .trigger {
   display: flex;
   align-items: center;

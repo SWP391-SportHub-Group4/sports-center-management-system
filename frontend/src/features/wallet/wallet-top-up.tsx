@@ -28,7 +28,11 @@ import {
   openPaymentGateway,
   paymentApi,
 } from "@/features/payments";
-import type { CheckoutDto, InvoiceDetailDto } from "@/lib/types";
+import type {
+  CheckoutDto,
+  InvoiceDetailDto,
+  WalletBalanceDto,
+} from "@/lib/types";
 import styles from "./wallet-top-up.module.css";
 
 const VND_PER_POINT = 1000;
@@ -85,7 +89,10 @@ function messageOf(error: unknown, fallback: string) {
 }
 
 /** Member points top-up: step 1 choose an amount, step 2 pay through VNPay. */
-export function WalletTopUp() {
+export function WalletTopUp({
+  memberId,
+  memberName,
+}: { memberId?: string; memberName?: string } = {}) {
   const [digits, setDigits] = useState("");
   const [checkout, setCheckout] = useState<CheckoutDto | null>(null);
   const [restoring, setRestoring] = useState(true);
@@ -93,7 +100,15 @@ export function WalletTopUp() {
   const [error, setError] = useState("");
   const createKey = useRef<string | null>(null);
   const alive = useRef(true);
-  const balance = useApi((signal) => walletApi.balance(signal), []);
+  const balance = useApi(
+    (signal) =>
+      memberId
+        ? api.get<WalletBalanceDto>(`/api/members/${memberId}/points`, {
+            signal,
+          })
+        : walletApi.balance(signal),
+    [memberId],
+  );
   const { amount } = parseAmount(digits);
   const check = validate(amount);
 
@@ -125,7 +140,11 @@ export function WalletTopUp() {
       .get(invoiceId, controller.signal)
       .then((found) => {
         if (controller.signal.aborted) return;
-        if (found.kind !== "WALLET_TOP_UP") remember(null);
+        if (
+          found.kind !== "WALLET_TOP_UP" ||
+          (memberId && found.beneficiaryUserId !== memberId)
+        )
+          remember(null);
         else setCheckout(found);
       })
       .catch(() => {
@@ -135,7 +154,7 @@ export function WalletTopUp() {
         if (!controller.signal.aborted) setRestoring(false);
       });
     return () => controller.abort();
-  }, [remember]);
+  }, [remember, memberId]);
 
   async function createCheckout() {
     if (!check.ok || busy) return;
@@ -145,7 +164,10 @@ export function WalletTopUp() {
       const next = await paymentApi.create(
         {
           kind: "wallet-top-up",
-          body: { points: amount / VND_PER_POINT },
+          body: {
+            points: amount / VND_PER_POINT,
+            ...(memberId ? { targetMemberId: memberId } : {}),
+          },
         },
         // A double click or retry after a network drop reuses the same checkout.
         (createKey.current ??= `${crypto.randomUUID()}`),
@@ -206,6 +228,11 @@ export function WalletTopUp() {
   const step = checkout ? 2 : 1;
   return (
     <div className={styles.page}>
+      {memberId && (
+        <p className={styles.staffMember}>
+          Adding points for <strong>{memberName || "this member"}</strong>
+        </p>
+      )}
       <section className={styles.card} aria-labelledby="top-up-title">
         <header className={styles.head}>
           <div className={styles.brand}>
@@ -270,6 +297,7 @@ export function WalletTopUp() {
             }}
             onChangeAmount={changeAmount}
             onStartOver={startOver}
+            staffMemberId={memberId}
           />
         ) : (
           <AmountStep
@@ -285,6 +313,7 @@ export function WalletTopUp() {
             }}
             onSubmit={createCheckout}
             balance={balance.data?.availablePoints}
+            staffMemberName={memberName}
           />
         )}
       </section>
@@ -315,22 +344,27 @@ export function WalletTopUp() {
         </div>
       </section>
 
-      <section className={styles.promo} aria-labelledby="top-up-membership">
-        <span className={styles.promoIcon} aria-hidden="true">
-          <ShoppingCart size={20} />
-        </span>
-        <div>
-          <h3 id="top-up-membership">Buy a membership</h3>
-          <p>
-            <strong>Step 1:</strong> Add SportHub Points →{" "}
-            <strong>Step 2:</strong> Pay for your plan
-          </p>
-          <Link href="/member/services" className={buttonClass({ size: "sm" })}>
-            View services
-            <ArrowRight size={14} aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
+      {!memberId && (
+        <section className={styles.promo} aria-labelledby="top-up-membership">
+          <span className={styles.promoIcon} aria-hidden="true">
+            <ShoppingCart size={20} />
+          </span>
+          <div>
+            <h3 id="top-up-membership">Buy a membership</h3>
+            <p>
+              <strong>Step 1:</strong> Add SportHub Points →{" "}
+              <strong>Step 2:</strong> Pay for your plan
+            </p>
+            <Link
+              href="/member/services"
+              className={buttonClass({ size: "sm" })}
+            >
+              View services
+              <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section className={styles.notes} aria-labelledby="top-up-notes">
         <span className={styles.promoIcon} aria-hidden="true">
@@ -361,6 +395,7 @@ function AmountStep({
   onDigits,
   onSubmit,
   balance,
+  staffMemberName,
 }: {
   digits: string;
   amount: number;
@@ -370,6 +405,7 @@ function AmountStep({
   onDigits: (value: string) => void;
   onSubmit: () => void;
   balance?: number;
+  staffMemberName?: string;
 }) {
   const invalid = !!digits && !check.ok;
   const tone = !digits ? "idle" : check.ok ? "ok" : "bad";
@@ -385,7 +421,13 @@ function AmountStep({
       <p className={styles.sub}>
         Enter an amount and receive SportHub Points right after payment.
         {balance !== undefined && (
-          <> You now have {formatPoints(balance)} points.</>
+          <>
+            {" "}
+            {staffMemberName
+              ? `${staffMemberName} currently has`
+              : "You now have"}{" "}
+            {formatPoints(balance)} points.
+          </>
         )}
       </p>
       <label className={styles.amountBox} data-invalid={invalid || undefined}>
@@ -470,6 +512,7 @@ function PaymentStep({
   onPay,
   onChangeAmount,
   onStartOver,
+  staffMemberId,
 }: {
   checkout: CheckoutDto;
   onCheckout: (next: CheckoutDto) => void;
@@ -479,6 +522,7 @@ function PaymentStep({
   onPay: () => void;
   onChangeAmount: () => void;
   onStartOver: () => void;
+  staffMemberId?: string;
 }) {
   const now = useNow(1000);
   const [clockOffset, setClockOffset] = useState(0);
@@ -559,6 +603,7 @@ function PaymentStep({
           checking={checking}
           error={error}
           onRefresh={() => void refresh()}
+          staffMemberId={staffMemberId}
         />
         {(phase === "VOID" || expired) && (
           <Button variant="secondary" onClick={onStartOver}>
@@ -592,7 +637,11 @@ function PaymentStep({
               <strong className={styles.orderTitle}>
                 Top up {formatPoints(points)} points
               </strong>
-              <p className={styles.orderNote}>{SUCCESS_NOTE}</p>
+              <p className={styles.orderNote}>
+                {staffMemberId
+                  ? "After successful payment, SportHub Points are added automatically to this member's wallet."
+                  : SUCCESS_NOTE}
+              </p>
             </div>
             <span className={styles.money}>
               {formatMoney(checkout.totalAmount)}

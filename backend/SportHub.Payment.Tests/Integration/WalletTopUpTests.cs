@@ -66,6 +66,39 @@ public sealed class WalletTopUpTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Receptionist_can_top_up_a_selected_member_and_payment_credits_only_that_member()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        using var staff = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/wallet-top-up")
+        {
+            Content = JsonContent.Create(new { points = 30, targetMemberId = member.UserId })
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var response = await staff.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        Assert.Equal(member.UserId, checkout.BeneficiaryUserId);
+        Assert.Equal(receptionist.UserId, checkout.InitiatorUserId);
+        var owner = await factory.QueryAsync(db => db.Invoices.Where(x => x.InvoiceId == checkout.InvoiceId)
+            .Select(x => new { x.MemberId, x.IssuedByUserId }).SingleAsync());
+        Assert.Equal(member.UserId, owner.MemberId);
+        Assert.Equal(receptionist.UserId, owner.IssuedByUserId);
+
+        var attemptResponse = await staff.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, attemptResponse.StatusCode);
+        var attempt = (await attemptResponse.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+        await ReceiveAsync(attempt);
+
+        Assert.Equal(30, await factory.QueryAsync(db => db.PointWallets
+            .Where(x => x.OwnerUserId == member.UserId).Select(x => x.AvailablePoints).SingleAsync()));
+        Assert.Equal(0, await factory.QueryAsync(db => db.PointLedgerEntries.CountAsync(x =>
+            x.ReferenceId == checkout.InvoiceId && x.ActorUserId == receptionist.UserId
+            && x.AvailableDelta < 0)));
+    }
+
+    [Fact]
     public async Task Failed_payment_does_not_credit_and_late_capture_still_credits_original_top_up()
     {
         var buyer = await factory.SeedUserAsync(UserRole.Member);

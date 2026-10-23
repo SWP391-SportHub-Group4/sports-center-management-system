@@ -156,12 +156,13 @@ function ContentEditor({
     };
   }, [dirty, working, crop]);
 
-  const update = (key: string, value: string) => {
+  const update = (key: string, value: string | undefined) => {
     setSaved(false);
     setError("");
     setDraft((current) => {
       const next = { ...current };
-      next[key] = value;
+      if (value === undefined) delete next[key];
+      else next[key] = value;
       return next;
     });
   };
@@ -176,6 +177,12 @@ function ContentEditor({
     ) {
       setError("Choose exactly three active coaches before saving.");
       setCoachesOpen(true);
+      return;
+    }
+    if (
+      Object.values(draft).some((value) => !value.trim() || value.length > 2000)
+    ) {
+      setError("Text must contain between 1 and 2,000 characters.");
       return;
     }
     if (
@@ -271,6 +278,7 @@ function ContentEditor({
             fileInput.current?.click();
           }}
           onCoaches={() => setCoachesOpen(true)}
+          onText={update}
         />
       </LandingContentProvider>
       <input
@@ -298,16 +306,39 @@ function ContentEditor({
           setPreparing(true);
           try {
             const image = await createImageBitmap(file);
-            if (controller.signal.aborted) image.close();
+            if (selected.key === "brand.logo.image") {
+              image.close();
+              setUploading(true);
+              const form = new FormData();
+              form.append("file", file);
+              form.append("preset", "logo");
+              const result = await api.postForm<{ url: string }>(
+                "/api/manager/media/images",
+                form,
+                { signal: controller.signal },
+              );
+              if (!controller.signal.aborted) {
+                if (!validLandingImage(result.url))
+                  throw new Error(
+                    "The uploaded logo URL is invalid. Try again.",
+                  );
+                update(selected.key, result.url);
+              }
+            } else if (controller.signal.aborted) image.close();
             else setCrop({ image, name: file.name, target: selected });
-          } catch {
+          } catch (cause) {
             if (!controller.signal.aborted)
               setError(
-                "Could not open this image. Choose another JPG, PNG or WebP file.",
+                selected.key === "brand.logo.image"
+                  ? cause instanceof Error
+                    ? cause.message
+                    : "Could not upload the logo. Check your connection and try again."
+                  : "Could not open this image. Choose another JPG, PNG or WebP file.",
               );
           } finally {
             request.current = null;
             setPreparing(false);
+            setUploading(false);
           }
         }}
       />

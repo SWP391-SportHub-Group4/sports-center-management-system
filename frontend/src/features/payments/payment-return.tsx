@@ -175,7 +175,8 @@ export function PaymentReturn({
   ) : invoiceId ? (
     <CheckoutPanel invoiceId={invoiceId} />
   ) : checkout ? (
-    user.role === "Member" ? (
+    user.role === "Member" ||
+    (user.role === "Receptionist" && checkout.kind === "WALLET_TOP_UP") ? (
       <PaymentResult
         checkout={checkout}
         detail={detail.data}
@@ -183,6 +184,9 @@ export function PaymentReturn({
         cancelled={cancelled}
         error={error}
         onRefresh={() => setRefreshVersion((v) => v + 1)}
+        staffMemberId={
+          user.role === "Receptionist" ? checkout.beneficiaryUserId : undefined
+        }
       />
     ) : (
       <CheckoutPanel invoiceId={checkout.invoiceId} />

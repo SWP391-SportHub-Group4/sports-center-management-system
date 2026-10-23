@@ -50,7 +50,8 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             throw new ConflictException("gym_closed_today", "The Gym is closed right now, so the day pass cannot be sold.");
         if (packageId == DayPass.PackageId && await db.Set<MemberPackage>().AnyAsync(x =>
             x.MemberId == memberId && x.PackageId == DayPass.PackageId
-            && x.Status == MemberPackageStatus.Active && x.StartDate <= today && x.EndDate >= today, ct))
+            && x.Status == MemberPackageStatus.Active && x.StartDate <= today && x.EndDate >= today
+            && (x.ExpiresAtUtc == null || x.ExpiresAtUtc > clock.UtcNow), ct))
             throw new ConflictException("day_pass_already_active", "A Gym day pass is already active today.");
         var startDate = packageId == DayPass.PackageId
             ? today
@@ -93,6 +94,13 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             entity.DurationDaysSnapshot ?? catalog.DurationDays);
         entity.StartDate = start;
         entity.EndDate = end;
+        if (entity.PackageId == DayPass.PackageId)
+        {
+            // Vé ngày hết hạn đúng 24 giờ sau lúc thanh toán, không phải cuối ngày.
+            entity.ExpiresAtUtc = clock.UtcNow.AddHours(DayPass.ValidHours);
+            entity.EndDate = DateOnly.FromDateTime(VietnamTime.ToLocal(entity.ExpiresAtUtc.Value));
+            end = entity.EndDate;
+        }
         entity.Status = MemberPackageStatus.Active;
         audit.Write(new AuditEntry(actorId, "ACTIVATE_MEMBER_PACKAGE", nameof(MemberPackage), memberPackageId.ToString(),
             OldValue: "{\"status\":\"PendingPayment\"}",
@@ -100,8 +108,9 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         if (entity.PackageId == DayPass.PackageId)
         {
             // Vé Gym 1 ngày: nhắc rõ mã check-in và vé chỉ có hiệu lực trong ngày thanh toán (giờ Việt Nam).
-            var text = $"Your Gym day pass is active today ({start:dd/MM/yyyy}). The pass and your check-in code are valid only today (Vietnam time): "
-                + "show your member code at reception, or check in yourself on the website.";
+            var expiresLocal = VietnamTime.ToLocal(entity.ExpiresAtUtc!.Value);
+            var text = $"Your Gym day pass is active and valid for 24 hours, until {expiresLocal:HH:mm dd/MM/yyyy} (Vietnam time): "
+                + "show your member code at reception to check in.";
             notifications.Queue(new NotificationRequest(entity.MemberId, NotificationEvents.PaymentReceived, text, memberPackageId));
             var email = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>().AsNoTracking()
                 .Where(u => u.UserId == entity.MemberId).Select(u => u.Email).SingleOrDefaultAsync(ct);

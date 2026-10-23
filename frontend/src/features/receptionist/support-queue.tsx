@@ -1,26 +1,23 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import {
-  ChevronDown,
-  MessageSquare,
-  Plus,
-  Search,
-  UserRound,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MessageSquare, Plus, Search, UserRound } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import type { MemberSupportRequestDto, Paged } from "@/lib/types";
-import styles from "./support-queue.module.css";
 import {
-  SupportRequestActions,
-  type SupportAssignee,
-  type SupportFeedback,
-} from "./support-request-actions";
+  SUPPORT_CATEGORIES,
+  supportCategoryLabel,
+} from "@/lib/support-categories";
+import type { MemberSupportRequestDto, Paged } from "@/lib/types";
+import type { SupportAssignee } from "./support-request-actions";
+import { SupportCreateDialog } from "./support-create-dialog";
+import { SupportDetail } from "./support-detail";
+import { STATUS_LABELS } from "./support-shared";
+import styles from "./support-center.module.css";
 
+const PAGE_SIZE = 20;
 const emptyFilters = {
   status: "",
   category: "",
@@ -32,39 +29,22 @@ type SupportStats = {
   open: number;
   assigned: number;
   inProgress: number;
-  closed: number;
+  done: number;
+  rejected: number;
 };
 const summaryCards: {
   key: keyof SupportStats;
   label: string;
   status: string;
 }[] = [
-  { key: "open", label: "Open", status: "OPEN" },
+  { key: "open", label: "New", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "closed", label: "Closed", status: "CLOSED" },
+  { key: "done", label: "Done", status: "DONE" },
+  { key: "rejected", label: "Rejected", status: "REJECTED" },
 ];
-const categories: Record<string, string> = {
-  GENERAL: "Uncategorized",
-  PAYMENT: "Payment",
-  MEMBERSHIP: "Membership",
-  CLASS: "Coach",
-  PT: "Coach",
-  FACILITY: "Facilities",
-  ACCOUNT: "Account",
-  OTHER: "Other",
-};
-// Filter options are unique; legacy PT requests are included by the CLASS filter on the API.
-const categoryFilterOptions = [
-  "GENERAL",
-  "PAYMENT",
-  "MEMBERSHIP",
-  "CLASS",
-  "FACILITY",
-  "ACCOUNT",
-  "OTHER",
-] as const;
 
+/** Support requests workspace for the front desk and managers: filterable list plus a detail panel. */
 export function SupportQueue({
   workspace = "receptionist",
   onChanged,
@@ -86,109 +66,136 @@ export function SupportQueue({
     [],
   );
   const [filters, setFilters] = useState(emptyFilters);
-  const [applied, setApplied] = useState(emptyFilters);
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
-  const [expanded, setExpanded] = useState<string | null | undefined>();
-  const [feedback, setFeedback] = useState<
-    Record<string, SupportFeedback | null>
-  >({});
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("request");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (id) setPicked(id);
+  }, []);
+
+  // Typing in the search box filters after a short pause.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFilters((f) =>
+        f.search === search.trim() ? f : { ...f, search: search.trim() },
+      );
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const queue = useApi(
     (signal) =>
       api.get<Paged<MemberSupportRequestDto>>(
         "/api/member-support-requests/queue",
-        {
-          signal,
-          query: { ...applied, page, pageSize: 20 },
-        },
+        { signal, query: { ...filters, page, pageSize: PAGE_SIZE } },
       ),
-    [applied, page],
+    [filters, page],
   );
-  // Retain editors during refresh so an unsent note is not discarded.
   const [lastResult, setLastResult] =
     useState<Paged<MemberSupportRequestDto> | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (queue.data) setLastResult(queue.data);
   }, [queue.data]);
-  // Do not render old results while a new filter or page is loading.
-  const result =
-    queue.loading || queue.error ? null : (queue.data ?? lastResult);
-  const selected =
-    expanded === undefined ? result?.items[0]?.requestId : expanded;
-  const filtered = !!(
-    applied.search ||
-    applied.status ||
-    applied.category ||
-    applied.assignedToUserId
+  const result = queue.error ? null : (queue.data ?? lastResult);
+  const items = result?.items ?? [];
+  // A deep link (?request=id) may point at a request outside the current page or filter.
+  const missing = !!picked && !items.some((x) => x.requestId === picked);
+  const linked = useApi(
+    (signal) =>
+      missing
+        ? api.get<MemberSupportRequestDto>(
+            `/api/member-support-requests/${picked}`,
+            { signal },
+          )
+        : Promise.resolve(null),
+    [missing, picked],
   );
-  function apply(next: typeof filters) {
-    setFilters(next);
-    setApplied({ ...next, search: next.search.trim() });
+  const selected = missing
+    ? (linked.data ?? null)
+    : (items.find((x) => x.requestId === picked) ?? items[0] ?? null);
+
+  const filtered = !!(
+    filters.search ||
+    filters.status ||
+    filters.category ||
+    filters.assignedToUserId
+  );
+
+  function patch(next: Partial<typeof filters>) {
+    setFilters((f) => ({ ...f, ...next }));
     setPage(1);
-    setExpanded(undefined);
+    setPicked(null);
     setNotice("");
   }
+  function clearFilters() {
+    setSearch("");
+    setFilters(emptyFilters);
+    setPage(1);
+    setPicked(null);
+  }
+  function refresh() {
+    onChanged?.();
+    queue.reload();
+    stats.reload();
+  }
+
   return (
-    <section className={styles.panel} aria-label="Support requests">
-      <div className={styles.header}>
-        <div className={styles.toolbar}>
-          {workspace !== "receptionist" && (
-            <Link
-              className="btn"
-              href={
-                workspace === "manager"
-                  ? "/manager/requests?type=support&record=1"
-                  : "/receptionist/members"
-              }
-            >
-              <Plus size={18} aria-hidden="true" />
-              Record a request
-            </Link>
-          )}
-        </div>
+    <section className={styles.page} aria-label="Support requests">
+      <div className={styles.head}>
+        <h2>Support requests</h2>
+        <button
+          type="button"
+          className={`btn ${styles.primary}`}
+          onClick={() => setCreating(true)}
+        >
+          <Plus size={18} aria-hidden="true" />
+          Record a request for member
+        </button>
       </div>
-      <div className={styles.statsGrid} aria-label="Request statistics">
+
+      <div className={styles.stats} role="group" aria-label="Filter by status">
         {summaryCards.map((item) => (
           <button
             key={item.key}
             type="button"
-            className={styles.statCard}
-            data-status={item.status}
-            aria-pressed={applied.status === item.status}
+            className={styles.stat}
+            aria-pressed={filters.status === item.status}
             onClick={() =>
-              apply({
-                ...filters,
-                status: applied.status === item.status ? "" : item.status,
+              patch({
+                status: filters.status === item.status ? "" : item.status,
               })
             }
           >
-            <span className={styles.statLabel}>{item.label}</span>
+            <span className={styles.statLabel}>
+              <span className={styles.dot} data-status={item.status} />
+              {item.label}
+            </span>
             <strong className={styles.statValue}>
               {stats.data ? stats.data[item.key] : "—"}
             </strong>
           </button>
         ))}
       </div>
-      <form
-        className={styles.filters}
-        onSubmit={(e) => {
-          e.preventDefault();
-          apply(filters);
-        }}
-      >
-        <label className={styles.searchField}>
+
+      <div className={styles.filters}>
+        <label>
           Search
-          <span className={styles.searchInput}>
-            <Search size={18} aria-hidden="true" />
+          <span className={styles.searchBox}>
+            <Search size={16} aria-hidden="true" />
             <input
               type="search"
-              value={filters.search}
+              value={search}
               maxLength={200}
-              placeholder="Subject, member name or email"
-              onChange={(e) =>
-                setFilters({ ...filters, search: e.target.value })
-              }
+              placeholder="Search name, email, subject…"
+              onChange={(e) => setSearch(e.target.value)}
             />
           </span>
         </label>
@@ -196,27 +203,26 @@ export function SupportQueue({
           Status
           <select
             value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            onChange={(e) => patch({ status: e.target.value })}
           >
             <option value="">All statuses</option>
-            <option value="OPEN">Open</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN_PROGRESS">In progress</option>
-            <option value="CLOSED">Closed</option>
+            {summaryCards.map((c) => (
+              <option key={c.status} value={c.status}>
+                {c.label}
+              </option>
+            ))}
           </select>
         </label>
         <label>
           Request type
           <select
             value={filters.category}
-            onChange={(e) =>
-              setFilters({ ...filters, category: e.target.value })
-            }
+            onChange={(e) => patch({ category: e.target.value })}
           >
             <option value="">All types</option>
-            {categoryFilterOptions.map((key) => (
-              <option key={key} value={key}>
-                {categories[key]}
+            {SUPPORT_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
               </option>
             ))}
           </select>
@@ -225,53 +231,30 @@ export function SupportQueue({
           Assigned staff
           <select
             value={filters.assignedToUserId}
-            onChange={(e) =>
-              setFilters({ ...filters, assignedToUserId: e.target.value })
-            }
+            onChange={(e) => patch({ assignedToUserId: e.target.value })}
           >
             <option value="">All staff</option>
-            {assignees.data?.map((x) => (
-              <option key={x.userId} value={x.userId}>
-                {x.name}
-              </option>
-            ))}
+            {user && <option value={user.userId}>Assigned to me</option>}
+            {assignees.data
+              ?.filter((x) => x.userId !== user?.userId)
+              .map((x) => (
+                <option key={x.userId} value={x.userId}>
+                  {x.name}
+                </option>
+              ))}
           </select>
         </label>
-        <div className={styles.filterActions}>
-          {user && (
-            <button
-              type="button"
-              className="btn btn--secondary"
-              aria-pressed={applied.assignedToUserId === user.userId}
-              onClick={() =>
-                apply({
-                  ...filters,
-                  assignedToUserId:
-                    applied.assignedToUserId === user.userId ? "" : user.userId,
-                })
-              }
-            >
-              Assigned to me
-            </button>
-          )}
-          <button type="submit" className="btn btn--secondary">
-            Apply filters
+        {filtered && (
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={clearFilters}
+          >
+            Clear
           </button>
-          {(filtered ||
-            filters.search ||
-            filters.status ||
-            filters.category ||
-            filters.assignedToUserId) && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => apply(emptyFilters)}
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-      </form>
+        )}
+      </div>
+
       {notice && (
         <p className="alert alert--success" role="status">
           {notice}
@@ -279,217 +262,185 @@ export function SupportQueue({
       )}
       {assignees.error && (
         <div className="alert alert--error" role="alert">
-          Could not load staff.
+          Could not load staff.{" "}
           <button
             type="button"
             className="btn btn--secondary btn--sm"
             onClick={assignees.reload}
           >
-            Retry staff
+            Retry
           </button>
         </div>
       )}
-      <div className={styles.inbox}>
-        <header className={styles.listHeader}>
-          <div>
-            <h2>Request queue</h2>
-            {result && (
-              <span className={styles.count}>{result.totalCount}</span>
-            )}
+
+      <div className={styles.split}>
+        <div className={styles.listCard}>
+          <div className={styles.listHead}>
+            <strong>Requests</strong>
+            <span>{result ? `${result.totalCount} total` : ""}</span>
           </div>
-        </header>
-        {queue.loading && (
-          <p className={styles.loading} role="status">
-            Loading requests…
-          </p>
-        )}
-        {queue.error && (
-          <div className={styles.empty} role="alert">
-            <MessageSquare size={28} aria-hidden="true" />
-            <h3>Requests could not be loaded</h3>
-            <p>{queue.error.message}</p>
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={queue.reload}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-        {!queue.loading && !queue.error && result?.items.length === 0 && (
-          <div className={styles.empty}>
-            <MessageSquare size={28} aria-hidden="true" />
-            <h3>No requests match these filters</h3>
-            <p>
-              {workspace === "receptionist"
-                ? "Change the filters, or record a request from Today’s desk."
-                : "Change the filters or open a member’s profile to record a request."}
+          {queue.loading && !result && (
+            <p className={styles.state} role="status">
+              Loading requests…
             </p>
-            {filtered && (
+          )}
+          {queue.error && (
+            <div className={styles.state} role="alert">
+              <MessageSquare size={26} aria-hidden="true" />
+              <h3>Requests could not be loaded</h3>
+              <p>{queue.error.message}</p>
               <button
+                type="button"
                 className="btn btn--secondary"
-                onClick={() => apply(emptyFilters)}
+                onClick={queue.reload}
               >
-                Clear filters
-              </button>
-            )}
-          </div>
-        )}
-        <div aria-busy={queue.loading}>
-          {result?.items.map((request) => {
-            const open = selected === request.requestId;
-            const assignee =
-              request.assignedToName ||
-              assignees.data?.find((x) => x.userId === request.assignedToUserId)
-                ?.name;
-            return (
-              <article
-                key={request.requestId}
-                className={styles.request}
-                data-expanded={open}
-              >
-                <div className={styles.requestHeader}>
-                  <div className={styles.requestIdentity}>
-                    <h3>
-                      {request.subject}
-                      <span
-                        className={styles.status}
-                        data-status={request.status}
-                      >
-                        {request.status.replaceAll("_", " ")}
-                      </span>
-                    </h3>
-                    <div className={styles.memberLine}>
-                      <Link href={`/${workspace}/members/${request.memberId}`}>
-                        {request.memberName || "Member profile"}
-                        {request.memberEmail ? ` · ${request.memberEmail}` : ""}
-                      </Link>
-                      <span className={styles.category}>
-                        {categories[request.category] ?? request.category}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={styles.requestMeta}>
-                    <span className={styles.owner}>
-                      <UserRound size={15} aria-hidden="true" />
-                      {assignee ||
-                        (request.assignedToUserId
-                          ? "Former staff member"
-                          : "Unassigned")}
-                    </span>
-                    <span>
-                      {request.closedAt
-                        ? `Closed ${formatDateTime(request.closedAt)}`
-                        : `Created ${formatDateTime(request.createdAt)}`}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className={`btn btn--ghost ${styles.expandButton}`}
-                    aria-expanded={open}
-                    aria-controls={`support-detail-${request.requestId}`}
-                    aria-label={`${open ? "Collapse request" : "View request"}: ${request.subject}`}
-                    onClick={() => setExpanded(open ? null : request.requestId)}
-                  >
-                    {open ? "Hide details" : "View request"}
-                    <ChevronDown size={18} aria-hidden="true" />
-                  </button>
-                </div>
-                {!open && (
-                  <p className={styles.preview}>{request.description}</p>
-                )}
-                <div id={`support-detail-${request.requestId}`} hidden={!open}>
-                  <fieldset
-                    className={styles.requestBody}
-                    disabled={queue.loading || !!queue.error}
-                  >
-                    <div className={styles.requestContent}>
-                      <h4>Request details</h4>
-                      <p className={styles.message}>{request.description}</p>
-                      <dl className={styles.timeline}>
-                        <div>
-                          <dt>Recorded</dt>
-                          <dd>{formatDateTime(request.createdAt)}</dd>
-                        </div>
-                        {request.updatedAt && (
-                          <div>
-                            <dt>Last updated</dt>
-                            <dd>{formatDateTime(request.updatedAt)}</dd>
-                          </div>
-                        )}
-                      </dl>
-                      <Link
-                        className="btn btn--secondary btn--sm"
-                        href={`/${workspace}/members/${request.memberId}`}
-                      >
-                        Open member profile
-                      </Link>
-                    </div>
-                    <div className={styles.handling}>
-                      <h4>
-                        {request.status === "CLOSED"
-                          ? "Resolution"
-                          : "Handle request"}
-                      </h4>
-                      <SupportRequestActions
-                        request={request}
-                        assignees={assignees.data ?? []}
-                        layout="queue"
-                        feedback={feedback[request.requestId] ?? null}
-                        onFeedback={(next) =>
-                          setFeedback((previous) => ({
-                            ...previous,
-                            [request.requestId]: next,
-                          }))
-                        }
-                        onChanged={() => {
-                          onChanged?.();
-                          setNotice("Request updated.");
-                          queue.reload();
-                          stats.reload();
-                        }}
-                      />
-                    </div>
-                  </fieldset>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        {result && (
-          <nav className={styles.pagination} aria-label="Support request pages">
-            <span>
-              Page {page} of {Math.max(1, Math.ceil(result.totalCount / 20))} ·{" "}
-              {result.totalCount} requests
-            </span>
-            <div className={styles.toolbar}>
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm"
-                disabled={queue.loading || page <= 1}
-                onClick={() => {
-                  setPage(page - 1);
-                  setExpanded(undefined);
-                }}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm"
-                disabled={queue.loading || page * 20 >= result.totalCount}
-                onClick={() => {
-                  setPage(page + 1);
-                  setExpanded(undefined);
-                }}
-              >
-                Next
+                Retry
               </button>
             </div>
-          </nav>
-        )}
+          )}
+          {!queue.loading && !queue.error && items.length === 0 && (
+            <div className={styles.state}>
+              <MessageSquare size={26} aria-hidden="true" />
+              <h3>No requests found</h3>
+              <p>
+                {filtered
+                  ? "Try changing or clearing the filters."
+                  : "New requests will appear here."}
+              </p>
+              {filtered && (
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={clearFilters}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+          {items.length > 0 && (
+            <ul className={styles.list} aria-busy={queue.loading}>
+              {items.map((request) => {
+                const status =
+                  request.status === "CLOSED" ? "DONE" : request.status;
+                return (
+                  <li key={request.requestId}>
+                    <button
+                      type="button"
+                      className={styles.row}
+                      aria-current={selected?.requestId === request.requestId}
+                      onClick={() => {
+                        setPicked(request.requestId);
+                        setNotice("");
+                        window.setTimeout(
+                          () =>
+                            detailRef.current?.scrollIntoView?.({
+                              block: "nearest",
+                            }),
+                          0,
+                        );
+                      }}
+                    >
+                      <span className={styles.rowTop}>
+                        <span className={styles.rowBadges}>
+                          <span className={styles.badge}>
+                            <span className={styles.dot} data-status={status} />
+                            {STATUS_LABELS[status] ?? status}
+                          </span>
+                        </span>
+                        <span className={styles.rowDate}>
+                          {formatDateTime(request.createdAt)}
+                        </span>
+                      </span>
+                      <span className={styles.rowSubject}>
+                        {request.subject}
+                      </span>
+                      <span className={styles.rowMember}>
+                        {request.memberName || request.memberEmail || "Member"}
+                      </span>
+                      <span className={styles.rowMeta}>
+                        <span>{supportCategoryLabel(request.category)}</span>
+                        <span>
+                          <UserRound size={13} aria-hidden="true" />{" "}
+                          {request.assignedToName ??
+                            (request.assignedToUserId
+                              ? "Former staff"
+                              : "Unassigned")}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {result && result.totalCount > PAGE_SIZE && (
+            <nav className={styles.pager} aria-label="Support request pages">
+              <span>
+                Page {page} of{" "}
+                {Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE))}
+              </span>
+              <div>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  disabled={queue.loading || page <= 1}
+                  onClick={() => {
+                    setPage(page - 1);
+                    setPicked(null);
+                  }}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  disabled={
+                    queue.loading || page * PAGE_SIZE >= result.totalCount
+                  }
+                  onClick={() => {
+                    setPage(page + 1);
+                    setPicked(null);
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </nav>
+          )}
+        </div>
+
+        <div className={styles.detailCard} ref={detailRef} aria-live="polite">
+          {selected ? (
+            <SupportDetail
+              key={selected.requestId}
+              request={selected}
+              assignees={assignees.data ?? []}
+              workspace={workspace}
+              onChanged={refresh}
+            />
+          ) : (
+            <div className={styles.state}>
+              <MessageSquare size={26} aria-hidden="true" />
+              <h3>Select a request</h3>
+              <p>Its details, routing and history appear here.</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {creating && (
+        <SupportCreateDialog
+          assignees={assignees.data ?? []}
+          onClose={() => setCreating(false)}
+          onCreated={(message) => {
+            setCreating(false);
+            setNotice(message);
+            clearFilters();
+            refresh();
+          }}
+        />
+      )}
     </section>
   );
 }

@@ -74,7 +74,6 @@ export function PlanningCalendar({
   const eventState = (e: CalendarEvent) => {
     if (/CANCELLED|RESCHEDULED/.test(e.status ?? "")) return "cancelled";
     if (e.status === "COMPLETED") return "completed";
-    if (e.status === "NO_SHOW") return "absent";
     if (new Date(e.endAtUtc).getTime() <= now) return "pending";
     if (minuteAt(e.endAtUtc, today) > 0 && minuteAt(e.startAtUtc, today) < 1440)
       return "today";
@@ -127,7 +126,7 @@ export function PlanningCalendar({
         aria-label={`${label} · ${typeName()} · ${e.title} · ${formatTime(e.startAtUtc)}–${formatTime(e.endAtUtc)}`}
       >
         <span className={styles.eventState}>
-          {state === "completed" ? "✓ " : state === "absent" ? "× " : ""}
+          {state === "completed" ? "✓ " : ""}
           {label} · {typeName()}
         </span>
         <strong>

@@ -36,6 +36,7 @@ public sealed class MediaImagesController(IMediaImageStorage storage, ISportHubD
         var ratio = request.Preset switch {
             "landscape" => 3m / 2m,
             "booking" => 4m / 5m,
+            "logo" => 0m, // Preserve the original logo proportions and PNG/WebP alpha.
             _ => throw new BadRequestException("media_preset_invalid", "Choose a supported image frame.")
         };
         if (file is null || file.Length == 0 || file.Length > MaxBytes)
@@ -53,7 +54,9 @@ public sealed class MediaImagesController(IMediaImageStorage storage, ISportHubD
         var image = await storage.UploadAsync(actor, bytes, file.ContentType, ct);
         try
         {
-            if (Math.Abs((decimal)image.Width / image.Height - ratio) > Math.Max(0.01m, 2m / image.Height))
+            if (image.Width <= 0 || image.Height <= 0)
+                throw new BadRequestException("media_dimensions_invalid", "Choose an image with valid dimensions.");
+            if (ratio > 0 && Math.Abs((decimal)image.Width / image.Height - ratio) > Math.Max(0.01m, 2m / image.Height))
                 throw new BadRequestException("media_aspect_ratio_invalid", "Crop the image to the required frame before uploading.");
             audit.Write(new AuditEntry(actor, "UPLOAD_MEDIA_IMAGE", "LandingPageContent", "1", NewValue: JsonSerializer.Serialize(image)));
             await db.SaveChangesAsync(ct);

@@ -44,7 +44,7 @@ M02 xác nhận 18/10/2026: [Vòng đời phân công Coach–Member](Coach-Memb
 | Thuật ngữ | Nghĩa thống nhất |
 |---|---|
 | Sport | Môn cấu hình: Gym, cầu lông, bóng rổ; mở rộng được |
-| Vé Gym 1 ngày | Gói Gym cố định 50.000đ, dùng trong ngày thanh toán thành công (giờ Việt Nam), mã check-in do server cấp, chỉ có hiệu lực trong ngày |
+| Vé Gym 1 ngày | Gói Gym cố định 50.000đ, có hiệu lực đúng 24 giờ kể từ lúc thanh toán thành công (`member_packages.expires_at_utc`), check-in tại quầy bằng mã QR hội viên do server cấp |
 | Membership | Quyền vào Gym có thời hạn; không phải vé lớp nhóm |
 | Class | Khóa học cố định gồm nhiều buổi, mua cả khóa |
 | ClassSession | Một buổi của khóa học |
@@ -78,7 +78,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 - Quy tắc xác nhận 13/10/2026 (BR-96): một Coach có thể dạy nhiều môn, có ít nhất một chuyên môn và được chọn nhiều môn ngay khi Admin tạo tài khoản hoặc đổi role sang Coach. Manager chỉnh sửa chuyên môn; phân công lớp phải khớp chuyên môn. Giới hạn đúng một môn trong luồng tạo Coach hiện tại là khoảng trống triển khai, không phải quy tắc nghiệp vụ.
 - Quy tắc xác nhận 13/10/2026: không đổi role của bất kỳ tài khoản đang là SystemAdministrator nào, kể cả chính mình và Admin khác. Việc tạo Admin hoặc nâng một tài khoản staff khác lên Admin vẫn được phép. Quy tắc khóa/mở khóa không thay đổi.
 - Membership Gym và gói lớp độc lập.
-- Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), chỉ dùng trong ngày thanh toán thành công theo giờ Việt Nam, kèm mã check-in do server ký và cấp, chỉ có hiệu lực trong ngày; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
+- Vé Gym 1 ngày (day pass): giá cố định 50.000đ (seed cố định, Manager không sửa hay ngừng được), có hiệu lực đúng 24 giờ kể từ lúc thanh toán thành công (ví dụ mua 12:00 ngày 18/11 hết hạn 12:00 ngày 19/11), check-in bằng mã QR hội viên do server ký và cấp; Member được báo rõ điều này trước khi trả tiền. Không bán khi Gym đang đóng cửa vì sự cố, không gia hạn khi đóng Gym, không hoàn trả.
 - Giá/thời hạn/quyền lợi đã mua dùng snapshot, không tính lại khi sửa catalog.
 - Enrollment theo khóa; attendance theo enrollment/session; lớp nhóm Present/Absent.
 - JWT xác định danh tính và role của Coach; `classId`/`sessionId` xác định tài nguyên được yêu cầu. Backend đối chiếu Coach từ JWT với Coach được phân công cho lớp/buổi trước khi cấp quyền. `sessionId` không phải mã xác thực hay giá trị thay thế JWT.

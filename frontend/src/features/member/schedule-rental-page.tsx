@@ -1,11 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ArrowLeft, CalendarDays, Clock, MapPin } from "lucide-react";
 import { AsyncSection, StatusChip } from "@/components/ui";
-import { useApi, useNow } from "@/lib/useApi";
+import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import {
   formatDate,
@@ -15,24 +14,19 @@ import {
 } from "@/lib/format";
 import { rentalApi } from "../rentals/api";
 import { RentalPriceBreakdown } from "../rentals/rental-price-breakdown";
-import { RentalCancelConfirm } from "./rental-cancel";
 import { CalendarSticker } from "./calendar-sticker";
 import styles from "./schedule-course-page.module.css";
 
 export function ScheduleRentalPage({
   rentalId,
   onBack,
-  onCancelled,
 }: {
   rentalId: string;
   onBack: () => void;
-  onCancelled: (rentalId: string) => void;
 }) {
   const { language, t } = useLanguage();
   const vi = language === "vi";
   const backButton = useRef<HTMLButtonElement>(null);
-  const [cancelling, setCancelling] = useState(false);
-  const now = useNow();
   const state = useApi(
     (signal) => rentalApi.detail(rentalId, signal),
     [rentalId],
@@ -91,7 +85,7 @@ export function ScheduleRentalPage({
                     }
                     priority
                   />
-                  <figcaption>
+                  <figcaption className={styles.coachCaption}>
                     <span>
                       {vi ? "Không gian tập luyện" : "Training space"}
                     </span>
@@ -168,38 +162,7 @@ export function ScheduleRentalPage({
                     {formatPoints(detail.refundPoints)}
                   </p>
                 )}
-                <div className="btn-row">
-                  {detail.rental.invoiceId && (
-                    <Link
-                      className="btn btn--secondary"
-                      href={`/member/finance?tab=invoices&invoice=${detail.rental.invoiceId}`}
-                    >
-                      {t.operations.invoices}
-                    </Link>
-                  )}
-
-                  {detail.rental.status === "CONFIRMED" &&
-                    Date.parse(detail.rental.startAtUtc) > now && (
-                      <button
-                        type="button"
-                        className="btn btn--secondary"
-                        onClick={() => setCancelling(true)}
-                      >
-                        {t.mSchedule.cancelRental}
-                      </button>
-                    )}
-                </div>
               </section>
-              {cancelling && (
-                <RentalCancelConfirm
-                  rental={detail.rental}
-                  onClose={() => setCancelling(false)}
-                  onCancelled={() => {
-                    setCancelling(false);
-                    onCancelled(detail.rental.courtRentalId);
-                  }}
-                />
-              )}
             </>
           )}
         </AsyncSection>

@@ -8,7 +8,6 @@ import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import type { CheckoutDto, InvoiceDetailDto } from "@/lib/types";
 import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
 import { Button, PageHeader, buttonClass } from "@/components/primitives";
-import { RefundRequestForm } from "./refund-request-form";
 import { DownloadInvoiceButton } from "./download-invoice-button";
 import styles from "./checkout-panel.module.css";
 
@@ -20,7 +19,6 @@ import styles from "./checkout-panel.module.css";
 export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const { t, language } = useLanguage();
   const f = t.finance;
-  const [refundSent, setRefundSent] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState<string | null>(
     null,
@@ -63,11 +61,6 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   }
   return (
     <>
-      {refundSent && (
-        <p role="status" className={styles.banner}>
-          {t.finOps.refundSent}
-        </p>
-      )}
       <AsyncSection
         state={
           missing
@@ -86,11 +79,6 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
             <>
               <PageHeader
                 as="h2"
-                back={{
-                  href: "/member/finance?tab=invoices",
-                  label: f.backToInvoices,
-                  reloadDocument: true,
-                }}
                 title={s.invoiceNumber}
                 description={`${f.issuedAt}: ${formatDateTime(s.issuedAt)}`}
                 meta={
@@ -249,15 +237,6 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                   <p className="state">{f.noAdjustments}</p>
                 )}
               </Card>
-              {["PAID", "PAID_AFTER_RECONCILIATION"].includes(s.status) && (
-                <Card>
-                  <RefundRequestForm
-                    items={d.items}
-                    onChange={state.reload}
-                    onSent={() => setRefundSent(true)}
-                  />
-                </Card>
-              )}
             </>
           );
         }}

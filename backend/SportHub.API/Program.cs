@@ -424,7 +424,7 @@ builder.Services.AddHttpClient(
             TimeSpan.FromSeconds(35);
     });
 
-// Tác vụ nền: BR-11/BR-33 (hạn gói), BR-20/BR-53 (No-show), BR-34 (phát thông báo).
+// Tác vụ nền: BR-11/BR-33 (hạn gói), BR-34 (phát thông báo).
 builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddScoped<MemberCourseNotificationService>();

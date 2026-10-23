@@ -17,12 +17,18 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     PaymentReconciliationService reconciliation, ISportHubDbContext db) : ControllerBase
 {
     [HttpPost("wallet-top-up")]
-    [Authorize(Roles = SportHubRoleNames.Member)]
+    [Authorize(Roles = SportHubRoleNames.Member + "," + SportHubRoleNames.Receptionist)]
     [EnableRateLimiting("checkout-write")]
     public async Task<IActionResult> WalletTopUp([FromBody] WalletTopUpCheckoutRequest request,
         [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
     {
-        var result = await checkouts.CreateWalletTopUpAsync(request.Points, key, User.RequireUserId(), ct);
+        var actorId = User.RequireUserId();
+        var staff = User.IsInRole(SportHubRoleNames.Receptionist);
+        var memberId = staff ? request.TargetMemberId ?? throw new BadRequestException(
+            "target_member_required", "Target member required.") : actorId;
+        if (!staff && request.TargetMemberId is Guid target && target != actorId)
+            throw new ForbiddenException("target_member_forbidden", "Target member forbidden.");
+        var result = await checkouts.CreateWalletTopUpAsync(request.Points, key, memberId, actorId, ct);
         return Created($"/api/checkouts/{result.InvoiceId}", result);
     }
 
@@ -224,4 +230,4 @@ public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
 
 public sealed record VerifyPaymentReferenceRequest(string Reference);
 public sealed record CancelPaymentReferenceRequest(Dictionary<string, string>? Fields);
-public sealed record WalletTopUpCheckoutRequest(int Points);
+public sealed record WalletTopUpCheckoutRequest(int Points, Guid? TargetMemberId = null);

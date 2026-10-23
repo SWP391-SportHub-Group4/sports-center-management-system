@@ -531,7 +531,7 @@ Cập nhật M06 theo yêu cầu đã xác nhận: phải xét lớp Met/Waived 
 |---|---|
 | Tác nhân | Member |
 | Mức ưu tiên | Required |
-| Tiền điều kiện | Member ACTIVE; sân hợp môn; khung tương lai trống, có giá, trong giờ mở cửa. Mỗi lượt tối đa 4 giờ, đặt trước tối đa 30 ngày theo cấu hình (BR-128). |
+| Tiền điều kiện | Member ACTIVE; sân hợp môn; khung tương lai trống, có giá, trong giờ mở cửa. Mỗi lượt tối đa 4 giờ, chỉ mở 4 ngày lịch kể từ hôm nay (hôm nay và 3 ngày tiếp theo, `rental.advance_days` = 3, BR-128). |
 | Luồng chính | 1. Chọn bộ môn, ngày, sân và khung giờ theo block 60 phút.<br>2. Hệ thống kiểm tra lại tài nguyên và lịch thuê của Member.<br>3. Tính giá từng block, lưu snapshot và tạo hold/checkout.<br>4. Thanh toán theo Flow 3.<br>5. Sau xác minh và fulfillment, tạo lượt thuê xác nhận.<br>6. Hiển thị thành công và gửi thông báo. |
 | Luồng thay thế / ngoại lệ | a. Đặt chồng giờ của cùng Member hoặc sân đã bị chiếm: từ chối.<br>b. Không có giá cho đủ các block: không thanh toán.<br>c. Không yêu cầu gói Gym; thanh toán lỗi không tạo booking xác nhận; callback muộn dùng xử lý hold hết hạn. |
 | Hậu điều kiện | Lượt thuê và giá thanh toán nhất quán; sân được chiếm chỗ đúng thời gian. |
@@ -546,6 +546,16 @@ Cập nhật M06 theo yêu cầu đã xác nhận: phải xét lớp Met/Waived 
 | Luồng chính | 1. Mở My Schedule và chọn lượt thuê.<br>2. Xem sân, bộ môn, thời gian và trạng thái.<br>3. Xem giá theo từng block và tổng snapshot.<br>4. Chọn thao tác hủy khi đủ điều kiện hoặc quay lại lịch. |
 | Luồng thay thế / ngoại lệ | a. Không xem dữ liệu thuê của người khác.<br>b. Giá hiện tại khác bảng giá lúc đặt: dùng snapshot giao dịch.<br>c. Không có lượt thuê: hiển thị trạng thái trống. |
 | Hậu điều kiện | Member tra cứu được dịch vụ đã đặt và giá thực tế. |
+
+### UC-F2-49A — Lễ tân nhận sân và kết thúc lượt thuê
+
+| Mục | Nội dung |
+|---|---|
+| Tác nhân | Receptionist hoặc Center Manager (nhận sân); hệ thống (kết thúc) |
+| Tiền điều kiện | Lượt đã thanh toán và có trạng thái `Confirmed`. |
+| Luồng chính | 1. Dashboard hiển thị lượt thuê sắp tới, nút **Nhận sân** đếm ngược và chỉ bật từ 5 phút trước giờ bắt đầu.<br>2. Khi khách tới, nhân viên bấm **Nhận sân** cho đúng lượt; server kiểm lại trạng thái và thời gian rồi chuyển sang `InUse`.<br>3. Hết giờ, job chuyển `InUse` sang `Completed` và nhả occupancy. |
+| Luồng thay thế / ngoại lệ | a. Bấm trước cửa sổ, sau giờ kết thúc, lượt chưa xác nhận hoặc bấm lặp: trả 409.<br>b. Lượt `Confirmed` hết giờ mà chưa nhận sân: job chuyển sang `NoShow` và nhả occupancy; không tự hoàn tiền.<br>c. Check-in sân tách biệt check-in Gym và không ghi điểm danh lớp. |
+| Hậu điều kiện | Trạng thái phản ánh khách đã nhận sân hay vắng mặt; `Completed` chỉ dành cho lượt đã nhận sân. |
 
 ### UC-F2-50 — Member hủy lượt thuê sân
 

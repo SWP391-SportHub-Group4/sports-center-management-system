@@ -350,7 +350,7 @@ export function InvoiceList({
         />
       )}
 
-      <TableFilters>
+      <TableFilters inline={staff}>
         <label>
           {t.refactor.status}
 

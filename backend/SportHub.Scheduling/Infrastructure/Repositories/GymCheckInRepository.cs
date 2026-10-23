@@ -19,6 +19,7 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
         FROM member_packages
         WHERE member_id = {0} AND status = {1}
           AND start_date <= {2} AND end_date >= {2}
+          AND (expires_at_utc IS NULL OR expires_at_utc > {3})
         LIMIT 1
         FOR SHARE
         """;
@@ -81,7 +82,7 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
         // RemainingSessions vì Membership không có hạn mức buổi.
         var todayLocal = DateOnly.FromDateTime(SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(checkIn.CheckInTime));
         var activePackages = await db.Database
-            .SqlQueryRaw<int>(LockActivePackageSql, checkIn.MemberId, (int)MemberPackageStatus.Active, todayLocal)
+            .SqlQueryRaw<int>(LockActivePackageSql, checkIn.MemberId, (int)MemberPackageStatus.Active, todayLocal, checkIn.CheckInTime)
             .ToListAsync(cancellationToken);
 
         if (activePackages.Count == 0)

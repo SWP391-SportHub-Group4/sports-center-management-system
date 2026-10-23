@@ -5,12 +5,15 @@ namespace SportHub.Membership.Domain.Rules;
 /// <summary>Membership grants access by active status and inclusive Vietnam dates; it has no session quota.</summary>
 public static class MemberPackageRules
 {
-    public static bool IsUsable(MemberPackage package, DateOnly todayLocal)
+    public static bool IsUsable(MemberPackage package, DateOnly todayLocal, DateTime? nowUtc = null)
         => package.Status == MemberPackageStatus.Active
-           && package.StartDate <= todayLocal && todayLocal <= package.EndDate;
+           && package.StartDate <= todayLocal && todayLocal <= package.EndDate
+           && (package.ExpiresAtUtc is null || nowUtc is null || package.ExpiresAtUtc > nowUtc);
 
-    public static bool ShouldExpire(MemberPackage package, DateOnly todayLocal)
-        => package.Status == MemberPackageStatus.Active && todayLocal > package.EndDate;
+    public static bool ShouldExpire(MemberPackage package, DateOnly todayLocal, DateTime? nowUtc = null)
+        => package.Status == MemberPackageStatus.Active
+           && (todayLocal > package.EndDate
+               || (package.ExpiresAtUtc is not null && nowUtc is not null && package.ExpiresAtUtc <= nowUtc));
 
     /// <summary>Gói bán theo tháng (BR-9) lưu thời hạn bằng số ngày danh nghĩa 30/90/180/365; quy ra 1/3/6/12 tháng.</summary>
     public static int DurationMonths(int durationDays)

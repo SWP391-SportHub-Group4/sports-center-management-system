@@ -20,7 +20,7 @@ public sealed record LandingPageDocument(Guid Revision, Dictionary<string, strin
 [Route("api/landing-page")]
 public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter audit, IClock clock) : ControllerBase
 {
-    private static readonly Regex KeyPattern = new(@"^(hero|gallery|bookmarks|arena|booking|faq)\.[a-zA-Z0-9_.]{1,120}$", RegexOptions.Compiled);
+    private static readonly Regex KeyPattern = new(@"^((hero|gallery|bookmarks|arena|booking|faq)\.[a-zA-Z0-9_.]{1,120}|brand\.logo\.image)$", RegexOptions.Compiled);
     private static readonly Regex LegacyGalleryCaption = new(@"^gallery\.photos\.[0-9]+\.(en|vi)$", RegexOptions.Compiled);
     private static readonly Regex SportGalleryImage = new(@"^gallery\.sports\.[1-9][0-9]*\.image$", RegexOptions.Compiled);
 

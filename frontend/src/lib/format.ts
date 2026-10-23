@@ -117,12 +117,13 @@ export const LABELS: Record<string, string> = {
   Void: "Void",
 
   Confirmed: "Confirmed",
+  InUse: "In use",
+  NoShow: "No show",
   CancelledOnTime: "Cancelled on time",
   CancelledLate: "Cancelled late",
 
   Present: "Present",
   Absent: "Absent",
-  NoShow: "No-show",
 
   Scheduled: "Scheduled",
   Rescheduled: "Rescheduled",
@@ -176,6 +177,7 @@ export function chipTone(value: string | null | undefined): string {
     case "Success":
     case "Succeeded":
     case "Confirmed":
+    case "InUse":
     case "Present":
     case "Completed":
     case "Approved":
@@ -189,8 +191,8 @@ export function chipTone(value: string | null | undefined): string {
       return "chip--warn";
     case "Expired":
     case "Cancelled":
-    case "CancelledLate":
     case "NoShow":
+    case "CancelledLate":
     case "Void":
     case "Rejected":
     case "Banned":

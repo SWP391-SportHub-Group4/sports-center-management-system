@@ -1,4 +1,5 @@
 "use client";
+
 import { hasService } from "@/lib/sports";
 import { pagedItems } from "@/lib/paged";
 import { useEffect, useState } from "react";
@@ -298,7 +299,7 @@ export function PlanSales({
                       {
                         label: "Lưu ý trước khi thanh toán",
                         value:
-                          "Vé Gym 1 ngày và mã check-in chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam). Hãy thông báo điều này cho Member trước khi thu tiền.",
+                          "Vé Gym 1 ngày chỉ có hiệu lực 24 giờ kể từ lúc thanh toán thành công. Hãy thông báo điều này cho Member trước khi thu tiền.",
                       },
                     ]
                   : []),
@@ -336,60 +337,233 @@ export function MemberWallet({ memberId }: { memberId: string }) {
     </>
   );
 }
+
+
 export function GymVisits({ memberId }: { memberId: string }) {
   const { t } = useLanguage();
   const l = t.operations;
-  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 10;
+
+  const [membershipPage, setMembershipPage] = useState(1);
+  const [checkinPage, setCheckinPage] = useState(1);
+
+  const [packageSearch, setPackageSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [endFilter, setEndFilter] = useState("");
+
   const packages = useApi(
-    (s) =>
-      api.get<MemberPackageDto[]>(`/api/members/${memberId}/packages`, {
-        signal: s,
-      }),
+    (signal) =>
+      api.get<MemberPackageDto[]>(
+        `/api/members/${memberId}/packages`,
+        { signal },
+      ),
     [memberId],
   );
+
   const history = useApi(
-    (s) =>
-      api.get<Paged<GymCheckInDto>>(`/api/members/${memberId}/gym-checkins`, {
-        signal: s,
-        query: { page, pageSize: 20 },
-      }),
-    [memberId, page],
+    (signal) =>
+      api.get<Paged<GymCheckInDto>>(
+        `/api/members/${memberId}/gym-checkins`,
+        {
+          signal,
+          query: {
+            page: checkinPage,
+            pageSize: PAGE_SIZE,
+          },
+        },
+      ),
+    [memberId, checkinPage],
   );
+
+  const allPackages = packages.data ?? [];
+
+  const statusOptions = [
+    ...new Set(allPackages.map((p) => p.status)),
+  ].sort();
+
+  const filteredPackages = allPackages.filter((p) => {
+    const search = packageSearch.trim().toLowerCase();
+
+    const matchesName =
+      !search ||
+      p.packageName.toLowerCase().includes(search);
+
+    const matchesStatus =
+      !statusFilter ||
+      p.status === statusFilter;
+
+    const matchesEnd =
+      !endFilter ||
+      String(p.endDate).slice(0, 10) === endFilter;
+
+    return matchesName && matchesStatus && matchesEnd;
+  });
+
+  const membershipTotalPages = Math.max(
+    1,
+    Math.ceil(filteredPackages.length / PAGE_SIZE),
+  );
+
+  const currentMembershipPage = Math.min(
+    membershipPage,
+    membershipTotalPages,
+  );
+
+  const visiblePackages = filteredPackages.slice(
+    (currentMembershipPage - 1) * PAGE_SIZE,
+    currentMembershipPage * PAGE_SIZE,
+  );
+
+  function resetMembershipFilters() {
+    setPackageSearch("");
+    setStatusFilter("");
+    setEndFilter("");
+    setMembershipPage(1);
+  }
+
+  const hasActiveFilters =
+    packageSearch.trim() !== "" ||
+    statusFilter !== "" ||
+    endFilter !== "";
+
   return (
-    <>
-      <AsyncSection state={packages}>
-        {(rows) => (
-          <Table headers={[l.gym, l.status, l.end]}>
-            {rows.map((p) => (
-              <tr key={p.memberPackageId}>
-                <td>{p.packageName}</td>
-                <td>
-                  <StatusChip value={p.status} />
-                </td>
-                <td>{formatDate(p.endDate)}</td>
-              </tr>
-            ))}
-          </Table>
-        )}
-      </AsyncSection>
-      <AsyncSection state={history}>
-        {(data) => (
-          <>
-            <Table headers={[l.start]}>
-              {pagedItems(data).map((v) => (
-                <tr key={v.checkInId}>
-                  <td>{formatDateTime(v.checkInTime)}</td>
-                </tr>
-              ))}
-            </Table>
-            <Pagination
-              page={page}
-              count={data.totalCount}
-              onChange={setPage}
+    <div className={styles.gymVisitsGrid}>
+      <section className={styles.gymVisitsColumn}>
+        <h3 className={styles.gymVisitsTitle}>
+          Gym membership
+        </h3>
+
+        <div className={styles.gymMembershipFilters}>
+          <label>
+            Membership
+            <input
+              type="search"
+              placeholder="Search packages"
+              value={packageSearch}
+              onChange={(event) => {
+                setPackageSearch(event.target.value);
+                setMembershipPage(1);
+              }}
             />
-          </>
+          </label>
+
+          <label>
+            Status
+            <select
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value);
+                setMembershipPage(1);
+              }}
+            >
+              <option value="">All statuses</option>
+
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            End
+            <input
+              type="date"
+              value={endFilter}
+              onChange={(event) => {
+                setEndFilter(event.target.value);
+                setMembershipPage(1);
+              }}
+            />
+          </label>
+        </div>
+
+        {hasActiveFilters && (
+          <div className={styles.gymFilterActions}>
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={resetMembershipFilters}
+            >
+              Clear filters
+            </button>
+          </div>
         )}
-      </AsyncSection>
-    </>
+
+        <AsyncSection state={packages}>
+          {() => (
+            <>
+              <div className={styles.gymVisitsTableScroll}>
+                <Table headers={[l.gym, l.status, l.end]}>
+                  {visiblePackages.map((p) => (
+                    <tr key={p.memberPackageId}>
+                      <td>{p.packageName}</td>
+
+                      <td>
+                        <StatusChip value={p.status} />
+                      </td>
+
+                      <td>{formatDate(p.endDate)}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+
+              {filteredPackages.length === 0 && (
+                <p className={styles.gymVisitsEmpty}>
+                  No memberships match these filters.
+                </p>
+              )}
+
+              <Pagination
+                page={currentMembershipPage}
+                count={filteredPackages.length}
+                size={PAGE_SIZE}
+                onChange={setMembershipPage}
+              />
+            </>
+          )}
+        </AsyncSection>
+      </section>
+
+      <section className={styles.gymVisitsColumn}>
+        <h3 className={styles.gymVisitsTitle}>
+          Gym check-ins
+        </h3>
+
+        <AsyncSection state={history}>
+          {(data) => (
+            <>
+              <div className={styles.gymVisitsTableScroll}>
+                <Table headers={[l.start]}>
+                  {pagedItems(data).map((visit) => (
+                    <tr key={visit.checkInId}>
+                      <td>
+                        {formatDateTime(visit.checkInTime)}
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+
+              {pagedItems(data).length === 0 && (
+                <p className={styles.gymVisitsEmpty}>
+                  No gym check-ins found.
+                </p>
+              )}
+
+              <Pagination
+                page={checkinPage}
+                count={data.totalCount}
+                size={PAGE_SIZE}
+                onChange={setCheckinPage}
+              />
+            </>
+          )}
+        </AsyncSection>
+      </section>
+    </div>
   );
 }

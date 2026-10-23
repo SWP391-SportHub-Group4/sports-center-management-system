@@ -114,7 +114,7 @@ export function RefundCancelDialog({
       : tx("Hủy ghi danh lớp", "Cancel class enrollment");
 
   return (
-    <Dialog title={title} size="sm" onClose={onClose} closeIconOnly={kind === "gym"}>
+    <Dialog title={title} size="sm" onClose={onClose} closeIconOnly>
       <div className={styles.body}>
         <p className={styles.name}>{target.name}</p>
         {result ? (
@@ -236,15 +236,6 @@ export function RefundCancelDialog({
               >
                 {tx("Xác nhận hủy", "Confirm cancellation")}
               </button>
-              {kind !== "gym" && (
-                <button
-                  type="button"
-                  className="btn btn--quiet"
-                  onClick={onClose}
-                >
-                  {tx("Giữ lớp", "Keep class")}
-                </button>
-              )}
             </div>
           </>
         )}

@@ -46,17 +46,21 @@ export function SalesDesk() {
         hideLabel
       />
       {member && requestedTab !== "courts" && (
-        <SubNav
-          view={view}
-          onChange={setView}
-          vi={language === "vi"}
-          label={language === "vi" ? "Trang dịch vụ" : "Services pages"}
-          labels={{
-            owned:
-              language === "vi" ? "Dịch vụ của hội viên" : "Member's services",
-            explore: language === "vi" ? "Gói dịch vụ" : "Packages",
-          }}
-        />
+        <div className={styles.salesNav}>
+          <SubNav
+            view={view}
+            onChange={setView}
+            vi={language === "vi"}
+            label={language === "vi" ? "Trang dịch vụ" : "Services pages"}
+            labels={{
+              owned:
+                language === "vi"
+                  ? "Dịch vụ của hội viên"
+                  : "Member's services",
+              explore: language === "vi" ? "Gói dịch vụ" : "Packages",
+            }}
+          />
+        </div>
       )}
       {member ? (
         requestedTab === "courts" ? (

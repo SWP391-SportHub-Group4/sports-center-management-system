@@ -1,13 +1,15 @@
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.API.Jobs;
 
-/// <summary>Expires Memberships by Vietnam date and queues one reminder; legacy session counters have no effect.</summary>
+/// <summary>Expires memberships by Vietnam date and queues one reminder per channel and package.</summary>
 public sealed class MemberPackageExpiryJob(
     IServiceProvider services,
     ILogger<MemberPackageExpiryJob> logger)
@@ -28,7 +30,8 @@ public sealed class MemberPackageExpiryJob(
         // trong một ngày có thể lớn và không cần vật chất hoá cái nào.
         var expired = await db.MemberPackages
             .Where(mp => mp.Status == MemberPackageStatus.Active
-                         && mp.EndDate < today)
+                         && (mp.EndDate < today
+                             || (mp.ExpiresAtUtc != null && mp.ExpiresAtUtc <= clock.UtcNow)))
             .ExecuteUpdateAsync(
                 s => s.SetProperty(mp => mp.Status, MemberPackageStatus.Expired), ct);
 
@@ -46,7 +49,11 @@ public sealed class MemberPackageExpiryJob(
                          && mp.EndDate <= threshold
                          // Vé Gym 1 ngày hết hạn ngay trong ngày mua: không nhắc gia hạn.
                          && mp.PackageId != SportHub.Membership.Domain.DayPass.PackageId)
-            .Select(mp => new { mp.MemberPackageId, mp.MemberId, mp.EndDate, PackageName = mp.Package!.Name })
+            .Select(mp => new
+            {
+                mp.MemberPackageId, mp.MemberId, mp.EndDate, PackageName = mp.Package!.Name,
+                MemberEmail = mp.Member!.Email
+            })
             .ToListAsync(ct);
 
         if (expiring.Count == 0)
@@ -56,31 +63,50 @@ public sealed class MemberPackageExpiryJob(
 
         var packageIds = expiring.Select(e => e.MemberPackageId).ToList();
 
-        // Không nhắc lại gói đã nhắc: job chạy mỗi 15 phút, thiếu bước này thì hội viên nhận
-        // gần 100 thông báo giống hệt nhau mỗi ngày.
+        // Check each channel separately so older in-app reminders can receive the missing email.
         var alreadyNotified = await db.Notifications
             .Where(n => n.SourceEventType == Notification.Domain.Enums.NotificationSourceEventType.PackageExpiring
                         && n.SourceEntityId != null
                         && packageIds.Contains(n.SourceEntityId.Value))
-            .Select(n => n.SourceEntityId!.Value)
+            .Select(n => new { PackageId = n.SourceEntityId!.Value, n.Channel })
             .ToListAsync(ct);
 
-        var pending = expiring.Where(e => !alreadyNotified.Contains(e.MemberPackageId)).ToList();
+        var notified = alreadyNotified.Select(n => (n.PackageId, n.Channel)).ToHashSet();
+        var queued = 0;
 
-        foreach (var item in pending)
+        foreach (var item in expiring)
         {
-            notifications.Queue(new NotificationRequest(
-                item.MemberId,
-                NotificationEvents.PackageExpiring,
-                $"Your package {item.PackageName} expires on {item.EndDate:dd/MM/yyyy}. "
-                + "Contact reception to renew it if you want to continue training.",
-                item.MemberPackageId));
+            var message = $"Your package {item.PackageName} expires on {item.EndDate:dd/MM/yyyy}. "
+                + "Contact reception to renew it if you want to continue training.";
+
+            if (!notified.Contains((item.MemberPackageId, NotificationChannel.InApp)))
+            {
+                notifications.Queue(new NotificationRequest(
+                    item.MemberId, NotificationEvents.PackageExpiring, message, item.MemberPackageId));
+                queued++;
+            }
+
+            if (!notified.Contains((item.MemberPackageId, NotificationChannel.Email))
+                && !string.IsNullOrWhiteSpace(item.MemberEmail))
+            {
+                var safePackageName = WebUtility.HtmlEncode(item.PackageName);
+                notifications.QueueEmail(new EmailNotificationRequest(
+                    item.MemberId,
+                    item.MemberEmail,
+                    NotificationEvents.PackageExpiring,
+                    item.MemberPackageId,
+                    "SportHub - Your membership is expiring soon",
+                    $"<p>Your package <strong>{safePackageName}</strong> expires on "
+                    + $"<strong>{item.EndDate:dd/MM/yyyy}</strong>.</p>"
+                    + "<p>Contact reception to renew it if you want to continue training.</p>"));
+                queued++;
+            }
         }
 
-        if (pending.Count > 0)
+        if (queued > 0)
         {
             await db.SaveChangesAsync(ct);
-            logger.LogInformation("BR-33: created {Count} package expiry notices.", pending.Count);
+            logger.LogInformation("BR-33: created {Count} package expiry notices.", queued);
         }
     }
 }

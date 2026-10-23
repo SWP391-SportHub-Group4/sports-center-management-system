@@ -6,7 +6,6 @@ import {
 import { paymentApi, type PurchaseIntent } from "./api";
 export type { PurchaseIntent } from "./api";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { PaymentAttemptPanel } from "./payment-attempt-panel";
 import { PaymentResult } from "./payment-result";
 import { openPaymentGateway } from "./gateway-navigation";
 import { PointsSelector } from "./points-selector";
@@ -287,7 +286,8 @@ function CheckoutFlow({
     }
   }
   function rememberInvoice(nextId: string) {
-    if (!modal) {
+    // Lễ tân bán hộ (memberId) ở lại màn đang làm việc: /checkout/... là trang công khai nên sẽ văng ra landing.
+    if (!modal && !memberId) {
       window.history.replaceState(null, "", `/checkout/${nextId}`);
       return;
     }
@@ -823,8 +823,7 @@ function CheckoutFlow({
                       const nextAttempt = await paymentApi.attempt(id!);
                       setAttempt(nextAttempt);
                       setLockedSessionId(checkout.checkoutSessionId);
-                      if (user?.role === "Member")
-                        openPaymentGateway(nextAttempt);
+                      openPaymentGateway(nextAttempt);
                     }
                   })
                 }
@@ -847,6 +846,7 @@ function CheckoutFlow({
                 onClick={() =>
                   run(async () => {
                     await api.post(`/api/checkouts/${id}/cancel`);
+                    forgetRememberedInvoice();
                     setAttempt(null);
                     setConfirmation(null);
                     await refresh();
@@ -856,19 +856,7 @@ function CheckoutFlow({
                 {l.cancel}
               </Button>
             </div>
-            {user?.role !== "Member" &&
-              attempt &&
-              checkout.cashAmount > 0 &&
-              attempt.cashAmount === checkout.cashAmount &&
-              attempt.pointsApplied === checkout.pointsApplied &&
-              Date.parse(attempt.expiresAtUtc) > serverNow && (
-                <div className={styles.attempt}>
-                  <PaymentAttemptPanel
-                    key={attempt.paymentAttemptId}
-                    attempt={attempt}
-                  />
-                </div>
-              )}
+
           </section>
         )}
         {showExpiredRetry && (
@@ -992,7 +980,8 @@ export function CheckoutPanel(props: {
 }) {
   const { user } = useAuth();
   const [resumeInvoiceId] = useState(() => {
-    if (!props.modal || typeof window === "undefined") return undefined;
+    if (!(props.modal || props.memberId) || typeof window === "undefined")
+      return undefined;
     const query = new URLSearchParams(window.location.search);
     return query.get("checkoutIntent") === JSON.stringify(props.intent ?? null)
       ? (query.get("checkout") ?? undefined)

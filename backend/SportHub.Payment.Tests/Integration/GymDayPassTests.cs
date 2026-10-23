@@ -12,6 +12,7 @@ using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Notification.Domain.Enums;
 using SportHub.Payment.Application.DTOs.Checkouts;
 using SportHub.Payment.Domain.Enums;
 
@@ -21,7 +22,7 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class GymDayPassTests(PaymentApiFactory factory)
 {
     [Fact]
-    public async Task Paid_day_pass_starts_today_even_when_member_has_a_long_membership()
+    public async Task Paid_day_pass_starts_today_and_last_24_hours_even_when_member_has_a_long_membership()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
@@ -74,11 +75,11 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
                 && x.PackageId == DayPass.PackageId);
             Assert.Equal(MemberPackageStatus.Active, pass.Status);
             Assert.Equal(today, pass.StartDate);
-            Assert.Equal(today, pass.EndDate);
-            // Member được báo rõ vé và mã check-in chỉ dùng trong ngày (thông báo trong app và email).
+            Assert.Equal(today.AddDays(1), pass.EndDate);
+            // Member receives the 24-hour validity and check-in instructions in app and by email.
             var notices = await db.Notifications.Where(n => n.UserId == member.UserId && n.SourceEntityId == pass.MemberPackageId).ToListAsync();
             Assert.True(notices.Count >= 2);
-            Assert.Contains(notices, n => n.Message.Contains("valid only today"));
+            Assert.Contains(notices, n => n.Message.Contains("valid for 24 hours"));
             return 0;
         });
     }
@@ -161,6 +162,52 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         await factory.QueryAsync(async db =>
         {
             Assert.False(await db.Notifications.AnyAsync(n => n.UserId == member.UserId && n.SourceEntityId == pass.MemberPackageId));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Expiry_job_queues_one_in_app_and_email_reminder_ten_days_before_expiry()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+        var packageId = await factory.QueryAsync(async db =>
+        {
+            var plan = new MembershipPackage
+            {
+                Name = "Expiry reminder " + Guid.NewGuid().ToString("N"),
+                Price = 600_000m, DurationDays = 30, IsActive = true
+            };
+            db.MembershipPackages.Add(plan);
+            await db.SaveChangesAsync();
+            var membership = new MemberPackage
+            {
+                MemberPackageId = Guid.NewGuid(), MemberId = member.UserId,
+                PackageId = plan.PackageId, Status = MemberPackageStatus.Active,
+                StartDate = today.AddDays(-19), EndDate = today.AddDays(10)
+            };
+            db.MemberPackages.Add(membership);
+            await db.SaveChangesAsync();
+            return membership.MemberPackageId;
+        });
+
+        var job = new SportHub.API.Jobs.MemberPackageExpiryJob(factory.Services, NullLogger<SportHub.API.Jobs.MemberPackageExpiryJob>.Instance);
+        var run = typeof(SportHub.API.Jobs.MemberPackageExpiryJob)
+            .GetMethod("RunOnceAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            using var scope = factory.Services.CreateScope();
+            await (Task)run.Invoke(job, [scope.ServiceProvider, CancellationToken.None])!;
+        }
+
+        await factory.QueryAsync(async db =>
+        {
+            var notices = await db.Notifications.Where(n => n.SourceEntityId == packageId
+                && n.SourceEventType == NotificationSourceEventType.PackageExpiring).ToListAsync();
+            Assert.Single(notices, n => n.Channel == NotificationChannel.InApp);
+            var email = Assert.Single(notices, n => n.Channel == NotificationChannel.Email);
+            Assert.Equal(member.Email, email.RecipientAddress);
+            Assert.NotNull(email.ProtectedEmailPayload);
             return 0;
         });
     }

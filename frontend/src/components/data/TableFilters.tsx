@@ -8,12 +8,24 @@ import styles from "./TableFilters.module.css";
 export function TableFilters({
   children,
   activeCount = 0,
+  inline = false,
 }: {
   children: ReactNode;
   activeCount?: number;
+  inline?: boolean;
 }) {
   const { t } = useLanguage();
   const details = useRef<HTMLDetailsElement>(null);
+  if (inline)
+    return (
+      <div
+        className={`${styles.root} ${styles.inline}`}
+        role="group"
+        aria-label={t.common.filter}
+      >
+        {children}
+      </div>
+    );
   return (
     <details
       ref={details}

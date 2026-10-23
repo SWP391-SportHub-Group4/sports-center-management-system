@@ -26,7 +26,7 @@ public sealed class MemberPackageService(
             .AsNoTracking()
             .Where(mp => mp.MemberId == memberId)
             .OrderByDescending(mp => mp.StartDate)
-            .Select(Projection(today))
+            .Select(Projection(today, clock.UtcNow))
             .ToListAsync(ct);
     }
 
@@ -67,7 +67,7 @@ public sealed class MemberPackageService(
             .OrderByDescending(mp => mp.StartDate)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(Projection(today))
+            .Select(Projection(today, clock.UtcNow))
             .ToListAsync(ct);
 
         return new PagedResult<MemberPackageResponse>
@@ -99,7 +99,7 @@ public sealed class MemberPackageService(
         return await db.Set<MemberPackage>()
                    .AsNoTracking()
                    .Where(mp => mp.MemberPackageId == memberPackageId)
-                   .Select(Projection(today))
+                   .Select(Projection(today, clock.UtcNow))
                    .SingleOrDefaultAsync(ct)
                ?? throw new NotFoundException("member_package_not_found", "Member package not found.");
     }
@@ -112,7 +112,7 @@ public sealed class MemberPackageService(
     // IsUsable lặp lại điều kiện BR-9 dưới dạng biểu thức LINQ thay vì gọi
     // MemberPackageRules.IsUsable — hàm C# không dịch được sang SQL. Hai nơi phải khớp nhau;
     // MemberPackageRulesTests khoá định nghĩa gốc.
-    private static System.Linq.Expressions.Expression<Func<MemberPackage, MemberPackageResponse>> Projection(DateOnly today)
+    private static System.Linq.Expressions.Expression<Func<MemberPackage, MemberPackageResponse>> Projection(DateOnly today, DateTime nowUtc)
         => mp => new MemberPackageResponse(
             mp.MemberPackageId,
             mp.MemberId,
@@ -127,8 +127,10 @@ public sealed class MemberPackageService(
             mp.Status.ToString(),
             mp.Status == MemberPackageStatus.Active
             && mp.StartDate <= today
-            && today <= mp.EndDate,
+            && today <= mp.EndDate
+            && (mp.ExpiresAtUtc == null || mp.ExpiresAtUtc > nowUtc),
             mp.StackingApprovedByUserId != null,
             mp.StackingApprovalReason,
-            mp.InvoiceItemId);
+            mp.InvoiceItemId,
+            mp.ExpiresAtUtc);
 }

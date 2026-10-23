@@ -445,7 +445,7 @@ public sealed class ClassEnrollmentFulfillment(
         var classTo = sessions.Max(s => s.EndAtUtc);
         var rentals = await db.Set<CourtRental>().AsNoTracking()
             .Where(r => r.MemberId == memberId
-                && (r.Status == CourtRentalStatus.Confirmed || r.Status == CourtRentalStatus.PendingPayment)
+                && (r.Status == CourtRentalStatus.Confirmed || r.Status == CourtRentalStatus.InUse || r.Status == CourtRentalStatus.PendingPayment)
                 && r.StartAtUtc < classTo && r.EndAtUtc > classFrom)
             .Select(r => new { r.StartAtUtc, r.EndAtUtc })
             .ToListAsync(ct);

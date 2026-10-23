@@ -68,7 +68,7 @@ export const faqCopy = {
       {
         question: "Tôi có thể mua vé Gym 1 ngày không?",
         answer:
-          "Có. Vé Gym 1 ngày giá 50.000đ và chỉ dùng trong ngày thanh toán thành công (giờ Việt Nam).",
+          "Có. Vé Gym 1 ngày giá 50.000đ và có hiệu lực 24 giờ kể từ lúc thanh toán thành công.",
         link: "Xem vé Gym",
         href: "/member/services?view=explore&type=gym",
       },

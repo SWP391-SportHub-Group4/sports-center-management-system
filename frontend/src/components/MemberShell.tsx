@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ReceiptText } from "lucide-react";
+import { LifeBuoy, ReceiptText } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -125,6 +125,7 @@ export function MemberFrame({
     also: ["/member/invoices", "/member/wallet"],
   });
   const fitnessProfileActive = pathname === "/member/profile";
+  const helpActive = pathname === "/member/help";
 
   // Authentication & Role check
   useEffect(() => {
@@ -307,6 +308,16 @@ export function MemberFrame({
                     <span>{t.finance.title}</span>
                   </Link>
 
+                  <Link
+                    href="/member/help"
+                    className={styles.dropdownItem}
+                    aria-current={helpActive ? "page" : undefined}
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <LifeBuoy size={15} aria-hidden="true" />
+                    <span>Help</span>
+                  </Link>
+
                   <div className={styles.dropdownDivider} />
 
                   <button
@@ -417,6 +428,19 @@ export function MemberFrame({
                   aria-hidden="true"
                 />
                 <span>{t.finance.title}</span>
+              </Link>
+              <Link
+                href="/member/help"
+                className={`${styles.mobileNavLink} ${helpActive ? styles.mobileNavLinkActive : ""}`}
+                aria-current={helpActive ? "page" : undefined}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <LifeBuoy
+                  size={16}
+                  style={{ marginRight: 8 }}
+                  aria-hidden="true"
+                />
+                <span>Help</span>
               </Link>
               <button
                 type="button"

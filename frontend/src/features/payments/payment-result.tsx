@@ -25,6 +25,7 @@ export function PaymentResult({
   cancelled = false,
   error = "",
   onRefresh,
+  staffMemberId,
 }: {
   checkout: CheckoutDto;
   detail?: InvoiceDetailDto | null;
@@ -32,6 +33,7 @@ export function PaymentResult({
   cancelled?: boolean;
   error?: string;
   onRefresh: () => void;
+  staffMemberId?: string;
 }) {
   const phase = derivePhase(checkout);
   const paid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(
@@ -60,7 +62,9 @@ export function PaymentResult({
     ? "You cancelled this payment on VNPay and nothing was charged. Your order is still open, so you can pay again before it expires."
     : complete
       ? checkout.kind === "WALLET_TOP_UP"
-        ? "Your points have been added to your wallet."
+        ? staffMemberId
+          ? "The points have been added to the member's wallet."
+          : "Your points have been added to your wallet."
         : checkout.kind === "COURT_RENTAL"
           ? "Your court booking is confirmed. Your next session is waiting in My schedule."
           : checkout.kind === "CLASS"
@@ -80,18 +84,24 @@ export function PaymentResult({
     if (complete) heading.current?.focus({ preventScroll: true });
   }, [complete]);
   const nextHref =
-    checkout.kind === "WALLET_TOP_UP"
-      ? "/member/finance?tab=wallet"
-      : checkout.kind === "MEMBERSHIP"
-        ? "/member/services?tab=gym"
-        : "/member/schedule";
+    staffMemberId && checkout.kind === "WALLET_TOP_UP"
+      ? `/receptionist/members/${staffMemberId}?tab=wallet`
+      : checkout.kind === "WALLET_TOP_UP"
+        ? "/member/finance?tab=wallet"
+        : checkout.kind === "MEMBERSHIP"
+          ? "/member/services?tab=gym"
+          : "/member/schedule";
   const nextLabel =
-    checkout.kind === "WALLET_TOP_UP"
-      ? "View points wallet"
-      : checkout.kind === "MEMBERSHIP"
-        ? "View membership"
-        : "View my schedule";
-  const invoiceHref = `/member/finance?tab=invoices&invoice=${checkout.invoiceId}`;
+    staffMemberId && checkout.kind === "WALLET_TOP_UP"
+      ? "View member's points"
+      : checkout.kind === "WALLET_TOP_UP"
+        ? "View points wallet"
+        : checkout.kind === "MEMBERSHIP"
+          ? "View membership"
+          : "View my schedule";
+  const invoiceHref = staffMemberId
+    ? `/receptionist/members/${staffMemberId}?tab=invoices`
+    : `/member/finance?tab=invoices&invoice=${checkout.invoiceId}`;
   const payment = detail?.payments.find(
     (p) => p.status === "SUCCESS" || p.status === "SUCCEEDED",
   );
@@ -140,7 +150,11 @@ export function PaymentResult({
           </Link>
         ) : compensated ? (
           <Link
-            href="/member/finance?tab=wallet"
+            href={
+              staffMemberId
+                ? `/receptionist/members/${staffMemberId}?tab=wallet`
+                : "/member/finance?tab=wallet"
+            }
             className={buttonClass({ size: "lg", className: styles.primary })}
           >
             View points wallet
@@ -165,7 +179,12 @@ export function PaymentResult({
             {checking ? "Checking payment" : "Check payment again"}
           </Button>
         )}
-        <Link href="/member" className={styles.back}>
+        <Link
+          href={
+            staffMemberId ? `/receptionist/members/${staffMemberId}` : "/member"
+          }
+          className={styles.back}
+        >
           <ArrowLeft size={16} aria-hidden="true" />
           Back to dashboard
         </Link>

@@ -13,3 +13,75 @@
 .plans :global(td:nth-child(2)) {
   white-space: nowrap;
 }
+
+.gymVisitsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+  width: 100%;
+}
+
+.gymVisitsColumn {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+.gymVisitsTitle {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.gymMembershipFilters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.gymMembershipFilters label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-body);
+}
+
+.gymMembershipFilters input,
+.gymMembershipFilters select {
+  width: 100%;
+  min-width: 0;
+}
+
+.gymFilterActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.gymVisitsTableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.gymVisitsEmpty {
+  margin: 12px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .gymVisitsGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gymMembershipFilters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
