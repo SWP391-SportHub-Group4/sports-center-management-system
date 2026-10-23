@@ -12,6 +12,7 @@ SportHub là web quản lý trung tâm Gym, cầu lông và bóng rổ. Frontend
 | Member | Mua Membership/vé Gym/lớp, thuê sân; checkout; xem ví, hóa đơn, lịch, thông báo và nội dung lớp còn quyền; hỏi AI theo dữ liệu được phép. |
 | Receptionist | Đăng ký/tìm Member tại quầy, bán hộ, check-in/out Gym, điểm danh, xử lý hỗ trợ và đối soát khoản đã trả chưa cấp dịch vụ; chỉ tra cứu tài khoản Member. |
 | Coach | Xem lớp và học viên đúng phân công; báo vắng/rút báo vắng đang Pending; điểm danh, lập plan, ghi result/nhận xét, giao homework và gửi thông báo đúng phạm vi. |
+| Coach — hồ sơ thành tích | Tự tải chứng chỉ/giấy khen lên Cloudinary; nhập tên, đơn vị cấp, ngày cấp; sửa thông tin, chọn hiển thị công khai hoặc gỡ tài liệu của mình. Hỗ trợ JPG/PNG/WebP/PDF, tối đa 10 MiB/tài liệu và 20 tài liệu. Guest/Member chỉ xem tài liệu đã công khai của Coach đang hoạt động, mở bản gốc giữ tỉ lệ. Đây là tài liệu Coach cung cấp; hệ thống không gắn trạng thái xác minh. |
 | CenterManager | Quản lý vận hành, lớp/lịch/Coach/sân/phòng/giá/cấu hình; xử lý sự cố, lớp dưới ngưỡng, hoàn điểm, báo cáo và audit thuộc phạm vi Manager. |
 | SystemAdministrator | Tạo/kích hoạt/quản lý tài khoản staff, đổi role staff hợp lệ, khóa/mở khóa và xem audit thuộc phạm vi Admin. Không mặc nhiên có quyền vận hành của Manager. |
 

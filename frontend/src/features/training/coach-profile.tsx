@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AvatarImage } from "@/components/AvatarImage";
+import { CoachCredentialsShowcase } from "@/components/coach-credentials/coach-credentials";
 import { AsyncSection } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -107,6 +108,7 @@ export function CoachProfile({
                     </p>
                   )}
                 </section>
+                <CoachCredentialsShowcase coachId={coachId} />
               </div>
             </div>
           );
