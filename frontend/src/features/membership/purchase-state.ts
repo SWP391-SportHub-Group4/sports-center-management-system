@@ -8,11 +8,15 @@ export function membershipPurchaseState(
   owned: readonly MemberPackageDto[],
   packageId: number,
   today: string,
+  nowUtc = Date.now(),
 ) {
   const matching = owned.filter((row) => row.packageId === packageId);
   const active = matching
     .filter(
-      (row) => statusOf(row) === "ACTIVE" && row.endDate.slice(0, 10) >= today,
+      (row) =>
+        statusOf(row) === "ACTIVE" &&
+        row.endDate.slice(0, 10) >= today &&
+        (!row.expiresAtUtc || Date.parse(row.expiresAtUtc) > nowUtc),
     )
     .sort((a, b) => b.endDate.localeCompare(a.endDate))[0];
   return {

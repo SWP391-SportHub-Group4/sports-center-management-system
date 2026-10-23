@@ -13,7 +13,12 @@ import {
 import { Dialog } from "@/components/ui";
 import { CheckoutPanel, type PurchaseIntent } from "@/features/payments";
 import { api } from "@/lib/apiClient";
-import { addDaysIso, formatDate, formatMoney } from "@/lib/format";
+import {
+  addDaysIso,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+} from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { hasService } from "@/lib/sports";
 import { useApi } from "@/lib/useApi";
@@ -112,7 +117,7 @@ export function ExplorePackages({
       ).filter((row) => !isRetiredActivityPackage(row.packageName)),
     [staffMemberId],
   );
-  const today = useMembershipDay(owned.reload);
+  const { today, now } = useMembershipDay(owned.reload, owned.data ?? []);
   const catalog = useApi(
     async (signal) =>
       parseMembershipCatalog(
@@ -296,6 +301,7 @@ export function ExplorePackages({
                       owned.data ?? [],
                       p.packageId,
                       today,
+                      now,
                     )}
                     ownershipLoading={owned.loading}
                     today={today}
@@ -367,9 +373,15 @@ export function ExplorePackages({
                         ? enrolledClassIds.has(c.classId)
                           ? tx("Đã đăng ký", "Already enrolled")
                           : staffEnrollments.error
-                            ? tx("Không thể kiểm tra ghi danh", "Cannot check enrollment")
+                            ? tx(
+                                "Không thể kiểm tra ghi danh",
+                                "Cannot check enrollment",
+                              )
                             : !staffEnrollments.data
-                              ? tx("Đang kiểm tra ghi danh", "Checking enrollment")
+                              ? tx(
+                                  "Đang kiểm tra ghi danh",
+                                  "Checking enrollment",
+                                )
                               : null
                         : null
                     }
@@ -567,7 +579,10 @@ function GymTier({
               ? tx("Đang dùng", "In use")
               : tx("Đã mua", "Purchased")}
             {" · "}
-            {tx("đến", "until")} {formatDate(active.endDate)}
+            {tx("đến", "until")}{" "}
+            {dayPass && active.expiresAtUtc
+              ? formatDateTime(active.expiresAtUtc)
+              : formatDate(active.endDate)}
           </span>
         )}
       </p>

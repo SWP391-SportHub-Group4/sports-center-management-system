@@ -47,7 +47,9 @@ test("Member experience: resumed day-pass checkout shows its terms before paymen
     }),
   );
   await page.goto(`/checkout/${experienceInvoice}`);
-  await expect(page.getByRole("note")).toContainText("valid only today");
+  await expect(page.getByRole("note")).toContainText(
+    "valid for 24 hours after payment",
+  );
   await expect(page.getByRole("note")).toContainText("not refundable");
   await page.reload();
   await expect(page.getByRole("note")).toContainText("not refundable");
@@ -192,7 +194,10 @@ test("Gym purchase: active day pass is locked and long plans can renew using the
   await page.route("**/api/members/me/packages", (route) =>
     route.fulfill({
       json: [
-        gymPurchase(50000, "Active", "2026-10-15"),
+        {
+          ...gymPurchase(50000, "Active", "2026-10-16"),
+          expiresAtUtc: "2026-10-16T03:00:00Z",
+        },
         gymPurchase(1, "ACTIVE", "2026-10-30"),
         {
           ...gymPurchase(1, "Active", "2026-11-30"),
@@ -210,7 +215,7 @@ test("Gym purchase: active day pass is locked and long plans can renew using the
     day.getByRole("button", { name: "Purchased", exact: true }),
   ).toBeDisabled();
   await expect(
-    day.getByText("Purchased · until 15/10/2026", { exact: true }),
+    day.getByText("Purchased · until 16/10/2026, 10:00", { exact: true }),
   ).toBeVisible();
   await expect(
     monthly.getByRole("button", { name: "Renew plan", exact: true }),
@@ -230,7 +235,10 @@ test("Gym purchase: expired plans hide ownership and the day pass can be bought 
   await page.route("**/api/members/me/packages", (route) =>
     route.fulfill({
       json: [
-        gymPurchase(50000, "ACTIVE", "2026-10-14"),
+        {
+          ...gymPurchase(50000, "ACTIVE", "2026-10-15"),
+          expiresAtUtc: "2026-10-15T09:00:00Z",
+        },
         gymPurchase(1, "Expired", "2026-09-30"),
       ],
     }),
@@ -290,12 +298,19 @@ test("Gym purchase: unpaid and cancelled purchases do not count as paid history"
   expect(checkoutPosts).toBe(1);
 });
 
-test("Gym purchase: day pass expires at Vietnam midnight while the page stays open", async ({
+test("Gym purchase: day pass expires 24 hours after payment while the page stays open", async ({
   page,
 }) => {
-  await page.clock.install({ time: new Date("2026-10-15T16:59:50Z") });
+  await page.clock.install({ time: new Date("2026-10-15T09:59:50Z") });
   await page.route("**/api/members/me/packages", (route) =>
-    route.fulfill({ json: [gymPurchase(50000, "ACTIVE", "2026-10-15")] }),
+    route.fulfill({
+      json: [
+        {
+          ...gymPurchase(50000, "ACTIVE", "2026-10-15"),
+          expiresAtUtc: "2026-10-15T10:00:00Z",
+        },
+      ],
+    }),
   );
   await page.goto("/member/services?type=gym");
   const day = page
@@ -687,7 +702,7 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.locator("#main-content h1")).toBeVisible();
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
-test("Gym day pass clearly warns about same-day use and PT is absent", async ({
+test("Gym day pass clearly states 24-hour use and PT is absent", async ({
   page,
 }) => {
   // Align the browser clock with this test's fixed October membership dates.

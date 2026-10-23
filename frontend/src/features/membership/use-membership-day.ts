@@ -2,36 +2,51 @@
 
 import { useEffect, useState } from "react";
 import { addDaysIso, todayIso } from "@/lib/format";
+import type { MemberPackageDto } from "@/lib/types";
 
-/** Expire day passes at Vietnam midnight, including after returning from the payment gateway. */
-export function useMembershipDay(reload: () => void) {
-  const [today, setToday] = useState(todayIso);
+/** Refresh ownership at Vietnam midnight and when a 24-hour pass expires. */
+export function useMembershipDay(
+  reload: () => void,
+  owned: readonly MemberPackageDto[] = [],
+) {
+  const [clock, setClock] = useState(() => ({
+    today: todayIso(),
+    now: Date.now(),
+  }));
+  const nextExpiry = owned
+    .map((row) => (row.expiresAtUtc ? Date.parse(row.expiresAtUtc) : NaN))
+    .filter((expiry) => Number.isFinite(expiry) && expiry > clock.now)
+    .sort((a, b) => a - b)[0];
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const refresh = () => {
-      setToday(todayIso());
+      setClock({ today: todayIso(), now: Date.now() });
       reload();
     };
-    const scheduleMidnight = () => {
+    const scheduleRefresh = () => {
       const midnight = new Date(
         `${addDaysIso(todayIso(), 1)}T00:00:00+07:00`,
       ).getTime();
+      const deadline = Math.min(
+        midnight,
+        nextExpiry && nextExpiry > Date.now() ? nextExpiry : Infinity,
+      );
       timer = setTimeout(
         () => {
           refresh();
-          scheduleMidnight();
+          scheduleRefresh();
         },
-        Math.max(1, midnight - Date.now() + 25),
+        Math.max(1, deadline - Date.now() + 25),
       );
     };
     const resume = () => {
       if (document.visibilityState === "hidden") return;
       clearTimeout(timer);
       refresh();
-      scheduleMidnight();
+      scheduleRefresh();
     };
-    scheduleMidnight();
+    scheduleRefresh();
     window.addEventListener("focus", resume);
     window.addEventListener("pageshow", resume);
     document.addEventListener("visibilitychange", resume);
@@ -41,7 +56,7 @@ export function useMembershipDay(reload: () => void) {
       window.removeEventListener("pageshow", resume);
       document.removeEventListener("visibilitychange", resume);
     };
-  }, [reload]);
+  }, [reload, nextExpiry]);
 
-  return today;
+  return clock;
 }
