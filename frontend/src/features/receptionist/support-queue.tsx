@@ -5,7 +5,8 @@ import { MessageSquare, Plus, Search, UserRound } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, label } from "@/lib/format";
+import { useLanguage } from "@/lib/language";
 import {
   SUPPORT_CATEGORIES,
   supportCategoryLabel,
@@ -55,11 +56,17 @@ export function SupportQueue({
   workspace = "receptionist",
   onChanged,
 }: {
-  workspace?: "manager" | "receptionist";
+  workspace?: "manager" | "receptionist" | "coach";
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
-  const statusLabel = (status: string) => STATUS_LABELS[status] ?? status;
+  const { t } = useLanguage();
+  const isManager = workspace === "manager";
+  const isCoach = workspace === "coach";
+  const statusLabel = (status: string) =>
+    isManager
+      ? (t.wireStatus[status as keyof typeof t.wireStatus] ?? label(status))
+      : (STATUS_LABELS[status] ?? status);
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -67,10 +74,12 @@ export function SupportQueue({
   );
   const assignees = useApi(
     (signal) =>
-      api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
-        signal,
-      }),
-    [],
+      isCoach
+        ? Promise.resolve([] as SupportAssignee[])
+        : api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
+            signal,
+          }),
+    [isCoach],
   );
   const [filters, setFilters] = useState(emptyFilters);
   const [search, setSearch] = useState("");
@@ -223,23 +232,25 @@ export function SupportQueue({
             ))}
           </select>
         </label>
-        <label>
-          Assigned staff
-          <select
-            value={filters.assignedToUserId}
-            onChange={(e) => patch({ assignedToUserId: e.target.value })}
-          >
-            <option value="">All staff</option>
-            {user && <option value={user.userId}>Assigned to me</option>}
-            {assignees.data
-              ?.filter((x) => x.userId !== user?.userId)
-              .map((x) => (
-                <option key={x.userId} value={x.userId}>
-                  {x.name}
-                </option>
-              ))}
-          </select>
-        </label>
+        {!isCoach && (
+          <label>
+            Assigned staff
+            <select
+              value={filters.assignedToUserId}
+              onChange={(e) => patch({ assignedToUserId: e.target.value })}
+            >
+              <option value="">All staff</option>
+              {user && <option value={user.userId}>Assigned to me</option>}
+              {assignees.data
+                ?.filter((x) => x.userId !== user?.userId)
+                .map((x) => (
+                  <option key={x.userId} value={x.userId}>
+                    {x.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
         {filtered && (
           <button
             type="button"
@@ -435,7 +446,7 @@ export function SupportQueue({
         </div>
       </div>
 
-      {creating && (
+      {creating && !isCoach && (
         <SupportCreateDialog
           assignees={assignees.data ?? []}
           onClose={() => setCreating(false)}

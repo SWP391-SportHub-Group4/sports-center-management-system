@@ -228,7 +228,6 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
 
     [Theory]
     [InlineData(UserRole.Member)]
-    [InlineData(UserRole.Coach)]
     [InlineData(UserRole.SystemAdministrator)]
     public async Task Non_front_desk_cannot_read_or_mutate_requests(UserRole role)
     {

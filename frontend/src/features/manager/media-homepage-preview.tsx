@@ -7,9 +7,15 @@ import styles from "./media-editor.module.css";
 export function MediaHomepagePreview({
   values,
   onClose,
+  onSave,
+  busy = false,
+  error,
 }: {
   values: Record<string, string>;
   onClose: () => void;
+  onSave?: () => void;
+  busy?: boolean;
+  error?: string;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
@@ -39,11 +45,45 @@ export function MediaHomepagePreview({
   }, [values, onClose]);
   return (
     <Dialog
-      title="Homepage preview"
-      description="Your draft content, images and logo. Changes go live only after you save."
+      title={onSave ? "Hero video preview" : "Homepage preview"}
+      description={
+        onSave
+          ? "Watch the videos in order. Save change publishes this background; other unsaved edits stay in Media."
+          : "Your draft content, images and logo. Changes go live only after you save."
+      }
       className={styles.homepageDialog}
       size="lg"
       onClose={onClose}
+      showCloseButton={!onSave}
+      footer={
+        onSave ? (
+          <div className={styles.videoPreviewFooter}>
+            {error && (
+              <p className={styles.uploadError} role="alert">
+                {error}
+              </p>
+            )}
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={busy}
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || !ready}
+                onClick={onSave}
+              >
+                {busy ? "Saving…" : "Save change"}
+              </button>
+            </div>
+          </div>
+        ) : undefined
+      }
     >
       {!ready && (
         <p className={styles.previewLoading} role="status">

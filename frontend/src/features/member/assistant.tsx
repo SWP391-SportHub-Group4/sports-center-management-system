@@ -1,5 +1,5 @@
 "use client";
-
+import { aiPlainText } from "@/lib/ai-plain-text";
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -84,7 +84,7 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
         {
           id: crypto.randomUUID(),
           from: "assistant",
-          text: reply.answer,
+          text: aiPlainText(reply.answer),
           at: reply.createdAt,
         },
       ]);
@@ -190,7 +190,9 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
             <span className={styles.who}>
               {turn.from === "user" ? l.you : l.assistantName} · {formatTime(turn.at)}
             </span>
-            <p className={styles.bubble}>{turn.text}</p>
+            <p className={styles.bubble}>
+              {turn.from === "assistant" ? aiPlainText(turn.text) : turn.text}
+            </p>
           </li>
         ))}
         {busy && (

@@ -224,13 +224,17 @@ public sealed class SupportAttachmentsController(ISportHubDbContext db) : Contro
                 OwnerId = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
                     .Select(r => r.MemberId).FirstOrDefault(),
                 Status = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
-                    .Select(r => r.Status).FirstOrDefault()
+                    .Select(r => r.Status).FirstOrDefault(),
+                AssignedTo = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
+                    .Select(r => r.AssignedToUserId).FirstOrDefault()
             })
             .SingleOrDefaultAsync(ct);
         var staff = User.IsInRole(nameof(UserRole.Receptionist)) || User.IsInRole(nameof(UserRole.CenterManager));
         var ownerMayView = row is not null && row.OwnerId == userId
             && (row.Kind != SupportAttachmentKinds.PayoutProof || row.Status == "DONE");
-        if (row is null || (!ownerMayView && !staff))
+        var assignedCoachMayView = row is not null && row.Kind != SupportAttachmentKinds.PayoutProof
+            && User.IsInRole(nameof(UserRole.Coach)) && row.AssignedTo == userId;
+        if (row is null || (!ownerMayView && !staff && !assignedCoachMayView))
             throw new NotFoundException("support_attachment_not_found", "Attachment not found.");
         Response.Headers.CacheControl = "private, max-age=300";
         return File(row.Content, row.ContentType);

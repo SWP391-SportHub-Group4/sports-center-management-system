@@ -44,22 +44,6 @@ services:
       postgres:
         condition: service_healthy
 
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:5000}
-        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${Google__ClientId:-}
-    container_name: sporthub-frontend
-    restart: unless-stopped
-    environment:
-      NODE_ENV: production
-      NEXT_TELEMETRY_DISABLED: 1
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    depends_on:
-      - backend
-
   ai-service:
     build: ./ai-service
     container_name: sporthub-ai

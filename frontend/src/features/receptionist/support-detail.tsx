@@ -68,11 +68,12 @@ export function SupportDetail({
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
-  workspace: "manager" | "receptionist";
+  workspace: "manager" | "receptionist" | "coach";
   onChanged: () => void;
 }) {
   const { user } = useAuth();
-  const closed = ["DONE", "REJECTED"].includes(request.status);
+  const isCoach = workspace === "coach";
+  const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
   // Payment tickets are manager-only work: the front desk creates and follows them but cannot assign, approve or close.
   const isPayment = request.category === "PAYMENT";
@@ -88,15 +89,22 @@ export function SupportDetail({
 
   const member = useApi(
     (signal) =>
-      api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
-    [request.memberId],
+      isCoach
+        ? Promise.resolve(null)
+        : api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
+    [request.memberId, isCoach],
   );
   const packages = useApi(
     (signal) =>
-      api.get<MemberPackageDto[]>(`/api/members/${request.memberId}/packages`, {
-        signal,
-      }),
-    [request.memberId],
+      isCoach
+        ? Promise.resolve([] as MemberPackageDto[])
+        : api.get<MemberPackageDto[]>(
+            `/api/members/${request.memberId}/packages`,
+            {
+              signal,
+            },
+          ),
+    [request.memberId, isCoach],
   );
   const events = useApi(
     (signal) =>
@@ -251,19 +259,23 @@ export function SupportDetail({
               .filter(Boolean)
               .join(" · ")}
           </span>
-          <span className={styles.muted}>
-            Plan: {planText}
-            {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
-              ? ` · until ${formatDate(plan.endDate)}`
-              : ""}
-          </span>
+          {!isCoach && (
+            <span className={styles.muted}>
+              Plan: {planText}
+              {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
+                ? ` · until ${formatDate(plan.endDate)}`
+                : ""}
+            </span>
+          )}
         </div>
-        <Link
-          className={styles.bannerLink}
-          href={`/${workspace}/members/${request.memberId}`}
-        >
-          View profile
-        </Link>
+        {!isCoach && (
+          <Link
+            className={styles.bannerLink}
+            href={`/${workspace}/members/${request.memberId}`}
+          >
+            View profile
+          </Link>
+        )}
       </div>
 
       <section className={styles.section} aria-label="Request message">

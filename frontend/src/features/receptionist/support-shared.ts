@@ -14,6 +14,13 @@ export const STATUS_LABELS: Record<string, string> = {
   REJECTED: "Rejected",
 };
 
+export const CHANNEL_LABELS: Record<string, string> = {
+  COUNTER: "At the counter",
+  PHONE: "By phone",
+  FANPAGE: "Fanpage / Zalo",
+  ONLINE: "Member (online)",
+};
+
 export type RoleKey = "receptionist" | "manager" | "admin" | "coach";
 
 export const ROLE_RANK: Record<RoleKey, number> = {

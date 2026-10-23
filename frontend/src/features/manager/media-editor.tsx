@@ -27,6 +27,12 @@ import {
 } from "./media-landing-preview";
 import { restoreMediaBaseline } from "./media-restore";
 import { MediaHomepagePreview } from "./media-homepage-preview";
+import { MediaHeroVideos } from "./media-hero-videos";
+import {
+  HERO_PLAYLIST,
+  originalHeroBackground,
+  type HeroVideo,
+} from "@/components/homepage/hero-background";
 import styles from "./media-editor.module.css";
 
 export function MediaEditor() {
@@ -93,6 +99,7 @@ function ContentEditor({
   const [saved, setSaved] = useState(false);
   const [coachesOpen, setCoachesOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [videosOpen, setVideosOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [crop, setCrop] = useState<{
@@ -116,7 +123,7 @@ function ContentEditor({
   useEffect(() => () => request.current?.abort(), []);
   useEffect(() => () => crop?.image.close(), [crop]);
   useEffect(() => {
-    if (!dirty && !working && !crop) return;
+    if (!dirty && !working && !crop && !videosOpen) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
@@ -154,7 +161,7 @@ function ContentEditor({
       window.removeEventListener("beforeunload", warn);
       document.removeEventListener("click", guardLink, true);
     };
-  }, [dirty, working, crop]);
+  }, [dirty, working, crop, videosOpen]);
 
   const update = (key: string, value: string | undefined) => {
     setSaved(false);
@@ -279,6 +286,7 @@ function ContentEditor({
           }}
           onCoaches={() => setCoachesOpen(true)}
           onText={update}
+          onVideo={() => setVideosOpen(true)}
         />
       </LandingContentProvider>
       <input
@@ -462,10 +470,52 @@ function ContentEditor({
           onClose={() => setPreviewOpen(false)}
         />
       )}
+      {videosOpen && (
+        <MediaHeroVideos
+          values={draft}
+          onClose={() => setVideosOpen(false)}
+          onSave={async (playlist: HeroVideo[], signal: AbortSignal) => {
+            const next: Record<string, string> = {
+              ...published.values,
+              ...originalHeroBackground,
+            };
+            delete next[HERO_PLAYLIST];
+            if (playlist.length) next[HERO_PLAYLIST] = JSON.stringify(playlist);
+            // Video confirmation publishes only the background, preserving other Media drafts.
+            if (!next[FEATURED_COACH_IDS])
+              next[FEATURED_COACH_IDS] = selectedCoachIds.join(",");
+            const result = await api.put<LandingDocument>(
+              "/api/landing-page",
+              {
+                ...published,
+                values: next,
+              },
+              { signal },
+            );
+            setPublished(result);
+            setDraft((current) => {
+              const remaining: Record<string, string> = {
+                ...current,
+                ...originalHeroBackground,
+              };
+              delete remaining[HERO_PLAYLIST];
+              if (playlist.length)
+                remaining[HERO_PLAYLIST] = JSON.stringify(playlist);
+              if (!remaining[FEATURED_COACH_IDS])
+                remaining[FEATURED_COACH_IDS] =
+                  result.values[FEATURED_COACH_IDS];
+              return remaining;
+            });
+            setVideosOpen(false);
+            setSaved(true);
+            setError("");
+          }}
+        />
+      )}
       {restoreOpen && (
         <Dialog
           title="Restore original homepage?"
-          description="Restore all images, titles and content to the original homepage from main, with Gym as the sport name. Custom text, images and logo will be reset. Sports and coach profiles stay in their catalogs. Review the draft, then save to publish."
+          description="Restore all images, titles and content to the original homepage from main, with Gym as the sport name. Custom text, images, logo, background video and its poster image will be reset. Sports and coach profiles stay in their catalogs. Review the draft, then save to publish."
           onClose={() => setRestoreOpen(false)}
         >
           <div className={styles.actions}>

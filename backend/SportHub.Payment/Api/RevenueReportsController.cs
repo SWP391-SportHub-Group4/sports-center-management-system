@@ -21,8 +21,8 @@ public class RevenueReportsController(IRevenueReportService revenue, ReportRecon
         [FromQuery] int? sportId, [FromQuery] string? source, [FromQuery] Guid? memberId,
         CancellationToken ct = default)
     {
-        var report = await revenue.GetAsync(fromDate, toDate, ct);
-        var rows = RevenueDimensionFilter.Apply(report.BySportAndSource, sportId, source, memberId);
+        var report = await revenue.GetAsync(fromDate, toDate, ct, sportId, source, memberId);
+        var rows = report.BySportAndSource;
         return Ok(new { report.FromDate, report.ToDate, Rows = rows,
             CashCollected = rows.Sum(r => r.CashCollected), PointsRedeemedVnd = rows.Sum(r => r.PointsRedeemed) * 1000m });
     }
@@ -53,17 +53,18 @@ public class RevenueReportsController(IRevenueReportService revenue, ReportRecon
     public async Task<IActionResult> GetRevenue(
         [FromQuery] DateOnly? fromDate,
         [FromQuery] DateOnly? toDate,
+        [FromQuery] int? sportId, [FromQuery] string? source, [FromQuery] Guid? memberId,
         CancellationToken ct = default)
     {
         var to = toDate ?? DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
         var from = fromDate ?? to.AddDays(-29);
 
         // Chặn khoảng quá dài: báo cáo trả về từng ngày nên 5 năm sẽ là gần 2000 dòng JSON.
-        if (to.DayNumber - from.DayNumber > 366)
+        if (Math.Abs(to.DayNumber - from.DayNumber) >= 366)
         {
             throw new BadRequestException("range_too_large", "The revenue report range cannot exceed 366 days.");
         }
 
-        return Ok(await revenue.GetAsync(from, to, ct));
+        return Ok(await revenue.GetAsync(from, to, ct, sportId, source, memberId));
     }
 }
