@@ -523,7 +523,11 @@ test("the selected Member follows the desk from check-in to sales and profile", 
     }),
   ).toBeVisible();
 
-  await expect(page.getByText("Active until")).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Selected member" })
+      .getByText("Gym monthly · expires 23:59 31/10/2030"),
+  ).toBeVisible();
 
   await page
     .getByRole("button", {
@@ -536,7 +540,7 @@ test("the selected Member follows the desk from check-in to sales and profile", 
 
   await expect(
     page.getByRole("status").filter({
-      hasText: "Checked in at",
+      hasText: "Saved successfully.",
     }),
   ).toBeVisible();
 
