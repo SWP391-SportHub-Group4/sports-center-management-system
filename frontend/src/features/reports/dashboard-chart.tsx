@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatDate } from "@/lib/format";
 import styles from "./reports-dashboard.module.css";
 export interface ChartDay {
@@ -21,12 +21,25 @@ export function DashboardChart({
   bars?: boolean;
 }) {
   const [selected, setSelected] = useState(0);
+  const container = useRef<HTMLDivElement>(null);
+  const [canvasWidth, setCanvasWidth] = useState(720);
+  useEffect(() => {
+    const node = container.current;
+    if (!node) return;
+    const observer = new ResizeObserver(() =>
+      setCanvasWidth(Math.max(280, Math.min(900, node.clientWidth))),
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [rows.length]);
+  const plotWidth = canvasWidth - 80;
   const index = Math.min(selected, Math.max(0, rows.length - 1));
   const baseline = comparison?.length === rows.length ? comparison : undefined;
   const values = [...rows, ...(baseline ?? [])].map((r) => r.value);
   const low = Math.min(0, ...values),
     high = Math.max(1, ...values);
-  const x = (i: number) => 56 + ((i + 0.5) * 640) / Math.max(1, rows.length);
+  const x = (i: number) =>
+    56 + ((i + 0.5) * plotWidth) / Math.max(1, rows.length);
   const y = (n: number) => 180 - ((n - low) / (high - low)) * 155;
   const path = (data: ChartDay[]) =>
     data.map((r, i) => `${i ? "L" : "M"}${x(i)},${y(r.value)}`).join(" ");
@@ -40,7 +53,7 @@ export function DashboardChart({
   if (!rows.length)
     return <p className={styles.empty}>No activity in this period.</p>;
   return (
-    <div className={styles.chart}>
+    <div className={styles.chart} ref={container}>
       <div className={styles.legend}>
         <span>
           <i />
@@ -54,10 +67,21 @@ export function DashboardChart({
         )}
         <span>{unit}</span>
       </div>
-      <svg viewBox="0 0 720 210" role="img" aria-label={label}>
+      <svg
+        viewBox={`0 0 ${canvasWidth} 210`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={label}
+      >
         {[low, (high + low) / 2, high].map((v, i) => (
           <g key={i}>
-            <line x1="56" x2="700" y1={y(v)} y2={y(v)} stroke="#e4ebe8" />
+            <line
+              x1="56"
+              x2={canvasWidth - 20}
+              y1={y(v)}
+              y2={y(v)}
+              stroke="#e4ebe8"
+            />
             <text
               x="48"
               y={y(v) + 4}
@@ -73,9 +97,9 @@ export function DashboardChart({
           rows.map((r, i) => (
             <rect
               key={r.date}
-              x={x(i) - 220 / rows.length}
+              x={x(i) - (plotWidth * 0.35) / rows.length}
               y={Math.min(y(0), y(r.value))}
-              width={440 / rows.length}
+              width={(plotWidth * 0.7) / rows.length}
               height={Math.max(1, Math.abs(y(r.value) - y(0)))}
               fill="#227d70"
               opacity={index === i ? 1 : 0.65}
@@ -109,19 +133,21 @@ export function DashboardChart({
               key={i}
               x={x(i)}
               y="203"
-              textAnchor="middle"
+              textAnchor={
+                i === 0 ? "start" : i === rows.length - 1 ? "end" : "middle"
+              }
               fill="#53635e"
               fontSize="11"
             >
-              {formatDate(rows[i].date)}
+              {formatDate(rows[i].date).slice(0, 5)}
             </text>
           ))}
         {rows.map((r, i) => (
           <rect
             key={r.date}
-            x={56 + (i * 640) / rows.length}
+            x={56 + (i * plotWidth) / rows.length}
             y="10"
-            width={640 / rows.length}
+            width={plotWidth / rows.length}
             height="175"
             fill="transparent"
             onPointerEnter={() => setSelected(i)}

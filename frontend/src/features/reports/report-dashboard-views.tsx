@@ -130,6 +130,11 @@ function Metric({
             ? compact(value)
             : number(value)}
         {money && value !== undefined && <small> VND</small>}
+        {value !== undefined && (
+          <span className={s.exact} aria-hidden="true">
+            {format(value)}
+          </span>
+        )}
       </strong>
       {hint && <p>{hint}</p>}
       {previous !== undefined && value !== undefined && (

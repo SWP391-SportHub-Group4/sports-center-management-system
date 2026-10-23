@@ -33,7 +33,9 @@ export function validPeriod(p: Period): boolean {
     /^\d{4}-\d{2}-\d{2}$/.test(p.fromDate) &&
     /^\d{4}-\d{2}-\d{2}$/.test(p.toDate) &&
     days > 0 &&
-    days <= 366
+    days <= 366 &&
+    iso(new Date(p.fromDate)) === p.fromDate &&
+    iso(new Date(p.toDate)) === p.toDate
   );
 }
 export function reportPeriods(

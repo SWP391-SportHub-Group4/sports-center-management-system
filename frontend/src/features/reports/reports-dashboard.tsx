@@ -286,10 +286,6 @@ export function ReportsDashboard() {
   return (
     <div className={s.page}>
       <header className={s.header}>
-        <div>
-          <h2>Performance at a glance</h2>
-          <p>Collections, bookings, classes and membership.</p>
-        </div>
         <button
           className="btn btn--ghost"
           aria-expanded={exportOpen}
@@ -438,7 +434,6 @@ export function ReportsDashboard() {
                         ["CLASS_PACKAGE", "Classes"],
                         ["RENTAL", "Court rental"],
                         ["WALLET_TOP_UP", "Wallet top-ups"],
-                        ["DAY_PASS", "Day passes"],
                         ["RECONCILIATION", "Reconciliation"],
                         ["LEGACY_UNCLASSIFIED", "Unclassified (legacy)"],
                         ["UNCLASSIFIED", "Unclassified"],

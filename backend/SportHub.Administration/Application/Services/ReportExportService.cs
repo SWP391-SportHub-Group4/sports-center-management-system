@@ -209,7 +209,7 @@ public sealed class ReportExportService(
 
         var parameters = JsonSerializer.Deserialize<ExportParameters>(export.ParametersJson,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        var fileName = $"{export.ReportType.ToLowerInvariant()}-{parameters?.FromDate:yyyyMMdd}-{parameters?.ToDate:yyyyMMdd}-{export.CreatedAt:HHmmss}"
+        var fileName = $"{export.ReportType.ToLowerInvariant()}-{parameters?.FromDate}-{parameters?.ToDate}-{export.CreatedAt:HHmmss}"
                        + $".{ReportFormats.Extension(export.Format)}";
 
         return (fileName, content);
@@ -631,6 +631,16 @@ public sealed class ReportExportService(
             ? $"Period {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · "
               + $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy}"
             : $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy}";
+        var parameters = JsonSerializer.Deserialize<ExportParameters>(export.ParametersJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (parameters is not null)
+        {
+            var filters = new List<string>();
+            if (parameters.SportId.HasValue) filters.Add($"Sport ID: {parameters.SportId}");
+            if (!string.IsNullOrWhiteSpace(parameters.Source)) filters.Add($"Source: {parameters.Source}");
+            if (parameters.MemberId.HasValue) filters.Add($"Member ID: {parameters.MemberId}");
+            if (filters.Count > 0) subtitle += " · " + string.Join(" · ", filters);
+        }
 
         return pdf.Render(new ReportTable(
             ReportColumnLabels.ReportTitle(export.ReportType),

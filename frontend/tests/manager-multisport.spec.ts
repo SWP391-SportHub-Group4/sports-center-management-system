@@ -177,9 +177,7 @@ test("manager overview connects collections, class reviews and active Gym member
   await expect(
     page.getByRole("region", { name: "Active Gym members" }),
   ).toContainText("7");
-  await expect(
-    page.getByText(/Valid today ·/),
-  ).toBeVisible();
+  await expect(page.getByText(/Valid today ·/)).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Classes needing review" }),
   ).toContainText("2");
@@ -214,13 +212,15 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
     page.getByRole("heading", { name: "Reports", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Cash flow for selected dates" }),
-  ).toContainText(/Net revenue \(VND\)\s*100,000/);
-  const points = page.getByRole("region", { name: "Points", exact: true });
-  await expect(points).toContainText(/Points refunded to members\s*25/);
-  await expect(points).toContainText(
-    /Current outstanding points \(available \+ held\)\s*525/,
-  );
+    page.getByRole("heading", { name: "After refunds", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('[title="100,000 ₫"]').first()).toBeVisible();
+  await page.getByText("Points activity", { exact: true }).click();
+  const points = page
+    .locator("details")
+    .filter({ has: page.getByText("Points activity", { exact: true }) });
+  await expect(points).toContainText(/Points refunded\s*25/);
+  await expect(points).toContainText(/Current balance\s*525/);
 });
 
 for (const width of [390, 1440]) {

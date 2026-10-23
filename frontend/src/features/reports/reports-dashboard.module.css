@@ -4,13 +4,45 @@
   color: var(--ink);
   min-width: 0;
   display: grid;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.page > * {
+  min-width: 0;
+}
+.page [role="tabpanel"] {
+  padding-top: 4px;
+  min-width: 0;
+}
+.page [role="tablist"] {
+  min-width: 0;
+}
+.page [role="tab"] {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  padding-inline: 16px;
+}
+.page [data-tab-indicator] {
+  background: #15392d;
+  border-radius: 6px 6px 0 0;
+}
+.page [role="tab"][aria-selected="true"] {
+  background: transparent;
+  color: #fff;
+  border-bottom-color: transparent;
 }
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  margin-top: -54px;
+  min-height: 42px;
+  justify-content: flex-end;
+}
+.header > div {
+  display: none;
 }
 .header h2 {
   font: 750 20px/1.2 var(--font-body, sans-serif);
@@ -113,8 +145,8 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   background: #f0f6f2;
   border-radius: 14px;
-  margin: 14px 0 22px;
-  padding: 20px 0;
+  margin: 10px 0 16px;
+  padding: 16px 0;
 }
 .metric {
   padding: 0 24px;
@@ -130,6 +162,7 @@
   margin: 0 0 8px;
 }
 .metric > strong {
+  position: relative;
   display: inline-block;
   max-width: 100%;
   font-size: clamp(24px, 2.6vw, 38px);
@@ -138,6 +171,24 @@
   color: #26483e;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+.exact {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 3;
+  padding: 8px 10px;
+  background: #102d24;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.metric > strong:hover .exact,
+.metric > strong:focus .exact {
+  display: block;
 }
 .metric > strong small {
   font-size: 11px;
@@ -176,7 +227,7 @@
 .chart svg {
   display: block;
   width: 100%;
-  max-height: 235px;
+  height: 170px;
 }
 .legend {
   display: flex;
@@ -372,6 +423,13 @@
   }
 }
 @media (max-width: 560px) {
+  .page [role="tab"] {
+    font-size: 11px;
+    padding-inline: 9px;
+  }
+  .header {
+    margin-top: -48px;
+  }
   .header {
     align-items: start;
   }

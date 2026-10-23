@@ -233,6 +233,7 @@ jobs:
           tests/member.spec.ts
           tests/receptionist.spec.ts
           tests/manager-multisport.spec.ts
+          tests/reports-dashboard.spec.ts
           tests/member-court-rental.spec.ts
           tests/coach-training.spec.ts
           tests/payment-lifecycle.spec.ts
