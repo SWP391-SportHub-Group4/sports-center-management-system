@@ -195,7 +195,7 @@ export const reportsApi = {
       activeMembersAtPeriodEnd: number;
       membersPurchasingMembershipInPeriod: number;
       dayPassesSold?: number;
-      daily?: { date: string; buyers: number }[];
+      daily?: { date: string; buyers: number; dayPassesSold?: number }[];
     }>("/api/reports/membership-period", {
       signal,
       query: { fromDate: f.fromDate, toDate: f.toDate },
