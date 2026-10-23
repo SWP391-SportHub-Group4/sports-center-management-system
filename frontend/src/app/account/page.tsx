@@ -1,6 +1,5 @@
 "use client";
 import { AvatarImage } from "@/components/AvatarImage";
-import { UserRound, ShieldCheck } from "lucide-react";
 import { PasswordInput } from "@/components/primitives";
 
 import { useRef, useState } from "react";
@@ -30,12 +29,6 @@ import { CoachPublicProfileCard } from "@/features/identity/coach-public-profile
 export default function AccountPage() {
   const { user, refreshUser, updateToken } = useAuth();
   const { t, language } = useLanguage();
-  const [coachSection, setCoachSection] = useState<
-    "coach" | "account" | "security"
-  >("coach");
-  const [accountSection, setAccountSection] = useState<"account" | "security">(
-    "account",
-  );
   const isCoach = user?.role === "Coach";
 
   const account = useApi(
@@ -239,7 +232,7 @@ export default function AccountPage() {
     >
       <AsyncSection state={account} emptyMessage={t.apiErrors.notFound}>
         {(data) => (
-          <div className={isCoach ? styles.coachWorkspace : styles.content}>
+          <div className={styles.content}>
             {!isCoach && (
               <>
                 <header className={styles.profileHero}>
@@ -261,453 +254,307 @@ export default function AccountPage() {
                   </div>
                   <StatusChip value={data.status} />
                 </header>
-                <nav
-                  className={styles.coachTabs}
-                  role="tablist"
-                  aria-label={
-                    language === "vi" ? "Cài đặt tài khoản" : "Account settings"
-                  }
-                >
-                  {(["account", "security"] as const).map((section, index) => (
-                    <button
-                      key={section}
-                      id={`profile-tab-${section}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={accountSection === section}
-                      aria-controls={`profile-panel-${section}`}
-                      tabIndex={accountSection === section ? 0 : -1}
-                      onClick={() => setAccountSection(section)}
-                      onKeyDown={(event) => {
-                        if (
-                          ["ArrowLeft", "ArrowRight", "Home", "End"].includes(
-                            event.key,
-                          )
-                        ) {
-                          event.preventDefault();
-                          const next =
-                            event.key === "Home"
-                              ? "account"
-                              : event.key === "End"
-                                ? "security"
-                                : index === 0
-                                  ? "security"
-                                  : "account";
-                          setAccountSection(next);
-                          document
-                            .getElementById(`profile-tab-${next}`)
-                            ?.focus();
-                        }
-                      }}
-                    >
-                      {section === "account" ? (
-                        <UserRound size={18} aria-hidden="true" />
-                      ) : (
-                        <ShieldCheck size={18} aria-hidden="true" />
-                      )}
-                      {section === "account"
-                        ? t.account.profileTitle
-                        : language === "vi"
-                          ? "Bảo mật"
-                          : "Security"}
-                    </button>
-                  ))}
-                </nav>
               </>
             )}
             {isCoach && (
-              <nav
-                className={styles.coachTabs}
-                role="tablist"
-                aria-label={
-                  language === "vi" ? "Quản lý hồ sơ" : "Profile settings"
-                }
-              >
-                {(
-                  [
-                    [
-                      "coach",
-                      language === "vi" ? "Hồ sơ coach" : "Coach profile",
-                    ],
-                    [
-                      "account",
-                      language === "vi"
-                        ? "Thông tin cá nhân"
-                        : "Personal information",
-                    ],
-                    ["security", language === "vi" ? "Bảo mật" : "Security"],
-                  ] as const
-                ).map(([key, label], index) => (
-                  <button
-                    key={key}
-                    id={`coach-settings-tab-${key}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={coachSection === key}
-                    aria-controls={`coach-settings-${key}`}
-                    tabIndex={coachSection === key ? 0 : -1}
-                    onClick={() => setCoachSection(key)}
-                    onKeyDown={(event) => {
-                      const keys = ["coach", "account", "security"] as const;
-                      const next =
-                        event.key === "ArrowRight"
-                          ? (index + 1) % 3
-                          : event.key === "ArrowLeft"
-                            ? (index + 2) % 3
-                            : event.key === "Home"
-                              ? 0
-                              : event.key === "End"
-                                ? 2
-                                : null;
-                      if (next === null) return;
-                      event.preventDefault();
-                      setCoachSection(keys[next]);
-                      document
-                        .getElementById(`coach-settings-tab-${keys[next]}`)
-                        ?.focus();
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </nav>
+              <div className={styles.coachPanel}>
+                <CoachPublicProfileCard />
+              </div>
             )}
-            <div
-              className={styles.accountPanel}
-              hidden={
-                isCoach
-                  ? coachSection !== "account"
-                  : accountSection !== "account"
-              }
-              role="tabpanel"
-              id={isCoach ? "coach-settings-account" : "profile-panel-account"}
-              aria-labelledby={
-                isCoach ? "coach-settings-tab-account" : "profile-tab-account"
-              }
-              tabIndex={isCoach ? 0 : undefined}
-            >
-              <Card title={t.account.profileTitle}>
-                <div className="stack">
-                  {isCoach ? (
-                    <div className="row spread">
-                      <div>
-                        <strong>{data.email}</strong>
-                        <div className="small muted">
-                          {t.navigation.roleLabel[
-                            (user?.role ?? data.role) as Role
-                          ] ?? data.role}{" "}
-                          · {t.account.joinedOn} {formatDate(data.createdAt)}
+            <div className={styles.panels}>
+              <div className={styles.accountPanel}>
+                <Card title={t.account.profileTitle}>
+                  <div className="stack">
+                    {isCoach ? (
+                      <div className="row spread">
+                        <div>
+                          <strong>{data.email}</strong>
+                          <div className="small muted">
+                            {t.navigation.roleLabel[
+                              (user?.role ?? data.role) as Role
+                            ] ?? data.role}{" "}
+                            · {t.account.joinedOn} {formatDate(data.createdAt)}
+                          </div>
                         </div>
+                        <StatusChip value={data.status} />
                       </div>
-                      <StatusChip value={data.status} />
-                    </div>
-                  ) : (
-                    <div className={styles.emailIdentity}>
-                      <span>{t.account.email}</span>
-                      <strong>{data.email}</strong>
-                    </div>
-                  )}
+                    ) : (
+                      <div className={styles.emailIdentity}>
+                        <span>{t.account.email}</span>
+                        <strong>{data.email}</strong>
+                      </div>
+                    )}
 
-                  {(user?.role === "Member" ||
-                    user?.role === "Coach" ||
-                    user?.role === "Receptionist") && (
-                    <AvatarEditor
-                      name={data.fullName || data.email}
-                      avatarUrl={data.avatarUrl}
-                      onChanged={async () => {
-                        account.reload();
-                        await refreshUser();
-                      }}
-                    />
-                  )}
+                    {(user?.role === "Member" ||
+                      user?.role === "Coach" ||
+                      user?.role === "Receptionist") && (
+                      <AvatarEditor
+                        name={data.fullName || data.email}
+                        avatarUrl={data.avatarUrl}
+                        onChanged={async () => {
+                          account.reload();
+                          await refreshUser();
+                        }}
+                      />
+                    )}
 
+                    <form
+                      className={`form ${styles.form}`}
+                      onSubmit={saveProfile}
+                      noValidate
+                    >
+                      <Field
+                        label={t.account.fullName}
+                        required
+                        error={profileErrors.fullName}
+                        reserveErrorSpace
+                      >
+                        <input
+                          ref={fullNameRef}
+                          value={profileForm.fullName}
+                          required
+                          onChange={(event) => {
+                            setProfileErrors({});
+                            setProfileForm({
+                              ...profileForm,
+                              fullName: event.target.value,
+                            });
+                          }}
+                          onBlur={(event) =>
+                            setProfileErrors({
+                              fullName: event.target.value.trim()
+                                ? undefined
+                                : requiredMessage,
+                            })
+                          }
+                        />
+                      </Field>
+
+                      <Field label={t.account.phone} hint={t.account.phoneHint}>
+                        <input
+                          value={profileForm.phone}
+                          onChange={(event) =>
+                            setProfileForm({
+                              ...profileForm,
+                              phone: event.target.value,
+                            })
+                          }
+                        />
+                      </Field>
+
+                      <div className={styles.formFeedback}>
+                        <Feedback
+                          error={profileAction.error}
+                          success={profileAction.success}
+                        />
+                      </div>
+
+                      <div>
+                        <button
+                          type="submit"
+                          className="btn"
+                          disabled={profileAction.busy}
+                        >
+                          {t.account.saveProfile}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </Card>
+              </div>
+
+              <div className={styles.securityPanel}>
+                <Card
+                  title={
+                    data.hasPassword
+                      ? t.account.savePassword
+                      : t.account.setPassword
+                  }
+                >
                   <form
                     className={`form ${styles.form}`}
-                    onSubmit={saveProfile}
+                    onSubmit={savePassword}
                     noValidate
                   >
-                    <Field
-                      label={t.account.fullName}
-                      required
-                      error={profileErrors.fullName}
-                      reserveErrorSpace
-                    >
-                      <input
-                        ref={fullNameRef}
-                        value={profileForm.fullName}
+                    {!data.hasPassword && (
+                      <>
+                        <div className="alert alert--info">
+                          {t.account.noPasswordNotice}
+                        </div>
+                        <div>
+                          <button
+                            type="button"
+                            className="btn btn--secondary"
+                            onClick={() => void sendOtp()}
+                            disabled={otpAction.busy || resendSeconds > 0}
+                          >
+                            {resendSeconds > 0
+                              ? t.account.resendCodeIn.replace(
+                                  "{seconds}",
+                                  String(resendSeconds),
+                                )
+                              : otpResendAt > 0
+                                ? t.account.resendCode
+                                : t.account.sendCode}
+                          </button>
+                        </div>
+                        <Feedback
+                          error={otpAction.error}
+                          success={otpAction.success}
+                        />
+                        <Field
+                          label={t.account.otpLabel}
+                          required
+                          error={passwordErrors.otp}
+                          reserveErrorSpace
+                        >
+                          <input
+                            ref={otpRef}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            value={otp}
+                            required
+                            onChange={(event) => {
+                              passwordAction.reset();
+                              setPasswordErrors((current) => ({
+                                ...current,
+                                otp: undefined,
+                              }));
+                              setOtp(event.target.value.replace(/[^0-9]/g, ""));
+                            }}
+                          />
+                        </Field>
+                      </>
+                    )}
+
+                    {data.hasPassword && (
+                      <Field
+                        label={t.account.currentPassword}
                         required
-                        onChange={(event) => {
-                          setProfileErrors({});
-                          setProfileForm({
-                            ...profileForm,
-                            fullName: event.target.value,
-                          });
-                        }}
-                        onBlur={(event) =>
-                          setProfileErrors({
-                            fullName: event.target.value.trim()
-                              ? undefined
-                              : requiredMessage,
-                          })
+                        error={
+                          currentPasswordError
+                            ? t.account.currentPasswordIncorrect
+                            : passwordErrors.current
                         }
-                      />
-                    </Field>
+                        reserveErrorSpace
+                      >
+                        <PasswordInput
+                          ref={currentPasswordRef}
+                          autoComplete="current-password"
+                          value={passwordForm.current}
+                          required
+                          onChange={(event) => {
+                            setCurrentPasswordError(false);
+                            setPasswordErrors((current) => ({
+                              ...current,
+                              current: undefined,
+                            }));
+                            passwordAction.reset();
+                            setPasswordForm({
+                              ...passwordForm,
+                              current: event.target.value,
+                            });
+                          }}
+                          onBlur={(event) =>
+                            setPasswordErrors((current) => ({
+                              ...current,
+                              current: event.target.value.trim()
+                                ? undefined
+                                : requiredMessage,
+                            }))
+                          }
+                        />
+                      </Field>
+                    )}
 
-                    <Field label={t.account.phone} hint={t.account.phoneHint}>
-                      <input
-                        value={profileForm.phone}
-                        onChange={(event) =>
-                          setProfileForm({
-                            ...profileForm,
-                            phone: event.target.value,
-                          })
-                        }
-                      />
-                    </Field>
+                    <div className={styles.passThrough}>
+                      <Field
+                        label={t.account.newPassword}
+                        required
+                        error={passwordErrors.next}
+                        reserveErrorSpace
+                      >
+                        <PasswordInput
+                          ref={nextPasswordRef}
+                          autoComplete="new-password"
+                          value={passwordForm.next}
+                          required
+                          onChange={(event) => {
+                            setPasswordErrors((current) => ({
+                              ...current,
+                              next: undefined,
+                            }));
+                            setPasswordForm({
+                              ...passwordForm,
+                              next: event.target.value,
+                            });
+                          }}
+                          onBlur={(event) =>
+                            setPasswordErrors((current) => ({
+                              ...current,
+                              next: validateNewPassword(event.target.value),
+                            }))
+                          }
+                        />
+                      </Field>
 
-                    <div className={styles.formFeedback}>
-                      <Feedback
-                        error={profileAction.error}
-                        success={profileAction.success}
-                      />
+                      <Field
+                        label={t.account.confirmPassword}
+                        required
+                        error={passwordErrors.confirm}
+                        reserveErrorSpace
+                      >
+                        <PasswordInput
+                          ref={confirmPasswordRef}
+                          autoComplete="new-password"
+                          value={passwordForm.confirm}
+                          required
+                          onChange={(event) => {
+                            setPasswordErrors((current) => ({
+                              ...current,
+                              confirm: undefined,
+                            }));
+                            setPasswordForm({
+                              ...passwordForm,
+                              confirm: event.target.value,
+                            });
+                          }}
+                          onBlur={(event) =>
+                            setPasswordErrors((current) => ({
+                              ...current,
+                              confirm: validateConfirmPassword(
+                                event.target.value,
+                              ),
+                            }))
+                          }
+                        />
+                      </Field>
                     </div>
+                    <PasswordRequirements
+                      password={passwordForm.next}
+                      email={data.email}
+                    />
+                    <Feedback
+                      error={currentPasswordError ? null : passwordAction.error}
+                      success={passwordAction.success}
+                    />
 
                     <div>
                       <button
                         type="submit"
                         className="btn"
-                        disabled={profileAction.busy}
+                        disabled={passwordAction.busy}
                       >
-                        {t.account.saveProfile}
+                        {data.hasPassword
+                          ? t.account.savePassword
+                          : t.account.setPassword}
                       </button>
                     </div>
                   </form>
-                </div>
-              </Card>
-            </div>
-
-            <div
-              className={styles.securityPanel}
-              hidden={
-                isCoach
-                  ? coachSection !== "security"
-                  : accountSection !== "security"
-              }
-              role="tabpanel"
-              id={
-                isCoach ? "coach-settings-security" : "profile-panel-security"
-              }
-              aria-labelledby={
-                isCoach ? "coach-settings-tab-security" : "profile-tab-security"
-              }
-              tabIndex={isCoach ? 0 : undefined}
-            >
-              <Card
-                title={
-                  data.hasPassword
-                    ? t.account.savePassword
-                    : t.account.setPassword
-                }
-              >
-                <form
-                  className={`form ${styles.form}`}
-                  onSubmit={savePassword}
-                  noValidate
-                >
-                  {!data.hasPassword && (
-                    <>
-                      <div className="alert alert--info">
-                        {t.account.noPasswordNotice}
-                      </div>
-                      <div>
-                        <button
-                          type="button"
-                          className="btn btn--secondary"
-                          onClick={() => void sendOtp()}
-                          disabled={otpAction.busy || resendSeconds > 0}
-                        >
-                          {resendSeconds > 0
-                            ? t.account.resendCodeIn.replace(
-                                "{seconds}",
-                                String(resendSeconds),
-                              )
-                            : otpResendAt > 0
-                              ? t.account.resendCode
-                              : t.account.sendCode}
-                        </button>
-                      </div>
-                      <Feedback
-                        error={otpAction.error}
-                        success={otpAction.success}
-                      />
-                      <Field
-                        label={t.account.otpLabel}
-                        required
-                        error={passwordErrors.otp}
-                        reserveErrorSpace
-                      >
-                        <input
-                          ref={otpRef}
-                          inputMode="numeric"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          value={otp}
-                          required
-                          onChange={(event) => {
-                            passwordAction.reset();
-                            setPasswordErrors((current) => ({
-                              ...current,
-                              otp: undefined,
-                            }));
-                            setOtp(event.target.value.replace(/[^0-9]/g, ""));
-                          }}
-                        />
-                      </Field>
-                    </>
-                  )}
-
-                  {data.hasPassword && (
-                    <Field
-                      label={t.account.currentPassword}
-                      required
-                      error={
-                        currentPasswordError
-                          ? t.account.currentPasswordIncorrect
-                          : passwordErrors.current
-                      }
-                      reserveErrorSpace
-                    >
-                      <PasswordInput
-                        ref={currentPasswordRef}
-                        autoComplete="current-password"
-                        value={passwordForm.current}
-                        required
-                        onChange={(event) => {
-                          setCurrentPasswordError(false);
-                          setPasswordErrors((current) => ({
-                            ...current,
-                            current: undefined,
-                          }));
-                          passwordAction.reset();
-                          setPasswordForm({
-                            ...passwordForm,
-                            current: event.target.value,
-                          });
-                        }}
-                        onBlur={(event) =>
-                          setPasswordErrors((current) => ({
-                            ...current,
-                            current: event.target.value.trim()
-                              ? undefined
-                              : requiredMessage,
-                          }))
-                        }
-                      />
-                    </Field>
-                  )}
-
-                  <div
-                    className={
-                      isCoach ? styles.passwordPair : styles.passThrough
-                    }
-                  >
-                    <Field
-                      label={t.account.newPassword}
-                      required
-                      error={passwordErrors.next}
-                      reserveErrorSpace
-                    >
-                      <PasswordInput
-                        ref={nextPasswordRef}
-                        autoComplete="new-password"
-                        value={passwordForm.next}
-                        required
-                        onChange={(event) => {
-                          setPasswordErrors((current) => ({
-                            ...current,
-                            next: undefined,
-                          }));
-                          setPasswordForm({
-                            ...passwordForm,
-                            next: event.target.value,
-                          });
-                        }}
-                        onBlur={(event) =>
-                          setPasswordErrors((current) => ({
-                            ...current,
-                            next: validateNewPassword(event.target.value),
-                          }))
-                        }
-                      />
-                    </Field>
-
-                    <Field
-                      label={t.account.confirmPassword}
-                      required
-                      error={passwordErrors.confirm}
-                      reserveErrorSpace
-                    >
-                      <PasswordInput
-                        ref={confirmPasswordRef}
-                        autoComplete="new-password"
-                        value={passwordForm.confirm}
-                        required
-                        onChange={(event) => {
-                          setPasswordErrors((current) => ({
-                            ...current,
-                            confirm: undefined,
-                          }));
-                          setPasswordForm({
-                            ...passwordForm,
-                            confirm: event.target.value,
-                          });
-                        }}
-                        onBlur={(event) =>
-                          setPasswordErrors((current) => ({
-                            ...current,
-                            confirm: validateConfirmPassword(
-                              event.target.value,
-                            ),
-                          }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                  <PasswordRequirements
-                    password={passwordForm.next}
-                    email={data.email}
-                  />
-                  <Feedback
-                    error={currentPasswordError ? null : passwordAction.error}
-                    success={passwordAction.success}
-                  />
-
-                  <div>
-                    <button
-                      type="submit"
-                      className="btn"
-                      disabled={passwordAction.busy}
-                    >
-                      {data.hasPassword
-                        ? t.account.savePassword
-                        : t.account.setPassword}
-                    </button>
-                  </div>
-                </form>
-              </Card>
-            </div>
-            {isCoach && (
-              <div
-                className={styles.coachPanel}
-                hidden={coachSection !== "coach"}
-                role="tabpanel"
-                id="coach-settings-coach"
-                aria-labelledby="coach-settings-tab-coach"
-                tabIndex={0}
-              >
-                <CoachPublicProfileCard />
+                </Card>
               </div>
-            )}
+            </div>
           </div>
         )}
       </AsyncSection>
