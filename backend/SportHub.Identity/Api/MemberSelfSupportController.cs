@@ -209,7 +209,7 @@ public sealed class SupportAttachmentsController(ISportHubDbContext db) : Contro
             .SingleOrDefaultAsync(ct);
         var staff = User.IsInRole(nameof(UserRole.Receptionist)) || User.IsInRole(nameof(UserRole.CenterManager));
         if (row is null || (row.OwnerId != userId && !staff
-            && !(User.IsInRole(nameof(UserRole.Coach)) && row.AssignedTo == userId)))
+            && !((User.IsInRole(nameof(UserRole.Coach)) || User.IsInRole(nameof(UserRole.SystemAdministrator))) && row.AssignedTo == userId)))
             throw new NotFoundException("support_attachment_not_found", "Attachment not found.");
         Response.Headers.CacheControl = "private, max-age=300";
         return File(row.Content, row.ContentType);
