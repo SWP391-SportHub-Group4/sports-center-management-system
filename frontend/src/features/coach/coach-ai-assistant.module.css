@@ -187,6 +187,32 @@
   justify-content: flex-end;
 }
 
+.chatSuggestions,
+.chatMessages {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.chatSuggestions button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.chatMessages {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chatMessages p {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Chat replies remain safely escaped React text; only bold markers are interpreted. */
 .formattedAnswer { white-space: pre-wrap; line-height: 1.75; }
 .formattedAnswer strong { font-weight: 700; color: var(--text-strong); }
