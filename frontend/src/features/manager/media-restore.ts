@@ -3,6 +3,7 @@ import {
   suggestHomepageCoaches,
   type HomepageCoach,
 } from "@/components/homepage/homepage-showcase";
+import { originalHeroBackground } from "@/components/homepage/hero-background";
 
 /**
  * Restore the built-in landing page from main (9c695b74), with the Gym label.
@@ -16,5 +17,5 @@ export function restoreMediaBaseline(
   const ids = suggestHomepageCoaches(coaches).map((coach) => coach.userId);
   // The publishing API requires three eligible coach IDs; everything else
   // falls back to the original shared defaults rather than a database snapshot.
-  return { [FEATURED_COACH_IDS]: ids.join(",") };
+  return { [FEATURED_COACH_IDS]: ids.join(","), ...originalHeroBackground };
 }

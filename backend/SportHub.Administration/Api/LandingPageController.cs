@@ -58,6 +58,10 @@ public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter au
                 throw new BadRequestException("invalid_landing_content", "Content fields must contain between 1 and 2,000 characters.");
             if ((key.EndsWith(".image") || key.EndsWith(".src")) && !ValidImage(value))
                 throw new BadRequestException("invalid_landing_image", "Use an HTTPS image URL or a local /sporthub/ image path.");
+            if ((key is "hero.background.webm" or "hero.background.mp4")
+                && (!ValidImage(value) || !value.Split('?', '#')[0].EndsWith(key.EndsWith("webm") ? ".webm" : ".mp4", StringComparison.OrdinalIgnoreCase)))
+                throw new BadRequestException("invalid_landing_video", "Use a valid HTTPS video URL or a local /sporthub/ video path with the matching format.");
+            if (key == "hero.background.playlist") ValidatePlaylist(value);
             if (key.StartsWith("bookmarks.coachFrame.", StringComparison.Ordinal))
             {
                 var parts = key.Split('.');
@@ -95,6 +99,27 @@ public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter au
     private static bool ValidImage(string value) => value.StartsWith("/sporthub/", StringComparison.Ordinal)
         ? !value.Contains("..") && !value.Contains('\\') && !value.Any(char.IsControl)
         : Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == "https" && string.IsNullOrEmpty(uri.UserInfo);
+
+    private static void ValidatePlaylist(string value)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(value);
+            var list = json.RootElement;
+            if (list.ValueKind != JsonValueKind.Array || list.GetArrayLength() is < 1 or > 3) throw new JsonException();
+            foreach (var item in list.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object
+                    || !item.TryGetProperty("url", out var url) || url.ValueKind != JsonValueKind.String
+                    || !item.TryGetProperty("poster", out var poster) || poster.ValueKind != JsonValueKind.String
+                    || !item.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String
+                    || string.IsNullOrWhiteSpace(name.GetString()) || name.GetString()!.Length > 120
+                    || !ValidImage(url.GetString()!) || !url.GetString()!.Split('?', '#')[0].EndsWith(".webm", StringComparison.OrdinalIgnoreCase)
+                    || !ValidImage(poster.GetString()!)) throw new JsonException();
+            }
+        }
+        catch (JsonException) { throw new BadRequestException("invalid_hero_playlist", "Choose between one and three WebM videos with valid poster images."); }
+    }
 
     private static LandingPageDocument Document(LandingPageContent row)
         => new(row.Revision, (JsonSerializer.Deserialize<Dictionary<string, string>>(row.ValuesJson) ?? [])

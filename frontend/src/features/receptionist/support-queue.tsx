@@ -51,12 +51,13 @@ export function SupportQueue({
   workspace = "receptionist",
   onChanged,
 }: {
-  workspace?: "manager" | "receptionist";
+  workspace?: "manager" | "receptionist" | "coach";
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
   const { t } = useLanguage();
   const isManager = workspace === "manager";
+  const isCoach = workspace === "coach";
   const statusLabel = (status: string) =>
     isManager
       ? (t.wireStatus[status as keyof typeof t.wireStatus] ?? label(status))
@@ -68,10 +69,12 @@ export function SupportQueue({
   );
   const assignees = useApi(
     (signal) =>
-      api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
-        signal,
-      }),
-    [],
+      isCoach
+        ? Promise.resolve([] as SupportAssignee[])
+        : api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
+            signal,
+          }),
+    [isCoach],
   );
   const [filters, setFilters] = useState(emptyFilters);
   const [search, setSearch] = useState("");
@@ -160,14 +163,18 @@ export function SupportQueue({
     <section className={styles.page} aria-label="Support requests">
       <div className={styles.head}>
         <h2>Support requests</h2>
-        <button
-          type="button"
-          className={`btn ${styles.primary}`}
-          onClick={() => setCreating(true)}
-        >
-          <Plus size={18} aria-hidden="true" />
-          Record a request for member
-        </button>
+        {isCoach ? (
+          <p>Requests assigned to you by the manager.</p>
+        ) : (
+          <button
+            type="button"
+            className={`btn ${styles.primary}`}
+            onClick={() => setCreating(true)}
+          >
+            <Plus size={18} aria-hidden="true" />
+            Record a request for member
+          </button>
+        )}
       </div>
 
       <div className={styles.stats} role="group" aria-label="Filter by status">
@@ -240,23 +247,25 @@ export function SupportQueue({
             ))}
           </select>
         </label>
-        <label>
-          Assigned staff
-          <select
-            value={filters.assignedToUserId}
-            onChange={(e) => patch({ assignedToUserId: e.target.value })}
-          >
-            <option value="">All staff</option>
-            {user && <option value={user.userId}>Assigned to me</option>}
-            {assignees.data
-              ?.filter((x) => x.userId !== user?.userId)
-              .map((x) => (
-                <option key={x.userId} value={x.userId}>
-                  {x.name}
-                </option>
-              ))}
-          </select>
-        </label>
+        {!isCoach && (
+          <label>
+            Assigned staff
+            <select
+              value={filters.assignedToUserId}
+              onChange={(e) => patch({ assignedToUserId: e.target.value })}
+            >
+              <option value="">All staff</option>
+              {user && <option value={user.userId}>Assigned to me</option>}
+              {assignees.data
+                ?.filter((x) => x.userId !== user?.userId)
+                .map((x) => (
+                  <option key={x.userId} value={x.userId}>
+                    {x.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
         {filtered && (
           <button
             type="button"
@@ -461,7 +470,7 @@ export function SupportQueue({
         </div>
       </div>
 
-      {creating && (
+      {creating && !isCoach && (
         <SupportCreateDialog
           workspace={workspace}
           assignees={assignees.data ?? []}

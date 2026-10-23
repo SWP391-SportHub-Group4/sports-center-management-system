@@ -79,7 +79,7 @@ public sealed class FinishSupportRequest
 }
 
 [ApiController]
-[Authorize(Policy = SportHubPolicies.FrontDesk)]
+[Authorize(Policy = SportHubPolicies.StaffRead)]
 [Route("api/member-support-requests")]
 public sealed class MemberSupportRequestsController(
     ISportHubDbContext db,
@@ -91,6 +91,19 @@ public sealed class MemberSupportRequestsController(
         x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
         x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
         x.ProgressNote, x.UpdatedAt, x.ClosedAt, Channel: x.Channel);
+
+    private IQueryable<MemberSupportRequest> VisibleRequests()
+    {
+        var rows = db.Set<MemberSupportRequest>().AsNoTracking();
+        return User.IsInRole(nameof(UserRole.Coach))
+            ? rows.Where(x => x.AssignedToUserId == User.RequireUserId()) : rows;
+    }
+
+    private void RequireAssignedCoach(MemberSupportRequest row)
+    {
+        if (User.IsInRole(nameof(UserRole.Coach)) && row.AssignedToUserId != User.RequireUserId())
+            throw new NotFoundException("support_request_not_found", "Support request not found.");
+    }
 
     private IQueryable<MemberSupportRequestResponse> Project(IQueryable<MemberSupportRequest> query)
         => query.Select(x => new MemberSupportRequestResponse(
@@ -108,6 +121,7 @@ public sealed class MemberSupportRequestsController(
             x.Channel));
 
     [HttpGet]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     public async Task<IActionResult> List(
         [FromQuery] Guid memberId,
         CancellationToken ct = default)
@@ -144,6 +158,7 @@ public sealed class MemberSupportRequestsController(
     }
 
     [HttpPost]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     public async Task<IActionResult> Create(
         [FromBody] CreateMemberSupportRequest request,
         CancellationToken ct = default)
@@ -245,8 +260,9 @@ public sealed class MemberSupportRequestsController(
             entity.AssignedToUserId = assigneeId;
             entity.Status = "ASSIGNED";
             entity.UpdatedAt = now;
-            AddEvent(entity.RequestId, "ASSIGNED", request.HandoverNote?.Trim(), assigneeId);
-            if (role == UserRole.SystemAdministrator) await QueueAdminNoticeAsync(assigneeId, entity, ct);
+            var assignmentId = AddEvent(entity.RequestId, "ASSIGNED", request.HandoverNote?.Trim(), assigneeId);
+            if (role is UserRole.SystemAdministrator or UserRole.Coach)
+                await QueueAssignmentNoticeAsync(assigneeId, role, entity, assignmentId, ct);
         }
 
         db.Set<MemberSupportRequest>().Add(entity);
@@ -287,8 +303,7 @@ public sealed class MemberSupportRequestsController(
     [HttpGet("stats")]
     public async Task<IActionResult> Stats(CancellationToken ct = default)
     {
-        var counts = await db.Set<MemberSupportRequest>()
-            .AsNoTracking()
+        var counts = await VisibleRequests()
             .GroupBy(x => x.Status)
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync(ct);
@@ -312,7 +327,7 @@ public sealed class MemberSupportRequestsController(
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var query = db.Set<MemberSupportRequest>().AsNoTracking().AsQueryable();
+        var query = VisibleRequests();
         if (!string.IsNullOrWhiteSpace(status))
         {
             var value = status.Trim().ToUpperInvariant();
@@ -355,19 +370,21 @@ public sealed class MemberSupportRequestsController(
     }
 
     [HttpGet("assignees")]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     public async Task<IActionResult> Assignees(CancellationToken ct)
     {
         var canAssignAdmin = User.IsInRole(nameof(UserRole.CenterManager));
         return Ok(await db.Set<UserAccount>().AsNoTracking()
             .Where(x => x.Status == UserStatus.Active && x.Role != null
                 && (x.Role.RoleName == UserRole.Receptionist || x.Role.RoleName == UserRole.CenterManager
-                    || (canAssignAdmin && x.Role.RoleName == UserRole.SystemAdministrator)))
+                    || (canAssignAdmin && (x.Role.RoleName == UserRole.SystemAdministrator || x.Role.RoleName == UserRole.Coach))))
             .OrderBy(x => x.Email)
             .Select(x => new { x.UserId, Name = x.Profile != null ? x.Profile.FullName : x.Email,
                 x.Email, Role = x.Role!.RoleName }).ToListAsync(ct));
     }
 
     [HttpPost("{requestId:guid}/assign")]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     public async Task<IActionResult> Assign(Guid requestId, [FromBody] AssignSupportRequest body, CancellationToken ct)
     {
         var assigneeRole = await ValidateAssigneeAsync(body.AssigneeUserId, body.Note, ct);
@@ -383,8 +400,9 @@ public sealed class MemberSupportRequestsController(
         row.AssignedToUserId = body.AssigneeUserId;
         row.Status = "ASSIGNED";
         row.UpdatedAt = clock.UtcNow;
-        AddEvent(requestId, "ASSIGNED", body.Note?.Trim(), body.AssigneeUserId);
-        if (assigneeRole == UserRole.SystemAdministrator) await QueueAdminNoticeAsync(body.AssigneeUserId, row, ct);
+        var assignmentId = AddEvent(requestId, "ASSIGNED", body.Note?.Trim(), body.AssigneeUserId);
+        if (assigneeRole is UserRole.SystemAdministrator or UserRole.Coach)
+            await QueueAssignmentNoticeAsync(body.AssigneeUserId, assigneeRole, row, assignmentId, ct);
         audit.Write(new AuditEntry(User.RequireUserId(), "ASSIGN_SUPPORT_REQUEST", nameof(MemberSupportRequest),
             requestId.ToString(), OldValue: old is null ? null : JsonSerializer.Serialize(old),
             NewValue: JsonSerializer.Serialize(body.AssigneeUserId)));
@@ -401,6 +419,7 @@ public sealed class MemberSupportRequestsController(
             throw new BadRequestException("support_progress_invalid", "Progress note must have 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
+        RequireAssignedCoach(row);
         if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before updating progress.");
@@ -432,6 +451,7 @@ public sealed class MemberSupportRequestsController(
             throw new BadRequestException("support_final_note_invalid", "Final note must contain 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
+        RequireAssignedCoach(row);
         if (IsFinal(row.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
@@ -475,8 +495,10 @@ public sealed class MemberSupportRequestsController(
         if (assignee?.Role == UserRole.SystemAdministrator && !User.IsInRole(nameof(UserRole.CenterManager)))
             throw new ForbiddenException("support_admin_assignment_forbidden",
                 "Only a manager can assign requests to an administrator.");
+        if (assignee?.Role == UserRole.Coach && !User.IsInRole(nameof(UserRole.CenterManager)))
+            throw new ForbiddenException("support_coach_assignment_forbidden", "Only a manager can assign requests to a coach.");
         if (assignee is null || (assignee.Role != UserRole.Receptionist
-            && assignee.Role != UserRole.CenterManager && assignee.Role != UserRole.SystemAdministrator))
+            && assignee.Role != UserRole.CenterManager && assignee.Role != UserRole.SystemAdministrator && assignee.Role != UserRole.Coach))
             throw new BadRequestException("support_assignee_invalid", "Choose an eligible active staff member.");
         var actorRank = User.IsInRole(nameof(UserRole.CenterManager)) ? 1 : 0;
         if (Rank(assignee.Role) > actorRank && (note?.Trim().Length ?? 0) < 3)
@@ -485,7 +507,7 @@ public sealed class MemberSupportRequestsController(
         return assignee.Role;
     }
 
-    private async Task QueueAdminNoticeAsync(Guid adminId, MemberSupportRequest row, CancellationToken ct)
+    private async Task QueueAssignmentNoticeAsync(Guid recipientId, UserRole role, MemberSupportRequest row, Guid assignmentId, CancellationToken ct)
     {
         var actorId = User.RequireUserId();
         var names = await db.Set<UserAccount>().AsNoTracking()
@@ -494,16 +516,28 @@ public sealed class MemberSupportRequestsController(
             .ToDictionaryAsync(x => x.UserId, x => x.Name, ct);
         // The source identifies this assignment occurrence, allowing a later reassignment
         // back to the same administrator without colliding with the notification unique index.
-        notifications.Queue(new NotificationRequest(adminId, NotificationEvents.SupportRequestAssigned,
-            $"Manager {names.GetValueOrDefault(actorId)} assigned a member support request to you.\n"
+        var message = $"Manager {names.GetValueOrDefault(actorId)} assigned a member support request to you.\n"
             + $"Subject: {row.Subject}\nMember: {names.GetValueOrDefault(row.MemberId)}\n"
-            + $"Category: {row.Category}\n{row.Description}", Guid.NewGuid()));
+            + $"Category: {row.Category}\n{row.Description}";
+        notifications.Queue(new NotificationRequest(recipientId, NotificationEvents.SupportRequestAssigned, message, assignmentId));
+        if (role == UserRole.Coach)
+        {
+            var email = await db.Set<UserAccount>().Where(x => x.UserId == recipientId).Select(x => x.Email).SingleAsync(ct);
+            notifications.QueueEmail(new EmailNotificationRequest(recipientId, email, NotificationEvents.SupportRequestAssigned,
+                assignmentId, "SportHub - A support request has been assigned to you",
+                SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph($"Manager {names.GetValueOrDefault(actorId)} assigned a support request to you. Open Support requests in your Coach workspace to respond.")
+                + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Reference", row.RequestId.ToString("N")[..8].ToUpperInvariant()),
+                    ("Subject", row.Subject), ("Member", names.GetValueOrDefault(row.MemberId) ?? "Member"),
+                    ("Category", CategoryLabel(row.Category)), ("Details", row.Description))));
+        }
     }
 
-    private void AddEvent(Guid requestId, string type, string? note, Guid? targetUserId = null)
-        => db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
+    private Guid AddEvent(Guid requestId, string type, string? note, Guid? targetUserId = null)
+    {
+        var eventId = Guid.NewGuid();
+        db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
         {
-            EventId = Guid.NewGuid(),
+            EventId = eventId,
             RequestId = requestId,
             ActorUserId = User.RequireUserId(),
             Type = type,
@@ -511,10 +545,12 @@ public sealed class MemberSupportRequestsController(
             TargetUserId = targetUserId,
             CreatedAt = clock.UtcNow
         });
+        return eventId;
+    }
 
     [HttpGet("{requestId:guid}")]
     public async Task<IActionResult> GetOne(Guid requestId, CancellationToken ct)
-        => await Project(db.Set<MemberSupportRequest>().AsNoTracking().Where(x => x.RequestId == requestId))
+        => await Project(VisibleRequests().Where(x => x.RequestId == requestId))
             .SingleOrDefaultAsync(ct) is { } row
             ? Ok(row)
             : throw new NotFoundException("support_request_not_found", "Support request not found.");
@@ -522,6 +558,8 @@ public sealed class MemberSupportRequestsController(
     [HttpGet("{requestId:guid}/events")]
     public async Task<IActionResult> Events(Guid requestId, CancellationToken ct)
     {
+        if (!await VisibleRequests().AnyAsync(x => x.RequestId == requestId, ct))
+            throw new NotFoundException("support_request_not_found", "Support request not found.");
         var events = await db.Set<MemberSupportEvent>().AsNoTracking()
             .Where(e => e.RequestId == requestId)
             .OrderBy(e => e.CreatedAt)

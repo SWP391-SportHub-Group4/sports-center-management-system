@@ -70,25 +70,33 @@ export function SupportDetail({
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
-  workspace: "manager" | "receptionist";
+  workspace: "manager" | "receptionist" | "coach";
   onChanged: () => void;
 }) {
   const { user } = useAuth();
   const isManager = workspace === "manager";
+  const isCoach = workspace === "coach";
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
 
   const member = useApi(
     (signal) =>
-      api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
-    [request.memberId],
+      isCoach
+        ? Promise.resolve(null)
+        : api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
+    [request.memberId, isCoach],
   );
   const packages = useApi(
     (signal) =>
-      api.get<MemberPackageDto[]>(`/api/members/${request.memberId}/packages`, {
-        signal,
-      }),
-    [request.memberId],
+      isCoach
+        ? Promise.resolve([] as MemberPackageDto[])
+        : api.get<MemberPackageDto[]>(
+            `/api/members/${request.memberId}/packages`,
+            {
+              signal,
+            },
+          ),
+    [request.memberId, isCoach],
   );
   const events = useApi(
     (signal) =>
@@ -243,19 +251,23 @@ export function SupportDetail({
               .filter(Boolean)
               .join(" · ")}
           </span>
-          <span className={styles.muted}>
-            Plan: {planText}
-            {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
-              ? ` · until ${formatDate(plan.endDate)}`
-              : ""}
-          </span>
+          {!isCoach && (
+            <span className={styles.muted}>
+              Plan: {planText}
+              {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
+                ? ` · until ${formatDate(plan.endDate)}`
+                : ""}
+            </span>
+          )}
         </div>
-        <Link
-          className={styles.bannerLink}
-          href={`/${workspace}/members/${request.memberId}`}
-        >
-          View profile
-        </Link>
+        {!isCoach && (
+          <Link
+            className={styles.bannerLink}
+            href={`/${workspace}/members/${request.memberId}`}
+          >
+            View profile
+          </Link>
+        )}
       </div>
 
       <section className={styles.section} aria-label="Request message">
@@ -345,103 +357,105 @@ export function SupportDetail({
         )
       ) : (
         <>
-          <section className={styles.box} aria-label="Routing and escalation">
-            <h4 className={styles.muted} style={{ margin: 0 }}>
-              Assignment · currently{" "}
-              <strong>
-                {request.assignedToName ??
-                  (request.assignedToUserId ? "former staff" : "unassigned")}
-                {currentRole ? ` (${ROLE_LABELS[currentRole]})` : ""}
-              </strong>
-            </h4>
-            <div className={styles.grid2}>
-              <label className={styles.field}>
-                Department
-                <select
-                  value={targetRole}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setTargetRole(e.target.value as RoleKey | "");
-                    setTargetUser("");
-                  }}
-                >
-                  <option value="">Select a department</option>
-                  {availableRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={styles.field}>
-                Staff member
-                <select
-                  value={targetUser}
-                  disabled={busy || !targetRole}
-                  onChange={(e) => setTargetUser(e.target.value)}
-                >
-                  <option value="">Select a staff member</option>
-                  {staff.map((x) => (
-                    <option key={x.userId} value={x.userId}>
-                      {x.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {escalating && (
-              <label className={styles.field}>
-                Transfer note (required)
-                <textarea
-                  value={transferNote}
-                  maxLength={1000}
-                  disabled={busy}
-                  placeholder={`Why are you escalating this to the ${ROLE_LABELS[targetRole as RoleKey]}?`}
-                  onChange={(e) => setTransferNote(e.target.value)}
-                />
-              </label>
-            )}
-            <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn"
-                disabled={busy || transferBlock !== null}
-                onClick={() =>
-                  run(
-                    "assign",
-                    {
-                      assigneeUserId: targetUser,
-                      note: transferNote.trim(),
-                    },
-                    "Request transferred.",
-                  )
-                }
-              >
-                Transfer request
-              </button>
-              {user && request.assignedToUserId !== user.userId && (
+          {!isCoach && (
+            <section className={styles.box} aria-label="Routing and escalation">
+              <h4 className={styles.muted} style={{ margin: 0 }}>
+                Assignment · currently{" "}
+                <strong>
+                  {request.assignedToName ??
+                    (request.assignedToUserId ? "former staff" : "unassigned")}
+                  {currentRole ? ` (${ROLE_LABELS[currentRole]})` : ""}
+                </strong>
+              </h4>
+              <div className={styles.grid2}>
+                <label className={styles.field}>
+                  Department
+                  <select
+                    value={targetRole}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setTargetRole(e.target.value as RoleKey | "");
+                      setTargetUser("");
+                    }}
+                  >
+                    <option value="">Select a department</option>
+                    {availableRoles.map((role) => (
+                      <option key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Staff member
+                  <select
+                    value={targetUser}
+                    disabled={busy || !targetRole}
+                    onChange={(e) => setTargetUser(e.target.value)}
+                  >
+                    <option value="">Select a staff member</option>
+                    {staff.map((x) => (
+                      <option key={x.userId} value={x.userId}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {escalating && (
+                <label className={styles.field}>
+                  Transfer note (required)
+                  <textarea
+                    value={transferNote}
+                    maxLength={1000}
+                    disabled={busy}
+                    placeholder={`Why are you escalating this to the ${ROLE_LABELS[targetRole as RoleKey]}?`}
+                    onChange={(e) => setTransferNote(e.target.value)}
+                  />
+                </label>
+              )}
+              <div className={styles.actions}>
                 <button
                   type="button"
-                  className="btn btn--secondary"
-                  disabled={busy}
+                  className="btn"
+                  disabled={busy || transferBlock !== null}
                   onClick={() =>
                     run(
                       "assign",
-                      { assigneeUserId: user.userId },
-                      "You are now handling this request.",
+                      {
+                        assigneeUserId: targetUser,
+                        note: transferNote.trim(),
+                      },
+                      "Request transferred.",
                     )
                   }
                 >
-                  Assign to me
+                  Transfer request
                 </button>
+                {user && request.assignedToUserId !== user.userId && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        "assign",
+                        { assigneeUserId: user.userId },
+                        "You are now handling this request.",
+                      )
+                    }
+                  >
+                    Assign to me
+                  </button>
+                )}
+              </div>
+              {transferBlock && (
+                <p className={`${styles.helper} ${styles.helperWarn}`}>
+                  {transferBlock}
+                </p>
               )}
-            </div>
-            {transferBlock && (
-              <p className={`${styles.helper} ${styles.helperWarn}`}>
-                {transferBlock}
-              </p>
-            )}
-          </section>
+            </section>
+          )}
 
           <section className={styles.section} aria-label="Handle request">
             <div className={styles.tabs} role="tablist" aria-label="Action">

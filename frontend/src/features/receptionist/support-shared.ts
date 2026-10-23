@@ -24,16 +24,18 @@ export const CHANNEL_LABELS: Record<string, string> = {
   ONLINE: "Member (online)",
 };
 
-export type RoleKey = "receptionist" | "manager" | "admin";
+export type RoleKey = "receptionist" | "manager" | "admin" | "coach";
 
 export const ROLE_RANK: Record<RoleKey, number> = {
   receptionist: 0,
+  coach: 0,
   manager: 1,
   admin: 2,
 };
 
 export const ROLE_LABELS: Record<RoleKey, string> = {
   receptionist: "Receptionist",
+  coach: "Coach",
   manager: "Manager",
   admin: "Administrator",
 };
@@ -43,6 +45,7 @@ export function roleKey(role: string | null | undefined): RoleKey {
   const value = (role ?? "").toUpperCase();
   if (value.includes("ADMIN")) return "admin";
   if (value.includes("MANAGER")) return "manager";
+  if (value.includes("COACH")) return "coach";
   return "receptionist";
 }
 
