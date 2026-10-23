@@ -721,15 +721,16 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("logo preserves original upload, previews before publishing and can be replaced", async ({
+test("logo icon preserves original upload and keeps the SportHub wordmark before and after publishing", async ({
   page,
 }) => {
   const calls = await setup(page);
+  const editor = page.getByLabel("Editable homepage preview");
+  const icon = editor.locator('img[alt=""]');
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
   const chooseLogo = async () => {
     const chooser = page.waitForEvent("filechooser");
-    await page
-      .getByRole("button", { name: "Change logo", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Edit logo", exact: true }).click();
     await (await chooser).setFiles(imageFile);
   };
   const upload = page.waitForRequest((request) =>
@@ -739,20 +740,50 @@ test("logo preserves original upload, previews before publishing and can be repl
   expect((await upload).postDataBuffer()?.toString()).toContain(
     'name="preset"\r\n\r\nlogo',
   );
+  await expect(icon).toBeVisible();
+  await expect(icon.locator("..")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(icon.locator("..")).toHaveCSS("border-radius", "0px");
   await expect(
-    page.getByRole("img", { name: "Homepage logo", exact: true }),
-  ).toBeVisible();
+    editor.getByText("Only the icon changes. The SportHub name stays fixed."),
+  ).toHaveCount(0);
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("dialog", { name: "Frame your image" }),
   ).toHaveCount(0);
   expect(calls.saves).toHaveLength(0);
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(
-    page
-      .frameLocator('iframe[title="Draft homepage"]')
-      .getByRole("banner")
-      .getByRole("img", { name: "SportHub", exact: true }),
-  ).toHaveAttribute("src", /hero-rally/);
+  const header = page
+    .frameLocator('iframe[title="Draft homepage"]')
+    .getByRole("banner")
+    .getByRole("link", { name: "SportHub, homepage", exact: true });
+  await expect(header.locator('img[alt=""]')).toHaveAttribute(
+    "src",
+    /hero-rally/,
+  );
+  await expect(header.getByText("SportHub", { exact: true })).toBeVisible();
+  await expect(header.locator('img[alt=""]').locator("..")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(header.locator('img[alt=""]').locator("..")).toHaveCSS(
+    "border-radius",
+    "0px",
+  );
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    const mark = header.locator('img[alt=""]');
+    const box = await mark.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBe(box!.height);
+    expect(box!.width).toBeLessThanOrEqual(44);
+    await expect(header.getByText("SportHub", { exact: true })).toBeVisible();
+    await page.screenshot({
+      path: `test-results/media-logo-icon-${width}.png`,
+    });
+  }
   await page
     .getByRole("dialog", { name: "Homepage preview" })
     .getByRole("button", { name: "Close", exact: true })
@@ -763,17 +794,24 @@ test("logo preserves original upload, previews before publishing and can be repl
   ).toBeVisible();
   expect(calls.saves.at(-1)?.["brand.logo.image"]).toBe(uploadUrl);
   await page.reload();
-  await expect(
-    page.getByRole("img", { name: "Homepage logo", exact: true }),
-  ).toBeVisible();
+  await expect(icon).toBeVisible();
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page
+      .getByRole("button", { name: "Edit logo", exact: true })
+      .scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: `test-results/media-logo-pencil-${width}.png`,
+    });
+  }
   calls.uploadError = true;
   await chooseLogo();
   await expect(
     page.getByRole("alert").filter({ hasText: "Upload failed. Try again." }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("img", { name: "Homepage logo", exact: true }),
-  ).toBeVisible();
+  await expect(icon).toBeVisible();
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
   calls.uploadError = false;
   await chooseLogo();
   await expect.poll(() => calls.uploads).toBe(3);

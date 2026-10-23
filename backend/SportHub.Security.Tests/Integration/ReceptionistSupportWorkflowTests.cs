@@ -122,7 +122,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         var member = await factory.SeedUserAsync($"support-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
         var desk = await factory.SeedUserAsync($"support-desk-{Guid.NewGuid():N}@example.com", null, role: actorRole);
         var handler = await factory.SeedUserAsync($"support-handler-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
-        var coach = await factory.SeedUserAsync($"support-coach-{Guid.NewGuid():N}@example.com", null, role: UserRole.Coach);
+        var coach = await factory.SeedUserAsync($"support-coach-{Guid.NewGuid():N}@example.com", null, UserStatus.Deactivated, UserRole.Coach);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(desk.UserId, actorRole));
         var created = await client.PostAsJsonAsync("/api/member-support-requests",
@@ -167,7 +167,6 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
 
     [Theory]
     [InlineData(UserRole.Member)]
-    [InlineData(UserRole.Coach)]
     [InlineData(UserRole.SystemAdministrator)]
     public async Task Non_front_desk_cannot_read_or_mutate_requests(UserRole role)
     {

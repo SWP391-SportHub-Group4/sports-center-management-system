@@ -202,11 +202,14 @@ public sealed class SupportAttachmentsController(ISportHubDbContext db) : Contro
                 a.Content,
                 a.ContentType,
                 OwnerId = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
-                    .Select(r => r.MemberId).FirstOrDefault()
+                    .Select(r => r.MemberId).FirstOrDefault(),
+                AssignedTo = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
+                    .Select(r => r.AssignedToUserId).FirstOrDefault()
             })
             .SingleOrDefaultAsync(ct);
         var staff = User.IsInRole(nameof(UserRole.Receptionist)) || User.IsInRole(nameof(UserRole.CenterManager));
-        if (row is null || (row.OwnerId != userId && !staff))
+        if (row is null || (row.OwnerId != userId && !staff
+            && !(User.IsInRole(nameof(UserRole.Coach)) && row.AssignedTo == userId)))
             throw new NotFoundException("support_attachment_not_found", "Attachment not found.");
         Response.Headers.CacheControl = "private, max-age=300";
         return File(row.Content, row.ContentType);

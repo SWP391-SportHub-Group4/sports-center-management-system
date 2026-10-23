@@ -166,6 +166,8 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "SUPPORT_REQUEST_ASSIGNED":
+      return "View support request";
     case "COACH_ATTENDANCE_REMINDER":
       return "Complete attendance";
     case "AVATAR_REPORTED":

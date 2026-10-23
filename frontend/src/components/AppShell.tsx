@@ -98,6 +98,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/attendance", labelKey: "attendance" },
+    { href: "/coach/support", labelKey: "support" },
   ],
   CenterManager: [
     { href: "/manager", labelKey: "overview" },

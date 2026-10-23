@@ -226,24 +226,26 @@ export function PublicHeader() {
         aria-label={copy.home}
         onClick={closeMenu}
       >
-        {logo && validLandingImage(logo) ? (
-          <HomepageImage
-            src={logo}
-            alt="SportHub"
-            width={180}
-            height={48}
-            className={styles.customLogo}
-          />
-        ) : (
-          <>
-            <span className={styles.logoMark} aria-hidden="true">
-              <CourtIcon name="gym" size={19} />
-            </span>
-            <span className={styles.logoWord}>
-              Sport<span className={styles.logoAccent}>Hub</span>
-            </span>
-          </>
-        )}
+        <span
+          className={styles.logoMark}
+          data-custom={(!!logo && validLandingImage(logo)) || undefined}
+          aria-hidden="true"
+        >
+          {logo && validLandingImage(logo) ? (
+            <HomepageImage
+              src={logo}
+              alt=""
+              width={44}
+              height={44}
+              className={styles.customLogo}
+            />
+          ) : (
+            <CourtIcon name="gym" size={19} />
+          )}
+        </span>
+        <span className={styles.logoWord}>
+          Sport<span className={styles.logoAccent}>Hub</span>
+        </span>
       </Link>
 
       <button
