@@ -5,8 +5,7 @@ backend/**/obj/
 
 ## Env
 .env
-.env.*
-!.env.example
+/ai-service/.env
 
 ## Node / Next.js
 frontend/node_modules/
@@ -50,11 +49,3 @@ ai/**/.venv/
 
 # Local persistent runtime data, including Data Protection keys.
 /.sporthub-local/
-
-# Local keys, build caches and review workspaces.
-*.pem
-/.worktrees/
-**/.next/
-/frontend/frontend/
-/output/local-sync-backup-*/
-/.tmp-*.log
