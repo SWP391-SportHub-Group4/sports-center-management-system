@@ -93,6 +93,12 @@
   background: var(--bg-brand-deep);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
+.videoPreviewFooter {
+  width: 100%;
+}
+.videoPreviewFooter .uploadError {
+  margin: 0 0 var(--space-3);
+}
 .previewLoading {
   position: absolute;
   align-self: center;

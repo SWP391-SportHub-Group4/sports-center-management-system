@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import { MediaEditableText } from "./media-editable-text";
-import { ArrowRight, ImagePlus, Pencil } from "lucide-react";
+import { ArrowRight, ImagePlus, Pencil, Video } from "lucide-react";
 import HomepageImage from "@/components/homepage/HomepageImage";
 import { CourtIcon } from "@/components/brand/CourtIcon";
 import { heroCopy } from "@/components/homepage/PerformanceSections";
@@ -95,6 +95,7 @@ export function MediaLandingPreview({
   onImage,
   onCoaches,
   onText,
+  onVideo,
 }: {
   showcaseData: HomepageShowcaseSources;
   changedKeys: string[];
@@ -102,6 +103,7 @@ export function MediaLandingPreview({
   onImage: (target: MediaImageTarget) => void;
   onCoaches: () => void;
   onText: (field: string, value: string | undefined) => void;
+  onVideo: () => void;
 }) {
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [zoneId, setZoneId] = useState<
@@ -207,10 +209,14 @@ export function MediaLandingPreview({
             </span>
           </span>
         </div>
-        <span>
-          Double-click text to edit. Enter to finish; Shift+Enter for a new
-          line; Esc to undo.
-        </span>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={disabled}
+          onClick={onVideo}
+        >
+          <Video size={17} aria-hidden="true" /> Change hero video
+        </button>
       </div>
       <section id="media-hero" className={styles.hero} aria-label="Hero">
         {text("hero.title", "Hero title", hero.title, "h2")}

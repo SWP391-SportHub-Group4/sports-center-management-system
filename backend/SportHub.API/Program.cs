@@ -217,6 +217,8 @@ builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =
     client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHttpClient<IMediaVideoStorage, CloudinaryMediaVideoStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(120));
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();

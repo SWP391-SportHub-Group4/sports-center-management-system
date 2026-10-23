@@ -11,6 +11,7 @@ import { HomepageFAQ } from "@/components/homepage/HomepageFAQ";
 import { CourtBookingSection } from "@/components/homepage/CourtBookingSection";
 import { ScrollReveal } from "@/components/homepage/ScrollReveal";
 import { LandingContentProvider } from "@/components/homepage/landing-content-context";
+import { HeroArenaVideo } from "@/components/homepage/HeroArenaVideo";
 
 export default function Page() {
   const { language } = useLanguage();
@@ -18,6 +19,7 @@ export default function Page() {
   const text = (vn: string, en: string) => (vi ? vn : en);
   return (
     <LandingContentProvider>
+      <HeroArenaVideo />
       <div
         id="top"
         className={`${s.page} ${cinema.theme}`}
