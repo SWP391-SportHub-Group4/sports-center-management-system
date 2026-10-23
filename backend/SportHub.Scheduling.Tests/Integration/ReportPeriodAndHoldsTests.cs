@@ -42,6 +42,14 @@ public sealed class ReportPeriodAndHoldsTests(SchedulingApiFactory factory)
         for (var i = 0; i < 8; i++)
             members.Add((await factory.SeedUserAsync(UserRole.Member)).UserId);
 
+        // Membership reports require a linked non-day-pass package for each purchase.
+        var packages = new List<Guid>();
+        foreach (var memberId in members)
+        {
+            var package = await factory.SeedMemberPackageAsync(memberId, endDate: day.AddDays(30));
+            packages.Add(package.MemberPackageId);
+        }
+
         await factory.QueryAsync(async db =>
         {
             void Add(int member, DateTime? paidAt, SportHub.Payment.Domain.Enums.InvoiceStatus status,
@@ -58,6 +66,8 @@ public sealed class ReportPeriodAndHoldsTests(SchedulingApiFactory factory)
                 invoice.Items.Add(new SportHub.Payment.Domain.Entities.InvoiceItem
                 {
                     ItemId = Guid.NewGuid(), ItemType = kind, Description = "Report fixture",
+                    MemberPackageId = kind == SportHub.Payment.Domain.Enums.InvoiceItemType.Membership
+                        ? packages[member] : (Guid?)null,
                     UnitPrice = 100000, Quantity = 1, LineAmount = 100000
                 });
                 db.Invoices.Add(invoice);
