@@ -465,7 +465,7 @@ function ContentEditor({
       {restoreOpen && (
         <Dialog
           title="Restore original homepage?"
-          description="Restore the images and featured coaches from the current restore point. New sports stay in the gallery. Review the draft, then save to publish."
+          description="Restore all images, titles and content to the original homepage from main, with Gym as the sport name. Custom text, images and logo will be reset. Sports and coach profiles stay in their catalogs. Review the draft, then save to publish."
           onClose={() => setRestoreOpen(false)}
         >
           <div className={styles.actions}>
@@ -480,7 +480,7 @@ function ContentEditor({
               type="button"
               className="btn"
               onClick={() => {
-                setDraft(restoreMediaBaseline(draft, showcaseData.coaches));
+                setDraft(restoreMediaBaseline(showcaseData.coaches));
                 setSaved(false);
                 setError("");
                 setConflict(false);

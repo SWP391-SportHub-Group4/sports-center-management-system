@@ -34,7 +34,7 @@ export const arenaCopy = {
     exploreDescription: "Explore classes, schedules and member benefits.",
     selectedAnnouncement: "Selected arena zone",
     mapAlt:
-      "Interactive floor plan with badminton courts on the left, basketball court in the center and conditioning lanes on the right.",
+      "Interactive floor plan with badminton courts on the left, basketball court in the center and Gym on the right.",
     zones: {
       badminton: {
         label: "Badminton",
@@ -59,9 +59,9 @@ export const arenaCopy = {
         specTwo: "12 m",
       },
       conditioning: {
-        label: "Conditioning",
-        short: "CONDITIONING",
-        title: "Athletic conditioning",
+        label: "Gym",
+        short: "GYM",
+        title: "Gym",
         description:
           "Build speed and movement quality with strength work, Olympic lifting and VO₂ Max-focused conditioning.",
         image: "/sporthub/court-volt/conditioning-speed-track.png",
@@ -117,9 +117,9 @@ export const arenaCopy = {
         specTwo: "12 m",
       },
       conditioning: {
-        label: "Thể lực",
-        short: "THỂ LỰC",
-        title: "Tối ưu hiệu năng vận động",
+        label: "Gym",
+        short: "GYM",
+        title: "Gym",
         description:
           "Phát triển tốc độ và chất lượng chuyển động với rèn sức mạnh, cử tạ Olympic và chương trình hướng tới VO₂ Max.",
         image: "/sporthub/court-volt/conditioning-speed-track.png",

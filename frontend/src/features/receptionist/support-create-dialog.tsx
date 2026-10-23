@@ -14,11 +14,7 @@ import {
 import { useApi } from "@/lib/useApi";
 import type { MemberPackageDto, UserAdminDto } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
-import {
-  ROLE_LABELS,
-  ROLE_RANK,
-  roleKey,
-} from "./support-shared";
+import { ROLE_LABELS, ROLE_RANK, roleKey } from "./support-shared";
 import styles from "./support-center.module.css";
 
 function MemberPlanLine({ memberId }: { memberId: string }) {
@@ -54,12 +50,15 @@ export function SupportCreateDialog({
   assignees,
   onClose,
   onCreated,
+  workspace = "receptionist",
 }: {
   assignees: SupportAssignee[];
   onClose: () => void;
   onCreated: (message: string) => void;
+  workspace?: "manager" | "receptionist";
 }) {
   const { user } = useAuth();
+  const isManager = workspace === "manager";
   const [member, setMember] = useState<UserAdminDto | null>(null);
   const [category, setCategory] = useState<SupportCategory | "">("");
   const [subject, setSubject] = useState("");
@@ -76,7 +75,7 @@ export function SupportCreateDialog({
   const baseReady =
     !!member &&
     category !== "" &&
-    subject.trim().length >= 3 &&
+    (isManager || subject.trim().length >= 3) &&
     description.trim().length >= 3;
   const handoverBlock = !handoverTo
     ? "Choose who to hand over to."
@@ -85,7 +84,8 @@ export function SupportCreateDialog({
       : null;
 
   async function submit(handover: boolean) {
-    if (lock.current || !member || category === "") return;
+    if (lock.current || !baseReady || !member || (handover && handoverBlock))
+      return;
     lock.current = true;
     setBusy(true);
     setError(null);
@@ -93,7 +93,7 @@ export function SupportCreateDialog({
       await api.post("/api/member-support-requests", {
         memberId: member.userId,
         category,
-        subject: subject.trim(),
+        subject: isManager ? undefined : subject.trim(),
         description: description.trim(),
         assigneeUserId: handover ? handoverTo : user?.userId,
         handoverNote: handover ? handoverNote.trim() : undefined,
@@ -136,7 +136,7 @@ export function SupportCreateDialog({
         </div>
 
         <label className={styles.field}>
-          Topic
+          {isManager ? "What is your request about? *" : "Topic"}
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as SupportCategory)}
@@ -150,18 +150,35 @@ export function SupportCreateDialog({
           </select>
         </label>
 
-        <label className={styles.field}>
-          Subject
-          <input
-            value={subject}
-            maxLength={200}
-            placeholder="Short summary"
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        </label>
+        {isManager && (
+          <label className={styles.field}>
+            Email
+            <input
+              aria-label="Email"
+              type="email"
+              value={member?.email ?? ""}
+              readOnly
+            />
+            <span className={styles.muted}>
+              The email registered on the member’s account.
+            </span>
+          </label>
+        )}
+
+        {!isManager && (
+          <label className={styles.field}>
+            Subject
+            <input
+              value={subject}
+              maxLength={200}
+              placeholder="Short summary"
+              onChange={(e) => setSubject(e.target.value)}
+            />
+          </label>
+        )}
 
         <label className={styles.field}>
-          Description
+          {isManager ? "Your message *" : "Description"}
           <textarea
             value={description}
             maxLength={2000}
@@ -202,7 +219,10 @@ export function SupportCreateDialog({
         </div>
 
         {error && (
-          <p className={`${styles.feedback} ${styles.feedbackError}`} role="alert">
+          <p
+            className={`${styles.feedback} ${styles.feedbackError}`}
+            role="alert"
+          >
             {error}
           </p>
         )}
