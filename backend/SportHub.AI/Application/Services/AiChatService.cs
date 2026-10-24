@@ -114,6 +114,10 @@ public sealed class AiChatService(
 
         stopwatch.Stop();
 
+        var cleanAnswer = providerResponse is null
+            ? string.Empty
+            : AiPlainTextSanitizer.Clean(providerResponse.Answer);
+
         var elapsedMs =
             (int)Math.Min(
                 int.MaxValue,
@@ -154,7 +158,7 @@ public sealed class AiChatService(
                                 providerResponse?.InteractionId,
 
                             answer =
-                                providerResponse?.Answer,
+                                providerResponse is null ? null : cleanAnswer,
 
                             provider =
                                 providerResponse?.Provider
@@ -202,7 +206,7 @@ public sealed class AiChatService(
             logId,
             providerResponse!.InteractionId,
             question,
-            providerResponse.Answer,
+            cleanAnswer,
             providerResponse.Provider,
             providerResponse.Model,
             promptVersion,

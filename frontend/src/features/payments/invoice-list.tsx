@@ -208,10 +208,12 @@ export function InvoiceList({
   staff = false,
   memberId,
   rental = false,
+  initialStatus = "",
 }: {
   staff?: boolean;
   memberId?: string;
   rental?: boolean;
+  initialStatus?: string;
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -224,7 +226,7 @@ export function InvoiceList({
 
   const [linkError, setLinkError] = useState("");
 
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialStatus);
 
   const [actionError, setActionError] = useState("");
 

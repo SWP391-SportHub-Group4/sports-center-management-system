@@ -7,6 +7,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { InvoiceDetailDto, UserAdminDto } from "@/lib/types";
 import { MemberDesk } from "./front-desk";
+import { InvoiceList } from "@/features/payments/invoice-list";
 
 type InvoiceReference = { id: string; byItem: boolean };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,7 +44,8 @@ export function InvoiceDesk() {
   const itemId = query.get("invoiceItemId");
   const id = invoiceId ?? itemId;
 
-  if (id === null) return <MemberDesk mode="invoices" />;
+  if (id === null)
+    return <InvoiceList staff initialStatus={query.get("status") === "ISSUED" ? "ISSUED" : ""} />;
   if (!uuid.test(id))
     return <p role="alert">{t.operations.invalidInvoiceLink}</p>;
 
