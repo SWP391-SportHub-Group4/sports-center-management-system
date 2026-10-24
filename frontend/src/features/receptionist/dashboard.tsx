@@ -114,7 +114,7 @@ export function ReceptionDashboard() {
     (signal) =>
       api.get<Paged<unknown>>("/api/front-desk/payment-reconciliation", {
         signal,
-        query: { page: 1, pageSize: 1 },
+        query: { page: 1, pageSize: 1, caseType: "captured" },
       }),
     [],
   );
@@ -177,7 +177,7 @@ export function ReceptionDashboard() {
         aria-label={vi ? "Kiểm tra quầy" : "Desk checks"}
       >
         <DeskCheck
-          href="/receptionist/payment-reconciliation"
+          href="/receptionist/payment-reconciliation?caseType=captured"
           icon={<CreditCard size={20} aria-hidden="true" />}
           count={unfulfilledCount}
           title={vi ? "Đã trả tiền, chưa kích hoạt" : "Paid, not activated"}
@@ -188,7 +188,7 @@ export function ReceptionDashboard() {
           }
         />
         <DeskCheck
-          href="/receptionist/invoices"
+          href="/receptionist/invoices?status=ISSUED"
           icon={<FileText size={20} aria-hidden="true" />}
           count={invoiceCount}
           title={vi ? "Hóa đơn chờ thanh toán" : "Invoices awaiting payment"}

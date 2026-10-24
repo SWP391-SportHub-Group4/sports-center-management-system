@@ -18,6 +18,7 @@ import { todayIso, addDaysIso, formatDate, formatTime } from "@/lib/format";
 import { vietnamLocal } from "@/lib/vietnam-time";
 import { Card, Dialog, Field, Table, AsyncSection } from "@/components/ui";
 import type { CourtScheduleEntryDto, CourseRosterDto } from "@/lib/types";
+import { ReceptionAttendanceCalendar } from "./ReceptionAttendanceCalendar";
 import styles from "./AttendanceBoard.module.css";
 
 type Filter = "ALL" | "PRESENT" | "ABSENT" | "UNMARKED";
@@ -139,6 +140,14 @@ export function AttendanceBoard({
     setErrors({});
   }
 
+  function chooseSession(nextDate: string, nextSession: string) {
+    if (nextDate !== date) chooseDate(nextDate);
+    setSession(nextSession);
+    setSearch("");
+    setFilter("ALL");
+    setErrors({});
+  }
+
   async function mark(id: string, status: "PRESENT" | "ABSENT") {
     if (!writable || !sessionId) return false;
     const key = `${sessionId}-${id}`;
@@ -162,6 +171,10 @@ export function AttendanceBoard({
 
   return (
     <div className={styles.board}>
+      {!coachOnly && (
+        <ReceptionAttendanceCalendar date={date} disabled={bulk}
+          onChooseDate={chooseDate} onChooseSession={chooseSession} />
+      )}
       <Card>
         <div className={styles.controls}>
           <div className={styles.dateControl}>

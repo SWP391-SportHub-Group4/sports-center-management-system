@@ -31,8 +31,11 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
 {
     [HttpGet]
     public async Task<IActionResult> Queue([FromQuery] Guid? memberId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? caseType = null, CancellationToken ct = default)
     {
+        if (caseType is not null && caseType != "captured" && caseType != "unverified")
+            return BadRequest(new { error = "Invalid caseType. Use captured or unverified." });
         page = Math.Clamp(page, 1, 1000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var scanLimit = page * pageSize;
@@ -79,9 +82,16 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                                     invoice.Status.ToString(), attempt.CreatedAt)
             );
 
-        var total = await capturedQuery.CountAsync(ct) + await unverifiedQuery.CountAsync(ct);
-        var captured = await capturedQuery.Take(scanLimit).ToListAsync(ct);
-        var unverified = await unverifiedQuery.Take(scanLimit).ToListAsync(ct);
+        var includeCaptured = caseType != "unverified";
+        var includeUnverified = caseType != "captured";
+        var total = (includeCaptured ? await capturedQuery.CountAsync(ct) : 0)
+                  + (includeUnverified ? await unverifiedQuery.CountAsync(ct) : 0);
+        var captured = includeCaptured
+            ? await capturedQuery.Take(scanLimit).ToListAsync(ct)
+            : new List<FrontDeskReconciliationRow>();
+        var unverified = includeUnverified
+            ? await unverifiedQuery.Take(scanLimit).ToListAsync(ct)
+            : new List<FrontDeskReconciliationRow>();
 
         var items = captured.Concat(unverified)
             .OrderBy(x => x.State == "AWAITING_VERIFICATION" ? 1 : 0)

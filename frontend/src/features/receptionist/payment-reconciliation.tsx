@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime, formatMoney } from "@/lib/format";
@@ -53,14 +54,16 @@ function explain(row: Case) {
 }
 
 export function FrontDeskPaymentReconciliation() {
+  const query = useSearchParams();
+  const caseType = query.get("caseType") === "captured" ? "captured" : undefined;
   const [page, setPage] = useState(1);
   const cases = useApi(
     (signal) =>
       api.get<Paged<Case>>("/api/front-desk/payment-reconciliation", {
         signal,
-        query: { page, pageSize: 20 },
+        query: { page, pageSize: 20, ...(caseType ? { caseType } : {}) },
       }),
-    [page],
+    [page, caseType],
   );
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
