@@ -294,13 +294,6 @@ namespace SportHub.API.Migrations
                             Description = "Days before an unconfirmed support payout is confirmed automatically.",
                             UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "3"
-                        },
-                        new
-                        {
-                            Key = "support.bank_data_retention_days",
-                            Description = "Days to retain bank details after a support request closes.",
-                            UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Value = "90"
                         });
                 });
 
@@ -801,42 +794,6 @@ namespace SportHub.API.Migrations
                         {
                             t.HasCheckConstraint("ck_member_support_payout_amount_positive", "amount > 0");
                         });
-                });
-
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportPayoutDetail", b =>
-                {
-                    b.Property<Guid>("RequestId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("request_id");
-
-                    b.Property<string>("AccountHolder")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)")
-                        .HasColumnName("account_holder");
-
-                    b.Property<string>("AccountLast4")
-                        .HasMaxLength(4)
-                        .HasColumnType("character varying(4)")
-                        .HasColumnName("account_last4");
-
-                    b.Property<string>("AccountNumberEncrypted")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("account_number_encrypted");
-
-                    b.Property<string>("BankName")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("bank_name");
-
-                    b.Property<DateTime?>("PurgedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("purged_at_utc");
-
-                    b.HasKey("RequestId")
-                        .HasName("pk_member_support_payout_details");
-
-                    b.ToTable("member_support_payout_details", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>
@@ -4392,16 +4349,6 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_member_support_payouts_member_support_requests_request_id");
-                });
-
-            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportPayoutDetail", b =>
-                {
-                    b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportRequest", null)
-                        .WithOne()
-                        .HasForeignKey("SportHub.Identity.Domain.Entities.MemberSupportPayoutDetail", "RequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_member_support_payout_details_member_support_requests_reque");
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>

@@ -11,4 +11,8 @@ public static class PaymentSupportErrorCodes
     public const string PayoutNotFound = "payout_not_found";
     public const string ReconciliationAlreadyResolved = "reconciliation_already_resolved";
     public const string PaymentRequestAlreadyOpen = "payment_request_already_open";
+    public const string PaymentRequestInvoiceRequired = "payment_request_invoice_required";
+    public const string PaymentRequestManagerOnly = "payment_request_manager_only";
+    public const string PayoutNoteRequired = "payout_note_required";
+    public const string SupportRemindPaymentOnly = "support_remind_payment_only";
 }

@@ -5,9 +5,8 @@ import { MessageSquare, Plus, Search, UserRound } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
-import { formatDateTime, label } from "@/lib/format";
-import { useLanguage } from "@/lib/language";
-import { StatusChip } from "@/components/ui";
+import { formatDateTime } from "@/lib/format";
+import { SupportStatus, SUPPORT_STATUS_LABELS } from "@/components/support-status";
 import {
   SUPPORT_CATEGORIES,
   supportCategoryLabel,
@@ -16,7 +15,7 @@ import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportCreateDialog } from "./support-create-dialog";
 import { SupportDetail } from "./support-detail";
-import { STATUS_LABELS, receiverStatus, receiverStatusLabel, supportReference } from "./support-shared";
+import { supportReference } from "./support-shared";
 import styles from "./support-center.module.css";
 
 const PAGE_SIZE = 20;
@@ -42,11 +41,11 @@ const summaryCards: {
   label: string;
   status: string;
 }[] = [
-  { key: "open", label: "New", status: "OPEN" },
+  { key: "open", label: "Received", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "done", label: "Done", status: "DONE" },
-  { key: "rejected", label: "Rejected", status: "REJECTED" },
+  { key: "done", label: "Finished", status: "FINISHED" },
+  { key: "rejected", label: "Declined", status: "REJECTED" },
 ];
 
 /** Support requests workspace for the front desk and managers: filterable list plus a detail panel. */
@@ -58,18 +57,15 @@ export function SupportQueue({
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
-  const { t } = useLanguage();
   const isManager = workspace === "manager";
   const isReceiver = workspace === "coach" || workspace === "admin";
   const cards = isReceiver ? [
     { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
     { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
-    { key: "done" as const, label: "Done", status: "DONE" },
+    { key: "done" as const, label: "Finished", status: "FINISHED" },
   ] : summaryCards;
   const statusLabel = (status: string) =>
-    isReceiver ? receiverStatusLabel(status) : isManager
-      ? (t.wireStatus[status as keyof typeof t.wireStatus] ?? label(status))
-      : (STATUS_LABELS[status] ?? status);
+    status === "NOT_STARTED" ? "Not started" : status === "FINISHED" ? "Finished" : (SUPPORT_STATUS_LABELS[status] ?? status);
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -266,10 +262,10 @@ export function SupportQueue({
             onChange={(e) => patch({ status: e.target.value })}
           >
             <option value="">All statuses</option>
-            {cards.map((c) => (
-              <option key={c.status} value={c.status}>
-                {statusLabel(c.status)}
-              </option>
+            <option value="NOT_STARTED">Not started (group)</option>
+            <option value="FINISHED">Finished (group)</option>
+            {Object.entries(SUPPORT_STATUS_LABELS).map(([status, text]) => (
+              <option key={status} value={status}>{text}</option>
             ))}
           </select>
         </label>
@@ -383,8 +379,6 @@ export function SupportQueue({
           {items.length > 0 && (
             <ul className={styles.list} aria-busy={queue.loading}>
               {items.map((request) => {
-                const status =
-                  isReceiver ? receiverStatus(request.status) : request.status === "CLOSED" ? "DONE" : request.status;
                 return (
                   <li key={request.requestId}>
                     <button
@@ -405,17 +399,7 @@ export function SupportQueue({
                     >
                       <span className={styles.rowTop}>
                         <span className={styles.rowBadges}>
-                          {isManager ? (
-                            <StatusChip value={request.status} />
-                          ) : (
-                            <span className={styles.badge}>
-                              <span
-                                className={styles.dot}
-                                data-status={status}
-                              />
-                              {statusLabel(status)}
-                            </span>
-                          )}
+                          <SupportStatus status={request.status} />
                           {request.isOverdue && (
                             <span className={styles.overdueBadge}>Overdue</span>
                           )}

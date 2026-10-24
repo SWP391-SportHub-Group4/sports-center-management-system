@@ -40,8 +40,7 @@ public sealed class SystemSettingService(
             [SystemSettingKeys.RentalCancelFreeHours] = (0, 168),
             [SystemSettingKeys.SupportSlaHours] = (1, 168),
             [SystemSettingKeys.SupportRemindCooldownHours] = (1, 168),
-            [SystemSettingKeys.SupportPayoutConfirmDays] = (1, 30),
-            [SystemSettingKeys.SupportBankDataRetentionDays] = (1, 3650)
+            [SystemSettingKeys.SupportPayoutConfirmDays] = (1, 30)
         };
 
     public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)

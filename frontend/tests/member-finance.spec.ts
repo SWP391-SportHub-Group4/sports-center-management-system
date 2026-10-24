@@ -6,6 +6,7 @@ const id = "22222222-2222-2222-2222-222222222222";
 async function setup(
   page: Page,
   checkoutOverrides: Record<string, unknown> = {},
+  summaryOverrides: Record<string, unknown> = {},
 ) {
   const checkout = {
     invoiceId: id,
@@ -36,6 +37,7 @@ async function setup(
     reconciliationRequired: false,
     issuedAt: new Date().toISOString(),
     checkoutExpiresAtUtc: checkout.expiresAtUtc,
+    ...summaryOverrides,
   };
   const detail = {
     summary,
@@ -262,18 +264,25 @@ test("member can review their point refund and open its invoice", async ({
 test("reloaded day-pass checkout explains validity and no refunds before payment", async ({
   page,
 }) => {
-  await setup(page, { kind: "MEMBERSHIP", isDayPass: true });
+  await setup(page, {
+    kind: "MEMBERSHIP",
+    isDayPass: true,
+    closingSoon: true,
+    closesAtUtc: "2026-10-25T15:00:00Z",
+  });
   await page.goto(`/checkout/${id}`);
-  await expect(page.getByRole("note")).toContainText(
-    "valid only today (Vietnam time)",
-  );
+  await expect(page.getByRole("note")).toContainText("The gym closes at 22:00");
   await expect(page.getByRole("note")).toContainText("not refundable");
 });
 
 test("member downloads the invoice PDF through the authenticated endpoint", async ({
   page,
 }) => {
-  await setup(page);
+  await setup(page, {}, {
+    status: "PAID",
+    outstanding: 0,
+    fulfillmentOutcome: "FULFILLED",
+  });
   await page.route(`**/api/invoices/${id}/receipt.pdf`, (route) => {
     expect(route.request().headers()["authorization"]).toBe(
       "Bearer test-token",

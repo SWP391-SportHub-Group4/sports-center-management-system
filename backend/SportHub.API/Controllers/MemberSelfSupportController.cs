@@ -16,7 +16,6 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Application.Services;
-using SportHub.Identity.Infrastructure.Security;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
 
@@ -32,9 +31,6 @@ public sealed class SubmitSupportRequest
 
     public List<IFormFile>? Files { get; set; }
     public Guid? InvoiceId { get; set; }
-    [MaxLength(120)] public string? BankName { get; set; }
-    [MaxLength(64)] public string? AccountNumber { get; set; }
-    [MaxLength(160)] public string? AccountHolder { get; set; }
 }
 
 /// <summary>
@@ -50,8 +46,7 @@ public sealed class MemberSelfSupportController(
     IAuditWriter audit,
     INotificationWriter notifications,
     ISystemSettingProvider settings,
-    SupportReminderService reminders,
-    BankAccountProtector bankProtector) : ControllerBase
+    SupportReminderService reminders) : ControllerBase
 {
     public const int MaxFiles = 3;
     public const int MaxFileBytes = 5 * 1024 * 1024;
@@ -84,9 +79,6 @@ public sealed class MemberSelfSupportController(
         {
             if (request.InvoiceId is null || request.InvoiceId == Guid.Empty)
                 throw new BadRequestException("payment_request_invoice_required", "Choose a paid VNPay invoice.");
-            if (string.IsNullOrWhiteSpace(request.BankName) || string.IsNullOrWhiteSpace(request.AccountNumber)
-                || string.IsNullOrWhiteSpace(request.AccountHolder))
-                throw new BadRequestException("payment_request_bank_required", "Enter the receiving bank account.");
             if (files.Count == 0)
                 throw new BadRequestException("payment_request_proof_required", "Attach at least one proof image.");
         }
@@ -153,20 +145,7 @@ public sealed class MemberSelfSupportController(
                     && r.Status != "REJECTED", ct))
                 throw new ConflictException(PaymentSupportErrorCodes.PaymentRequestAlreadyOpen,
                     "An open support request already exists for this invoice.");
-            var bankName = request.BankName!.Trim();
-            var holder = request.AccountHolder!.Trim();
-            if (bankName.Length is < 2 or > 120 || holder.Length is < 2 or > 160)
-                throw new BadRequestException("payment_request_bank_required", "Enter valid bank account details.");
-            string protectedNumber;
-            try { protectedNumber = bankProtector.Protect(request.AccountNumber!); }
-            catch (ArgumentException) { throw new BadRequestException("payment_request_bank_required", "Enter a valid bank account number."); }
             entity.InvoiceId = invoiceId;
-            db.Set<MemberSupportPayoutDetail>().Add(new MemberSupportPayoutDetail
-            {
-                RequestId = entity.RequestId, BankName = bankName,
-                AccountNumberEncrypted = protectedNumber,
-                AccountLast4 = BankAccountProtector.LastFour(request.AccountNumber!), AccountHolder = holder
-            });
         }
         db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
         {
@@ -242,16 +221,10 @@ public sealed class MemberSelfSupportController(
         var proofs = await db.Set<MemberSupportAttachment>().AsNoTracking()
             .Where(a => a.PayoutId != null && payoutIds.Contains(a.PayoutId.Value))
             .Select(a => new { a.PayoutId, a.AttachmentId }).ToListAsync(ct);
-        var bankMasks = await db.Set<MemberSupportPayoutDetail>().AsNoTracking()
-            .Where(d => requestIds.Contains(d.RequestId))
-            .Select(d => new { d.RequestId, d.AccountLast4 })
-            .ToDictionaryAsync(d => d.RequestId, ct);
         return Ok(rows.Select(x => new
         {
             x.RequestId, x.Category, x.Description, x.Status, x.InvoiceId, x.CreatedAt, x.UpdatedAt,
             x.Response, x.SlaDueAtUtc, x.RemindCount,
-            BankAccountMasked = bankMasks.TryGetValue(x.RequestId, out var bank) && bank.AccountLast4 is not null
-                ? BankAccountProtector.Mask(bank.AccountLast4) : null,
             Payout = payouts.TryGetValue(x.RequestId, out var p)
                 ? new { p.Amount, p.RecordedAtUtc, p.MemberConfirmedAtUtc, p.MemberConfirmedBy,
                     ProofAttachmentIds = proofs.Where(a => a.PayoutId == p.PayoutId)
@@ -267,7 +240,7 @@ public sealed class MemberSelfSupportController(
     [HttpPost("requests/{requestId:guid}/remind")]
     public async Task<IActionResult> Remind(Guid requestId, CancellationToken ct)
     {
-        var result = await reminders.RemindAsync(requestId, User.RequireUserId(), ct);
+        var result = await reminders.RemindAsync(requestId, User.RequireUserId(), byStaff: false, ct);
         if (result.Sent) return Ok(result);
         var seconds = Math.Max(1, (int)Math.Ceiling((result.CanRemindAtUtc - clock.UtcNow).TotalSeconds));
         Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);

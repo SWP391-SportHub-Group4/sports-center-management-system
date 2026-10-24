@@ -104,12 +104,6 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
                 Key = SystemSettingKeys.SupportPayoutConfirmDays, Value = "3",
                 Description = "Days before an unconfirmed support payout is confirmed automatically.",
                 UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new SystemSetting
-            {
-                Key = SystemSettingKeys.SupportBankDataRetentionDays, Value = "90",
-                Description = "Days to retain bank details after a support request closes.",
-                UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, DateTimeKind.Utc)
             });
     }
 }

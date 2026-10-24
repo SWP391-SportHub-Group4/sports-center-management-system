@@ -13,7 +13,6 @@ using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
-using SportHub.Identity.Infrastructure.Security;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
 
@@ -23,7 +22,7 @@ public sealed class RecordSupportPayout
 {
     [Range(typeof(decimal), "0.01", "9999999999999999")]
     public decimal Amount { get; set; }
-    [MaxLength(1000)] public string? Note { get; set; }
+    [Required, MaxLength(1000)] public string? Note { get; set; }
     public List<IFormFile>? Files { get; set; }
 }
 
@@ -31,7 +30,7 @@ public sealed class RecordSupportPayout
 [Authorize(Roles = SportHubRoleNames.CenterManager)]
 [Route("api/member-support-requests")]
 public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
-    IAuditWriter audit, INotificationWriter notifications, BankAccountProtector bankProtector,
+    IAuditWriter audit, INotificationWriter notifications,
     IConfiguration configuration) : ControllerBase
 {
     [HttpPost("{requestId:guid}/payout")]
@@ -40,6 +39,10 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
     public async Task<IActionResult> Record(Guid requestId, [FromForm] RecordSupportPayout body, CancellationToken ct)
     {
         var files = await SupportPayoutProof.ReadAsync(body.Files, clock.UtcNow, ct);
+        var note = body.Note?.Trim();
+        if (string.IsNullOrEmpty(note))
+            throw new BadRequestException(PaymentSupportErrorCodes.PayoutNoteRequired,
+                "Add a note about your call with the member and how the refund was made.");
         if (body.Amount <= 0)
             throw new BadRequestException("payout_amount_invalid", "Enter a positive payout amount.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -69,7 +72,7 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
         var payout = new MemberSupportPayout
         {
             PayoutId = Guid.NewGuid(), RequestId = requestId, InvoiceId = invoiceId,
-            Amount = body.Amount, Note = body.Note?.Trim(),
+            Amount = body.Amount, Note = note,
             RecordedByUserId = User.RequireUserId(), RecordedAtUtc = now
         };
         db.Set<MemberSupportPayout>().Add(payout);
@@ -87,13 +90,10 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
             EventId = Guid.NewGuid(), RequestId = requestId, ActorUserId = User.RequireUserId(),
             Type = "PAYOUT_RECORDED", CreatedAt = now
         });
-        var bank = await db.Set<MemberSupportPayoutDetail>().AsNoTracking()
-            .SingleOrDefaultAsync(x => x.RequestId == requestId, ct);
         audit.Write(new AuditEntry(User.RequireUserId(), "SUPPORT_PAYOUT_RECORDED", nameof(MemberSupportPayout),
             payout.PayoutId.ToString(), NewValue: JsonSerializer.Serialize(new
             {
-                payout.RequestId, payout.InvoiceId, payout.Amount,
-                BankAccount = bank?.AccountLast4 is { } last4 ? BankAccountProtector.Mask(last4) : null
+                payout.RequestId, payout.InvoiceId, payout.Amount
             })));
         var contact = await db.Set<UserAccount>().AsNoTracking().Where(x => x.UserId == request.MemberId)
             .Select(x => new { x.Email, Name = x.Profile != null ? x.Profile.FullName : x.Email })
@@ -115,18 +115,6 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
         return Ok(new { payout.PayoutId, payout.RequestId, payout.InvoiceId, payout.Amount,
             payout.RecordedAtUtc, request.Status, outcome = "DONE",
             proofAttachmentIds = files.Select(x => x.AttachmentId).ToArray() });
-    }
-
-    [HttpGet("{requestId:guid}/bank-details")]
-    public async Task<IActionResult> BankDetails(Guid requestId, CancellationToken ct)
-    {
-        var detail = await db.Set<MemberSupportPayoutDetail>().AsNoTracking()
-            .SingleOrDefaultAsync(x => x.RequestId == requestId, ct)
-            ?? throw new NotFoundException("payout_bank_details_not_found", "Bank details not found.");
-        Response.Headers.CacheControl = "private, no-store";
-        return Ok(new { detail.BankName,
-            accountNumber = detail.AccountNumberEncrypted is null ? null : bankProtector.Unprotect(detail.AccountNumberEncrypted),
-            detail.AccountHolder, detail.PurgedAtUtc });
     }
 }
 

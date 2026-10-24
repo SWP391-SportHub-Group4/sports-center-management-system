@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { AvatarImage } from "@/components/AvatarImage";
-import { StatusChip } from "@/components/ui";
+import { SupportStatus } from "@/components/support-status";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -21,9 +21,6 @@ import { SupportPayout } from "./support-payout";
 import {
   ROLE_LABELS,
   ROLE_RANK,
-  STATUS_LABELS,
-  receiverStatusLabel,
-  receiverStatus,
   CHANNEL_LABELS,
   supportReference,
   assigneesByRole,
@@ -219,14 +216,7 @@ export function SupportDetail({
     <div className={styles.detail}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
-          {isManager ? (
-            <StatusChip value={request.status} />
-          ) : (
-            <span className={styles.badge}>
-              <span className={styles.dot} data-status={isReceiver ? receiverStatus(request.status) : request.status} />
-              {isReceiver ? receiverStatusLabel(request.status) : STATUS_LABELS[request.status] ?? request.status}
-            </span>
-          )}
+          <SupportStatus status={request.status} />
           <time className={styles.createdAt} dateTime={request.createdAt}>
             Created {formatDateTime(request.createdAt)}
           </time>

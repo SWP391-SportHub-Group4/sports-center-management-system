@@ -17,6 +17,7 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
     ISystemSettingProvider settings, INotificationWriter notifications, IAuditWriter audit)
 {
     private const string MemberEvent = "REMINDED_BY_MEMBER";
+    private const string StaffEvent = "REMINDED_BY_STAFF";
     private const string SlaEvent = "SLA_REMINDER_SENT";
 
     public static DateTime CanRemindAt(MemberSupportRequest request, int cooldownHours)
@@ -25,13 +26,17 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
         return afterLast is DateTime last && last > request.SlaDueAtUtc ? last : request.SlaDueAtUtc;
     }
 
-    public async Task<SupportRemindResult> RemindAsync(Guid requestId, Guid memberId, CancellationToken ct)
+    /// <summary>The member reminds us, or (byStaff) the front desk reminds the managers on the member's behalf.</summary>
+    public async Task<SupportRemindResult> RemindAsync(Guid requestId, Guid actorId, bool byStaff, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var request = await db.Set<MemberSupportRequest>().FromSqlInterpolated(
             $"SELECT * FROM member_support_requests WHERE request_id = {requestId} FOR UPDATE")
             .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("support_request_not_found", "Support request not found.");
-        if (request.MemberId != memberId)
+        if (byStaff && request.Category != "PAYMENT")
+            throw new ForbiddenException(PaymentSupportErrorCodes.SupportRemindPaymentOnly,
+                "Front desk can remind only on payment requests.");
+        if (!byStaff && request.MemberId != actorId)
             throw new ForbiddenException("support_request_not_owned", "Support request not owned.");
         if (IsFinal(request.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
@@ -53,24 +58,26 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
             var eventId = Guid.NewGuid();
             db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
             {
-                EventId = eventId, RequestId = requestId, ActorUserId = memberId,
-                TargetUserId = recipientId, Type = MemberEvent, CreatedAt = now
+                EventId = eventId, RequestId = requestId, ActorUserId = actorId,
+                TargetUserId = recipientId, Type = byStaff ? StaffEvent : MemberEvent, CreatedAt = now
             });
             notifications.Queue(new NotificationRequest(recipientId, NotificationEvents.SupportRequestReminded,
-                $"A member reminded us about support request {request.Subject}.", eventId));
+                byStaff
+                    ? $"The front desk reminded you about support request {request.Subject} on the member's behalf."
+                    : $"A member reminded us about support request {request.Subject}.", eventId));
             sent++;
         }
         if (sent == 0)
             db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
             {
-                EventId = Guid.NewGuid(), RequestId = requestId, ActorUserId = memberId,
-                Type = MemberEvent, CreatedAt = now
+                EventId = Guid.NewGuid(), RequestId = requestId, ActorUserId = actorId,
+                Type = byStaff ? StaffEvent : MemberEvent, CreatedAt = now
             });
         request.LastMemberRemindAtUtc = now;
         request.RemindCount++;
         request.UpdatedAt = now;
-        audit.Write(new AuditEntry(memberId, "REMIND_SUPPORT_REQUEST", nameof(MemberSupportRequest),
-            requestId.ToString()));
+        audit.Write(new AuditEntry(actorId, "REMIND_SUPPORT_REQUEST", nameof(MemberSupportRequest),
+            requestId.ToString(), NewValue: byStaff ? "{\"onBehalfOfMember\":true}" : null));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return new SupportRemindResult(requestId, request.RemindCount, now.AddHours(cooldownHours), true);
@@ -116,20 +123,26 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
         return sent;
     }
 
+    /// <summary>The assignee, else every manager and receptionist. Payment requests are handled by managers only.</summary>
     private async Task<List<Guid>> RecipientsAsync(MemberSupportRequest request, CancellationToken ct)
-        => request.AssignedToUserId is Guid assignee
-            ? await db.Set<UserAccount>().AsNoTracking()
-                .Where(u => u.UserId == assignee && u.Status == UserStatus.Active)
-                .Select(u => u.UserId).ToListAsync(ct)
-            : await db.Set<UserAccount>().AsNoTracking()
-                .Where(u => u.Status == UserStatus.Active && u.Role != null
-                    && (u.Role.RoleName == UserRole.CenterManager || u.Role.RoleName == UserRole.Receptionist))
+    {
+        var managersOnly = request.Category == "PAYMENT";
+        if (request.AssignedToUserId is Guid assignee)
+            return await db.Set<UserAccount>().AsNoTracking()
+                .Where(u => u.UserId == assignee && u.Status == UserStatus.Active
+                    && (!managersOnly || (u.Role != null && u.Role.RoleName == UserRole.CenterManager)))
                 .Select(u => u.UserId).ToListAsync(ct);
+        return await db.Set<UserAccount>().AsNoTracking()
+            .Where(u => u.Status == UserStatus.Active && u.Role != null
+                && (u.Role.RoleName == UserRole.CenterManager
+                    || (!managersOnly && u.Role.RoleName == UserRole.Receptionist)))
+            .Select(u => u.UserId).ToListAsync(ct);
+    }
 
     private Task<bool> RecentlyRemindedAsync(Guid requestId, Guid recipientId, DateTime now,
         int cooldownHours, CancellationToken ct)
         => db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == requestId
-            && e.TargetUserId == recipientId && (e.Type == MemberEvent || e.Type == SlaEvent)
+            && e.TargetUserId == recipientId && (e.Type == MemberEvent || e.Type == StaffEvent || e.Type == SlaEvent)
             && e.CreatedAt > now.AddHours(-cooldownHours), ct);
 
     private static bool IsFinal(string status) => status is "DONE" or "REJECTED" or "CLOSED";

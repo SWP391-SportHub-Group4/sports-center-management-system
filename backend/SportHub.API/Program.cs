@@ -213,6 +213,7 @@ builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<SupportReminderService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ISupportInvoiceGuard, SportHub.Payment.Application.Services.SupportInvoiceGuard>();
 builder.Services.AddScoped<AvatarService>();
 builder.Services.AddScoped<CoachCredentialService>();
 builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
@@ -248,7 +249,6 @@ if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
 }
 builder.Services.Configure<EmailOptions>(smtpSection);
 var dataProtection = builder.Services.AddDataProtection();
-builder.Services.AddScoped<SportHub.Identity.Infrastructure.Security.BankAccountProtector>();
 var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
 if (!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(dataProtectionKeysPath))
     throw new InvalidOperationException("DataProtection:KeysPath must point to durable storage outside Development.");
@@ -451,7 +451,6 @@ builder.Services.AddHostedService<PaymentReconciliationJob>();
 builder.Services.AddHostedService<SupportSlaReminderJob>();
 builder.Services.AddScoped<SupportPayoutMaintenance>();
 builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
-builder.Services.AddHostedService<SupportBankDataPurgeJob>();
 builder.Services.AddHostedService<PointHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
 builder.Services.AddHostedService<AvatarDeletionJob>();

@@ -22,9 +22,6 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         form.Add(new StringContent("PAYMENT"), "Category");
         form.Add(new StringContent("Captured payment needs support"), "Description");
         form.Add(new StringContent(invoiceId.ToString()), "InvoiceId");
-        form.Add(new StringContent("Test Bank"), "BankName");
-        form.Add(new StringContent("12345678"), "AccountNumber");
-        form.Add(new StringContent("Test Member"), "AccountHolder");
         for (var i = 0; i < proofs; i++) AddPng(form);
         return form;
     }
@@ -76,17 +73,6 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
             Assert.Equal("payment_request_invoice_required",
                 (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
         }
-        using (var missingBank = new MultipartFormDataContent())
-        {
-            missingBank.Add(new StringContent("PAYMENT"), "Category");
-            missingBank.Add(new StringContent("Captured payment needs support"), "Description");
-            missingBank.Add(new StringContent(invoice.InvoiceId.ToString()), "InvoiceId");
-            AddPng(missingBank);
-            var res = await owner.PostAsync("/api/support/requests", missingBank);
-            Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
-            Assert.Equal("payment_request_bank_required",
-                (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
-        }
         using (var otherForm = Form(invoice.InvoiceId))
             Assert.Equal(HttpStatusCode.BadRequest,
                 (await other.PostAsync("/api/support/requests", otherForm)).StatusCode);
@@ -97,24 +83,37 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         using (var duplicate = Form(invoice.InvoiceId))
             Assert.Equal(HttpStatusCode.Conflict,
                 (await owner.PostAsync("/api/support/requests", duplicate)).StatusCode);
-        await factory.QueryAsync(async db =>
+        // Front desk sees the request but cannot handle it; the member never submitted bank details.
+        var deskView = await desk.GetFromJsonAsync<JsonElement>($"/api/member-support-requests/{requestId}");
+        Assert.Equal("PAYMENT", deskView.GetProperty("category").GetString());
+        foreach (var path in new[] { "assign", "progress", "done", "reject" })
         {
-            var bank = await db.Set<MemberSupportPayoutDetail>().SingleAsync(x => x.RequestId == requestId);
-            Assert.DoesNotContain("12345678", bank.AccountNumberEncrypted);
-            Assert.Equal("5678", bank.AccountLast4);
-            return 0;
-        });
+            using var body = JsonContent.Create(new { assigneeUserId = manager.UserId, note = "note", reason = "reason" });
+            var res = await desk.PostAsync($"/api/member-support-requests/{requestId}/{path}", body);
+            Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+            Assert.Equal("payment_request_manager_only",
+                (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
+        }
         Assert.Equal(HttpStatusCode.Forbidden,
             (await desk.PostAsync($"/api/member-support-requests/{requestId}/payout", new MultipartFormDataContent())).StatusCode);
         using (var noPayoutProof = new MultipartFormDataContent())
         {
             noPayoutProof.Add(new StringContent("50000"), "Amount");
+            noPayoutProof.Add(new StringContent("Called the member"), "Note");
             Assert.Equal(HttpStatusCode.BadRequest,
                 (await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", noPayoutProof)).StatusCode);
+        }
+        using (var noNote = new MultipartFormDataContent())
+        {
+            noNote.Add(new StringContent("50000"), "Amount");
+            AddPng(noNote);
+            var res = await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", noNote);
+            Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
         }
         using (var excessive = new MultipartFormDataContent())
         {
             excessive.Add(new StringContent("100001"), "Amount");
+            excessive.Add(new StringContent("Called the member"), "Note");
             AddPng(excessive);
             var res = await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", excessive);
             Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
@@ -124,6 +123,7 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         var before = await mgr.GetFromJsonAsync<JsonElement>(reportUrl);
         using var payoutForm = new MultipartFormDataContent();
         payoutForm.Add(new StringContent("50000"), "Amount");
+        payoutForm.Add(new StringContent("Called the member and agreed to refund by transfer"), "Note");
         AddPng(payoutForm);
         var recorded = await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", payoutForm);
         Assert.Equal(HttpStatusCode.OK, recorded.StatusCode);
@@ -139,17 +139,11 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         Assert.Equal(before.GetProperty("totalRefunded").GetDecimal(), after.GetProperty("totalRefunded").GetDecimal());
         Assert.Equal(before.GetProperty("netRevenue").GetDecimal(), after.GetProperty("netRevenue").GetDecimal());
         Assert.Equal(before.GetProperty("pointsRefunded").GetInt64(), after.GetProperty("pointsRefunded").GetInt64());
-        Assert.Equal(HttpStatusCode.Forbidden,
-            (await desk.GetAsync($"/api/member-support-requests/{requestId}/bank-details")).StatusCode);
-        var managerBank = await mgr.GetFromJsonAsync<JsonElement>(
-            $"/api/member-support-requests/{requestId}/bank-details");
-        Assert.Equal("12345678", managerBank.GetProperty("accountNumber").GetString());
         await factory.QueryAsync(async db =>
         {
             var audit = await db.Set<AuditLog>().SingleAsync(x => x.Action == "SUPPORT_PAYOUT_RECORDED"
                 && x.TargetId == payoutJson.GetProperty("payoutId").GetGuid().ToString());
-            Assert.DoesNotContain("12345678", audit.NewValue);
-            Assert.Contains("5678", audit.NewValue);
+            Assert.DoesNotContain("account", audit.NewValue, StringComparison.OrdinalIgnoreCase);
             return 0;
         });
         Assert.Equal(HttpStatusCode.NotFound,
@@ -162,6 +156,7 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
             (await other.GetAsync($"/api/support/attachments/{proofId}")).StatusCode);
         using var repeat = new MultipartFormDataContent();
         repeat.Add(new StringContent("50000"), "Amount");
+        repeat.Add(new StringContent("Second try"), "Note");
         AddPng(repeat);
         Assert.Equal(HttpStatusCode.Conflict,
             (await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", repeat)).StatusCode);
@@ -169,7 +164,7 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         var row = mine.EnumerateArray().Single(x => x.GetProperty("requestId").GetGuid() == requestId);
         Assert.Equal(50_000m, row.GetProperty("payout").GetProperty("amount").GetDecimal());
         Assert.Contains(proofId.ToString(), row.GetProperty("payout").GetProperty("proofAttachmentIds").ToString());
-        Assert.Equal("••••5678", row.GetProperty("bankAccountMasked").GetString());
+        Assert.False(row.TryGetProperty("bankAccountMasked", out _));
         Assert.Equal(HttpStatusCode.OK,
             (await owner.PostAsync($"/api/support/requests/{requestId}/confirm-received", null)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict,
@@ -177,7 +172,7 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Unreceived_report_reopens_request_and_maintenance_confirms_or_purges_only_when_due()
+    public async Task Unreceived_report_reopens_request_and_maintenance_confirms_only_when_due()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -193,11 +188,6 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
                 Status = "CLOSED", InvoiceId = invoice.InvoiceId, Channel = "ONLINE",
                 CreatedAt = DateTime.UtcNow.AddDays(-91), SlaDueAtUtc = DateTime.UtcNow.AddDays(-89),
                 ClosedAt = DateTime.UtcNow.AddDays(-91)
-            });
-            db.Set<MemberSupportPayoutDetail>().Add(new MemberSupportPayoutDetail
-            {
-                RequestId = requestId, BankName = "Test Bank", AccountNumberEncrypted = "protected",
-                AccountLast4 = "5678", AccountHolder = "Test Member"
             });
             db.Set<MemberSupportPayout>().Add(new MemberSupportPayout
             {
@@ -245,15 +235,79 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
             await scope.ServiceProvider.GetRequiredService<SupportPayoutMaintenance>().RunAsync(default);
         await factory.QueryAsync(async db =>
         {
-            var detail = await db.Set<MemberSupportPayoutDetail>().SingleAsync(x => x.RequestId == requestId);
             var payout = await db.Set<MemberSupportPayout>().SingleAsync(x => x.RequestId == requestId);
-            Assert.Null(detail.AccountNumberEncrypted);
-            Assert.Null(detail.AccountHolder);
-            Assert.Null(detail.BankName);
-            Assert.NotNull(detail.PurgedAtUtc);
             Assert.Equal("SYSTEM", payout.MemberConfirmedBy);
             Assert.Equal(2, await db.Set<MemberSupportAttachment>().CountAsync(x => x.RequestId == requestId));
             return 0;
         });
+    }
+
+    [Fact]
+    public async Task Receptionist_creates_and_reminds_payment_requests_but_only_managers_are_notified()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 80_000m);
+        await factory.QueryAsync(async db =>
+        {
+            db.Set<SportHub.Payment.Domain.Entities.Payment>().Add(new SportHub.Payment.Domain.Entities.Payment
+            {
+                PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = 80_000m,
+                Method = PaymentMethod.VnPay, Status = PaymentStatus.Success,
+                ReceivedByUserId = member.UserId, PaidAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        using var desk = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        var missing = await desk.PostAsJsonAsync("/api/member-support-requests", new
+        {
+            memberId = member.UserId, category = "PAYMENT", description = "Charged but not activated"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        var resolvedAtCounter = await desk.PostAsJsonAsync("/api/member-support-requests", new
+        {
+            memberId = member.UserId, category = "PAYMENT", description = "Charged but not activated",
+            invoiceId = invoice.InvoiceId, resolveNote = "done"
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, resolvedAtCounter.StatusCode);
+        var created = await desk.PostAsJsonAsync("/api/member-support-requests", new
+        {
+            memberId = member.UserId, category = "PAYMENT", description = "Charged but not activated",
+            invoiceId = invoice.InvoiceId, channel = "COUNTER"
+        });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var requestId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+        Assert.Equal(HttpStatusCode.Conflict, (await desk.PostAsJsonAsync("/api/member-support-requests", new
+        {
+            memberId = member.UserId, category = "PAYMENT", description = "Again",
+            invoiceId = invoice.InvoiceId
+        })).StatusCode);
+
+        // Too early: the response deadline has not passed.
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await desk.PostAsync($"/api/member-support-requests/{requestId}/remind", null)).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Set<MemberSupportRequest>().Where(x => x.RequestId == requestId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.SlaDueAtUtc, DateTime.UtcNow.AddHours(-1)));
+            return 0;
+        });
+        Assert.Equal(HttpStatusCode.OK,
+            (await desk.PostAsync($"/api/member-support-requests/{requestId}/remind", null)).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            var targets = await db.Set<MemberSupportEvent>()
+                .Where(e => e.RequestId == requestId && e.Type == "REMINDED_BY_STAFF")
+                .Select(e => e.TargetUserId).ToListAsync();
+            Assert.Contains(manager.UserId, targets);
+            Assert.DoesNotContain(receptionist.UserId, targets);
+            return 0;
+        });
+        // The member shares the same cooldown, so an immediate member reminder is refused.
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await owner.PostAsync($"/api/support/requests/{requestId}/remind", null)).StatusCode);
     }
 }

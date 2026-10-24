@@ -44,7 +44,6 @@ Guest (chưa đăng nhập) xem được landing page và nội dung công khai;
 sports-center-management-system/
 ├── backend/     # ASP.NET Core Web API (feature-based modular monolith, 11 project) — mở bằng Rider
 ├── frontend/    # Next.js — mở bằng VS Code
-├── ai/          # Reserved — AI hiện đang là module bên trong backend, xem ai/README.md
 ├── docs/        # Thiết kế hệ thống, yêu cầu, API và RUNBOOK
 └── docker-compose.yml
 ```
@@ -58,7 +57,7 @@ sports-center-management-system/
 | [`docs/SportManagement_BusinessRules_v2.0_updated.docx`](docs/SportManagement_BusinessRules_v2.0_updated.docx) | Business Rules v2.0 — nguồn nghiệp vụ hiện hành (thắng khi mâu thuẫn) |
 | [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md) | Thiết kế độc lập (gồm từ điển dữ liệu, kiến trúc mã nguồn, điều hướng Member): phạm vi, module, dữ liệu, luồng, payment, bảo mật, kiểm thử và danh sách phần chưa hoàn thành |
 | [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) | Phạm vi, thuật ngữ, quy ước và thứ tự nguồn |
-| [`docs/Requirements.md`](docs/Requirements.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
+| [`docs/Functional-and-Nonfunctional-Spec.md`](docs/Functional-and-Nonfunctional-Spec.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động local (PostgreSQL, backend, frontend) và bàn giao triển khai |
 | [`docs/README.md`](docs/README.md) | Mục lục tài liệu hệ thống |
 | [`PRODUCT.md`](PRODUCT.md), [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | Sản phẩm và bộ token duy nhất |

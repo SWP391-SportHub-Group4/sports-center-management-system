@@ -24,16 +24,16 @@ Frontend đọc `frontend/.env.local` (tùy chọn). Mặc định gọi API t�
 
 ## 3. Khởi động
 
-Compose local chạy PostgreSQL và AI. Backend và frontend chạy trực tiếp trên host theo mục 3.2–3.3:
+Để sửa giao diện và bấm F5 thấy thay đổi, chạy frontend trực tiếp bằng `npm run dev` theo mục 3.3. Không cần Docker Compose cho frontend. Nếu cần dữ liệu thật từ API, chạy thêm backend và PostgreSQL; có thể dùng Compose chỉ cho PostgreSQL và AI:
 
 ```bash
-docker compose up -d --build
+docker compose up -d postgres ai-service
 docker compose ps
 ```
 
 AI được mở tại `http://localhost:8001`; backend mặc định gọi địa chỉ này. Cấu hình Gemini trong `ai-service/.env` được giữ riêng và không commit. Đổi cấu hình AI thì chạy `docker compose up -d --force-recreate ai-service`.
 
-Khi chuyển từ Compose cũ, chạy `docker compose up -d --remove-orphans` để bỏ container backend/frontend cũ và giải phóng cổng 5000/3000. Lệnh giữ nguyên named volumes và dữ liệu PostgreSQL.
+Nếu đã chạy container frontend cũ, dừng nó trước khi chạy `npm run dev` để giải phóng cổng 3000 (`docker compose stop frontend` với Compose cũ). Lệnh này không xóa dữ liệu PostgreSQL.
 
 ### 3.1 Database
 
@@ -116,12 +116,14 @@ npm run dev
 
 Giao diện chạy tại [http://localhost:3000](http://localhost:3000)
 
+Lưu tệp trong `frontend/src` rồi bấm F5 trên trình duyệt; `next dev` sẽ biên dịch lại tự động. Frontend mặc định gọi API tại `http://localhost:5000`; nếu backend dùng địa chỉ khác, đặt `NEXT_PUBLIC_API_BASE_URL` trong `frontend/.env.local`. Nếu chỉ xem bố cục mà không chạy backend, trang vẫn mở nhưng dữ liệu gọi API sẽ không tải được. Khi đổi `.env.local`, khởi động lại `npm run dev`.
+
 ### 3.4 Khởi động lại PostgreSQL và AI
 
 Sau khi tắt Docker hoặc restart máy, chạy từ thư mục gốc:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres ai-service
 ```
 
 Chạy backend/frontend trong hai terminal như mục 3.2–3.3. Chỉ cần `docker compose build ai-service` khi sửa source Python hoặc dependencies của AI. Giữ nguyên named volumes khi nâng cấp; không dùng `docker compose down -v` trên dữ liệu cần giữ.

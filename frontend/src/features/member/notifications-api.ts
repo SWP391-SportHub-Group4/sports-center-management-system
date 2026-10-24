@@ -84,6 +84,21 @@ export function notificationPresentation(item: NotificationDto): {
   if (source === "SUPPORT_REQUEST_ASSIGNED") {
     label = "Member support";
     title = "A support request has been assigned to you";
+  } else if (source === "PAYMENT_UNACTIVATED") {
+    category = "payment";
+    label = "Billing";
+    title = "Your payment needs a decision";
+  } else if (source === "PAYMENT_CONVERTED_TO_POINTS") {
+    category = "payment";
+    label = "Billing";
+    title = "Points added to your wallet";
+  } else if (source === "SUPPORT_PAYOUT_RECORDED") {
+    category = "payment";
+    label = "Support";
+    title = "We sent your refund";
+  } else if (source === "SUPPORT_REQUEST_RECEIVED") {
+    label = "Support";
+    title = "We received your support request";
   } else if (source === "COACH_ATTENDANCE_REMINDER") {
     category = "schedule";
     label = "Attendance";
@@ -196,6 +211,14 @@ export function notificationActionLabel(
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":
       return vi ? "Kiểm tra hoàn điểm" : "Check refund";
+    case "PAYMENT_UNACTIVATED":
+      return "Choose an option";
+    case "PAYMENT_CONVERTED_TO_POINTS":
+      return "View invoice";
+    case "SUPPORT_PAYOUT_RECORDED":
+      return "Confirm receipt";
+    case "SUPPORT_REQUEST_RECEIVED":
+      return "Track request";
     default:
       return vi ? "Mở để xử lý" : "Open to take action";
   }

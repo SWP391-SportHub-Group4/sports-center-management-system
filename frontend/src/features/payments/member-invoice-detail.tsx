@@ -1,12 +1,14 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, ApiError } from "@/lib/apiClient";
+import { useKeepPrevious } from "@/lib/keep-previous";
+import { paymentSupportErrorCodes } from "@/lib/payment-support-errors";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import type { CheckoutDto, InvoiceDetailDto } from "@/lib/types";
-import { AsyncSection, Card, StatusChip, Table } from "@/components/ui";
+import { AsyncSection, Card, Dialog, StatusChip, Table } from "@/components/ui";
 import { Button, PageHeader, buttonClass } from "@/components/primitives";
 import { DownloadInvoiceButton } from "./download-invoice-button";
 import styles from "./checkout-panel.module.css";
@@ -16,6 +18,104 @@ import styles from "./checkout-panel.module.css";
  * payment và adjustment. Chỉ đọc dữ liệu server; quyền sở hữu do API quyết định (đổi ID trong URL
  * sang hóa đơn người khác trả 403/404 và trang chỉ hiện lỗi, không lộ nội dung).
  */
+/** Paid with VNPay but the service could not be activated: the member picks points or a support request, once. */
+function UnactivatedChoice({
+  invoiceId,
+  cashAmount,
+  onResolved,
+}: {
+  invoiceId: string;
+  cashAmount: number;
+  onResolved: (message: string) => void;
+}) {
+  const key = useRef(crypto.randomUUID());
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(
+    null,
+  );
+  async function convert() {
+    setBusy(true);
+    try {
+      const done = await api.post<{ points: number }>(
+        `/api/invoices/${invoiceId}/convert-to-points`,
+        undefined,
+        { idempotencyKey: key.current },
+      );
+      setConfirming(false);
+      onResolved(`${formatPoints(done.points)} points were added to your wallet.`);
+    } catch (error) {
+      setConfirming(false);
+      const resolved =
+        error instanceof ApiError &&
+        error.code === paymentSupportErrorCodes.reconciliationAlreadyResolved;
+      setResult({
+        ok: false,
+        text: resolved
+          ? "This payment was already resolved. Refresh to see the latest status."
+          : error instanceof Error
+            ? error.message
+            : "We could not convert this payment. Please try again.",
+      });
+      if (resolved) onResolved("This payment was already resolved.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card title="Paid, but your service was not activated">
+      <p>
+        We received your VNPay payment of <strong>{formatMoney(cashAmount)}</strong>
+        , but we could not activate the service (for example the seat or time
+        slot was no longer available). Choose one option. You can only choose
+        once.
+      </p>
+      <ul>
+        <li>
+          <strong>Receive points now.</strong> The paid amount is added to your
+          wallet at 1 point = 1,000 VND.
+        </li>
+        <li>
+          <strong>Send a support request.</strong> Ask for a bank refund and our
+          manager reviews it. We reply within 48 hours.
+        </li>
+      </ul>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
+        <Button type="button" onClick={() => setConfirming(true)} disabled={busy}>
+          Receive points now
+        </Button>
+        <Link
+          className={buttonClass({ variant: "secondary" })}
+          href={`/member/help?topic=PAYMENT&invoiceId=${invoiceId}`}
+        >
+          Send a support request
+        </Link>
+      </div>
+      {result && (
+        <p role={result.ok ? "status" : "alert"} style={{ color: result.ok ? undefined : "var(--danger-text)" }}>
+          {result.text}
+        </p>
+      )}
+      {confirming && (
+        <Dialog title="Receive points instead?" onClose={() => setConfirming(false)}>
+          <p>
+            The paid amount becomes points in your wallet. After this you
+            cannot ask for a bank refund for this payment.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
+            <Button type="button" loading={busy} onClick={() => void convert()}>
+              Yes, receive points
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+          </div>
+        </Dialog>
+      )}
+    </Card>
+  );
+}
+
 export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const { t, language } = useLanguage();
   const f = t.finance;
@@ -24,11 +124,23 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
     null,
   );
   const [verificationFailed, setVerificationFailed] = useState(false);
+  const [resolution, setResolution] = useState<string | null>(null);
   const state = useApi(
     (signal) =>
       api.get<InvoiceDetailDto>(`/api/invoices/${invoiceId}`, { signal }),
     [invoiceId],
   );
+  const unactivated = useApi(
+    (signal) =>
+      api.get<{ invoiceId: string }[]>("/api/members/me/unactivated-payments", {
+        signal,
+      }),
+    [invoiceId],
+  );
+  const awaitingChoice = (unactivated.data ?? []).some(
+    (x) => x.invoiceId === invoiceId,
+  );
+  const keptState = useKeepPrevious(state);
   const missing =
     state.error instanceof ApiError &&
     (state.error.status === 404 || state.error.status === 403);
@@ -70,7 +182,7 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
         state={
           missing
             ? { ...state, error: new ApiError(404, "not_found", f.notFound) }
-            : state
+            : keptState
         }
       >
         {(d) => {
@@ -141,7 +253,26 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                     )}
                   </Card>
                 )}
-              {s.reconciliationRequired && (
+              {resolution && (
+                <p
+                  className={styles.banner + " " + styles.bannerWarning}
+                  role="status"
+                >
+                  <strong>{resolution}</strong>
+                </p>
+              )}
+              {awaitingChoice && !resolution && (
+                <UnactivatedChoice
+                  invoiceId={s.invoiceId}
+                  cashAmount={s.cashAmount}
+                  onResolved={(message) => {
+                    setResolution(message);
+                    state.reload();
+                    unactivated.reload();
+                  }}
+                />
+              )}
+              {s.reconciliationRequired && !awaitingChoice && !resolution && (
                 <p
                   className={styles.banner + " " + styles.bannerWarning}
                   role="status"
