@@ -16,7 +16,7 @@ import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportCreateDialog } from "./support-create-dialog";
 import { SupportDetail } from "./support-detail";
-import { STATUS_LABELS, supportReference } from "./support-shared";
+import { STATUS_LABELS, receiverStatus, receiverStatusLabel, supportReference } from "./support-shared";
 import styles from "./support-center.module.css";
 
 const PAGE_SIZE = 20;
@@ -28,6 +28,7 @@ const emptyFilters = {
 };
 
 type SupportStats = {
+  notStarted: number;
   open: number;
   assigned: number;
   inProgress: number;
@@ -51,15 +52,20 @@ export function SupportQueue({
   workspace = "receptionist",
   onChanged,
 }: {
-  workspace?: "manager" | "receptionist" | "coach";
+  workspace?: "manager" | "receptionist" | "coach" | "admin";
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
   const { t } = useLanguage();
   const isManager = workspace === "manager";
-  const isCoach = workspace === "coach";
+  const isReceiver = workspace === "coach" || workspace === "admin";
+  const cards = isReceiver ? [
+    { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
+    { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
+    { key: "done" as const, label: "Done", status: "DONE" },
+  ] : summaryCards;
   const statusLabel = (status: string) =>
-    isManager
+    isReceiver ? receiverStatusLabel(status) : isManager
       ? (t.wireStatus[status as keyof typeof t.wireStatus] ?? label(status))
       : (STATUS_LABELS[status] ?? status);
   const stats = useApi(
@@ -69,12 +75,12 @@ export function SupportQueue({
   );
   const assignees = useApi(
     (signal) =>
-      isCoach
+      isReceiver
         ? Promise.resolve([] as SupportAssignee[])
         : api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
             signal,
           }),
-    [isCoach],
+    [isReceiver],
   );
   const [filters, setFilters] = useState(emptyFilters);
   const [search, setSearch] = useState("");
@@ -163,7 +169,7 @@ export function SupportQueue({
     <section className={styles.page} aria-label="Support requests">
       <div className={styles.head}>
         <h2>Support requests</h2>
-        {isCoach ? (
+        {isReceiver ? (
           <p>Requests assigned to you by the manager.</p>
         ) : (
           <button
@@ -177,8 +183,8 @@ export function SupportQueue({
         )}
       </div>
 
-      <div className={styles.stats} role="group" aria-label="Filter by status">
-        {summaryCards.map((item) => (
+      <div className={`${styles.stats} ${isReceiver ? styles.receiverStats : ""}`} role="group" aria-label="Filter by status">
+        {cards.map((item) => (
           <button
             key={item.key}
             type="button"
@@ -226,7 +232,7 @@ export function SupportQueue({
             onChange={(e) => patch({ status: e.target.value })}
           >
             <option value="">All statuses</option>
-            {summaryCards.map((c) => (
+            {cards.map((c) => (
               <option key={c.status} value={c.status}>
                 {statusLabel(c.status)}
               </option>
@@ -247,7 +253,7 @@ export function SupportQueue({
             ))}
           </select>
         </label>
-        {!isCoach && (
+        {!isReceiver && (
           <label>
             Assigned staff
             <select
@@ -344,7 +350,7 @@ export function SupportQueue({
             <ul className={styles.list} aria-busy={queue.loading}>
               {items.map((request) => {
                 const status =
-                  request.status === "CLOSED" ? "DONE" : request.status;
+                  isReceiver ? receiverStatus(request.status) : request.status === "CLOSED" ? "DONE" : request.status;
                 return (
                   <li key={request.requestId}>
                     <button
@@ -373,7 +379,7 @@ export function SupportQueue({
                                 className={styles.dot}
                                 data-status={status}
                               />
-                              {STATUS_LABELS[status] ?? status}
+                              {statusLabel(status)}
                             </span>
                           )}
                         </span>
@@ -470,9 +476,9 @@ export function SupportQueue({
         </div>
       </div>
 
-      {creating && !isCoach && (
+      {creating && !isReceiver && (
         <SupportCreateDialog
-          workspace={workspace}
+          workspace={workspace === "manager" ? "manager" : "receptionist"}
           assignees={assignees.data ?? []}
           onClose={() => setCreating(false)}
           onCreated={(message) => {

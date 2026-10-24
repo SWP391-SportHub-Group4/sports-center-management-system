@@ -821,7 +821,7 @@ export function MembersView({ selection, filters, today }: ViewProps) {
         {(r) =>
           r && (
             <section className={s.panel}>
-              <h2>Membership buyers by day</h2>
+              <h2>Gym purchases by day</h2>
               {r.daily ? (
                 <DashboardChart
                   rows={r.daily.map((d) => ({ date: d.date, value: d.buyers }))}
@@ -829,15 +829,51 @@ export function MembersView({ selection, filters, today }: ViewProps) {
                     date: d.date,
                     value: d.buyers,
                   }))}
-                  label="Membership buyers by day"
-                  unit="buyers"
+                  label="Gym purchases by day"
+                  seriesLabel="Membership buyers"
+                  unit="people"
+                  secondary={
+                    r.daily.every(
+                      (day) => typeof day.dayPassesSold === "number",
+                    )
+                      ? {
+                          label: "Day passes sold",
+                          unit: "passes",
+                          rows: r.daily.map((day) => ({
+                            date: day.date,
+                            value: day.dayPassesSold!,
+                          })),
+                          comparison: previous.data?.daily?.every(
+                            (day) => typeof day.dayPassesSold === "number",
+                          )
+                            ? previous.data.daily.map((day) => ({
+                                date: day.date,
+                                value: day.dayPassesSold!,
+                              }))
+                            : undefined,
+                        }
+                      : undefined
+                  }
+                  integerValues
                 />
               ) : (
                 <p>Daily buyers: Unavailable</p>
               )}
+              {r.daily &&
+                r.daily.length > 0 &&
+                r.daily.every(
+                  (day) => day.buyers === 0 && day.dayPassesSold === 0,
+                ) && <p className={s.note}>No Gym purchases in this period.</p>}
+              {r.daily?.some(
+                (day) => typeof day.dayPassesSold !== "number",
+              ) && (
+                <p className={s.note}>Day-pass sales by day: Unavailable.</p>
+              )}
               <p className={s.note}>
-                A person buying on multiple days appears on each of those days.
-                The period total counts each person once.
+                Membership buyers counts people; day passes sold counts passes.
+                Purchases do not indicate attendance. A person buying on
+                multiple days appears on each of those days. The period total
+                counts each person once.
               </p>
             </section>
           )

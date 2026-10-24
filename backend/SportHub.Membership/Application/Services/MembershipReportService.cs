@@ -31,11 +31,11 @@ public sealed class MembershipReportService(ISportHubDbContext db, IMembershipPu
         var purchasingMembers = await purchases.CountMembersAsync(fromUtc, toUtc, ct);
         // Vé Gym 1 ngày là khách lẻ, không tính là hội viên: báo cáo riêng số vé đã bán trong kỳ.
         var dayPassesSold = await purchases.CountDayPassesAsync(fromUtc, toUtc, ct);
-        var byDay = (await purchases.ReadDailyAsync(fromUtc, toUtc, ct)).ToDictionary(d => d.Date, d => d.Buyers);
+        var byDay = (await purchases.ReadDailyAsync(fromUtc, toUtc, ct)).ToDictionary(d => d.Date);
         return new(fromDate, toDate, newMembers, activeAtEnd, purchasingMembers, dayPassesSold)
         {
             Daily = Enumerable.Range(0, toDate.DayNumber - fromDate.DayNumber + 1)
-                .Select(i => new MembershipPurchaseDay(fromDate.AddDays(i), byDay.GetValueOrDefault(fromDate.AddDays(i)))).ToList()
+                .Select(i => byDay.GetValueOrDefault(fromDate.AddDays(i)) ?? new MembershipPurchaseDay(fromDate.AddDays(i), 0, 0)).ToList()
         };
     }
 

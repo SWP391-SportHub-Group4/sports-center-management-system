@@ -79,7 +79,7 @@ public sealed class FinishSupportRequest
 }
 
 [ApiController]
-[Authorize(Policy = SportHubPolicies.StaffRead)]
+[Authorize(Roles = "Receptionist,CenterManager,Coach,SystemAdministrator")]
 [Route("api/member-support-requests")]
 public sealed class MemberSupportRequestsController(
     ISportHubDbContext db,
@@ -92,16 +92,19 @@ public sealed class MemberSupportRequestsController(
         x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
         x.ProgressNote, x.UpdatedAt, x.ClosedAt, Channel: x.Channel);
 
+    private bool IsAssignedHandler => User.IsInRole(nameof(UserRole.Coach))
+        || User.IsInRole(nameof(UserRole.SystemAdministrator));
+
     private IQueryable<MemberSupportRequest> VisibleRequests()
     {
         var rows = db.Set<MemberSupportRequest>().AsNoTracking();
-        return User.IsInRole(nameof(UserRole.Coach))
+        return IsAssignedHandler
             ? rows.Where(x => x.AssignedToUserId == User.RequireUserId()) : rows;
     }
 
-    private void RequireAssignedCoach(MemberSupportRequest row)
+    private void RequireAssignedHandler(MemberSupportRequest row)
     {
-        if (User.IsInRole(nameof(UserRole.Coach)) && row.AssignedToUserId != User.RequireUserId())
+        if (IsAssignedHandler && row.AssignedToUserId != User.RequireUserId())
             throw new NotFoundException("support_request_not_found", "Support request not found.");
     }
 
@@ -310,10 +313,11 @@ public sealed class MemberSupportRequestsController(
         int Count(string status) => counts.FirstOrDefault(x => x.Status == status)?.Count ?? 0;
         return Ok(new
         {
+            notStarted = Count("OPEN") + Count("ASSIGNED"),
             open = Count("OPEN"),
             assigned = Count("ASSIGNED"),
             inProgress = Count("IN_PROGRESS"),
-            done = Count("DONE") + Count("CLOSED"),
+            done = Count("DONE") + Count("CLOSED") + (IsAssignedHandler ? Count("REJECTED") : 0),
             rejected = Count("REJECTED")
         });
     }
@@ -331,11 +335,14 @@ public sealed class MemberSupportRequestsController(
         if (!string.IsNullOrWhiteSpace(status))
         {
             var value = status.Trim().ToUpperInvariant();
-            if (value is not ("OPEN" or "ASSIGNED" or "IN_PROGRESS" or "DONE" or "REJECTED" or "CLOSED"))
+            if (value is not ("NOT_STARTED" or "OPEN" or "ASSIGNED" or "IN_PROGRESS" or "DONE" or "REJECTED" or "CLOSED"))
                 throw new BadRequestException("support_status_invalid", "Invalid support request status.");
-            query = value == "DONE"
-                ? query.Where(x => x.Status == "DONE" || x.Status == "CLOSED")
-                : query.Where(x => x.Status == value);
+            if (value == "NOT_STARTED")
+                query = query.Where(x => x.Status == "OPEN" || x.Status == "ASSIGNED");
+            else if (value == "DONE")
+                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED" || (IsAssignedHandler && x.Status == "REJECTED"));
+            else
+                query = query.Where(x => x.Status == value);
         }
         if (!string.IsNullOrWhiteSpace(category))
         {
@@ -419,7 +426,7 @@ public sealed class MemberSupportRequestsController(
             throw new BadRequestException("support_progress_invalid", "Progress note must have 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
-        RequireAssignedCoach(row);
+        RequireAssignedHandler(row);
         if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before updating progress.");
@@ -441,6 +448,7 @@ public sealed class MemberSupportRequestsController(
         => Finish(requestId, body, "DONE", ct);
 
     [HttpPost("{requestId:guid}/reject")]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     public Task<IActionResult> Reject(Guid requestId, [FromBody] FinishSupportRequest body, CancellationToken ct)
         => Finish(requestId, body, "REJECTED", ct);
 
@@ -451,7 +459,7 @@ public sealed class MemberSupportRequestsController(
             throw new BadRequestException("support_final_note_invalid", "Final note must contain 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
-        RequireAssignedCoach(row);
+        RequireAssignedHandler(row);
         if (IsFinal(row.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
