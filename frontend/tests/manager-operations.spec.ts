@@ -331,16 +331,38 @@ test("M05 locked coach details reassign the main class and refresh affected assi
 }) => {
   let assigned = false;
   let writes = 0;
+  await page.route("**/api/manager/classes/1/lead-coach/candidates", (route) =>
+    route.fulfill({
+      json: {
+        version: 1,
+        currentCoachId: memberId,
+        remainingSessionCount: 2,
+        coaches: [{ coachId, fullName: "Coach Linh" }],
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/lead-coach", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      coachId,
+      expectedVersion: 1,
+      reason: "Replacement audit",
+    });
+    assigned = true;
+    writes++;
+    return route.fulfill({ status: 204 });
+  });
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        coachId: memberId,
+        coachName: "Locked coach",
+        status: "PUBLISHED",
+      },
+    }),
+  );
   await page.route("**/api/manager/coach-coverage**", async (route) => {
-    if (route.request().method() === "POST") {
-      expect(route.request().postDataJSON()).toEqual({
-        replacementCoachId: coachId,
-        reason: "Replacement audit",
-      });
-      assigned = true;
-      writes++;
-      return route.fulfill({ status: 204 });
-    }
+    expect(route.request().method()).toBe("GET");
     return route.fulfill({
       json: assigned
         ? []
@@ -363,14 +385,14 @@ test("M05 locked coach details reassign the main class and refresh affected assi
   );
   await page.goto(`/manager/coaches/${memberId}`);
   await page
-    .getByRole("button", { name: "Change main coach", exact: true })
+    .getByRole("button", { name: "Change Lead Coach", exact: true })
     .click();
+  await page.getByRole("radio").check();
   await page
-    .getByLabel(en.operations.coach, { exact: true })
-    .selectOption(coachId);
-  await page.getByLabel("Reason", { exact: true }).fill("Replacement audit");
+    .getByRole("textbox", { name: "Reason for change" })
+    .fill("Replacement audit");
   await page
-    .getByRole("button", { name: "Confirm main coach", exact: true })
+    .getByRole("button", { name: "Confirm Change", exact: true })
     .click();
   await expect(
     page.getByText("No assignments need a replacement."),

@@ -1,6 +1,21 @@
 import { api } from "@/lib/apiClient";
 import type { CourseDto, CourseSessionDto, Paged } from "@/lib/types";
+export interface LeadCoachCandidates {
+  version: number;
+  currentCoachId: string | null;
+  remainingSessionCount: number;
+  coaches: { coachId: string; fullName: string }[];
+}
 export const courseApi = {
+  leadCoachCandidates: (classId: number, signal?: AbortSignal) =>
+    api.get<LeadCoachCandidates>(
+      `/api/manager/classes/${classId}/lead-coach/candidates`,
+      { signal },
+    ),
+  changeLeadCoach: (
+    classId: number,
+    body: { coachId: string; expectedVersion: number; reason: string },
+  ) => api.post(`/api/manager/classes/${classId}/lead-coach`, body),
   list: (
     query: {
       sportId?: string | number;

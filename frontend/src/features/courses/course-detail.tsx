@@ -16,6 +16,7 @@ import { Tabs } from "@/components/primitives";
 import { CourseCancellationAction } from "./course-cancellation-action";
 import { CoursePublishReview } from "./course-publish-review";
 import { SessionEditor } from "./session-editor";
+import { ChangeLeadCoachDialog } from "./change-lead-coach-dialog";
 import { ThresholdPanel } from "./threshold-panel";
 import { CourseOperations, CourseCancellation } from "./course-operations";
 import { CourseHistory } from "./course-history";
@@ -105,6 +106,8 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
     return () => cancelAnimationFrame(frame);
   }, [values.tab]);
   const [publishing, setPublishing] = useState(false);
+  const [changingLeadCoach, setChangingLeadCoach] = useState(false);
+  const [coachChanged, setCoachChanged] = useState(false);
   const [session, setSession] = useState<CourseSessionDto | null>(null);
   const [roster, setRoster] = useState("");
   const [revision, setRevision] = useState(0);
@@ -265,7 +268,28 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                 </div>
               )}
               {values.tab === "sessions" && (
-                <Card title={m.sessionsTab}>
+                <Card
+                  title={m.sessionsTab}
+                  actions={
+                    ["PUBLISHED", "IN_PROGRESS"].includes(c.status) && (
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => {
+                          setCoachChanged(false);
+                          setChangingLeadCoach(true);
+                        }}
+                      >
+                        {t.leadCoach.change}
+                      </button>
+                    )
+                  }
+                >
+                  {coachChanged && (
+                    <p role="status" className={detailStyles.coachSuccess}>
+                      {t.leadCoach.success}
+                    </p>
+                  )}
                   <AsyncSection state={sessions}>
                     {(rows) => (
                       <>
@@ -470,6 +494,17 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
               >
                 <CoursePublishReview course={c} onSaved={reload} />
               </Dialog>
+            )}
+            {changingLeadCoach && (
+              <ChangeLeadCoachDialog
+                course={c}
+                onClose={() => setChangingLeadCoach(false)}
+                onSaved={() => {
+                  setChangingLeadCoach(false);
+                  setCoachChanged(true);
+                  reload();
+                }}
+              />
             )}
             {session && (
               <Dialog

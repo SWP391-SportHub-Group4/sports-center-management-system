@@ -315,6 +315,22 @@ Khi tài khoản đã là Coach và `role` vẫn là `COACH`, gửi `sportIds` �
 
 Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`); đổi sang Coach thì Admin phải chọn chuyên môn; `SecurityStamp` đổi nên token cũ mất hiệu lực.
 
+### Coach coverage and lead-coach changes
+
+When a Coach account is locked or deactivated, each effective account transition queues a separate `COACH_COVERAGE_REQUIRED` notice for active Managers. Its `actionUrl` opens `/manager/coaches/{coachId}?tab=overview` directly. No-op retries do not queue another notice. Transition IDs are resolved through the account audit record; legacy notices whose source is the Coach ID also open the same profile.
+
+The Coach profile Overview displays an urgent, red-bordered table with warm backgrounds. **Lead coach** rows represent unfinished classes; **Substitute coach** rows represent future scheduled sessions in classes led by another Coach. Session rows belonging to a lead assignment are covered by the class row and are not repeated. Completed, cancelled and started sessions cannot be reassigned by this workflow.
+
+| Verb | Path | Behavior |
+|---|---|---|
+| GET | `/api/manager/coach-coverage` | Manager-only read queue. Returns `mainClasses[]` and `sessions[]`; sessions include `sessionId,classId,startAtUtc,endAtUtc,sessionNo,roomId,roomName,coachId,isSubstitute`. |
+| GET | `/api/manager/classes/{classId}/lead-coach/candidates` | Manager-only. Returns `{version,currentCoachId,remainingSessionCount,coaches:[{coachId,fullName}]}`. Candidates are other active Coaches with the matching sport specialty and no occupancy conflicts across **all** future scheduled sessions. |
+| POST | `/api/manager/classes/{classId}/lead-coach` | `{coachId,expectedVersion,reason}`; reason is 3–500 characters. Published/InProgress classes only. Rechecks eligibility and availability, then changes the class lead and all future scheduled sessions atomically. Preserves times, rooms, enrollment and teaching history; updates occupancy, audit, notifications, coaching relationships and pending session-change requests through the shared scheduling workflow. Returns 204. |
+| GET | `/api/availability/coaches` | For a substitute session: query `sportId,startUtc,endUtc,excludeSessionId`. Returns qualified, available Coaches for that session. |
+| POST | `/api/class-sessions/{sessionId}/reschedule` | For a substitute session: `{startAtUtc,coachId,reason}`, retaining its original start time. Replaces only the session Coach, leaving the class lead and other sessions unchanged. Rechecks availability on confirmation. |
+
+`POST /api/manager/coach-coverage/{coachId}/classes/{classId}/reassign-main` has been **removed**. Both normal and locked-Coach class reassignment now use the shared lead-coach API. Draft classes use the existing class editor. There is no Member-request approval endpoint that automatically changes a Coach.
+
 ### FrontDeskMembersController — `api/members/front-desk`
 
 Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tại quầy. Chỉ tạo role **Member** (role không nhận từ body); staff chỉ do SystemAdministrator tạo.

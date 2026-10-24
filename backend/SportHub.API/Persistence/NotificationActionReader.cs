@@ -58,7 +58,23 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                     break;
                 case "CoachCoverageRequired":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
-                        foreach (var id in await db.UserAccounts.Where(u => ids.Contains(u.UserId) && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach).Select(u => u.UserId).ToListAsync(ct)) links[id] = $"/manager/coaches/{id}";
+                    {
+                        // Legacy notices used a Coach ID. Current notices use a unique account transition ID,
+                        // preserving repeat lock/unlock notifications without sacrificing a direct profile link.
+                        foreach (var id in await db.UserAccounts.Where(u => ids.Contains(u.UserId) && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach).Select(u => u.UserId).ToListAsync(ct))
+                            links[id] = $"/manager/coaches/{id}?tab=overview";
+                        foreach (var id in ids.Where(id => !links.ContainsKey(id)))
+                        {
+                            var transition = System.Text.Json.JsonSerializer.Serialize(new { value = new { transitionId = id } });
+                            var target = await db.Set<SportHub.Audit.Domain.Entities.AuditLog>().AsNoTracking()
+                                .Where(a => a.Action == "LOCK_USER_ACCOUNT" && a.TargetEntity == "UserAccount"
+                                    && a.NewValue != null && EF.Functions.JsonContains(a.NewValue, transition))
+                                .Select(a => a.TargetId).FirstOrDefaultAsync(ct);
+                            if (Guid.TryParse(target, out var coachId) && await db.UserAccounts.AnyAsync(u =>
+                                u.UserId == coachId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct))
+                                links[id] = $"/manager/coaches/{coachId}?tab=overview";
+                        }
+                    }
                     break;
                 case "ClassSessionChangeReviewed":
                     foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId) && r.RequestedByUserId == userId).Select(r => r.RequestId).ToListAsync(ct))

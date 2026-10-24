@@ -3,6 +3,7 @@ import { LockedCoachAssignments } from "./locked-coach-assignments";
 import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
 import { PersonProfileHeader } from "@/components/PersonProfileHeader";
 import profileStyles from "@/components/PersonProfile.module.css";
+import overviewStyles from "./coach-overview.module.css";
 import { ChevronRight } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import type { Paged, ManagerCourseDto } from "@/lib/types";
@@ -86,19 +87,53 @@ export function CoachDetail({ userId }: { userId: string }) {
                 ]}
               >
                 {values.tab === "overview" && (
-                  <section
-                    className={`${profileStyles.surface} ${profileStyles.overview}`}
-                  >
-                    <h2>{m.coachDetail}</h2>
-                    <p className={profileStyles.bio}>{coach.bio || "—"}</p>
-                    <CoachSpecialties coach={coach} />
+                  <div className={overviewStyles.overview}>
                     {coach.status !== "ACTIVE" && (
                       <LockedCoachAssignments
                         coachId={userId}
+                        coachName={coach.fullName}
                         onChanged={classes.reload}
                       />
                     )}
-                  </section>
+                    <section
+                      className={`${profileStyles.surface} ${overviewStyles.profile}`}
+                      aria-labelledby="coach-profile-title"
+                    >
+                      <div className={overviewStyles.biography}>
+                        <h2 id="coach-profile-title">About this coach</h2>
+                        <p className={overviewStyles.bio}>
+                          {coach.bio || "No biography has been added."}
+                        </p>
+                        {coach.philosophy && (
+                          <div className={overviewStyles.philosophy}>
+                            <h3>Coaching approach</h3>
+                            <p>{coach.philosophy}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className={overviewStyles.details}>
+                        <h3>Coaching details</h3>
+                        <dl>
+                          {coach.title && (
+                            <div>
+                              <dt>Professional title</dt>
+                              <dd>{coach.title}</dd>
+                            </div>
+                          )}
+                          {coach.yearsExperience != null && (
+                            <div>
+                              <dt>Experience</dt>
+                              <dd>
+                                {coach.yearsExperience}{" "}
+                                {coach.yearsExperience === 1 ? "year" : "years"}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
+                        <CoachSpecialties coach={coach} />
+                      </div>
+                    </section>
+                  </div>
                 )}
                 {values.tab === "classes" && (
                   <AsyncSection state={classes}>
@@ -153,16 +188,21 @@ function CoachSpecialties({ coach }: { coach: CoachAdminDto }) {
   return (
     <AsyncSection state={state}>
       {(sports) => (
-        <p className={profileStyles.specialties}>
-          <strong>{t.operations.specialties}:</strong>{" "}
-          {coach.sportIds
-            .map(
-              (id) =>
-                sports.find((s) => s.sportId === id)?.name ??
-                t.managerAudit.nameUnavailable,
-            )
-            .join(", ")}
-        </p>
+        <div className={overviewStyles.specialties}>
+          <span>{t.operations.specialties}</span>
+          {coach.sportIds.length ? (
+            <ul>
+              {coach.sportIds.map((id) => (
+                <li key={id}>
+                  {sports.find((s) => s.sportId === id)?.name ??
+                    t.managerAudit.nameUnavailable}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No specialties assigned.</p>
+          )}
+        </div>
       )}
     </AsyncSection>
   );

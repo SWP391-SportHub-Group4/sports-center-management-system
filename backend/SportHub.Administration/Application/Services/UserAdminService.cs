@@ -469,7 +469,7 @@ public sealed class UserAdminService(
                 var statusLabel = target == UserStatus.Banned ? "locked" : "deactivated";
                 var message = $"Coach {user.Profile?.FullName ?? user.Email} was {statusLabel}. {classCount} unfinished classes, "
                     + $"{futureSessions} future sessions and {relationshipCount} active coaching relationships need review. "
-                    + "Assign an eligible replacement or reschedule the affected sessions. Open /manager/coach-coverage.";
+                    + $"Assign eligible replacements from /manager/coaches/{userId}?tab=overview.";
                 foreach (var manager in managers)
                 {
                     notifications.Queue(new NotificationRequest(manager.UserId, NotificationEvents.CoachCoverageRequired,

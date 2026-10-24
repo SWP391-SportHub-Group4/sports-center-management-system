@@ -251,5 +251,8 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
         Assert.True(await dbCheck.Notifications.AnyAsync(x => x.UserId == manager.UserId
             && x.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.CoachCoverageRequired
             && x.SourceEntityId == transitionId));
+        var inbox = await Json(await managerClient.GetAsync("api/notifications"));
+        Assert.Contains(inbox.EnumerateArray(), n => n.GetProperty("sourceEntityId").GetGuid() == transitionId
+            && n.GetProperty("actionUrl").GetString() == $"/manager/coaches/{coachId}?tab=overview");
     }
 }
