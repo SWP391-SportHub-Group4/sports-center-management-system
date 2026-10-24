@@ -290,7 +290,7 @@ function ProfileEditor({ initial }: { initial: Dto }) {
         {user && (
           <Link
             className="btn btn--secondary"
-            href={`/coaches/${user.userId}`}
+            href={`/coaches/${user.userId}?returnTo=%2Faccount`}
             onClick={(event) => {
               if (
                 (dirty || save.busy) &&

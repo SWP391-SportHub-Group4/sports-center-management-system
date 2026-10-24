@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
@@ -117,6 +117,7 @@ function DocumentForm({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const visibilityHintId = useId();
   const [details, setDetails] = useState<CredentialDetails>({
     kind: document?.kind ?? "CERTIFICATE",
     title: document?.title ?? "",
@@ -263,9 +264,11 @@ function DocumentForm({
             />
           </Field>
         </div>
-        <label className={s.visibility}>
+        <label className={s.visibility} data-published={details.isPublished}>
           <input
             type="checkbox"
+            aria-label="Show on my public profile"
+            aria-describedby={visibilityHintId}
             checked={details.isPublished}
             onChange={(e) =>
               setDetails({ ...details, isPublished: e.target.checked })
@@ -273,7 +276,9 @@ function DocumentForm({
           />
           <span>
             <strong>Show on my public profile</strong>
-            <small>Members and visitors can open this document.</small>
+            <small id={visibilityHintId}>
+              Members and visitors can open this document.
+            </small>
           </span>
         </label>
       </fieldset>
@@ -311,14 +316,21 @@ export function CoachCredentialsEditor() {
     [notice, setNotice] = useState("");
   const action = useAction();
   return (
-    <section className={s.editorSection} aria-label="Credentials and awards">
+    <section
+      id="coach-documents"
+      className={s.editorSection}
+      aria-label="Certificates and awards"
+    >
       <header className={s.sectionHeader}>
         <div>
           <h3>
             <GraduationCap size={20} aria-hidden="true" />
-            Credentials & awards
+            Certificates & awards
           </h3>
-          <p>Show your qualifications and professional achievements.</p>
+          <p>
+            Certificates show your qualifications. Awards highlight your
+            achievements.
+          </p>
         </div>
         <button
           className="btn btn--secondary"
@@ -361,8 +373,25 @@ export function CoachCredentialsEditor() {
           <>
             {rows.length ? (
               <ul className={s.documentList}>
-                {rows.map((row) => (
+                {[
+                  ...rows.filter((row) => row.kind === "CERTIFICATE"),
+                  ...rows.filter((row) => row.kind === "AWARD"),
+                ].map((row, index, documents) => (
                   <li key={row.credentialId}>
+                    {(index === 0 ||
+                      documents[index - 1].kind !== row.kind) && (
+                      <header className={s.groupHeader} data-kind={row.kind}>
+                        <h4>
+                          {row.kind === "CERTIFICATE"
+                            ? "Certificates"
+                            : "Awards"}
+                        </h4>
+                        <span>
+                          {rows.filter((item) => item.kind === row.kind).length}{" "}
+                          documents
+                        </span>
+                      </header>
+                    )}
                     <div className={s.documentRow}>
                       <button
                         type="button"
@@ -485,8 +514,9 @@ export function CoachCredentialsEditor() {
               )
             )}
             <p className={s.hint}>
-              {rows.length}/20 documents · Upload a clear, complete document.
-              Shared documents appear on your public profile.
+              {rows.length}/20 documents total · JPG, PNG, WebP or PDF · Up to
+              10 MiB per file. Upload a clear, complete document. Shared
+              documents appear on your public profile.
             </p>
           </>
         )}
@@ -498,58 +528,108 @@ export function CoachCredentialsEditor() {
   );
 }
 
-export function CoachCredentialsShowcase({ coachId }: { coachId: string }) {
+export function CoachCredentialsShowcase({
+  coachId,
+  kind,
+}: {
+  coachId: string;
+  kind?: CoachCredential["kind"];
+}) {
   const state = useApi(
     (signal) => credentialsApi.public(coachId, signal),
     [coachId],
   );
   const [viewing, setViewing] = useState<CoachCredential | null>(null);
-  if (!state.loading && !state.error && !state.data?.length) return null;
   return (
     <section
       id="credentials"
       className={s.showcase}
       aria-label="Certificates and awards"
     >
-      <header className={s.sectionHeader}>
-        <div>
-          <h2>Credentials & awards</h2>
-          <p>Qualifications and achievements shared by this coach.</p>
-        </div>
-      </header>
+      {!kind && (
+        <header className={s.sectionHeader}>
+          <div>
+            <h2>
+              {kind === "CERTIFICATE"
+                ? "Certificates"
+                : kind === "AWARD"
+                  ? "Awards"
+                  : "Certificates & awards"}
+            </h2>
+            <p>Qualifications and achievements shared by this coach.</p>
+          </div>
+        </header>
+      )}
       <AsyncSection state={state}>
         {(rows) => (
-          <ul className={s.gallery}>
-            {rows.map((row) => (
-              <li key={row.credentialId}>
-                <button
-                  className={s.galleryImage}
-                  onClick={() => setViewing(row)}
-                  aria-label={`View ${row.title}`}
-                >
-                  <CredentialImage document={row} />
-                  <span>
-                    View document <ExternalLink size={14} aria-hidden="true" />
-                  </span>
-                </button>
-                <div className={s.galleryCaption}>
-                  <span className={s.kind} data-kind={row.kind}>
-                    {row.kind === "AWARD" ? (
-                      <Award size={14} aria-hidden="true" />
-                    ) : (
-                      <GraduationCap size={14} aria-hidden="true" />
+          <div className={s.groups}>
+            {(["CERTIFICATE", "AWARD"] as const)
+              .filter((item) => !kind || item === kind)
+              .map((kind) => {
+                const documents = rows.filter((row) => row.kind === kind);
+                return (
+                  <section
+                    key={kind}
+                    aria-label={
+                      kind === "CERTIFICATE" ? "Certificates" : "Awards"
+                    }
+                  >
+                    <header className={s.groupHeader} data-kind={kind}>
+                      <div>
+                        <h3>
+                          {kind === "CERTIFICATE" ? "Certificates" : "Awards"}
+                        </h3>
+                        <p>
+                          {kind === "CERTIFICATE"
+                            ? "Professional qualifications and coaching certifications."
+                            : "Recognition, honours and sporting achievements."}
+                        </p>
+                      </div>
+                      <span>{documents.length}</span>
+                    </header>
+                    {!documents.length && (
+                      <p className={s.hint}>
+                        {kind === "CERTIFICATE"
+                          ? "No certificates shared yet."
+                          : "No awards shared yet."}
+                      </p>
                     )}
-                    {row.kind === "AWARD" ? "Award" : "Certificate"}
-                  </span>
-                  <h3>{row.title}</h3>
-                  {row.issuer && <p>{row.issuer}</p>}
-                  {row.issuedOn && (
-                    <small>Issued {formatDate(row.issuedOn)}</small>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+                    <ul className={s.gallery}>
+                      {documents.map((row) => (
+                        <li key={row.credentialId}>
+                          <button
+                            className={s.galleryImage}
+                            onClick={() => setViewing(row)}
+                            aria-label={`View ${row.title}`}
+                          >
+                            <CredentialImage document={row} />
+                            <span>
+                              View document{" "}
+                              <ExternalLink size={14} aria-hidden="true" />
+                            </span>
+                          </button>
+                          <div className={s.galleryCaption}>
+                            <span className={s.kind} data-kind={row.kind}>
+                              {row.kind === "AWARD" ? (
+                                <Award size={14} aria-hidden="true" />
+                              ) : (
+                                <GraduationCap size={14} aria-hidden="true" />
+                              )}
+                              {row.kind === "AWARD" ? "Award" : "Certificate"}
+                            </span>
+                            <h3>{row.title}</h3>
+                            {row.issuer && <p>{row.issuer}</p>}
+                            {row.issuedOn && (
+                              <small>Issued {formatDate(row.issuedOn)}</small>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
+          </div>
         )}
       </AsyncSection>
       {viewing && (

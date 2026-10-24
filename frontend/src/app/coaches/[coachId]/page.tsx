@@ -1,9 +1,8 @@
 "use client";
 
 import { use } from "react";
-import { PublicHeader } from "@/app/public-header";
 import { CoachProfile } from "@/features/training/coach-profile";
-import styles from "../coaches.module.css";
+import styles from "./profile-page.module.css";
 
 export default function Page({
   params,
@@ -13,8 +12,7 @@ export default function Page({
   const { coachId } = use(params);
   return (
     <div className={styles.page}>
-      <PublicHeader />
-      <main className={styles.main}>
+      <main className={styles.profileMain}>
         <CoachProfile coachId={coachId} publicView />
       </main>
     </div>

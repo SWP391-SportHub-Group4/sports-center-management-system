@@ -212,9 +212,9 @@ export function CoachProfilePreview({
                 {!!coach.credentialCount && (
                   <Link
                     className={styles.credentialsLink}
-                    href={`/coaches/${coachId}#credentials`}
+                    href={`/coaches/${coachId}?tab=certificates&returnTo=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}#credentials`}
                   >
-                    View credentials & awards ({coach.credentialCount})
+                    View certificates & awards ({coach.credentialCount})
                   </Link>
                 )}
               </>

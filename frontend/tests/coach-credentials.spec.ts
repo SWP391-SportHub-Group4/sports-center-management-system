@@ -119,7 +119,7 @@ test("coach uploads a document, edits public visibility and removes it", async (
   await fixture(page);
   await page.goto("/account");
   const credentials = page.getByRole("region", {
-    name: "Credentials and awards",
+    name: "Certificates and awards",
   });
   await expect(
     credentials.getByText("Level 2 Coaching Certificate", { exact: true }),
@@ -127,13 +127,11 @@ test("coach uploads a document, edits public visibility and removes it", async (
   await credentials
     .getByRole("button", { name: "Add document", exact: true })
     .click();
-  await page
-    .getByLabel("Document file")
-    .setInputFiles({
-      name: "coaching.png",
-      mimeType: "image/png",
-      buffer: png,
-    });
+  await page.getByLabel("Document file").setInputFiles({
+    name: "coaching.png",
+    mimeType: "image/png",
+    buffer: png,
+  });
   await page
     .getByLabel("Title", { exact: true })
     .fill("Advanced Badminton Coaching");
@@ -162,6 +160,7 @@ test("coach uploads a document, edits public visibility and removes it", async (
     .filter({ hasText: "Advanced Badminton Coaching" });
   await expect(row).toContainText("Not displayed");
   await page.goto(`/coaches/${coachId}`);
+  await page.getByRole("tab", { name: "Certificates", exact: true }).click();
   await expect(
     page.getByText("Advanced Badminton Coaching", { exact: true }),
   ).toHaveCount(0);
@@ -191,13 +190,11 @@ test("file validation blocks unsupported documents and upload failures keep the 
   await fixture(page);
   await page.goto("/account");
   await page.getByRole("button", { name: "Add document", exact: true }).click();
-  await page
-    .getByLabel("Document file")
-    .setInputFiles({
-      name: "unsafe.svg",
-      mimeType: "image/svg+xml",
-      buffer: Buffer.from("<svg/>"),
-    });
+  await page.getByLabel("Document file").setInputFiles({
+    name: "unsafe.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from("<svg/>"),
+  });
   await expect(
     page.getByText(
       "Choose a JPG, PNG, WebP or PDF document no larger than 10 MB.",
@@ -207,13 +204,11 @@ test("file validation blocks unsupported documents and upload failures keep the 
   await expect(
     page.getByRole("button", { name: "Upload document", exact: true }),
   ).toBeDisabled();
-  await page
-    .getByLabel("Document file")
-    .setInputFiles({
-      name: "certificate.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.7\n%%EOF"),
-    });
+  await page.getByLabel("Document file").setInputFiles({
+    name: "certificate.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.7\n%%EOF"),
+  });
   await page.getByLabel("Title", { exact: true }).fill("Certificate PDF");
   await page.route("**/api/coaches/me/credentials", (route) =>
     route.request().method() === "POST"
@@ -246,7 +241,7 @@ for (const width of [1440, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/account");
     const credentials = page.getByRole("region", {
-      name: "Credentials and awards",
+      name: "Certificates and awards",
     });
     await expect(
       credentials.getByText("Level 2 Coaching Certificate", { exact: true }),
@@ -261,6 +256,7 @@ for (const width of [1440, 320]) {
       });
     }
     await page.goto(`/coaches/${coachId}`);
+    await page.getByRole("tab", { name: "Certificates", exact: true }).click();
     const button = page.getByRole("button", {
       name: "View Level 2 Coaching Certificate",
       exact: true,
