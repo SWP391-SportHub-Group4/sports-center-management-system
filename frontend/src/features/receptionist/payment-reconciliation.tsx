@@ -6,6 +6,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import type { Paged } from "@/lib/types";
+import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import styles from "./payment-reconciliation.module.css";
 
 type Line = {
@@ -45,6 +46,8 @@ const INVOICE_STATUS: Record<string, string> = {
 
 /** One plain sentence on what happened and what the desk should do. */
 function explain(row: Case) {
+  if (row.state === "RECONCILIATION_REQUIRED")
+    return `VNPay collected ${formatMoney(row.amount)}${row.paidAtUtc ? ` on ${formatDateTime(row.paidAtUtc)}` : ""}, but the service could not be activated. The member can choose points or submit a PAYMENT support request. A manager handles any bank payout.`;
   if (row.state === "AWAITING_VERIFICATION")
     return `The member opened VNPay on ${formatDateTime(row.attemptCreatedAtUtc)}, but VNPay has not confirmed the payment yet. Verify it with VNPay: if the money was collected, the service is delivered automatically.`;
   if (row.state === "ManualCompensationRequired")
@@ -53,14 +56,23 @@ function explain(row: Case) {
 }
 
 export function FrontDeskPaymentReconciliation() {
+  const { values, setValues } = useUrlQuery(
+    { view: "paid" },
+    { view: choiceQuery(["paid", "all"], "paid") },
+  );
+  const paidOnly = values.view === "paid";
   const [page, setPage] = useState(1);
   const cases = useApi(
     (signal) =>
       api.get<Paged<Case>>("/api/front-desk/payment-reconciliation", {
         signal,
-        query: { page, pageSize: 20 },
+        query: {
+          outcome: paidOnly ? "RECONCILIATION_REQUIRED" : undefined,
+          page,
+          pageSize: 20,
+        },
       }),
-    [page],
+    [page, paidOnly],
   );
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -85,10 +97,38 @@ export function FrontDeskPaymentReconciliation() {
 
   return (
     <section>
+      <div
+        className={styles.actions}
+        role="group"
+        aria-label="Payment follow-up view"
+      >
+        <button
+          type="button"
+          className="btn btn--secondary"
+          aria-pressed={paidOnly}
+          onClick={() => {
+            setValues({ view: "paid" });
+            setPage(1);
+          }}
+        >
+          Paid, not activated
+        </button>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          aria-pressed={!paidOnly}
+          onClick={() => {
+            setValues({ view: "all" });
+            setPage(1);
+          }}
+        >
+          All follow-up cases
+        </button>
+      </div>
       <p className={styles.intro}>
-        Check pending or expired payments with VNPay and retry service delivery
-        when needed. Completed payments and point compensation remain in invoice
-        history.
+        {paidOnly
+          ? "These VNPay payments were collected but the purchased service was not activated. Help the member review their invoice and support options."
+          : "Check pending or expired payments with VNPay and retry service delivery when needed. Completed payments and point compensation remain in invoice history."}
       </p>
       {cases.loading && !cases.data && <p>Loading…</p>}
       {cases.error && <p role="alert">{cases.error.message}</p>}
@@ -100,10 +140,9 @@ export function FrontDeskPaymentReconciliation() {
       {cases.data?.totalCount === 0 && (
         <div className={styles.card}>
           <p className={styles.description}>
-            No payment attempts currently need follow-up. If a member says their
-            bank account was charged, open their invoice and ask them to check
-            the payment with VNPay. An empty queue does not confirm whether the
-            bank collected the payment.
+            {paidOnly
+              ? "No paid payments currently need activation follow-up."
+              : "No payment attempts currently need follow-up. If a member says their bank account was charged, open their invoice and ask them to check the payment with VNPay. An empty queue does not confirm whether the bank collected the payment."}
           </p>
           <div className={styles.actions}>
             <Link
@@ -127,9 +166,11 @@ export function FrontDeskPaymentReconciliation() {
             <span className={styles.state} data-state={row.state}>
               {row.state === "AWAITING_VERIFICATION"
                 ? "Awaiting VNPay confirmation"
-                : row.state === "ManualCompensationRequired"
-                  ? "Needs manager compensation"
-                  : "Paid, service not delivered"}
+                : row.state === "RECONCILIATION_REQUIRED"
+                  ? "Paid, not activated"
+                  : row.state === "ManualCompensationRequired"
+                    ? "Needs manager compensation"
+                    : "Paid, service not delivered"}
             </span>
           </header>
           <p className={styles.description}>{explain(row)}</p>
@@ -211,18 +252,35 @@ export function FrontDeskPaymentReconciliation() {
               Last processing error: {row.lastError}
             </p>
           )}
-          {row.state !== "ManualCompensationRequired" && (
+          {row.state !== "ManualCompensationRequired" &&
+            row.state !== "RECONCILIATION_REQUIRED" && (
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className="btn btn--sm"
+                  disabled={busy !== null}
+                  onClick={() => retry(row)}
+                >
+                  {busy === row.invoiceId
+                    ? "Checking…"
+                    : "Verify / retry fulfillment"}
+                </button>
+              </div>
+            )}
+          {row.state === "RECONCILIATION_REQUIRED" && (
             <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn btn--sm"
-                disabled={busy !== null}
-                onClick={() => retry(row)}
+              <Link
+                className="btn btn--secondary btn--sm"
+                href="/receptionist/invoices"
               >
-                {busy === row.invoiceId
-                  ? "Checking…"
-                  : "Verify / retry fulfillment"}
-              </button>
+                Open invoices
+              </Link>
+              <Link
+                className="btn btn--secondary btn--sm"
+                href="/receptionist/support"
+              >
+                Open support queue
+              </Link>
             </div>
           )}
         </article>

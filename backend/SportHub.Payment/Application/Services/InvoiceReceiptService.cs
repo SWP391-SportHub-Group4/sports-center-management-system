@@ -137,15 +137,9 @@ public sealed class InvoiceReceiptService(
                     ct)
             ?? 0;
 
-        var pointsApplied =
-            invoice.Status ==
-                    InvoiceStatus.Paid &&
-                invoice.CheckoutCycleId != null
-                ? invoice.PointsApplied
-                : invoice.Status ==
-                    InvoiceStatus.PaidAfterReconciliation
-                    ? invoice.PointsApplied
-                    : 0;
+        var pointsApplied = invoice.CheckoutCycleId != null
+            && SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia)
+                ? invoice.PointsApplied : 0;
 
         const decimal vndPerPoint =
             1000m;
@@ -197,7 +191,8 @@ public sealed class InvoiceReceiptService(
 
     private static bool IsPaid(InvoiceReceiptModel m) =>
         m.PaymentStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase) ||
-        m.PaymentStatus.Equals("PaidAfterReconciliation", StringComparison.OrdinalIgnoreCase);
+        m.PaymentStatus.Equals("PaidAfterReconciliation", StringComparison.OrdinalIgnoreCase) ||
+        m.PaymentStatus.Equals("Compensated", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsVoid(InvoiceReceiptModel m) =>
         m.PaymentStatus.Equals("Void", StringComparison.OrdinalIgnoreCase);

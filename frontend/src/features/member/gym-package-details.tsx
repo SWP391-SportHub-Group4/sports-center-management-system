@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/apiClient";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { useApi } from "@/lib/useApi";
 import type {
@@ -55,9 +55,10 @@ export function GymPackageDetails({ pkg }: { pkg: MemberPackageDto }) {
   const start = new Date(
     `${pkg.startDate.slice(0, 10)}T00:00:00+07:00`,
   ).getTime();
-  const end =
-    new Date(`${pkg.endDate.slice(0, 10)}T00:00:00+07:00`).getTime() +
-    86_400_000;
+  const end = pkg.expiresAtUtc
+    ? new Date(pkg.expiresAtUtc).getTime()
+    : new Date(`${pkg.endDate.slice(0, 10)}T00:00:00+07:00`).getTime() +
+      86_400_000;
   const checkIns = useApi(
     async (signal) => {
       const rows: GymCheckInDto[] = [];
@@ -121,7 +122,11 @@ export function GymPackageDetails({ pkg }: { pkg: MemberPackageDto }) {
           <span className={styles.label}>
             {tx("Ngày và giờ hết hạn", "Expiry date and time")}
           </span>
-          <strong>{formatDate(pkg.endDate)} · 23:59:59</strong>
+          <strong>
+            {pkg.expiresAtUtc
+              ? `${localDate(pkg.expiresAtUtc)} · ${formatTime(pkg.expiresAtUtc)}`
+              : `${formatDate(pkg.endDate)} · 23:59:59`}
+          </strong>
           <small>{tx("Giờ Việt Nam", "Vietnam time")}</small>
         </div>
       </div>

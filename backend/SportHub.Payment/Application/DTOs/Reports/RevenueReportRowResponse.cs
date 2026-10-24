@@ -9,4 +9,5 @@ public sealed record RevenueReportRowResponse(
 {
     public decimal ReconciliationCashCollected { get; init; }
     public decimal LegacyCashCollected { get; init; }
+    public decimal BankRefundPaid { get; init; }
 }

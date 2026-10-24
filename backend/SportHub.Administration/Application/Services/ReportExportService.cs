@@ -330,6 +330,8 @@ public sealed class ReportExportService(
             "netCollected" => report.NetRevenue.ToString(CultureInfo.InvariantCulture),
             "legacyCashCollected" => report.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
             "reconciliationCashCollected" => report.ReconciliationCashCollected.ToString(CultureInfo.InvariantCulture),
+            "bankRefundPaid" => report.BankRefundPaid.ToString(CultureInfo.InvariantCulture),
+            "bankRefundCount" => report.BankRefundCount.ToString(CultureInfo.InvariantCulture),
             "pointsRedeemed" => report.PointsRedeemed.ToString(CultureInfo.InvariantCulture),
             "pointsRedeemedVnd" => report.PointsRedeemedVnd.ToString(CultureInfo.InvariantCulture),
             "pointsIssued" => report.PointsIssued.ToString(CultureInfo.InvariantCulture),
@@ -353,6 +355,7 @@ public sealed class ReportExportService(
             "netCollected" => row.Net.ToString(CultureInfo.InvariantCulture),
             "legacyCashCollected" => row.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
             "reconciliationCashCollected" => row.ReconciliationCashCollected.ToString(CultureInfo.InvariantCulture),
+            "bankRefundPaid" => row.BankRefundPaid.ToString(CultureInfo.InvariantCulture),
             _ => throw new InvalidOperationException($"Unsupported revenue column: {column}")
         }).ToList()).ToList();
     }

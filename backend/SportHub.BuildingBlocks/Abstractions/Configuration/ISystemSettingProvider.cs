@@ -36,4 +36,8 @@ public static class SystemSettingKeys
     public const string RentalMaxHours = "rental.max_hours";
     public const string RentalAdvanceDays = "rental.advance_days";
     public const string RentalCancelFreeHours = "rental.cancel_free_hours";
+    public const string SupportSlaHours = "support.sla_hours";
+    public const string SupportRemindCooldownHours = "support.remind_cooldown_hours";
+    public const string SupportPayoutConfirmDays = "support.payout_confirm_days";
+    public const string SupportBankDataRetentionDays = "support.bank_data_retention_days";
 }

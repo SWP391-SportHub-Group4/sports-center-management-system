@@ -53,10 +53,25 @@
 }
 .metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   background: var(--bg-surface);
+}
+.overdueLink {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--warning-solid);
+  border-radius: 12px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  text-decoration: none;
+}
+.overdueLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 .metric {
   min-width: 0;

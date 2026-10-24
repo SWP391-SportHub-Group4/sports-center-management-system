@@ -7,9 +7,9 @@ public sealed class MemberSupportEvent
 
     public Guid RequestId { get; set; }
 
-    public Guid ActorUserId { get; set; }
+    public Guid? ActorUserId { get; set; }
 
-    /// <summary>CREATED, ASSIGNED, PROGRESS, DONE, REJECTED.</summary>
+    /// <summary>Lifecycle, member reminder, SLA reminder and payout history event.</summary>
     public string Type { get; set; } = string.Empty;
 
     public string? Note { get; set; }

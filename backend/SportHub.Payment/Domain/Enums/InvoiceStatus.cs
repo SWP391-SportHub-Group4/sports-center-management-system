@@ -5,5 +5,6 @@ public enum InvoiceStatus
     Issued = 0,
     Paid = 2,
     Void = 3,
-    PaidAfterReconciliation = 4
+    PaidAfterReconciliation = 4,
+    Compensated = 5
 }

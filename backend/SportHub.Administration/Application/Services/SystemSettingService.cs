@@ -37,7 +37,11 @@ public sealed class SystemSettingService(
             [SystemSettingKeys.RentalSlotMinutes] = (30, 60),
             [SystemSettingKeys.RentalMaxHours] = (1, 4),
             [SystemSettingKeys.RentalAdvanceDays] = (1, 30),
-            [SystemSettingKeys.RentalCancelFreeHours] = (0, 168)
+            [SystemSettingKeys.RentalCancelFreeHours] = (0, 168),
+            [SystemSettingKeys.SupportSlaHours] = (1, 168),
+            [SystemSettingKeys.SupportRemindCooldownHours] = (1, 168),
+            [SystemSettingKeys.SupportPayoutConfirmDays] = (1, 30),
+            [SystemSettingKeys.SupportBankDataRetentionDays] = (1, 3650)
         };
 
     public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)

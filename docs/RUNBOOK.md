@@ -167,4 +167,4 @@ Theo mục 13 của thiết kế: G01 (public sân/Coach và giá), G03 (Manager
 
 ### Cổng quyết định go-live
 
-Chỉ chấp nhận go-live khi các gap P0 trong `Center-Management-System-Design-v3.md` mục 13 đã đóng bằng test và evidence, các luồng role/ownership qua nghiệm thu, backup–restore đã diễn tập, và giao dịch VNPay sandbox thật hoàn tất. VNPay production và refund về ngân hàng ngoài phạm vi requirement hiện hành.
+Chỉ chấp nhận go-live khi các gap P0 trong `Center-Management-System-Design-v3.md` mục 13 đã đóng bằng test và evidence, các luồng role/ownership qua nghiệm thu, backup–restore đã diễn tập, và giao dịch VNPay sandbox thật hoàn tất. VNPay production và việc gọi API hoàn tiền của ngân hàng/VNPay ngoài phạm vi requirement hiện hành; Manager chuyển khoản ngoài hệ thống và ghi nhận qua Support Request ([Thanh toán, đối soát và hỗ trợ hoàn tiền](Payment-Support-Workflow.md)).

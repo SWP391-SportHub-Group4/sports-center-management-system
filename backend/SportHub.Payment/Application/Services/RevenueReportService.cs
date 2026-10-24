@@ -110,6 +110,16 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             .Select(a => new { CompletedAt = a.CompletedAtUtc!.Value, a.Amount })
             .ToListAsync(ct);
 
+        // One row per recorded payout (a request can be paid once), so an invoice is never counted twice.
+        var bankPayouts = await db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>()
+            .AsNoTracking()
+            .Where(x => x.RecordedAtUtc >= fromUtc && x.RecordedAtUtc < toUtcExclusive)
+            .Select(x => new { x.RecordedAtUtc, x.Amount })
+            .ToListAsync(ct);
+        var bankPayoutByDay = bankPayouts
+            .GroupBy(x => DateOnly.FromDateTime(VietnamTime.ToLocal(x.RecordedAtUtc)))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
         var legacyCashCollected = payments.Where(p => p.Method != PaymentMethod.VnPay).Sum(p => p.Amount);
         var reconciliationByDay = reconciliationCash
             .GroupBy(e => DateOnly.FromDateTime(VietnamTime.ToLocal(e.ProviderPaidAtUtc)))
@@ -198,7 +208,8 @@ public sealed class RevenueReportService(ISportHubDbContext db,
                 collected + reconciliation - refunded)
             {
                 ReconciliationCashCollected = reconciliation,
-                LegacyCashCollected = legacy
+                LegacyCashCollected = legacy,
+                BankRefundPaid = bankPayoutByDay.GetValueOrDefault(day)
             });
         }
 
@@ -221,6 +232,8 @@ public sealed class RevenueReportService(ISportHubDbContext db,
             LegacyCashCollected = legacyCashCollected,
             ReconciliationCashCollected = reconciliationCash.Sum(e => e.Amount),
             ReconciliationCashCount = reconciliationCash.Count,
+            BankRefundPaid = bankPayouts.Sum(x => x.Amount),
+            BankRefundCount = bankPayouts.Count,
             PointsRedeemed = pointsRedeemed,
             PointsIssued = pointsIssued,
             PointsRefunded = pointsRefunded,

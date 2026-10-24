@@ -23,6 +23,7 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   const [verificationMessage, setVerificationMessage] = useState<string | null>(
     null,
   );
+  const [verificationFailed, setVerificationFailed] = useState(false);
   const state = useApi(
     (signal) =>
       api.get<InvoiceDetailDto>(`/api/invoices/${invoiceId}`, { signal }),
@@ -34,6 +35,7 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
   async function verifyPayment() {
     setCheckingPayment(true);
     setVerificationMessage(null);
+    setVerificationFailed(false);
     try {
       const result = await api.post<{
         verified: boolean;
@@ -46,14 +48,17 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
           : "VNPay has not confirmed this payment yet. Keep your bank receipt and contact reception with this invoice number if the charge remains.",
       );
     } catch (error) {
+      setVerificationFailed(true);
       setVerificationMessage(
         error instanceof ApiError && error.code === "payment_attempt_not_found"
           ? language === "vi"
             ? "Chưa có giao dịch VNPay cho hóa đơn này. Hãy chọn Tiếp tục thanh toán để quay lại phiên đang giữ chỗ."
             : "No VNPay payment attempt exists yet. Choose Continue payment to return to your active checkout."
-          : error instanceof Error
-            ? error.message
-            : "Payment check failed. Please try again.",
+          : error instanceof ApiError && error.code === "vnp_query_invalid"
+            ? "VNPay has no record of a payment for this invoice."
+            : error instanceof Error
+              ? error.message
+              : "Payment check failed. Please try again.",
       );
     } finally {
       setCheckingPayment(false);
@@ -70,6 +75,9 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
       >
         {(d) => {
           const s = d.summary;
+          const paid = ["PAID", "PAID_AFTER_RECONCILIATION"].includes(
+            s.status.toUpperCase(),
+          );
           const resumable =
             s.status === "ISSUED" &&
             s.checkoutExpiresAtUtc !== null &&
@@ -84,12 +92,14 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                 meta={
                   <>
                     <StatusChip value={s.status} />
-                    <StatusChip value={s.fulfillmentOutcome} />
+                    {s.fulfillmentOutcome !== "PENDING" && (
+                      <StatusChip value={s.fulfillmentOutcome} />
+                    )}
                   </>
                 }
                 actions={
                   <>
-                    <DownloadInvoiceButton invoiceId={s.invoiceId} />
+                    {paid && <DownloadInvoiceButton invoiceId={s.invoiceId} />}
                     {resumable && (
                       <Link
                         className={buttonClass({ variant: "primary" })}
@@ -118,7 +128,16 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                       Check payment with VNPay
                     </Button>
                     {verificationMessage && (
-                      <p role="status">{verificationMessage}</p>
+                      <p
+                        role="status"
+                        style={{
+                          color: verificationFailed
+                            ? "var(--danger-text)"
+                            : undefined,
+                        }}
+                      >
+                        {verificationMessage}
+                      </p>
                     )}
                   </Card>
                 )}

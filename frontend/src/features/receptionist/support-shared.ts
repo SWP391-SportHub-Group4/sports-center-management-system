@@ -55,7 +55,17 @@ export function assigneesByRole(
 
 export interface SupportEventDto {
   eventId: string;
-  type: "CREATED" | "ASSIGNED" | "PROGRESS" | "DONE" | "REJECTED";
+  type:
+    | "CREATED"
+    | "ASSIGNED"
+    | "PROGRESS"
+    | "DONE"
+    | "REJECTED"
+    | "REMINDED_BY_MEMBER"
+    | "SLA_REMINDER_SENT"
+    | "PAYOUT_RECORDED"
+    | "MEMBER_CONFIRMED_RECEIVED"
+    | "MEMBER_REPORTED_NOT_RECEIVED";
   note: string | null;
   createdAt: string;
   actorName: string;
@@ -75,6 +85,18 @@ export function eventText(event: SupportEventDto): string {
       return `${event.actorName} marked it as done`;
     case "REJECTED":
       return `${event.actorName} rejected the request`;
+    case "REMINDED_BY_MEMBER":
+      return `${event.actorName} reminded the support team`;
+    case "SLA_REMINDER_SENT":
+      return "The response deadline reminder was sent";
+    case "PAYOUT_RECORDED":
+      return `${event.actorName} recorded a bank payout`;
+    case "MEMBER_CONFIRMED_RECEIVED":
+      return event.actorName === "System"
+        ? "Payout receipt was confirmed automatically"
+        : "Member confirmed receiving the payout";
+    case "MEMBER_REPORTED_NOT_RECEIVED":
+      return "Member reported that the payout was not received";
     default:
       return event.actorName;
   }

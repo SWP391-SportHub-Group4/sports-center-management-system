@@ -25,6 +25,7 @@ const emptyFilters = {
   category: "",
   search: "",
   assignedToUserId: "",
+  overdue: "",
 };
 
 type SupportStats = {
@@ -33,6 +34,7 @@ type SupportStats = {
   inProgress: number;
   done: number;
   rejected: number;
+  overdue: number;
 };
 const summaryCards: {
   key: keyof SupportStats;
@@ -82,9 +84,12 @@ export function SupportQueue({
   const detailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("request");
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("request");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (id) setPicked(id);
+    if (params.get("overdue") === "1")
+      setFilters((f) => ({ ...f, overdue: "true" }));
   }, []);
 
   // Typing in the search box filters after a short pause.
@@ -102,7 +107,15 @@ export function SupportQueue({
     (signal) =>
       api.get<Paged<MemberSupportRequestDto>>(
         "/api/member-support-requests/queue",
-        { signal, query: { ...filters, page, pageSize: PAGE_SIZE } },
+        {
+          signal,
+          query: {
+            ...filters,
+            overdue: filters.overdue || undefined,
+            page,
+            pageSize: PAGE_SIZE,
+          },
+        },
       ),
     [filters, page],
   );
@@ -134,7 +147,8 @@ export function SupportQueue({
     filters.search ||
     filters.status ||
     filters.category ||
-    filters.assignedToUserId
+    filters.assignedToUserId ||
+    filters.overdue
   );
 
   function patch(next: Partial<typeof filters>) {
@@ -180,6 +194,7 @@ export function SupportQueue({
             onClick={() =>
               patch({
                 status: filters.status === item.status ? "" : item.status,
+                overdue: "",
               })
             }
           >
@@ -192,6 +207,25 @@ export function SupportQueue({
             </strong>
           </button>
         ))}
+        <button
+          type="button"
+          className={styles.stat}
+          aria-pressed={filters.overdue === "true"}
+          onClick={() =>
+            patch({
+              overdue: filters.overdue === "true" ? "" : "true",
+              status: "",
+            })
+          }
+        >
+          <span className={styles.statLabel}>
+            <span className={styles.dot} data-status="OVERDUE" />
+            Overdue
+          </span>
+          <strong className={styles.statValue}>
+            {stats.data ? stats.data.overdue : "—"}
+          </strong>
+        </button>
       </div>
 
       <div className={styles.filters}>
@@ -366,6 +400,9 @@ export function SupportQueue({
                               />
                               {STATUS_LABELS[status] ?? status}
                             </span>
+                          )}
+                          {request.isOverdue && (
+                            <span className={styles.overdueBadge}>Overdue</span>
                           )}
                         </span>
                         <span className={styles.rowDate}>

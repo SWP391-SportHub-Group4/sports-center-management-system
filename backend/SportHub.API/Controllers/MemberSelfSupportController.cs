@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -13,6 +15,10 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Identity.Application.Services;
+using SportHub.Identity.Infrastructure.Security;
+using SportHub.Payment.Domain.Entities;
+using SportHub.Payment.Domain.Enums;
 
 namespace SportHub.Identity.Api;
 
@@ -25,6 +31,10 @@ public sealed class SubmitSupportRequest
     public string Description { get; set; } = string.Empty;
 
     public List<IFormFile>? Files { get; set; }
+    public Guid? InvoiceId { get; set; }
+    [MaxLength(120)] public string? BankName { get; set; }
+    [MaxLength(64)] public string? AccountNumber { get; set; }
+    [MaxLength(160)] public string? AccountHolder { get; set; }
 }
 
 /// <summary>
@@ -38,7 +48,10 @@ public sealed class MemberSelfSupportController(
     ISportHubDbContext db,
     IClock clock,
     IAuditWriter audit,
-    INotificationWriter notifications) : ControllerBase
+    INotificationWriter notifications,
+    ISystemSettingProvider settings,
+    SupportReminderService reminders,
+    BankAccountProtector bankProtector) : ControllerBase
 {
     public const int MaxFiles = 3;
     public const int MaxFileBytes = 5 * 1024 * 1024;
@@ -67,6 +80,16 @@ public sealed class MemberSelfSupportController(
             throw new BadRequestException("support_request_invalid", "Please describe your issue in at least 3 characters.");
 
         var files = request.Files ?? [];
+        if (category == "PAYMENT")
+        {
+            if (request.InvoiceId is null || request.InvoiceId == Guid.Empty)
+                throw new BadRequestException("payment_request_invoice_required", "Choose a paid VNPay invoice.");
+            if (string.IsNullOrWhiteSpace(request.BankName) || string.IsNullOrWhiteSpace(request.AccountNumber)
+                || string.IsNullOrWhiteSpace(request.AccountHolder))
+                throw new BadRequestException("payment_request_bank_required", "Enter the receiving bank account.");
+            if (files.Count == 0)
+                throw new BadRequestException("payment_request_proof_required", "Attach at least one proof image.");
+        }
         if (files.Count > MaxFiles)
             throw new BadRequestException("support_attachment_count", $"You can attach up to {MaxFiles} images.");
         var now = clock.UtcNow;
@@ -84,6 +107,7 @@ public sealed class MemberSelfSupportController(
             attachments.Add(new MemberSupportAttachment
             {
                 AttachmentId = Guid.NewGuid(),
+                Kind = SupportAttachmentKinds.MemberProof,
                 FileName = SafeName(file.FileName),
                 ContentType = type,
                 Content = bytes,
@@ -108,8 +132,42 @@ public sealed class MemberSelfSupportController(
             Description = description,
             Status = "OPEN",
             Channel = "ONLINE",
-            CreatedAt = now
+            CreatedAt = now,
+            SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct))
         };
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        if (category == "PAYMENT")
+        {
+            var invoiceId = request.InvoiceId!.Value;
+            var invoice = await db.Set<Invoice>().FromSqlInterpolated(
+                $"SELECT * FROM invoices WHERE invoice_id = {invoiceId} FOR UPDATE").SingleOrDefaultAsync(ct);
+            if (invoice is null || invoice.MemberId != memberId || !await db.Set<SportHub.Payment.Domain.Entities.Payment>()
+                    .AnyAsync(p => p.InvoiceId == invoiceId && p.Method == PaymentMethod.VnPay
+                        && p.Status == PaymentStatus.Success, ct))
+                throw new BadRequestException("payment_request_invoice_required", "Choose your paid VNPay invoice.");
+            if (invoice.Status == InvoiceStatus.Compensated || invoice.ResolutionIdempotencyKey is not null)
+                throw new ConflictException(PaymentSupportErrorCodes.ReconciliationAlreadyResolved,
+                    "This payment has already been resolved.");
+            if (await db.Set<MemberSupportRequest>().AnyAsync(r => r.InvoiceId == invoiceId
+                    && r.Category == "PAYMENT" && r.Status != "CLOSED" && r.Status != "DONE"
+                    && r.Status != "REJECTED", ct))
+                throw new ConflictException(PaymentSupportErrorCodes.PaymentRequestAlreadyOpen,
+                    "An open support request already exists for this invoice.");
+            var bankName = request.BankName!.Trim();
+            var holder = request.AccountHolder!.Trim();
+            if (bankName.Length is < 2 or > 120 || holder.Length is < 2 or > 160)
+                throw new BadRequestException("payment_request_bank_required", "Enter valid bank account details.");
+            string protectedNumber;
+            try { protectedNumber = bankProtector.Protect(request.AccountNumber!); }
+            catch (ArgumentException) { throw new BadRequestException("payment_request_bank_required", "Enter a valid bank account number."); }
+            entity.InvoiceId = invoiceId;
+            db.Set<MemberSupportPayoutDetail>().Add(new MemberSupportPayoutDetail
+            {
+                RequestId = entity.RequestId, BankName = bankName,
+                AccountNumberEncrypted = protectedNumber,
+                AccountLast4 = BankAccountProtector.LastFour(request.AccountNumber!), AccountHolder = holder
+            });
+        }
         db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
         {
             EventId = Guid.NewGuid(), RequestId = entity.RequestId, ActorUserId = memberId,
@@ -138,12 +196,14 @@ public sealed class MemberSelfSupportController(
                 ("Status", "Received"))));
 
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         return Ok(new
         {
             requestId = entity.RequestId,
             reference,
             status = entity.Status,
-            createdAt = entity.CreatedAt
+            createdAt = entity.CreatedAt,
+            slaDueAtUtc = entity.SlaDueAtUtc
         });
     }
 
@@ -151,6 +211,8 @@ public sealed class MemberSelfSupportController(
     public async Task<IActionResult> Mine(CancellationToken ct)
     {
         var memberId = User.RequireUserId();
+        var now = clock.UtcNow;
+        var cooldownHours = await settings.GetIntAsync(SystemSettingKeys.SupportRemindCooldownHours, ct);
         var rows = await db.Set<MemberSupportRequest>().AsNoTracking()
             .Where(x => x.MemberId == memberId)
             .OrderByDescending(x => x.CreatedAt)
@@ -161,12 +223,61 @@ public sealed class MemberSelfSupportController(
                 x.Category,
                 x.Description,
                 x.Status,
+                x.InvoiceId,
                 x.CreatedAt,
                 x.UpdatedAt,
-                Response = x.ProgressNote
+                Response = x.ProgressNote,
+                x.SlaDueAtUtc,
+                x.RemindCount,
+                x.LastMemberRemindAtUtc
             })
             .ToListAsync(ct);
-        return Ok(rows);
+        var requestIds = rows.Select(x => x.RequestId).ToArray();
+        var payouts = await db.Set<MemberSupportPayout>().AsNoTracking()
+            .Where(p => requestIds.Contains(p.RequestId))
+            .Select(p => new { p.RequestId, p.PayoutId, p.Amount, p.RecordedAtUtc,
+                p.MemberConfirmedAtUtc, p.MemberConfirmedBy })
+            .ToDictionaryAsync(p => p.RequestId, ct);
+        var payoutIds = payouts.Values.Select(p => p.PayoutId).ToArray();
+        var proofs = await db.Set<MemberSupportAttachment>().AsNoTracking()
+            .Where(a => a.PayoutId != null && payoutIds.Contains(a.PayoutId.Value))
+            .Select(a => new { a.PayoutId, a.AttachmentId }).ToListAsync(ct);
+        var bankMasks = await db.Set<MemberSupportPayoutDetail>().AsNoTracking()
+            .Where(d => requestIds.Contains(d.RequestId))
+            .Select(d => new { d.RequestId, d.AccountLast4 })
+            .ToDictionaryAsync(d => d.RequestId, ct);
+        return Ok(rows.Select(x => new
+        {
+            x.RequestId, x.Category, x.Description, x.Status, x.InvoiceId, x.CreatedAt, x.UpdatedAt,
+            x.Response, x.SlaDueAtUtc, x.RemindCount,
+            BankAccountMasked = bankMasks.TryGetValue(x.RequestId, out var bank) && bank.AccountLast4 is not null
+                ? BankAccountProtector.Mask(bank.AccountLast4) : null,
+            Payout = payouts.TryGetValue(x.RequestId, out var p)
+                ? new { p.Amount, p.RecordedAtUtc, p.MemberConfirmedAtUtc, p.MemberConfirmedBy,
+                    ProofAttachmentIds = proofs.Where(a => a.PayoutId == p.PayoutId)
+                        .Select(a => a.AttachmentId).ToArray() } : null,
+            IsOverdue = x.Status is not ("DONE" or "REJECTED" or "CLOSED") && x.SlaDueAtUtc <= now,
+            CanRemindAtUtc = x.Status is "DONE" or "REJECTED" or "CLOSED"
+                ? (DateTime?)null
+                : x.LastMemberRemindAtUtc is DateTime last && last.AddHours(cooldownHours) > x.SlaDueAtUtc
+                    ? last.AddHours(cooldownHours) : x.SlaDueAtUtc
+        }));
+    }
+
+    [HttpPost("requests/{requestId:guid}/remind")]
+    public async Task<IActionResult> Remind(Guid requestId, CancellationToken ct)
+    {
+        var result = await reminders.RemindAsync(requestId, User.RequireUserId(), ct);
+        if (result.Sent) return Ok(result);
+        var seconds = Math.Max(1, (int)Math.Ceiling((result.CanRemindAtUtc - clock.UtcNow).TotalSeconds));
+        Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
+        return Conflict(new
+        {
+            error = PaymentSupportErrorCodes.SupportRemindTooEarly,
+            message = "You can remind us after the support response deadline or cooldown.",
+            retryAfter = seconds,
+            canRemindAtUtc = result.CanRemindAtUtc
+        });
     }
 
     private static string? SniffImage(byte[] b)
@@ -201,14 +312,22 @@ public sealed class SupportAttachmentsController(ISportHubDbContext db) : Contro
             {
                 a.Content,
                 a.ContentType,
+                a.Kind,
                 OwnerId = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
                     .Select(r => r.MemberId).FirstOrDefault()
             })
             .SingleOrDefaultAsync(ct);
-        var staff = User.IsInRole(nameof(UserRole.Receptionist)) || User.IsInRole(nameof(UserRole.CenterManager));
-        if (row is null || (row.OwnerId != userId && !staff))
+        var manager = User.IsInRole(nameof(UserRole.CenterManager));
+        var receptionist = User.IsInRole(nameof(UserRole.Receptionist));
+        var canRead = row is not null && (row.Kind switch
+        {
+            SupportAttachmentKinds.MemberProof => row.OwnerId == userId || receptionist || manager,
+            SupportAttachmentKinds.PayoutProof => row.OwnerId == userId || manager,
+            _ => false
+        });
+        if (!canRead)
             throw new NotFoundException("support_attachment_not_found", "Attachment not found.");
-        Response.Headers.CacheControl = "private, max-age=300";
-        return File(row.Content, row.ContentType);
+        Response.Headers.CacheControl = "private, no-store";
+        return File(row!.Content, row.ContentType);
     }
 }

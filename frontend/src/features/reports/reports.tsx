@@ -370,6 +370,11 @@ function CenterWideRevenue({ filters: f }: { filters: ReportFilters }) {
                     hint: "Completed cash refunds in this period",
                   },
                   {
+                    label: "Bank payouts recorded (VND)",
+                    value: formatMoney(report.bankRefundPaid ?? 0),
+                    hint: `${report.bankRefundCount ?? 0} payout(s); shown separately from VNPay collections`,
+                  },
+                  {
                     label: "Successful payments",
                     value: report.paymentCount,
                     hint: "Payment count, not enrollment count",

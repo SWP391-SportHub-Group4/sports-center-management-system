@@ -338,7 +338,16 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var isDayPass = await db.Set<InvoiceItem>().AnyAsync(item => item.InvoiceId == invoiceId
             && item.MemberPackageId != null && db.Set<SportHub.Membership.Domain.Entities.MemberPackage>()
                 .Any(p => p.MemberPackageId == item.MemberPackageId && p.PackageId == SportHub.Membership.Domain.DayPass.PackageId), ct);
-        return ToResponse(invoice, session) with { IsDayPass = isDayPass };
+        var closesAtUtc = isDayPass
+            ? SportHub.Membership.Domain.Rules.DayPassClock.ClosesAtUtc(invoice.IssuedAt)
+            : (DateTime?)null;
+        return ToResponse(invoice, session) with
+        {
+            IsDayPass = isDayPass,
+            ClosesAtUtc = closesAtUtc,
+            ClosingSoon = closesAtUtc is DateTime close && clock.UtcNow >= close.AddMinutes(-60)
+                && clock.UtcNow < close
+        };
     }
 
     public async Task<CheckoutResponse> ConfirmPointsAsync(Guid invoiceId, Guid actorId, bool isStaff, CancellationToken ct)
@@ -411,10 +420,19 @@ public sealed class CheckoutService(ISportHubDbContext db,
             var pending = await db.Set<PaymentAttempt>().Where(x => x.InvoiceId == invoiceId
                     && x.Status == PaymentAttemptStatus.Pending).OrderByDescending(x => x.CreatedAt)
                 .FirstOrDefaultAsync(ct);
+            if (pending is not null && (pending.CheckoutSessionId != session.CheckoutSessionId
+                || pending.Amount != invoice.CashAmount || pending.PointsSnapshot != invoice.PointsApplied))
+            {
+                if (await db.Set<VerifiedGatewayEvent>().AnyAsync(e => e.PaymentAttemptId == pending.PaymentAttemptId, ct))
+                    throw new ConflictException("payment_attempt_changed", "Payment attempt changed.");
+                pending.Status = PaymentAttemptStatus.Failed;
+                pending.VerifiedResult = "Superseded";
+                pending.VerifiedAtUtc = clock.UtcNow;
+                pending = null;
+            }
             if (pending is not null)
             {
-                if (pending.CheckoutSessionId != session.CheckoutSessionId || pending.Amount != invoice.CashAmount
-                    || pending.PointsSnapshot != invoice.PointsApplied || pending.VnpExpireDate <= clock.UtcNow)
+                if (pending.VnpExpireDate <= clock.UtcNow)
                     throw new ConflictException("payment_attempt_changed", "Payment attempt changed.");
                 attemptId = pending.PaymentAttemptId;
                 reference = pending.VnpTxnRef;

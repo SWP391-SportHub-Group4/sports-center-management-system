@@ -273,6 +273,34 @@ namespace SportHub.API.Migrations
                             Description = "BR-129 — Minimum hours before a rental for free cancellation.",
                             UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Value = "24"
+                        },
+                        new
+                        {
+                            Key = "support.sla_hours",
+                            Description = "Hours allowed for a support request response.",
+                            UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "48"
+                        },
+                        new
+                        {
+                            Key = "support.remind_cooldown_hours",
+                            Description = "Minimum hours between member support reminders.",
+                            UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "48"
+                        },
+                        new
+                        {
+                            Key = "support.payout_confirm_days",
+                            Description = "Days before an unconfirmed support payout is confirmed automatically.",
+                            UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "3"
+                        },
+                        new
+                        {
+                            Key = "support.bank_data_retention_days",
+                            Description = "Days to retain bank details after a support request closes.",
+                            UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "90"
                         });
                 });
 
@@ -544,6 +572,18 @@ namespace SportHub.API.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("file_name");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("MEMBER_PROOF")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid?>("PayoutId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payout_id");
+
                     b.Property<Guid>("RequestId")
                         .HasColumnType("uuid")
                         .HasColumnName("request_id");
@@ -551,10 +591,16 @@ namespace SportHub.API.Migrations
                     b.HasKey("AttachmentId")
                         .HasName("pk_member_support_attachments");
 
+                    b.HasIndex("PayoutId")
+                        .HasDatabaseName("ix_member_support_attachments_payout_id");
+
                     b.HasIndex("RequestId")
                         .HasDatabaseName("ix_member_support_attachments_request_id");
 
-                    b.ToTable("member_support_attachments", (string)null);
+                    b.ToTable("member_support_attachments", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_support_attachment_kind_payout", "(kind = 'MEMBER_PROOF' AND payout_id IS NULL) OR (kind = 'PAYOUT_PROOF' AND payout_id IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportEvent", b =>
@@ -564,7 +610,7 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("event_id");
 
-                    b.Property<Guid>("ActorUserId")
+                    b.Property<Guid?>("ActorUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("actor_user_id");
 
@@ -587,8 +633,8 @@ namespace SportHub.API.Migrations
 
                     b.Property<string>("Type")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
                         .HasColumnName("type");
 
                     b.HasKey("EventId")
@@ -598,6 +644,103 @@ namespace SportHub.API.Migrations
                         .HasDatabaseName("ix_member_support_events_request_id_created_at");
 
                     b.ToTable("member_support_events", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportPayout", b =>
+                {
+                    b.Property<Guid>("PayoutId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("payout_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<DateTime?>("MemberConfirmedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("member_confirmed_at_utc");
+
+                    b.Property<string>("MemberConfirmedBy")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("member_confirmed_by");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recorded_by_user_id");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.HasKey("PayoutId")
+                        .HasName("pk_member_support_payouts");
+
+                    b.HasIndex("InvoiceId")
+                        .HasDatabaseName("ix_member_support_payouts_invoice_id");
+
+                    b.HasIndex("RecordedByUserId")
+                        .HasDatabaseName("ix_member_support_payouts_recorded_by_user_id");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_member_support_payouts_request_id");
+
+                    b.ToTable("member_support_payouts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_member_support_payout_amount_positive", "amount > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportPayoutDetail", b =>
+                {
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<string>("AccountHolder")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("account_holder");
+
+                    b.Property<string>("AccountLast4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("account_last4");
+
+                    b.Property<string>("AccountNumberEncrypted")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("account_number_encrypted");
+
+                    b.Property<string>("BankName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("bank_name");
+
+                    b.Property<DateTime?>("PurgedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("purged_at_utc");
+
+                    b.HasKey("RequestId")
+                        .HasName("pk_member_support_payout_details");
+
+                    b.ToTable("member_support_payout_details", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>
@@ -639,6 +782,18 @@ namespace SportHub.API.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("description");
 
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invoice_id");
+
+                    b.Property<DateTime?>("LastMemberRemindAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_member_remind_at_utc");
+
+                    b.Property<DateTime?>("LastStaffRemindAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_staff_remind_at_utc");
+
                     b.Property<Guid>("MemberId")
                         .HasColumnType("uuid")
                         .HasColumnName("member_id");
@@ -651,6 +806,14 @@ namespace SportHub.API.Migrations
                     b.Property<Guid>("RecordedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("recorded_by_user_id");
+
+                    b.Property<int>("RemindCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("remind_count");
+
+                    b.Property<DateTime>("SlaDueAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_due_at_utc");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -674,11 +837,19 @@ namespace SportHub.API.Migrations
                     b.HasIndex("AssignedToUserId")
                         .HasDatabaseName("ix_member_support_requests_assigned_to_user_id");
 
+                    b.HasIndex("InvoiceId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_member_support_requests_invoice_id")
+                        .HasFilter("invoice_id IS NOT NULL AND status NOT IN ('CLOSED', 'DONE', 'REJECTED')");
+
                     b.HasIndex("RecordedByUserId")
                         .HasDatabaseName("ix_member_support_requests_recorded_by_user_id");
 
                     b.HasIndex("MemberId", "CreatedAt")
                         .HasDatabaseName("ix_member_support_requests_member_id_created_at");
+
+                    b.HasIndex("Status", "SlaDueAtUtc")
+                        .HasDatabaseName("ix_member_support_requests_status_sla_due_at_utc");
 
                     b.HasIndex("Status", "UpdatedAt")
                         .HasDatabaseName("ix_member_support_requests_status_updated_at");
@@ -1429,6 +1600,11 @@ namespace SportHub.API.Migrations
                     b.Property<bool>("ReconciliationRequired")
                         .HasColumnType("boolean")
                         .HasColumnName("reconciliation_required");
+
+                    b.Property<string>("ResolutionIdempotencyKey")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("resolution_idempotency_key");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
@@ -4062,6 +4238,12 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportAttachment", b =>
                 {
+                    b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportPayout", null)
+                        .WithMany()
+                        .HasForeignKey("PayoutId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_member_support_attachments_member_support_payouts_payout_id");
+
                     b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportRequest", null)
                         .WithMany()
                         .HasForeignKey("RequestId")
@@ -4080,6 +4262,40 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_member_support_events_member_support_requests_request_id");
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportPayout", b =>
+                {
+                    b.HasOne("SportHub.Payment.Domain.Entities.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_payouts_invoices_invoice_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_payouts_user_accounts_recorded_by_user_id");
+
+                    b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportRequest", null)
+                        .WithOne()
+                        .HasForeignKey("SportHub.Identity.Domain.Entities.MemberSupportPayout", "RequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_payouts_member_support_requests_request_id");
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportPayoutDetail", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.MemberSupportRequest", null)
+                        .WithOne()
+                        .HasForeignKey("SportHub.Identity.Domain.Entities.MemberSupportPayoutDetail", "RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_support_payout_details_member_support_requests_reque");
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.MemberSupportRequest", b =>
                 {
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
@@ -4087,6 +4303,12 @@ namespace SportHub.API.Migrations
                         .HasForeignKey("AssignedToUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_member_support_requests_user_accounts_assigned_to_user_id");
+
+                    b.HasOne("SportHub.Payment.Domain.Entities.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_member_support_requests_invoices_invoice_id");
 
                     b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
                         .WithMany()

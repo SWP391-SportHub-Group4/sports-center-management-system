@@ -87,7 +87,9 @@ export function InvoiceDetail({
               <p className={styles.invoiceNumber}>{d.summary.invoiceNumber}</p>
               <div className={styles.statuses}>
                 <StatusChip value={d.summary.status} />
-                <StatusChip value={d.summary.fulfillmentOutcome} />
+                {d.summary.fulfillmentOutcome !== "PENDING" && (
+                  <StatusChip value={d.summary.fulfillmentOutcome} />
+                )}
               </div>
             </div>
             <section className={styles.contextPanel} aria-label="Invoice information">

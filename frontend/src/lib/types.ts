@@ -8,7 +8,15 @@ export interface MemberSupportRequestDto {
   requestId: string;
   memberId: string;
   recordedByUserId: string;
-  category: "GENERAL" | "MEMBERSHIP" | "CLASS" | "PAYMENT" | "PT" | "FACILITY" | "ACCOUNT" | "OTHER";
+  category:
+    | "GENERAL"
+    | "MEMBERSHIP"
+    | "CLASS"
+    | "PAYMENT"
+    | "PT"
+    | "FACILITY"
+    | "ACCOUNT"
+    | "OTHER";
   subject: string;
   description: string;
   status: string;
@@ -20,9 +28,29 @@ export interface MemberSupportRequestDto {
   progressNote: string | null;
   updatedAt: string | null;
   closedAt: string | null;
-  attachments?: { attachmentId: string; fileName: string }[] | null;
+  attachments?:
+    | {
+        attachmentId: string;
+        fileName: string;
+        kind?: "MEMBER_PROOF" | "PAYOUT_PROOF";
+      }[]
+    | null;
   /** COUNTER, PHONE, FANPAGE (recorded by staff) or ONLINE (member self-service). */
   channel?: string;
+  slaDueAtUtc?: string | null;
+  isOverdue?: boolean;
+  remindCount?: number;
+  invoiceId?: string | null;
+  outcome?: string | null;
+  bankAccountMasked?: string | null;
+  payout?: {
+    payoutId: string;
+    amount: number;
+    recordedAtUtc: string;
+    memberConfirmedAtUtc: string | null;
+    memberConfirmedBy: "MEMBER" | "SYSTEM" | null;
+    proofAttachmentIds: string[];
+  } | null;
 }
 
 export type SportServiceType =
@@ -142,6 +170,8 @@ export interface WalletLedgerDto {
 
 export interface CheckoutDto {
   isDayPass?: boolean;
+  closingSoon?: boolean;
+  closesAtUtc?: string | null;
   beneficiaryUserId: string;
   initiatorUserId: string;
   serverNowUtc: string;
@@ -293,7 +323,7 @@ export interface MemberPackageDto {
   stackingApproved: boolean;
   stackingApprovalReason: string | null;
   invoiceItemId?: string | null;
-  /** Vé Gym 1 ngày: hết hạn đúng 24 giờ sau lúc thanh toán. Null với gói tháng. */
+  /** Gym day pass expires at 22:00 Vietnam time on the purchase day. Null for monthly plans. */
   expiresAtUtc?: string | null;
 }
 
@@ -394,6 +424,9 @@ export interface RevenueReportDto {
   legacyCashCollected: number;
   reconciliationCashCollected: number;
   reconciliationCashCount: number;
+  /** Bank transfers a Manager recorded as paid out; a separate line, never deducted from VNPay cash. */
+  bankRefundPaid?: number;
+  bankRefundCount?: number;
   pointsRedeemed: number;
   pointsRedeemedVnd: number;
   pointsIssued: number;

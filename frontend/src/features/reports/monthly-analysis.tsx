@@ -11,6 +11,7 @@ import {
   formatPoints,
 } from "@/lib/format";
 import { useApi, useNow } from "@/lib/useApi";
+import { api } from "@/lib/apiClient";
 import { vietnamLocal } from "@/lib/vietnam-time";
 import type { ClassEnrollmentReportDto, RevenueReportDto } from "@/lib/types";
 import { reportsApi, type ReportFilters } from "./api";
@@ -197,6 +198,13 @@ export function MonthlyAnalysis() {
     (signal) => reportsApi.membership(period.filters, signal),
     [period],
   );
+  const support = useApi(
+    (signal) =>
+      api.get<{ overdue: number }>("/api/member-support-requests/stats", {
+        signal,
+      }),
+    [],
+  );
   const courseRows = courses.data ? currentCourseRows(courses.data) : [];
   const confirmed = courseRows.reduce(
     (sum, row) => sum + row.confirmedCount,
@@ -204,7 +212,8 @@ export function MonthlyAnalysis() {
   );
   const capacity = courseRows.reduce((sum, row) => sum + row.capacity, 0);
   const occupancy = capacity ? Math.round((confirmed / capacity) * 100) : 0;
-  const partialError = revenue.error || courses.error || membership.error;
+  const partialError =
+    revenue.error || courses.error || membership.error || support.error;
   return (
     <div className={styles.dashboard}>
       <header className={styles.toolbar}>
@@ -239,18 +248,36 @@ export function MonthlyAnalysis() {
               if (revenue.error) revenue.reload();
               if (courses.error) courses.reload();
               if (membership.error) membership.reload();
+              if (support.error) support.reload();
             }}
           >
             Retry
           </button>
         </div>
       )}
+      <Link
+        className={styles.overdueLink}
+        href="/manager/requests?type=support&overdue=1"
+      >
+        <strong>
+          Overdue support requests:{" "}
+          {support.data?.overdue ?? (support.loading ? "…" : "—")}
+        </strong>
+        <span>Open the overdue queue →</span>
+      </Link>
 
       <section className={styles.metrics} aria-label="Monthly key figures">
         <Metric
           label="Net revenue (VND)"
           value={formatMoney(revenue.data?.netRevenue)}
           hint="Revenue after completed refunds"
+          loading={revenue.loading}
+          unavailable={!!revenue.error}
+        />
+        <Metric
+          label="Bank payouts recorded (VND)"
+          value={formatMoney(revenue.data?.bankRefundPaid ?? 0)}
+          hint={`${revenue.data?.bankRefundCount ?? 0} payout(s) this month · separate from cash refunds`}
           loading={revenue.loading}
           unavailable={!!revenue.error}
         />
@@ -334,8 +361,10 @@ export function MonthlyAnalysis() {
       </section>
       <p className={styles.definition}>
         Cash figures use successful collections and completed cash refunds.
-        Points refunds remain in the points ledger. Class and membership counts
-        describe different populations and should not be added together.
+        Recorded bank payouts are shown separately and do not reverse VNPay
+        collections. Points refunds remain in the points ledger. Class and
+        membership counts describe different populations and should not be added
+        together.
       </p>
     </div>
   );

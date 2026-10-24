@@ -17,6 +17,7 @@ import { useApi } from "@/lib/useApi";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportAttachments } from "./support-attachments";
+import { SupportPayout } from "./support-payout";
 import {
   ROLE_LABELS,
   ROLE_RANK,
@@ -228,6 +229,15 @@ export function SupportDetail({
             Reference: <strong>{supportReference(request.requestId)}</strong>
           </p>
         )}
+        {request.slaDueAtUtc && (
+          <p className={request.isOverdue ? styles.overdueBadge : styles.muted}>
+            {request.isOverdue ? "Overdue since" : "Response due"}{" "}
+            {formatDateTime(request.slaDueAtUtc)}
+            {request.remindCount
+              ? ` · ${request.remindCount} member reminder(s)`
+              : ""}
+          </p>
+        )}
       </header>
 
       <div className={styles.banner}>
@@ -304,16 +314,37 @@ export function SupportDetail({
         {isManager ? (
           <div className={styles.section}>
             <h4>Attached images</h4>
-            {request.attachments?.length ? (
-              <SupportAttachments attachments={request.attachments} />
+            {request.attachments?.some(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            ) ? (
+              <SupportAttachments
+                attachments={request.attachments.filter(
+                  (attachment) => attachment.kind !== "PAYOUT_PROOF",
+                )}
+              />
             ) : (
               <p className={styles.muted}>No images attached.</p>
             )}
           </div>
         ) : (
-          <SupportAttachments attachments={request.attachments} />
+          <SupportAttachments
+            attachments={request.attachments?.filter(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            )}
+          />
         )}
       </section>
+
+      {isManager && request.category === "PAYMENT" && (
+        <SupportPayout
+          request={request}
+          events={events.data ?? []}
+          onChanged={() => {
+            events.reload();
+            onChanged();
+          }}
+        />
+      )}
 
       {isManager && (
         <section

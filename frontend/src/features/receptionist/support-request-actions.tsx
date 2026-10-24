@@ -3,7 +3,9 @@
 import { useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
+import { useAuth } from "@/lib/auth";
 import type { MemberSupportRequestDto } from "@/lib/types";
+import { ROLE_RANK, roleKey } from "./support-shared";
 import styles from "./support.module.css";
 
 export type SupportAssignee = {
@@ -48,12 +50,14 @@ export function SupportRequestActions({
   const [confirmFinal, setConfirmFinal] = useState(false);
   const [mode, setMode] = useState<"progress" | "done" | "reject">("progress");
   const { language } = useLanguage();
+  const { user } = useAuth();
   const vi = language === "vi";
   const [assigneeId, setAssigneeId] = useState(request.assignedToUserId ?? "");
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState<"assign" | "progress" | "done" | "reject" | null>(
-    null,
-  );
+  const [transferNote, setTransferNote] = useState("");
+  const [busy, setBusy] = useState<
+    "assign" | "progress" | "done" | "reject" | null
+  >(null);
   const lock = useRef(false);
 
   const [local, setLocal] = useState<SupportFeedback | null>(null);
@@ -81,6 +85,7 @@ export function SupportRequestActions({
         body,
       );
       setNote("");
+      if (kind === "assign") setTransferNote("");
       onFeedback({ tone: "ok", text: success });
       onChanged();
     } catch (e) {
@@ -102,6 +107,10 @@ export function SupportRequestActions({
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const noteReady = note.trim().length >= 3;
   const chosen = assignees.find((x) => x.userId === assigneeId);
+  const escalating =
+    !!chosen &&
+    ROLE_RANK[roleKey(chosen.role)] > ROLE_RANK[roleKey(user?.role)];
+  const transferNoteMissing = escalating && transferNote.trim().length < 3;
 
   return (
     <div
@@ -139,9 +148,7 @@ export function SupportRequestActions({
       )}
 
       {closed && (
-        <p className={styles.closedHint}>
-          This request is finalized.
-        </p>
+        <p className={styles.closedHint}>This request is finalized.</p>
       )}
       {!closed && (!collapsible || expanded) && (
         <>
@@ -166,11 +173,16 @@ export function SupportRequestActions({
             <button
               type="button"
               className="btn btn--secondary"
-              disabled={busy !== null || !assigneeId || assigneeId === request.assignedToUserId}
+              disabled={
+                busy !== null ||
+                !assigneeId ||
+                assigneeId === request.assignedToUserId ||
+                transferNoteMissing
+              }
               onClick={() =>
                 act(
                   "assign",
-                  { assigneeUserId: assigneeId },
+                  { assigneeUserId: assigneeId, note: transferNote.trim() },
                   vi
                     ? `Đã gán yêu cầu cho ${chosen?.name ?? "nhân viên"}.`
                     : `Request assigned to ${chosen?.name ?? "staff member"}.`,
@@ -186,8 +198,27 @@ export function SupportRequestActions({
                   : "Assign"}
             </button>
           </div>
+          {escalating && (
+            <label className={styles.field}>
+              Transfer note (required for escalation)
+              <textarea
+                value={transferNote}
+                maxLength={1000}
+                disabled={busy !== null}
+                placeholder="Why does this request need a Manager?"
+                onChange={(event) => setTransferNote(event.target.value)}
+              />
+              {transferNoteMissing && (
+                <span>Write at least 3 characters before transferring.</span>
+              )}
+            </label>
+          )}
 
-          <div className={styles.actionMode} role="group" aria-label="Ticket action">
+          <div
+            className={styles.actionMode}
+            role="group"
+            aria-label="Ticket action"
+          >
             {(["progress", "done", "reject"] as const).map((action) => (
               <button
                 key={action}
@@ -195,21 +226,42 @@ export function SupportRequestActions({
                 className={styles.actionModeButton}
                 aria-pressed={mode === action}
                 disabled={busy !== null}
-                onClick={() => { setMode(action); setConfirmFinal(false); setNote(""); }}
+                onClick={() => {
+                  setMode(action);
+                  setConfirmFinal(false);
+                  setNote("");
+                }}
               >
-                {action === "progress" ? "Add Progress Note" : action === "done" ? "Mark as Done" : "Reject Request"}
+                {action === "progress"
+                  ? "Add Progress Note"
+                  : action === "done"
+                    ? "Mark as Done"
+                    : "Reject Request"}
               </button>
             ))}
           </div>
           <label className={styles.field}>
-            {mode === "progress" ? "Progress note" : mode === "done" ? "Completion note" : "Rejection reason"}
+            {mode === "progress"
+              ? "Progress note"
+              : mode === "done"
+                ? "Completion note"
+                : "Rejection reason"}
             <textarea
               rows={3}
               value={note}
               maxLength={1000}
               disabled={busy !== null}
-              placeholder={mode === "progress" ? "Record what has been checked or what happens next." : mode === "done" ? "Describe how the request was completed." : "Explain why this request is rejected."}
-              onChange={(e) => { setNote(e.target.value); setConfirmFinal(false); }}
+              placeholder={
+                mode === "progress"
+                  ? "Record what has been checked or what happens next."
+                  : mode === "done"
+                    ? "Describe how the request was completed."
+                    : "Explain why this request is rejected."
+              }
+              onChange={(e) => {
+                setNote(e.target.value);
+                setConfirmFinal(false);
+              }}
             />
             <span className={styles.counter}>{note.length}/1000</span>
           </label>
@@ -218,31 +270,56 @@ export function SupportRequestActions({
               <button
                 type="button"
                 className="btn btn--secondary"
-                disabled={busy !== null || !request.assignedToUserId || !noteReady}
-                onClick={() => act("progress", { note: note.trim() }, "Progress updated.")}
+                disabled={
+                  busy !== null || !request.assignedToUserId || !noteReady
+                }
+                onClick={() =>
+                  act("progress", { note: note.trim() }, "Progress updated.")
+                }
               >
                 {busy === "progress" ? "Saving…" : "Update progress"}
               </button>
             ) : confirmFinal ? (
               <>
-                <button type="button" className="btn btn--secondary" disabled={busy !== null} onClick={() => setConfirmFinal(false)}>Cancel</button>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  disabled={busy !== null}
+                  onClick={() => setConfirmFinal(false)}
+                >
+                  Cancel
+                </button>
                 <button
                   type="button"
                   className="btn"
-                  disabled={busy !== null || !request.assignedToUserId || !noteReady}
+                  disabled={
+                    busy !== null || !request.assignedToUserId || !noteReady
+                  }
                   onClick={async () => {
-                    await act(mode, { reason: note.trim() }, mode === "done" ? "Request completed." : "Request rejected.");
+                    await act(
+                      mode,
+                      { reason: note.trim() },
+                      mode === "done"
+                        ? "Request completed."
+                        : "Request rejected.",
+                    );
                     setConfirmFinal(false);
                   }}
                 >
-                  {busy === mode ? "Saving…" : mode === "done" ? "Confirm Done" : "Confirm Reject"}
+                  {busy === mode
+                    ? "Saving…"
+                    : mode === "done"
+                      ? "Confirm Done"
+                      : "Confirm Reject"}
                 </button>
               </>
             ) : (
               <button
                 type="button"
                 className="btn"
-                disabled={busy !== null || !request.assignedToUserId || !noteReady}
+                disabled={
+                  busy !== null || !request.assignedToUserId || !noteReady
+                }
                 onClick={() => setConfirmFinal(true)}
               >
                 {mode === "done" ? "Mark as Done" : "Reject Request"}

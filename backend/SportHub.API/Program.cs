@@ -212,6 +212,7 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<SupportReminderService>();
 builder.Services.AddScoped<AvatarService>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
@@ -241,6 +242,7 @@ if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
 }
 builder.Services.Configure<EmailOptions>(smtpSection);
 var dataProtection = builder.Services.AddDataProtection();
+builder.Services.AddScoped<SportHub.Identity.Infrastructure.Security.BankAccountProtector>();
 var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
 if (!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(dataProtectionKeysPath))
     throw new InvalidOperationException("DataProtection:KeysPath must point to durable storage outside Development.");
@@ -365,6 +367,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ICheckou
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IInvoiceDraftWriter, InvoiceDraftWriter>();
 builder.Services.AddScoped<PaymentFulfillmentService>();
 builder.Services.AddScoped<PaymentReconciliationService>();
+builder.Services.AddScoped<UnactivatedPaymentResolutionService>();
 builder.Services.AddScoped<CheckoutExpiryService>();
 
 // Training — một instance phục vụ cả interface nghiệp vụ lẫn seam ICoachRelationshipRegistrar
@@ -439,6 +442,10 @@ builder.Services.AddHostedService<RentalStatusJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
+builder.Services.AddHostedService<SupportSlaReminderJob>();
+builder.Services.AddScoped<SupportPayoutMaintenance>();
+builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
+builder.Services.AddHostedService<SupportBankDataPurgeJob>();
 builder.Services.AddHostedService<PointHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
 builder.Services.AddHostedService<AvatarDeletionJob>();

@@ -236,6 +236,18 @@ public sealed class PointConfirmationService(
         invoice.CashAmount = invoice.TotalAmount;
         invoice.CheckoutCycleId = Guid.NewGuid();
         invoice.CheckoutRevision++;
+        if (previousCycle is Guid supersededCycle)
+        {
+            var now = clock.UtcNow;
+            // The QR/URL of the old selection must not stay payable with the old cash amount.
+            await db.Set<PaymentAttempt>().Where(x => x.CheckoutSessionId == supersededCycle
+                    && x.Status == SportHub.Payment.Domain.Enums.PaymentAttemptStatus.Pending
+                    && !db.Set<VerifiedGatewayEvent>().Any(e => e.PaymentAttemptId == x.PaymentAttemptId))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(a => a.Status, SportHub.Payment.Domain.Enums.PaymentAttemptStatus.Failed)
+                    .SetProperty(a => a.VerifiedResult, "Superseded")
+                    .SetProperty(a => a.VerifiedAtUtc, now), ct);
+        }
         if (previousCycle is Guid previousId)
         {
             var previous = await db.Set<CheckoutSession>().SingleOrDefaultAsync(
@@ -321,7 +333,8 @@ public sealed class PointConfirmationService(
                 : SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia) ? "Paid"
                 : invoice.ReconciliationRequired ? "ReconciliationRequired"
                 : invoice.Status == InvoiceStatus.Void ? "Cancelled"
-                : invoice.Status == InvoiceStatus.PaidAfterReconciliation ? "Compensated"
+                : invoice.Status == InvoiceStatus.Compensated
+                    || invoice.Status == InvoiceStatus.PaidAfterReconciliation ? "Compensated"
                 : invoice.HoldExpiresAtUtc <= clock.UtcNow ? "Expired"
                 : invoice.PointsApplied > 0 ? "Confirmed" : "Pending", invoice.CheckoutRevision);
 
