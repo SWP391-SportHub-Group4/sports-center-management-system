@@ -96,3 +96,12 @@
     animation: none;
   }
 }
+.credentialsLink {
+  display: inline-flex;
+  color: var(--color-primary-soft-text);
+  font-size: 13px;
+  font-weight: 650;
+  margin-top: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

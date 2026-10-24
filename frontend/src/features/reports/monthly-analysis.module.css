@@ -53,25 +53,74 @@
 }
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   background: var(--bg-surface);
 }
-.overdueLink {
+.cashSummary {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+.cashHeader {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
-  border: 1px solid var(--warning-solid);
-  border-radius: 12px;
-  background: var(--warning-bg);
-  color: var(--warning-text);
-  text-decoration: none;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
 }
-.overdueLink:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+.cashHeader h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 700 1rem / 1.4 var(--font-body);
+}
+.cashHeader > span,
+.cashNote {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.cashFigures {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+}
+.cashFigures :global(.stat__label) {
+  min-height: 0;
+  margin-bottom: 12px;
+}
+.netMetric {
+  background: var(--court-800);
+}
+.cashFigures .netMetric :global(.stat__label),
+.cashFigures .netMetric :global(.stat__value),
+.cashFigures .netMetric p {
+  color: white;
+}
+.cashFigures .netMetric :global(.stat__value) {
+  font-size: 2rem;
+}
+.cashNote {
+  margin: 0;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border-subtle);
+}
+@media (max-width: 700px) {
+  .cashFigures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cashFigures .metric + .metric {
+    border-inline-start: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .cashHeader,
+  .cashNote {
+    padding-inline: 16px;
+  }
 }
 .metric {
   min-width: 0;
@@ -89,7 +138,8 @@
 }
 .metric :global(.stat__label) {
   min-height: 40px;
-  color: var(--text-muted);
+  color: var(--text-strong);
+  font-weight: 700;
   font-size: 0.8125rem;
   line-height: 1.5;
 }
@@ -132,7 +182,7 @@
 .pointsIntro h3 {
   margin: 0;
   color: var(--text-strong);
-  font: 600 1rem / 1.4 var(--font-body);
+  font: 700 1rem / 1.4 var(--font-body);
 }
 .panelHeader p {
   max-width: 68ch;
@@ -521,6 +571,8 @@
 }
 .points :global(.stat__label) {
   min-height: 40px;
+  color: var(--text-strong);
+  font-weight: 700;
 }
 .points :global(.stat__value) {
   margin-block: 8px;

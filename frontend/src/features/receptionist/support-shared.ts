@@ -24,16 +24,18 @@ export const CHANNEL_LABELS: Record<string, string> = {
   ONLINE: "Member (online)",
 };
 
-export type RoleKey = "receptionist" | "manager" | "admin";
+export type RoleKey = "receptionist" | "manager" | "admin" | "coach";
 
 export const ROLE_RANK: Record<RoleKey, number> = {
   receptionist: 0,
+  coach: 0,
   manager: 1,
   admin: 2,
 };
 
 export const ROLE_LABELS: Record<RoleKey, string> = {
   receptionist: "Receptionist",
+  coach: "Coach",
   manager: "Manager",
   admin: "Administrator",
 };
@@ -43,6 +45,7 @@ export function roleKey(role: string | null | undefined): RoleKey {
   const value = (role ?? "").toUpperCase();
   if (value.includes("ADMIN")) return "admin";
   if (value.includes("MANAGER")) return "manager";
+  if (value.includes("COACH")) return "coach";
   return "receptionist";
 }
 
@@ -100,4 +103,14 @@ export function eventText(event: SupportEventDto): string {
     default:
       return event.actorName;
   }
+}
+
+/** Receiver inbox groups legacy routing states without rewriting request history. */
+export function receiverStatus(status: string): string {
+  if (["OPEN", "ASSIGNED", "NOT_STARTED"].includes(status)) return "NOT_STARTED";
+  if (["DONE", "CLOSED", "REJECTED"].includes(status)) return "DONE";
+  return status;
+}
+export function receiverStatusLabel(status: string): string {
+  return receiverStatus(status) === "NOT_STARTED" ? "Not started" : (STATUS_LABELS[receiverStatus(status)] ?? status);
 }

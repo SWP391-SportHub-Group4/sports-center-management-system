@@ -42,6 +42,7 @@ public sealed class ReportReconciliationService(ISportHubDbContext db, IRevenueR
             .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
         var refunded = await db.Set<PaymentAdjustment>().AsNoTracking()
             .Where(a => a.Status == PaymentAdjustmentStatus.Completed && a.Type == PaymentAdjustmentType.Refund
+                        && a.PointLedgerEntryId == null
                         && a.CompletedAtUtc != null && a.CompletedAtUtc >= fromUtc && a.CompletedAtUtc < toUtc)
             .SumAsync(a => (decimal?)a.Amount, ct) ?? 0m;
 

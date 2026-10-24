@@ -32,6 +32,7 @@ public sealed class CoachCatalogController(ISportHubDbContext db) : ControllerBa
             YearsExperience = u.CoachProfile != null ? u.CoachProfile.YearsExperience : null,
             StudentCount = u.CoachProfile != null ? u.CoachProfile.StudentCount : null,
             Philosophy = u.CoachProfile != null ? u.CoachProfile.Philosophy : null,
+            CredentialCount = db.Set<CoachCredential>().Count(c => c.CoachUserId == u.UserId && c.DeletedAtUtc == null && c.IsPublished),
             SportIds = db.Set<UserSportSpecialty>().Where(s => s.UserId == u.UserId).Select(s => s.SportId).ToArray(),
             SportNames = db.Set<Sport>().Where(s => db.Set<UserSportSpecialty>().Any(specialty => specialty.UserId == u.UserId && specialty.SportId == s.SportId))
                 .OrderBy(s => s.Name).Select(s => s.Name).ToArray()

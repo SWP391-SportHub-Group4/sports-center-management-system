@@ -2,8 +2,9 @@
 
 import { useState, type CSSProperties } from "react";
 import { MediaEditableText } from "./media-editable-text";
-import { ArrowRight, ImagePlus } from "lucide-react";
+import { ArrowRight, ImagePlus, Pencil, Video } from "lucide-react";
 import HomepageImage from "@/components/homepage/HomepageImage";
+import { CourtIcon } from "@/components/brand/CourtIcon";
 import { heroCopy } from "@/components/homepage/PerformanceSections";
 import { sportGalleryTitle } from "@/components/homepage/sport-gallery";
 import { MediaSportGallery } from "./media-sport-gallery";
@@ -16,6 +17,7 @@ import { faqCopy } from "@/components/homepage/HomepageFAQ";
 import {
   useLandingCopy,
   useLandingValues,
+  validLandingImage,
 } from "@/components/homepage/landing-content-context";
 import {
   featuredCoachIds,
@@ -93,6 +95,7 @@ export function MediaLandingPreview({
   onImage,
   onCoaches,
   onText,
+  onVideo,
 }: {
   showcaseData: HomepageShowcaseSources;
   changedKeys: string[];
@@ -100,6 +103,7 @@ export function MediaLandingPreview({
   onImage: (target: MediaImageTarget) => void;
   onCoaches: () => void;
   onText: (field: string, value: string | undefined) => void;
+  onVideo: () => void;
 }) {
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [zoneId, setZoneId] = useState<
@@ -158,39 +162,61 @@ export function MediaLandingPreview({
     <div className={styles.landing} aria-label="Editable homepage preview">
       <div className={styles.previewHeader}>
         <div className={styles.logoEditor}>
-          {values["brand.logo.image"] ? (
-            <HomepageImage
-              src={values["brand.logo.image"]}
-              alt="Homepage logo"
-              width={180}
-              height={56}
-              className={styles.logoImage}
-            />
-          ) : (
-            <strong>
-              Sport<span>Hub</span>
-            </strong>
-          )}
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            disabled={disabled}
-            onClick={() =>
-              onImage({
-                key: "brand.logo.image",
-                src: values["brand.logo.image"] ?? "",
-                alt: "Homepage logo",
-                label: "Homepage logo",
-              })
-            }
-          >
-            <ImagePlus size={16} aria-hidden="true" /> Change logo
-          </button>
+          <span className={styles.logoPreview}>
+            <span className={styles.logoControl}>
+              <span
+                className={styles.logoMark}
+                data-custom={
+                  (!!values["brand.logo.image"] &&
+                    validLandingImage(values["brand.logo.image"])) ||
+                  undefined
+                }
+                aria-hidden="true"
+              >
+                {values["brand.logo.image"] &&
+                validLandingImage(values["brand.logo.image"]) ? (
+                  <HomepageImage
+                    src={values["brand.logo.image"]}
+                    alt=""
+                    width={44}
+                    height={44}
+                    className={styles.logoImage}
+                  />
+                ) : (
+                  <CourtIcon name="gym" size={19} />
+                )}
+              </span>
+              <button
+                type="button"
+                className={styles.editLogo}
+                aria-label="Edit logo"
+                title="Edit logo"
+                disabled={disabled}
+                onClick={() =>
+                  onImage({
+                    key: "brand.logo.image",
+                    src: values["brand.logo.image"] ?? "",
+                    alt: "Homepage logo icon",
+                    label: "Homepage logo icon",
+                  })
+                }
+              >
+                <Pencil size={12} aria-hidden="true" />
+              </button>
+            </span>
+            <span className={styles.logoWord}>
+              Sport<span className={styles.logoAccent}>Hub</span>
+            </span>
+          </span>
         </div>
-        <span>
-          Double-click text to edit. Enter to finish; Shift+Enter for a new
-          line; Esc to undo.
-        </span>
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={disabled}
+          onClick={onVideo}
+        >
+          <Video size={17} aria-hidden="true" /> Change hero video
+        </button>
       </div>
       <section id="media-hero" className={styles.hero} aria-label="Hero">
         {text("hero.title", "Hero title", hero.title, "h2")}

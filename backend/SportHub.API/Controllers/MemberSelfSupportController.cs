@@ -314,14 +314,18 @@ public sealed class SupportAttachmentsController(ISportHubDbContext db) : Contro
                 a.ContentType,
                 a.Kind,
                 OwnerId = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
-                    .Select(r => r.MemberId).FirstOrDefault()
+                    .Select(r => r.MemberId).FirstOrDefault(),
+                AssignedTo = db.Set<MemberSupportRequest>().Where(r => r.RequestId == a.RequestId)
+                    .Select(r => r.AssignedToUserId).FirstOrDefault()
             })
             .SingleOrDefaultAsync(ct);
         var manager = User.IsInRole(nameof(UserRole.CenterManager));
         var receptionist = User.IsInRole(nameof(UserRole.Receptionist));
         var canRead = row is not null && (row.Kind switch
         {
-            SupportAttachmentKinds.MemberProof => row.OwnerId == userId || receptionist || manager,
+            SupportAttachmentKinds.MemberProof => row.OwnerId == userId || receptionist || manager
+                || ((User.IsInRole(nameof(UserRole.Coach)) || User.IsInRole(nameof(UserRole.SystemAdministrator)))
+                    && row.AssignedTo == userId),
             SupportAttachmentKinds.PayoutProof => row.OwnerId == userId || manager,
             _ => false
         });

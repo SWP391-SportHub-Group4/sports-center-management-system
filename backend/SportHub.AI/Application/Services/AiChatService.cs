@@ -80,6 +80,16 @@ public sealed class AiChatService(
             var allowed = history.Any(l => MatchesContext(l.InputPayload, l.ResponsePayload, previousInteractionId, scopeFingerprint));
             if (!allowed) previousInteractionId = null;
         }
+        var isCoach = contextDocument.RootElement.TryGetProperty("role", out var roleElement)
+            && roleElement.ValueKind == JsonValueKind.String
+            && roleElement.GetString() == "Coach";
+        var systemPrompt = isCoach
+            ? CoachAiSystemPrompt.Content
+            : SportHubAssistantSystemPrompt.ForQuestion(question);
+        var promptVersion = isCoach
+            ? CoachAiSystemPrompt.Version
+            : SportHubAssistantSystemPrompt.Version;
+
         var stopwatch =
             Stopwatch.StartNew();
 
@@ -90,7 +100,7 @@ public sealed class AiChatService(
         {
             providerResponse =
                 await provider.AskAsync(
-                    (contextDocument.RootElement.TryGetProperty("role", out var aiRole) && aiRole.GetString() == "Coach" ? CoachAiSystemPrompt.Content : SportHubAssistantSystemPrompt.ForQuestion(question)),
+                    systemPrompt,
                     context,
                     question,
                     previousInteractionId,
@@ -103,6 +113,10 @@ public sealed class AiChatService(
         }
 
         stopwatch.Stop();
+
+        var cleanAnswer = providerResponse is null
+            ? string.Empty
+            : AiPlainTextSanitizer.Clean(providerResponse.Answer);
 
         var elapsedMs =
             (int)Math.Min(
@@ -133,7 +147,7 @@ public sealed class AiChatService(
                             scopeFingerprint,
 
                             promptVersion =
-                                SportHubAssistantSystemPrompt.Version
+                                promptVersion
                         }),
 
                 ResponsePayload =
@@ -144,7 +158,7 @@ public sealed class AiChatService(
                                 providerResponse?.InteractionId,
 
                             answer =
-                                providerResponse?.Answer,
+                                providerResponse is null ? null : cleanAnswer,
 
                             provider =
                                 providerResponse?.Provider
@@ -192,10 +206,10 @@ public sealed class AiChatService(
             logId,
             providerResponse!.InteractionId,
             question,
-            providerResponse.Answer,
+            cleanAnswer,
             providerResponse.Provider,
             providerResponse.Model,
-            SportHubAssistantSystemPrompt.Version,
+            promptVersion,
             elapsedMs,
             createdAt);
     }

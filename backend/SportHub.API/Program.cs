@@ -214,10 +214,16 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<SupportReminderService>();
 builder.Services.AddScoped<AvatarService>();
+builder.Services.AddScoped<CoachCredentialService>();
+builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHostedService<CoachCredentialCleanupJob>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHttpClient<IMediaVideoStorage, CloudinaryMediaVideoStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(120));
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
@@ -311,6 +317,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICour
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ClassTeachingService>();
 builder.Services.AddScoped<ClassSessionReminderService>();
+builder.Services.AddScoped<CoachAttendanceReminderService>();
 builder.Services.AddScoped<ClassSessionChangeRequestService>();
 builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
@@ -431,7 +438,6 @@ builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddScoped<MemberCourseNotificationService>();
 builder.Services.AddHostedService<MemberCourseNotificationsJob>();
-builder.Services.AddScoped<CoachAttendanceReminderService>();
 builder.Services.AddHostedService<CoachAttendanceReminderJob>();
 builder.Services.AddHostedService<StaffInvitationExpiryJob>();
 builder.Services.AddHostedService<MemberInvitationExpiryJob>();

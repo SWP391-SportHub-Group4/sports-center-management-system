@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Eye, Save, RotateCcw } from "lucide-react";
 import { AsyncSection, Feedback, Field } from "@/components/ui";
 import { AvatarImage } from "@/components/AvatarImage";
+import { CoachCredentialsEditor } from "@/components/coach-credentials/coach-credentials";
 import { api } from "@/lib/apiClient";
 import { useAction, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -57,6 +58,7 @@ export function CoachPublicProfileCard() {
       <AsyncSection state={profile}>
         {(data) => <ProfileEditor initial={data} />}
       </AsyncSection>
+      <CoachCredentialsEditor />
     </section>
   );
 }
@@ -288,7 +290,7 @@ function ProfileEditor({ initial }: { initial: Dto }) {
         {user && (
           <Link
             className="btn btn--secondary"
-            href={`/coaches/${user.userId}`}
+            href={`/coaches/${user.userId}?returnTo=%2Faccount`}
             onClick={(event) => {
               if (
                 (dirty || save.busy) &&

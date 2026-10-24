@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime, formatMoney } from "@/lib/format";
@@ -56,6 +57,8 @@ function explain(row: Case) {
 }
 
 export function FrontDeskPaymentReconciliation() {
+  const query = useSearchParams();
+  const caseType = query.get("caseType") === "captured" ? "captured" : undefined;
   const { values, setValues } = useUrlQuery(
     { view: "paid" },
     { view: choiceQuery(["paid", "all"], "paid") },
@@ -68,11 +71,12 @@ export function FrontDeskPaymentReconciliation() {
         signal,
         query: {
           outcome: paidOnly ? "RECONCILIATION_REQUIRED" : undefined,
+          caseType,
           page,
           pageSize: 20,
         },
       }),
-    [page, paidOnly],
+    [page, paidOnly, caseType],
   );
   const [busy, setBusy] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -131,7 +135,18 @@ export function FrontDeskPaymentReconciliation() {
           : "Check pending or expired payments with VNPay and retry service delivery when needed. Completed payments and point compensation remain in invoice history."}
       </p>
       {cases.loading && !cases.data && <p>Loading…</p>}
-      {cases.error && <p role="alert">{cases.error.message}</p>}
+      {cases.error && (
+        <div role="alert">
+          <p>{cases.error.message}</p>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={cases.reload}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {result && (
         <p role="status" className={styles.result}>
           {result}

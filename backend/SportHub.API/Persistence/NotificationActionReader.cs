@@ -19,6 +19,19 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "SupportRequestAssigned":
+                    if (await db.UserAccounts.AnyAsync(u => u.UserId == userId
+                        && (u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach
+                            || u.Role.RoleName == SportHub.Identity.Domain.Enums.UserRole.SystemAdministrator), ct))
+                        foreach (var assignment in await db.Set<SportHub.Identity.Domain.Entities.MemberSupportEvent>()
+                            .Where(e => ids.Contains(e.EventId) && e.TargetUserId == userId)
+                            .Join(db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>().Where(r => r.AssignedToUserId == userId),
+                                e => e.RequestId, r => r.RequestId, (e, r) => new { e.EventId, r.RequestId }).ToListAsync(ct))
+                            links[assignment.EventId] = await db.UserAccounts.AnyAsync(u => u.UserId == userId
+                                && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.SystemAdministrator, ct)
+                                ? $"/admin/support?request={assignment.RequestId}"
+                                : $"/coach/support?request={assignment.RequestId}";
+                    break;
                 case "CoachAttendanceReminder":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId
                         && u.Status == SportHub.Identity.Domain.Enums.UserStatus.Active

@@ -9,6 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { AvatarImage } from "./AvatarImage";
@@ -22,6 +23,7 @@ type Coach = {
   bio?: string | null;
   yearsExperience?: number | null;
   philosophy?: string | null;
+  credentialCount?: number;
 };
 
 const subscribeToClient = () => () => {};
@@ -118,7 +120,9 @@ export function CoachProfilePreview({
       <button
         ref={trigger}
         type="button"
-        className={className ? `${styles.trigger} ${className}` : styles.trigger}
+        className={
+          className ? `${styles.trigger} ${className}` : styles.trigger
+        }
         popoverTarget={id}
         aria-expanded={open}
         aria-controls={id}
@@ -204,6 +208,14 @@ export function CoachProfilePreview({
                 </p>
                 {coach.philosophy && (
                   <p className={styles.philosophy}>{coach.philosophy}</p>
+                )}
+                {!!coach.credentialCount && (
+                  <Link
+                    className={styles.credentialsLink}
+                    href={`/coaches/${coachId}?tab=certificates&returnTo=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}#credentials`}
+                  >
+                    View certificates & awards ({coach.credentialCount})
+                  </Link>
                 )}
               </>
             ) : (

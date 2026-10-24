@@ -2,7 +2,6 @@
 
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
-import { ReportAvatarButton } from "./ReportAvatarButton";
 import { AvatarImage } from "./AvatarImage";
 
 export function UserAvatar({
@@ -24,11 +23,6 @@ export function UserAvatar({
   return (
     <span>
       <AvatarImage name={name} avatarUrl={avatar.data?.avatarUrl} size={size} />
-      <ReportAvatarButton
-        userId={userId}
-        name={name}
-        avatarUrl={avatar.data?.avatarUrl}
-      />
     </span>
   );
 }

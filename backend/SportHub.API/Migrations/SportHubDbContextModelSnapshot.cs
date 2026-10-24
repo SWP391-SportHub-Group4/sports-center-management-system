@@ -463,6 +463,102 @@ namespace SportHub.API.Migrations
                     b.ToTable("avatar_report", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachCredential", b =>
+                {
+                    b.Property<Guid>("CredentialId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("credential_id");
+
+                    b.Property<DateTime?>("AssetDeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("asset_deleted_at_utc");
+
+                    b.Property<Guid>("CoachUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coach_user_id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("FilePublicId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_public_id");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(1500)
+                        .HasColumnType("character varying(1500)")
+                        .HasColumnName("file_url");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_published");
+
+                    b.Property<DateOnly?>("IssuedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("issued_on");
+
+                    b.Property<string>("Issuer")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("issuer");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("CredentialId")
+                        .HasName("pk_coach_credentials");
+
+                    b.HasIndex("FilePublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_coach_credentials_file_public_id");
+
+                    b.HasIndex("CoachUserId", "DeletedAtUtc")
+                        .HasDatabaseName("ix_coach_credentials_coach_user_id_deleted_at_utc");
+
+                    b.ToTable("coach_credentials", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -4222,6 +4318,18 @@ namespace SportHub.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_avatar_report_user_accounts_target_user_id");
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachCredential", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", "Coach")
+                        .WithMany()
+                        .HasForeignKey("CoachUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_coach_credentials_user_accounts_coach_user_id");
+
+                    b.Navigation("Coach");
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.CoachProfile", b =>

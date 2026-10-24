@@ -1017,7 +1017,6 @@ export const en = {
     endRelationship: "End relationship",
     activeOnly: "Active only",
     refunds: "Point refund requests",
-    legacy: "Legacy adjustments — read only",
     systemCap: "System-calculated points",
     approvedPoints: "Approved points",
     centerFault: "Center fault (server recalculates the cap)",

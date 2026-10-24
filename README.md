@@ -45,7 +45,7 @@ sports-center-management-system/
 ├── backend/     # ASP.NET Core Web API (feature-based modular monolith, 11 project) — mở bằng Rider
 ├── frontend/    # Next.js — mở bằng VS Code
 ├── ai/          # Reserved — AI hiện đang là module bên trong backend, xem ai/README.md
-├── docs/        # Business Rules v2.0, Design v3 (ERD, API, RBAC...), SSOT, RUNBOOK, Git workflow
+├── docs/        # Thiết kế hệ thống, yêu cầu, API và RUNBOOK
 └── docker-compose.yml
 ```
 
@@ -60,7 +60,7 @@ sports-center-management-system/
 | [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) | Phạm vi, thuật ngữ, quy ước và thứ tự nguồn |
 | [`docs/Requirements.md`](docs/Requirements.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động local (PostgreSQL, backend, frontend) và bàn giao triển khai |
-| [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) | Quy trình Git, phân module theo giai đoạn G0–G12 |
+| [`docs/README.md`](docs/README.md) | Mục lục tài liệu hệ thống |
 | [`PRODUCT.md`](PRODUCT.md), [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | Sản phẩm và bộ token duy nhất |
 
 ## Chạy thử nhanh
@@ -178,7 +178,7 @@ Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, 
 
 ## Chạy local
 
-Ở môi trường `Development`, backend tự áp migration khi khởi động nhưng không tự seed dữ liệu. Để chuẩn bị dữ liệu kiểm tra tối thiểu, dùng `--seed-validation=true` sau khi áp migration. Xem [Local Validation Data](docs/Local-Validation-Data.md).
+Xem [RUNBOOK](docs/RUNBOOK.md) để cấu hình môi trường Development, migration và dữ liệu khởi tạo.
 
 ### PostgreSQL và AI bằng Docker Compose
 

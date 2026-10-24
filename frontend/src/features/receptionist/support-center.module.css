@@ -668,3 +668,7 @@
     width: 100%;
   }
 }
+
+.receiverStats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dot[data-status="NOT_STARTED"] { background: var(--text-secondary, #475569); }
+@media (max-width: 480px) { .receiverStats { grid-template-columns: 1fr; } }

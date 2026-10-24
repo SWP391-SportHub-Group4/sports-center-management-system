@@ -168,11 +168,23 @@ jobs:
             "Email__DemoLoggingEnabled=$Email__DemoLoggingEnabled" \
             "Frontend__BaseUrl=http://127.0.0.1:3100" > .env
 
+      - name: Validate E2E services
+        shell: bash
+        run: |
+          services=$(docker compose -f docker-compose.yml config --services)
+          printf '%s\n' "$services"
+          for service in postgres backend; do
+            if ! grep -qx "$service" <<< "$services"; then
+              echo "::error file=docker-compose.yml::Required E2E service '$service' is missing."
+              exit 1
+            fi
+          done
+
       - name: Start isolated PostgreSQL and API
         run: |
           # The AI container validates its key at startup; E2E never calls Gemini.
           printf 'GEMINI_API_KEY=ci-only-unused-key\n' > ai-service/.env
-          docker compose up -d --build postgres backend
+          docker compose -f docker-compose.yml up -d --build postgres backend
 
       - name: Wait for API health
         shell: bash
@@ -184,11 +196,11 @@ jobs:
             sleep 2
           done
           echo "API did not become healthy in time. Container state:"
-          docker compose ps -a
+          docker compose -f docker-compose.yml ps -a
           echo "---- backend logs (last 200 lines) ----"
-          docker compose logs --tail=200 backend
+          docker compose -f docker-compose.yml logs --tail=200 backend
           echo "---- postgres logs (last 50 lines) ----"
-          docker compose logs --tail=50 postgres
+          docker compose -f docker-compose.yml logs --tail=50 postgres
           exit 1
 
       - name: Seed isolated E2E fixtures from test project
@@ -233,8 +245,10 @@ jobs:
           tests/member.spec.ts
           tests/receptionist.spec.ts
           tests/manager-multisport.spec.ts
+          tests/reports-dashboard.spec.ts
           tests/member-court-rental.spec.ts
           tests/coach-training.spec.ts
+          tests/coach-credentials.spec.ts
           tests/payment-lifecycle.spec.ts
           tests/rbac.spec.ts
           tests/api-coverage.spec.ts
@@ -253,8 +267,8 @@ jobs:
 
       - name: Show service logs on failure
         if: failure()
-        run: docker compose logs --no-color backend postgres
+        run: docker compose -f docker-compose.yml logs --no-color backend postgres
 
       - name: Stop E2E services
         if: always()
-        run: docker compose down -v
+        run: docker compose -f docker-compose.yml down -v

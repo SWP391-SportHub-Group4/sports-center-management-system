@@ -425,7 +425,19 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
 
         var before = await Snapshot();
         var member = await factory.SeedUserAsync(UserRole.Member);
-        await SeedActiveDayPassAsync(factory, member.UserId, today);
+        var pass = await SeedActiveDayPassAsync(factory, member.UserId, today);
+        var unpaid = await Snapshot();
+        Assert.Equal(before.Sold, unpaid.Sold);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 50_000m, pass.MemberPackageId);
+        await factory.QueryAsync(async db =>
+        {
+            var row = await db.Invoices.Include(i => i.Items).SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            row.Status = InvoiceStatus.Paid;
+            row.PaidAtUtc = DateTime.UtcNow;
+            row.Items.Single().MemberPackageId = pass.MemberPackageId;
+            await db.SaveChangesAsync();
+            return true;
+        });
         var after = await Snapshot();
 
         Assert.Equal(before.Members, after.Members);

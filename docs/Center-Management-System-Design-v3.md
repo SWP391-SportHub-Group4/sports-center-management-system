@@ -369,7 +369,7 @@ G01–G13 có evidence và acceptance chi tiết. Endpoint đề xuất chưa ph
 - [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx): quy tắc và giới hạn nghiệp vụ, gồm luồng Google/mật khẩu (mục P).
 - [SSOT](00-Source-of-Truth.md): phạm vi, thuật ngữ, giải quyết mâu thuẫn.
 - [Requirements](Requirements.md): yêu cầu theo vai trò/luồng.
-- [API contract](api-contract.md): route, DTO, lỗi. [RUNBOOK](RUNBOOK.md): chạy local và bàn giao triển khai. [GIT_WORKFLOW](GIT_WORKFLOW.md): quy trình nhánh/PR.
+- [API contract](api-contract.md): route, DTO, lỗi. [RUNBOOK](RUNBOOK.md): chạy local và bàn giao triển khai.
 - Phụ lục A (từ điển dữ liệu), B (kiến trúc mã nguồn), C (điều hướng Member) nằm cuối file này.
 
 Yêu cầu chủ sản phẩm về ba môn là phạm vi áp dụng. Khi code/tài liệu nguồn chưa khớp, ghi rõ khoảng cách và đồng bộ; không suy rằng code đã đổi. Dùng Git để truy vết thay đổi, không chèn ngày cập nhật, changelog hoặc bảng so sánh phiên bản vào nội dung tài liệu.

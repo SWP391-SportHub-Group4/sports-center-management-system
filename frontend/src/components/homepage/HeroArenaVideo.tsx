@@ -2,19 +2,54 @@
 
 import Image from "./HomepageImage";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./hero-arena-video.module.css";
+import {
+  originalHeroBackground,
+  heroPlaylist,
+  HERO_PLAYLIST,
+} from "./hero-background";
+import { useLandingValues, validLandingImage } from "./landing-content-context";
 
 export function HomepageBackdrop() {
   const pathname = usePathname();
-  return ["/", "/login", "/register"].includes(pathname) ? (
-    <HeroArenaVideo auth={pathname !== "/"} />
+  return ["/login", "/register"].includes(pathname) ? (
+    <HeroArenaVideo auth />
   ) : null;
 }
 
 export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
+  const values = useLandingValues();
+  return (
+    <HeroArenaPlayer
+      key={auth ? "auth" : (values[HERO_PLAYLIST] ?? "original")}
+      auth={auth}
+    />
+  );
+}
+
+function HeroArenaPlayer({ auth }: { auth: boolean }) {
   const root = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
+  const values = useLandingValues();
+  const [index, setIndex] = useState(0);
+  const failed = useRef(new Set<string>());
+  const preview =
+    typeof window !== "undefined" &&
+    window.parent !== window &&
+    new URLSearchParams(window.location.search).get("media-preview") === "true";
+  const playlist = auth ? [] : heroPlaylist(values, preview);
+  const current = playlist[index % (playlist.length || 1)];
+  const media = (key: keyof typeof originalHeroBackground) => {
+    const value = auth ? undefined : values[key];
+    return value && validLandingImage(value)
+      ? value
+      : originalHeroBackground[key];
+  };
+  const webm = current?.url ?? media("hero.background.webm");
+  const mp4 = media("hero.background.mp4");
+  const poster = current?.poster ?? media("hero.background.image");
+  const custom = playlist.length > 0;
 
   useEffect(() => {
     const element = root.current;
@@ -50,9 +85,8 @@ export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
         return;
       }
       if (!player.getAttribute("src")) {
-        player.src = player.canPlayType('video/webm; codecs="vp9"')
-          ? "/sporthub/hero/arena-loop.webm?v=2"
-          : "/sporthub/hero/arena-loop.mp4?v=2";
+        player.src =
+          custom || player.canPlayType('video/webm; codecs="vp9"') ? webm : mp4;
       }
       if (visible && !document.hidden) {
         void player.play().catch(() => {
@@ -61,16 +95,21 @@ export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
       } else player.pause();
     };
     const onReady = () => {
-      if (!disposed) element.dataset.ready = "true";
+      if (!disposed) {
+        element.dataset.ready = "true";
+        failed.current.delete(webm);
+      }
     };
     const onError = () => {
-      if (
-        !disposed &&
-        player.getAttribute("src")?.includes("arena-loop.webm")
-      ) {
-        player.src = "/sporthub/hero/arena-loop.mp4?v=2";
+      if (!disposed && !custom && player.getAttribute("src") === webm) {
+        player.src = mp4;
         update();
-      } else element.dataset.ready = "false";
+      } else {
+        element.dataset.ready = "false";
+        failed.current.add(webm);
+        if (playlist.length > 1 && failed.current.size < playlist.length)
+          setIndex((value) => (value + 1) % playlist.length);
+      }
     };
     const tick = () => {
       if (disposed || reduced.matches || !visible || document.hidden) {
@@ -123,6 +162,9 @@ export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
       disposed = true;
       observer.disconnect();
       player.pause();
+      player.removeAttribute("src");
+      player.load();
+      element.dataset.ready = "false";
       player.removeEventListener("playing", onReady);
       player.removeEventListener("error", onError);
       reduced.removeEventListener("change", update);
@@ -132,7 +174,7 @@ export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
       hero?.removeEventListener("pointerleave", reset);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [webm, mp4, custom, playlist.length]);
 
   return (
     <div
@@ -142,7 +184,7 @@ export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
       <div className={styles.depth}>
         <Image
           className={styles.poster}
-          src="/sporthub/hero/arena-poster-v2.jpg"
+          src={poster}
           alt=""
           fill
           priority
@@ -152,7 +194,10 @@ export function HeroArenaVideo({ auth = false }: { auth?: boolean }) {
           ref={video}
           className={styles.video}
           muted
-          loop
+          loop={playlist.length < 2}
+          onEnded={() =>
+            setIndex((value) => (value + 1) % (playlist.length || 1))
+          }
           playsInline
           preload="none"
           aria-hidden="true"
