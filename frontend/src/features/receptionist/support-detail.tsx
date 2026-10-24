@@ -21,6 +21,8 @@ import {
   ROLE_LABELS,
   ROLE_RANK,
   STATUS_LABELS,
+  receiverStatusLabel,
+  receiverStatus,
   CHANNEL_LABELS,
   supportReference,
   assigneesByRole,
@@ -70,25 +72,25 @@ export function SupportDetail({
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
-  workspace: "manager" | "receptionist" | "coach";
+  workspace: "manager" | "receptionist" | "coach" | "admin";
   onChanged: () => void;
 }) {
   const { user } = useAuth();
   const isManager = workspace === "manager";
-  const isCoach = workspace === "coach";
+  const isReceiver = workspace === "coach" || workspace === "admin";
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
 
   const member = useApi(
     (signal) =>
-      isCoach
+      isReceiver
         ? Promise.resolve(null)
         : api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
-    [request.memberId, isCoach],
+    [request.memberId, isReceiver],
   );
   const packages = useApi(
     (signal) =>
-      isCoach
+      isReceiver
         ? Promise.resolve([] as MemberPackageDto[])
         : api.get<MemberPackageDto[]>(
             `/api/members/${request.memberId}/packages`,
@@ -96,7 +98,7 @@ export function SupportDetail({
               signal,
             },
           ),
-    [request.memberId, isCoach],
+    [request.memberId, isReceiver],
   );
   const events = useApi(
     (signal) =>
@@ -220,8 +222,8 @@ export function SupportDetail({
             <StatusChip value={request.status} />
           ) : (
             <span className={styles.badge}>
-              <span className={styles.dot} data-status={request.status} />
-              {STATUS_LABELS[request.status] ?? request.status}
+              <span className={styles.dot} data-status={isReceiver ? receiverStatus(request.status) : request.status} />
+              {isReceiver ? receiverStatusLabel(request.status) : STATUS_LABELS[request.status] ?? request.status}
             </span>
           )}
           <time className={styles.createdAt} dateTime={request.createdAt}>
@@ -251,7 +253,7 @@ export function SupportDetail({
               .filter(Boolean)
               .join(" · ")}
           </span>
-          {!isCoach && (
+          {!isReceiver && (
             <span className={styles.muted}>
               Plan: {planText}
               {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
@@ -260,7 +262,7 @@ export function SupportDetail({
             </span>
           )}
         </div>
-        {!isCoach && (
+        {!isReceiver && (
           <Link
             className={styles.bannerLink}
             href={`/${workspace}/members/${request.memberId}`}
@@ -357,7 +359,7 @@ export function SupportDetail({
         )
       ) : (
         <>
-          {!isCoach && (
+          {!isReceiver && (
             <section className={styles.box} aria-label="Routing and escalation">
               <h4 className={styles.muted} style={{ margin: 0 }}>
                 Assignment · currently{" "}
@@ -459,7 +461,7 @@ export function SupportDetail({
 
           <section className={styles.section} aria-label="Handle request">
             <div className={styles.tabs} role="tablist" aria-label="Action">
-              {TABS.map((tab) => (
+              {TABS.filter((tab) => !isReceiver || tab.mode !== "reject").map((tab) => (
                 <button
                   key={tab.mode}
                   type="button"
@@ -472,7 +474,7 @@ export function SupportDetail({
                     setConfirming(false);
                   }}
                 >
-                  {tab.label}
+                  {isReceiver && tab.mode === "progress" ? "In progress" : tab.label}
                 </button>
               ))}
             </div>

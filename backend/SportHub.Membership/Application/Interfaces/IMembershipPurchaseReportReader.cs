@@ -6,4 +6,4 @@ public interface IMembershipPurchaseReportReader
     Task<IReadOnlyList<MembershipPurchaseDay>> ReadDailyAsync(DateTime fromUtc, DateTime toUtcExclusive, CancellationToken ct = default);
     Task<int> CountDayPassesAsync(DateTime fromUtc, DateTime toUtcExclusive, CancellationToken ct = default);
 }
-public sealed record MembershipPurchaseDay(DateOnly Date, int Buyers);
+public sealed record MembershipPurchaseDay(DateOnly Date, int Buyers, int DayPassesSold = 0);

@@ -167,8 +167,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
 
     [Theory]
     [InlineData(UserRole.Member)]
-    [InlineData(UserRole.SystemAdministrator)]
-    public async Task Non_front_desk_cannot_read_or_mutate_requests(UserRole role)
+    public async Task Member_cannot_read_or_mutate_staff_support_requests(UserRole role)
     {
         var user = await factory.SeedUserAsync($"support-denied-{Guid.NewGuid():N}@example.com", null, role: role);
         using var client = factory.CreateApiClient();
@@ -178,6 +177,58 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         foreach (var action in new[] { "assign", "progress", "done", "reject" })
             Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/member-support-requests/{Guid.NewGuid()}/{action}",
                 new { assigneeUserId = user.UserId, note = "Test update", reason = "Test final note" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_handle_only_assigned_requests_and_loses_access_after_reassignment()
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var manager = await factory.SeedUserAsync($"support-owner-manager-{marker}@example.com", null, role: UserRole.CenterManager);
+        var member = await factory.SeedUserAsync($"support-owner-member-{marker}@example.com", null);
+        var admin = await factory.SeedUserAsync($"support-owner-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
+        var other = await factory.SeedUserAsync($"support-owner-other-{marker}@example.com", null, role: UserRole.SystemAdministrator);
+        using var client = factory.CreateApiClient();
+        void As(Guid userId, UserRole role) => client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(userId, role));
+        As(manager.UserId, UserRole.CenterManager);
+        var created = await client.PostAsJsonAsync("/api/member-support-requests", new {
+            memberId = member.UserId, category = "ACCOUNT", description = "Help with account access",
+            assigneeUserId = admin.UserId, handoverNote = "Administrator review required" });
+        created.EnsureSuccessStatusCode();
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+        var path = $"/api/member-support-requests/{id}";
+        As(other.UserId, UserRole.SystemAdministrator);
+        Assert.Empty((await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue")).GetProperty("items").EnumerateArray());
+        Assert.Equal(0, (await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/stats")).GetProperty("notStarted").GetInt32());
+        foreach (var suffix in new[] { "", "/events" })
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path + suffix)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/progress", new { note = "Unauthorized progress" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/done", new { reason = "Unauthorized completion" })).StatusCode);
+        As(admin.UserId, UserRole.SystemAdministrator);
+        var queue = await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue?status=NOT_STARTED");
+        Assert.Equal(id, Assert.Single(queue.GetProperty("items").EnumerateArray()).GetProperty("requestId").GetGuid());
+        Assert.Equal(1, (await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/stats")).GetProperty("notStarted").GetInt32());
+        (await client.GetAsync(path + "/events")).EnsureSuccessStatusCode();
+        var notice = Assert.Single((await client.GetFromJsonAsync<JsonElement>("/api/notifications")).EnumerateArray());
+        Assert.Equal($"/admin/support?request={id}", notice.GetProperty("actionUrl").GetString());
+        foreach (var route in new[] { "assignees", $"?memberId={member.UserId}" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/member-support-requests/{route}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/member-support-requests", new {
+            memberId = member.UserId, category = "ACCOUNT", description = "Not allowed to create" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path + "/assign", new { assigneeUserId = other.UserId })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path + "/reject", new { reason = "Not permitted" })).StatusCode);
+        (await client.PostAsJsonAsync(path + "/progress", new { note = "Investigating the account" })).EnsureSuccessStatusCode();
+        Assert.Equal("IN_PROGRESS", (await client.GetFromJsonAsync<JsonElement>(path)).GetProperty("status").GetString());
+        As(manager.UserId, UserRole.CenterManager);
+        (await client.PostAsJsonAsync(path + "/assign", new { assigneeUserId = other.UserId, note = "Transfer to another administrator" })).EnsureSuccessStatusCode();
+        As(admin.UserId, UserRole.SystemAdministrator);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/done", new { reason = "Former owner completion" })).StatusCode);
+        As(other.UserId, UserRole.SystemAdministrator);
+        (await client.PostAsJsonAsync(path + "/done", new { reason = "Account access restored" })).EnsureSuccessStatusCode();
+        var completed = await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue?status=DONE");
+        Assert.Equal(id, Assert.Single(completed.GetProperty("items").EnumerateArray()).GetProperty("requestId").GetGuid());
+        Assert.Equal(1, (await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/stats")).GetProperty("done").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path + "/progress", new { note = "Cannot reopen" })).StatusCode);
     }
 
     [Theory]

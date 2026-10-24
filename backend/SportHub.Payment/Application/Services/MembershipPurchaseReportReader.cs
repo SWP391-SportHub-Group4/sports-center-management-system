@@ -29,8 +29,29 @@ public sealed class MembershipPurchaseReportReader(ISportHubDbContext db) : IMem
     {
         var rows = await PaidMemberships(fromUtc, toUtcExclusive)
             .Select(i => new { i.MemberId, i.PaidAtUtc }).ToListAsync(ct);
-        return rows.GroupBy(i => DateOnly.FromDateTime(SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(i.PaidAtUtc!.Value)))
-            .OrderBy(g => g.Key).Select(g => new MembershipPurchaseDay(g.Key, g.Select(i => i.MemberId).Distinct().Count())).ToList();
+        var passes = await (from mp in db.Set<MemberPackage>().AsNoTracking()
+            from invoice in db.Set<Invoice>().AsNoTracking()
+            where mp.PackageId == DayPass.PackageId
+                && (mp.Status == SportHub.Membership.Domain.Enums.MemberPackageStatus.Active
+                    || mp.Status == SportHub.Membership.Domain.Enums.MemberPackageStatus.Expired)
+                && invoice.PaidAtUtc >= fromUtc && invoice.PaidAtUtc < toUtcExclusive
+                && (invoice.Status == InvoiceStatus.Paid
+                    || (invoice.Status == InvoiceStatus.PaidAfterReconciliation && invoice.PaidVia == "VnPayAfterReconciliation"))
+                && invoice.Items.Any(item => item.ItemType == InvoiceItemType.Membership
+                    && (item.ItemId == mp.InvoiceItemId || item.MemberPackageId == mp.MemberPackageId
+                        || item.RelatedEntityId == mp.MemberPackageId))
+            select new { mp.MemberPackageId, invoice.PaidAtUtc }).ToListAsync(ct);
+        DateOnly LocalDay(DateTime at) => DateOnly.FromDateTime(
+            SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(at));
+        var buyers = rows.GroupBy(i => LocalDay(i.PaidAtUtc!.Value))
+            .ToDictionary(g => g.Key, g => g.Select(i => i.MemberId).Distinct().Count());
+        // Count each paid pass once, even if legacy data has more than one invoice link.
+        var dailyPasses = passes.GroupBy(p => p.MemberPackageId)
+            .Select(g => LocalDay(g.Min(p => p.PaidAtUtc)!.Value))
+            .GroupBy(day => day).ToDictionary(g => g.Key, g => g.Count());
+        return buyers.Keys.Union(dailyPasses.Keys).OrderBy(day => day)
+            .Select(day => new MembershipPurchaseDay(day, buyers.GetValueOrDefault(day), dailyPasses.GetValueOrDefault(day)))
+            .ToList();
     }
     public Task<int> CountMembersAsync(DateTime fromUtc, DateTime toUtcExclusive, CancellationToken ct = default)
         => PaidMemberships(fromUtc, toUtcExclusive)

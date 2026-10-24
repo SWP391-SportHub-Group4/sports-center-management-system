@@ -248,6 +248,7 @@ jobs:
           tests/reports-dashboard.spec.ts
           tests/member-court-rental.spec.ts
           tests/coach-training.spec.ts
+          tests/coach-credentials.spec.ts
           tests/payment-lifecycle.spec.ts
           tests/rbac.spec.ts
           tests/api-coverage.spec.ts

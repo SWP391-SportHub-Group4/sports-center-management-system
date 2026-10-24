@@ -227,7 +227,7 @@
 .chart svg {
   display: block;
   width: 100%;
-  height: 170px;
+  height: 210px;
 }
 .legend {
   display: flex;
@@ -467,4 +467,11 @@
   .chart svg {
     min-height: 150px;
   }
+}
+
+.legend .secondaryLegend {
+  border-top-color: #3563a5;
+}
+.legend .secondaryDashed {
+  border-top: 2px dashed #3563a5;
 }

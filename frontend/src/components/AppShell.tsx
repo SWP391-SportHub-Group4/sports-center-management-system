@@ -119,6 +119,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/admin", labelKey: "overview" },
     { href: "/admin/users", labelKey: "usersRoles" },
     { href: "/admin/audit-log", labelKey: "auditLog" },
+    { href: "/admin/support", labelKey: "support" },
   ],
 };
 
@@ -132,6 +133,7 @@ export function getNavForUser(user: {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/classes", labelKey: "assignedClasses" },
     { href: "/coach/members", labelKey: "classStudents" },
+    { href: "/coach/support", labelKey: "support" },
   ];
 }
 
