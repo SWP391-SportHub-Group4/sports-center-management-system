@@ -99,7 +99,6 @@ public sealed class MemberSupportRequestsController(
     IClock clock,
     IAuditWriter audit,
     INotificationWriter notifications,
-    ISystemSettingProvider settings,
     SupportReminderService reminders,
     ISupportInvoiceGuard invoiceGuard) : ControllerBase
 {
@@ -298,7 +297,7 @@ public sealed class MemberSupportRequestsController(
             Status = "OPEN",
             Channel = channel,
             CreatedAt = now,
-            SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct)),
+            SlaDueAtUtc = now.AddHours(SupportReminderService.InactivityHours),
             InvoiceId = category == "PAYMENT" ? request.InvoiceId : null
         };
         AddEvent(entity.RequestId, "CREATED", null);
@@ -511,6 +510,7 @@ public sealed class MemberSupportRequestsController(
         row.Status = "IN_PROGRESS";
         row.ProgressNote = note;
         row.UpdatedAt = clock.UtcNow;
+        row.SlaDueAtUtc = clock.UtcNow.AddHours(SupportReminderService.InactivityHours);
         AddEvent(requestId, "PROGRESS", note);
         audit.Write(new AuditEntry(User.RequireUserId(), "UPDATE_SUPPORT_PROGRESS", nameof(MemberSupportRequest),
             requestId.ToString(), NewValue: JsonSerializer.Serialize(note)));
@@ -541,6 +541,17 @@ public sealed class MemberSupportRequestsController(
         RequireManagerForPayment(row);
         if (IsFinal(row.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
+        var payoutReview = row.Category == "PAYMENT"
+            && await db.Set<MemberSupportPayout>().AnyAsync(p => p.RequestId == requestId, ct)
+            && await db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == requestId
+                && e.Type == "MEMBER_REPORTED_NOT_RECEIVED", ct);
+        // Reporting non-receipt clears the assignee. A manager may finish the review
+        // directly; preserve ownership and history in the same locked transaction.
+        if (row.AssignedToUserId is null && payoutReview)
+        {
+            row.AssignedToUserId = User.RequireUserId();
+            AddEvent(requestId, "ASSIGNED", "Taken for payout receipt review.", User.RequireUserId());
+        }
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before finalizing it.");
         row.Status = target;

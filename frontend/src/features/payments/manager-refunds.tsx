@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useManagerRequestRead } from "@/lib/manager-request-reads";
 import { AsyncSection, Field, Pager, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -29,6 +30,8 @@ function RefundCard({
   reload: () => void;
 }) {
   const { t } = useLanguage();
+  const cardRef = useRef<HTMLElement>(null);
+  useManagerRequestRead("refunds", r.adjustmentId, true, cardRef);
   const l = t.staffWork;
   const f = t.finOps;
   const { user } = useAuth();
@@ -100,7 +103,7 @@ function RefundCard({
   }
 
   return (
-    <article className={styles.card}>
+    <article className={styles.card} ref={cardRef}>
       <div className={styles.cardHead}>
         <strong>{r.invoiceNumber}</strong>
         <StatusChip value={r.status} />

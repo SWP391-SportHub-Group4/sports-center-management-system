@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
@@ -974,6 +975,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     [Fact]
     public async Task Odd_verified_capture_releases_hold_and_waits_for_member_choice()
     {
+        var notifiedManager = await factory.SeedUserAsync(UserRole.CenterManager);
         var context = await SeedAsync();
 
         using var member =
@@ -1113,6 +1115,11 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                 Assert.Equal(
                     "Unactivated",
                     proof.ProcessingStatus);
+
+                Assert.Equal(1, await db.Notifications.CountAsync(n =>
+                    n.UserId == notifiedManager.UserId
+                    && n.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.PaymentUnactivated
+                    && n.SourceEntityId == proof.VerifiedGatewayEventId));
 
                 Assert.Equal(
                     100,
@@ -1416,10 +1423,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             await db.SaveChangesAsync();
 
             var start =
-                new DateOnly(
-                    2032,
-                    3,
-                    1);
+                VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
 
             var classService =
                 scope.ServiceProvider
@@ -1768,10 +1772,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             await db.SaveChangesAsync();
 
             var start =
-                new DateOnly(
-                    2032,
-                    3,
-                    1);
+                VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
 
             var classService =
                 scope.ServiceProvider

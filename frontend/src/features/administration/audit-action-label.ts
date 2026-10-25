@@ -35,6 +35,7 @@ const labels: Record<string, string> = {
   UNDO_CANCEL_CLASS_SESSION: "Class session cancellation reversed",
   UNDO_RESCHEDULE_CLASS_SESSION: "Class session rescheduling reversed",
   REASSIGN_LOCKED_MAIN_COACH: "Main Coach replaced after an account lock",
+  CHANGE_CLASS_LEAD_COACH: "Class lead coach and future sessions updated",
   CREATE_CLASS_SESSION_CHANGE_REQUEST: "Session change request submitted",
   UPDATE_CLASS_SESSION_CHANGE_REQUEST: "Session change request updated",
   WITHDRAW_CLASS_SESSION_CHANGE_REQUEST: "Session change request cancelled",

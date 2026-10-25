@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -14,7 +15,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// Danh mục phòng tập — BR-39 (chỉ Center Manager cấu hình), BR-57 (Name unique toàn trung tâm), BR-108 (loại phòng).
 /// Phòng ngừng hoạt động (IsActive=false) chặn booking mới nhưng giữ nguyên lịch đã có.
 /// </summary>
-public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit) : IRoomService
+public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit, IClock clock) : IRoomService
 {
     public async Task<IReadOnlyList<RoomResponse>> GetAllAsync(CancellationToken ct = default)
         => await db.Set<Room>()
@@ -26,7 +27,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
                 r.Capacity,
                 db.Set<Class>().Count(c => c.DefaultRoomId == r.RoomId && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)),
                 r.RoomTypeId,
-                r.IsActive, r.SportId))
+                r.IsActive, r.SportId, r.RentalBookingOpensAtUtc))
             .ToListAsync(ct);
 
     public async Task<RoomResponse> CreateAsync(SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default)
@@ -47,7 +48,8 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
             Name = name,
             Capacity = request.Capacity,
             RoomTypeId = request.RoomTypeId,
-            IsActive = request.IsActive ?? true
+            IsActive = request.IsActive ?? true,
+            RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1))
         };
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -180,7 +182,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
                .Where(r => r.RoomId == roomId)
                .Select(r => new RoomResponse(
                    r.RoomId, r.Name, r.Capacity, db.Set<Class>().Count(c => c.DefaultRoomId == r.RoomId && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)),
-                   r.RoomTypeId, r.IsActive, r.SportId))
+                   r.RoomTypeId, r.IsActive, r.SportId, r.RentalBookingOpensAtUtc))
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("room_not_found", "Room not found.");
 }

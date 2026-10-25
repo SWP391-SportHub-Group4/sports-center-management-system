@@ -74,7 +74,26 @@ public sealed class SupportSlaTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Sla_job_notifies_assignee_or_both_front_desk_roles_once_per_window()
+    public async Task Real_progress_restarts_48_hours_but_assignment_does_not()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var due = DateTime.UtcNow.AddMinutes(-10);
+        var id = await RequestAsync(member.UserId, null, due);
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        Assert.True((await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = manager.UserId })).IsSuccessStatusCode);
+        var afterAssign = await factory.QueryAsync(db => db.Set<MemberSupportRequest>().Where(r => r.RequestId == id).Select(r => r.SlaDueAtUtc).SingleAsync());
+        Assert.Equal(due, afterAssign, TimeSpan.FromMilliseconds(1));
+        Assert.True((await client.PostAsJsonAsync($"/api/member-support-requests/{id}/progress", new { note = "We checked the booking and are preparing a replacement." })).IsSuccessStatusCode);
+        var afterProgress = await factory.QueryAsync(db => db.Set<MemberSupportRequest>().Where(r => r.RequestId == id).Select(r => r.SlaDueAtUtc).SingleAsync());
+        Assert.InRange(afterProgress, DateTime.UtcNow.AddHours(48).AddMinutes(-1), DateTime.UtcNow.AddHours(48).AddMinutes(1));
+        using var scope = factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<SupportReminderService>().SendDueSlaAsync(default);
+        Assert.False(await factory.QueryAsync(db => db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == id && e.Type == "SLA_REMINDER_SENT")));
+    }
+
+    [Fact]
+    public async Task Sla_job_escalates_ignored_requests_to_managers_once_per_window()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
         var receptionistA = await factory.SeedUserAsync(UserRole.Receptionist);
@@ -87,20 +106,20 @@ public sealed class SupportSlaTests(PaymentApiFactory factory)
         using (var scope = factory.Services.CreateScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<SupportReminderService>();
-            Assert.True(await service.SendDueSlaAsync(default) >= 4);
+            Assert.True(await service.SendDueSlaAsync(default) >= 2);
             Assert.Equal(0, await service.SendDueSlaAsync(default));
         }
         await factory.QueryAsync(async db =>
         {
             var assigned = await db.Set<MemberSupportEvent>().Where(e => e.RequestId == assignedId
                 && e.Type == "SLA_REMINDER_SENT").ToListAsync();
-            Assert.Single(assigned);
-            Assert.Equal(receptionistA.UserId, assigned[0].TargetUserId);
-            Assert.Null(assigned[0].ActorUserId);
+            Assert.Contains(assigned, e => e.TargetUserId == manager.UserId);
+            Assert.DoesNotContain(assigned, e => e.TargetUserId == receptionistA.UserId || e.TargetUserId == receptionistB.UserId);
+            Assert.All(assigned, e => Assert.Null(e.ActorUserId));
             var unassigned = await db.Set<MemberSupportEvent>().Where(e => e.RequestId == unassignedId
                 && e.Type == "SLA_REMINDER_SENT").ToListAsync();
-            Assert.Contains(unassigned, e => e.TargetUserId == receptionistA.UserId);
-            Assert.Contains(unassigned, e => e.TargetUserId == receptionistB.UserId);
+            Assert.DoesNotContain(unassigned, e => e.TargetUserId == receptionistA.UserId);
+            Assert.DoesNotContain(unassigned, e => e.TargetUserId == receptionistB.UserId);
             Assert.Contains(unassigned, e => e.TargetUserId == manager.UserId);
             return 0;
         });

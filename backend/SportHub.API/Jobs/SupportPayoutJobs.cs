@@ -32,7 +32,9 @@ public sealed class SupportPayoutMaintenance(ISportHubDbContext db, IClock clock
         var confirmDays = await settings.GetIntAsync(SystemSettingKeys.SupportPayoutConfirmDays, ct);
         var toConfirm = await db.Set<MemberSupportPayout>().AsNoTracking()
             .Where(p => p.MemberConfirmedAtUtc == null && p.RecordedAtUtc <= now.AddDays(-confirmDays)
-                && db.Set<MemberSupportRequest>().Any(r => r.RequestId == p.RequestId && r.Status == "CLOSED"))
+                && db.Set<MemberSupportRequest>().Any(r => r.RequestId == p.RequestId && r.Status == "CLOSED")
+                && !db.Set<MemberSupportEvent>().Any(e => e.RequestId == p.RequestId
+                    && e.Type == "MEMBER_REPORTED_NOT_RECEIVED"))
             .OrderBy(p => p.RecordedAtUtc).Select(p => p.RequestId).Take(100).ToListAsync(ct);
         foreach (var requestId in toConfirm)
         {
@@ -42,7 +44,9 @@ public sealed class SupportPayoutMaintenance(ISportHubDbContext db, IClock clock
                 .SingleOrDefaultAsync(ct);
             var payout = await db.Set<MemberSupportPayout>().SingleOrDefaultAsync(x => x.RequestId == requestId, ct);
             if (request?.Status == "CLOSED" && payout?.MemberConfirmedAtUtc is null
-                && payout?.RecordedAtUtc <= now.AddDays(-confirmDays))
+                && payout?.RecordedAtUtc <= now.AddDays(-confirmDays)
+                && !await db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == requestId
+                    && e.Type == "MEMBER_REPORTED_NOT_RECEIVED", ct))
             {
                 payout.MemberConfirmedAtUtc = now;
                 payout.MemberConfirmedBy = "SYSTEM";

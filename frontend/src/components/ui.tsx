@@ -293,15 +293,21 @@ export function Dialog({
         aria-modal="true"
         aria-label={title}
       >
-        <header className="dialog__head">
+        <header className="dialog__head" role="presentation">
           <h2>{title}</h2>
-          {showCloseButton && <CloseButton onClick={onClose} iconOnly={closeIconOnly} />}
+          {showCloseButton && (
+            <CloseButton onClick={onClose} iconOnly={closeIconOnly} />
+          )}
         </header>
         <div className="dialog__body">
           {description && <p className="dialog__desc">{description}</p>}
           {children}
         </div>
-        {footer && <footer className="dialog__foot">{footer}</footer>}
+        {footer && (
+          <footer className="dialog__foot" role="presentation">
+            {footer}
+          </footer>
+        )}
       </div>
     </div>
   );

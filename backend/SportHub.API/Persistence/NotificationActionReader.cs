@@ -13,12 +13,32 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
     {
         var currentEnrollments = SportHub.Scheduling.Application.Services.MemberClassAccess.Current(db, userId, clock.UtcNow);
         var result = new Dictionary<Guid, string>();
+        var isSupportManager = notifications.Any(n => n.SourceEventType is "SupportSlaReminder" or "SupportPayoutNotReceived" or "PaymentUnactivated")
+            && await db.UserAccounts.AnyAsync(u => u.UserId == userId
+                && u.Status == SportHub.Identity.Domain.Enums.UserStatus.Active
+                && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct);
         foreach (var group in notifications.Where(n => n.SourceEntityId.HasValue).GroupBy(n => n.SourceEventType))
         {
             var ids = group.Select(n => n.SourceEntityId!.Value).Distinct().ToArray();
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "SupportSlaReminder":
+                    if (isSupportManager)
+                        foreach (var reminder in await db.Set<SportHub.Identity.Domain.Entities.MemberSupportEvent>()
+                            .Where(e => ids.Contains(e.EventId) && e.Type == "SLA_REMINDER_SENT" && e.TargetUserId == userId)
+                            .Join(db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>(),
+                                e => e.RequestId, r => r.RequestId, (e, r) => new { e.EventId, r.RequestId }).ToListAsync(ct))
+                            links[reminder.EventId] = $"/manager/requests?type=support&overdue=1&request={reminder.RequestId}";
+                    break;
+                case "SupportPayoutNotReceived":
+                    if (isSupportManager)
+                        foreach (var report in await db.Set<SportHub.Identity.Domain.Entities.MemberSupportEvent>()
+                            .Where(e => ids.Contains(e.EventId) && e.Type == "MEMBER_REPORTED_NOT_RECEIVED")
+                            .Join(db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>().Where(r => r.Category == "PAYMENT"),
+                                e => e.RequestId, r => r.RequestId, (e, r) => new { e.EventId, r.RequestId }).ToListAsync(ct))
+                            links[report.EventId] = $"/manager/requests?type=support&request={report.RequestId}";
+                    break;
                 case "SupportRequestAssigned":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId
                         && (u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach
@@ -62,7 +82,23 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                     break;
                 case "CoachCoverageRequired":
                     if (await db.UserAccounts.AnyAsync(u => u.UserId == userId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct))
-                        foreach (var id in await db.UserAccounts.Where(u => ids.Contains(u.UserId) && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach).Select(u => u.UserId).ToListAsync(ct)) links[id] = $"/manager/coaches/{id}";
+                    {
+                        // Legacy notices used a Coach ID. Current notices use a unique account transition ID,
+                        // preserving repeat lock/unlock notifications without sacrificing a direct profile link.
+                        foreach (var id in await db.UserAccounts.Where(u => ids.Contains(u.UserId) && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach).Select(u => u.UserId).ToListAsync(ct))
+                            links[id] = $"/manager/coaches/{id}?tab=overview";
+                        foreach (var id in ids.Where(id => !links.ContainsKey(id)))
+                        {
+                            var transition = System.Text.Json.JsonSerializer.Serialize(new { value = new { transitionId = id } });
+                            var target = await db.Set<SportHub.Audit.Domain.Entities.AuditLog>().AsNoTracking()
+                                .Where(a => a.Action == "LOCK_USER_ACCOUNT" && a.TargetEntity == "UserAccount"
+                                    && a.NewValue != null && EF.Functions.JsonContains(a.NewValue, transition))
+                                .Select(a => a.TargetId).FirstOrDefaultAsync(ct);
+                            if (Guid.TryParse(target, out var coachId) && await db.UserAccounts.AnyAsync(u =>
+                                u.UserId == coachId && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct))
+                                links[id] = $"/manager/coaches/{coachId}?tab=overview";
+                        }
+                    }
                     break;
                 case "ClassSessionChangeReviewed":
                     foreach (var id in await db.Set<SportHub.Scheduling.Domain.Entities.ClassSessionChangeRequest>().Where(r => ids.Contains(r.RequestId) && r.RequestedByUserId == userId).Select(r => r.RequestId).ToListAsync(ct))
@@ -88,14 +124,16 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                         links[id] = $"/member/invoices/{id}";
                     break;
                 case "PaymentUnactivated":
-                    // The source is the verified gateway event; only its invoice owner gets a link.
+                    // Resolve the gateway event to its invoice; managers use their own finance workspace.
                     foreach (var e in await (from ev in db.Set<SportHub.Payment.Domain.Entities.VerifiedGatewayEvent>()
                                              join a in db.Set<SportHub.Payment.Domain.Entities.PaymentAttempt>()
                                                  on ev.PaymentAttemptId equals a.PaymentAttemptId
                                              join i in db.Invoices on a.InvoiceId equals i.InvoiceId
-                                             where ids.Contains(ev.VerifiedGatewayEventId) && i.MemberId == userId
+                                             where ids.Contains(ev.VerifiedGatewayEventId) && (i.MemberId == userId || isSupportManager)
                                              select new { ev.VerifiedGatewayEventId, i.InvoiceId }).ToListAsync(ct))
-                        links[e.VerifiedGatewayEventId] = $"/member/invoices/{e.InvoiceId}";
+                        links[e.VerifiedGatewayEventId] = isSupportManager
+                            ? $"/manager/finance?invoiceId={e.InvoiceId}"
+                            : $"/member/invoices/{e.InvoiceId}";
                     break;
                 case "SupportPayoutRecorded":
                     foreach (var p in await (from payout in db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>()
@@ -167,6 +205,13 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
             foreach (var n in group)
                 if (links.TryGetValue(n.SourceEntityId!.Value, out var url)) result[n.NotificationId] = url;
         }
+        // Legacy payout notices used unpersisted random IDs. Keep them actionable
+        // without guessing a request identity from notification text.
+        if (isSupportManager)
+            foreach (var notice in notifications.Where(n => n.SourceEventType is "SupportSlaReminder" or "SupportPayoutNotReceived"))
+                result.TryAdd(notice.NotificationId, notice.SourceEventType == "SupportSlaReminder"
+                    ? "/manager/requests?type=support&overdue=1"
+                    : "/manager/requests?type=support");
         // Older staff alerts did not store a source ID. Resolve only an exact, unambiguous class name.
         foreach (var notice in notifications.Where(n => n.SourceEntityId is null && n.SourceEventType == "ClassThresholdAtRisk"))
         {

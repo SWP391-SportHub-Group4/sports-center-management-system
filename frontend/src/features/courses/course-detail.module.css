@@ -1,6 +1,12 @@
 .attendanceTable {
   min-width: 0;
 }
+.coachSuccess {
+  padding: var(--space-3) var(--space-4);
+  color: var(--success-text);
+  background: var(--success-bg);
+  border-radius: var(--radius-sm);
+}
 .attendanceMember {
   display: flex;
   align-items: center;

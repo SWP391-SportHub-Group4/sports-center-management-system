@@ -1,50 +1,350 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { ImagePlus, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { AvatarImage } from "@/components/AvatarImage";
-import styles from "./avatar-editor.module.css";
 import { homepageImageSpecs } from "@/components/homepage/image-specs";
+import styles from "./avatar-editor.module.css";
 
-const MAX_BYTES = 5 * 1024 * 1024;
-const PREVIEW = 240;
-const OUTPUT = homepageImageSpecs.coach.width;
-const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
+const PREVIEW = 320;
+type Position = { x: number; y: number };
+
+function clampPosition(
+  image: HTMLImageElement,
+  zoom: number,
+  offset: Position,
+): Position {
+  const base = Math.max(
+    PREVIEW / image.naturalWidth,
+    PREVIEW / image.naturalHeight,
+  );
+  const x = (image.naturalWidth * base * zoom - PREVIEW) / 2;
+  const y = (image.naturalHeight * base * zoom - PREVIEW) / 2;
+  return {
+    x: Math.max(-x, Math.min(x, offset.x)),
+    y: Math.max(-y, Math.min(y, offset.y)),
+  };
+}
 
 function drawCrop(
   canvas: HTMLCanvasElement | null,
-  source: HTMLImageElement | null,
+  image: HTMLImageElement,
   zoom: number,
-  offset: { x: number; y: number },
-  outputSize = PREVIEW,
+  offset: Position,
+  size = PREVIEW,
 ) {
   const context = canvas?.getContext("2d");
-  if (!context || !source) return;
+  if (!context) return;
   const base = Math.max(
-    PREVIEW / source.naturalWidth,
-    PREVIEW / source.naturalHeight,
+    PREVIEW / image.naturalWidth,
+    PREVIEW / image.naturalHeight,
   );
-  const width = source.naturalWidth * base * zoom;
-  const height = source.naturalHeight * base * zoom;
-  const x = Math.max(
-    PREVIEW - width,
-    Math.min(0, (PREVIEW - width) / 2 + offset.x),
-  );
-  const y = Math.max(
-    PREVIEW - height,
-    Math.min(0, (PREVIEW - height) / 2 + offset.y),
-  );
-  const scale = outputSize / PREVIEW;
+  const width = image.naturalWidth * base * zoom;
+  const height = image.naturalHeight * base * zoom;
+  const position = clampPosition(image, zoom, offset);
+  const scale = size / PREVIEW;
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  context.clearRect(0, 0, outputSize, outputSize);
+  context.clearRect(0, 0, size, size);
   context.drawImage(
-    source,
-    x * scale,
-    y * scale,
+    image,
+    ((PREVIEW - width) / 2 + position.x) * scale,
+    ((PREVIEW - height) / 2 + position.y) * scale,
     width * scale,
     height * scale,
+  );
+}
+
+function AvatarCropDialog({
+  fileUrl,
+  onClose,
+}: {
+  fileUrl: string;
+  onClose: (saved: boolean) => void;
+}) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  const id = useId();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const image = useRef<HTMLImageElement | null>(null);
+  const drag = useRef<{ x: number; y: number; origin: Position } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState<Position>({ x: 0, y: 0 });
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [closing, setClosing] = useState<boolean | null>(null);
+  const closeCallback = useRef(onClose);
+  useEffect(() => {
+    closeCallback.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    const node = dialog.current;
+    const overflow = document.body.style.overflow;
+    node?.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      node?.close();
+      document.body.style.overflow = overflow;
+    };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    const next = new Image();
+    next.onload = () => {
+      if (!active) return;
+      image.current = next;
+      drawCrop(canvas.current, next, 1, { x: 0, y: 0 });
+      setReady(true);
+    };
+    next.onerror = () => {
+      if (active)
+        setError(
+          vi
+            ? "Không thể đọc ảnh này. Hãy chọn ảnh khác."
+            : "Could not read this image. Choose another image.",
+        );
+    };
+    next.src = fileUrl;
+    return () => {
+      active = false;
+      image.current = null;
+    };
+  }, [fileUrl, vi]);
+  useEffect(() => {
+    if (image.current) drawCrop(canvas.current, image.current, zoom, offset);
+  }, [zoom, offset]);
+  useEffect(() => {
+    if (closing === null) return;
+    const timer = window.setTimeout(
+      () => {
+        dialog.current?.close();
+        closeCallback.current(closing);
+      },
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 160,
+    );
+    return () => window.clearTimeout(timer);
+  }, [closing]);
+
+  function move(next: Position) {
+    if (image.current) setOffset(clampPosition(image.current, zoom, next));
+  }
+  function changeZoom(value: number) {
+    setZoom(value);
+    if (image.current) setOffset(clampPosition(image.current, value, offset));
+  }
+  async function save() {
+    if (!image.current || !ready || busy || closing !== null) return;
+    setBusy(true);
+    setError("");
+    try {
+      const output = document.createElement("canvas");
+      const resolution = Math.max(
+        1,
+        Math.min(
+          homepageImageSpecs.coach.width,
+          Math.floor(
+            Math.min(image.current.naturalWidth, image.current.naturalHeight) /
+              zoom,
+          ),
+        ),
+      );
+      output.width = output.height = resolution;
+      drawCrop(output, image.current, zoom, offset, resolution);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        output.toBlob(resolve, "image/jpeg", 0.95),
+      );
+      if (!blob)
+        throw new Error(
+          vi
+            ? "Không thể xử lý ảnh. Hãy thử lại."
+            : "Could not process image. Please try again.",
+        );
+      const form = new FormData();
+      form.append("file", blob, "avatar.jpg");
+      await api.postForm("/api/avatars/me", form);
+      setClosing(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      setBusy(false);
+    }
+  }
+  const locked = busy || closing !== null;
+  return (
+    <dialog
+      ref={dialog}
+      className={styles.dialog}
+      data-closing={closing !== null}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-hint`}
+      aria-busy={busy}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!locked) setClosing(false);
+      }}
+    >
+      <header className={styles.header}>
+        <h2 id={`${id}-title`}>
+          {vi ? "Điều chỉnh ảnh đại diện" : "Adjust your avatar"}
+        </h2>
+        <button
+          className={styles.iconButton}
+          type="button"
+          aria-label={vi ? "Đóng" : "Close"}
+          disabled={locked}
+          onClick={() => setClosing(false)}
+        >
+          <X size={20} />
+        </button>
+      </header>
+      <div className={styles.body}>
+        <p id={`${id}-hint`} className={styles.hint}>
+          {vi
+            ? "Kéo ảnh để căn vị trí. Dùng thanh zoom để chỉnh khung hình."
+            : "Drag to reposition. Use the zoom slider to find your best fit."}
+        </p>
+        <div className={styles.cropStage}>
+          <canvas
+            ref={canvas}
+            width={PREVIEW}
+            height={PREVIEW}
+            className={styles.preview}
+            tabIndex={locked ? -1 : 0}
+            role="img"
+            aria-label={
+              vi
+                ? "Xem trước ảnh đại diện. Dùng phím mũi tên để di chuyển ảnh."
+                : "Avatar preview. Use arrow keys to reposition the image."
+            }
+            onKeyDown={(event) => {
+              if (
+                locked ||
+                !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
+                  event.key,
+                )
+              )
+                return;
+              event.preventDefault();
+              const step = event.shiftKey ? 15 : 5;
+              move({
+                x:
+                  offset.x +
+                  (event.key === "ArrowLeft"
+                    ? -step
+                    : event.key === "ArrowRight"
+                      ? step
+                      : 0),
+                y:
+                  offset.y +
+                  (event.key === "ArrowUp"
+                    ? -step
+                    : event.key === "ArrowDown"
+                      ? step
+                      : 0),
+              });
+            }}
+            onPointerDown={(event) => {
+              if (locked || !ready) return;
+              event.currentTarget.focus();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              drag.current = {
+                x: event.clientX,
+                y: event.clientY,
+                origin: offset,
+              };
+            }}
+            onPointerMove={(event) => {
+              if (!drag.current || locked) return;
+              const scale =
+                PREVIEW / event.currentTarget.getBoundingClientRect().width;
+              move({
+                x:
+                  drag.current.origin.x +
+                  (event.clientX - drag.current.x) * scale,
+                y:
+                  drag.current.origin.y +
+                  (event.clientY - drag.current.y) * scale,
+              });
+            }}
+            onPointerUp={() => {
+              drag.current = null;
+            }}
+            onPointerCancel={() => {
+              drag.current = null;
+            }}
+          />
+          <div className={styles.cropGuide} aria-hidden="true" />
+          {!ready && !error && (
+            <span className={styles.loading} role="status">
+              {vi ? "Đang tải ảnh…" : "Loading image…"}
+            </span>
+          )}
+        </div>
+        <div className={styles.zoomHeader}>
+          <label htmlFor={`${id}-zoom`}>{vi ? "Phóng to" : "Zoom"}</label>
+          <output htmlFor={`${id}-zoom`}>{Math.round(zoom * 100)}%</output>
+        </div>
+        <div className={styles.zoomRow}>
+          <Minus size={18} aria-hidden="true" />
+          <input
+            id={`${id}-zoom`}
+            className={styles.slider}
+            type="range"
+            min="1"
+            max="3"
+            step="0.05"
+            value={zoom}
+            disabled={!ready || locked}
+            onChange={(event) => changeZoom(Number(event.target.value))}
+          />
+          <Plus size={18} aria-hidden="true" />
+        </div>
+        <button
+          className={styles.reset}
+          type="button"
+          disabled={!ready || locked}
+          onClick={() => {
+            setZoom(1);
+            setOffset({ x: 0, y: 0 });
+          }}
+        >
+          <RotateCcw size={15} />
+          {vi ? "Đặt lại vị trí" : "Reset position"}
+        </button>
+        {error && (
+          <p role="alert" className={styles.error}>
+            {error}
+          </p>
+        )}
+      </div>
+      <footer className={styles.footer}>
+        <button
+          className="btn btn--secondary"
+          type="button"
+          disabled={locked}
+          onClick={() => setClosing(false)}
+        >
+          {vi ? "Hủy" : "Cancel"}
+        </button>
+        <button
+          className="btn"
+          type="button"
+          disabled={!ready || locked}
+          onClick={save}
+        >
+          {busy
+            ? vi
+              ? "Đang lưu…"
+              : "Saving…"
+            : vi
+              ? "Lưu ảnh"
+              : "Save avatar"}
+        </button>
+      </footer>
+    </dialog>
   );
 }
 
@@ -59,81 +359,22 @@ export function AvatarEditor({
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
+  const input = useRef<HTMLInputElement>(null);
+  const browse = useRef<HTMLButtonElement>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const image = useRef<HTMLImageElement | null>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(
-    null,
-  );
-
   useEffect(() => {
-    if (!fileUrl) return;
-    const next = new Image();
-    next.onload = () => {
-      image.current = next;
-      drawCrop(canvas.current, next, zoom, offset);
-    };
-    next.onerror = () =>
-      setError(vi ? "Không thể đọc ảnh này." : "Could not read this image.");
-    next.src = fileUrl;
-    return () => {
-      image.current = null;
-      URL.revokeObjectURL(fileUrl);
-    };
-    // The current position is redrawn by the zoom/drag effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (fileUrl) return () => URL.revokeObjectURL(fileUrl);
   }, [fileUrl]);
-
-  useEffect(() => {
-    drawCrop(canvas.current, image.current, zoom, offset);
-  }, [zoom, offset]);
-
-  async function save() {
-    if (!image.current || !canvas.current || busy) return;
-    setBusy(true);
-    setError("");
-    setSuccess("");
+  async function changed() {
     try {
-      const output = document.createElement("canvas");
-      const resolution = Math.max(
-        1,
-        Math.min(
-          OUTPUT,
-          Math.floor(
-            Math.min(image.current.naturalWidth, image.current.naturalHeight) /
-              zoom,
-          ),
-        ),
-      );
-      output.width = resolution;
-      output.height = resolution;
-      // Render from original pixels, never upscale the 240px editor preview.
-      drawCrop(output, image.current, zoom, offset, resolution);
-      const blob = await new Promise<Blob | null>((resolve) =>
-        output.toBlob(resolve, "image/jpeg", 0.95),
-      );
-      if (!blob)
-        throw new Error(
-          vi ? "Không thể xử lý ảnh." : "Could not process image.",
-        );
-      const form = new FormData();
-      form.append("file", blob, "avatar.jpg");
-      await api.postForm("/api/avatars/me", form);
-      setFileUrl(null);
       await onChanged();
-      setSuccess(vi ? "Đã cập nhật ảnh đại diện." : "Avatar updated.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
     }
   }
-
   async function remove() {
     if (busy) return;
     setBusy(true);
@@ -141,8 +382,7 @@ export function AvatarEditor({
     setSuccess("");
     try {
       await api.del("/api/avatars/me");
-      setFileUrl(null);
-      await onChanged();
+      await changed();
       setSuccess(vi ? "Đã xóa ảnh đại diện." : "Avatar removed.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -150,30 +390,55 @@ export function AvatarEditor({
       setBusy(false);
     }
   }
-
   return (
     <div className={styles.layout}>
       <div className={styles.pick}>
-        <div className={styles.current}>
-          <AvatarImage name={name} avatarUrl={avatarUrl} size={72} />
-        </div>
-        <label className={styles.tools}>
-          <span>
+        <AvatarImage name={name} avatarUrl={avatarUrl} size={72} />
+        <div className={styles.tools}>
+          <div className={styles.actions}>
+            <button
+              ref={browse}
+              type="button"
+              className={`btn btn--secondary ${styles.browse}`}
+              disabled={busy}
+              onClick={() => input.current?.click()}
+            >
+              <ImagePlus size={17} aria-hidden="true" />
+              Browse
+            </button>
+            {avatarUrl && (
+              <button
+                className={styles.remove}
+                type="button"
+                disabled={busy}
+                onClick={remove}
+              >
+                {vi ? "Xóa ảnh" : "Remove avatar"}
+              </button>
+            )}
+          </div>
+          <p className={styles.hint}>
             {vi
-              ? "Chọn ảnh JPG, PNG hoặc WebP (tối đa 5 MB)"
-              : "Choose a JPG, PNG or WebP image (up to 5 MB)"}
-          </span>
+              ? "JPG, PNG hoặc WebP. Tối đa 5 MB."
+              : "JPG, PNG or WebP. Up to 5 MB."}
+          </p>
           <input
+            ref={input}
             type="file"
+            hidden
             accept="image/jpeg,image/png,image/webp"
+            aria-label={vi ? "Chọn ảnh đại diện" : "Choose avatar image"}
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
               event.target.value = "";
               if (!file) return;
+              setSuccess("");
               if (
-                !ALLOWED.includes(file.type) ||
-                file.size > MAX_BYTES ||
+                !["image/jpeg", "image/png", "image/webp"].includes(
+                  file.type,
+                ) ||
+                file.size > 5 * 1024 * 1024 ||
                 file.size === 0
               ) {
                 setError(
@@ -184,82 +449,24 @@ export function AvatarEditor({
                 return;
               }
               setError("");
-              setSuccess("");
-              setZoom(1);
-              setOffset({ x: 0, y: 0 });
               setFileUrl(URL.createObjectURL(file));
             }}
           />
-        </label>
+        </div>
       </div>
       {fileUrl && (
-        <>
-          <p>
-            {vi
-              ? "Kéo ảnh để căn trong khung vuông."
-              : "Drag the image to position it in the square."}
-          </p>
-          <canvas
-            ref={canvas}
-            width={PREVIEW}
-            height={PREVIEW}
-            className={styles.preview}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              drag.current = {
-                x: event.clientX,
-                y: event.clientY,
-                ox: offset.x,
-                oy: offset.y,
-              };
-            }}
-            onPointerMove={(event) => {
-              if (drag.current) {
-                const scale =
-                  PREVIEW / event.currentTarget.getBoundingClientRect().width;
-                setOffset({
-                  x: drag.current.ox + (event.clientX - drag.current.x) * scale,
-                  y: drag.current.oy + (event.clientY - drag.current.y) * scale,
-                });
-              }
-            }}
-            onPointerUp={() => {
-              drag.current = null;
-            }}
-            onPointerCancel={() => {
-              drag.current = null;
-            }}
-          />
-          <label className={styles.tools}>
-            {vi ? "Phóng to" : "Zoom"}
-            <input
-              type="range"
-              min="1"
-              max="3"
-              step="0.05"
-              value={zoom}
-              onChange={(event) => setZoom(Number(event.target.value))}
-            />
-          </label>
-        </>
+        <AvatarCropDialog
+          fileUrl={fileUrl}
+          onClose={async (saved) => {
+            setFileUrl(null);
+            browse.current?.focus();
+            if (saved) {
+              setSuccess(vi ? "Đã cập nhật ảnh đại diện." : "Avatar updated.");
+              await changed();
+            }
+          }}
+        />
       )}
-      <div className={styles.actions}>
-        {fileUrl && (
-          <button className="btn" type="button" disabled={busy} onClick={save}>
-            {vi ? "Lưu ảnh" : "Save avatar"}
-          </button>
-        )}
-        {avatarUrl && (
-          <button
-            className="btn btn--secondary"
-            type="button"
-            disabled={busy}
-            onClick={remove}
-          >
-            {vi ? "Xóa ảnh" : "Remove avatar"}
-          </button>
-        )}
-      </div>
       {error && (
         <p role="alert" className={styles.error}>
           {error}

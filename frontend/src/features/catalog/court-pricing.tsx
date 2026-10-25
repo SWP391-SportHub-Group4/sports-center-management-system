@@ -1,7 +1,8 @@
 "use client";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { useLanguage } from "@/lib/language";
 import { useApi, useAction } from "@/lib/useApi";
 import { formatMoney } from "@/lib/format";
 import {
@@ -14,6 +15,7 @@ import {
 import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import type { CourtRateDto } from "@/lib/types";
 import { catalogApi, type SaveRate } from "./api";
+import styles from "./court-pricing.module.css";
 
 const dayLabels: Record<string, string> = {
   MON: "Monday",
@@ -36,6 +38,8 @@ type RateForm = {
   isActive: boolean;
 };
 export function CourtRateEditor({ roomId }: { roomId?: number }) {
+  const { t } = useLanguage();
+  const formId = useId();
   const rates = useApi((s) => catalogApi.rates(s), []);
   const rooms = useApi((s) => catalogApi.rooms(s), []);
   const sports = useApi((s) => catalogApi.sports(s, true), []);
@@ -182,12 +186,41 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
       {editor && (
         <Dialog
           title={editor.id ? "Edit rental price" : "Add rental price"}
+          className={styles.dialog}
+          closeIconOnly
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={action.busy}
+                onClick={() => setEditor(null)}
+              >
+                {t.operations.cancel}
+              </button>
+              <button
+                type="submit"
+                form={formId}
+                className="btn"
+                disabled={
+                  action.busy ||
+                  (!editor.id && !editor.form.sportId) ||
+                  editor.form.endTimeLocal <= editor.form.startTimeLocal ||
+                  !editor.form.roomTypeId ||
+                  !editor.form.daysOfWeek.length
+                }
+              >
+                {action.busy ? t.common.loading : t.operations.save}
+              </button>
+            </>
+          }
           onClose={() => {
             if (!action.busy) setEditor(null);
           }}
         >
           <form
-            className="stack"
+            id={formId}
+            className={styles.form}
             onSubmit={(e) => {
               e.preventDefault();
               void action.run(async () => {
@@ -205,148 +238,151 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
               });
             }}
           >
-            <ActivitySwitch
-              checked={editor.form.isActive}
-              onChange={(isActive) => update({ isActive })}
-            />
-            <div className="form-grid">
-              <Field label="Sport" required={!editor.id}>
-                <select
-                  disabled={!!roomId || !!editor.id}
-                  required={!editor.id}
-                  value={editor.form.sportId}
-                  onChange={(e) =>
-                    update({
-                      sportId: e.target.value,
-                      roomId: "",
-                      roomTypeId:
-                        types.data?.find((t) =>
-                          t.sportIds.includes(Number(e.target.value)),
-                        )?.roomTypeId ?? 0,
-                    })
-                  }
-                >
-                  <option value="">
-                    {editor.id ? "All compatible sports" : "Select sport"}
-                  </option>
-                  {sports.data
-                    ?.filter((s) => s.code !== "gym")
-                    .map((s) => (
-                      <option key={s.sportId} value={s.sportId}>
-                        {s.name}
-                      </option>
-                    ))}
-                </select>
-              </Field>
-              <Field label="Applies to">
-                <select
-                  disabled={!!roomId || !!editor.id}
-                  value={editor.form.roomId}
-                  onChange={(e) =>
-                    update({
-                      roomId: e.target.value,
-                      roomTypeId:
-                        rooms.data?.find(
-                          (r) => r.roomId === Number(e.target.value),
-                        )?.roomTypeId ??
-                        types.data?.find((t) =>
-                          t.sportIds.includes(Number(editor.form.sportId)),
-                        )?.roomTypeId ??
-                        0,
-                    })
-                  }
-                >
-                  <option value="">Shared price</option>
-                  {rooms.data
-                    ?.filter(
-                      (r) =>
-                        r.roomId === Number(editor.form.roomId) ||
-                        sportOf(r.sportId, r.roomTypeId) ===
-                          Number(editor.form.sportId),
-                    )
-                    .map((r) => (
-                      <option key={r.roomId} value={r.roomId}>
-                        {r.name}
-                      </option>
-                    ))}
-                </select>
-              </Field>
-              <Field label="Start" required>
-                <input
-                  type="time"
-                  required
-                  value={editor.form.startTimeLocal}
-                  onChange={(e) => update({ startTimeLocal: e.target.value })}
-                />
-              </Field>
-              <Field label="End" required>
-                <input
-                  type="time"
-                  required
-                  value={editor.form.endTimeLocal}
-                  onChange={(e) => update({ endTimeLocal: e.target.value })}
-                />
-              </Field>
-              <Field label="Price per hour (VND)" required>
-                <input
-                  type="number"
-                  required
-                  min={2000}
-                  step={2000}
-                  value={editor.form.pricePerHour}
-                  onChange={(e) =>
-                    update({ pricePerHour: Number(e.target.value) })
-                  }
-                />
-              </Field>
-            </div>
-            <fieldset>
-              <legend>Days</legend>
-              <div className="btn-row">
-                {days.map((day) => (
-                  <label key={day}>
-                    <input
-                      type="checkbox"
-                      checked={editor.form.daysOfWeek.includes(day)}
-                      onChange={(e) =>
-                        update({
-                          daysOfWeek: e.target.checked
-                            ? [...editor.form.daysOfWeek, day]
-                            : editor.form.daysOfWeek.filter((d) => d !== day),
-                        })
-                      }
-                    />{" "}
-                    {
-                      {
-                        MON: "Monday",
-                        TUE: "Tuesday",
-                        WED: "Wednesday",
-                        THU: "Thursday",
-                        FRI: "Friday",
-                        SAT: "Saturday",
-                        SUN: "Sunday",
-                      }[day]
+            <fieldset className={styles.fields} disabled={action.busy}>
+              <ActivitySwitch
+                checked={editor.form.isActive}
+                onChange={(isActive) => update({ isActive })}
+              />
+              <div className={styles.grid}>
+                <Field label="Sport" required={!editor.id}>
+                  <select
+                    disabled={!!roomId || !!editor.id}
+                    required={!editor.id}
+                    value={editor.form.sportId}
+                    onChange={(e) =>
+                      update({
+                        sportId: e.target.value,
+                        roomId: "",
+                        roomTypeId:
+                          types.data?.find((t) =>
+                            t.sportIds.includes(Number(e.target.value)),
+                          )?.roomTypeId ?? 0,
+                      })
                     }
-                  </label>
-                ))}
+                  >
+                    <option value="">
+                      {editor.id ? "All compatible sports" : "Select sport"}
+                    </option>
+                    {sports.data
+                      ?.filter((s) => s.code !== "gym")
+                      .map((s) => (
+                        <option key={s.sportId} value={s.sportId}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field label="Applies to">
+                  <select
+                    disabled={!!roomId || !!editor.id}
+                    value={editor.form.roomId}
+                    onChange={(e) =>
+                      update({
+                        roomId: e.target.value,
+                        roomTypeId:
+                          rooms.data?.find(
+                            (r) => r.roomId === Number(e.target.value),
+                          )?.roomTypeId ??
+                          types.data?.find((t) =>
+                            t.sportIds.includes(Number(editor.form.sportId)),
+                          )?.roomTypeId ??
+                          0,
+                      })
+                    }
+                  >
+                    <option value="">Shared price</option>
+                    {rooms.data
+                      ?.filter(
+                        (r) =>
+                          r.roomId === Number(editor.form.roomId) ||
+                          sportOf(r.sportId, r.roomTypeId) ===
+                            Number(editor.form.sportId),
+                      )
+                      .map((r) => (
+                        <option key={r.roomId} value={r.roomId}>
+                          {r.name}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field label="Start" required>
+                  <input
+                    type="time"
+                    required
+                    value={editor.form.startTimeLocal}
+                    onChange={(e) => update({ startTimeLocal: e.target.value })}
+                  />
+                </Field>
+                <Field label="End" required>
+                  <input
+                    type="time"
+                    required
+                    value={editor.form.endTimeLocal}
+                    onChange={(e) => update({ endTimeLocal: e.target.value })}
+                  />
+                </Field>
               </div>
+              <div className={styles.price}>
+                <Field label="Price per hour (VND)" required>
+                  <input
+                    type="number"
+                    required
+                    min={2000}
+                    step={2000}
+                    value={editor.form.pricePerHour}
+                    onChange={(e) =>
+                      update({ pricePerHour: Number(e.target.value) })
+                    }
+                  />
+                </Field>
+              </div>
+              <fieldset className={styles.days}>
+                <legend>Days</legend>
+                <div className={styles.dayActions}>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => update({ daysOfWeek: [...days] })}
+                    disabled={editor.form.daysOfWeek.length === 7}
+                  >
+                    {t.managerCatalog.allWeek}
+                  </button>
+                </div>
+                <div className={styles.dayGrid}>
+                  {days.map((day) => (
+                    <label key={day}>
+                      <input
+                        type="checkbox"
+                        checked={editor.form.daysOfWeek.includes(day)}
+                        onChange={(e) =>
+                          update({
+                            daysOfWeek: e.target.checked
+                              ? [...editor.form.daysOfWeek, day]
+                              : editor.form.daysOfWeek.filter((d) => d !== day),
+                          })
+                        }
+                      />{" "}
+                      {dayLabels[day]}
+                    </label>
+                  ))}
+                </div>
+                {!editor.form.daysOfWeek.length && (
+                  <p className={styles.error} role="alert">
+                    {t.managerCatalog.daysRequired}
+                  </p>
+                )}
+              </fieldset>
+              {editor.form.endTimeLocal <= editor.form.startTimeLocal && (
+                <p className={styles.error} role="alert">
+                  End time must be after start time.
+                </p>
+              )}
+              {action.error && (
+                <p className={styles.error} role="alert">
+                  {action.error}
+                </p>
+              )}
             </fieldset>
-            {editor.form.endTimeLocal <= editor.form.startTimeLocal && (
-              <p role="alert">End time must be after start time.</p>
-            )}
-            {action.error && <p role="alert">{action.error}</p>}
-            <button
-              className="btn"
-              disabled={
-                action.busy ||
-                (!editor.id && !editor.form.sportId) ||
-                editor.form.endTimeLocal <= editor.form.startTimeLocal ||
-                !editor.form.roomTypeId ||
-                !editor.form.daysOfWeek.length
-              }
-            >
-              {action.busy ? "Saving…" : "Save"}
-            </button>
           </form>
         </Dialog>
       )}

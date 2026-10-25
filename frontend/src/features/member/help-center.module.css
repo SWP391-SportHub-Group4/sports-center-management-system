@@ -569,6 +569,10 @@
   border: 1px solid var(--success-solid);
   background: var(--success-bg);
 }
+.payoutDone[data-unconfirmed] {
+  border-color: var(--border-subtle);
+  background: var(--bg-surface-sunken);
+}
 .payout h4,
 .payoutDone h4 {
   display: flex;

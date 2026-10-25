@@ -7,4 +7,5 @@ public sealed record RoomResponse(
     int ActiveClassCount,
     int? RoomTypeId,
     bool IsActive,
-    int? SportId = null);
+    int? SportId = null,
+    DateTime? RentalBookingOpensAtUtc = null);

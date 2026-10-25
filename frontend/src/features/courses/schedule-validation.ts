@@ -1,5 +1,5 @@
 import { previewSessions } from "./preview";
-import { vietnamLocal } from "@/lib/vietnam-time";
+import { vietnamLocal, oneYearFromToday } from "@/lib/vietnam-time";
 import type { ScheduleDraft } from "./schedule-review";
 
 /** Local scheduling rules run before availability and use Vietnam wall time. */
@@ -19,6 +19,7 @@ export function scheduleInputIssue(
     return "date";
   if (course.startDate < vietnamLocal(new Date(now).toISOString()).slice(0, 10))
     return "pastDate";
+  if (course.startDate > oneYearFromToday(now)) return "futureDate";
   if (
     !Number.isInteger(course.numSessions) ||
     course.numSessions < 1 ||

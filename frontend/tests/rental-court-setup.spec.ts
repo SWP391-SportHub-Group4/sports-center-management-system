@@ -120,12 +120,10 @@ test("one save creates a bookable court and its prices appear in Court Rental Pr
   const fixture = await setup(page);
   const form = await openForm(page);
   await form
-    .getByRole("button", { name: "Create court & open for booking" })
+    .getByRole("button", { name: "Create rental court", exact: true })
     .click();
   await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: "Court 001 is open for booking" }),
+    page.getByRole("status").filter({ hasText: "Court 001 has been created" }),
   ).toBeVisible();
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0]).toMatchObject({
@@ -169,7 +167,7 @@ test("weekday pricing lists the selected opening days and keeps different price 
   await form.getByLabel("Sunday", { exact: true }).uncheck();
   await form.getByLabel("Use different prices by time of day").check();
   await form
-    .getByRole("button", { name: "Create court & open for booking" })
+    .getByRole("button", { name: "Create rental court", exact: true })
     .click();
   await page.getByRole("link", { name: "View rental prices" }).click();
   const rows = page.getByRole("row").filter({
@@ -200,7 +198,7 @@ test("price gaps are rejected before saving and API errors preserve the entered 
   });
   await pricing.getByLabel("To", { exact: true }).first().fill("16:00");
   await form
-    .getByRole("button", { name: "Create court & open for booking" })
+    .getByRole("button", { name: "Create rental court", exact: true })
     .click();
   await expect(form.getByRole("alert")).toContainText(
     "Cover every opening hour",
@@ -209,7 +207,7 @@ test("price gaps are rejected before saving and API errors preserve the entered 
   await pricing.getByLabel("To", { exact: true }).first().fill("17:00");
   fixture.fail();
   await form
-    .getByRole("button", { name: "Create court & open for booking" })
+    .getByRole("button", { name: "Create rental court", exact: true })
     .click();
   await expect(form.getByRole("alert")).toBeVisible();
   await expect(form.getByLabel("Name", { exact: true })).toHaveValue(
@@ -217,12 +215,10 @@ test("price gaps are rejected before saving and API errors preserve the entered 
   );
   fixture.recover();
   await form
-    .getByRole("button", { name: "Create court & open for booking" })
+    .getByRole("button", { name: "Create rental court", exact: true })
     .click();
   await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: "Court 001 is open for booking" }),
+    page.getByRole("status").filter({ hasText: "Court 001 has been created" }),
   ).toBeVisible();
 });
 

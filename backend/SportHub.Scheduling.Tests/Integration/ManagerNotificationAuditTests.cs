@@ -53,33 +53,32 @@ public sealed class ManagerNotificationAuditTests(SchedulingApiFactory factory)
         await factory.QueryAsync(db => db.UserAccounts.Where(u => u.UserId == c.CoachId)
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Banned)));
         using var manager = factory.CreateApiClient(c.ManagerId, UserRole.CenterManager);
-        var url = $"api/manager/coach-coverage/{c.CoachId}/classes/{c.Id}/reassign-main";
-        var body = new { replacementCoachId = replacement, reason = "M05 audit replacement" };
+        var version = await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id).Select(x => x.Version).SingleAsync());
+        var url = $"api/manager/classes/{c.Id}/lead-coach";
+        var body = new { coachId = replacement, expectedVersion = version, reason = "M05 audit replacement" };
         Assert.Equal(HttpStatusCode.NoContent, (await manager.PostAsJsonAsync(url, body)).StatusCode);
         var notices = await factory.QueryAsync(db => db.Notifications.AsNoTracking().Where(n =>
-            n.SourceEventType == NotificationSourceEventType.CoachCoverageRequired &&
+            n.SourceEventType == NotificationSourceEventType.ScheduleChanged &&
             (n.UserId == replacement || n.UserId == c.CoachId || n.UserId == member.UserId)).ToListAsync());
-        Assert.Equal(6, notices.Count);
+        Assert.Equal(before.Count * 6, notices.Count);
         foreach (var id in new[] { member.UserId, c.CoachId, replacement })
             foreach (var channel in new[] { NotificationChannel.InApp, NotificationChannel.Email })
-                Assert.Single(notices, n => n.UserId == id && n.Channel == channel);
+                Assert.Equal(before.Count, notices.Count(n => n.UserId == id && n.Channel == channel));
         Assert.All(notices.Where(n => n.Channel == NotificationChannel.InApp), n => {
             Assert.Contains(body.reason, n.Message);
-            Assert.Contains("teaching assignments are unchanged", n.Message);
         });
         Assert.All(notices.Where(n => n.Channel == NotificationChannel.Email), n => {
             var html = EmailHtml(n.ProtectedEmailPayload!);
             Assert.Contains(body.reason, html);
-            Assert.Contains("teaching assignments are unchanged", html);
         });
         Assert.Equal(replacement, await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
             .Select(x => x.CoachId).SingleAsync()));
         var after = await CourseTestData.SessionsAsync(factory, c.Id);
-        Assert.All(after, s => Assert.Equal(c.CoachId, s.CoachId));
+        Assert.All(after, s => Assert.Equal(replacement, s.CoachId));
         Assert.Equal(before.Select(s => s.StartAtUtc), after.Select(s => s.StartAtUtc));
         Assert.Equal(HttpStatusCode.Conflict, (await manager.PostAsJsonAsync(url, body)).StatusCode);
-        Assert.Equal(2, await factory.QueryAsync(db => db.Notifications.CountAsync(n =>
-            n.UserId == replacement && n.SourceEventType == NotificationSourceEventType.CoachCoverageRequired)));
+        Assert.Equal(before.Count * 2, await factory.QueryAsync(db => db.Notifications.CountAsync(n =>
+            n.UserId == replacement && n.SourceEventType == NotificationSourceEventType.ScheduleChanged)));
     }
 
     [Theory]

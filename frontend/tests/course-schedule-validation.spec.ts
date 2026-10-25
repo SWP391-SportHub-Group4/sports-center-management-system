@@ -20,6 +20,12 @@ const cases: Array<
     ReturnType<typeof scheduleInputIssue>,
   ]
 > = [
+  [
+    "opening date beyond one year",
+    { startDate: "2031-10-04" },
+    90,
+    "futureDate",
+  ],
   ["coach required", { coachId: null }, 90, "coach"],
   ["room required", { defaultRoomId: 0 }, 90, "room"],
   ["date required", { startDate: "" }, 90, "date"],

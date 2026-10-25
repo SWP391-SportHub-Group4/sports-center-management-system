@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -87,7 +88,8 @@ public sealed partial class RoomService
                 return rate;
             }).ToList();
 
-        var room = new Room { Name = name, Capacity = request.Capacity, SportId = request.SportId, RoomTypeId = request.RoomTypeId, IsActive = true };
+        var room = new Room { Name = name, Capacity = request.Capacity, SportId = request.SportId, RoomTypeId = request.RoomTypeId, IsActive = true,
+            RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)) };
         db.Set<Room>().Add(room);
         await db.SaveChangesAsync(ct);
         foreach (var h in hours) h.RoomId = room.RoomId;

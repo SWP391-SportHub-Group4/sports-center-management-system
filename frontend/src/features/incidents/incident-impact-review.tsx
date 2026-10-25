@@ -78,6 +78,7 @@ function ClassImpactEditor({
             showCloseButton={false}
             showReviewActions={false}
             embedded
+            initialMode="cancel"
             onOutcome={onOutcome}
             incidentFence={async () =>
               (await incidentApi.openFence(incident)).fenceId
@@ -203,7 +204,16 @@ export function IncidentImpactReview({
       {details.error && <p role="status">{c.detailsUnavailable} </p>}
       {!preview.impacts.length && <p>{t.incidentHistory.noImpacts}</p>}
       {!!preview.impacts.length && (
-        <Table headers={[l.impact, l.room, l.coach, l.start, l.end, ""]}>
+        <Table
+          headers={[
+            l.impact,
+            l.room,
+            l.coach,
+            l.start,
+            l.end,
+            t.common.actions,
+          ]}
+        >
           {preview.impacts.map((r) => {
             const entry = details.data?.entries.find(
               (e) => e.sourceType === r.sourceType && e.sourceId === r.sourceId,
@@ -232,7 +242,7 @@ export function IncidentImpactReview({
                         onEditingChange?.(true);
                       }}
                     >
-                      {l.edit}
+                      {t.incidentHistory.arrangeMakeup}
                     </button>
                   ) : r.sourceType === "ROOM_BLOCK" &&
                     r.resolutionOptions.some(
@@ -376,6 +386,7 @@ export function IncidentImpactReview({
               if (!editorBusy) closeEditor();
             }}
           >
+            <p className={styles.intro}>{t.incidentHistory.makeupHint}</p>
             <ClassImpactEditor
               key={editing.id}
               id={editing.id}

@@ -155,13 +155,21 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal(100, preview.ExpectedRefundPointsTotal);
 
         // Resolving only notifies; the offer equals the quote and the Member credits it by choosing points.
-        await incidents.ResolveAsync(incident, manager.UserId);
+        await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
         Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
             .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
         var refunds = scope.ServiceProvider.GetRequiredService<ICenterCancellationRefundService>();
         var offer = Assert.Single(await refunds.ListMineAsync(request.MemberId));
         Assert.Equal(affected.ExpectedRefundPoints, offer.RefundPoints);
+        // Resolving another overlapping incident must not bypass the Member's choice.
+        await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
+        Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+        await refunds.AutoRefundDueAsync();
+        Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
         Assert.Equal(100, (await refunds.ChoosePointsAsync(request.MemberId, offer.InvoiceItemId)).PointsCredited);
+        Assert.True((await refunds.ChoosePointsAsync(request.MemberId, offer.InvoiceItemId)).AlreadyApplied);
         Assert.Equal(100, await factory.QueryAsync(state => state.PointWallets
             .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
     }
@@ -371,7 +379,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal("CheckoutReleased", affected.Outcome);
         Assert.Null(affected.ExpectedRefundPoints);
         Assert.Equal(0, preview.ExpectedRefundPointsTotal);
-        var incidentId = await incidents.ResolveAsync(incident, manager.UserId);
+        var incidentId = await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
         var delivery = await incidents.DeliveryAsync(incidentId);
         Assert.Equal(2, delivery.Total);
         Assert.Equal(2, delivery.Pending);

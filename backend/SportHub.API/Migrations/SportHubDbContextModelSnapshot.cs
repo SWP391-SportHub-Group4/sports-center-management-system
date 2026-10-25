@@ -25,6 +25,18 @@ namespace SportHub.API.Migrations
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.HasSequence("invoice_number_seq");
+            modelBuilder.Entity("SportHub.API.Persistence.ManagerRequestReadReceipt", b =>
+                {
+                    b.Property<Guid>("ManagerId").HasColumnType("uuid").HasColumnName("manager_id");
+                    b.Property<string>("RequestType").HasMaxLength(16).HasColumnType("character varying(16)").HasColumnName("request_type");
+                    b.Property<Guid>("RequestId").HasColumnType("uuid").HasColumnName("request_id");
+                    b.Property<DateTime>("ReadAtUtc").HasColumnType("timestamp with time zone").HasColumnName("read_at_utc");
+                    b.HasKey("ManagerId", "RequestType", "RequestId").HasName("pk_manager_request_reads");
+                    b.ToTable("manager_request_reads", (string)null);
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany().HasForeignKey("ManagerId").OnDelete(DeleteBehavior.Cascade).IsRequired()
+                        .HasConstraintName("fk_manager_request_reads_user_accounts_manager_id");
+                });
 
             modelBuilder.Entity("SportHub.AI.Domain.Entities.AiLog", b =>
                 {
@@ -3493,6 +3505,10 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Room", b =>
                 {
+                    b.Property<DateTime?>("RentalBookingOpensAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rental_booking_opens_at_utc");
+
                     b.Property<int>("RoomId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -3941,6 +3957,16 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Rental.Domain.IncidentNotice", b =>
                 {
+                    b.Property<string>("RefundsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("refunds_json");
+
+                    b.Property<string>("RequestFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_fingerprint");
+
                     b.Property<Guid>("IncidentId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
