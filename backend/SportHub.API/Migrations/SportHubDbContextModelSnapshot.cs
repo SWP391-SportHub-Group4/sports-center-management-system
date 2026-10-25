@@ -25,18 +25,6 @@ namespace SportHub.API.Migrations
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.HasSequence("invoice_number_seq");
-            modelBuilder.Entity("SportHub.API.Persistence.ManagerRequestReadReceipt", b =>
-                {
-                    b.Property<Guid>("ManagerId").HasColumnType("uuid").HasColumnName("manager_id");
-                    b.Property<string>("RequestType").HasMaxLength(16).HasColumnType("character varying(16)").HasColumnName("request_type");
-                    b.Property<Guid>("RequestId").HasColumnType("uuid").HasColumnName("request_id");
-                    b.Property<DateTime>("ReadAtUtc").HasColumnType("timestamp with time zone").HasColumnName("read_at_utc");
-                    b.HasKey("ManagerId", "RequestType", "RequestId").HasName("pk_manager_request_reads");
-                    b.ToTable("manager_request_reads", (string)null);
-                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
-                        .WithMany().HasForeignKey("ManagerId").OnDelete(DeleteBehavior.Cascade).IsRequired()
-                        .HasConstraintName("fk_manager_request_reads_user_accounts_manager_id");
-                });
 
             modelBuilder.Entity("SportHub.AI.Domain.Entities.AiLog", b =>
                 {
@@ -79,6 +67,31 @@ namespace SportHub.API.Migrations
                         .HasDatabaseName("ix_ai_logs_user_id");
 
                     b.ToTable("ai_logs", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.API.Persistence.ManagerRequestReadReceipt", b =>
+                {
+                    b.Property<Guid>("ManagerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manager_id");
+
+                    b.Property<string>("RequestType")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("request_type");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.Property<DateTime>("ReadAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at_utc");
+
+                    b.HasKey("ManagerId", "RequestType", "RequestId")
+                        .HasName("pk_manager_request_reads");
+
+                    b.ToTable("manager_request_reads", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Administration.Domain.Entities.LandingPageContent", b =>
@@ -223,6 +236,20 @@ namespace SportHub.API.Migrations
                     b.ToTable("system_settings", (string)null);
 
                     b.HasData(
+                        new
+                        {
+                            Key = "center.opening_minutes",
+                            Description = "Center opening time in minutes after midnight, Vietnam time.",
+                            UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "360"
+                        },
+                        new
+                        {
+                            Key = "center.closing_minutes",
+                            Description = "Center closing time in minutes after midnight, Vietnam time.",
+                            UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "1320"
+                        },
                         new
                         {
                             Key = "membership.expiry_notice_days",
@@ -2986,6 +3013,10 @@ namespace SportHub.API.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<int?>("SessionMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_minutes");
+
                     b.Property<int>("NumSessions")
                         .HasColumnType("integer")
                         .HasColumnName("num_sessions");
@@ -3060,6 +3091,8 @@ namespace SportHub.API.Migrations
                             t.HasCheckConstraint("ck_classes_counts", "confirmed_count >= 0 AND confirmed_count <= reserved_count AND reserved_count <= capacity");
 
                             t.HasCheckConstraint("ck_classes_num_sessions", "num_sessions > 0");
+
+                            t.HasCheckConstraint("ck_classes_session_minutes", "session_minutes IS NULL OR session_minutes BETWEEN 1 AND 720");
 
                             t.HasCheckConstraint("ck_classes_price", "price > 0 AND price % 1000 = 0");
                         });
@@ -3508,9 +3541,11 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Room", b =>
                 {
-                    b.Property<DateTime?>("RentalBookingOpensAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("rental_booking_opens_at_utc");
+                    b.Property<bool>("AllowRental")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("allow_rental");
 
                     b.Property<int>("RoomId")
                         .ValueGeneratedOnAdd()
@@ -3531,6 +3566,10 @@ namespace SportHub.API.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
+
+                    b.Property<DateTime?>("RentalBookingOpensAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rental_booking_opens_at_utc");
 
                     b.Property<int?>("RoomTypeId")
                         .HasColumnType("integer")
@@ -3960,16 +3999,6 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Rental.Domain.IncidentNotice", b =>
                 {
-                    b.Property<string>("RefundsJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("refunds_json");
-
-                    b.Property<string>("RequestFingerprint")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("request_fingerprint");
-
                     b.Property<Guid>("IncidentId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
@@ -4000,6 +4029,16 @@ namespace SportHub.API.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("reason");
+
+                    b.Property<string>("RefundsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("refunds_json");
+
+                    b.Property<string>("RequestFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_fingerprint");
 
                     b.Property<string>("ResolutionSummary")
                         .IsRequired()
@@ -4293,6 +4332,16 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_ai_logs_user_accounts_user_id");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SportHub.API.Persistence.ManagerRequestReadReceipt", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_manager_request_reads_user_accounts_manager_id");
                 });
 
             modelBuilder.Entity("SportHub.Administration.Domain.Entities.ReportExport", b =>

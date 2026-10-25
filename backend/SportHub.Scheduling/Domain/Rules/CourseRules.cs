@@ -76,6 +76,12 @@ public static class CourseRules
         return (int)decimal.Ceiling(cost / price);
     }
 
+    public static void ValidateSessionMinutes(int sessionMinutes)
+    {
+        if (sessionMinutes is < 1 or > 720)
+            throw new BadRequestException("invalid_session_minutes", "Session duration must be a whole number between 1 and 720 minutes.");
+    }
+
     /// <summary>
     /// Sinh đúng <paramref name="numSessions"/> buổi, duyệt từng ngày từ <paramref name="startDate"/> theo thứ tự thời gian, mỗi ngày
     /// lấy các quy tắc khớp thứ (theo giờ tăng dần). Buổi đầu bắt buộc rơi đúng <paramref name="startDate"/>.

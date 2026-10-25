@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   Clock3,
 } from "lucide-react";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { useNow, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -22,10 +22,17 @@ import { ScheduleRuleEditor } from "./schedule-rule-editor";
 import { checkSchedule, ScheduleReview } from "./schedule-review";
 import { previewSessions } from "./preview";
 import { scheduleInputIssue } from "./schedule-validation";
+import { useClassCodeValidation } from "./use-class-code-validation";
 import { ClassWeekSchedule } from "./class-week-schedule";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
 import type { ManagerCourseDto } from "@/lib/types";
 import editorStyles from "./course-editor.module.css";
+import {
+  loadCenterHours,
+  centerHoursError,
+  timeToMinutes,
+  minutesToTime,
+} from "@/lib/center-hours";
 
 export function CourseEditor({
   course,
@@ -57,6 +64,12 @@ export function CourseEditor({
   const [hydrated, setHydrated] = useState(false);
 
   const [recovered, setRecovered] = useState(false);
+  const [touched, setTouched] = useState({
+    code: false,
+    name: false,
+    duration: false,
+  });
+  const [codeCheckAttempt, setCodeCheckAttempt] = useState(0);
 
   const [form, setForm] = useState({
     code: course?.code ?? "",
@@ -73,6 +86,8 @@ export function CourseEditor({
 
     numSessions: course?.numSessions ?? 12,
 
+    sessionMinutes: course?.sessionMinutes ?? (null as number | null),
+
     capacity: course?.capacity && course.capacity > 0 ? course.capacity : 12,
 
     price: course?.price ?? 300000,
@@ -87,6 +102,25 @@ export function CourseEditor({
       },
     ],
   });
+
+  const inputCopy = m.classInputValidation;
+  const codeStatus = useClassCodeValidation(
+    form.code,
+    course?.classId,
+    codeCheckAttempt,
+  );
+  const codeError =
+    mutation.error?.code === "class_code_taken" || codeStatus === "taken"
+      ? inputCopy.codeTaken
+      : touched.code && codeStatus === "invalid"
+        ? inputCopy.codeLength
+        : codeStatus === "error"
+          ? inputCopy.codeCheckFailed
+          : undefined;
+  const nameError =
+    touched.name && (!form.name.trim() || form.name.length > 150)
+      ? inputCopy.nameRequired
+      : undefined;
 
   const storageKey = `sporthub.class-draft.${user?.userId}.${course?.classId ?? "new"}.${course?.version ?? 0}`;
 
@@ -103,7 +137,12 @@ export function CourseEditor({
         if (
           draft &&
           typeof draft === "object" &&
-          Object.keys(form).every((key) => key in draft) &&
+          Object.keys(form)
+            .filter((key) => key !== "sessionMinutes")
+            .every((key) => key in draft) &&
+          (!("sessionMinutes" in draft) ||
+            (draft as typeof form).sessionMinutes === null ||
+            Number.isFinite((draft as typeof form).sessionMinutes)) &&
           [
             "code",
             "name",
@@ -134,7 +173,13 @@ export function CourseEditor({
 
           /* eslint-disable react-hooks/set-state-in-effect */
 
-          setForm(draft as typeof form);
+          setForm({
+            ...(draft as typeof form),
+            sessionMinutes:
+              (draft as typeof form).sessionMinutes ??
+              course?.sessionMinutes ??
+              null,
+          });
 
           setRecovered(true);
 
@@ -177,15 +222,17 @@ export function CourseEditor({
    * Catalog context.
    */
   const catalog = useApi(async (signal) => {
-    const [sports, rooms] = await Promise.all([
+    const [sports, rooms, center] = await Promise.all([
       catalogApi.sports(signal, true),
 
       catalogApi.rooms(signal),
+      loadCenterHours(signal),
     ]);
 
     return {
       sports,
       rooms,
+      center,
     };
   }, []);
 
@@ -199,7 +246,25 @@ export function CourseEditor({
     (room) => room.roomId === Number(form.defaultRoomId),
   );
 
-  const minutes = service?.defaultSessionMinutes ?? 0;
+  const minutes = form.sessionMinutes ?? service?.defaultSessionMinutes ?? 0;
+  const maxMinutes = catalog.data
+    ? Math.min(
+        720,
+        catalog.data.center.closingMinute - catalog.data.center.openingMinute,
+      )
+    : 720;
+  const durationValid =
+    Number.isInteger(minutes) && minutes >= 1 && minutes <= maxMinutes;
+  const outsideCenter =
+    !!catalog.data &&
+    form.scheduleRules.some((rule) => {
+      const start = timeToMinutes(rule.startTimeLocal);
+      return (
+        !Number.isFinite(start) ||
+        start < catalog.data!.center.openingMinute ||
+        start + minutes > catalog.data!.center.closingMinute
+      );
+    });
 
   const threshold =
     form.price > 0 ? Math.ceil(form.costAmount / form.price) : 0;
@@ -219,6 +284,8 @@ export function CourseEditor({
    */
   const schedule = {
     ...form,
+
+    sessionMinutes: minutes,
 
     sportId: Number(form.sportId),
 
@@ -245,7 +312,11 @@ export function CourseEditor({
   });
   const inputIssue = scheduleInputIssue(schedule, minutes, now);
   const canCheckSchedule =
-    step >= 1 && !catalog.loading && !catalog.error && !inputIssue;
+    step >= 1 &&
+    !catalog.loading &&
+    !catalog.error &&
+    !inputIssue &&
+    !outsideCenter;
   const availability = useApi(
     async (signal) => {
       if (!canCheckSchedule) return null;
@@ -264,7 +335,8 @@ export function CourseEditor({
     availability.data.rows.every((row) => row.available);
   const checkingSchedule =
     catalog.loading ||
-    (!inputIssue &&
+    (!outsideCenter &&
+      !inputIssue &&
       !catalog.error &&
       !availability.error &&
       (!currentCheck || availability.loading));
@@ -281,20 +353,22 @@ export function CourseEditor({
   };
   const scheduleMessage = catalog.error
     ? feedback.settingsFailed
-    : catalog.loading
-      ? feedback.checking
-      : inputIssue
-        ? feedback.issues[inputIssue]
-        : availability.error
-          ? (availabilityErrors[availability.error.code] ??
-            feedback.checkFailed)
-          : checkingSchedule
-            ? feedback.checking
-            : incompleteCheck
-              ? feedback.incomplete
-              : scheduleReady
-                ? feedback.ready
-                : feedback.unavailable;
+    : outsideCenter && catalog.data
+      ? centerHoursError(catalog.data.center)
+      : catalog.loading
+        ? feedback.checking
+        : inputIssue
+          ? feedback.issues[inputIssue]
+          : availability.error
+            ? (availabilityErrors[availability.error.code] ??
+              feedback.checkFailed)
+            : checkingSchedule
+              ? feedback.checking
+              : incompleteCheck
+                ? feedback.incomplete
+                : scheduleReady
+                  ? feedback.ready
+                  : feedback.unavailable;
   const scheduleReasons =
     !inputIssue &&
     currentCheck &&
@@ -331,9 +405,11 @@ export function CourseEditor({
       : AlertCircle;
 
   const valid =
-    form.code.trim().length >= 2 &&
+    codeStatus === "available" &&
+    !codeError &&
     form.name.trim().length > 0 &&
     !!form.sportId &&
+    durationValid &&
     !!form.defaultRoomId &&
     form.price >= 1000 &&
     form.price % 1000 === 0 &&
@@ -341,6 +417,7 @@ export function CourseEditor({
     Number.isInteger(form.capacity) &&
     form.capacity >= 1 &&
     !capacityInvalid &&
+    !outsideCenter &&
     threshold <= form.capacity &&
     slots.length === form.numSessions;
 
@@ -348,6 +425,11 @@ export function CourseEditor({
     if (!formRef.current?.reportValidity()) {
       return;
     }
+    if (
+      step === 0 &&
+      (!durationValid || codeStatus !== "available" || codeError)
+    )
+      return;
 
     if (
       step === 1 &&
@@ -389,6 +471,9 @@ export function CourseEditor({
       <form
         ref={formRef}
         className="stack"
+        onInvalidCapture={() =>
+          setTouched({ code: true, name: true, duration: true })
+        }
         onSubmit={async (event) => {
           event.preventDefault();
 
@@ -422,12 +507,23 @@ export function CourseEditor({
 
           if (
             await mutation.run(async () => {
-              result = await (course
-                ? api.put<ManagerCourseDto>(
-                    `/api/manager/classes/${course.classId}`,
-                    body,
-                  )
-                : api.post<ManagerCourseDto>("/api/manager/classes", body));
+              try {
+                result = await (course
+                  ? api.put<ManagerCourseDto>(
+                      `/api/manager/classes/${course.classId}`,
+                      body,
+                    )
+                  : api.post<ManagerCourseDto>("/api/manager/classes", body));
+              } catch (cause) {
+                if (
+                  cause instanceof ApiError &&
+                  cause.code === "class_code_taken"
+                ) {
+                  setStep(0);
+                  setTouched((previous) => ({ ...previous, code: true }));
+                }
+                throw cause;
+              }
             })
           ) {
             saved.current = true;
@@ -452,39 +548,70 @@ export function CourseEditor({
 
           {step === 0 && (
             <div className="form-grid">
-              <Field label={l.code}>
-                <input
+              <div>
+                <Field
+                  label={l.code}
                   required
-                  minLength={2}
-                  maxLength={50}
-                  value={form.code}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-
-                      code: event.target.value,
-                    })
+                  error={codeError}
+                  hint={
+                    codeStatus === "checking" ? (
+                      <span role="status">{inputCopy.codeChecking}</span>
+                    ) : undefined
                   }
-                />
-              </Field>
+                >
+                  <input
+                    required
+                    minLength={2}
+                    maxLength={50}
+                    value={form.code}
+                    onBlur={() =>
+                      setTouched((previous) => ({ ...previous, code: true }))
+                    }
+                    onChange={(event) => {
+                      setTouched((previous) => ({ ...previous, code: true }));
+                      mutation.reset();
+                      setForm({
+                        ...form,
 
-              <Field label={l.name}>
+                        code: event.target.value,
+                      });
+                    }}
+                  />
+                </Field>
+                {codeStatus === "error" && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => setCodeCheckAttempt((value) => value + 1)}
+                  >
+                    {t.common.retry}
+                  </button>
+                )}
+              </div>
+
+              <Field label={l.name} required error={nameError}>
                 <input
                   required
                   maxLength={150}
                   pattern=".*\S.*"
                   value={form.name}
-                  onChange={(event) =>
+                  onBlur={() =>
+                    setTouched((previous) => ({ ...previous, name: true }))
+                  }
+                  onChange={(event) => {
+                    setTouched((previous) => ({ ...previous, name: true }));
                     setForm({
                       ...form,
 
                       name: event.target.value,
-                    })
-                  }
+                    });
+                  }}
                 />
               </Field>
 
               <SportSelector
+                allowCreate
+                onCatalogChanged={catalog.reload}
                 groupOnly
                 value={form.sportId}
                 onChange={(sportId) =>
@@ -496,15 +623,42 @@ export function CourseEditor({
                     /*
                      * Sport change
                      * invalidates
-                     * coach/room
+                     * coach
                      * selection.
                      */
                     coachId: "",
-
-                    defaultRoomId: "",
                   })
                 }
               />
+              <Field
+                label={l.duration}
+                required
+                hint={l.classDurationHint}
+                error={
+                  (touched.duration || minutes !== 0) && !durationValid
+                    ? feedback.issues.duration
+                    : undefined
+                }
+              >
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  max={maxMinutes}
+                  step={1}
+                  value={minutes || ""}
+                  onBlur={() =>
+                    setTouched((previous) => ({ ...previous, duration: true }))
+                  }
+                  onChange={(event) => {
+                    setTouched((previous) => ({ ...previous, duration: true }));
+                    setForm({
+                      ...form,
+                      sessionMinutes: Number(event.target.value),
+                    });
+                  }}
+                />
+              </Field>
             </div>
           )}
 
@@ -528,6 +682,19 @@ export function CourseEditor({
                 />
 
                 <RoomSelector
+                  onCatalogChanged={catalog.reload}
+                  onCourtCreated={(court) =>
+                    setForm((current) => ({
+                      ...current,
+                      defaultRoomId: String(court.roomId),
+                      sportId: String(court.sportId ?? current.sportId),
+                      coachId:
+                        !court.sportId ||
+                        court.sportId === Number(current.sportId)
+                          ? current.coachId
+                          : "",
+                    }))
+                  }
                   sportId={Number(form.sportId)}
                   value={form.defaultRoomId}
                   onChange={(defaultRoomId) =>
@@ -579,6 +746,22 @@ export function CourseEditor({
               </div>
 
               <ScheduleRuleEditor
+                timeError={
+                  catalog.data
+                    ? centerHoursError(catalog.data.center)
+                    : undefined
+                }
+                minStart={catalog.data?.center.opens}
+                maxStart={
+                  catalog.data
+                    ? minutesToTime(
+                        Math.max(
+                          0,
+                          catalog.data.center.closingMinute - minutes,
+                        ),
+                      )
+                    : undefined
+                }
                 value={form.scheduleRules}
                 onChange={(scheduleRules) =>
                   setForm({
@@ -647,7 +830,26 @@ export function CourseEditor({
                     ["costAmount", t.classWorkspace.cost, 0, 1],
                   ] as const
                 ).map(([key, label, min, increment]) => (
-                  <Field key={key} label={label}>
+                  <Field
+                    key={key}
+                    label={label}
+                    error={
+                      key === "price" &&
+                      (!Number.isFinite(form.price) ||
+                        form.price < 1000 ||
+                        form.price % 1000 !== 0)
+                        ? inputCopy.price
+                        : key === "capacity" &&
+                            (!Number.isInteger(form.capacity) ||
+                              form.capacity < 1)
+                          ? inputCopy.capacity
+                          : key === "costAmount" &&
+                              (!Number.isFinite(form.costAmount) ||
+                                form.costAmount < 0)
+                            ? inputCopy.cost
+                            : undefined
+                    }
+                  >
                     <input
                       required
                       type="number"
@@ -703,6 +905,11 @@ export function CourseEditor({
                 </div>
 
                 <div>
+                  <dt>{l.duration}</dt>
+                  <dd>{minutes}</dd>
+                </div>
+
+                <div>
                   <dt>{t.classWorkspace.cost}</dt>
 
                   <dd>{formatMoney(form.costAmount)}</dd>
@@ -752,6 +959,8 @@ export function CourseEditor({
             aria-describedby={step === 1 ? feedbackId : undefined}
             disabled={
               mutation.busy ||
+              (step === 0 &&
+                (codeStatus === "checking" || Boolean(codeError))) ||
               /*
                * Schedule step.
                */

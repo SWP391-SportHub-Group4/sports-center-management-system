@@ -26,7 +26,7 @@ export function scheduleInputIssue(
     course.numSessions > 100
   )
     return "count";
-  if (!Number.isFinite(minutes) || minutes <= 0) return "duration";
+  if (!Number.isInteger(minutes) || minutes <= 0) return "duration";
   if (minutes > 720) return "durationLimit";
   if (!course.scheduleRules.length) return "rules";
   if (

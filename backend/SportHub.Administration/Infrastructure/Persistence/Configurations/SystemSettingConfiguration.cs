@@ -26,6 +26,18 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
         builder.HasData(
             new SystemSetting
             {
+                Key = SystemSettingKeys.CenterOpeningMinutes, Value = "360",
+                Description = "Center opening time in minutes after midnight, Vietnam time.",
+                UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.CenterClosingMinutes, Value = "1320",
+                Description = "Center closing time in minutes after midnight, Vietnam time.",
+                UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
                 Key = SystemSettingKeys.PackageExpiringReminderDays,
                 Value = "10",
                 Description = "BR-33 — Days before membership expiration to remind members.",

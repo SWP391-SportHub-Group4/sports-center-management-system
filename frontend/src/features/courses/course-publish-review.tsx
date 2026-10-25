@@ -23,9 +23,10 @@ export function CoursePublishReview({
     async (signal) => {
       const sports = await catalogApi.sports(signal, true);
       const sport = sports.find((s) => s.sportId === course.sportId);
-      const minutes = sport?.services.find(
-        (s) => s.serviceType === "GROUP_COURSE",
-      )?.defaultSessionMinutes;
+      const minutes =
+        course.sessionMinutes ??
+        sport?.services.find((s) => s.serviceType === "GROUP_COURSE")
+          ?.defaultSessionMinutes;
       if (!minutes) return [];
       return checkSchedule(course, minutes, signal);
     },

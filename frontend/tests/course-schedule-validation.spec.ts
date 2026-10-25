@@ -47,6 +47,8 @@ const cases: Array<
   ["over 100 sessions", { numSessions: 101 }, 90, "count"],
   ["fractional session count", { numSessions: 1.5 }, 90, "count"],
   ["missing duration", {}, 0, "duration"],
+  ["fractional duration", {}, 90.5, "duration"],
+  ["negative duration", {}, -1, "duration"],
   ["duration over API limit", {}, 721, "durationLimit"],
   ["no weekly rule", { scheduleRules: [] }, 90, "rules"],
   [

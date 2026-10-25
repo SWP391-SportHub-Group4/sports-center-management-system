@@ -284,9 +284,9 @@ public sealed class ClassService(
             Version = 1
         };
 
-        var rules = await ApplyAsync(entity, request, code, ct);
-
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+
+        var rules = await ApplyAsync(entity, request, code, ct);
 
         db.Set<Class>().Add(entity);
         await db.SaveChangesAsync(ct); // unique code là nơi chặn thật khi hai request đồng thời
@@ -386,11 +386,16 @@ public sealed class ClassService(
         CourseRules.ValidateCapacity(entity.Capacity, sport.DefaultMaxCapacity, room.Capacity);
 
         EnsureStartWithinYear(entity.StartDate);
+        var sessionMinutes = entity.SessionMinutes ?? sport.DefaultDurationMinutes;
+        CourseRules.ValidateSessionMinutes(sessionMinutes);
+        var center = await CenterOperatingHours.ReadAsync(settings, ct);
+        foreach (var rule in entity.ScheduleRules)
+            center.EnsureSession(rule.StartTimeLocal, sessionMinutes);
         var generated = CourseRules.GenerateSessions(
             entity.StartDate,
             entity.NumSessions,
             entity.ScheduleRules.Select(r => (r.DayOfWeek, r.StartTimeLocal)).ToList(),
-            sport.DefaultDurationMinutes);
+            sessionMinutes);
 
         var now = clock.UtcNow;
         var first = generated[0];
@@ -532,6 +537,9 @@ public sealed class ClassService(
 
         EnsureStartWithinYear(request.StartDate);
         var rules = new List<(int DayOfWeek, TimeOnly StartTimeLocal)>();
+        var sessionMinutes = request.SessionMinutes ?? entity.SessionMinutes ?? sport.DefaultDurationMinutes;
+        CourseRules.ValidateSessionMinutes(sessionMinutes);
+        var center = await CenterOperatingHours.ReadAsync(settings, ct);
         foreach (var r in request.ScheduleRules)
         {
             if (!TimeOnly.TryParseExact(r.StartTimeLocal.Trim(), TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
@@ -539,6 +547,7 @@ public sealed class ClassService(
                 throw new BadRequestException("invalid_time", "Invalid time.");
             }
 
+            center.EnsureSession(time, sessionMinutes);
             rules.Add((r.DayOfWeek, time));
         }
 
@@ -548,7 +557,7 @@ public sealed class ClassService(
         }
 
         // Chạy thử bộ sinh lịch để báo sớm lỗi ngày bắt đầu lệch lịch lặp.
-        CourseRules.GenerateSessions(request.StartDate, request.NumSessions, rules, Math.Max(sport.DefaultDurationMinutes, 1));
+        CourseRules.GenerateSessions(request.StartDate, request.NumSessions, rules, sessionMinutes);
 
         entity.Code = code;
         entity.Name = request.Name.Trim();
@@ -557,6 +566,7 @@ public sealed class ClassService(
         entity.DefaultRoomId = request.DefaultRoomId;
         entity.StartDate = request.StartDate;
         entity.NumSessions = request.NumSessions;
+        entity.SessionMinutes = sessionMinutes;
         entity.Capacity = request.Capacity;
         entity.Price = request.Price;
         entity.CostAmount = request.CostAmount;
@@ -594,6 +604,11 @@ public sealed class ClassService(
             .Select(g => new { ClassId = g.Key, Start = g.Min(s => s.StartAtUtc), End = g.Min(s => s.EndAtUtc) })
             .ToListAsync(ct);
         var minutes = sessions.ToDictionary(s => s.ClassId, s => (int)Math.Round((s.End - s.Start).TotalMinutes));
+        var durations = await db.Set<Class>().AsNoTracking()
+            .Where(c => classIds.Contains(c.ClassId) && c.SessionMinutes != null)
+            .Select(c => new { c.ClassId, c.SessionMinutes }).ToListAsync(ct);
+        foreach (var duration in durations)
+            minutes[duration.ClassId] = duration.SessionMinutes!.Value;
 
         return rows.GroupBy(r => r.ClassId).ToDictionary(
             g => g.Key,
@@ -691,7 +706,8 @@ public sealed class ClassService(
             r.Class.CreatedAt,
             r.Class.PublishedAt,
             r.FirstStart,
-            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : []
+            rules.TryGetValue(r.Class.ClassId, out var rl) ? rl : [],
+            r.Class.SessionMinutes
         )).ToList();
     }
 
@@ -705,6 +721,7 @@ public sealed class ClassService(
             roomId = c.DefaultRoomId,
             startDate = c.StartDate,
             numSessions = c.NumSessions,
+            sessionMinutes = c.SessionMinutes,
             capacity = c.Capacity,
             price = c.Price,
             costAmount = c.CostAmount,

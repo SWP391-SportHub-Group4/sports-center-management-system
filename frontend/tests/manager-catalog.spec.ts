@@ -180,6 +180,34 @@ test("sport creation omits all room-type controls and payload fields", async ({
   expect(fixture.writes[0].body).not.toHaveProperty("createRoomType");
 });
 
+for (const [code, field, width] of [
+  ["sport_code_taken", "Code", 1440],
+  ["sport_name_taken", "Name", 390],
+] as const) {
+  test(`sport duplicate ${field} error stays inside the create dialog`, async ({ page }) => {
+    const fixture = await setup(page, { fail: 409, code });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/manager/sports");
+    await page.getByRole("button", { name: "Create sport", exact: true }).click();
+    await dialog(page).getByLabel("Code", { exact: true }).fill("basketball");
+    await dialog(page).getByLabel("Name", { exact: true }).fill("Basketball");
+    await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog(page)).toBeVisible();
+    await expect(dialog(page).getByLabel(field, { exact: true })).toHaveAttribute("aria-invalid", "true");
+    await expect(dialog(page).getByRole("alert")).toContainText("already in use");
+    await expect(page.getByRole("alert").filter({ hasText: "already in use" })).toHaveCount(1);
+    await dialog(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "already in use" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Create sport", exact: true }).click();
+    await expect(dialog(page).getByRole("alert")).toHaveCount(0);
+    fixture.recover();
+    await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
+    await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
+    await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+    await expect(dialog(page)).toHaveCount(0);
+  });
+}
+
 for (const width of [1440, 390])
   test(`sport retains its name and service choices on error at ${width}px`, async ({
     page,

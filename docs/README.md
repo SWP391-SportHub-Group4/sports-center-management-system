@@ -8,6 +8,7 @@ Tài liệu hiện hành của dự án:
 | [Functional & Nonfunctional Specification](Functional-and-Nonfunctional-Spec.md) | Yêu cầu chức năng và chất lượng |
 | [Thiết kế hệ thống](Center-Management-System-Design-v3.md) | Kiến trúc, dữ liệu, luồng, phân quyền và khoảng trống triển khai |
 | [API contract](api-contract.md) | Endpoint, DTO, lỗi và quy tắc tích hợp |
+| [Phòng dùng chung và quyền cho thuê](Independent-Rooms-Workflow.md) | Quyết định 26/10/2026: tạo phòng độc lập với môn, chọn phòng cho lớp và bật/tắt Allow rental |
 | [Payment Support Workflow](Payment-Support-Workflow.md) | Đối soát thanh toán, yêu cầu hỗ trợ và payout |
 | [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx), [SRS](SWP391_Report_SRS.docx) | Tài liệu Word nguồn; đọc theo thứ tự ưu tiên trong Nguồn thống nhất |
 | [RUNBOOK](RUNBOOK.md) | Chạy local và triển khai |
