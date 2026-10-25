@@ -105,6 +105,11 @@ export function SupportRequestActions({
   }
 
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
+  const canFinalizeUnassignedPayoutReview =
+    user?.role === "CenterManager" &&
+    request.category === "PAYMENT" &&
+    !!request.payout &&
+    !closed;
   const noteReady = note.trim().length >= 3;
   const chosen = assignees.find((x) => x.userId === assigneeId);
   const escalating =
@@ -293,7 +298,10 @@ export function SupportRequestActions({
                   type="button"
                   className="btn"
                   disabled={
-                    busy !== null || !request.assignedToUserId || !noteReady
+                    busy !== null ||
+                    (!request.assignedToUserId &&
+                      !canFinalizeUnassignedPayoutReview) ||
+                    !noteReady
                   }
                   onClick={async () => {
                     await act(
@@ -318,7 +326,10 @@ export function SupportRequestActions({
                 type="button"
                 className="btn"
                 disabled={
-                  busy !== null || !request.assignedToUserId || !noteReady
+                  busy !== null ||
+                  (!request.assignedToUserId &&
+                    !canFinalizeUnassignedPayoutReview) ||
+                  !noteReady
                 }
                 onClick={() => setConfirmFinal(true)}
               >

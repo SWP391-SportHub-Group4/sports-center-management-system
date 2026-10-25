@@ -183,6 +183,20 @@ async function fixture(page: Page, role: "RECEPTIONIST" | "CENTER_MANAGER") {
         membersPurchasingMembershipInPeriod: 0,
       });
     if (path === "/api/reports/class-enrollment") return json({ classes: [] });
+    if (path === "/api/reports/court-bookings")
+      return json({
+        totalBookings: 0,
+        totalBookedHours: 0,
+        bySport: [],
+        daily: [],
+      });
+    if (path === "/api/reports/recorded-attendance") return json({ daily: [] });
+    if (path === "/api/reports/class-status")
+      return json({ open: 0, completed: 0, unpublished: 0, classes: [] });
+    if (path === "/api/reports/membership-summary")
+      return json({ membersWithActiveMembership: 0 });
+    if (path === "/api/manager/classes")
+      return json({ items: [], totalCount: 0, page: 1, pageSize: 20 });
     if (path === "/api/users")
       return json({ items: [], totalCount: 0, page: 1, pageSize: 20 });
     if (path === `/api/users/${memberId}`)
@@ -267,7 +281,9 @@ test("F5 manager records payout proof and sees reported receipt and separate rev
   const state = await fixture(page, "CENTER_MANAGER");
   await page.goto(`/manager/requests?type=support&request=${requestId}`);
   const payout = page.getByRole("region", { name: "Payment payout" });
-  await expect(payout.getByText("12345678")).toBeVisible();
+  await expect(
+    payout.getByText("Receiving account could not be loaded."),
+  ).toHaveCount(0);
   await expect(
     payout.getByRole("button", { name: "Record payout" }),
   ).toBeDisabled();
@@ -280,17 +296,25 @@ test("F5 manager records payout proof and sees reported receipt and separate rev
     buffer: png,
   });
   await payout.getByRole("checkbox").check();
+  await expect(
+    payout.getByRole("button", { name: "Record payout" }),
+  ).toBeDisabled();
+  await payout
+    .getByRole("textbox", { name: "Note about the call and refund (required)" })
+    .fill("Called the member and completed the bank transfer.");
   await payout.getByRole("button", { name: "Record payout" }).click();
   await expect(payout.getByText(/Recorded:.*50,000/)).toBeVisible();
   expect(state.payoutBody()).toContain("50000");
   state.report();
   await page.reload();
   await expect(
-    page.getByText("Member reported not received. Follow up in this request."),
+    page.getByText("Member reported not received. Awaiting manager review."),
   ).toBeVisible();
   await page.goto("/manager");
   await expect(page.getByText("Overdue support requests: 0")).toBeVisible();
-  await expect(page.getByText("Bank payouts recorded (VND)")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Bank payouts recorded", exact: true }),
+  ).toBeVisible();
   await page.goto("/manager/reports?tab=revenue");
-  await expect(page.getByText("Bank payouts recorded (VND)")).toBeVisible();
+  await expect(page.getByText(/Recorded bank payouts:/)).toBeVisible();
 });

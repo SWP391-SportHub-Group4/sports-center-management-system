@@ -147,15 +147,21 @@ public sealed class MemberSupportPayoutController(ISportHubDbContext db, IClock 
             if (received) return Ok(new { payout.PayoutId, payout.MemberConfirmedAtUtc, payout.MemberConfirmedBy });
             throw new ConflictException("payout_already_confirmed", "Receipt has already been confirmed.");
         }
+        if (request.Status is "DONE" or "REJECTED")
+            throw new ConflictException("support_request_final", "The payout review has already been finalized.");
         var now = clock.UtcNow;
         if (received)
         {
             payout.MemberConfirmedAtUtc = now;
             payout.MemberConfirmedBy = "MEMBER";
+            // The member can acknowledge a delayed transfer during the review.
+            request.Status = "CLOSED";
+            request.ClosedAt = request.UpdatedAt = now;
         }
         else
         {
-            if (request.Status == "OPEN")
+            if (request.Status != "CLOSED" || await db.Set<MemberSupportEvent>().AnyAsync(e =>
+                e.RequestId == requestId && e.Type == "MEMBER_REPORTED_NOT_RECEIVED", ct))
                 throw new ConflictException("payout_already_reported", "This payout has already been reported.");
             request.Status = "OPEN";
             request.AssignedToUserId = null;

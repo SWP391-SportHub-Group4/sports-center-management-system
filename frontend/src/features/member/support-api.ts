@@ -63,7 +63,22 @@ export function requestStage(row: SupportRequestDto): RequestStage {
       return {
         key: "paidOut",
         label: "Paid out",
-        hint: "The transfer was recorded and you confirmed receipt.",
+        hint:
+          row.payout.memberConfirmedBy === "SYSTEM"
+            ? "The transfer receipt was confirmed automatically."
+            : "The transfer was recorded and you confirmed receipt.",
+      };
+    if (row.status === "DONE")
+      return {
+        key: "resolved",
+        label: "Review completed",
+        hint: "The manager completed your payout review. Read the reply below. This does not confirm that you received the transfer.",
+      };
+    if (row.status === "REJECTED")
+      return {
+        key: "rejected",
+        label: "Review declined",
+        hint: "The manager declined your payout claim. Read the reason below. This does not confirm that you received the transfer.",
       };
     if (row.status === "CLOSED")
       return {
@@ -97,7 +112,11 @@ export function requestStage(row: SupportRequestDto): RequestStage {
         hint: "Your request has been handled.",
       };
     case "CLOSED":
-      return { key: "closed", label: "Closed", hint: "This request is closed." };
+      return {
+        key: "closed",
+        label: "Closed",
+        hint: "This request is closed.",
+      };
     case "REJECTED":
       return {
         key: "rejected",
@@ -142,9 +161,12 @@ export function useMySupportRequests() {
   return useApi(
     async (signal) =>
       (
-        await api.get<Partial<SupportRequestDto>[]>("/api/support/requests/mine", {
-          signal,
-        })
+        await api.get<Partial<SupportRequestDto>[]>(
+          "/api/support/requests/mine",
+          {
+            signal,
+          },
+        )
       ).map(normalize),
     [],
   );

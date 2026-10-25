@@ -74,7 +74,12 @@ function ProofImage({
   );
 }
 
-const STEPS_PAYMENT = ["Received", "Under review", "Transfer sent", "Confirmed"];
+const STEPS_PAYMENT = [
+  "Received",
+  "Under review",
+  "Transfer sent",
+  "Confirmed",
+];
 const STEPS_DEFAULT = ["Received", "Assigned", "In progress", "Resolved"];
 
 function progressIndex(row: SupportRequestDto, key: RequestStageKey) {
@@ -94,7 +99,11 @@ function progressIndex(row: SupportRequestDto, key: RequestStageKey) {
 
 function Stepper({ row }: { row: SupportRequestDto }) {
   const { key } = requestStage(row);
-  if (key === "rejected" || (key === "closed" && row.category !== "PAYMENT")) return null;
+  // Completing an investigation must never light up the "Confirmed" receipt step.
+  if (row.payout && !row.payout.memberConfirmedAtUtc && row.status === "DONE")
+    return null;
+  if (key === "rejected" || (key === "closed" && row.category !== "PAYMENT"))
+    return null;
   const steps = row.category === "PAYMENT" ? STEPS_PAYMENT : STEPS_DEFAULT;
   const current = progressIndex(row, key);
   const completed = key === "resolved" || key === "paidOut";
@@ -103,7 +112,15 @@ function Stepper({ row }: { row: SupportRequestDto }) {
       {steps.map((label, i) => (
         <li
           key={label}
-          data-state={i < current ? "done" : i === current ? completed ? "complete" : "current" : "todo"}
+          data-state={
+            i < current
+              ? "done"
+              : i === current
+                ? completed
+                  ? "complete"
+                  : "current"
+                : "todo"
+          }
           aria-current={i === current && !completed ? "step" : undefined}
         >
           <span className={styles.stepDot} aria-hidden="true">
@@ -129,7 +146,9 @@ function RequestDetail({
 }) {
   const stage = requestStage(row);
   const open = isRequestOpen(row);
-  const [busy, setBusy] = useState<"remind" | "confirm" | "report" | null>(null);
+  const [busy, setBusy] = useState<"remind" | "confirm" | "report" | null>(
+    null,
+  );
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
@@ -194,8 +213,7 @@ function RequestDetail({
       setConfirmReport(false);
       setNotice({
         ok: false,
-        text:
-          e instanceof Error ? e.message : "We could not save your answer.",
+        text: e instanceof Error ? e.message : "We could not save your answer.",
       });
     } finally {
       setBusy(null);
@@ -226,9 +244,8 @@ function RequestDetail({
             {formatMoney(row.payout.amount)}
           </h4>
           <p>
-            Recorded on {formatDateTime(row.payout.recordedAtUtc)}
-.
-            Check your bank app and the proof below, then tell us.
+            Recorded on {formatDateTime(row.payout.recordedAtUtc)}. Check your
+            bank app and the proof below, then tell us.
           </p>
           {row.payout.proofAttachmentIds.length > 0 && (
             <div className={styles.proofs}>
@@ -268,15 +285,34 @@ function RequestDetail({
       )}
 
       {!confirmNeeded && row.payout && (
-        <section className={styles.payoutDone} aria-label="Transfer">
+        <section
+          className={styles.payoutDone}
+          data-unconfirmed={!row.payout.memberConfirmedAtUtc || undefined}
+          aria-label="Transfer"
+        >
           <h4>Transfer of {formatMoney(row.payout.amount)}</h4>
           <p>
-            Recorded on {formatDateTime(row.payout.recordedAtUtc)}
-            .
+            Recorded on {formatDateTime(row.payout.recordedAtUtc)}.
             {row.payout.memberConfirmedAtUtc
               ? ` ${row.payout.memberConfirmedBy === "SYSTEM" ? "Marked as received automatically" : "You confirmed receipt"} on ${formatDateTime(row.payout.memberConfirmedAtUtc)}.`
               : ""}
           </p>
+          {open && !row.payout.memberConfirmedAtUtc && (
+            <>
+              <p className={styles.hint}>
+                The payout is under review. If the transfer has now arrived, you
+                can confirm receipt here.
+              </p>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={busy !== null}
+                onClick={() => void confirm(true)}
+              >
+                {busy === "confirm" ? "Saving…" : "I received it"}
+              </button>
+            </>
+          )}
           {row.payout.proofAttachmentIds.length > 0 && (
             <div className={styles.proofs}>
               {row.payout.proofAttachmentIds.map((id, i) => (
@@ -425,7 +461,10 @@ export function MyRequests({
       {(rows) => {
         const selected = rows.find((r) => r.requestId === selectedId) ?? null;
         return (
-          <div className={styles.requests} data-detail={selected ? "open" : "closed"}>
+          <div
+            className={styles.requests}
+            data-detail={selected ? "open" : "closed"}
+          >
             <section className={styles.card} aria-label="My requests">
               <h2 className={styles.listTitle}>My requests</h2>
               <ul className={styles.history}>
@@ -450,7 +489,9 @@ export function MyRequests({
                         <span className={styles.meta}>
                           {formatDateTime(row.createdAt)}
                         </span>
-                        <span className={styles.snippet}>{row.description}</span>
+                        <span className={styles.snippet}>
+                          {row.description}
+                        </span>
                         {action && (
                           <span className={styles.actionFlag}>
                             Action needed: confirm you received the money
