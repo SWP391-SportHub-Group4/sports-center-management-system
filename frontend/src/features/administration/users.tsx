@@ -9,7 +9,6 @@ import { Card, Dialog, Feedback, Field } from "@/components/ui";
 import {
   ApiTable,
   FilterBar,
-  StatusChip,
   type FilterField,
   type TableColumn,
 } from "@/components/data";
@@ -22,6 +21,7 @@ import { useLanguage } from "@/lib/language";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import type { SportDto, Paged, UserAdminDto } from "@/lib/types";
 import { SportOptions } from "./SportOptions";
+import { RoleChip } from "./RoleChip";
 import {
   AccountStatusChip,
   requiresStaffActivation,
@@ -275,7 +275,7 @@ function CreateStaff({
             <div>
               <dt>{l.role}</dt>
               <dd>
-                <StatusChip value={role} />
+                <RoleChip role={role} />
               </dd>
             </div>
             {role === "COACH" && (
@@ -437,25 +437,12 @@ export function EditUser({
           <strong>{a.fullName}</strong>
           <span>{a.email}</span>
           <div className="btn-row">
-            <StatusChip value={a.role} />
+            <RoleChip role={a.role} />
             <AccountStatusChip account={a} />
           </div>
         </div>
         {!review ? (
           <>
-            <Field
-              label={l.reason}
-              required
-              hint="Required for every access change. Your reason is recorded in the audit log."
-            >
-              <textarea
-                required
-                minLength={3}
-                maxLength={500}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </Field>
             <section
               className={styles.accessSection}
               aria-label="Role and specialties"
@@ -500,6 +487,21 @@ export function EditUser({
                 </>
               )}
             </section>
+            {a.userId === user?.userId && (
+              <Field
+                label={l.reason}
+                required
+                hint="Required for every access change. Your reason is recorded in the audit log."
+              >
+                <textarea
+                  required
+                  minLength={3}
+                  maxLength={500}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </Field>
+            )}
             {a.userId !== user?.userId && (
               <section
                 className={styles.accessSection}
@@ -512,11 +514,24 @@ export function EditUser({
                     change before confirming.
                   </p>
                 </div>
+                <Field
+                  label={l.reason}
+                  required
+                  hint="Required for every access change. Your reason is recorded in the audit log."
+                >
+                  <textarea
+                    required
+                    minLength={3}
+                    maxLength={500}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                </Field>
                 <ActivitySwitch
                   checked={a.status !== "DEACTIVATED"}
                   disabled={!validReason}
                   label="Account enabled"
-                  hint="Turn off to deactivate sign-in access. You will review the change before confirming."
+                  hint="Turn off to deactivate sign-in access. Enter a reason above to enable this control."
                   onChange={(checked) =>
                     setReview(checked ? "unlock" : "deactivate")
                   }
@@ -570,13 +585,13 @@ export function EditUser({
                       <div>
                         <dt>{d.currentRole}</dt>
                         <dd>
-                          <StatusChip value={a.role} />
+                          <RoleChip role={a.role} />
                         </dd>
                       </div>
                       <div>
                         <dt>{d.newRole}</dt>
                         <dd>
-                          <StatusChip value={role} />
+                          <RoleChip role={role} />
                         </dd>
                       </div>
                     </>
@@ -840,7 +855,7 @@ export function Users() {
       id: "role",
       header: l.role,
       sortable: true,
-      cell: (account) => <StatusChip value={account.role} />,
+      cell: (account) => <RoleChip role={account.role} />,
     },
     {
       id: "status",

@@ -276,10 +276,15 @@ export const api = {
 };
 
 /** Tải một tệp có kiểm quyền (Authorization header) và trả blob để hiển thị, ví dụ ảnh đính kèm. */
-export async function fetchBlob(path: string): Promise<Blob> {
+export async function fetchBlob(
+  path: string,
+  options?: { signal?: AbortSignal },
+): Promise<Blob> {
   const token = readToken();
   const response = await fetch(buildUrl(path), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    signal: options?.signal,
+    cache: "no-store",
   });
   if (!response.ok)
     throw new ApiError(

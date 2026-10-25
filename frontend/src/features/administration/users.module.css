@@ -510,3 +510,34 @@
     min-height: var(--control-height-lg);
   }
 }
+
+.roleBadge {
+  display: inline-flex;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.roleBadge[data-role="SYSTEM_ADMINISTRATOR"] :global(.chip) {
+  --status-chip-bg: #f1edff;
+  --status-chip-color: #56318f;
+  --status-chip-border: #d6c8f0;
+}
+.roleBadge[data-role="CENTER_MANAGER"] :global(.chip) {
+  --status-chip-bg: #e8f0fc;
+  --status-chip-color: #234e86;
+  --status-chip-border: #bfd1ed;
+}
+.roleBadge[data-role="COACH"] :global(.chip) {
+  --status-chip-bg: #e5f3ec;
+  --status-chip-color: #205b41;
+  --status-chip-border: #b2d8c3;
+}
+.roleBadge[data-role="RECEPTIONIST"] :global(.chip) {
+  --status-chip-bg: #fff2db;
+  --status-chip-color: #785014;
+  --status-chip-border: #e8cf9b;
+}
+.roleBadge[data-role="MEMBER"] :global(.chip) {
+  --status-chip-bg: #fff0f5;
+  --status-chip-color: #962b59;
+  --status-chip-border: #e9b1ca;
+}

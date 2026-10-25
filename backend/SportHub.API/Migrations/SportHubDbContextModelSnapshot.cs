@@ -358,6 +358,53 @@ namespace SportHub.API.Migrations
                     b.ToTable("audit_logs", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarAuditImage", b =>
+                {
+                    b.Property<Guid>("ImageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("image_id");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("content");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.Property<string>("SourcePublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("source_public_id");
+
+                    b.HasKey("ImageId")
+                        .HasName("pk_avatar_audit_images");
+
+                    b.HasIndex("ExpiresAtUtc")
+                        .HasDatabaseName("ix_avatar_audit_images_expires_at_utc");
+
+                    b.HasIndex("OwnerUserId", "SourcePublicId")
+                        .HasDatabaseName("ix_avatar_audit_images_owner_user_id_source_public_id");
+
+                    b.ToTable("avatar_audit_images", (string)null);
+                });
+
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarDeletion", b =>
                 {
                     b.Property<Guid>("DeletionId")

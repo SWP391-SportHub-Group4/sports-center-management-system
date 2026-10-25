@@ -6,7 +6,10 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import { SupportStatus, SUPPORT_STATUS_LABELS } from "@/components/support-status";
+import {
+  SupportStatus,
+  SUPPORT_STATUS_LABELS,
+} from "@/components/support-status";
 import {
   SUPPORT_CATEGORIES,
   supportCategoryLabel,
@@ -59,13 +62,27 @@ export function SupportQueue({
   const { user } = useAuth();
   const isManager = workspace === "manager";
   const isReceiver = workspace === "coach" || workspace === "admin";
-  const cards = isReceiver ? [
-    { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
-    { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
-    { key: "done" as const, label: "Finished", status: "FINISHED" },
-  ] : summaryCards;
+  const cards = isReceiver
+    ? [
+        {
+          key: "notStarted" as const,
+          label: "Not started",
+          status: "NOT_STARTED",
+        },
+        {
+          key: "inProgress" as const,
+          label: "In progress",
+          status: "IN_PROGRESS",
+        },
+        { key: "done" as const, label: "Finished", status: "FINISHED" },
+      ]
+    : summaryCards;
   const statusLabel = (status: string) =>
-    status === "NOT_STARTED" ? "Not started" : status === "FINISHED" ? "Finished" : (SUPPORT_STATUS_LABELS[status] ?? status);
+    status === "NOT_STARTED"
+      ? "Not started"
+      : status === "FINISHED"
+        ? "Finished"
+        : (SUPPORT_STATUS_LABELS[status] ?? status);
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -177,11 +194,8 @@ export function SupportQueue({
 
   return (
     <section className={styles.page} aria-label="Support requests">
-      <div className={styles.head}>
-        <h2>Support requests</h2>
-        {isReceiver ? (
-          <p>Requests assigned to you by the manager.</p>
-        ) : (
+      {!isReceiver && (
+        <div className={styles.head}>
           <button
             type="button"
             className={`btn ${styles.primary}`}
@@ -190,10 +204,10 @@ export function SupportQueue({
             <Plus size={18} aria-hidden="true" />
             Record a request for member
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className={`${styles.stats} ${isReceiver ? styles.receiverStats : ""}`} role="group" aria-label="Filter by status">
+      <div className={styles.stats} role="group" aria-label="Filter by status">
         {cards.map((item) => (
           <button
             key={item.key}
@@ -265,7 +279,9 @@ export function SupportQueue({
             <option value="NOT_STARTED">Not started (group)</option>
             <option value="FINISHED">Finished (group)</option>
             {Object.entries(SUPPORT_STATUS_LABELS).map(([status, text]) => (
-              <option key={status} value={status}>{text}</option>
+              <option key={status} value={status}>
+                {text}
+              </option>
             ))}
           </select>
         </label>

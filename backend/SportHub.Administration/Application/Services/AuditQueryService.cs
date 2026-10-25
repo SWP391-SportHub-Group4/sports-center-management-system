@@ -38,7 +38,12 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
     private static IQueryable<AuditLog> Visible(IQueryable<AuditLog> query, bool administrator)
         => administrator
             ? query.Where(a => a.ActorRole == "SYSTEM_ADMINISTRATOR" || a.ActorRole == "CENTER_MANAGER"
-                || a.ActorRole == "COACH" || a.ActorRole == "SYSTEM")
+                || a.ActorRole == "COACH" || a.ActorRole == "SYSTEM"
+                || (a.ActorRole == "MEMBER" && (
+                    (a.TargetEntity == "UserProfile" && (a.Action == "UPDATE_AVATAR" || a.Action == "DELETE_AVATAR" || a.Action == "IMPORT_GOOGLE_AVATAR"))
+                    || (a.TargetEntity == "MemberSupportPayout" && (a.Action == "SUPPORT_PAYOUT_CONFIRMED" || a.Action == "SUPPORT_PAYOUT_NOT_RECEIVED"))
+                    || (a.TargetEntity == "MemberSupportRequest" && a.Action == "REMIND_SUPPORT_REQUEST")
+                    || (a.TargetEntity == "Invoice" && a.Action == "CONVERT_UNACTIVATED_PAYMENT_TO_POINTS"))))
             : query.Where(a => a.ActorRole == "CENTER_MANAGER" || a.ActorRole == "RECEPTIONIST"
                 || a.ActorRole == "COACH" || a.ActorRole == "MEMBER");
 
