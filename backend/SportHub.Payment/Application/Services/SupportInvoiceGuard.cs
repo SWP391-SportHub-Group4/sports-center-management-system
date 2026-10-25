@@ -28,7 +28,7 @@ public sealed class SupportInvoiceGuard(ISportHubDbContext db) : ISupportInvoice
                 "An open support request already exists for this invoice.");
         // A center cancellation is refunded either as points or through a Manager-handled request, never both.
         var pointsChosen = await (from l in db.Set<PointLedgerEntry>()
-                                  join i in db.Set<InvoiceItem>() on l.InvoiceItemId equals i.ItemId
+                                  join i in db.Set<InvoiceItem>() on l.InvoiceItemId equals (Guid?)i.ItemId
                                   where i.InvoiceId == invoiceId && l.ReferenceType == "SystemEvent"
                                       && l.EntryType == PointEntryType.Earn && l.Note != null
                                       && l.Note.StartsWith(CenterCancellationRefundService.NotePrefix)

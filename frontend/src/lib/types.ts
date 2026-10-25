@@ -925,7 +925,7 @@ export interface IncidentPreviewDto {
     sourceType: string;
     sourceId: string;
     outcome:
-      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION";
+      "AWAITS_REFUND_CHOICE" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION";
     expectedRefundPoints: number | null;
   }[];
   expectedRefundPointsTotal?: number;

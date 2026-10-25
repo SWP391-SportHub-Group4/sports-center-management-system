@@ -124,7 +124,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             }
             result.Add(new IncidentAffectedMember(rental.MemberId, (await users.GetAsync(rental.MemberId, ct))?.FullName,
                 nameof(OccupancySourceType.CourtRental), rental.CourtRentalId,
-                confirmed ? "RefundedAsPoints" : "CheckoutReleased", points));
+                confirmed ? "AwaitsRefundChoice" : "CheckoutReleased", points));
         }
 
         var sessionIds = impacts.Where(x => x.SourceType == nameof(OccupancySourceType.ClassSession))
@@ -599,7 +599,7 @@ public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.
     public int ExpectedRefundPointsTotal { get; init; }
 }
 
-/// <param name="Outcome">RefundedAsPoints (a 100% points refund is offered to the Member, not credited at resolve) | CheckoutReleased | AwaitsScheduleDecision.</param>
+/// <param name="Outcome">AwaitsRefundChoice (a 100% points refund is offered to the Member, not credited at resolve) | CheckoutReleased | AwaitsScheduleDecision.</param>
 /// <param name="ExpectedRefundPoints">Null when no refund is decided yet (schedule decision pending).</param>
 public sealed record IncidentAffectedMember(Guid MemberId, string? MemberName,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId,

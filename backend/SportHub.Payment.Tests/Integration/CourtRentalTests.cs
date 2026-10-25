@@ -150,7 +150,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         var affected = Assert.Single(preview.Members);
         Assert.Equal(request.MemberId, affected.MemberId);
         Assert.Equal("CourtRental", affected.SourceType);
-        Assert.Equal("RefundedAsPoints", affected.Outcome);
+        Assert.Equal("AwaitsRefundChoice", affected.Outcome);
         Assert.Equal(100, affected.ExpectedRefundPoints);
         Assert.Equal(100, preview.ExpectedRefundPointsTotal);
 

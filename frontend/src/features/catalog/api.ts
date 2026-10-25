@@ -28,7 +28,6 @@ export type SaveRate = Omit<CourtRateDto, "rateId" | "daysOfWeek"> & {
 };
 export const catalogApi = {
   deleteRoom: (id: number) => api.del(`/api/rooms/${id}`),
-  deleteRoomType: (id: number) => api.del(`/api/manager/room-types/${id}`),
   deleteRate: (id: number) => api.del(`/api/manager/court-rates/${id}`),
   saveSport: async (id: number | null, body: SaveSport) => {
     const result = await (id === null

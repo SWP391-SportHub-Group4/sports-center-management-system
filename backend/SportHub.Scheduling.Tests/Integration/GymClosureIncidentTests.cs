@@ -41,7 +41,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Closing_every_active_room_keeps_membership_dates_unchanged()
+    public async Task Closing_every_active_room_extends_active_memberships_and_notifies_members()
     {
         await EnsureGymRoomAsync();
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -52,7 +52,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
             SportHub.Membership.Domain.Enums.MemberPackageStatus.Cancelled,
             endDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(500));
         var (start, end) = TwoFullDays(400);
-        var request = new IncidentRequest("Center", null, start, end, "Gym floor flooding");
+        var request = new IncidentRequest("Center", null, start, end, "Gym floor flooding", MembershipExtensionDays: 2);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -61,7 +61,8 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
             Assert.True(preview.ClosesGym);
             Assert.Equal(0, preview.SuggestedMembershipExtensionDays);
             Assert.True(preview.AffectedMemberCount >= 1);
-            await incidents.ResolveAsync(request, manager.UserId);
+            await Assert.ThrowsAsync<BadRequestException>(() => incidents.ResolveAsync(request, manager.UserId));
+            await incidents.ResolveAsync(request with { MembershipExtensionDays = 0 }, manager.UserId);
         }
 
         var extended = await factory.ReloadPackageAsync(package.MemberPackageId);
@@ -72,11 +73,11 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
 
         var notices = await factory.QueryAsync(db => db.Notifications.AsNoTracking()
             .Where(n => n.UserId == member.UserId && n.SourceEntityId == package.MemberPackageId).ToListAsync());
-        Assert.Empty(notices); // một thông báo trong ứng dụng và một email
+        Assert.Equal(2, notices.Count); // một thông báo trong ứng dụng và một email (không còn gia hạn)
         var notice = await factory.QueryAsync(db => db.Set<IncidentNotice>().AsNoTracking()
             .SingleAsync(x => x.StartAtUtc == start && x.EndAtUtc == end));
         Assert.Equal(0, notice.MembershipExtensionDays);
-        Assert.Equal(0, notice.ExtendedMemberCount);
+        Assert.True(notice.ExtendedMemberCount >= 1);
     }
 
     [Fact]

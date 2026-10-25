@@ -2,7 +2,7 @@
 
 Quyết định ngày 24/10/2026, xác nhận sau buổi họp nhóm. Văn bản này là nguồn duy nhất cho các quy tắc dưới đây; khi mâu thuẫn với mô tả cũ trong [Nguồn thống nhất](00-Source-of-Truth.md), [Thiết kế hệ thống](Center-Management-System-Design-v3.md), [API contract](api-contract.md) hay [Functional spec](Functional-and-Nonfunctional-Spec.md), văn bản này thắng.
 
-**Hướng giữ nguyên:** ví điểm (1 điểm = 1.000 VND, không hết hạn), hoàn điểm theo invoice item, dùng điểm khi checkout. **Bổ sung:** giờ bán và hiệu lực của day pass, xử lý thanh toán đến muộn, SLA 2 ngày cho Support Request và luồng Manager hoàn tiền chuyển khoản theo Support Request.
+**Hướng giữ nguyên:** ví điểm (1 điểm = 1.000 VND, không hết hạn), hoàn điểm theo invoice item (mỗi hóa đơn checkout chỉ có đúng 1 dòng nên hóa đơn và dòng trùng nhau), dùng điểm khi checkout. **Bổ sung:** giờ bán và hiệu lực của day pass, xử lý thanh toán đến muộn, SLA 2 ngày cho Support Request và luồng Manager hoàn tiền chuyển khoản theo Support Request.
 
 **Không thuộc quyết định này:** voucher, Compensation Campaign, bỏ ví điểm. Các hướng đó đã bị loại.
 
@@ -23,7 +23,7 @@ Quyết định ngày 24/10/2026, xác nhận sau buổi họp nhóm. Văn bản
 - `vnp_ExpireDate` gửi sang VNPay bằng đúng thời hạn checkout (đã có trong `VnPayGateway`). VNPay từ chối thanh toán sau thời điểm này nên chỉ giao dịch bấm trong những giây cuối còn khả năng đến muộn.
 - Khi checkout vừa hết hạn, job đối soát gọi QueryDR trước khi nhả chỗ để biết sớm tiền đã trừ chưa. Không nhả chỗ khi còn gateway event chưa xử lý.
 
-**Khi tiền về muộn (BR-88):**
+**Khi tiền về muộn (BR-80):**
 
 | Tình huống | Kết quả |
 |---|---|
@@ -38,18 +38,18 @@ Khóa trạng thái: một khoản chỉ được xử lý một lần. Sau khi 
 
 Đây là trường hợp ngoại lệ hiếm. Nhóm không cần tối ưu thêm ngoài các bước giảm tần suất ở trên.
 
-**Quy đổi điểm:** điểm là số nguyên, 1 điểm = 1.000 VND. Mọi giá bán trong catalog bắt buộc là **bội số của 1.000đ** (BR-113, backend đã kiểm tra khi lưu giá), nên số tiền thu từ VNPay luôn chia hết cho 1.000 và không phát sinh tiền lẻ khi quy ra điểm. Không có làm tròn.
+**Quy đổi điểm:** điểm là số nguyên, 1 điểm = 1.000 VND. Mọi giá bán trong catalog bắt buộc là **bội số của 1.000đ** (BR-33, backend đã kiểm tra khi lưu giá), nên số tiền thu từ VNPay luôn chia hết cho 1.000 và không phát sinh tiền lẻ khi quy ra điểm. Không có làm tròn.
 
 ## 3. Nguyên tắc hoàn tiền
 
-- **Đã mua thì không hoàn, kể cả khi Member tự hủy gói.** Hủy ghi danh, hủy thuê sân hoặc hủy gói của Member không tạo hoàn tiền tự động. Chính sách hoàn điểm hiện hành theo invoice item (Membership, hủy sân theo ngưỡng miễn phí) giữ nguyên.
+- **Đã mua thì không hoàn, kể cả khi Member tự hủy gói.** Hủy ghi danh, hủy thuê sân hoặc hủy gói của Member không tạo hoàn tiền tự động. Máy tính hoàn điểm (`RefundCalculator`) trả 0 cho Member tự hủy Membership, ghi danh lớp và lượt thuê sân; chỉ lỗi phía trung tâm mới có số điểm hoàn (Membership theo phần ngày chưa dùng, lớp theo buổi chưa cung cấp, sân 100%).
 - Hoàn phát sinh khi:
   - **Member gửi Support Request** (danh mục PAYMENT) và Manager hỗ trợ (mục 5).
   - **Sự cố hoặc quyết định phía trung tâm**: lớp dưới ngưỡng bị Manager hủy, hủy sân do trung tâm, sự cố sân. Lúc hủy hệ thống **chỉ gửi thông báo** cho Member. Member chọn một trong hai: nhận 100% giá trị còn lại bằng điểm (hoàn tự động ngay) hoặc gửi Support Request PAYMENT để Manager xử lý. Quá 2 ngày không chọn thì hệ thống tự hoàn điểm.
 - Với **hủy do trung tâm**, mỗi mục (ghi danh lớp hoặc lượt thuê sân) chỉ chọn **một** cách: điểm tự động hoặc yêu cầu hoàn tiền cho Manager; cách còn lại bị từ chối. Member tự hủy ghi danh thì không hoàn.
 - **Hoàn theo phương thức thanh toán gốc (quyết định 25/10/2026, mục 5.7):** Member trả bằng phương thức nào, bao nhiêu thì được hoàn đúng giá trị vào phương thức đó: phần VNPay hoàn về ngân hàng qua Manager, phần điểm hoàn lại thành điểm. Lựa chọn "nhận điểm" của hủy do trung tâm là ngoại lệ do Member tự chọn: toàn bộ giá trị còn lại đổi thành điểm.
 - Hệ thống **không gọi** ngân hàng hoặc VNPay Refund API. Chuyển khoản là thao tác ngoài hệ thống của Manager, hệ thống chỉ ghi nhận chứng từ.
-- Sửa BR-134/135: "hoàn chỉ bằng điểm, không chuyển khoản" thành "hoàn điểm cho sự cố phía trung tâm; hoàn chuyển khoản chỉ qua Support Request do Manager ghi nhận".
+- Sửa BR-83/135: "hoàn chỉ bằng điểm, không chuyển khoản" thành "hoàn điểm cho sự cố phía trung tâm; hoàn chuyển khoản chỉ qua Support Request do Manager ghi nhận".
 
 ## 4. Support Request: SLA, nhắc và hạng mục
 
@@ -148,7 +148,7 @@ Các endpoint dưới đây chưa có trong backend; không dùng như endpoint 
 | POST | `/api/support/requests/{id}/confirm-received` | Member | Chỉ khi có payout. Idempotent. |
 | POST | `/api/support/requests/{id}/report-not-received` | Member | Chỉ khi có payout và chưa xác nhận; mở lại request. |
 | POST | `/api/member-support-requests/{id}/payout` (multipart) | CenterManager | `amount` (phần VNPay), `note` (bắt buộc), `files[1..3]`. Phần điểm của khoản hoàn tự cộng lại trong cùng giao dịch (mục 5.7); response thêm `pointsRefunded`. Lỗi: 400 `payout_proof_required`, 400 `payout_note_required`, 409 `payout_amount_mismatch`, 409 `payout_amount_exceeds_paid`, 409 `payout_already_recorded`, 403 cho Receptionist. |
-| GET | `/api/members/me/invoices/{invoiceId}/refund-breakdown` | Member | `{totalVnd, vnpayVnd, pointsApplied, pointsVnd, refundableVnpayVnd, refundablePoints}` theo từng dòng; form PAYMENT dùng để hiện Invoice Breakdown và khóa lựa chọn ngân hàng khi `vnpayVnd = 0`. |
+| GET | `/api/members/me/invoices/{invoiceId}/refund-breakdown` | Member | `{totalVnd, vnpayVnd, pointsApplied, pointsVnd, refundableVnpayVnd, refundablePoints}` tính theo hóa đơn (mỗi hóa đơn checkout chỉ có 1 dòng); form PAYMENT dùng để hiện Invoice Breakdown và khóa lựa chọn ngân hàng khi `vnpayVnd = 0`. |
 | GET | `/api/support/attachments/{id}` (mở rộng) | Chủ request, FrontDesk, Manager | Ảnh Member gửi: chủ request, Lễ tân, Manager. Ảnh chứng từ payout: chỉ chủ request và CenterManager, Lễ tân nhận 404. |
 | GET | `/api/members/me/unactivated-payments` | Member | Danh sách invoice `RECONCILIATION_REQUIRED` của mình. |
 | POST | `/api/invoices/{invoiceId}/convert-to-points` | Member | Quy phần tiền đã thu ra điểm ngay (mục 2); 409 `reconciliation_already_resolved`. |
@@ -214,7 +214,7 @@ Job `SupportSlaReminderJob` chạy mỗi 15 phút (dedupe theo `request_id + rec
 10. (25/10/2026) Khi Gym đóng vì sự cố: không bán thêm Gym day pass (409 `gym_closed_today`); không check-in kể cả người đã mua vé (409 `gym_closed`); vé đã mua vẫn hết hạn 22:00 cùng ngày, không gia hạn và không hoàn điểm qua luồng hoàn hiện có. Manager có thể gửi thông báo email cho Member đã mua day pass vào ngày sự cố, rồi tặng điểm nếu Member đồng ý; nếu không thì Member gửi Support Request.
 11. (25/10/2026) Thuê sân của Member: chỉ thuê trong khung 06:00 đến trước 22:00 giờ Việt Nam, từ 22:00 đến 06:00 sáng hôm sau không thuê được; chỉ hiển thị và đặt trong 3 ngày lịch (hôm nay và 2 ngày kế tiếp), cửa sổ chuyển ngày lúc 06:00 (ví dụ từ 06:00 ngày 26 mở 26, 27, 28; từ 06:00 ngày 27 mở 27, 28, 29). Áp dụng cho cả Member tự thuê và Lễ tân đặt hộ Member; Lịch sân mà Manager và Lễ tân xem không bị giới hạn bởi cửa sổ này.
 12. (25/10/2026) Điểm danh lớp nhóm do **Coach** phụ trách lớp ghi (Present/Absent). Khi Coach ghi sai và Member kiến nghị, **Lễ tân** được chỉnh sửa bản ghi (bắt buộc lý do, ghi nhận Member đã kiến nghị, có audit); Lễ tân không điểm danh thay Coach.
-13. (25/10/2026) Lượt thuê sân `Confirmed` do **Lễ tân** đánh dấu **Checked-in** hoặc **No-show**; hết giờ kết thúc của lượt mà chưa đánh dấu thì hệ thống tự động ghi **No-show** (người ghi là System). No-show không hoàn tiền hay điểm (như Member tự hủy, BR-129), không đổi Invoice; sửa trạng thái đã ghi cần lý do và audit.
+13. (25/10/2026) Lượt thuê sân `Confirmed` do **Lễ tân** đánh dấu **Checked-in** hoặc **No-show**; hết giờ kết thúc của lượt mà chưa đánh dấu thì hệ thống tự động ghi **No-show** (người ghi là System). No-show không hoàn tiền hay điểm (như Member tự hủy, BR-65), không đổi Invoice; sửa trạng thái đã ghi cần lý do và audit.
 
 14. (25/10/2026) Hoàn song song theo tỷ lệ thanh toán gốc (mục 5.7): phần VNPay hoàn qua Manager chuyển khoản, phần điểm tự cộng lại vào ví trong cùng giao dịch ghi payout; hóa đơn 100% điểm không gửi được request ngân hàng; tách theo từng dòng hóa đơn; 1 điểm = 1.000đ.
 

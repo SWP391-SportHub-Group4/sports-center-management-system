@@ -50,7 +50,6 @@ export const en = {
   recordActions: {
     delete: "Delete",
     deleteRoom: "Delete room",
-    deleteRoomType: "Delete room type",
     deleteRate: "Delete court rate",
     deleteExport: "Delete exported report",
     roomDescription:

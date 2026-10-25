@@ -290,7 +290,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                   onConfirm={() => catalogApi.deleteRoom(r.roomId)}
                   onCompleted={() => {
                     state.reload();
-                    if (detailId) router.push("/manager/training-rooms");
+                    if (detailId) router.push("/manager/facilities");
                   }}
                 />
               </>

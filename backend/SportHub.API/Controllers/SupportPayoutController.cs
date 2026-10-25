@@ -145,7 +145,7 @@ internal static class SupportRefundBreakdown
     {
         if (invoice.CheckoutCycleId is null || invoice.PointsApplied <= 0) return 0;
         var returned = await (from l in db.Set<SportHub.Payment.Wallet.Domain.PointLedgerEntry>().AsNoTracking()
-                              join i in db.Set<InvoiceItem>().AsNoTracking() on l.InvoiceItemId equals i.ItemId
+                              join i in db.Set<InvoiceItem>().AsNoTracking() on l.InvoiceItemId equals (Guid?)i.ItemId
                               where i.InvoiceId == invoice.InvoiceId && l.ReferenceType == "SystemEvent"
                                   && l.EntryType == SportHub.Payment.Wallet.Domain.PointEntryType.Earn
                                   && l.Note != null && l.Note.StartsWith(NotePrefix)

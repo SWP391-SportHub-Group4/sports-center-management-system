@@ -2,7 +2,7 @@
 
 ## Manager workspace — 20 October 2026
 
-Luồng Manager đã chốt: Overview giữ nguyên; Services, Schedule, Support & Communication, People, Transaction & Report và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Manager chọn Sport khi tạo sân; các khóa Room Type cũ được giữ nội bộ để bảo toàn lịch sử và bảng giá. Ví điểm chỉ xem trong workspace thường; khoản tặng điểm có phê duyệt cho sự cố Gym tạm thời theo mục 6. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
+Luồng Manager đã chốt: Overview giữ nguyên; Services, Schedule, Support & Communication, People, Transaction & Report và Audit. Request tập trung các yêu cầu hiện có và báo cáo avatar; Incident cho phép bố trí buổi học bù với cửa sổ sự cố hợp lệ, kể cả lớp có học viên. Từ 26/10/2026 phòng/sân không còn gắn Sport hay Room Type: Manager tạo phòng chỉ với tên (và sức chứa), chọn phòng từ danh sách khi tạo lớp, và bấm Allow rental để vào `/manager/facilities` bật cho thuê. Ví điểm chỉ xem trong workspace thường; khoản tặng điểm có phê duyệt cho sự cố Gym tạm thời theo mục 6. Chi tiết API và migration nằm trong [API contract](api-contract.md#manager-workspace--20-october-2026). Các mô tả cũ mâu thuẫn với quyết định này được thay thế; kiến trúc module và quyền quản trị nhân sự của Admin giữ nguyên.
 
 ## Activation and audit policy update — 14 October 2026
 
@@ -35,9 +35,9 @@ Membership chỉ cấp quyền vào Gym. Khóa cầu lông/bóng rổ mua độc
 
 ### 1.2 Mở rộng môn
 
-Môn, chuyên môn Coach, loại phòng/sân, giờ mở cửa và giá là dữ liệu cấu hình. Thêm môn dùng hình thức vận hành đã hỗ trợ phải tái sử dụng luồng lịch, mua dịch vụ, thanh toán và báo cáo; không rẽ nhánh nghiệp vụ theo tên môn hoặc ID seed cố định. Môn có quy tắc khác cần bổ sung validation, thiết kế và kiểm thử.
+Môn, chuyên môn Coach, phòng/sân, giờ mở cửa và giá là dữ liệu cấu hình. Thêm môn dùng hình thức vận hành đã hỗ trợ phải tái sử dụng luồng lịch, mua dịch vụ, thanh toán và báo cáo; không rẽ nhánh nghiệp vụ theo tên môn hoặc ID seed cố định. Môn có quy tắc khác cần bổ sung validation, thiết kế và kiểm thử.
 
-**Mô hình đã triển khai (CAT-01):** môn (`sports`, có `code` bất biến) tách khỏi dịch vụ (`sport_service_offerings`: `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL`). Ba môn seed là Gym (Membership), Cầu lông và Bóng rổ (khóa học nhóm và thuê sân). Membership chỉ bật được ở môn có mã `gym`, kiểm ở backend. Mặc định thời lượng và sĩ số lớp nằm trên dịch vụ `GROUP_COURSE`. Phòng Gym được nhận biết qua loại phòng thuộc môn Gym (`sport_room_types`). Tắt môn hoặc dịch vụ chỉ chặn giao dịch mới, không hủy hay sửa thứ đã bán; fulfillment của hóa đơn đã tạo vẫn chạy. Manager thêm môn có lớp hoặc thuê sân bằng cấu hình, không sửa code. Chi tiết API ở [api-contract](api-contract.md).
+**Mô hình đã triển khai (CAT-01):** môn (`sports`, có `code` bất biến) tách khỏi dịch vụ (`sport_service_offerings`: `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL`). Ba môn seed là Gym (Membership), Cầu lông và Bóng rổ (khóa học nhóm và thuê sân). Membership chỉ bật được ở môn có mã `gym`, kiểm ở backend. Mặc định thời lượng và sĩ số lớp nằm trên dịch vụ `GROUP_COURSE`. Từ 26/10/2026 phòng không còn gắn môn hay loại phòng; Gym không cần phòng riêng để bán Membership và vé ngày. Tắt môn hoặc dịch vụ chỉ chặn giao dịch mới, không hủy hay sửa thứ đã bán; fulfillment của hóa đơn đã tạo vẫn chạy. Manager thêm môn có lớp hoặc thuê sân bằng cấu hình, không sửa code. Chi tiết API ở [api-contract](api-contract.md).
 
 ### 1.3 Ranh giới
 
@@ -54,7 +54,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngo
 | Receptionist | Tiếp đón, Gym check-in, đặt hộ thuê sân và đánh dấu check-in/no-show lượt thuê, chỉnh điểm danh lớp khi Member kiến nghị, checkout thanh toán hộ | Dùng điểm hộ cần OTP Member; nạp điểm hộ Member qua luồng Add points (VNPay) như Member tự nạp; không tự tặng/điều chỉnh điểm hoặc duyệt refund |
 | Coach | Xem lịch được giao; lập giáo án, ghi kết quả và nhận xét cho lớp/học viên được phân công | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
 | CenterManager | Môn/sân, hồ sơ/chuyên môn của Coach (không tạo Coach), lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
-| SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach), đổi role giữa các role staff, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
+| SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach; role chọn lúc tạo và không đổi sau đó), khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
 
 Backend kiểm policy, ownership, quan hệ và approval; ẩn nút frontend không thay thế authorization. Khoảng trống quyền đọc được ghi tại mục 13.
 
@@ -86,7 +86,7 @@ Controller xác thực request; application service kiểm nghiệp vụ và tra
 |---|---|---|
 | Danh tính | UserAccount, UserCredential, UserProfile, UserExternalLogin, EmailOtp | Tách account/auth/profile; FK nghiệp vụ trỏ account |
 | Coach | CoachProfile, UserSportSpecialty | Nhiều chuyên môn |
-| Catalog | Sport, RoomType, SportRoomType, Room, RoomOpeningHour, RoomBlock, CourtRate | Môn tương thích loại phòng; giờ/giá do trung tâm cấu hình |
+| Catalog | Sport, Room, RoomOpeningHour, RoomBlock, CourtRate | Phòng không gắn môn; chỉ phòng bật Allow rental mới cho thuê; giờ/giá do Manager cấu hình theo từng phòng |
 | Membership | MembershipPackage, MemberPackage | Catalog khác quyền lợi đã mua; snapshot thời hạn |
 | Khóa học | Class, ClassScheduleRule, ClassSession, Enrollment, Attendance | Lớp có nhiều buổi; ghi danh cả lớp; attendance unique theo enrollment/session |
 | Giữ chỗ | SeatHold, RoomOccupancy, CoachOccupancy | Hold có TTL; một cơ chế chung chống trùng sân/Coach |
@@ -140,9 +140,9 @@ Chi tiết tại [Phụ lục A — Từ điển dữ liệu](#phụ-lục-a--t�
 
 ### 5.1 Tài khoản và Membership Gym
 
-Đăng ký Member bằng email dùng OTP (hoặc Receptionist/Manager đăng ký Member mới tại quầy qua `POST /api/members/front-desk`: tạo Member không mật khẩu, ví 0 điểm, gửi email kích hoạt như staff; chờ kích hoạt thì gửi lại link hoặc sửa email gõ sai; quá 7 ngày chưa kích hoạt và chưa có hóa đơn/ghi danh/thuê sân/gói/điểm thì tài khoản bị gỡ và email được giải phóng). Tài khoản nhân sự (kể cả Coach kèm chuyên môn) chỉ do SystemAdministrator tạo qua `POST /api/users/admin/staff`: tài khoản không có mật khẩu, hệ thống gửi email kích hoạt (link dùng một lần, hạn 24 giờ) để người dùng tự đặt mật khẩu; Admin không đặt mật khẩu hộ và Manager không tạo Coach (Manager chỉ sửa hồ sơ/chuyên môn). **Member và staff là hai loại tài khoản tách biệt, không chuyển đổi qua lại (BR-142)** (409 `member_staff_role_change_not_allowed`); người muốn làm staff phải được Admin tạo tài khoản mới bằng email khác, tài khoản Member cũ giữ nguyên. Đổi role chỉ diễn ra giữa các role staff, Coach rời vai trò bị chặn khi còn lớp, lịch hay quan hệ huấn luyện (xem Phụ lục A, vòng đời CoachProfile). Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ. Email chưa được xác minh là của đúng người khi tạo; việc xác minh là link kích hoạt gửi tới email đó (Admin nhập email một lần, gõ sai thì sửa); tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
+Đăng ký Member bằng email dùng OTP (hoặc Receptionist/Manager đăng ký Member mới tại quầy qua `POST /api/members/front-desk`: tạo Member không mật khẩu, ví 0 điểm, gửi email kích hoạt như staff; chờ kích hoạt thì gửi lại link hoặc sửa email gõ sai; quá 7 ngày chưa kích hoạt và chưa có hóa đơn/ghi danh/thuê sân/gói/điểm thì tài khoản bị gỡ và email được giải phóng). Tài khoản nhân sự (kể cả Coach kèm chuyên môn) chỉ do SystemAdministrator tạo qua `POST /api/users/admin/staff`: tài khoản không có mật khẩu, hệ thống gửi email kích hoạt (link dùng một lần, hạn 24 giờ) để người dùng tự đặt mật khẩu; Admin không đặt mật khẩu hộ và Manager không tạo Coach (Manager chỉ sửa hồ sơ/chuyên môn). **Member và staff là hai loại tài khoản tách biệt, không chuyển đổi qua lại (BR-17)** (409 `member_staff_role_change_not_allowed`); người muốn làm staff phải được Admin tạo tài khoản mới bằng email khác, tài khoản Member cũ giữ nguyên. Đổi role chỉ diễn ra giữa các role staff, Coach rời vai trò bị chặn khi còn lớp, lịch hay quan hệ huấn luyện (xem Phụ lục A, vòng đời CoachProfile). Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ. Email chưa được xác minh là của đúng người khi tạo; việc xác minh là link kích hoạt gửi tới email đó (Admin nhập email một lần, gõ sai thì sửa); tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
 
-**Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. Đổi, đặt lại hoặc tạo mật khẩu lần đầu thành công đều gửi email "mật khẩu đã thay đổi" (sự kiện `PasswordChanged`, cùng transaction với việc đổi; không chứa mật khẩu hay mã; báo đã đăng xuất các thiết bị khác).
+**Quên mật khẩu (BR-15) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. Đổi, đặt lại hoặc tạo mật khẩu lần đầu thành công đều gửi email "mật khẩu đã thay đổi" (sự kiện `PasswordChanged`, cùng transaction với việc đổi; không chứa mật khẩu hay mã; báo đã đăng xuất các thiết bị khác).
 
 **Ngôn ngữ giao diện:** các trang xác thực (`/login`, `/register`, `/forgot-password`, `/reset-password`) luôn tiếng Anh, không đọc ngôn ngữ đã lưu và không có nút đổi ngôn ngữ; phần còn lại giữ EN/VI.
 
@@ -150,11 +150,11 @@ Chọn Membership → snapshot và checkout thanh toán → payment xác minh �
 
 ### 5.2 Vé Gym 1 ngày
 
-gói cố định `package_id = 50000`, 50.000đ, 1 ngày (Manager không sửa/ngừng). Chỉ bán từ 06:00 đến trước 22:00 giờ Việt Nam (409 `day_pass_outside_hours`) và hết hạn 22:00 cùng ngày mua (cột `member_packages.expires_at_utc`; mua 14:00 ngày 18/11 thì hết hạn 22:00 ngày 18/11; trong 60 phút cuối trước 22:00 lúc đặt vé ghi chú Gym đóng cửa 22:00; thanh toán thành công sau 22:00 thì không cấp vé, đi theo nhánh chưa cấp quyền lợi ở mục 6.3); mã check-in do server ký và cấp (`GET /api/members/me/checkin-code`, hết hạn 00:00 giờ Việt Nam hôm sau; lễ tân quét rồi `POST /api/members/checkin-code/resolve` để server đổi ra Member) chỉ có hiệu lực hết ngày (mã QR hội viên); vé ngày hết hạn theo `expires_at_utc`, và Member được báo rõ trước khi trả tiền (màn checkout, thẻ gói, màn bán của lễ tân, thông báo + email sau khi thanh toán). Tình huống khách lạ: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó lễ tân hỗ trợ mua vé hoặc khách tự mua trên web; chỉ lễ tân check-in cho Member (Member không tự check-in). Không bán khi Gym đóng cửa vì sự cố (409 `gym_closed_today`), không gia hạn khi đóng Gym, không hoàn trả, không nhắc hết hạn; báo cáo tách riêng vé ngày khỏi hội viên Membership. Phòng Gym được nhận biết qua loại phòng thuộc môn Gym (`sport_room_types`).
+gói cố định `package_id = 50000`, 50.000đ, 1 ngày (Manager không sửa/ngừng). Chỉ bán từ 06:00 đến trước 22:00 giờ Việt Nam (409 `day_pass_outside_hours`) và hết hạn 22:00 cùng ngày mua (cột `member_packages.expires_at_utc`; mua 14:00 ngày 18/11 thì hết hạn 22:00 ngày 18/11; trong 60 phút cuối trước 22:00 lúc đặt vé ghi chú Gym đóng cửa 22:00; thanh toán thành công sau 22:00 thì không cấp vé, đi theo nhánh chưa cấp quyền lợi ở mục 6.3); mã check-in do server ký và cấp (`GET /api/members/me/checkin-code`, hết hạn 00:00 giờ Việt Nam hôm sau; lễ tân quét rồi `POST /api/members/checkin-code/resolve` để server đổi ra Member) chỉ có hiệu lực hết ngày (mã QR hội viên); vé ngày hết hạn theo `expires_at_utc`, và Member được báo rõ trước khi trả tiền (màn checkout, thẻ gói, màn bán của lễ tân, thông báo + email sau khi thanh toán). Tình huống khách lạ: Receptionist đăng ký Member cho khách (email kích hoạt) hoặc khách tự đăng ký; sau đó lễ tân hỗ trợ mua vé hoặc khách tự mua trên web; chỉ lễ tân check-in cho Member (Member không tự check-in). Không bán khi Gym đóng cửa vì sự cố (409 `gym_closed_today`), không gia hạn khi đóng Gym, không hoàn trả, không nhắc hết hạn; báo cáo tách riêng vé ngày khỏi hội viên Membership. Từ 26/10/2026 phòng không còn gắn môn hay loại phòng; Gym không cần phòng riêng để bán Membership và vé ngày (các bảng `room_types`, `sport_room_types` chỉ giữ cho dữ liệu cũ).
 
 ### 5.3 Khóa cầu lông và bóng rổ
 
-**Seed lịch cố định (BR-141):** Bóng rổ 01 Thứ 2-4-6 07:00–09:00, Bóng rổ 02 Thứ 3-5-7 14:00–16:00; Cầu lông 01/02 cùng khung giờ trên sân cầu lông riêng. Khung còn lại mở cho Member thuê (mục 5.5); Manager có thể thêm lớp/sân vào khung khác sau.
+**Seed lịch cố định (BR-37):** Bóng rổ 01 Thứ 2-4-6 07:00–09:00, Bóng rổ 02 Thứ 3-5-7 14:00–16:00; Cầu lông 01/02 cùng khung giờ trên sân cầu lông riêng. Khung còn lại mở cho Member thuê (mục 5.5); Manager có thể thêm lớp/sân vào khung khác sau.
 
 Manager tạo lớp, nhiều buổi, phòng và Coach phù hợp → publish → Member mua cả khóa → giữ chỗ TTL → payment thành công tạo Enrollment → Coach được phân công điểm danh từng buổi (Receptionist chỉ chỉnh khi Coach ghi sai và Member kiến nghị).
 
@@ -178,17 +178,17 @@ Sĩ số thuộc Class. `ReservedCount` hiện bao gồm chỗ đang giữ và �
 
 ### 5.4 Ngưỡng lớp và chuyển lớp
 
-**Hủy ghi danh lớp:** trước buổi đầu còn ≥ 5 ngày hoàn 100%, dưới 5 ngày hoàn 50% (tự động, chỉ bằng điểm); đã vào buổi đầu không hoàn tự động — Member gửi đơn, Manager quyết định % hoàn kèm căn cứ. Lễ tân và Manager có thể hủy thay Member; lớp bị trung tâm hủy hoàn 100%.
+**Hủy ghi danh lớp:** Member tự hủy (hoặc Lễ tân/Manager hủy thay) không được hoàn ở mọi thời điểm (BR-90), chỉ hủy được trước buổi đầu. Lớp do trung tâm hủy: hệ thống chỉ thông báo, Member chọn nhận 100% giá trị còn lại bằng điểm (hoàn tự động ngay) hoặc gửi yêu cầu hoàn tiền cho Manager; không chọn trong 2 ngày thì tự hoàn điểm.
 
 Đánh giá số ghi danh trước buổi đầu theo cấu hình. Lớp dưới ngưỡng gửi lựa chọn chuyển lớp/hoàn điểm cùng deadline; job xử lý quá hạn idempotent. Miễn ngưỡng cần Manager và lý do.
 
 Chuyển lớp kiểm tra chỗ, điều kiện lớp đích và chuỗi giá trị đã trả. Chênh lệch dương qua checkout riêng, chỉ chuyển sau fulfillment. Không cấp quyền lợi lớp đích mà bỏ quên kết thúc lớp nguồn.
 
-Khi lớp dưới ngưỡng bị hủy lúc hết hạn phản hồi, Member còn ghi danh được hoàn 100% giá trị còn đủ điều kiện bằng điểm và nhận một thông báo (chuông + email) kèm số điểm hoàn và tối đa 3 khóa tương đương tại thời điểm đó (cùng môn, Published, đang mở đăng ký, còn chỗ, chưa bắt đầu, Member chưa ghi danh). Gợi ý chỉ là ảnh chụp lúc hủy: không lưu nguyện vọng, không gửi lại khi có lớp mới, không giữ chỗ hoặc tự ghi danh.
+Khi lớp dưới ngưỡng bị hủy lúc hết hạn phản hồi, Member còn ghi danh được hoàn 100% giá trị còn đủ điều kiện bằng điểm và nhận một thông báo (chuông + email) kèm số điểm hoàn và tối đa 3 khóa tương đương tại thời điểm đó (cùng môn, Published, đang mở đăng ký, còn chỗ, chưa bắt đầu, Member chưa ghi danh). Gợi ý chỉ là ảnh chụp lúc hủy: không lưu nguyện vọng, không gửi lại khi có lớp mới, không giữ chỗ hoặc tự ghi danh. Với lớp dưới ngưỡng do **Manager hủy** (ghi danh còn hiệu lực), hệ thống chỉ gửi thông báo, không cộng điểm lúc hủy: Member chọn nhận 100% giá trị còn lại bằng điểm (hoàn tự động ngay) hoặc gửi yêu cầu hoàn tiền cho Manager; không chọn trong 2 ngày thì tự hoàn điểm (xem [Payment-Support-Workflow](Payment-Support-Workflow.md) mục 3).
 
 ### 5.5 Thuê sân
 
-Member chọn môn/sân/giờ trong khung trống (khung lớp cố định theo BR-141 không cho thuê) → kiểm giờ mở cửa, giá, occupancy → snapshot giá theo block giờ → giữ sân → checkout → xác nhận rental. Không khai báo số người, không giới hạn số người, không quan tâm mục đích sử dụng.
+Member chọn sân đã bật cho thuê và giờ trong khung trống (khung lớp cố định theo BR-37 không cho thuê) → kiểm giờ mở cửa, giá, occupancy → snapshot giá theo block giờ → giữ sân → checkout → xác nhận rental. Không khai báo số người, không giới hạn số người, không quan tâm mục đích sử dụng.
 
 Hủy/hết hạn giải phóng occupancy đúng một lần. Hủy đủ hạn hoặc lỗi trung tâm hoàn điểm theo rule; không hoàn qua gateway. Không lưu roster hay số người đi cùng của Member thuê sân.
 
@@ -198,9 +198,9 @@ Preview tác động → Manager thực hiện phương án dời/bù/hủy lớ
 
 Toàn chuỗi tương tác không phải một transaction duy nhất. Incident history/detail đã có. Preview đã liệt kê từng hội viên bị ảnh hưởng, phương án xử lý và số điểm hoàn dự kiến do server tính. Resolve rental là một transaction (đã sửa lỗi FK `cancellation_incident_id` khi resolve rental đã thanh toán); các bước dời/bù lớp vẫn là thao tác riêng. Khi Manager chọn “giữ khung giờ”, hệ thống lưu một fence (`incident_fences`, hiệu lực 2 giờ) chặn đặt mới chồng khung giờ tại điểm vào chung `OccupancyService` (`409 room_under_incident_review`); fence được lưu nên có thể làm tiếp sau khi bỏ dở, gia hạn, nhả hoặc tự hết hạn, và tự đóng khi resolve.
 
-**Sự cố ảnh hưởng Gym (BR-130, BR-138; quyết định mới 25/10/2026, chưa triển khai):** Incident có phạm vi Gym vẫn chặn sử dụng Gym trong thời gian đóng cửa. Không gia hạn `EndDate` Membership Active và không dời `StartDate` các gói nối tiếp để bù sự cố tạm thời. Sau khi ghi nhận/resolve sự cố, Manager mở danh sách Member có Membership Active giao với thời gian Gym đóng cửa; lọc theo tên/email/mã Member, trạng thái hoặc gói Membership và khoảng thời gian bị ảnh hưởng. Manager chọn chính xác người nhận, đặt số điểm nguyên dương (cùng mức cho nhóm đã chọn hoặc chỉnh riêng từng Member), nhập lý do, xem lại người nhận và tổng điểm, rồi gửi yêu cầu tặng điểm. Bộ lọc chỉ thu hẹp danh sách để chọn, không tự động phát điểm. Mỗi khoản tặng gắn `incidentId` và `memberId`, chống gửi trùng; dùng quy trình CREDIT hiện có: Manager khác người đề xuất duyệt, sau đó mới cộng điểm vào ví, ghi ledger/audit và thông báo/email cho Member. Khoản này là tặng điểm do Manager quyết định, tách khỏi refund Membership và không đổi thời hạn quyền lợi. Cách tặng này là trường hợp riêng của luồng **Manager tặng điểm** (quyết định 25/10/2026): Manager có thể tặng điểm cho Member ngoài sự cố, giống phát voucher, bằng màn hình giống Add points của Member cộng thêm lý do bắt buộc và bộ lọc chọn nhóm/người nhận; có audit đầy đủ. Receptionist không có quyền tặng điểm nhưng nạp điểm hộ Member được. **Gym day pass trong sự cố (25/10/2026):** Khi Gym đóng vì sự cố: không bán thêm Gym day pass (409 `gym_closed_today`); không check-in kể cả người đã mua vé (409 `gym_closed`); vé đã mua vẫn hết hạn 22:00 cùng ngày, không gia hạn và không hoàn điểm qua luồng hoàn hiện có. Manager có thể gửi thông báo email cho Member đã mua day pass vào ngày sự cố, rồi tặng điểm nếu Member đồng ý; nếu không thì Member gửi Support Request. Buổi lớp bị ảnh hưởng vẫn bù theo BR-54; lượt thuê sân vẫn hoàn 100% bằng điểm. **Hiện trạng code** còn nhận `membershipExtensionDays`, tự gia hạn và gửi email gia hạn khi resolve; phải thay luồng đó, không xem là đáp ứng quyết định mới.
+**Sự cố ảnh hưởng Gym (BR-66, BR-118; quyết định mới 25/10/2026, chưa triển khai):** Incident có phạm vi Gym vẫn chặn sử dụng Gym trong thời gian đóng cửa. Không gia hạn `EndDate` Membership Active và không dời `StartDate` các gói nối tiếp để bù sự cố tạm thời. Sau khi ghi nhận/resolve sự cố, Manager mở danh sách Member có Membership Active giao với thời gian Gym đóng cửa; lọc theo tên/email/mã Member, trạng thái hoặc gói Membership và khoảng thời gian bị ảnh hưởng. Manager chọn chính xác người nhận, đặt số điểm nguyên dương (cùng mức cho nhóm đã chọn hoặc chỉnh riêng từng Member), nhập lý do, xem lại người nhận và tổng điểm, rồi gửi yêu cầu tặng điểm. Bộ lọc chỉ thu hẹp danh sách để chọn, không tự động phát điểm. Mỗi khoản tặng gắn `incidentId` và `memberId`, chống gửi trùng; dùng quy trình CREDIT hiện có: Manager khác người đề xuất duyệt, sau đó mới cộng điểm vào ví, ghi ledger/audit và thông báo/email cho Member. Khoản này là tặng điểm do Manager quyết định, tách khỏi refund Membership và không đổi thời hạn quyền lợi. Cách tặng này là trường hợp riêng của luồng **Manager tặng điểm** (quyết định 25/10/2026): Manager có thể tặng điểm cho Member ngoài sự cố, giống phát voucher, bằng màn hình giống Add points của Member cộng thêm lý do bắt buộc và bộ lọc chọn nhóm/người nhận; có audit đầy đủ. Receptionist không có quyền tặng điểm nhưng nạp điểm hộ Member được. **Gym day pass trong sự cố (25/10/2026):** Khi Gym đóng vì sự cố: không bán thêm Gym day pass (409 `gym_closed_today`); không check-in kể cả người đã mua vé (409 `gym_closed`); vé đã mua vẫn hết hạn 22:00 cùng ngày, không gia hạn và không hoàn điểm qua luồng hoàn hiện có. Manager có thể gửi thông báo email cho Member đã mua day pass vào ngày sự cố, rồi tặng điểm nếu Member đồng ý; nếu không thì Member gửi Support Request. Buổi lớp bị ảnh hưởng vẫn bù theo BR-43; lượt thuê sân vẫn hoàn 100% bằng điểm. **Hiện trạng code** còn nhận `membershipExtensionDays`, tự gia hạn và gửi email gia hạn khi resolve; phải thay luồng đó, không xem là đáp ứng quyết định mới.
 
-**Hoàn tiền do lỗi trung tâm (Center Fault, BR-91):** Membership hoàn theo **phần chưa dùng**, không hoàn 100%: theo ngày còn lại / tổng ngày. Vé Gym 1 ngày không hoàn. Logic nằm ở `RefundCalculator`.
+**Hoàn tiền do lỗi trung tâm (Center Fault, BR-88):** Membership hoàn theo **phần chưa dùng**, không hoàn 100%: theo ngày còn lại / tổng ngày. Vé Gym 1 ngày không hoàn. Logic nằm ở `RefundCalculator`.
 
 ## 6. Payment, VNPay và ví điểm
 
@@ -338,7 +338,7 @@ G01–G13 có evidence và acceptance chi tiết. Endpoint đề xuất chưa ph
 |---|---|---|
 | COACH-01 | Backend còn nhận loại request cũ khi tạo mới | Quy tắc đã chốt: Coach chỉ tạo ABSENCE; UI đã làm và PUT sửa đã gỡ. `ClassSessionChangeRequestService.ValidRequestType` hiện vẫn nhận SUBSTITUTE/RESCHEDULE/CANCEL_WITH_MAKEUP từ client cũ. Chưa đạt yêu cầu chặn ở mọi client. Khi triển khai riêng phải chặn tạo mới loại cũ, giữ lịch sử và quyền rút Pending; không hạn chế ba phương án quyết định của Manager. Đọc code hiện tại chưa phải bằng chứng đã sửa hoặc đã test. |
 | CAT-01 | Môn nhiều dịch vụ | Đã có schema, migration, API và UI. Còn nghiệm thu nâng cấp dữ liệu cũ và thanh toán VNPay sandbox trên staging. |
-| CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-141 | Ứng dụng chính có `Br141Seeder` và lệnh `--seed-br141=true` cho Development/local DB, không seed lúc startup; tạo 4 lớp × 12 buổi, 120 phút, mở tuyển sinh và giữ occupancy sân/HLV. Giữ dữ liệu hiện có khi chạy lại. `Br141SeederTests` chạy entry point thật với PostgreSQL test, kiểm tra lịch/occupancy, API danh sách lớp, chặn thuê trùng và bảo toàn dữ liệu khi retry. Còn nghiệm thu giao diện trên bản deploy. |
+| CAT-02 | Thuê sân là chức năng của Member; lịch lớp cố định BR-37 | Ứng dụng chính có `Br141Seeder` và lệnh `--seed-br141=true` cho Development/local DB, không seed lúc startup; tạo 4 lớp × 12 buổi, 120 phút, mở tuyển sinh và giữ occupancy sân/HLV. Giữ dữ liệu hiện có khi chạy lại. `Br141SeederTests` chạy entry point thật với PostgreSQL test, kiểm tra lịch/occupancy, API danh sách lớp, chặn thuê trùng và bảo toàn dữ liệu khi retry. Còn nghiệm thu giao diện trên bản deploy. |
 | G01 | Public sân, availability/giá, Coach profile đầy đủ | DTO public an toàn, giá/availability tính server |
 | G02 | Gợi ý khóa tương đương khi lớp bị hủy | Đã có mã: tác vụ expiry hoàn 100% điểm, gửi thông báo chuông/email có số điểm và tối đa 3 khóa cùng môn đang mở, còn chỗ, chưa bắt đầu tại thời điểm hủy; không lưu gì thêm. Còn nghiệm thu staging. |
 | G03 | Manager AI xếp lịch/tool calling/tạo nháp | Endpoint/service, xác nhận người dùng, recheck quyền/occupancy, audit |
@@ -351,11 +351,11 @@ G01–G13 có evidence và acceptance chi tiết. Endpoint đề xuất chưa ph
 | G11 | Callback VNPay public | Đã sửa route theo PAY-03; còn test runtime và sandbox thật. Mock endpoint có đăng nhập không thay thế IPN public |
 | G12 | Scoping Member search/detail cho Coach | Có guard dựa trên phân công chủ nhiệm hiện tại ở lớp Published/InProgress và Enrollment Confirmed, EndedAt rỗng; relationship Active cũ không tự cấp quyền. Dạy thay chỉ đọc buổi được giao, GET members/records bắt buộc sessionId; không mở directory/hồ sơ/AI học viên từ phân công đó. Đánh giá lớp trước chỉ đọc qua lớp chủ nhiệm hiện tại đủ quyền. Đối chiếu mã 06683826; còn nghiệm thu role E2E trên staging, không đánh dấu Pass chỉ từ việc đọc code. |
 | G13 | Đóng/mở tuyển sinh độc lập lifecycle lớp | **Đã làm:** đóng chỉ chặn hold mới (`enrollment_closed`), hold còn hiệu lực vẫn hoàn tất, ghi danh hiện có giữ nguyên; không dùng cancel thay close enrollment. `classes.enrollment_closed_reason/_at_utc` lưu lý do (bắt buộc, 3–500 ký tự); Member đã ghi danh luôn nhận thông báo + email tiếng Anh khi đóng và khi mở lại (event `ClassEnrollmentClosed/Reopened`). Hoàn điểm lỗi trung tâm vẫn đi qua huỷ khóa hoặc yêu cầu hoàn do Manager duyệt `CenterFault`. Test: `EnrollmentClosureTests`. `GET /api/members/me/class-holds` cho UI “Hoàn tất thanh toán”. **Còn thiếu:** gắn nhãn sự cố vào yêu cầu hoàn của Member, test hold hết hạn sau khi đóng, nghiệm thu UI trên trình duyệt |
-| INC-01 | Sự cố Gym tạm thời: Manager lọc/chọn Member bị ảnh hưởng và tặng số điểm tự quyết, không gia hạn Membership; Center Fault Membership cho vấn đề khác vẫn hoàn theo phần chưa dùng (BR-91) | **Chưa đáp ứng quyết định 25/10/2026.** Hiện code còn nhận `membershipExtensionDays` (0–31), resolve tự cộng ngày vào `EndDate`, dời `StartDate` gói nối tiếp và gửi email gia hạn; `incident_notices` còn lưu `membership_extension_days`, `extended_member_count`. Cần bỏ nhánh gia hạn, thêm lọc/chọn người nhận và preview số điểm/tổng điểm, gắn từng yêu cầu CREDIT với sự cố và Member, Manager thứ hai duyệt, chống tặng trùng, thông báo sau khi cộng. `RefundCalculator` Center Fault Membership theo ngày còn lại/tổng ngày đã có và chỉ áp dụng cho căn cứ khác theo BR-91. |
+| INC-01 | Sự cố Gym tạm thời: Manager lọc/chọn Member bị ảnh hưởng và tặng số điểm tự quyết, không gia hạn Membership; Center Fault Membership cho vấn đề khác vẫn hoàn theo phần chưa dùng (BR-88) | **Chưa đáp ứng quyết định 25/10/2026.** Hiện code còn nhận `membershipExtensionDays` (0–31), resolve tự cộng ngày vào `EndDate`, dời `StartDate` gói nối tiếp và gửi email gia hạn; `incident_notices` còn lưu `membership_extension_days`, `extended_member_count`. Cần bỏ nhánh gia hạn, thêm lọc/chọn người nhận và preview số điểm/tổng điểm, gắn từng yêu cầu CREDIT với sự cố và Member, Manager thứ hai duyệt, chống tặng trùng, thông báo sau khi cộng. `RefundCalculator` Center Fault Membership theo ngày còn lại/tổng ngày đã có và chỉ áp dụng cho căn cứ khác theo BR-88. |
 | UI-01 | Frontend redesign theo contract hiện có | Kế hoạch từng màn phải nối API thật, kiểm E2E trước khi ghi hoàn thành |
 | SUP-01 | Hỗ trợ Member trong workspace Manager | Đã nối `/manager/support`, menu và form ghi nhận trong hồ sơ Member; tái sử dụng luồng Lễ tân, sửa link theo vai trò. API tìm/lọc/phân trang, trả tên/email Member và tên người phụ trách kể cả đã ngừng hoạt động. Giữ quyền mọi FrontDesk theo FR-22; ghi chú mới nhất và audit, close lặp idempotent. Chi tiết và evidence: Quy trình hỗ trợ Member. UI tests dùng API fixture; còn nghiệm thu bằng tài khoản/dữ liệu thực trên môi trường đích. |
 | SUP-02 | SLA 48 giờ, Remind us và nhắc nhân viên | **Chưa triển khai.** `slaDueAtUtc`, `canRemindAtUtc`, endpoint remind, job nhắc người được gán hoặc Manager và Lễ tân nếu chưa gán, cảnh báo Overdue trên hàng đợi và trang chủ. Chi tiết: [Payment-Support-Workflow](Payment-Support-Workflow.md) mục 4. |
-| SUP-03 | Request PAYMENT và payout chuyển khoản | **Chưa triển khai.** Form request chọn hóa đơn và 1–3 ảnh, không có số tài khoản, Lễ tân thấy, tạo hộ và nhắc giúp, Manager xử lý; Manager gọi điện cho Member, ghi payout kèm ghi chú và ảnh chứng từ; Member xem và xác nhận; audit, email, báo cáo `bankRefundPaid`. Mục 5–8 của Payment-Support-Workflow. |
+| SUP-03 | Request PAYMENT và payout chuyển khoản | **Có mã, chưa nghiệm thu** (payout, hoàn điểm song song, đề nghị hoàn do trung tâm hủy; màn payout của Manager còn cần chỉnh). Form request chọn hóa đơn và 1–3 ảnh, không có số tài khoản, Lễ tân thấy, tạo hộ và nhắc giúp, Manager xử lý; Manager gọi điện cho Member, ghi payout kèm ghi chú và ảnh chứng từ; Member xem và xác nhận; audit, email, báo cáo `bankRefundPaid`. Mục 5–8 của Payment-Support-Workflow. |
 | PAY-04 | Day pass 06:00–22:00 | **Chưa triển khai.** Đổi `DayPass.ValidHours`, chặn `day_pass_outside_hours`, ghi chú trong 60 phút cuối trước giờ đóng cửa, kiểm tra giờ ở bước cấp quyền lợi. Mục 1 của Payment-Support-Workflow. |
 | PAY-05 | Paid, not activated | **Chưa triển khai.** Màn Lễ tân, thông báo Member, `convert-to-points`, khóa trạng thái một lần; gọi QueryDR trước khi nhả chỗ. Mục 2 của Payment-Support-Workflow. |
 | OPS-01 | Nghiệm thu vận hành | **Đã có:** `GET /api/manager/operations/health` (job, outbox, đối soát thanh toán) và `GET /api/reports/revenue/reconciliation` (đối soát báo cáo với hóa đơn/thanh toán/ledger/refund; test 6.000 hóa đơn). `scripts/Test-ReportPerformance.ps1` đo thời gian báo cáo/đối soát/health trên API thật và fail khi lệch số hoặc quá ngân sách. **Còn lại:** chạy script đó trên staging và lưu kết quả làm evidence (chưa chạy), deploy/migration, backup-restore, cảnh báo tự động gửi ra ngoài |
@@ -413,16 +413,16 @@ Phần này chốt tên field thực tế sau refactor; các bảng logic cũ b�
 #### `USER_ACCOUNTS`
 **Mục đích:** bảng định danh + vòng đời gốc — mọi vai trò (System Administrator, Center Manager, Coach, Member, Receptionist) đều là 1 row ở đây, phân biệt qua `role_id`. Không tách bảng riêng cho từng vai trò để tránh trùng lặp logic auth/login. Đây là bảng cha duy nhất mà gần như mọi entity khác (member, coach, staff...) trỏ FK vào — cố tình giữ tối giản (chỉ định danh + vòng đời) để hầu như không bao giờ cần đổi schema, tách khỏi phần auth (`USER_CREDENTIALS`/`USER_EXTERNAL_LOGINS`) và phần hiển thị (`USER_PROFILES`) vốn thay đổi thường xuyên hơn.
 
-**Quy tắc:** quan hệ 1–1 **tùy chọn** với `COACH_PROFILES` — được tạo cho Coach; khi Coach đổi sang role staff khác vẫn giữ record lịch sử, role hiện tại quyết định hiệu lực. Member và staff không chuyển đổi qua lại (409 `member_staff_role_change_not_allowed`): người muốn làm staff dùng email khác do Admin tạo.
+**Quy tắc:** quan hệ 1–1 **tùy chọn** với `COACH_PROFILES` — được tạo cho Coach. Member và staff không chuyển đổi qua lại (409 `member_staff_role_change_not_allowed`): người muốn làm staff dùng email khác do Admin tạo.
 
 | Field | Vai trò |
 |---|---|
 | `UserId` (PK) | Định danh duy nhất, dùng làm khóa ngoại ở gần như mọi entity khác (member, coach, staff đều trỏ về đây) |
-| `Email` | Định danh đăng nhập/liên hệ — **unique không phân biệt hoa/thường** (BR-1, BR-49, index `LOWER(email)`). Đặt ở đây (không phải `USER_CREDENTIALS`) vì email là định danh, không phải bí mật — nhiều module (Invoice, Notification) cần đọc mà không nên phải đụng tới bảng chứa `PasswordHash` |
+| `Email` | Định danh đăng nhập/liên hệ — **unique không phân biệt hoa/thường** (BR-1, BR-8, index `LOWER(email)`). Đặt ở đây (không phải `USER_CREDENTIALS`) vì email là định danh, không phải bí mật — nhiều module (Invoice, Notification) cần đọc mà không nên phải đụng tới bảng chứa `PasswordHash` |
 | `RoleId` (FK → ROLES) | Quyết định phân quyền (RBAC) — 1 user chỉ có 1 role (5 role) |
 | `Status` | `ACTIVE / BANNED / DEACTIVATED` — kiểm soát user có được login/thao tác hay không, không xóa cứng user (giữ lịch sử payment/attendance) |
 | `CreatedAt` | Audit, hiển thị "thành viên từ ngày..." |
-| `SecurityStamp` (uuid, ) | Đổi mỗi khi reset/đổi mật khẩu hoặc đổi vai trò (BR-103/104). JWT mang claim `sst`; middleware so với DB nên mọi phiên/token cũ bị vô hiệu ngay sau khi đổi mật khẩu — không cần blacklist token |
+| `SecurityStamp` (uuid, ) | Đổi mỗi khi reset/đổi mật khẩu (BR-15/104); không còn đổi vai trò (26/10/2026). JWT mang claim `sst`; middleware so với DB nên mọi phiên/token cũ bị vô hiệu ngay sau khi đổi mật khẩu — không cần blacklist token |
 
 Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POINT_WALLETS` (tạo tự động khi tạo tài khoản).
 
@@ -441,7 +441,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 |---|---|
 | `UserId` (PK, FK → USER_ACCOUNTS) | Cùng giá trị PK với `UserAccount.UserId` — quan hệ 1–1 |
 | `FullName` | Hiển thị UI, in hóa đơn, thông báo |
-| `Phone` | Liên hệ, có thể dùng cho notification kênh SMS sau này — **unique nếu có giá trị** (nullable, cho phép nhiều user cùng để trống; BR-62) |
+| `Phone` | Liên hệ, có thể dùng cho notification kênh SMS sau này — **unique nếu có giá trị** (nullable, cho phép nhiều user cùng để trống; BR-11) |
 
 #### `USER_EXTERNAL_LOGINS`
 **Mục đích:** đăng nhập qua provider ngoài (Google, sau này có thể thêm Facebook...) — quan hệ **1-N thật** với `USER_ACCOUNTS` (khác `USER_CREDENTIALS`/`USER_PROFILES` là 1-1), vì 1 user có thể gắn nhiều provider theo thời gian. Đây là lý do entity này cần tách bảng riêng thay vì nhét thêm cột `google_id`/`google_refresh_token`... trực tiếp vào `USER_ACCOUNTS`.
@@ -455,7 +455,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | `RefreshToken` | Nullable; scope Google login hiện không lưu refresh token. Nếu bổ sung lưu trữ phải thiết kế bảo vệ riêng, không lưu thô |
 | `CreatedAt` | Mốc link provider — cũng là mốc dùng để kiểm tra `(UserId, Provider)` unique (1 user không link trùng 1 provider 2 lần) |
 
-**Business rule đăng nhập Google (BR-59/60, xem mục P của Business Rules):** `POST /api/auth/google` đăng nhập thẳng nếu danh tính Google đã link; nếu email Google (đã xác minh) trùng một tài khoản đang hoạt động thì **tự link** danh tính Google vào tài khoản đó; nếu email chưa tồn tại thì **tạo ngay** tài khoản Member với `PasswordHash = NULL`. Không có bước onboarding. Chi tiết: mục P của [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx).
+**Business rule đăng nhập Google (BR-9/60, xem mục P của Business Rules):** `POST /api/auth/google` đăng nhập thẳng nếu danh tính Google đã link; nếu email Google (đã xác minh) trùng một tài khoản đang hoạt động thì **tự link** danh tính Google vào tài khoản đó; nếu email chưa tồn tại thì **tạo ngay** tài khoản Member với `PasswordHash = NULL`. Không có bước onboarding. Chi tiết: mục P của [Business Rules](SportManagement_BusinessRules_v2.0_updated.docx).
 
 #### `ROLES`
 **Mục đích:** danh mục cố định 5 vai trò trong hệ thống, tách riêng để RBAC dễ mở rộng (thêm role mới không cần đổi schema `USER_ACCOUNTS`).
@@ -463,7 +463,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | Field | Vai trò |
 |---|---|
 | `RoleId` (PK) | Khóa để `UserAccount.RoleId` trỏ vào |
-| `RoleName` | **5 giá trị cố định** theo thiết kế hệ thống `UserRole`: `SystemAdministrator`, `CenterManager`, `Coach`, `Member`, `Receptionist`; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-63) |
+| `RoleName` | **5 giá trị cố định** theo thiết kế hệ thống `UserRole`: `SystemAdministrator`, `CenterManager`, `Coach`, `Member`, `Receptionist`; API UPPER_SNAKE_CASE, JWT PascalCase. Seed unique (BR-12) |
 
 #### `COACH_PROFILES`
 **Mục đích:** chỉ lưu thông tin **nghiệp vụ bổ sung** của tài khoản role `Coach` (huấn luyện viên của trung tâm) — không lưu profile chung (tên/SĐT ở `USER_PROFILES`, mật khẩu ở `USER_CREDENTIALS`) và **không lưu dữ liệu lương/hoa hồng/hợp đồng**. Từ v3 bảng này **không còn phân loại Coach**: năng lực giảng dạy nằm ở `USER_SPORT_SPECIALTIES` (Coach dạy được môn nào), nên 1 Coach có thể dạy nhiều môn.
@@ -488,16 +488,16 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 
 | Field | Vai trò |
 |---|---|
-| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-103), `SetPassword` (mã 6 số xác nhận chủ email khi tài khoản Google tạo mật khẩu lần đầu — BR-60 luồng A). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; đăng ký dùng OTP 6 số; **reset dùng token link ngẫu nhiên 256-bit (base64url)** — `CodeHash` luôn là SHA-256 của mã/token, không lưu bản rõ |
+| `Purpose` () | Enum `EmailOtpPurpose`: `Register`, `ResetPassword` (quên mật khẩu, không hỏi mật khẩu cũ — BR-15), `SetPassword` (mã 6 số xác nhận chủ email khi tài khoản Google tạo mật khẩu lần đầu — BR-10 luồng A). Cho phép mỗi mục đích có OTP còn hiệu lực riêng cho cùng 1 email; đăng ký dùng OTP 6 số; **reset dùng token link ngẫu nhiên 256-bit (base64url)** — `CodeHash` luôn là SHA-256 của mã/token, không lưu bản rõ |
 
-> OTP xác nhận dùng điểm tại quầy **không** dùng bảng này mà dùng `POINT_CONFIRMATIONS` (hiệu lực 5 phút, tối đa 5 lần sai, BR-139).
+> OTP xác nhận dùng điểm tại quầy **không** dùng bảng này mà dùng `POINT_CONFIRMATIONS` (hiệu lực 5 phút, tối đa 5 lần sai, BR-85).
 
 ---
 
 ### Module: Training (hồ sơ & quan hệ — nền tảng cho AI/Workout)
 
 #### `MEMBER_TRAINING_PROFILE`
-**Mục đích:** hồ sơ tập luyện của Member — **bắt buộc phải có dữ liệu thật** để AI gợi ý bài tập (BR-26 yêu cầu đủ 3 tham số: goal, level, lịch sử) thay vì để client tự gửi tham số (dễ bị giả mạo/không chính xác).
+**Mục đích:** hồ sơ tập luyện của Member — **bắt buộc phải có dữ liệu thật** để AI gợi ý bài tập (BR-59 yêu cầu đủ 3 tham số: goal, level, lịch sử) thay vì để client tự gửi tham số (dễ bị giả mạo/không chính xác).
 
 | Field | Vai trò |
 |---|---|
@@ -509,7 +509,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | `UpdatedAt` | Biết hồ sơ có đang cũ/stale không (AI dựa vào profile cũ có thể gợi ý sai) |
 
 #### `COACH_MEMBER_RELATIONSHIP`
-**Mục đích:** ghi nhận **ai là HLV phụ trách ai**, và **vì sao** (qua lớp học, cá nhân, hay Manager gán tay) — cần thiết vì 1 Coach chỉ được tạo Workout Plan / xem thông tin của Member mà mình thực sự phụ trách (BR-23/BR-24), không phải mọi Member.
+**Mục đích:** ghi nhận **ai là HLV phụ trách ai**, và **vì sao** (qua lớp học, cá nhân, hay Manager gán tay) — cần thiết vì 1 Coach chỉ được tạo Workout Plan / xem thông tin của Member mà mình thực sự phụ trách (BR-126/BR-127), không phải mọi Member.
 
 **Quy tắc:** quan hệ `CLASS_BASED` được tạo tự động khi Member ghi danh lớp của Coach (một quan hệ Active cho mỗi cặp Coach–Member); Manager có thể gán tay (`ASSIGNED_BY_MANAGER`). Quan hệ chỉ cho phép Coach xem thông tin cần thiết của Member, không thay thế ghi danh lớp.
 
@@ -535,9 +535,9 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | Field | Vai trò |
 |---|---|
 | `PackageId` (PK) | Định danh gói |
-| `Name` | Hiển thị cho Member chọn mua — **unique trong catalog** (BR-56) |
+| `Name` | Hiển thị cho Member chọn mua — **unique trong catalog** (BR-29) |
 | `Price` | Giá niêm yết hiện tại; khi checkout phải snapshot vào `INVOICE_ITEMS`, thay đổi giá sau đó không sửa Invoice cũ |
-| `DurationInMonths` | Chỉ nhận 1, 3, 6 hoặc 12 tháng; dùng công thức calendar date của BR-9 |
+| `DurationInMonths` | Chỉ nhận 1, 3, 6 hoặc 12 tháng; dùng công thức calendar date của BR-27 |
 | `IsActive` / `Description` | Ngừng bán không làm mất quyền lợi Membership đã tạo; Description tùy chọn |
 
 #### `MEMBER_PACKAGES`
@@ -550,14 +550,14 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | `PackageId` (FK) | Mua theo template gói nào |
 | `StartDate` / `EndDate` | Calendar date, đều inclusive; lần mua mới lấy StartDate theo ngày Việt Nam của `vnp_PayDate` đã xác minh; early renewal bắt đầu sau EndDate hiện tại |
 | `Status` | `ACTIVE`, `EXPIRED`, `CANCELLED`; chỉ tạo/kích hoạt sau Payment thành công trong cùng transaction; Refund Completed hủy quyền lợi tương ứng |
-| Liên kết renewal | Early renewal tạo record mới bắt đầu ngay sau EndDate hiện tại (BR-65). |
+| Liên kết renewal | Early renewal tạo record mới bắt đầu ngay sau EndDate hiện tại (BR-30). |
 
 ---
 
 ### Module: Scheduling
 
 > Môn thể thao là **dữ liệu cấu hình** (`SPORTS`) do Manager CRUD, không còn enum `Yoga/GroupX`. Lớp Cầu lông/Bóng rổ là **khóa học cố định** (ví dụ "Cầu lông 01"): Member mua gói của đúng lớp đó và ghi danh cả khóa (`ENROLLMENTS.ClassId`, không còn đăng ký từng buổi). Sĩ số thuộc `CLASSES`, không thuộc session. Chống trùng phòng/Coach do DB đảm bảo bằng `ROOM_OCCUPANCIES`/`COACH_OCCUPANCIES` (exclusion constraint).
-> Catalog (Sport, RoomType, Room, giờ hoạt động, block, CourtRate) nằm trong module Scheduling (`Catalog/`), không tách project.
+> Catalog (Sport, Room, giờ hoạt động, block, CourtRate) nằm trong module Scheduling (`Catalog/`), không tách project.
 
 #### `SPORTS`
 **Mục đích:** danh mục môn thể thao của trung tâm. Thay cho chuỗi `Class.Discipline`; thêm/sửa môn không cần đổi code. Seed: Gym, Cầu lông, Bóng rổ.
@@ -580,24 +580,9 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 | `SportId` (FK) | Môn |
 | `ServiceType` | `MEMBERSHIP_ACCESS` (0), `GROUP_COURSE` (1), `COURT_RENTAL` (2), `PERSONAL_TRAINING` (3); chỉ được append |
 | `IsEnabled` | Tắt chỉ chặn giao dịch mới (quote, checkout, publish lớp, mua), không hủy thứ đã bán |
-| `DefaultSessionMinutes` / `DefaultMaxCapacity` (nullable) | Chỉ có với `GROUP_COURSE` (bắt buộc, > 0); phải NULL với dịch vụ khác. `CLASS_SESSIONS.EndAtUtc` suy ra từ thời lượng; `Class.Capacity` không được vượt sĩ số (BR-51). Đổi mặc định chỉ ảnh hưởng lớp tạo sau |
+| `DefaultSessionMinutes` / `DefaultMaxCapacity` (nullable) | Chỉ có với `GROUP_COURSE` (bắt buộc, > 0); phải NULL với dịch vụ khác. `CLASS_SESSIONS.EndAtUtc` suy ra từ thời lượng; `Class.Capacity` không được vượt sĩ số (BR-41). Đổi mặc định chỉ ảnh hưởng lớp tạo sau |
 
-Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ (`GROUP_COURSE`, `COURT_RENTAL`; mặc định lớp 120 phút theo BR-141).
-
-#### `ROOM_TYPES`
-**Mục đích:** loại sân/phòng (Phòng Gym, Sân cầu lông, Sân bóng rổ) — đơn vị gắn giá thuê sân (`COURT_RATES`) và ràng buộc môn nào chơi được ở đâu.
-
-| Field | Vai trò |
-|---|---|
-| `RoomTypeId` (PK) | Định danh |
-| `Name` | Tên loại — unique |
-
-#### `SPORT_ROOM_TYPES`
-**Mục đích:** bảng nối cho biết môn nào chơi/tập được ở loại sân/phòng nào; dùng kiểm tra khi Manager gán `Class.DefaultRoomId`/`ClassSession.RoomId`.
-
-| Field | Vai trò |
-|---|---|
-| `SportId` (FK) / `RoomTypeId` (FK) | PK ghép — cặp môn–loại sân hợp lệ |
+Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ (`GROUP_COURSE`, `COURT_RENTAL`; mặc định lớp 120 phút theo BR-37).
 
 #### `ROOMS`
 **Mục đích:** danh mục phòng/sân vật lý của trung tâm (không chỉ phòng tập).
@@ -605,8 +590,8 @@ Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ
 | Field | Vai trò |
 |---|---|
 | `RoomId` (PK) | Định danh phòng/sân |
-| `Name` | Hiển thị lịch/booking — **unique toàn trung tâm** (BR-57) |
-| `RoomTypeId` (FK, ) | Loại sân/phòng; quyết định môn nào dùng được và bảng giá thuê |
+| `Name` | Hiển thị lịch/booking — **unique toàn trung tâm** (BR-23) |
+| `IsRentable` (bool, mặc định false) | **Mới 26/10/2026.** Bật bằng nút Allow rental sau khi phòng đã có giờ hoạt động và giá thuê riêng; tắt thì Member không thấy phòng |
 | `IsActive` () | Ngừng dùng thay cho xóa; sân ngừng hoạt động không nhận lịch mới |
 
 #### `ROOM_OPENING_HOURS`
@@ -642,15 +627,15 @@ Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ
 | `CreatedByUserId` / `CreatedAt` | Ai tạo, khi nào |
 
 #### `COURT_RATES`
-**Mục đích:** bảng giá thuê sân theo loại sân và khung giờ; giá được **snapshot** vào `COURT_RENTALS` khi đặt.
+**Mục đích:** bảng giá thuê sân theo từng sân và khung giờ; giá được **snapshot** vào `COURT_RENTALS` khi đặt.
 
 | Field | Vai trò |
 |---|---|
 | `RateId` (PK) | Định danh |
-| `RoomTypeId` (FK) | Loại sân áp dụng |
+| `RoomId` (FK) | Sân áp dụng (giá theo từng phòng) |
 | `DaysOfWeek` | Chuỗi thứ áp dụng (vd `MON,TUE`) |
-| `StartTimeLocal` / `EndTimeLocal` | Khung giờ áp dụng; **không chồng nhau** trong cùng loại sân + ngày (kiểm tra ở service) |
-| `PricePerHour` | Đơn giá/giờ, **bội số 1.000 VND** (BR-113) |
+| `StartTimeLocal` / `EndTimeLocal` | Khung giờ áp dụng; **không chồng nhau** trong cùng sân + ngày (kiểm tra ở service) |
+| `PricePerHour` | Đơn giá/giờ, **bội số 1.000 VND** (BR-33) |
 | `IsActive` | Ngừng áp dụng mà không sửa lịch sử |
 
 #### `CLASSES`
@@ -661,18 +646,18 @@ Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ
 | `Code` | Mã lớp **unique** (vd `CAULONG-01`) |
 | `Name` | Tên hiển thị ("Cầu lông 01") |
 | `CoachId` (FK, nullable) | Coach phụ trách; **bắt buộc trước khi publish** và phải có specialty khớp môn (`CoachCanTeach`) |
-| `DefaultRoomId` (FK) | Phòng/sân mặc định; phải thuộc loại sân hợp lệ với môn (`SPORT_ROOM_TYPES`) |
+| `DefaultRoomId` (FK) | Phòng/sân mặc định, chọn từ danh sách tất cả phòng đang hoạt động (không lọc theo môn từ 26/10/2026) |
 | `StartDate` | Ngày của buổi đầu tiên |
 | `NumSessions` | Tổng số buổi của khóa |
-| `Price` | Giá gói lớp, **bội số 1.000 VND** (BR-113); snapshot vào `INVOICE_ITEMS` (`ItemType = ClassPackage`) |
-| `CostAmount` | Chi phí vận hành do Manager nhập tay (BR-118) — cơ sở tính ngưỡng hoàn vốn |
+| `Price` | Giá gói lớp, **bội số 1.000 VND** (BR-33); snapshot vào `INVOICE_ITEMS` (`ItemType = ClassPackage`) |
+| `CostAmount` | Chi phí vận hành do Manager nhập tay (BR-51) — cơ sở tính ngưỡng hoàn vốn |
 | `BreakEvenThreshold` (nullable) | `ceil(CostAmount / Price)`, snapshot khi publish — số học viên tối thiểu để lớp mở |
 | `ThresholdStatus` | `NotEvaluated`, `Met`, `AtRisk`, `WaivedByManager` (Manager miễn ngưỡng) |
 | `ThresholdDeadlineUtc` | Mốc đánh giá ngưỡng = giờ bắt đầu buổi đầu − N ngày − 10 phút đệm cho job 5 phút (`class.threshold_days_before_start`, mặc định 3) |
 | `ThresholdResponseDeadlineUtc` (nullable) | Hạn Member phản hồi khi lớp chuyển `AtRisk`: đủ thời lượng cấu hình kể từ lúc gửi thông báo (mặc định 48 giờ), kết thúc ít nhất 24 giờ trước buổi đầu; null khi job chạy quá muộn và cần Manager xử lý ngay |
 | `ConfirmedCount` | Số ghi danh `Confirmed` (chuyển từ `ClassSession.ConfirmedCount` lên lớp) |
 | `ReservedCount` | `ConfirmedCount` + số `SEAT_HOLDS` đang `Active`; tăng/giảm nguyên tử bằng 1 UPDATE có điều kiện — **chốt chặn chống bán vượt sĩ số** (`ReservedCount ≤ Capacity`) |
-| `CreatedByAi` | Lớp `Draft` do chatbot đề xuất xếp lịch (BR-123) — Manager phải xác nhận |
+| `CreatedByAi` | Lớp `Draft` do chatbot đề xuất xếp lịch (BR-108) — Manager phải xác nhận |
 | `Version` | Optimistic concurrency token |
 
 #### `CLASS_THRESHOLD_RESPONSES` (implementation P1.09)
@@ -704,7 +689,7 @@ Một quyết định riêng cho từng ghi danh được thông báo AtRisk. To
 |---|---|
 | `SessionId` (PK) | Định danh buổi |
 | `ClassId` (FK) / `SessionNo` | Thuộc lớp nào, buổi thứ mấy — **unique `(ClassId, SessionNo)`** |
-| `RoomId` (FK) | Phòng thực tế (có thể khác `DefaultRoomId` khi Manager dời/đổi phòng, BR-54) |
+| `RoomId` (FK) | Phòng thực tế (có thể khác `DefaultRoomId` khi Manager dời/đổi phòng, BR-43) |
 | `CoachId` (FK) | Coach thực tế (có thể khác Coach lớp khi đổi/dạy thay) |
 | `StartAtUtc` / `EndAtUtc` | Mốc tuyệt đối UTC — dùng check trùng lịch, tính hạn sửa điểm danh |
 | `RescheduledFromSessionId` (self-FK, nullable) | Buổi gốc khi đây là buổi dời lịch — giữ vết |
@@ -716,7 +701,7 @@ Một quyết định riêng cho từng ghi danh được thông báo AtRisk. To
 |---|---|
 | `EnrollmentId` (PK) | Định danh |
 | `MemberId` (FK) | Ai ghi danh |
-| `SourceEnrollmentId` (self-FK, nullable) | Ghi danh này là kết quả chuyển lớp từ ghi danh nào (BR-120) |
+| `SourceEnrollmentId` (self-FK, nullable) | Ghi danh này là kết quả chuyển lớp từ ghi danh nào (BR-53) |
 | `TransferDifferenceInvoiceItemId` (nullable FK) | Dòng invoice chênh lệch đã thanh toán cho chuyển sang khóa đắt hơn |
 
 Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Confirmed'` — không ghi danh trùng cùng lớp.
@@ -754,9 +739,9 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
 |---|---|
 | `AttendanceId` (PK) | Định danh |
 | `EnrollmentId` (FK) | Ghi danh nào |
-| `LastModifiedAt` | Mốc sửa gần nhất — cho phép sửa sau buổi **≤ 24 giờ**, có Audit (BR-98) |
+| `LastModifiedAt` | Mốc sửa gần nhất — cho phép sửa sau buổi **≤ 24 giờ**, có Audit (BR-56) |
 
-> Lượt thuê sân **không có** bảng điểm danh và không lưu số người đi cùng; chỉ có trạng thái check-in của lượt (Chưa check-in / Checked-in / No-show) do Receptionist đánh dấu, hết giờ chưa đánh dấu thì hệ thống tự ghi No-show (BR-159). Trung tâm chỉ tính tiền thuê của Member (BR-128, BR-131, BR-132).
+> Lượt thuê sân **không có** bảng điểm danh và không lưu số người đi cùng; chỉ có trạng thái check-in của lượt (Chưa check-in / Checked-in / No-show) do Receptionist đánh dấu, hết giờ chưa đánh dấu thì hệ thống tự ghi No-show (BR-68). Trung tâm chỉ tính tiền thuê của Member (BR-64, BR-67, BR-69).
 
 #### `ROOM_OCCUPANCIES`
 **Mục đích:** nơi **duy nhất** database kiểm tra trùng phòng/sân (PostgreSQL không cho exclusion constraint chạy chéo nhiều bảng). Mỗi buổi lớp, lượt thuê sân và block đều ghi 1 dòng ở đây.
@@ -801,7 +786,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 `PendingPayment`, `Confirmed` và `InUse` giữ dòng `ROOM_OCCUPANCIES`; hủy, `Completed` và `NoShow` giải phóng dòng này. `NoShow` không tự hoàn tiền.
 
 #### `GYM_CHECKINS`
-**Mục đích:** ghi nhận thời điểm Member vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-64. Không theo dõi thời điểm rời Gym.
+**Mục đích:** ghi nhận thời điểm Member vào tập Gym/Fitness **tự do, không qua đặt lịch** — tách khỏi ghi danh lớp. Chỉ Receptionist ghi nhận — xem BR-57. Không theo dõi thời điểm rời Gym.
 
 | Field | Vai trò |
 |---|---|
@@ -810,7 +795,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 | `CheckedInByUserId` (FK, not null) | Lễ tân nào thực hiện — luôn có giá trị, không phải self-service |
 | `CheckInTime` | Mốc check-in (UTC) |
 
-Điều kiện tạo (BR-64): Member phải có Membership `Active`; Gym không giới hạn số lượt trong thời hạn Membership và không trừ quota/session. Hai lượt của cùng Member cách nhau ít nhất 10 giây.
+Điều kiện tạo (BR-57): Member phải có Membership `Active`; Gym không giới hạn số lượt trong thời hạn Membership và không trừ quota/session. Hai lượt của cùng Member cách nhau ít nhất 10 giây.
 
 ---
 
@@ -849,7 +834,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 
 ### Module: Payment
 
-> Invoice được tạo tại checkout và trả **đủ một lần** trong một checkout, nhưng có thể **chia**: một phần bằng **điểm** (`PointsApplied`) và phần còn lại bằng **VNPay-QR** (`CashAmount`). Tối đa một Payment thành công cho phần tiền. PaymentAttempt có thể tạo lại. **Hoàn trả tự động chỉ bằng điểm**; hoàn chuyển khoản chỉ do Manager thực hiện ngoài hệ thống và ghi nhận qua Support Request ([Payment-Support-Workflow](Payment-Support-Workflow.md)), **không gọi VNPay Refund API** (BR-135 sửa theo quyết định 24/10/2026). Quy đổi **1 điểm = 1.000 VND, không hết hạn, không rút tiền mặt** (BR-134).
+> Invoice được tạo tại checkout và trả **đủ một lần** trong một checkout, nhưng có thể **chia**: một phần bằng **điểm** (`PointsApplied`) và phần còn lại bằng **VNPay-QR** (`CashAmount`). Tối đa một Payment thành công cho phần tiền. PaymentAttempt có thể tạo lại. **Hoàn trả tự động chỉ bằng điểm**; hoàn chuyển khoản chỉ do Manager thực hiện ngoài hệ thống và ghi nhận qua Support Request ([Payment-Support-Workflow](Payment-Support-Workflow.md)), **không gọi VNPay Refund API** (BR-93 sửa theo quyết định 24/10/2026). Quy đổi **1 điểm = 1.000 VND, không hết hạn, không rút tiền mặt** (BR-83).
 > **Implementation:** checkout, wallet, VNPay adapter/IPN/QueryDR và refund điểm đã có mã. Sandbox thật chưa được nghiệm thu trong đợt rà soát; xem mục 13 của thiết kế hệ thống.
 > Người thụ hưởng Invoice là **Member** (kể cả khi thuê sân).
 
@@ -859,12 +844,12 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 | Field | Vai trò |
 |---|---|
 | `InvoiceId` (PK) | Định danh nội bộ |
-| `InvoiceNumber` | Mã hóa đơn dễ đọc, **unique**, sinh từ DB sequence (không random ở app) để tránh trùng khi 2 request song song (constraint #5, BR-58) |
+| `InvoiceNumber` | Mã hóa đơn dễ đọc, **unique**, sinh từ DB sequence (không random ở app) để tránh trùng khi 2 request song song (constraint #5) |
 | `MemberId` (FK), API `beneficiaryUserId` | Member (Membership/gói lớp/thuê sân) hưởng dịch vụ; tách khỏi người checkout |
 | `IssuedByUserId` (FK) | Member tự checkout hoặc Receptionist thao tác hộ |
 | `TotalAmount` | Tổng snapshot các InvoiceItem; VND, trả đủ trong một checkout, không cọc/trả góp/thiếu/thừa |
-| `PointsApplied` (int, mặc định 0, ) | Số điểm dùng thanh toán (BR-136). Điểm được **giữ** (`Hold`) lúc checkout và **trừ** (`Spend`) khi Invoice Paid |
-| `CashAmount` () | Phần phải thu tiền = `TotalAmount − PointsApplied × 1000`. Khi `= 0` **không tạo `PAYMENT_ATTEMPTS`** và Invoice chuyển `Paid` ngay trong transaction fulfillment (BR-85) |
+| `PointsApplied` (int, mặc định 0, ) | Số điểm dùng thanh toán (BR-84). Điểm được **giữ** (`Hold`) lúc checkout và **trừ** (`Spend`) khi Invoice Paid |
+| `CashAmount` () | Phần phải thu tiền = `TotalAmount − PointsApplied × 1000`. Khi `= 0` **không tạo `PAYMENT_ATTEMPTS`** và Invoice chuyển `Paid` ngay trong transaction fulfillment (BR-77) |
 | `PaidVia` (nullable, ) | Chuỗi persistence; wire `POINTS`, `VN_PAY`, `VN_PAY_AND_POINTS` và các giá trị đối soát theo API contract; null khi chưa Paid |
 | `HoldExpiresAtUtc` | Hạn giữ chỗ/giữ điểm của checkout mới (`hold.minutes`, Manager chỉnh 10–30 phút, mặc định 15); là snapshot, không đổi khi sửa setting |
 | `Status` | `ISSUED`, `PAID`, `VOID`, `PAID_AFTER_RECONCILIATION`; expiry thuộc checkout/attempt; Paid không sửa/xóa/void |
@@ -932,7 +917,7 @@ Ràng buộc: `EXCLUDE USING gist (CoachId WITH =, Period WITH &&) WHERE (IsActi
 | `HeldPoints` (≥ 0) | Điểm đang giữ cho checkout `PendingPayment` |
 | `Version` | Optimistic concurrency token — chống dùng điểm đồng thời |
 
-#### `POINT_LEDGER` (`PointLedgerEntry` — BR-94, 137)
+#### `POINT_LEDGER` (`PointLedgerEntry` — BR-92, 137)
 **Mục đích:** sổ cái giao dịch điểm, **chỉ ghi thêm** (không UPDATE/DELETE — chặn bằng trigger hoặc quyền DB); là nguồn để đối soát số dư và báo cáo `PointsIssued`/`PointsRedeemed`/`OutstandingPoints`. Không có cột hết hạn.
 
 | Field | Vai trò |
@@ -985,7 +970,7 @@ Cột **Tham chiếu** của lịch sử điểm trình bày cặp `ReferenceTyp
 | `LastAttemptAt` / `SentAt` | Mốc lần thử gần nhất / mốc gửi thành công |
 
 #### `AI_LOGS`
-**Mục đích:** log mọi lượt gọi tính năng AI (gợi ý bài tập — Flow 5; **chatbot function calling — Flow 6, nhóm làm ở v3**, BR-123/124) — phục vụ debug, đo hiệu năng, và audit việc AI trả lời/gọi hàm gì cho ai. Từ v3 chatbot có tool registry (Member xem lịch hôm nay; Manager gợi ý xếp lịch tạo lớp `Draft` chờ xác nhận) nên mỗi lượt ghi thêm tool call.
+**Mục đích:** log mọi lượt gọi tính năng AI (gợi ý bài tập — Flow 5; **chatbot function calling — Flow 6, nhóm làm ở v3**, BR-108/124) — phục vụ debug, đo hiệu năng, và audit việc AI trả lời/gọi hàm gì cho ai. Từ v3 chatbot có tool registry (Member xem lịch hôm nay; Manager gợi ý xếp lịch tạo lớp `Draft` chờ xác nhận) nên mỗi lượt ghi thêm tool call.
 
 | Field | Vai trò |
 |---|---|
@@ -1032,27 +1017,26 @@ Cột **Tham chiếu** của lịch sử điểm trình bày cặp `ReferenceTyp
 
 ### Field Identity
 
-Các field này mô tả yêu cầu BR-59/BR-60/BR-78; trạng thái code/migration được đánh giá riêng khi triển khai.
+Các field này mô tả yêu cầu BR-9/BR-10/BR-13; trạng thái code/migration được đánh giá riêng khi triển khai.
 
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
-| EmailOtp (entity mới, module Identity) | Theo email và purpose; chỉ mã hiện hành có hiệu lực. Phục vụ BR-78 — xác thực OTP khi Register bằng email/mật khẩu. thêm `Purpose` (`Register`/`ResetPassword`/`SetPassword`) — mỗi mục đích một OTP còn hiệu lực cho cùng email (xem `EMAIL_OTPS`) |
-| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-103, bằng link email) và tạo mật khẩu lần đầu của tài khoản Google (BR-60, mã 6 số) |
+| EmailOtp (entity mới, module Identity) | Theo email và purpose; chỉ mã hiện hành có hiệu lực. Phục vụ BR-13 — xác thực OTP khi Register bằng email/mật khẩu. thêm `Purpose` (`Register`/`ResetPassword`/`SetPassword`) — mỗi mục đích một OTP còn hiệu lực cho cùng email (xem `EMAIL_OTPS`) |
+| EmailOtp.Purpose () | Enum `EmailOtpPurpose`; dùng cho đăng ký, quên mật khẩu (BR-15, bằng link email) và tạo mật khẩu lần đầu của tài khoản Google (BR-10, mã 6 số) |
 | EmailOtp.Email | Email chuẩn hóa; chỉ OTP mới nhất còn hiệu lực; rate limit theo email và IP |
 | EmailOtp.CodeHash | Hash của mã OTP 6 số; không lưu hoặc log plaintext |
 | EmailOtp.ExpiresAt | Mã hết hạn sau 10 phút kể từ lần yêu cầu gần nhất |
 | EmailOtp.Attempts | Số lần verify sai liên tiếp cho mã hiện tại; vượt 5 lần → phải yêu cầu mã mới |
 | EmailOtp.ConsumedAt | null = còn dùng được; set khi verify đúng, mã không dùng lại được lần 2 |
 | Google account state | Email mới qua Google tạo account Active ngay, `PasswordHash = NULL`; người dùng tự tạo mật khẩu sau (OTP trong Cài đặt tài khoản hoặc Quên mật khẩu). Không còn bảng/phiếu onboarding (`GOOGLE_ONBOARDING_TICKETS` đã bị gỡ) |
-| AuthResponse.SuggestedPassword | **Không sử dụng.** Hệ thống không sinh hoặc gửi mật khẩu gợi ý (BR-60) |
+| AuthResponse.SuggestedPassword | **Không sử dụng.** Hệ thống không sinh hoặc gửi mật khẩu gợi ý (BR-10) |
 
 ### Field chuyên môn Coach
 
 | Entity.Field | Mục đích và ràng buộc |
 |---|---|
-| CoachProfile (entity, module Identity) | 1–1 `UserAccount`, được tạo cho Coach, giữ record lịch sử khi đổi role. Không nhân bản email/họ tên/số điện thoại/mật khẩu. chỉ còn `UserId` + `Bio` |
-| CoachProfile.Salary/HourlyRate/CommissionRate/EmploymentContract | **Không dùng (giữ).** Payroll/hợp đồng nhân sự ngoài phạm vi (BR-101, kể cả chia doanh thu với người thuê sân) |
-| Vòng đời CoachProfile khi đổi role | **Quy tắc:** chỉ đổi giữa role staff; Coach chỉ rời vai trò khi không còn lớp chưa kết thúc, lịch tương lai (`CoachOccupancy`) hay quan hệ huấn luyện Active (409 `role_change_blocked` kèm lý do). Khi đổi: giữ `CoachProfile` làm lịch sử (không cascade delete), xóa `UserSportSpecialty` và `CoachServiceQualification`; role hiện tại trên `UserAccount` quyết định hiệu lực. Đổi sang Coach luôn phải chọn chuyên môn mới |
+| CoachProfile (entity, module Identity) | 1–1 `UserAccount`, được tạo cho Coach, Không nhân bản email/họ tên/số điện thoại/mật khẩu. chỉ còn `UserId` + `Bio` |
+| CoachProfile.Salary/HourlyRate/CommissionRate/EmploymentContract | **Không dùng (giữ).** Payroll/hợp đồng nhân sự ngoài phạm vi (BR-123, kể cả chia doanh thu với người thuê sân) |
 
 ---
 
@@ -1192,11 +1176,11 @@ Entry point — đăng ký DI cho toàn bộ hệ thống:
 
 | File | Size | Chức năng | Nghiệp vụ |
 |---|---|---|---|
-| `MemberPackageExpiryJob.cs` | 4.2KB | Quét gói thành viên hết hạn → đánh dấu Expired | BR-11, BR-33 |
+| `MemberPackageExpiryJob.cs` | 4.2KB | Quét gói thành viên hết hạn → đánh dấu Expired | BR-124, BR-116 |
 | `ClassStatusJob.cs` | 2.6KB | Cập nhật trạng thái lớp học (mở/đóng tự động) | Lifecycle lớp học |
 | `SeatHoldExpiryJob.cs` | 1.1KB | Giải phóng giữ chỗ (SeatHold) quá hạn | Tránh block capacity |
 | `PointHoldExpiryJob.cs` | 1.0KB | Giải phóng điểm bị hold quá hạn | Wallet system |
-| `NotificationDispatchJob.cs` | 2.0KB | Gửi batch thông báo chưa dispatch | BR-34 |
+| `NotificationDispatchJob.cs` | 2.0KB | Gửi batch thông báo chưa dispatch | BR-117 |
 | `PeriodicJob.cs` | 2.2KB | Base class cho periodic background job | Shared infra |
 
 #### Persistence/

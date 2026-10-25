@@ -67,7 +67,7 @@ Mỗi lần khởi động Development, baseline phòng được bổ sung idemp
 
 Trên lịch Member, sau khi hủy thuê sân thành công, thẻ chuyển ngay sang `Cancelled`, mờ dần trong 2,6 giây rồi rời khỏi lịch. Lịch Manager và Receptionist vẫn ghi nhận lượt đã hủy bằng nhãn trạng thái `Cancelled`; bản ghi cũng còn trong lịch sử thuê sân, chi tiết, hóa đơn và dữ liệu hoàn điểm. Frontend local chạy bằng `npm run dev` và tự nhận thay đổi mã nguồn.
 
-### 3.2.1 Dữ liệu dev: seed lớp BR-141 và reset
+### 3.2.1 Dữ liệu dev: seed lớp BR-37 và reset
 
 Seed lịch lớp cố định (Bóng rổ và Cầu lông 01 T2/4/6 07:00-09:00, 02 T3/5/7 14:00-16:00) và bảng giá thuê sân (Cầu lông 100.000, Bóng rổ 200.000 đồng/giờ) là lệnh riêng, idempotent, không chạy lúc khởi động:
 

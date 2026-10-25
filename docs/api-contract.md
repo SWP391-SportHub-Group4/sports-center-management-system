@@ -30,17 +30,20 @@ This section defines Manager workspace scope and navigation. These rules superse
 - `POST /api/manager/avatar-reports/{reportId}/dismiss`: Manager-only, idempotent after resolution.
 - `DELETE /api/manager/users/{userId}/avatar`: Manager-only current Member/Coach photo removal; resolves open reports and retains history. Legacy member-only removal remains compatible.
 - `POST /api/class-sessions/{sessionId}/incident-makeup`: Manager-only `{fenceId,reason,makeup}`; requires a held, matching, unexpired Incident fence and a valid future replacement. Allows enrolled classes. Ordinary `/cancel` still rejects active Confirmed enrollment; historical `/incident` permits whole-session makeup under its validated Incident window.
-- Room create/update accepts direct `sportId`; rental setup no longer requires `roomTypeId` from the user. Room responses append nullable `sportId`. Legacy type/rate keys are retained internally. Existing scheduled/priced rooms cannot silently change sports.
 - `GET /api/member-packages` adds optional `packageId`; `GET /api/manager/classes` adds `coachId`, including main and noncancelled session assignments.
 - HTTP manual wallet adjustment creation and legacy point-credit approval/rejection return 403. Wallet read/ledger, payment and refund commands remain functional.
 
-## Tạo Sport kèm Room Type tùy chọn — 19 October 2026
+## Phòng không gắn môn, Allow rental và bỏ đổi vai trò — 26 October 2026
 
-`POST /api/manager/sports` bổ sung `createRoomType` (mặc định false) và `roomTypeName` (tên do Manager nhập, tối đa 100 ký tự). Khi chọn true, tên sau trim phải có nội dung và không trùng Room Type hiện có (không phân biệt hoa/thường); lỗi `invalid_room_type_name` hoặc `room_type_name_taken` không tạo Sport. Sport, Room Type Active, liên kết SportRoomType và audit được lưu cùng transaction. Khi false/bỏ trống, tên Room Type được bỏ qua và không tạo/sửa Room Type hay liên kết. `PUT` không hỗ trợ tạo Room Type (`room_type_creation_only` nếu bật flag). Response Sport giữ nguyên; Room Type mới xuất hiện trong `/api/room-types` kèm sportIds. Không tạo sân vật lý. Không cần migration.
+Quyết định nhóm 26/10/2026. **Contract dưới đây là yêu cầu cho team code; các endpoint mới (đánh dấu "mới") chưa được triển khai.**
 
-## Tạo sân cho thuê trọn gói — 19 October 2026
+**1. Phòng chỉ cần tên.** Khi trung tâm xây mới, Manager tạo phòng/sân bằng `POST api/rooms` với `{name, capacity, isActive?}`; phòng không có `sportId` hay `roomTypeId`. Tên phòng unique (409 `room_name_taken`, BR-23). Không còn khái niệm Room Type: bỏ form tạo Room Type ở màn Sport.
 
-Manager-only `POST /api/rooms/rental` lưu sân, giờ hoạt động, giá riêng và bật dịch vụ thuê trong một transaction. Court-rate request/response bổ sung `roomId` nullable; giá riêng được ưu tiên hơn giá chung theo loại sân. Xem contract, validation và verification.
+**2. Chọn phòng khi tạo lớp.** Form tạo/sửa lớp và đổi phòng buổi học hiển thị danh sách tất cả phòng đang hoạt động từ `GET api/rooms`, không lọc theo môn. `GET api/availability/rooms` không còn nhận `sportId`; phòng bận bị loại theo occupancy. Xung đột giờ mở cửa, Coach và phòng vẫn trả 409 như trước (BR-24, BR-40).
+
+**3. Allow rental.** Mặc định `RoomResponse.isRentable = false` (mới) và Member không thấy phòng khi thuê sân. Ở danh sách phòng của Manager, nút **Allow rental** đưa Manager tới trang `/manager/facilities` của phòng đó để cấu hình giờ hoạt động (`PUT api/manager/rooms/{roomId}/opening-hours`) và giá thuê theo giờ riêng của phòng (`POST/PUT api/manager/court-rates` với `roomId`). Khi đã có giờ hoạt động và ít nhất một khung giá, Manager bật cho thuê bằng `POST api/manager/rooms/{roomId}/rental/enable` (mới) và tắt bằng `POST api/manager/rooms/{roomId}/rental/disable` (mới; tắt chỉ chặn đặt mới, lượt thuê đã xác nhận giữ nguyên). Bật khi thiếu giờ hoặc giá trả 409 `rental_setup_incomplete` kèm `missing[]` (`opening_hours`, `court_rate`). `GET api/availability/rooms?rentable=true` chỉ trả phòng đã bật. Tên endpoint enable/disable là đề xuất; team có thể đổi miễn là giữ hành vi trên và cập nhật lại tài liệu này.
+
+**4. Admin không đổi role staff.** Không có endpoint đổi role. Role được chọn khi `POST api/users/admin/staff` và giữ nguyên. Tạo nhầm role thì Admin khóa hoặc vô hiệu hóa tài khoản và tạo tài khoản mới bằng email khác. Chuyên môn Coach chỉ do Manager sửa qua `PUT api/manager/coaches/{userId}` (audit `UPDATE_COACH_SPECIALTIES`). Màn Admin không có nút đổi role.
 
 ## M06 class opening decision — 18 October 2026
 
@@ -144,8 +147,8 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 | GET | `/api/invoices/{invoiceId}/point-confirmations/current` | Receptionist; audited beneficiary, revision, points, failedAttempts, expiry/resendAtUtc và status PENDING/LOCKED/EXPIRED; không trả code/hash/salt. |
 | GET | `/api/invoices/by-item/{itemId}` | Lookup invoice từ own enrollment invoiceItemId; dùng lại quyền đọc invoice. Own invoice list hỗ trợ filter status. |
 | GET | `/api/refunds/quote/{itemId}` | Ownership + paid/benefit eligibility; `{systemCalculatedPoints}` do backend tính. |
-| POST | `/api/refunds/class-cancellations` | Body `{invoiceItemId}`. Member hủy ghi danh của mình, Lễ tân/Manager hủy thay. Chỉ trước buổi đầu: còn ≥ 5 ngày hoàn 100%, dưới 5 ngày hoàn 50% (tự động bằng điểm, ghi `PaymentAdjustment` Completed). Lớp đã bắt đầu → 409 `class_already_started`, dùng `POST /api/refunds` để Manager quyết định. |
-| POST | `/api/refunds/membership-cancellations` | Body `{invoiceItemId}`. Hủy Membership đang hiệu lực (Member, hoặc Lễ tân/Manager thay): còn từ 2/3 thời hạn hoàn 50% bằng điểm, ít hơn 409 `refund_points_zero`; còn gói gia hạn nối tiếp → 409 `membership_has_renewal` (hủy gói nối tiếp trước). |
+| POST | `/api/refunds/class-cancellations` | Body `{invoiceItemId}`. Member hủy ghi danh của mình, Lễ tân/Manager hủy thay. Chỉ trước buổi đầu (lớp đã bắt đầu → 409 `class_already_started`). **Member tự hủy không được hoàn ở mọi thời điểm (BR-90)**: số điểm tính ra luôn 0 nên trả 409 `refund_points_zero`. Lớp do trung tâm hủy không đi qua endpoint này mà theo `api/refunds/center-cancellations` (Phần H). |
+| POST | `/api/refunds/membership-cancellations` | Body `{invoiceItemId}`. Hủy Membership đang hiệu lực (Member, hoặc Lễ tân/Manager thay). **Member tự hủy không được hoàn (BR-88)**: 409 `refund_points_zero`; vé Gym 1 ngày 409 `day_pass_non_refundable`; còn gói gia hạn nối tiếp → 409 `membership_has_renewal` (hủy gói nối tiếp trước). |
 | POST | `/api/refunds` | Item lock và tối đa một request REQUESTED chưa xử lý trên item; submit lặp trả request hiện có. Không cho FE tự gửi số điểm duyệt. |
 | GET | `/api/class-threshold-responses/mine`, `/{id}`, `/by-token?token=` | Member owner; course/sport/remaining paid value/deadline/choice/status/additionalInvoiceId/serverNowUtc. Token chỉ hash ở backend, không ghi analytics. |
 | GET | `/api/class-threshold-responses/{id}/transfer-quote?targetClassId=` | Owner, response còn mở; cùng môn, target Published/chưa bắt đầu. Backend tính cashDifference/walletCreditPoints; giá trị chia hết cho 1.000. |
@@ -162,7 +165,7 @@ Các endpoint được giới hạn theo lớp/buổi được phân công, hỗ
 ## Quy ước wire và dữ liệu
 
 - Enum JSON hiện tại: **UPPER_SNAKE_CASE** (`ISSUED`, `PAID_AFTER_RECONCILIATION`, `GROUP_COURSE`, `VN_PAY`). Enum số không được chấp nhận. DTO string biểu diễn enum có `WireEnum` converter; query enum chấp nhận canonical và tên nội bộ để tương thích. JWT role claim vẫn dùng tên nội bộ, không tự chuyển JWT.
-- Enum DB hiện tại: lưu int mặc định EF (không có `HasConversion`). Khi thêm giá trị phải append, không đổi số cũ. `UserRole` hiện: CenterManager=0, Coach=1, Member=2, Receptionist=3, SystemAdministrator=4 (đúng 5 role, BR-140).
+- Enum DB hiện tại: lưu int mặc định EF (không có `HasConversion`). Khi thêm giá trị phải append, không đổi số cũ. `UserRole` hiện: CenterManager=0, Coach=1, Member=2, Receptionist=3, SystemAdministrator=4 (đúng 5 role, BR-61).
 - `InvoiceStatus` DB: Issued=0, Paid=2, Void=3, PaidAfterReconciliation=4. Wire: `ISSUED`, `PAID`, `VOID`, `PAID_AFTER_RECONCILIATION`.
 - Auth: JWT Bearer; policy trong `backend/SportHub.BuildingBlocks/Api/SportHubPolicies.cs`.
 - Error body thông thường `{error,message}`, mã lỗi chữ thường snake_case; lỗi occupancy có thêm `conflicts[]`. ID vẫn đúng kiểu int/Guid, thời gian UTC ISO-8601; tham số ngày báo cáo/lịch dùng ngày Việt Nam.
@@ -176,7 +179,7 @@ Các endpoint được giới hạn theo lớp/buổi được phân công, hỗ
 |---|---|---|---|
 | GET | `/api/manager/court-schedule?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD&roomId=` | Manager, Receptionist | 200 `CourtScheduleEntry[]`; hai ngày inclusive, tối đa 31 ngày; 400 `invalid_range`, 403 `court_schedule_forbidden`. |
 | GET | `/api/coaches/me/court-schedule?fromDate=&toDate=&roomId=` | Coach | 200 cùng DTO nhưng chỉ lớp được giao. |
-| POST | `/api/manager/incidents/preview` body `{scope:"ROOM"|"CENTER",roomId?,startAtUtc,endAtUtc,reason}` | Manager | 200 `{scope,roomId,startAtUtc,endAtUtc,impacts[],canResolve,blockReason,members[],expectedRefundPointsTotal}`. Mỗi impact có `{sourceType,sourceId,startAtUtc,endAtUtc,resolutionOptions[]}`. `members[]` do server tính: `{memberId,memberName,sourceType,sourceId,outcome,expectedRefundPoints?}`; `outcome` = `REFUNDED_AS_POINTS` (rental đã thanh toán; khi resolve chỉ thông báo, Member chọn nhận 100% = floor(giá trị còn lại/1.000) điểm hoặc gửi yêu cầu hoàn tiền, xem Phần H), `CHECKOUT_RELEASED` (đơn chưa thanh toán, nhả hold), `AWAITS_SCHEDULE_DECISION` (hội viên lớp có buổi bị ảnh hưởng, chờ dời/bù, `expectedRefundPoints` null). Số điểm là báo giá tại thời điểm preview; resolve tính lại và khớp công thức. |
+| POST | `/api/manager/incidents/preview` body `{scope:"ROOM"|"CENTER",roomId?,startAtUtc,endAtUtc,reason}` | Manager | 200 `{scope,roomId,startAtUtc,endAtUtc,impacts[],canResolve,blockReason,members[],expectedRefundPointsTotal}`. Mỗi impact có `{sourceType,sourceId,startAtUtc,endAtUtc,resolutionOptions[]}`. `members[]` do server tính: `{memberId,memberName,sourceType,sourceId,outcome,expectedRefundPoints?}`; `outcome` = `AWAITS_REFUND_CHOICE` (rental đã thanh toán; khi resolve chỉ thông báo và chưa cộng điểm, Member chọn nhận 100% = floor(giá trị còn lại/1.000) điểm hoặc gửi yêu cầu hoàn tiền, xem Phần H; `expectedRefundPoints` là số điểm sẽ được đề nghị), `CHECKOUT_RELEASED` (đơn chưa thanh toán, nhả hold), `AWAITS_SCHEDULE_DECISION` (hội viên lớp có buổi bị ảnh hưởng, chờ dời/bù, `expectedRefundPoints` null). Số điểm là báo giá tại thời điểm preview; resolve tính lại và khớp công thức. |
 | POST | `/api/manager/incidents/resolve` body như preview | Manager | 200 `{incidentId}`; 409 `incident_requires_schedule_resolution` nếu còn lớp/block, `incident_schedule_changed` hoặc `occupancy_conflict` nếu lịch đổi; lỗi 400 `invalid_incident_scope`, `incident_reason_required`, `invalid_incident_range`; 404 `incident_room_not_found`. |
 | POST | `/api/manager/incidents/fences` body như preview | Manager | 200 `IncidentFence`. Bắt đầu xử lý: giữ khung giờ (phòng hoặc toàn trung tâm) để không ai đặt mới trong lúc dời/bù lớp. Hiệu lực 2 giờ, mở lại cùng khung giờ là gia hạn chứ không tạo thêm. Mọi đặt mới (thuê sân, buổi lớp, dời buổi) chồng khung giờ bị `409 room_under_incident_review`; room block của chính sự cố được miễn. |
 | GET | `/api/manager/incidents/fences` | Manager | Các khung giờ đang giữ: `{fenceId,scope,roomId,roomName,startAtUtc,endAtUtc,reason,createdAtUtc,expiresAtUtc,isExpired,remainingImpacts,affectedMemberCount,canResolve}`. `remainingImpacts` được đọc lại lúc gọi nên Manager thấy còn gì phải xử lý; `isExpired` = hết giữ (cho đặt lại) nhưng vẫn liệt kê để làm tiếp. |
@@ -235,9 +238,9 @@ Invoice lịch sử vẫn đọc theo ownership/FrontDesk. Discount/correction k
 | GET | `/api/court-rentals/availability?sportId&startUtc&endUtc` | Member; chỉ trả sân trống + báo giá giờ, không trả lớp/Member/nguồn lịch bận. |
 | GET | `/api/court-rentals/calendar?sportId&date&hours` | Member đang hoạt động; ngày Việt Nam `yyyy-MM-dd`, thời lượng nguyên giờ (mặc định 1). Trả `{sportId,date,serverNowUtc,rooms:[{roomId,name,slots:[{startUtc,endUtc,status,totalPrice,blocks}]}]}`. Trạng thái `AVAILABLE/BOOKED/HELD/SCHEDULED/BLOCKED/UNAVAILABLE/NO_RATE`; chỉ `AVAILABLE` có báo giá và được chọn. Không trả danh tính khách, ID lượt đặt hay nguồn lịch bận. Checkout vẫn kiểm tra lại giá, giờ mở cửa và tranh chấp occupancy. UI chỉ báo thành công khi invoice `PAID` hoặc `PAID_AFTER_RECONCILIATION` và `fulfillmentOutcome=FULFILLED`. |
 | GET | `/api/court-rentals/mine?fromUtc&toUtc` | Member; lượt thuê của chính họ. |
-| POST | `/api/court-rentals/{rentalId}/check-in` | Chỉ Receptionist (BR-159); chỉ lượt `Confirmed`, từ 5 phút trước giờ bắt đầu đến trước giờ kết thúc. Chuyển sang `InUse` (Checked-in); ngoài cửa sổ hoặc bấm lặp trả 409. Tách biệt check-in Gym. |
-| POST | `/api/court-rentals/{rentalId}/no-show` | Chỉ Receptionist (BR-159); chỉ lượt `Confirmed` và đã qua giờ bắt đầu (409 `rental_not_started`). Chuyển sang `NoShow` và giải phóng occupancy. Hết giờ kết thúc mà chưa đánh dấu thì job `CompleteDueAsync` tự ghi `NoShow` (Confirmed → NoShow, InUse → Completed). `NoShow` không hoàn tiền hay điểm. |
-| POST | `/api/court-rentals/{rentalId}/cancel` | Chủ thuê; ≥24h trước giờ bắt đầu hoàn 100%, dưới 24h 0%; cùng transaction hủy occupancy. |
+| POST | `/api/court-rentals/{rentalId}/check-in` | Chỉ Receptionist (BR-68); chỉ lượt `Confirmed`, từ 5 phút trước giờ bắt đầu đến trước giờ kết thúc. Chuyển sang `InUse` (Checked-in); ngoài cửa sổ hoặc bấm lặp trả 409. Tách biệt check-in Gym. |
+| POST | `/api/court-rentals/{rentalId}/no-show` | Chỉ Receptionist (BR-68); chỉ lượt `Confirmed` và đã qua giờ bắt đầu (409 `rental_not_started`). Chuyển sang `NoShow` và giải phóng occupancy. Hết giờ kết thúc mà chưa đánh dấu thì job `CompleteDueAsync` tự ghi `NoShow` (Confirmed → NoShow, InUse → Completed). `NoShow` không hoàn tiền hay điểm. |
+| POST | `/api/court-rentals/{rentalId}/cancel` | Chủ thuê; chỉ hủy được trước giờ bắt đầu và **không bao giờ được hoàn** (BR-65); cùng transaction hủy occupancy. |
 | GET | `/api/manager/court-schedule/rentals?roomId&fromUtc&toUtc` | Manager/Receptionist qua `FrontDesk`; chỉ metadata thuê cần cho lịch, không roster Member. |
 | POST | `/api/manager/court-rentals/{rentalId}/cancel` | CenterManager; body `{reason}`; hủy lượt thuê do trung tâm và release occupancy nguyên tử. **Chỉ gửi thông báo (chuông + email) cho Member, không cộng điểm lúc hủy**; Member chọn cách hoàn tại `api/refunds/center-cancellations` (Phần H). |
 
@@ -258,7 +261,7 @@ Job trạng thái chạy mỗi phút: lượt `InUse` hết giờ thành `Comple
 
 `GET api/audit-logs/actions` trả mảng mã Action khác nhau, bỏ mã rỗng/chỉ khoảng trắng và sắp xếp tăng dần, không phụ thuộc phân trang của bảng. Chỉ CenterManager/SystemAdministrator được gọi. Admin nhận đầy đủ danh mục `AccountAuditActions`, kể cả mã chưa phát sinh log, cộng các mã đã ghi trong phạm vi Manager/Admin/Coach/System. Manager nhận các mã đã ghi trong phạm vi Manager/Receptionist/Coach/Member. Chọn Action chưa có log trả bảng rỗng hợp lệ; danh mục không giới hạn vào `UserAccount`, không tạo log giả và không mở rộng quyền đọc.
 
-Danh mục Admin hiện có: `CREATE_STAFF_ACCOUNT`, `CHANGE_USER_ROLE`, `LOCK_USER_ACCOUNT`, `UNLOCK_USER_ACCOUNT`, `RESEND_STAFF_ACTIVATION`, `CHANGE_PENDING_STAFF_EMAIL`, `FRONT_DESK_CREATE_MEMBER`, `RESEND_MEMBER_ACTIVATION`, `CHANGE_PENDING_MEMBER_EMAIL`, `EXPIRE_UNACTIVATED_STAFF_ACCOUNT`, `UPDATE_COACH_SPECIALTIES`.
+Danh mục Admin hiện có: `CREATE_STAFF_ACCOUNT`, `LOCK_USER_ACCOUNT`, `UNLOCK_USER_ACCOUNT`, `RESEND_STAFF_ACTIVATION`, `CHANGE_PENDING_STAFF_EMAIL`, `FRONT_DESK_CREATE_MEMBER`, `RESEND_MEMBER_ACTIVATION`, `CHANGE_PENDING_MEMBER_EMAIL`, `EXPIRE_UNACTIVATED_STAFF_ACCOUNT`, `UPDATE_COACH_SPECIALTIES`.
 
 Ô Action mở danh sách cuộn khi focus/click, hỗ trợ gõ để thu hẹp gợi ý không phân biệt hoa/thường (nhiều từ có thể nhập khác thứ tự), chọn bằng chuột hoặc ArrowUp/ArrowDown + Enter, Escape/Tab đóng danh sách. Chọn mã rồi Apply filters gửi nguyên mã đó; backend vẫn lọc Action bằng so sánh chính xác. All actions/ô trống không lọc Action. Danh sách có trạng thái tải, lỗi/thử lại và rỗng; quyền đọc audit không được mở rộng.
 
@@ -296,7 +299,6 @@ Việc bổ sung không thay đổi quyền đọc audit theo role tại thời 
 | POST | `api/users/admin/staff` |
 | POST | `api/users/{userId:guid}/resend-activation` |
 | PUT | `api/users/{userId:guid}/email` |
-| PUT | `api/users/{userId:guid}/role` |
 | POST | `api/users/{userId:guid}/lock` |
 | POST | `api/users/{userId:guid}/unlock` |
 | POST | `api/users/{userId:guid}/deactivate` |
@@ -312,15 +314,10 @@ Việc bổ sung không thay đổi quyền đọc audit theo role tại thời 
 
 Đăng nhập Google với email của staff chưa kích hoạt bị từ chối (401), vì staff chỉ vào được sau khi tự đặt mật khẩu bằng link.
 
-`PUT api/users/{userId}/role` (SystemAdministrator; body `{role, reason, sportIds?}`; `sportIds` bắt buộc khi đổi sang Coach). Chỉ đổi **giữa các role staff** (SystemAdministrator, CenterManager, Receptionist, Coach).
 
-Khi tài khoản đã là Coach và `role` vẫn là `COACH`, gửi `sportIds` để lưu chuyên môn (1–10 môn hợp lệ, có GroupCourse). Ghi audit `UPDATE_COACH_SPECIALTIES` kèm lý do và danh sách trước/sau; giữ nguyên phiên đăng nhập và lớp đã phân công, giống cập nhật chuyên môn của Manager. Nếu không gửi `sportIds` hoặc danh sách không đổi thì không ghi thay đổi.
 
-- **Member ↔ Staff không được phép:** đổi từ Member sang bất kỳ role staff nào, hoặc từ staff về Member, trả **409 `member_staff_role_change_not_allowed`**. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
-- **Coach → role staff khác:** trả **409 `role_change_blocked`** kèm `reasons: string[]` khi còn lớp chưa kết thúc do Coach làm chính, buổi lớp tương lai còn chiếm lịch (`CoachOccupancy`), hoặc quan hệ huấn luyện Active.
-- **Mọi tài khoản hiện là SystemAdministrator:** không được đổi sang role khác, gồm chính Admin đang thao tác và Admin khác, không phụ thuộc số lượng Admin hoặc trạng thái tài khoản (409 `administrator_role_change_not_allowed`). Chỉ gửi lại role hiện tại thì không thay đổi dữ liệu. Quy tắc khóa/vô hiệu hóa Admin cuối cùng vẫn giữ riêng như cũ.
+- **Member và staff là hai tài khoản tách biệt:** không chuyển Member thành staff hay ngược lại. Người muốn làm staff phải được Admin tạo tài khoản staff bằng **email khác** (`POST api/users/admin/staff`, luồng kích hoạt qua email); tài khoản Member cũ giữ nguyên.
 
-Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`); đổi sang Coach thì Admin phải chọn chuyên môn; `SecurityStamp` đổi nên token cũ mất hiệu lực.
 
 ### Manager request inbox and unread badges
 
@@ -354,7 +351,7 @@ Receptionist và CenterManager (policy `FrontDesk`) đăng ký Member mới tạ
 | POST | `api/members/front-desk/{userId:guid}/resend-activation` |
 | PUT | `api/members/front-desk/{userId:guid}/email` |
 
-- `POST api/members/front-desk` (`{email, fullName, phone?}`): email nhập **một lần** (không còn `confirmEmail`; gõ sai thì dùng luồng sửa email bên dưới). Tạo Member **không mật khẩu**, tạo ví điểm 0 (BR-134), gửi email kích hoạt (link dùng một lần, 24 giờ, `setup=member`), audit `FRONT_DESK_CREATE_MEMBER`. Trả 201 `UserAdminResponse` với `activationPending=true`. Email trùng (không phân biệt hoa thường) 409 `email_already_exists`; số điện thoại trùng 409 `phone_already_exists`.
+- `POST api/members/front-desk` (`{email, fullName, phone?}`): email nhập **một lần** (không còn `confirmEmail`; gõ sai thì dùng luồng sửa email bên dưới). Tạo Member **không mật khẩu**, tạo ví điểm 0 (BR-83), gửi email kích hoạt (link dùng một lần, 24 giờ, `setup=member`), audit `FRONT_DESK_CREATE_MEMBER`. Trả 201 `UserAdminResponse` với `activationPending=true`. Email trùng (không phân biệt hoa thường) 409 `email_already_exists`; số điện thoại trùng 409 `phone_already_exists`.
 - `POST api/members/front-desk/{userId}/resend-activation`: chỉ Member chờ kích hoạt. Cooldown 60 giây (429 `activation_resend_too_soon`), link cũ bị vô hiệu, audit `RESEND_MEMBER_ACTIVATION`.
 - `PUT api/members/front-desk/{userId}/email` (`{email, reason}`): sửa email gõ sai khi Member chờ kích hoạt (giống Admin sửa email staff chờ kích hoạt); link cũ bị vô hiệu ngay, link mới gửi tới email mới, audit `CHANGE_PENDING_MEMBER_EMAIL` (email cũ, mới, lý do). 400 `email_unchanged`, 409 `email_already_exists`.
 - Member chờ kích hoạt quá **7 ngày kể từ lúc đăng ký** (không có mật khẩu, không liên kết Google) bị gỡ khỏi hệ thống, email được giải phóng, audit `EXPIRE_UNACTIVATED_MEMBER_ACCOUNT` (actor `SYSTEM`, giữ bản ghi đăng ký). Sửa email không kéo dài 7 ngày. Tài khoản đã có hóa đơn, ghi danh, thuê sân, gói hoặc giao dịch điểm **không** bị gỡ vì dữ liệu đó thuộc trung tâm; tài khoản đó tiếp tục chờ kích hoạt. Job `MemberInvitationExpiryJob` chạy mỗi 10 phút. Link kích hoạt vẫn hết hạn sau 24 giờ; hết link thì lễ tân gửi lại.
@@ -629,19 +626,14 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 
 | Verb | Path | Actor | Request | Response / lỗi chính |
 |---|---|---|---|---|
-| GET | `api/sports?service=` | ẩn danh | — | `SportResponse[]` chỉ môn active, mỗi môn chỉ gồm service đang bật, không có `readiness`. `service` lọc theo `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL`. `SportResponse`: `{sportId, code, name, description, imageUrl, sortOrder, isActive, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}], readiness?[{serviceType,ready,missing[]}]}` với `missing` gồm `room_type`, `room`, `opening_hours`, `court_rate`. CAT-01: không còn `operationType`. |
+| GET | `api/sports?service=` | ẩn danh | — | `SportResponse[]` chỉ môn active, mỗi môn chỉ gồm service đang bật, không có `readiness`. `service` lọc theo `MEMBERSHIP_ACCESS`, `GROUP_COURSE`, `COURT_RENTAL`. `SportResponse`: `{sportId, code, name, description, imageUrl, sortOrder, isActive, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}], readiness?[{serviceType,ready,missing[]}]}` với `missing` gồm `room`, `opening_hours`, `court_rate`. CAT-01: không còn `operationType`. |
 | GET | `api/manager/sports?service=` | M | — | mọi môn, đủ service và `readiness` (chỉ GROUP_COURSE và COURT_RENTAL) |
 | POST | `api/manager/sports` | M | `{code, name, description?, imageUrl?, services[{serviceType,isEnabled,defaultSessionMinutes?,defaultMaxCapacity?}]}` | 201; 400 `sport_code_invalid` `service_type_invalid` `service_not_allowed_for_sport` (Membership ngoài môn Gym) `sport_group_course_defaults_required` `service_defaults_not_allowed`; 409 `sport_code_taken` `sport_name_taken` |
 | PUT | `api/manager/sports/{id}` | M | như trên, không nhận đổi `code`. Service không liệt kê bị TẮT, không bị xóa | 200; 400 `sport_code_immutable` và các lỗi như trên; 404 `sport_not_found` |
 | POST | `api/manager/sports/{id}/deactivate`, `/activate` | M | — | `SportResponse` |
 | POST | `api/manager/sports/{id}/services/{serviceType}/enable`, `/disable` | M | — | `SportResponse`; 404 `service_not_configured`. Tắt chỉ chặn giao dịch mới |
-| GET | `api/room-types` | Auth | — | `[{roomTypeId, name, sportIds[]}]` |
-| POST | `api/manager/room-types` | M | `{name}` | 201; 409 `room_type_name_taken` |
-| PUT | `api/manager/room-types/{id}` | M | `{name}` | 200 |
-| PUT | `api/manager/room-types/{id}/sports` | M | `{sportIds[]}` (thay toàn bộ) | 200; 400 `invalid_sport` |
-| DELETE | `api/manager/room-types/{id}` | M | — | 204; 409 `room_type_in_use` |
-| GET | `api/rooms` | Staff | — | `RoomResponse` thêm `roomTypeId`, `isActive` |
-| POST, PUT | `api/rooms`, `api/rooms/{id}` | M | `{name, capacity, roomTypeId?, isActive?}` (isActive null = giữ nguyên) | 400 `invalid_room_type`; 409 `room_name_taken` |
+| GET | `api/rooms` | Staff | — | `RoomResponse` thêm `isActive`, `isRentable` (mới) |
+| POST, PUT | `api/rooms`, `api/rooms/{id}` | M | `{name, capacity, isActive?}` (isActive null = giữ nguyên) | 409 `room_name_taken` |
 | DELETE | `api/rooms/{id}` | M | — | 204; 409 `room_in_use` |
 | GET | `api/rooms/{roomId}/opening-hours` | Auth | — | `[{dayOfWeek(0=CN..6), openTimeLocal "HH:mm", closeTimeLocal}]` |
 | PUT | `api/manager/rooms/{roomId}/opening-hours` | M | `{hours:[{dayOfWeek, openTimeLocal, closeTimeLocal}]}` (thay toàn bộ, ≤7) | 200; 400 `invalid_opening_hours` `duplicate_opening_day` `invalid_time` |
@@ -649,13 +641,13 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 | POST | `api/manager/room-blocks` | M | `{roomId, startAtUtc, endAtUtc, reason}` | 201; **409 `occupancy_conflict` + `conflicts[]`** `{resource, conflictSourceType, conflictSourceId, startUtc, endUtc}`; 400 `block_in_the_past` `invalid_range` |
 | PUT | `api/manager/room-blocks/{blockId}` | M | `{roomId, startAtUtc, endAtUtc, reason}` | 200 `RoomBlockResponse`; sửa thời gian/lý do trên cùng sân, giữ nguyên ID; kiểm tra occupancy và cập nhật nguyên tử; 409 `occupancy_conflict`, `room_block_from_incident`, `room_under_incident_review`; không thành công giữ block cũ |
 | DELETE | `api/manager/room-blocks/{blockId}` | M | — | 204; 409 `room_block_from_incident` |
-| GET | `api/court-rates?roomTypeId` | Auth | — | khung giá active |
-| GET | `api/manager/court-rates?roomTypeId` | M | — | gồm cả inactive |
-| POST, PUT | `api/manager/court-rates`, `.../{rateId}` | M | `{roomTypeId, sportId?, daysOfWeek["MON".."SUN"], startTimeLocal, endTimeLocal, pricePerHour, isActive}` | 400 `invalid_price` `invalid_rate_window` `invalid_days` `sport_not_compatible`; 409 `court_rate_overlap` |
+| GET | `api/court-rates?roomId` | Auth | — | khung giá active |
+| GET | `api/manager/court-rates?roomId` | M | — | gồm cả inactive |
+| POST, PUT | `api/manager/court-rates`, `.../{rateId}` | M | `{roomId, daysOfWeek["MON".."SUN"], startTimeLocal, endTimeLocal, pricePerHour, isActive}` | 400 `invalid_price` `invalid_rate_window` `invalid_days` 409 `court_rate_overlap` |
 | DELETE | `api/manager/court-rates/{rateId}` | M | — | 204 |
 
-CourtRate audit snapshots (`CREATE_COURT_RATE`, `UPDATE_COURT_RATE`, `DELETE_COURT_RATE`) contain `roomTypeId`, `roomTypeName`, nullable `sportId`/`sportName`, `days` (comma-separated day codes), `startTimeLocal`/`endTimeLocal` (`HH:mm`, Vietnam local time), `price` and `active`. Names and times are recorded at the event; historical snapshots are not backfilled from the current catalog. Older snapshots may omit names/times. Updates preserve both old and new snapshots; create has only new, delete only old. No schema migration or pricing request/response changes.
-| GET | `api/availability/rooms?sportId&startUtc&endUtc` | Staff | — | `[{roomId,name,roomTypeId,capacity}]`; khoảng tối đa 12 giờ |
+CourtRate audit snapshots (`CREATE_COURT_RATE`, `UPDATE_COURT_RATE`, `DELETE_COURT_RATE`) contain `roomId`, `roomName`, `days` (comma-separated day codes), `startTimeLocal`/`endTimeLocal` (`HH:mm`, Vietnam local time), `price` and `active`. Names and times are recorded at the event; historical snapshots are not backfilled from the current catalog. Older snapshots may omit names/times. Updates preserve both old and new snapshots; create has only new, delete only old. No schema migration or pricing request/response changes.
+| GET | `api/availability/rooms?startUtc&endUtc&rentable?` | Staff | — | `[{roomId,name,capacity}]`; khoảng tối đa 12 giờ |
 | GET | `api/availability/coaches?sportId&startUtc&endUtc&excludeSessionId?` | Staff | — | `[{coachId, fullName}]` |
 | GET | `api/availability/rooms/{roomId}/busy?fromUtc&toUtc` | FD | — | `[{resource, sourceType, sourceId, startAtUtc, endAtUtc}]`; tối đa 31 ngày |
 
@@ -709,10 +701,10 @@ Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpir
 | GET/POST/PUT | `api/manager/classes`, `api/manager/classes/{classId}`, `api/manager/classes/{classId}/publish`, `.../cancel` | Manager | Soạn Draft; publish khóa + đủ buổi + occupancy + audit + thông báo Coach cùng transaction; hủy với preview/refund/hold release theo bổ sung P2.06–P2.10 đầu tài liệu. |
 | GET | `api/classes/{classId}/sessions`, `api/class-sessions/{sessionId}`, `.../roster` | Nhân viên; Coach đúng lớp | Buổi của cả khóa và roster Confirmed; Coach chỉ đọc lớp được giao. |
 | POST | `api/class-sessions/{sessionId}/reschedule`, `.../cancel` | Manager | Kiểm lại room/coach/opening/capacity/lịch Member; hủy buộc có buổi bù hợp lệ. |
-| PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Coach được phân công buổi và Receptionist (BR-98); `{status:"Present"|"Absent", reason?}`. Coach ghi từ 5 phút trước đầu buổi đến hết 24 giờ sau cuối buổi. Receptionist chỉ chỉnh bản ghi Coach đã tạo khi Member kiến nghị: bắt buộc `reason` 3 đến 500 ký tự (400 `attendance_correction_reason_required`), chưa có bản ghi trả 409 `attendance_not_recorded`, không bị giới hạn 24 giờ; mọi lần ghi hoặc sửa có audit (kèm lý do). |
+| PUT | `api/class-sessions/{sessionId}/attendance/{enrollmentId}` | Coach được phân công buổi và Receptionist (BR-56); `{status:"Present"|"Absent", reason?}`. Coach ghi từ 5 phút trước đầu buổi đến hết 24 giờ sau cuối buổi. Receptionist chỉ chỉnh bản ghi Coach đã tạo khi Member kiến nghị: bắt buộc `reason` 3 đến 500 ký tự (400 `attendance_correction_reason_required`), chưa có bản ghi trả 409 `attendance_not_recorded`, không bị giới hạn 24 giờ; mọi lần ghi hoặc sửa có audit (kèm lý do). |
 | GET | `api/members/me/enrollments`, `.../schedule` | Member | Ghi danh và lịch cá nhân; không có endpoint tự ghi danh từng buổi. |
 
-`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. Lớp nhóm không tự tạo Present/Absent; điểm danh do Receptionist hoặc Coach được phân công ghi.
+`IClassEnrollmentFulfillment` cung cấp quote, giữ chỗ, confirm, release và cancel trong transaction của checkout/fulfillment caller. Lớp nhóm không tự tạo Present/Absent; điểm danh do Coach được phân công ghi lần đầu, Receptionist chỉ chỉnh bản ghi đã có khi Member kiến nghị (bắt buộc lý do, có audit).
 
 ## Phần G — P1.07 Checkout hiện hành
 
@@ -753,7 +745,7 @@ Refund dùng `PaymentAdjustment` hiện có, không thêm bảng Refund; refund 
 
 Đã có calculator cho Membership (50% khi RemainingDays×3 >= TotalDays×2; lỗi trung tâm theo phần ngày chưa dùng; vé Gym 1 ngày không hoàn), Class (trước buổi đầu 100%, center cancellation theo buổi chưa cung cấp, loại buổi hủy đã có buổi bù khỏi tỷ lệ), Rental (>=24h 100%, dưới 24h 0, center cancel 100%). Quy đổi trên giá trị item đã trả gồm cash + points trừ refund trước, floor VND/1.000. `RefundCreditService` hỗ trợ SystemEvent credit, threshold/incident/rental caller và ghi InvoiceItemId trên ledger.
 
-Membership theo BR-91 tính cả ngày đầu/cuối: `TotalDays = EndDate − StartDate + 1`, `RemainingDays = clamp(EndDate − RefundRequestedDate + 1, 0, TotalDays)`, theo ngày Việt Nam. "Đã dùng quá mức" ở Membership là đã qua hơn 1/3 thời hạn, không tính số lần tới Gym hoặc số buổi còn lại. Gói gia hạn chưa bắt đầu vẫn được xét hoàn chuẩn tối đa 50%; gói Expired/Cancelled không có điểm hoàn. Khi duyệt, dùng ngày tạo yêu cầu, không thay bằng ngày duyệt. Ngoại lệ Center Fault cần lý do và căn cứ, hoàn theo phần ngày chưa dùng. Theo quyết định 25/10/2026, đóng Gym tạm thời để sửa chữa không gia hạn Membership và không phải refund Membership; Manager chọn người bị ảnh hưởng và đề xuất tặng điểm theo luồng CREDIT có Manager khác phê duyệt. API sự cố hiện vẫn nhận `membershipExtensionDays` và tự gia hạn; đây là khoảng trống triển khai, không phải hợp đồng đích.
+Membership theo BR-88 tính cả ngày đầu/cuối: `TotalDays = EndDate − StartDate + 1`, `RemainingDays = clamp(EndDate − RefundRequestedDate + 1, 0, TotalDays)`, theo ngày Việt Nam. "Đã dùng quá mức" ở Membership là đã qua hơn 1/3 thời hạn, không tính số lần tới Gym hoặc số buổi còn lại. Gói gia hạn chưa bắt đầu vẫn được xét hoàn chuẩn tối đa 50%; gói Expired/Cancelled không có điểm hoàn. Khi duyệt, dùng ngày tạo yêu cầu, không thay bằng ngày duyệt. Ngoại lệ Center Fault cần lý do và căn cứ, hoàn theo phần ngày chưa dùng. Theo quyết định 25/10/2026, đóng Gym tạm thời để sửa chữa không gia hạn Membership và không phải refund Membership; Manager chọn người bị ảnh hưởng và đề xuất tặng điểm theo luồng CREDIT có Manager khác phê duyệt. API sự cố hiện vẫn nhận `membershipExtensionDays` và tự gia hạn; đây là khoảng trống triển khai, không phải hợp đồng đích.
 
 Trong luồng **refund** Membership, Manager không nhập số điểm tùy ý: chỉ chọn center-fault có lý do rồi server tính lại theo cap. Khoản **tặng điểm do sự cố Gym tạm thời** ở trên là luồng CREDIT riêng; Manager được đặt số điểm cho từng người nhận và Manager khác phải duyệt trước khi cộng ví. PostgreSQL gate cho refund/cap/concurrency/rollback và migration upgrade đã qua; xem evidence.
 

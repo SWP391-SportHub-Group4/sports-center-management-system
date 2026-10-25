@@ -1460,7 +1460,6 @@ test("incident APIs complete the gym closure flow and retain the chosen extensio
         canResolve: true,
         blockReason: null,
         closesGym: true,
-        suggestedMembershipExtensionDays: 1,
         affectedMemberCount: 4,
       },
     });
@@ -1487,22 +1486,10 @@ test("incident APIs complete the gym closure flow and retain the chosen extensio
   await page
     .getByRole("button", { name: en.operations.review, exact: true })
     .click();
-  const extension = page.getByRole("spinbutton");
-  await expect(extension).toHaveValue("1");
-  for (const invalid of ["", "-1", "32", "1.5"]) {
-    await extension.fill(invalid);
-    await expect(
-      page.getByText(en.incidentHistory.invalidExtension),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: en.managerOperations.recheck }),
-    ).toBeDisabled();
-  }
-  await extension.fill("2");
+  await expect(page.getByRole("spinbutton")).toHaveCount(0);
   await page
     .getByRole("button", { name: en.managerOperations.recheck })
     .click();
-  await expect(page.getByText("Membership extension: 2 days.")).toBeVisible();
   await expect(
     page.getByRole("dialog", { name: en.managerOperations.resolveReview }),
   ).toBeVisible();
@@ -1519,7 +1506,7 @@ test("incident APIs complete the gym closure flow and retain the chosen extensio
     endAtUtc: new Date(incident.endAtUtc).toISOString(),
     reason: incident.reason,
   });
-  expect(requests[2]).toEqual({ ...requests[0], membershipExtensionDays: 2 });
+  expect(requests[2]).toEqual({ ...requests[0], membershipExtensionDays: 0 });
   await expect(
     page.getByRole("region", {
       name: en.managerOperations.incidentHistory,
@@ -2197,7 +2184,7 @@ for (const width of [390, 1440])
   }) => {
     await page.setViewportSize({ width, height: 600 });
     for (const path of [
-      "/manager/training-rooms",
+      "/manager/facilities",
       "/manager/coaches",
       "/manager/classes/new",
       "/manager/notices",
@@ -2206,10 +2193,10 @@ for (const width of [390, 1440])
       await page.goto(
         path.endsWith("coaches") ? `/manager/coaches/${coachId}` : path,
       );
-      if (path.endsWith("training-rooms") || path.endsWith("coaches"))
+      if (path.endsWith("facilities") || path.endsWith("coaches"))
         await page
           .getByRole("button", {
-            name: path.endsWith("training-rooms")
+            name: path.endsWith("facilities")
               ? "Add room only"
               : en.operations.edit,
             exact: true,
