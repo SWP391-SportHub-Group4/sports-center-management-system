@@ -34,11 +34,24 @@ import type {
 } from "@/lib/types";
 import { memberSchedule, type MemberEvent } from "@/features/member/api";
 import {
+  needsMemberConfirmation,
+  useMySupportRequests,
+  type SupportRequestDto,
+} from "@/features/member/support-api";
+import {
   FitnessQuickCard,
   RecommendedSection,
   TrainingSummaryCard,
 } from "@/features/member/overview-widgets";
 import styles from "./dashboard.module.css";
+
+interface UnactivatedPaymentDto {
+  invoiceId: string;
+  invoiceNumber: string;
+  totalAmount: number;
+  cashAmount: number;
+  paidAtUtc: string | null;
+}
 
 function sessionHref(session: MemberEvent) {
   const date = new Intl.DateTimeFormat("en-CA", {
@@ -193,6 +206,8 @@ function AttentionList({
   invoices,
   packages,
   thresholds,
+  unactivated,
+  supportRequests,
   now,
   today,
   loadState,
@@ -200,6 +215,8 @@ function AttentionList({
   invoices: InvoiceSummaryDto[];
   packages: MemberPackageDto[];
   thresholds: ThresholdResponseDto[];
+  unactivated: UnactivatedPaymentDto[];
+  supportRequests: SupportRequestDto[];
   now: number;
   today: string;
   loadState: "loading" | "error" | "ready";
@@ -220,6 +237,28 @@ function AttentionList({
     href: string;
     action: string;
   }[] = [];
+
+  // Đã trả VNPay nhưng chưa kích hoạt dịch vụ: Member chọn nhận điểm hoặc gửi yêu cầu hỗ trợ.
+  for (const paid of unactivated) {
+    items.push({
+      key: `unactivated-${paid.invoiceId}`,
+      text: `${paid.invoiceNumber} · ${formatMoney(paid.cashAmount)} paid, service not activated`,
+      detail:
+        "Choose to receive the amount as points now, or send us a support request.",
+      href: `/member/finance?tab=invoices&invoice=${paid.invoiceId}`,
+      action: "Choose an option",
+    });
+  }
+  // Manager đã chuyển khoản: Member xác nhận đã nhận hoặc báo chưa nhận.
+  for (const request of supportRequests.filter(needsMemberConfirmation)) {
+    items.push({
+      key: `payout-${request.requestId}`,
+      text: `We sent ${formatMoney(request.payout?.amount ?? 0)} for your support request`,
+      detail: "Confirm whether the money arrived in your bank account.",
+      href: `/member/help?tab=requests&requestId=${request.requestId}`,
+      action: "Confirm receipt",
+    });
+  }
 
   // Hóa đơn gấp nhất trước: hạn giữ chỗ gần nhất, sau đó phát hành lâu nhất.
   const owed = invoices
@@ -353,6 +392,14 @@ export default function MemberDashboardPage() {
       }),
     [],
   );
+  const unactivated = useApi(
+    (signal) =>
+      api.get<UnactivatedPaymentDto[]>("/api/members/me/unactivated-payments", {
+        signal,
+      }),
+    [],
+  );
+  const support = useMySupportRequests();
   const gymVisit = useApi(
     (signal) =>
       api.get<Paged<GymCheckInDto>>("/api/members/me/gym-checkins", {
@@ -409,6 +456,8 @@ export default function MemberDashboardPage() {
           invoices={invoices.data ? pagedItems(invoices.data) : []}
           packages={packages.data ?? []}
           thresholds={Array.isArray(thresholds.data) ? thresholds.data : []}
+          unactivated={Array.isArray(unactivated.data) ? unactivated.data : []}
+          supportRequests={Array.isArray(support.data) ? support.data : []}
           now={now}
           today={date}
           loadState={

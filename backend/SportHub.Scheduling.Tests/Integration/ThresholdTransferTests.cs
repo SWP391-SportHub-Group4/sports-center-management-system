@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.Abstractions.Wallet;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Payment.Application.Services;
+using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Wallet.Application;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Scheduling.Threshold.Application;
@@ -18,7 +19,7 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Unpaid_transfer_expires_refunds_source_and_compensates_late_cash_without_reviving_enrollment(bool retry)
+    public async Task Unpaid_transfer_expires_refunds_source_and_lets_member_convert_late_cash_without_reviving_enrollment(bool retry)
     {
         var source = await CourseTestData.CreateAsync(factory);
         var target = await CourseTestData.CreateAsync(factory, time: "14:00");
@@ -92,13 +93,34 @@ public sealed class ThresholdTransferTests(SchedulingApiFactory factory)
         }
         await factory.QueryAsync(async db =>
         {
+            Assert.Equal(100, await db.PointWallets.Where(x => x.OwnerUserId == member.UserId)
+                .Select(x => x.AvailablePoints).SingleAsync());
+            Assert.Equal("Unactivated", await db.VerifiedGatewayEvents.Where(x => x.TransactionReference == reference)
+                .Select(x => x.ProcessingStatus).SingleAsync());
+            Assert.Equal(InvoiceStatus.PaidAfterReconciliation, await db.Invoices.Where(x => x.InvoiceId == invoiceId)
+                .Select(x => x.Status).SingleAsync());
+            return 0;
+        });
+        var conversionKey = Guid.NewGuid().ToString("N");
+        using (var scope = factory.Services.CreateScope())
+        {
+            var resolution = scope.ServiceProvider.GetRequiredService<UnactivatedPaymentResolutionService>();
+            Assert.Equal(20, (await resolution.ConvertToPointsAsync(invoiceId, member.UserId,
+                conversionKey, default)).Points);
+            Assert.Equal(20, (await resolution.ConvertToPointsAsync(invoiceId, member.UserId,
+                conversionKey, default)).Points);
+        }
+        await factory.QueryAsync(async db =>
+        {
             Assert.False(await db.Enrollments.AnyAsync(x => x.MemberId == member.UserId && x.Status == EnrollmentStatus.Confirmed));
             Assert.Equal(120, await db.PointWallets.Where(x => x.OwnerUserId == member.UserId).Select(x => x.AvailablePoints).SingleAsync());
             Assert.Equal(0, await db.PointWallets.Where(x => x.OwnerUserId == member.UserId).Select(x => x.HeldPoints).SingleAsync());
             Assert.Equal(ThresholdResolutionStatus.Expired, await db.Set<ThresholdResponse>()
                 .Where(x => x.ThresholdResponseId == response.ThresholdResponseId).Select(x => x.ResolutionStatus).SingleAsync());
-            Assert.Equal("Compensated", await db.VerifiedGatewayEvents.Where(x => x.TransactionReference == reference)
+            Assert.Equal("ConvertedToPoints", await db.VerifiedGatewayEvents.Where(x => x.TransactionReference == reference)
                 .Select(x => x.ProcessingStatus).SingleAsync());
+            Assert.Equal(InvoiceStatus.Compensated, await db.Invoices.Where(x => x.InvoiceId == invoiceId)
+                .Select(x => x.Status).SingleAsync());
             Assert.Equal(0, await db.Classes.Where(x => x.ClassId == target.Id).Select(x => x.ReservedCount).SingleAsync());
             return 0;
         });

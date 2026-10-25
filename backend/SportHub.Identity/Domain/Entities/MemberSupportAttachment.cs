@@ -6,6 +6,8 @@ public sealed class MemberSupportAttachment
     public Guid AttachmentId { get; set; }
 
     public Guid RequestId { get; set; }
+    public string Kind { get; set; } = SupportAttachmentKinds.MemberProof;
+    public Guid? PayoutId { get; set; }
 
     public string FileName { get; set; } = string.Empty;
 
@@ -14,4 +16,10 @@ public sealed class MemberSupportAttachment
     public byte[] Content { get; set; } = [];
 
     public DateTime CreatedAt { get; set; }
+}
+
+public static class SupportAttachmentKinds
+{
+    public const string MemberProof = "MEMBER_PROOF";
+    public const string PayoutProof = "PAYOUT_PROOF";
 }

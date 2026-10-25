@@ -17,6 +17,11 @@ public sealed class MemberSupportRequest
     public string Status { get; set; } = "OPEN";
 
     public DateTime CreatedAt { get; set; }
+    public DateTime SlaDueAtUtc { get; set; }
+    public Guid? InvoiceId { get; set; }
+    public int RemindCount { get; set; }
+    public DateTime? LastMemberRemindAtUtc { get; set; }
+    public DateTime? LastStaffRemindAtUtc { get; set; }
 
     public Guid? AssignedToUserId { get; set; }
     public string? ProgressNote { get; set; }

@@ -12,7 +12,7 @@ import {
 } from "@/lib/support-categories";
 import { useApi } from "@/lib/useApi";
 import type { MemberSupportRequestDto } from "@/lib/types";
-import { STATUS_LABELS } from "./support-shared";
+import { SupportStatus } from "@/components/support-status";
 import styles from "./support.module.css";
 
 const RECENT_LIMIT = 3;
@@ -203,19 +203,14 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         ) : (
           <ul className={styles.requests}>
             {recent.map((request) => {
-              const status =
-                request.status === "CLOSED" ? "DONE" : request.status;
-              const open = !["DONE", "REJECTED"].includes(status);
+              const open = !["DONE", "REJECTED", "CLOSED"].includes(request.status);
               return (
                 <li key={request.requestId} className={styles.request}>
                   <div className={styles.badges}>
                     <span className={styles.pill}>
                       {supportCategoryLabel(request.category)}
                     </span>
-                    <span className={styles.pill}>
-                      <span className={styles.dot} data-status={status} />
-                      {STATUS_LABELS[status] ?? status}
-                    </span>
+                    <SupportStatus status={request.status} />
                     <span className={styles.badgeDate}>
                       {formatDateTime(request.createdAt)}
                     </span>

@@ -53,7 +53,7 @@
 }
 .metrics {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;

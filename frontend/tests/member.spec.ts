@@ -21,6 +21,8 @@ const experienceCheckout = (paid = false) => ({
   initiatorUserId: "member-1",
   serverNowUtc: new Date().toISOString(),
   isDayPass: true,
+  closingSoon: true,
+  closesAtUtc: "2026-10-15T15:00:00Z",
 });
 
 test("Member experience: resumed day-pass checkout shows its terms before payment", async ({
@@ -47,9 +49,7 @@ test("Member experience: resumed day-pass checkout shows its terms before paymen
     }),
   );
   await page.goto(`/checkout/${experienceInvoice}`);
-  await expect(page.getByRole("note")).toContainText(
-    "valid for 24 hours after payment",
-  );
+  await expect(page.getByRole("note")).toContainText("The gym closes at 22:00");
   await expect(page.getByRole("note")).toContainText("not refundable");
   await page.reload();
   await expect(page.getByRole("note")).toContainText("not refundable");
@@ -264,6 +264,30 @@ test("Gym purchase: expired plans hide ownership and the day pass can be bought 
   expect(requestBody).toEqual({ packageId: 50000, allowStacking: false });
 });
 
+test("Gym purchase: outside-hours error is explained before leaving the catalog", async ({
+  page,
+}) => {
+  await page.route("**/api/checkouts/membership", (route) =>
+    route.fulfill({
+      status: 409,
+      json: {
+        error: "day_pass_outside_hours",
+        message: "Outside day-pass purchase hours.",
+      },
+    }),
+  );
+  await page.goto("/member/services?type=gym");
+  const day = page
+    .getByRole("region", { name: "Gym plans", exact: true })
+    .getByRole("article")
+    .filter({ hasText: "Gym day pass" });
+  await day.getByRole("button", { name: "Choose plan", exact: true }).click();
+  await expect(day).toContainText(
+    "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time.",
+  );
+  await expect(page).toHaveURL(/\/member\/services/);
+});
+
 test("Gym purchase: unpaid and cancelled purchases do not count as paid history", async ({
   page,
 }) => {
@@ -298,16 +322,16 @@ test("Gym purchase: unpaid and cancelled purchases do not count as paid history"
   expect(checkoutPosts).toBe(1);
 });
 
-test("Gym purchase: day pass expires 24 hours after payment while the page stays open", async ({
+test("Gym purchase: day pass expires at gym closing while the page stays open", async ({
   page,
 }) => {
-  await page.clock.install({ time: new Date("2026-10-15T09:59:50Z") });
+  await page.clock.install({ time: new Date("2026-10-15T14:59:50Z") });
   await page.route("**/api/members/me/packages", (route) =>
     route.fulfill({
       json: [
         {
           ...gymPurchase(50000, "ACTIVE", "2026-10-15"),
-          expiresAtUtc: "2026-10-15T10:00:00Z",
+          expiresAtUtc: "2026-10-15T15:00:00Z",
         },
       ],
     }),
@@ -702,7 +726,7 @@ test("dashboard does not issue an entrance pass", async ({ page }) => {
   await expect(page.locator("#main-content h1")).toBeVisible();
   await expect(page.getByTestId("show-qr-btn")).toHaveCount(0);
 });
-test("Gym day pass clearly states 24-hour use and PT is absent", async ({
+test("Gym day pass clearly states its closing time and PT is absent", async ({
   page,
 }) => {
   // Align the browser clock with this test's fixed October membership dates.
@@ -727,7 +751,7 @@ test("Gym day pass clearly states 24-hour use and PT is absent", async ({
   await expect(
     page.getByRole("heading", { name: "Gym day pass" }).first(),
   ).toBeVisible();
-  await expect(page.getByText(/Valid for 24 hours/)).toBeVisible();
+  await expect(page.getByText(/Valid until 22:00/)).toBeVisible();
   await expect(page.getByRole("button", { name: /PT 1/ })).toHaveCount(0);
 });
 test("notification links resolve to real Member views", async ({ page }) => {

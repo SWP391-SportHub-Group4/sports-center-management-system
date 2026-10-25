@@ -5,9 +5,8 @@ import { MessageSquare, Plus, Search, UserRound } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
-import { formatDateTime, label } from "@/lib/format";
-import { useLanguage } from "@/lib/language";
-import { StatusChip } from "@/components/ui";
+import { formatDateTime } from "@/lib/format";
+import { SupportStatus, SUPPORT_STATUS_LABELS } from "@/components/support-status";
 import {
   SUPPORT_CATEGORIES,
   supportCategoryLabel,
@@ -16,7 +15,7 @@ import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportCreateDialog } from "./support-create-dialog";
 import { SupportDetail } from "./support-detail";
-import { STATUS_LABELS, supportReference } from "./support-shared";
+import { supportReference } from "./support-shared";
 import styles from "./support-center.module.css";
 
 const PAGE_SIZE = 20;
@@ -25,25 +24,28 @@ const emptyFilters = {
   category: "",
   search: "",
   assignedToUserId: "",
+  overdue: "",
 };
 
 type SupportStats = {
+  notStarted: number;
   open: number;
   assigned: number;
   inProgress: number;
   done: number;
   rejected: number;
+  overdue: number;
 };
 const summaryCards: {
   key: keyof SupportStats;
   label: string;
   status: string;
 }[] = [
-  { key: "open", label: "New", status: "OPEN" },
+  { key: "open", label: "Received", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "done", label: "Done", status: "DONE" },
-  { key: "rejected", label: "Rejected", status: "REJECTED" },
+  { key: "done", label: "Finished", status: "FINISHED" },
+  { key: "rejected", label: "Declined", status: "REJECTED" },
 ];
 
 /** Support requests workspace for the front desk and managers: filterable list plus a detail panel. */
@@ -51,17 +53,19 @@ export function SupportQueue({
   workspace = "receptionist",
   onChanged,
 }: {
-  workspace?: "manager" | "receptionist" | "coach";
+  workspace?: "manager" | "receptionist" | "coach" | "admin";
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
-  const { t } = useLanguage();
   const isManager = workspace === "manager";
-  const isCoach = workspace === "coach";
+  const isReceiver = workspace === "coach" || workspace === "admin";
+  const cards = isReceiver ? [
+    { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
+    { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
+    { key: "done" as const, label: "Finished", status: "FINISHED" },
+  ] : summaryCards;
   const statusLabel = (status: string) =>
-    isManager
-      ? (t.wireStatus[status as keyof typeof t.wireStatus] ?? label(status))
-      : (STATUS_LABELS[status] ?? status);
+    status === "NOT_STARTED" ? "Not started" : status === "FINISHED" ? "Finished" : (SUPPORT_STATUS_LABELS[status] ?? status);
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -69,12 +73,12 @@ export function SupportQueue({
   );
   const assignees = useApi(
     (signal) =>
-      isCoach
+      isReceiver
         ? Promise.resolve([] as SupportAssignee[])
         : api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
             signal,
           }),
-    [isCoach],
+    [isReceiver],
   );
   const [filters, setFilters] = useState(emptyFilters);
   const [search, setSearch] = useState("");
@@ -85,9 +89,12 @@ export function SupportQueue({
   const detailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("request");
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("request");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (id) setPicked(id);
+    if (params.get("overdue") === "1")
+      setFilters((f) => ({ ...f, overdue: "true" }));
   }, []);
 
   // Typing in the search box filters after a short pause.
@@ -105,7 +112,15 @@ export function SupportQueue({
     (signal) =>
       api.get<Paged<MemberSupportRequestDto>>(
         "/api/member-support-requests/queue",
-        { signal, query: { ...filters, page, pageSize: PAGE_SIZE } },
+        {
+          signal,
+          query: {
+            ...filters,
+            overdue: filters.overdue || undefined,
+            page,
+            pageSize: PAGE_SIZE,
+          },
+        },
       ),
     [filters, page],
   );
@@ -137,7 +152,8 @@ export function SupportQueue({
     filters.search ||
     filters.status ||
     filters.category ||
-    filters.assignedToUserId
+    filters.assignedToUserId ||
+    filters.overdue
   );
 
   function patch(next: Partial<typeof filters>) {
@@ -163,7 +179,7 @@ export function SupportQueue({
     <section className={styles.page} aria-label="Support requests">
       <div className={styles.head}>
         <h2>Support requests</h2>
-        {isCoach ? (
+        {isReceiver ? (
           <p>Requests assigned to you by the manager.</p>
         ) : (
           <button
@@ -177,8 +193,8 @@ export function SupportQueue({
         )}
       </div>
 
-      <div className={styles.stats} role="group" aria-label="Filter by status">
-        {summaryCards.map((item) => (
+      <div className={`${styles.stats} ${isReceiver ? styles.receiverStats : ""}`} role="group" aria-label="Filter by status">
+        {cards.map((item) => (
           <button
             key={item.key}
             type="button"
@@ -187,6 +203,7 @@ export function SupportQueue({
             onClick={() =>
               patch({
                 status: filters.status === item.status ? "" : item.status,
+                overdue: "",
               })
             }
           >
@@ -199,6 +216,25 @@ export function SupportQueue({
             </strong>
           </button>
         ))}
+        <button
+          type="button"
+          className={styles.stat}
+          aria-pressed={filters.overdue === "true"}
+          onClick={() =>
+            patch({
+              overdue: filters.overdue === "true" ? "" : "true",
+              status: "",
+            })
+          }
+        >
+          <span className={styles.statLabel}>
+            <span className={styles.dot} data-status="OVERDUE" />
+            Overdue
+          </span>
+          <strong className={styles.statValue}>
+            {stats.data ? stats.data.overdue : "—"}
+          </strong>
+        </button>
       </div>
 
       <div className={styles.filters}>
@@ -226,10 +262,10 @@ export function SupportQueue({
             onChange={(e) => patch({ status: e.target.value })}
           >
             <option value="">All statuses</option>
-            {summaryCards.map((c) => (
-              <option key={c.status} value={c.status}>
-                {statusLabel(c.status)}
-              </option>
+            <option value="NOT_STARTED">Not started (group)</option>
+            <option value="FINISHED">Finished (group)</option>
+            {Object.entries(SUPPORT_STATUS_LABELS).map(([status, text]) => (
+              <option key={status} value={status}>{text}</option>
             ))}
           </select>
         </label>
@@ -247,7 +283,7 @@ export function SupportQueue({
             ))}
           </select>
         </label>
-        {!isCoach && (
+        {!isReceiver && (
           <label>
             Assigned staff
             <select
@@ -343,8 +379,6 @@ export function SupportQueue({
           {items.length > 0 && (
             <ul className={styles.list} aria-busy={queue.loading}>
               {items.map((request) => {
-                const status =
-                  request.status === "CLOSED" ? "DONE" : request.status;
                 return (
                   <li key={request.requestId}>
                     <button
@@ -365,16 +399,9 @@ export function SupportQueue({
                     >
                       <span className={styles.rowTop}>
                         <span className={styles.rowBadges}>
-                          {isManager ? (
-                            <StatusChip value={request.status} />
-                          ) : (
-                            <span className={styles.badge}>
-                              <span
-                                className={styles.dot}
-                                data-status={status}
-                              />
-                              {STATUS_LABELS[status] ?? status}
-                            </span>
+                          <SupportStatus status={request.status} />
+                          {request.isOverdue && (
+                            <span className={styles.overdueBadge}>Overdue</span>
                           )}
                         </span>
                         <span className={styles.rowDate}>
@@ -470,9 +497,9 @@ export function SupportQueue({
         </div>
       </div>
 
-      {creating && !isCoach && (
+      {creating && !isReceiver && (
         <SupportCreateDialog
-          workspace={workspace}
+          workspace={workspace === "manager" ? "manager" : "receptionist"}
           assignees={assignees.data ?? []}
           onClose={() => setCreating(false)}
           onCreated={(message) => {

@@ -39,6 +39,9 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
     {
         RequireTransaction();
         var quote = await QuoteAsync(packageId, ct);
+        if (packageId == DayPass.PackageId && !DayPassClock.IsOpen(clock.UtcNow))
+            throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
+                "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time.");
         // Gói đang Active không chặn mua: đó là gia hạn sớm (BR-65). Chỉ chặn khi còn một lần mua cùng gói chưa thanh toán.
         if (!allowStacking && await db.Set<MemberPackage>().AnyAsync(x => x.MemberId == memberId
             && x.PackageId == packageId && x.Status == MemberPackageStatus.PendingPayment, ct))
@@ -87,6 +90,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             throw new ConflictException("membership_inactive", "Membership inactive.");
         var catalog = await db.Set<MembershipPackage>().SingleAsync(x => x.PackageId == entity.PackageId, ct);
         var today = VietnamTime.TodayLocal(clock);
+        var purchaseDay = entity.StartDate;
         var startDate = entity.PackageId == DayPass.PackageId
             ? today
             : MemberPackageRules.RenewalStart(today, await LatestActiveEndAsync(entity.MemberId, memberPackageId, today, ct));
@@ -96,9 +100,11 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         entity.EndDate = end;
         if (entity.PackageId == DayPass.PackageId)
         {
-            // Vé ngày hết hạn đúng 24 giờ sau lúc thanh toán, không phải cuối ngày.
-            entity.ExpiresAtUtc = clock.UtcNow.AddHours(DayPass.ValidHours);
-            entity.EndDate = DateOnly.FromDateTime(VietnamTime.ToLocal(entity.ExpiresAtUtc.Value));
+            if (!DayPassClock.IsOpen(clock.UtcNow) || purchaseDay != today)
+                throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
+                    "This Gym day pass cannot be activated after 22:00 Vietnam time.");
+            entity.ExpiresAtUtc = DayPassClock.ClosesAtUtc(clock.UtcNow);
+            entity.EndDate = today;
             end = entity.EndDate;
         }
         entity.Status = MemberPackageStatus.Active;
@@ -109,7 +115,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         {
             // Vé Gym 1 ngày: nhắc rõ mã check-in và vé chỉ có hiệu lực trong ngày thanh toán (giờ Việt Nam).
             var expiresLocal = VietnamTime.ToLocal(entity.ExpiresAtUtc!.Value);
-            var text = $"Your Gym day pass is active and valid for 24 hours, until {expiresLocal:HH:mm dd/MM/yyyy} (Vietnam time): "
+            var text = $"Your Gym day pass is active until {expiresLocal:HH:mm dd/MM/yyyy} (Vietnam time): "
                 + "show your member code at reception to check in.";
             notifications.Queue(new NotificationRequest(entity.MemberId, NotificationEvents.PaymentReceived, text, memberPackageId));
             var email = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>().AsNoTracking()

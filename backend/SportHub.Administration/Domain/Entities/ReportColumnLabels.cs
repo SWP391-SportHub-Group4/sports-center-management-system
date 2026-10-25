@@ -8,6 +8,8 @@ public static class ReportColumnLabels
             ["date"] = "Collection date (VN)",
             ["legacyCashCollected"] = "Legacy cash collected",
             ["reconciliationCashCollected"] = "Reconciled/compensated cash",
+            ["bankRefundPaid"] = "Bank refunds paid (VND, not deducted from VNPay cash)",
+            ["bankRefundCount"] = "Bank refunds paid (count)",
             ["source"] = "Revenue source",
             ["sportId"] = "Sport ID",
             ["sportName"] = "Sport",
@@ -62,7 +64,7 @@ public static class ReportColumnLabels
         "totalAmount", "collectedAmount", "obligationReduction", "refundedAmount",
         "netCollected", "netPayable", "outstanding", "refundDue",
         "activePackages", "remainingSessions", "totalSpent"
-        , "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemed", "pointsRedeemedVnd",
+        , "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid", "bankRefundCount", "pointsRedeemed", "pointsRedeemedVnd",
         "newMembers", "membersPurchasingMembershipInPeriod", "activeMembersAtPeriodEnd", "capacity", "confirmedCount", "activeHoldCount",
         "availableSeats", "fillRatio", "breakEvenThreshold", "pointsIssued", "managerPointAdjustment", "outstandingPoints"
     };

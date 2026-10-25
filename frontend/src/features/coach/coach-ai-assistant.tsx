@@ -1,4 +1,5 @@
 "use client";
+
 import { aiPlainText } from "@/lib/ai-plain-text";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -82,8 +83,12 @@ export function CoachAiAssistant() {
       <div aria-live="polite" className={styles.chatMessages}>
         {messages.map((m, i) => (
           <p key={i}>
-            <strong>{m.role === "user" ? "You" : "Assistant"}:</strong>{" "}
-            {m.role === "assistant" ? aiPlainText(m.content) : m.content}
+            <strong>
+              {m.role === "user" ? "You" : "Assistant"}:
+            </strong>{" "}
+            {m.role === "assistant"
+              ? aiPlainText(m.content)
+              : m.content}
           </p>
         ))}
       </div>

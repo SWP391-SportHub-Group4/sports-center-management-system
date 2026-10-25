@@ -742,7 +742,7 @@ public sealed class OperationsCompletionTests(
     }
 
     [Fact]
-    public async Task Late_payment_after_course_cancellation_compensates_cash_without_enrolling()
+    public async Task Late_payment_after_course_cancellation_waits_for_member_choice_without_enrolling()
     {
         var data =
             await CourseAsync();
@@ -862,11 +862,11 @@ public sealed class OperationsCompletionTests(
                                 member.UserId);
 
                 Assert.Equal(
-                    100,
+                    0,
                     wallet.AvailablePoints);
 
                 Assert.Equal(
-                    1,
+                    0,
                     await db.PointLedgerEntries
                         .CountAsync(
                             x =>

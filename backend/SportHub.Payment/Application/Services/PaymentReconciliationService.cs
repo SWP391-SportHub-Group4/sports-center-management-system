@@ -6,6 +6,10 @@ using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Payment.VnPay;
+using SportHub.Membership.Domain;
+using SportHub.Membership.Domain.Entities;
+using SportHub.Membership.Domain.Rules;
+using SportHub.Membership.Domain.Enums;
 
 namespace SportHub.Payment.Application.Services;
 
@@ -173,7 +177,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             var proof = await db.Set<VerifiedGatewayEvent>().FromSqlInterpolated(
                 $"SELECT * FROM verified_gateway_events WHERE verified_gateway_event_id = {eventId} FOR UPDATE")
                 .SingleAsync(ct);
-            if (proof.ProcessingStatus is "Fulfilled" or "Compensated" or "Failed" or "ManualCompensationRequired")
+            if (proof.ProcessingStatus is "Fulfilled" or "Compensated" or "Failed" or "ManualCompensationRequired" or "Unactivated" or "ConvertedToPoints")
             {
                 await tx.CommitAsync(ct);
                 return;
@@ -192,28 +196,30 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             {
                 var session = await db.Set<CheckoutSession>().SingleOrDefaultAsync(
                     x => x.CheckoutSessionId == attempt.CheckoutSessionId, ct);
+                var isDayPass = invoice.MemberPackageId is Guid memberPackageId
+                    && await db.Set<MemberPackage>().AnyAsync(x => x.MemberPackageId == memberPackageId
+                        && x.PackageId == DayPass.PackageId, ct);
                 if (proof.Amount != attempt.Amount)
                 {
-                    await CompensateUnavailableAsync(invoice, session, proof, ct);
-                    attempt.VerifiedResult = "CompensatedAmountMismatch";
-                    attempt.VerifiedAtUtc = proof.VerifiedAtUtc;
-                    attempt.Status = PaymentAttemptStatus.ReconciliationRequired;
+                    await MarkUnactivatedAsync(invoice, session, attempt, proof, ct);
                 }
+                else if (isDayPass && !DayPassClock.CanActivate(invoice.IssuedAt,
+                    proof.ProviderPaidAtUtc, clock.UtcNow))
+                    await MarkUnactivatedAsync(invoice, session, attempt, proof, ct);
                 else if (session is null || invoice.Status != InvoiceStatus.Issued
                     || session.State != "Active" || session.ExpiresAtUtc <= clock.UtcNow
                     || invoice.CheckoutCycleId != session.CheckoutSessionId)
                 {
                     var reacquired = await TryReacquireClassAsync(invoice, attempt, session, proof, ct)
                         ?? await TryReacquireRentalAsync(invoice, attempt, session, proof, ct)
+                        ?? await TryRenewMembershipAsync(invoice, attempt, session, proof, ct)
                         ?? await TryRenewWalletTopUpAsync(invoice, attempt, session, proof, ct);
                     if (reacquired is not null)
                         await fulfillment.CompleteVerifiedAsync(invoice, reacquired, attempt, proof, ct,
                             lateReacquired: true);
                     else
                     {
-                        await CompensateUnavailableAsync(invoice, session, proof, ct);
-                        attempt.VerifiedResult = "Compensated";
-                        attempt.VerifiedAtUtc = proof.VerifiedAtUtc;
+                        await MarkUnactivatedAsync(invoice, session, attempt, proof, ct);
                     }
                 }
                 else
@@ -241,8 +247,8 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         }
     }
 
-    private async Task CompensateUnavailableAsync(Invoice invoice, CheckoutSession? session,
-        VerifiedGatewayEvent proof, CancellationToken ct)
+    private async Task MarkUnactivatedAsync(Invoice invoice, CheckoutSession? session,
+        PaymentAttempt attempt, VerifiedGatewayEvent proof, CancellationToken ct)
     {
         if (invoice.Status == InvoiceStatus.Issued)
         {
@@ -250,7 +256,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                 throw new ConflictException("checkout_reconciliation_required", "Checkout reconciliation required.");
             await fulfillment.ReleaseAsync(invoice, session, "Expired", null, ct);
         }
-        await fulfillment.CompensateCashAsync(invoice, proof, ct);
+        await fulfillment.MarkUnactivatedAsync(invoice, attempt, proof, ct);
     }
 
     // A wallet credit has no seat or court to reacquire. A verified late capture can still
@@ -275,6 +281,45 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         invoice.CheckoutCycleId = renewed.CheckoutSessionId;
         invoice.CheckoutRevision = renewed.Revision;
         invoice.HoldExpiresAtUtc = renewed.ExpiresAtUtc;
+        invoice.Status = InvoiceStatus.Issued;
+        await db.SaveChangesAsync(ct);
+        return renewed;
+    }
+
+    private async Task<CheckoutSession?> TryRenewMembershipAsync(Invoice invoice,
+        PaymentAttempt attempt, CheckoutSession? oldSession, VerifiedGatewayEvent proof, CancellationToken ct)
+    {
+        if (oldSession?.Kind != "Membership" || invoice.MemberPackageId is not Guid packageId
+            || attempt.PointsSnapshot != 0 || invoice.PointsApplied != 0
+            || invoice.Status is InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation or InvoiceStatus.Compensated
+            || invoice.CashAmount != attempt.Amount)
+            return null;
+        var package = await db.Set<MemberPackage>().SingleOrDefaultAsync(x => x.MemberPackageId == packageId, ct);
+        if (package is null || package.Status is not (MemberPackageStatus.PendingPayment or MemberPackageStatus.Cancelled))
+            return null;
+        if (package.PackageId == DayPass.PackageId)
+        {
+            if (!DayPassClock.CanActivate(invoice.IssuedAt, proof.ProviderPaidAtUtc, clock.UtcNow)
+                || await db.Set<MemberPackage>().AnyAsync(x => x.MemberId == invoice.MemberId
+                    && x.PackageId == DayPass.PackageId && x.MemberPackageId != packageId
+                    && x.Status == MemberPackageStatus.Active && x.ExpiresAtUtc > clock.UtcNow, ct))
+                return null;
+        }
+        package.Status = MemberPackageStatus.PendingPayment;
+        oldSession.State = "Expired";
+        var expiry = clock.UtcNow.AddMinutes(1);
+        var renewed = new CheckoutSession
+        {
+            CheckoutSessionId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
+            Revision = invoice.CheckoutRevision + 1,
+            IdempotencyKey = "late-" + proof.VerifiedGatewayEventId.ToString("N"),
+            Kind = "Membership", State = "Active", CreatedAtUtc = clock.UtcNow,
+            ExpiresAtUtc = expiry
+        };
+        db.Set<CheckoutSession>().Add(renewed);
+        invoice.CheckoutCycleId = renewed.CheckoutSessionId;
+        invoice.CheckoutRevision = renewed.Revision;
+        invoice.HoldExpiresAtUtc = expiry;
         invoice.Status = InvoiceStatus.Issued;
         await db.SaveChangesAsync(ct);
         return renewed;

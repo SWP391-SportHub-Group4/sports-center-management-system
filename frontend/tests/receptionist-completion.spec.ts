@@ -42,7 +42,7 @@ async function install(page: Page) {
         status = "ASSIGNED";
       }
       if (path.endsWith("/progress")) status = "IN_PROGRESS";
-      if (path.endsWith("/close")) status = "CLOSED";
+      if (path.endsWith("/done")) status = "DONE";
       if (path.endsWith("/retry")) reconciled = true;
       return json({ state: "FULFILLED" });
     }
@@ -104,28 +104,30 @@ test("desk assigns, updates and closes support from the queue", async ({
 }) => {
   const writes = await install(page);
   await page.goto("/receptionist/support");
-  await page.getByLabel("Assign to").selectOption(staffId);
-  await page.getByRole("button", { name: "Assign", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*ASSIGNED/ }),
-  ).toBeVisible();
   await page
-    .getByLabel("Progress or resolution")
+    .getByRole("combobox", { name: "Department" })
+    .selectOption("receptionist");
+  await page
+    .getByRole("combobox", { name: "Staff member" })
+    .selectOption(staffId);
+  await page.getByRole("button", { name: "Transfer request" }).click();
+  await expect(page.getByText("Request transferred.")).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Progress note" })
     .fill("Checking the membership");
-  await page.getByRole("button", { name: "Update progress" }).click();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*IN PROGRESS/ }),
-  ).toBeVisible();
-  await page.getByLabel("Progress or resolution").fill("Membership corrected");
-  await page.getByRole("button", { name: "Close request" }).click();
-  await page.getByRole("button", { name: "Confirm close" }).click();
-  await expect(
-    page.getByRole("heading", { name: /Help with membership.*CLOSED/ }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(page.getByText("Progress updated.")).toBeVisible();
+  await page.getByRole("tab", { name: "Mark as done" }).click();
+  await page
+    .getByRole("textbox", { name: "Resolution note" })
+    .fill("Membership corrected");
+  await page.getByRole("button", { name: "Mark as done", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm done" }).click();
+  await expect(page.getByText("Request marked as done.")).toBeVisible();
   expect(writes.map((x) => x.path.split("/").at(-1))).toEqual([
     "assign",
     "progress",
-    "close",
+    "done",
   ]);
 });
 
@@ -133,7 +135,7 @@ test("desk retries an unfulfilled payment after hold expiry", async ({
   page,
 }) => {
   const writes = await install(page);
-  await page.goto("/receptionist/payment-reconciliation");
+  await page.goto("/receptionist/payment-reconciliation?view=all");
   await expect(page.getByText("INV-LATE-001")).toBeVisible();
   await expect(page.getByText("Paid, service not delivered")).toBeVisible();
   await expect(page.getByRole("button", { name: "Refresh" })).toHaveCount(0);

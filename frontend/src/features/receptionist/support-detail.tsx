@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { AvatarImage } from "@/components/AvatarImage";
-import { StatusChip } from "@/components/ui";
+import { SupportStatus } from "@/components/support-status";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -17,10 +17,10 @@ import { useApi } from "@/lib/useApi";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportAttachments } from "./support-attachments";
+import { SupportPayout } from "./support-payout";
 import {
   ROLE_LABELS,
   ROLE_RANK,
-  STATUS_LABELS,
   CHANNEL_LABELS,
   supportReference,
   assigneesByRole,
@@ -70,25 +70,25 @@ export function SupportDetail({
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
-  workspace: "manager" | "receptionist" | "coach";
+  workspace: "manager" | "receptionist" | "coach" | "admin";
   onChanged: () => void;
 }) {
   const { user } = useAuth();
   const isManager = workspace === "manager";
-  const isCoach = workspace === "coach";
+  const isReceiver = workspace === "coach" || workspace === "admin";
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
 
   const member = useApi(
     (signal) =>
-      isCoach
+      isReceiver
         ? Promise.resolve(null)
         : api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
-    [request.memberId, isCoach],
+    [request.memberId, isReceiver],
   );
   const packages = useApi(
     (signal) =>
-      isCoach
+      isReceiver
         ? Promise.resolve([] as MemberPackageDto[])
         : api.get<MemberPackageDto[]>(
             `/api/members/${request.memberId}/packages`,
@@ -96,7 +96,7 @@ export function SupportDetail({
               signal,
             },
           ),
-    [request.memberId, isCoach],
+    [request.memberId, isReceiver],
   );
   const events = useApi(
     (signal) =>
@@ -216,14 +216,7 @@ export function SupportDetail({
     <div className={styles.detail}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
-          {isManager ? (
-            <StatusChip value={request.status} />
-          ) : (
-            <span className={styles.badge}>
-              <span className={styles.dot} data-status={request.status} />
-              {STATUS_LABELS[request.status] ?? request.status}
-            </span>
-          )}
+          <SupportStatus status={request.status} />
           <time className={styles.createdAt} dateTime={request.createdAt}>
             Created {formatDateTime(request.createdAt)}
           </time>
@@ -234,6 +227,15 @@ export function SupportDetail({
         {isManager && (
           <p className={styles.muted}>
             Reference: <strong>{supportReference(request.requestId)}</strong>
+          </p>
+        )}
+        {request.slaDueAtUtc && (
+          <p className={request.isOverdue ? styles.overdueBadge : styles.muted}>
+            {request.isOverdue ? "Overdue since" : "Response due"}{" "}
+            {formatDateTime(request.slaDueAtUtc)}
+            {request.remindCount
+              ? ` · ${request.remindCount} member reminder(s)`
+              : ""}
           </p>
         )}
       </header>
@@ -251,7 +253,7 @@ export function SupportDetail({
               .filter(Boolean)
               .join(" · ")}
           </span>
-          {!isCoach && (
+          {!isReceiver && (
             <span className={styles.muted}>
               Plan: {planText}
               {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
@@ -260,7 +262,7 @@ export function SupportDetail({
             </span>
           )}
         </div>
-        {!isCoach && (
+        {!isReceiver && (
           <Link
             className={styles.bannerLink}
             href={`/${workspace}/members/${request.memberId}`}
@@ -316,16 +318,37 @@ export function SupportDetail({
         {isManager ? (
           <div className={styles.section}>
             <h4>Attached images</h4>
-            {request.attachments?.length ? (
-              <SupportAttachments attachments={request.attachments} />
+            {request.attachments?.some(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            ) ? (
+              <SupportAttachments
+                attachments={request.attachments.filter(
+                  (attachment) => attachment.kind !== "PAYOUT_PROOF",
+                )}
+              />
             ) : (
               <p className={styles.muted}>No images attached.</p>
             )}
           </div>
         ) : (
-          <SupportAttachments attachments={request.attachments} />
+          <SupportAttachments
+            attachments={request.attachments?.filter(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            )}
+          />
         )}
       </section>
+
+      {isManager && request.category === "PAYMENT" && (
+        <SupportPayout
+          request={request}
+          events={events.data ?? []}
+          onChanged={() => {
+            events.reload();
+            onChanged();
+          }}
+        />
+      )}
 
       {isManager && (
         <section
@@ -357,7 +380,7 @@ export function SupportDetail({
         )
       ) : (
         <>
-          {!isCoach && (
+          {!isReceiver && (
             <section className={styles.box} aria-label="Routing and escalation">
               <h4 className={styles.muted} style={{ margin: 0 }}>
                 Assignment · currently{" "}
@@ -459,7 +482,7 @@ export function SupportDetail({
 
           <section className={styles.section} aria-label="Handle request">
             <div className={styles.tabs} role="tablist" aria-label="Action">
-              {TABS.map((tab) => (
+              {TABS.filter((tab) => !isReceiver || tab.mode !== "reject").map((tab) => (
                 <button
                   key={tab.mode}
                   type="button"
@@ -472,7 +495,7 @@ export function SupportDetail({
                     setConfirming(false);
                   }}
                 >
-                  {tab.label}
+                  {isReceiver && tab.mode === "progress" ? "In progress" : tab.label}
                 </button>
               ))}
             </div>

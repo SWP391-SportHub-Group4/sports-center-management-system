@@ -212,7 +212,13 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<SupportReminderService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ISupportInvoiceGuard, SportHub.Payment.Application.Services.SupportInvoiceGuard>();
 builder.Services.AddScoped<AvatarService>();
+builder.Services.AddScoped<CoachCredentialService>();
+builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHostedService<CoachCredentialCleanupJob>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
@@ -368,6 +374,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ICheckou
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IInvoiceDraftWriter, InvoiceDraftWriter>();
 builder.Services.AddScoped<PaymentFulfillmentService>();
 builder.Services.AddScoped<PaymentReconciliationService>();
+builder.Services.AddScoped<UnactivatedPaymentResolutionService>();
 builder.Services.AddScoped<CheckoutExpiryService>();
 
 // Training — một instance phục vụ cả interface nghiệp vụ lẫn seam ICoachRelationshipRegistrar
@@ -441,6 +448,9 @@ builder.Services.AddHostedService<RentalStatusJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
+builder.Services.AddHostedService<SupportSlaReminderJob>();
+builder.Services.AddScoped<SupportPayoutMaintenance>();
+builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
 builder.Services.AddHostedService<PointHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
 builder.Services.AddHostedService<AvatarDeletionJob>();

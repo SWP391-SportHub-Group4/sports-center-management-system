@@ -25,7 +25,7 @@
 /* ---------- Stat bar ---------- */
 .stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--space-3);
 }
 .stat {
@@ -92,6 +92,17 @@
 }
 .dot[data-status="REJECTED"] {
   background: #dc2626;
+}
+.dot[data-status="OVERDUE"] {
+  background: #b45309;
+}
+.overdueBadge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* ---------- Filters ---------- */
@@ -455,6 +466,17 @@
   min-height: 84px;
   resize: vertical;
 }
+.confirmCheck {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: 13px;
+}
+.confirmCheck input {
+  width: auto;
+  height: auto;
+  margin-top: 2px;
+}
 .helper {
   margin: 0;
   color: var(--text-muted);
@@ -646,3 +668,7 @@
     width: 100%;
   }
 }
+
+.receiverStats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dot[data-status="NOT_STARTED"] { background: var(--text-secondary, #475569); }
+@media (max-width: 480px) { .receiverStats { grid-template-columns: 1fr; } }

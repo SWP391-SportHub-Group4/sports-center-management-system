@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
+using SportHub.BuildingBlocks.Abstractions.Payment;
+using SportHub.Identity.Application.Services;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -42,6 +45,9 @@ public sealed class CreateMemberSupportRequest
     /// <summary>Giải quyết ngay tại quầy: yêu cầu được tạo, gán cho người tạo và đóng (DONE) với ghi chú này.</summary>
     [MaxLength(1000)]
     public string? ResolveNote { get; set; }
+
+    /// <summary>Bắt buộc với danh mục PAYMENT: hóa đơn VNPay đã thanh toán của chính Member này.</summary>
+    public Guid? InvoiceId { get; set; }
 }
 
 public sealed record MemberSupportRequestResponse(
@@ -61,9 +67,16 @@ public sealed record MemberSupportRequestResponse(
     string? MemberEmail = null,
     string? AssignedToName = null,
     IReadOnlyList<SupportAttachmentInfo>? Attachments = null,
-    string Channel = "COUNTER");
+    string Channel = "COUNTER", DateTime? SlaDueAtUtc = null,
+    bool IsOverdue = false, int RemindCount = 0,
+    Guid? InvoiceId = null, SupportPayoutInfo? Payout = null,
+    string? Outcome = null);
 
-public sealed record SupportAttachmentInfo(Guid AttachmentId, string FileName);
+public sealed record SupportPayoutInfo(Guid PayoutId, decimal Amount, DateTime RecordedAtUtc,
+    DateTime? MemberConfirmedAtUtc, string? MemberConfirmedBy, IReadOnlyList<Guid> ProofAttachmentIds);
+
+public sealed record SupportAttachmentInfo(Guid AttachmentId, string FileName,
+    string Kind = SupportAttachmentKinds.MemberProof);
 
 public sealed record AssignSupportRequest(Guid AssigneeUserId, string? Note = null);
 
@@ -79,34 +92,55 @@ public sealed class FinishSupportRequest
 }
 
 [ApiController]
-[Authorize(Policy = SportHubPolicies.StaffRead)]
+[Authorize(Roles = "Receptionist,CenterManager,Coach,SystemAdministrator")]
 [Route("api/member-support-requests")]
 public sealed class MemberSupportRequestsController(
     ISportHubDbContext db,
     IClock clock,
     IAuditWriter audit,
-    INotificationWriter notifications) : ControllerBase
+    INotificationWriter notifications,
+    ISystemSettingProvider settings,
+    SupportReminderService reminders,
+    ISupportInvoiceGuard invoiceGuard) : ControllerBase
 {
-    private static MemberSupportRequestResponse Map(MemberSupportRequest x) => new(
+    private MemberSupportRequestResponse Map(MemberSupportRequest x) => new(
         x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
         x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
-        x.ProgressNote, x.UpdatedAt, x.ClosedAt, Channel: x.Channel);
+        x.ProgressNote, x.UpdatedAt, x.ClosedAt, Channel: x.Channel,
+        SlaDueAtUtc: x.SlaDueAtUtc,
+        IsOverdue: !IsFinal(x.Status) && x.SlaDueAtUtc <= clock.UtcNow,
+        RemindCount: x.RemindCount, InvoiceId: x.InvoiceId,
+        Outcome: x.Status == "CLOSED" ? "DONE" : null);
+
+    private bool IsAssignedHandler => User.IsInRole(nameof(UserRole.Coach))
+        || User.IsInRole(nameof(UserRole.SystemAdministrator));
 
     private IQueryable<MemberSupportRequest> VisibleRequests()
     {
         var rows = db.Set<MemberSupportRequest>().AsNoTracking();
-        return User.IsInRole(nameof(UserRole.Coach))
+        return IsAssignedHandler
             ? rows.Where(x => x.AssignedToUserId == User.RequireUserId()) : rows;
     }
 
-    private void RequireAssignedCoach(MemberSupportRequest row)
+    /// <summary>Payment requests are handled by managers only; the front desk may view, create and remind.</summary>
+    private void RequireManagerForPayment(MemberSupportRequest row)
     {
-        if (User.IsInRole(nameof(UserRole.Coach)) && row.AssignedToUserId != User.RequireUserId())
+        if (row.Category == "PAYMENT" && !User.IsInRole(nameof(UserRole.CenterManager)))
+            throw new ForbiddenException(PaymentSupportErrorCodes.PaymentRequestManagerOnly,
+                "Only a manager can handle a payment request.");
+    }
+
+    private void RequireAssignedHandler(MemberSupportRequest row)
+    {
+        if (IsAssignedHandler && row.AssignedToUserId != User.RequireUserId())
             throw new NotFoundException("support_request_not_found", "Support request not found.");
     }
 
     private IQueryable<MemberSupportRequestResponse> Project(IQueryable<MemberSupportRequest> query)
-        => query.Select(x => new MemberSupportRequestResponse(
+    {
+        var canSeePayoutProof = User.IsInRole(nameof(UserRole.CenterManager));
+        var now = clock.UtcNow;
+        return query.Select(x => new MemberSupportRequestResponse(
             x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
             x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
             x.ProgressNote, x.UpdatedAt, x.ClosedAt,
@@ -115,10 +149,21 @@ public sealed class MemberSupportRequestsController(
             db.Set<UserAccount>().Where(u => u.UserId == x.MemberId).Select(u => u.Email).FirstOrDefault(),
             db.Set<UserAccount>().Where(u => u.UserId == x.AssignedToUserId)
                 .Select(u => u.Profile != null ? u.Profile.FullName : u.Email).FirstOrDefault(),
-            db.Set<MemberSupportAttachment>().Where(a => a.RequestId == x.RequestId)
+            db.Set<MemberSupportAttachment>().Where(a => a.RequestId == x.RequestId
+                && (canSeePayoutProof || a.Kind == SupportAttachmentKinds.MemberProof))
                 .OrderBy(a => a.CreatedAt).ThenBy(a => a.AttachmentId)
-                .Select(a => new SupportAttachmentInfo(a.AttachmentId, a.FileName)).ToList(),
-            x.Channel));
+                .Select(a => new SupportAttachmentInfo(a.AttachmentId, a.FileName, a.Kind)).ToList(),
+            x.Channel, x.SlaDueAtUtc,
+            x.Status != "DONE" && x.Status != "REJECTED" && x.Status != "CLOSED"
+                && x.SlaDueAtUtc <= now,
+            x.RemindCount, x.InvoiceId,
+            db.Set<MemberSupportPayout>().Where(p => p.RequestId == x.RequestId)
+                .Select(p => new SupportPayoutInfo(p.PayoutId, p.Amount, p.RecordedAtUtc,
+                    p.MemberConfirmedAtUtc, p.MemberConfirmedBy,
+                    db.Set<MemberSupportAttachment>().Where(a => canSeePayoutProof && a.PayoutId == p.PayoutId)
+                        .Select(a => a.AttachmentId).ToList())).FirstOrDefault(),
+            x.Status == "CLOSED" ? "DONE" : null));
+    }
 
     [HttpGet]
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
@@ -217,6 +262,17 @@ public sealed class MemberSupportRequestsController(
             });
         }
 
+        if (category == "PAYMENT")
+        {
+            if (request.InvoiceId is null || request.InvoiceId == Guid.Empty)
+                throw new BadRequestException(PaymentSupportErrorCodes.PaymentRequestInvoiceRequired,
+                    "Choose the member's paid VNPay invoice.");
+            if (!string.IsNullOrWhiteSpace(request.ResolveNote))
+                throw new ForbiddenException(PaymentSupportErrorCodes.PaymentRequestManagerOnly,
+                    "A payment request cannot be resolved at the counter. A manager handles it.");
+            await invoiceGuard.EnsureEligibleAsync(request.MemberId, request.InvoiceId.Value, ct);
+        }
+
         var channel = (request.Channel ?? "COUNTER").Trim().ToUpperInvariant();
         if (channel is not ("COUNTER" or "PHONE" or "FANPAGE"))
             throw new BadRequestException("support_channel_invalid", "Invalid request channel.");
@@ -241,7 +297,9 @@ public sealed class MemberSupportRequestsController(
             Description = description,
             Status = "OPEN",
             Channel = channel,
-            CreatedAt = now
+            CreatedAt = now,
+            SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct)),
+            InvoiceId = category == "PAYMENT" ? request.InvoiceId : null
         };
         AddEvent(entity.RequestId, "CREATED", null);
         if (!string.IsNullOrWhiteSpace(request.ResolveNote))
@@ -257,6 +315,9 @@ public sealed class MemberSupportRequestsController(
         else if (request.AssigneeUserId is Guid assigneeId)
         {
             var role = await ValidateAssigneeAsync(assigneeId, request.HandoverNote, ct);
+            if (category == "PAYMENT" && role != UserRole.CenterManager)
+                throw new ConflictException(PaymentSupportErrorCodes.PaymentRequestManagerOnly,
+                    "A payment request can only be handed to a manager.");
             entity.AssignedToUserId = assigneeId;
             entity.Status = "ASSIGNED";
             entity.UpdatedAt = now;
@@ -303,6 +364,10 @@ public sealed class MemberSupportRequestsController(
     [HttpGet("stats")]
     public async Task<IActionResult> Stats(CancellationToken ct = default)
     {
+        var now = clock.UtcNow;
+        var overdue = await VisibleRequests()
+            .CountAsync(x => x.SlaDueAtUtc <= now && x.Status != "DONE"
+                && x.Status != "REJECTED" && x.Status != "CLOSED", ct);
         var counts = await VisibleRequests()
             .GroupBy(x => x.Status)
             .Select(g => new { Status = g.Key, Count = g.Count() })
@@ -310,10 +375,12 @@ public sealed class MemberSupportRequestsController(
         int Count(string status) => counts.FirstOrDefault(x => x.Status == status)?.Count ?? 0;
         return Ok(new
         {
+            notStarted = Count("OPEN") + Count("ASSIGNED"),
             open = Count("OPEN"),
             assigned = Count("ASSIGNED"),
             inProgress = Count("IN_PROGRESS"),
-            done = Count("DONE") + Count("CLOSED"),
+            overdue,
+            done = Count("DONE") + Count("CLOSED") + (IsAssignedHandler ? Count("REJECTED") : 0),
             rejected = Count("REJECTED")
         });
     }
@@ -323,19 +390,32 @@ public sealed class MemberSupportRequestsController(
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery, MaxLength(200)] string? search = null, [FromQuery] Guid? assignedToUserId = null,
         [FromQuery, MaxLength(50)] string? category = null,
+        [FromQuery] bool? overdue = null,
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var query = VisibleRequests();
+        if (overdue is bool filterOverdue)
+        {
+            var now = clock.UtcNow;
+            query = filterOverdue
+                ? query.Where(x => x.SlaDueAtUtc <= now && x.Status != "DONE"
+                    && x.Status != "REJECTED" && x.Status != "CLOSED")
+                : query.Where(x => x.SlaDueAtUtc > now || x.Status == "DONE"
+                    || x.Status == "REJECTED" || x.Status == "CLOSED");
+        }
         if (!string.IsNullOrWhiteSpace(status))
         {
             var value = status.Trim().ToUpperInvariant();
-            if (value is not ("OPEN" or "ASSIGNED" or "IN_PROGRESS" or "DONE" or "REJECTED" or "CLOSED"))
+            if (value is not ("NOT_STARTED" or "FINISHED" or "OPEN" or "ASSIGNED" or "IN_PROGRESS" or "DONE" or "REJECTED" or "CLOSED"))
                 throw new BadRequestException("support_status_invalid", "Invalid support request status.");
-            query = value == "DONE"
-                ? query.Where(x => x.Status == "DONE" || x.Status == "CLOSED")
-                : query.Where(x => x.Status == value);
+            if (value == "NOT_STARTED")
+                query = query.Where(x => x.Status == "OPEN" || x.Status == "ASSIGNED");
+            else if (value == "FINISHED")
+                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED" || (IsAssignedHandler && x.Status == "REJECTED"));
+            else
+                query = query.Where(x => x.Status == value);
         }
         if (!string.IsNullOrWhiteSpace(category))
         {
@@ -390,6 +470,10 @@ public sealed class MemberSupportRequestsController(
         var assigneeRole = await ValidateAssigneeAsync(body.AssigneeUserId, body.Note, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
+        RequireManagerForPayment(row);
+        if (row.Category == "PAYMENT" && assigneeRole != UserRole.CenterManager)
+            throw new ConflictException(PaymentSupportErrorCodes.PaymentRequestManagerOnly,
+                "A payment request can only be handed to a manager.");
         if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
         var old = row.AssignedToUserId;
         if (old == body.AssigneeUserId)
@@ -419,7 +503,8 @@ public sealed class MemberSupportRequestsController(
             throw new BadRequestException("support_progress_invalid", "Progress note must have 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
-        RequireAssignedCoach(row);
+        RequireAssignedHandler(row);
+        RequireManagerForPayment(row);
         if (IsFinal(row.Status)) throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before updating progress.");
@@ -441,6 +526,7 @@ public sealed class MemberSupportRequestsController(
         => Finish(requestId, body, "DONE", ct);
 
     [HttpPost("{requestId:guid}/reject")]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
     public Task<IActionResult> Reject(Guid requestId, [FromBody] FinishSupportRequest body, CancellationToken ct)
         => Finish(requestId, body, "REJECTED", ct);
 
@@ -451,7 +537,8 @@ public sealed class MemberSupportRequestsController(
             throw new BadRequestException("support_final_note_invalid", "Final note must contain 3 to 1000 characters.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var row = await LockAsync(requestId, ct);
-        RequireAssignedCoach(row);
+        RequireAssignedHandler(row);
+        RequireManagerForPayment(row);
         if (IsFinal(row.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
         if (row.AssignedToUserId is null)
@@ -548,6 +635,24 @@ public sealed class MemberSupportRequestsController(
         return eventId;
     }
 
+    /// <summary>Front desk reminds the managers about a payment request on the member's behalf.</summary>
+    [HttpPost("{requestId:guid}/remind")]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    public async Task<IActionResult> Remind(Guid requestId, CancellationToken ct)
+    {
+        var result = await reminders.RemindAsync(requestId, User.RequireUserId(), byStaff: true, ct);
+        if (result.Sent) return Ok(result);
+        var seconds = Math.Max(1, (int)Math.Ceiling((result.CanRemindAtUtc - clock.UtcNow).TotalSeconds));
+        Response.Headers.RetryAfter = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Conflict(new
+        {
+            error = PaymentSupportErrorCodes.SupportRemindTooEarly,
+            message = "A reminder can be sent after the response deadline or cooldown.",
+            retryAfter = seconds,
+            canRemindAtUtc = result.CanRemindAtUtc
+        });
+    }
+
     [HttpGet("{requestId:guid}")]
     public async Task<IActionResult> GetOne(Guid requestId, CancellationToken ct)
         => await Project(VisibleRequests().Where(x => x.RequestId == requestId))
@@ -564,7 +669,7 @@ public sealed class MemberSupportRequestsController(
             .Where(e => e.RequestId == requestId)
             .OrderBy(e => e.CreatedAt)
             .Select(e => new SupportEventResponse(e.EventId, e.Type, e.Note, e.CreatedAt,
-                db.Set<UserAccount>().Where(u => u.UserId == e.ActorUserId)
+                e.ActorUserId == null ? "System" : db.Set<UserAccount>().Where(u => u.UserId == e.ActorUserId)
                     .Select(u => u.Profile != null ? u.Profile.FullName : u.Email).FirstOrDefault() ?? "Unknown",
                 db.Set<UserAccount>().Where(u => u.UserId == e.ActorUserId)
                     .Select(u => u.Role!.RoleName.ToString()).FirstOrDefault(),

@@ -16,9 +16,7 @@ frontend/.env*.local
 frontend/tsconfig.tsbuildinfo
 frontend/test-results/
 
-## Python (ai/ reserved for future)
-ai/**/__pycache__/
-ai/**/.venv/
+## Python
 **/__pycache__/
 **/*.pyc
 **/.venv/
@@ -46,6 +44,12 @@ ai/**/.venv/
 # Local task tooling
 .tmp/
 .tools/
+
+# Local backups, logs and generated screenshots
+*.bak
+*.log
+/output/*
+!/output/.gitkeep
 
 # Local persistent runtime data, including Data Protection keys.
 /.sporthub-local/
