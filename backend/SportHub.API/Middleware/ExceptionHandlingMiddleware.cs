@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
-using SportHub.Identity.Domain.Enums;
 using SportHub.Identity.Domain.Exceptions;
 using SportHub.Scheduling.Domain.Exceptions;
 
@@ -47,11 +46,11 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 case NoActiveMemberPackageException:
                     await WriteErrorAsync(context, StatusCodes.Status409Conflict, "no_active_member_package", ex.Message);
                     break;
-                case AccountBlockedException blocked:
+                case AccountBlockedException:
                     await WriteErrorAsync(
                         context,
                         StatusCodes.Status403Forbidden,
-                        blocked.Status == UserStatus.Banned ? "account_banned" : "account_deactivated",
+                        "account_deactivated",
                         ex.Message);
                     break;
                 // Xung đột lịch phòng/coach: 409 kèm danh sách khoảng đang chiếm chỗ.

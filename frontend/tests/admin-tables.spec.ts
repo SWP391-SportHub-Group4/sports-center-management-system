@@ -236,7 +236,7 @@ test("Audit log keeps scope, metadata redaction, filtering and server pagination
   await expect(
     details.getByRole("columnheader", { name: "After", exact: true }),
   ).toBeVisible();
-  await expect(details.getByRole("table")).toContainText("Locked");
+  await expect(details.getByRole("table")).toContainText("Deactivated");
   await expect(details).not.toContainText("SECRET_OTP");
   await expect(details).not.toContainText("SECRET_BODY");
   await page.keyboard.press("Escape");
@@ -283,9 +283,12 @@ test("both Admin tables fit desktop and mobile with working mobile sort", async 
       await page.goto(`/admin/${path}`);
       await expect(page.getByRole("table")).toBeVisible();
       await expect(
-        page.getByText(path === "users" ? "Coach sample" : "Account locked", {
-          exact: true,
-        }),
+        page.getByText(
+          path === "users" ? "Coach sample" : "Account deactivated",
+          {
+            exact: true,
+          },
+        ),
       ).toBeVisible();
       const overflow = await page.evaluate(() => ({
         width: window.innerWidth,

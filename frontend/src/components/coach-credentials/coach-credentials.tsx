@@ -64,6 +64,114 @@ function CredentialImage({
     />
   );
 }
+
+function usePdfPreview(document: CoachCredential, enabled: boolean) {
+  const { fileUrl, contentUrl } = document;
+  const source = contentUrl || fileUrl;
+  const [preview, setPreview] = useState({ source: "", url: "", error: "" });
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const controller = new AbortController();
+    let active = true;
+    let objectUrl = "";
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 135000);
+
+    async function load() {
+      try {
+        const file = await credentialsApi.content(
+          { fileUrl, contentUrl },
+          controller.signal,
+        );
+        if (
+          file.size === 0 ||
+          file.size > limit ||
+          !(await file.slice(0, 5).text()).startsWith("%PDF-")
+        )
+          throw new Error("Invalid PDF response");
+        if (!active) return;
+        objectUrl = URL.createObjectURL(
+          new Blob([file], { type: "application/pdf" }),
+        );
+        setPreview({ source, url: objectUrl, error: "" });
+      } catch {
+        if (!active || (controller.signal.aborted && !timedOut)) return;
+        setPreview({
+          source,
+          url: "",
+          error: timedOut
+            ? "This PDF took too long to load. Please try again."
+            : "Could not load this PDF. Please try again. If it still does not load, contact support.",
+        });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+    void load();
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearTimeout(timeout);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [fileUrl, contentUrl, source, enabled, attempt]);
+
+  return {
+    ...(preview.source === source ? preview : { url: "", error: "" }),
+    retry: () => {
+      setPreview({ source, url: "", error: "" });
+      setAttempt((value) => value + 1);
+    },
+  };
+}
+
+function PdfPreview({
+  document,
+  preview,
+}: {
+  document: CoachCredential;
+  preview: ReturnType<typeof usePdfPreview>;
+}) {
+  return (
+    <div className={s.pdfPreview}>
+      {preview.error ? (
+        <div className={s.pdfState} role="alert">
+          <FileText size={36} aria-hidden="true" />
+          <p>{preview.error}</p>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={preview.retry}
+          >
+            Retry
+          </button>
+        </div>
+      ) : preview.url ? (
+        <>
+          <div className={s.pdfTools}>
+            <span>Browse all pages using the PDF viewer controls.</span>
+          </div>
+          <iframe
+            title={`${document.title} PDF preview`}
+            src={`${preview.url}#toolbar=1&navpanes=0`}
+            className={s.pdfFrame}
+          />
+        </>
+      ) : (
+        <div className={s.pdfState} role="status">
+          <FileText size={36} aria-hidden="true" />
+          <p>Loading PDF…</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DocumentViewer({
   document,
   onClose,
@@ -71,6 +179,9 @@ function DocumentViewer({
   document: CoachCredential;
   onClose: () => void;
 }) {
+  const pdf = document.contentType === "application/pdf";
+  const preview = usePdfPreview(document, pdf);
+  const originalUrl = pdf ? preview.url : document.fileUrl;
   return createPortal(
     <Dialog
       title={document.title}
@@ -78,14 +189,31 @@ function DocumentViewer({
       size="lg"
       className={s.viewer}
       footer={
-        <a
-          href={document.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn btn--secondary"
-        >
-          Open original <ExternalLink size={16} aria-hidden="true" />
-        </a>
+        <>
+          {pdf && preview.url && (
+            <a
+              href={preview.url}
+              download={document.fileName}
+              className="btn btn--secondary"
+            >
+              Download PDF
+            </a>
+          )}
+          {originalUrl ? (
+            <a
+              href={originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn--secondary"
+            >
+              Open original <ExternalLink size={16} aria-hidden="true" />
+            </a>
+          ) : (
+            <button type="button" className="btn btn--secondary" disabled>
+              Open original <ExternalLink size={16} aria-hidden="true" />
+            </button>
+          )}
+        </>
       }
     >
       <p className={s.documentMeta}>
@@ -94,11 +222,16 @@ function DocumentViewer({
         {document.issuedOn && ` · ${formatDate(document.issuedOn)}`}
       </p>
       <div className={s.fullDocument}>
-        <CredentialImage document={document} full />
+        {pdf ? (
+          <PdfPreview document={document} preview={preview} />
+        ) : (
+          <CredentialImage document={document} full />
+        )}
       </div>
-      {document.contentType === "application/pdf" && (
+      {pdf && (
         <p className={s.hint}>
-          Open the original PDF in a new tab to read the complete document.
+          If your browser cannot display the PDF, download it or open the
+          original in a new tab.
         </p>
       )}
       <p className={s.fileInfo}>

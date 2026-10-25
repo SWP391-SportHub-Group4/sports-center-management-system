@@ -379,7 +379,7 @@ public sealed class MemberSupportRequestsController(
             assigned = Count("ASSIGNED"),
             inProgress = Count("IN_PROGRESS"),
             overdue,
-            done = Count("DONE") + Count("CLOSED") + (IsAssignedHandler ? Count("REJECTED") : 0),
+            done = Count("DONE") + Count("CLOSED"),
             rejected = Count("REJECTED")
         });
     }
@@ -412,7 +412,7 @@ public sealed class MemberSupportRequestsController(
             if (value == "NOT_STARTED")
                 query = query.Where(x => x.Status == "OPEN" || x.Status == "ASSIGNED");
             else if (value == "FINISHED")
-                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED" || (IsAssignedHandler && x.Status == "REJECTED"));
+                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED");
             else
                 query = query.Where(x => x.Status == value);
         }

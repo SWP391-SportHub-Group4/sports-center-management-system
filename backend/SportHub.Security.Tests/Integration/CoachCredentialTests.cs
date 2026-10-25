@@ -18,25 +18,111 @@ namespace SportHub.Security.Tests.Integration;
 public sealed class CoachCredentialTests(SportHubApiFactory factory)
 {
     private static readonly byte[] Png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6h4AAAAAASUVORK5CYII=");
+    private static readonly byte[] Pdf = "%PDF-1.7\n1 0 obj <</Type /Pages /Count 2 /Kids [2 0 R 3 0 R]>> endobj\n2 0 obj <</Type /Page>> endobj\n3 0 obj <</Type /Page>> endobj\n%%EOF"u8.ToArray();
     private sealed class DocumentStorage : ICoachCredentialStorage
     {
-        public int Uploads; public int Deletions; public bool FailDeletion;
+        public int Uploads; public int Deletions; public int Downloads; public bool FailDeletion;
         public Task<StoredCoachCredential> UploadAsync(Guid coachId, Guid id, byte[] bytes, string type, CancellationToken ct)
-        { Uploads++; var key = $"sporthub/coach-credentials/{coachId:N}/{id:N}"; return Task.FromResult(new StoredCoachCredential($"https://res.cloudinary.com/test/image/upload/v1/{key}.png", key)); }
+        {
+            Uploads++;
+            var pdf = type == "application/pdf";
+            var key = $"sporthub/coach-credentials/{coachId:N}/{id:N}" + (pdf ? ".pdf" : "");
+            return Task.FromResult(new StoredCoachCredential($"https://res.cloudinary.com/test/{(pdf ? "raw" : "image")}/upload/v1/{key}{(pdf ? "" : ".png")}", key));
+        }
+        public Task<byte[]> DownloadPdfAsync(string id, CancellationToken ct)
+        { Downloads++; return Task.FromResult(Pdf); }
         public Task DeleteAsync(string id, string type, CancellationToken ct)
         { Deletions++; if (FailDeletion) throw new HttpRequestException("Temporary storage failure"); return Task.CompletedTask; }
     }
     private HttpClient Client(Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> app, Guid id, UserRole role)
     { var client = app.CreateClient(); client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(id, role)); return client; }
-    private static MultipartFormDataContent Form(string title = "Badminton coaching certificate", bool published = true)
+    private static MultipartFormDataContent Form(string title = "Badminton coaching certificate", bool published = true, bool pdf = false)
     {
         var form = new MultipartFormDataContent();
         form.Add(new StringContent(title), "title"); form.Add(new StringContent("CERTIFICATE"), "kind");
         form.Add(new StringContent("Sports Federation"), "issuer"); form.Add(new StringContent("2025-06-01"), "issuedOn");
         form.Add(new StringContent(published.ToString()), "isPublished");
-        var image = new ByteArrayContent(Png); image.Headers.ContentType = new("image/png"); form.Add(image, "file", "certificate.png"); return form;
+        var file = new ByteArrayContent(pdf ? Pdf : Png);
+        file.Headers.ContentType = new(pdf ? "application/pdf" : "image/png");
+        form.Add(file, "file", pdf ? "coach certificate.pdf" : "certificate.png"); return form;
     }
     private static object Details(CoachCredentialResponse row, bool published) => new { Kind = row.Kind.ToUpperInvariant(), row.Title, row.Issuer, row.IssuedOn, IsPublished = published, row.Version };
+
+    [Fact]
+    public async Task Pdf_delivery_returns_original_bytes_and_ranges_and_rechecks_publication_and_ownership()
+    {
+        var coach = await factory.SeedUserAsync($"pdf-coach-{Guid.NewGuid():N}@example.test", null, role: UserRole.Coach);
+        var other = await factory.SeedUserAsync($"pdf-other-{Guid.NewGuid():N}@example.test", null, role: UserRole.Coach);
+        var member = await factory.SeedUserAsync($"pdf-member-{Guid.NewGuid():N}@example.test", null);
+        var storage = new DocumentStorage();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => { s.RemoveAll<ICoachCredentialStorage>(); s.AddSingleton<ICoachCredentialStorage>(storage); }));
+        using var owner = Client(app, coach.UserId, UserRole.Coach);
+        using var otherCoach = Client(app, other.UserId, UserRole.Coach);
+        using var memberClient = Client(app, member.UserId, UserRole.Member);
+        using var anonymous = app.CreateClient();
+        using var form = Form(pdf: true);
+        var upload = await owner.PostAsync("/api/coaches/me/credentials", form);
+        upload.EnsureSuccessStatusCode();
+        var row = (await upload.Content.ReadFromJsonAsync<CoachCredentialResponse>())!;
+        var filePath = $"/api/coaches/{coach.UserId:D}/credentials/{row.CredentialId:D}/file";
+        Assert.Equal(filePath, row.ContentUrl);
+        using var full = await anonymous.GetAsync(filePath);
+        full.EnsureSuccessStatusCode();
+        Assert.Equal("application/pdf", full.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("inline", full.Content.Headers.ContentDisposition?.DispositionType);
+        Assert.Contains("coach certificate.pdf", full.Content.Headers.ContentDisposition?.FileName);
+        Assert.Equal("nosniff", Assert.Single(full.Headers.GetValues("X-Content-Type-Options")));
+        Assert.True(full.Headers.CacheControl?.NoStore);
+        Assert.True(full.Headers.CacheControl?.Private);
+        Assert.Equal(Pdf, await full.Content.ReadAsByteArrayAsync());
+        using var rangeRequest = new HttpRequestMessage(HttpMethod.Get, filePath);
+        rangeRequest.Headers.Range = new RangeHeaderValue(0, 4);
+        using var range = await anonymous.SendAsync(rangeRequest);
+        Assert.Equal(HttpStatusCode.PartialContent, range.StatusCode);
+        Assert.Equal("%PDF-"u8.ToArray(), await range.Content.ReadAsByteArrayAsync());
+        Assert.Equal(Pdf.Length, range.Content.Headers.ContentRange?.Length);
+
+        (await owner.PutAsJsonAsync($"/api/coaches/me/credentials/{row.CredentialId}", Details(row, false))).EnsureSuccessStatusCode();
+        var downloads = storage.Downloads;
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync(filePath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await otherCoach.GetAsync(filePath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await memberClient.GetAsync(filePath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync($"/api/coaches/{other.UserId:D}/credentials/{row.CredentialId:D}/file")).StatusCode);
+        Assert.Equal(downloads, storage.Downloads);
+        Assert.Equal(Pdf, await owner.GetByteArrayAsync(filePath));
+
+        using var imageForm = Form();
+        var image = (await (await owner.PostAsync("/api/coaches/me/credentials", imageForm)).Content.ReadFromJsonAsync<CoachCredentialResponse>())!;
+        Assert.Null(image.ContentUrl);
+        downloads = storage.Downloads;
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/api/coaches/{coach.UserId:D}/credentials/{image.CredentialId:D}/file")).StatusCode);
+        (await owner.DeleteAsync($"/api/coaches/me/credentials/{row.CredentialId}")).EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync(filePath)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync(filePath)).StatusCode);
+        Assert.Equal(downloads, storage.Downloads);
+    }
+
+    [Fact]
+    public async Task Pdf_delivery_denies_documents_when_the_coach_is_deactivated()
+    {
+        var coach = await factory.SeedUserAsync($"inactive-pdf-coach-{Guid.NewGuid():N}@example.test", null, role: UserRole.Coach);
+        var storage = new DocumentStorage();
+        using var app = factory.WithWebHostBuilder(b => b.ConfigureTestServices(s => { s.RemoveAll<ICoachCredentialStorage>(); s.AddSingleton<ICoachCredentialStorage>(storage); }));
+        using var owner = Client(app, coach.UserId, UserRole.Coach);
+        using var form = Form(pdf: true);
+        var upload = await owner.PostAsync("/api/coaches/me/credentials", form);
+        upload.EnsureSuccessStatusCode();
+        var row = (await upload.Content.ReadFromJsonAsync<CoachCredentialResponse>())!;
+        using (var scope = app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            (await db.UserAccounts.SingleAsync(u => u.UserId == coach.UserId)).Status = UserStatus.Deactivated;
+            await db.SaveChangesAsync();
+        }
+        using var anonymous = app.CreateClient();
+        Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync(row.ContentUrl)).StatusCode);
+        Assert.Equal(0, storage.Downloads);
+    }
 
     [Fact]
     public async Task Coach_can_publish_edit_hide_and_remove_only_their_own_documents_with_durable_cleanup()

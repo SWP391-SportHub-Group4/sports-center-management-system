@@ -78,6 +78,9 @@ test("Users FilterBar restores shared URL, reload and browser history; reset pre
     "ACTIVE",
   );
   await expect(
+    page.getByLabel("Account status", { exact: true }).locator("option"),
+  ).toHaveText(["All statuses", "Active", "Deactivated"]);
+  await expect(
     page.getByRole("button", { name: /Clear filters.*3/ }),
   ).toBeVisible();
   await expect.poll(() => requests.at(-1)?.searchParams.get("page")).toBe("2");
@@ -129,19 +132,26 @@ test("Users search and status selection reach the API and reset pagination", asy
   expect(new URL(page.url()).searchParams.get("keyword")).toBe("Coach example");
   await page
     .getByLabel("Account status", { exact: true })
-    .selectOption("BANNED");
+    .selectOption("DEACTIVATED");
   await expect
     .poll(() => requests.at(-1)?.searchParams.get("status"))
-    .toBe("BANNED");
+    .toBe("DEACTIVATED");
   await expect(
     page.getByRole("button", { name: /Clear filters.*2/ }),
   ).toBeVisible();
 });
 
-test("invalid list sort/page/select URL values use safe defaults", async ({
+test("legacy account status URLs normalize and invalid list values use safe defaults", async ({
   page,
 }) => {
   const requests = await setup(page);
+  await page.goto("/admin/users?status=BANNED");
+  await expect(page.getByLabel("Account status", { exact: true })).toHaveValue(
+    "DEACTIVATED",
+  );
+  await expect
+    .poll(() => requests.at(-1)?.searchParams.get("status"))
+    .toBe("DEACTIVATED");
   await page.goto(
     "/admin/users?page=-2&role=UNKNOWN&status=UNKNOWN&sortBy=unsupported&sortDirection=sideways",
   );
@@ -166,8 +176,9 @@ test("Audit FilterBar applies name/email drafts only on submit and preserves leg
     `/admin/audit-log?action=LOCK_USER&actorId=${actorId}&page=2&sortBy=action&keep=1&targetEntity=PointWallet`,
   );
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "Account locked",
+    "Account deactivated",
   );
+  await page.getByRole("button", { name: /^More filters/ }).click();
   await expect(
     page.getByRole("combobox", { name: "Record type", exact: true }),
   ).toHaveValue("PointWallet");
@@ -196,14 +207,15 @@ test("Audit FilterBar applies name/email drafts only on submit and preserves leg
   expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
   await page.reload();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "Account unlocked",
+    "Account activated",
   );
   await page.goBack();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "Account locked",
+    "Account deactivated",
   );
   await page.getByRole("button", { name: /Clear filters/ }).click();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue("");
+  await page.getByRole("button", { name: /^More filters/ }).click();
   await expect(
     page.getByRole("combobox", { name: "Record type", exact: true }),
   ).toHaveValue("");

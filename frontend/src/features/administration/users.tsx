@@ -1,17 +1,12 @@
 "use client";
-import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { StaffActivationActions } from "./StaffActivationActions";
 import Link from "next/link";
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Search, Trash2, X } from "lucide-react";
 import { AvatarImage } from "@/components/AvatarImage";
 import { Card, Dialog, Feedback, Field } from "@/components/ui";
-import {
-  ApiTable,
-  FilterBar,
-  type FilterField,
-  type TableColumn,
-} from "@/components/data";
+import { ApiTable, type TableColumn } from "@/components/data";
+import { Input, Select } from "@/components/primitives/Controls";
 import type { SortDirection } from "@/components/contracts/table";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -41,13 +36,12 @@ const staffRoleIds: Record<string, number> = {
   SYSTEM_ADMINISTRATOR: 5,
 };
 const accountRoles = [...staffRoles, "MEMBER"];
-const accountStatuses = [
-  "ACTIVE",
-  "ACTIVATION_REQUIRED",
-  "ACTIVATION_EXPIRING",
-  "BANNED",
-  "DEACTIVATED",
-];
+const accountStatuses = ["ACTIVE", "DEACTIVATED"];
+const invitationFilters = ["ACTIVATION_REQUIRED", "ACTIVATION_EXPIRING"];
+const accountStatusQuery = (value: string) =>
+  value === "BANNED" || value === "LOCKED"
+    ? "DEACTIVATED"
+    : choiceQuery(["", ...accountStatuses, ...invitationFilters], "")(value);
 const userQueryDefaults = {
   keyword: "",
   role: "",
@@ -61,7 +55,7 @@ const userQueryValidators = {
   create: choiceQuery(["", "1"], ""),
   page: pageQuery,
   role: choiceQuery(["", ...accountRoles], ""),
-  status: choiceQuery(["", ...accountStatuses], ""),
+  status: accountStatusQuery,
   sortBy: choiceQuery(["fullName", "email", "role", "status"], "email"),
   sortDirection: choiceQuery(["asc", "desc"], "asc"),
 };
@@ -326,7 +320,7 @@ function CreateStaff({
     </Dialog>
   );
 }
-type AccountAction = "role" | "lock" | "unlock" | "deactivate";
+type AccountAction = "role" | "activate" | "deactivate";
 
 export function EditUser({
   account: a,
@@ -386,25 +380,18 @@ export function EditUser({
   const validReason = reason.trim().length >= 3 && reason.trim().length <= 500;
   const statusLabels: Record<string, string> = {
     ACTIVE: l.accountActive,
-    BANNED: l.accountLocked,
     DEACTIVATED: l.accountDeactivated,
   };
-  const nextStatus =
-    review === "unlock"
-      ? "ACTIVE"
-      : review === "lock"
-        ? "BANNED"
-        : "DEACTIVATED";
+  const currentStatus = a.status === "ACTIVE" ? "ACTIVE" : "DEACTIVATED";
+  const nextStatus = review === "activate" ? "ACTIVE" : "DEACTIVATED";
   const impact =
     review === "role"
       ? roleChanged
         ? d.roleImpact
         : d.specialtyImpact
-      : review === "lock"
-        ? d.lockImpact
-        : review === "unlock"
-          ? d.unlockImpact
-          : d.deactivateImpact;
+      : review === "activate"
+        ? d.activateImpact
+        : d.deactivateImpact;
   async function confirmAction() {
     if (!review || !validReason) return;
     if (review === "role" && a.role === "SYSTEM_ADMINISTRATOR") return;
@@ -527,37 +514,20 @@ export function EditUser({
                     onChange={(e) => setReason(e.target.value)}
                   />
                 </Field>
-                <ActivitySwitch
-                  checked={a.status !== "DEACTIVATED"}
-                  disabled={!validReason}
-                  label="Account enabled"
-                  hint="Turn off to deactivate sign-in access. Enter a reason above to enable this control."
-                  onChange={(checked) =>
-                    setReview(checked ? "unlock" : "deactivate")
+                <button
+                  type="button"
+                  className={
+                    currentStatus === "ACTIVE" ? "btn btn--danger" : "btn"
                   }
-                />
-                <div className={styles.rowActions}>
-                  {a.status !== "BANNED" && (
-                    <button
-                      type="button"
-                      className="btn btn--danger"
-                      disabled={!validReason}
-                      onClick={() => setReview("lock")}
-                    >
-                      {l.lock}
-                    </button>
-                  )}
-                  {a.status !== "ACTIVE" && (
-                    <button
-                      type="button"
-                      className="btn btn--secondary"
-                      disabled={!validReason}
-                      onClick={() => setReview("unlock")}
-                    >
-                      {l.unlock}
-                    </button>
-                  )}
-                </div>
+                  disabled={!validReason}
+                  onClick={() =>
+                    setReview(
+                      currentStatus === "ACTIVE" ? "deactivate" : "activate",
+                    )
+                  }
+                >
+                  {currentStatus === "ACTIVE" ? l.deactivate : l.activate}
+                </button>
               </section>
             )}
           </>
@@ -571,11 +541,9 @@ export function EditUser({
                     ? roleChanged
                       ? l.changeRole
                       : d.updateSpecialties
-                    : review === "lock"
-                      ? l.lock
-                      : review === "unlock"
-                        ? l.unlock
-                        : l.deactivate}
+                    : review === "activate"
+                      ? l.activate
+                      : l.deactivate}
                 </dd>
               </div>
               {review === "role" ? (
@@ -631,7 +599,7 @@ export function EditUser({
                 <>
                   <div>
                     <dt>{d.currentStatus}</dt>
-                    <dd>{statusLabels[a.status]}</dd>
+                    <dd>{statusLabels[currentStatus]}</dd>
                   </div>
                   <div>
                     <dt>{d.newStatus}</dt>
@@ -703,7 +671,7 @@ export function EditUser({
               <button
                 type="button"
                 className={
-                  review === "lock" || review === "deactivate"
+                  review === "deactivate"
                     ? "btn btn--danger"
                     : "btn"
                 }
@@ -781,44 +749,19 @@ export function Users() {
   };
   const statusLabels: Record<string, string> = {
     ACTIVE: l.accountActive,
-    BANNED: l.accountLocked,
     DEACTIVATED: l.accountDeactivated,
   };
-  const fields: FilterField[] = [
-    {
-      id: "keyword",
-      label: "Find an account",
-      kind: "search",
-      placeholder: "Search name or email",
-    },
-    {
-      id: "role",
-      label: l.role,
-      kind: "select",
-      options: [
-        { value: "", label: l.all },
-        ...accountRoles.map((value) => ({ value, label: roleLabels[value] })),
-      ],
-    },
-    {
-      id: "status",
-      label: l.accountState,
-      kind: "select",
-      options: [
-        { value: "", label: l.all },
-        ...accountStatuses.map((value) => ({
-          value,
-          label:
-            value === "ACTIVATION_REQUIRED"
-              ? t.adminWork.pendingActivation
-              : value === "ACTIVATION_EXPIRING"
-                ? t.adminWork.expiringActivation
-                : statusLabels[value],
-        })),
-      ],
-    },
-  ];
+  const invitationFilter = invitationFilters.includes(status);
   const activeCount = [keyword, role, status].filter(Boolean).length;
+  const updateFilters = (
+    next: Partial<Record<"keyword" | "role" | "status", string>>,
+  ) => {
+    query.setValues(
+      { ...next, page: "1" },
+      { replace: next.keyword !== undefined && next.keyword !== keyword },
+    );
+    setSelected(null);
+  };
   const clearFilters = () => {
     query.setValues({ keyword: "", role: "", status: "", page: "1" });
     setSelected(null);
@@ -898,20 +841,89 @@ export function Users() {
             </button>
           }
         >
-          <div className={styles.directoryFilters}>
-            <FilterBar
-              fields={fields}
-              values={{ keyword, role, status }}
-              activeCount={activeCount}
-              onChange={(next) => {
-                query.setValues(
-                  { ...next, page: "1" },
-                  { replace: next.keyword !== keyword },
-                );
-                setSelected(null);
-              }}
-              onReset={clearFilters}
-            />
+          <div
+            className={styles.directoryFilters}
+            role="search"
+            aria-label="Filter accounts"
+          >
+            <Field label="Search name or email">
+              <span className={styles.filterSearch}>
+                <Search size={18} aria-hidden="true" />
+                <Input
+                  name="keyword"
+                  type="search"
+                  placeholder="Name or email"
+                  autoComplete="off"
+                  value={keyword}
+                  onChange={(event) =>
+                    updateFilters({ keyword: event.target.value })
+                  }
+                />
+              </span>
+            </Field>
+            <Field label={l.role}>
+              <Select
+                name="role"
+                value={role}
+                options={[
+                  { value: "", label: "All roles" },
+                  ...accountRoles.map((value) => ({
+                    value,
+                    label: roleLabels[value],
+                  })),
+                ]}
+                onChange={(event) =>
+                  updateFilters({ role: event.target.value })
+                }
+              />
+            </Field>
+            <Field label={l.accountState}>
+              <Select
+                name="status"
+                value={invitationFilter ? "ACTIVE" : status}
+                options={[
+                  { value: "", label: "All statuses" },
+                  ...accountStatuses.map((value) => ({
+                    value,
+                    label: statusLabels[value],
+                  })),
+                ]}
+                onChange={(event) =>
+                  updateFilters({ status: event.target.value })
+                }
+              />
+            </Field>
+            <button
+              type="button"
+              className={styles.filterClear}
+              aria-label={`${t.dataTable.clearFilters}${activeCount ? ` (${activeCount})` : ""}`}
+              title={t.dataTable.clearFilters}
+              disabled={activeCount === 0}
+              onClick={clearFilters}
+            >
+              <Trash2 size={18} aria-hidden="true" />
+              <span className={styles.filterClearLabel}>
+                {t.dataTable.clearFilters}
+              </span>
+            </button>
+            {invitationFilter && (
+              <div className={styles.invitationFilter}>
+                <span>
+                  Invitations:{" "}
+                  {status === "ACTIVATION_EXPIRING"
+                    ? t.adminWork.expiringActivation
+                    : t.adminWork.pendingActivation}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Clear invitation filter"
+                  title="Clear invitation filter"
+                  onClick={() => updateFilters({ status: "ACTIVE" })}
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+            )}
           </div>
           <div
             className={styles.resultsHeading}

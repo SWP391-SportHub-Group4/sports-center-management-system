@@ -177,7 +177,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
     /// <summary>Member không có Membership Gym, chuyên môn hay hồ sơ nào: chỉ cần tài khoản hoạt động.</summary>
     private async Task<CourtRentalRequest> SetupAsync(bool active = true)
     {
-        var member = await factory.SeedUserAsync(UserRole.Member, active ? UserStatus.Active : UserStatus.Banned);
+        var member = await factory.SeedUserAsync(UserRole.Member, active ? UserStatus.Active : UserStatus.Deactivated);
         return await factory.QueryAsync(async db =>
         {
             // Sức chứa phòng không còn lọc lượt thuê: phòng 2 chỗ vẫn thuê được.

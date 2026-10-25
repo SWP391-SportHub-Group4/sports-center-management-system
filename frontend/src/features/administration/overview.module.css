@@ -37,7 +37,7 @@
 }
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   overflow: hidden;
@@ -70,14 +70,8 @@
 .metric[data-tone="active"] .statusDot {
   color: var(--volt-400);
 }
-.metric[data-tone="locked"] .statusDot {
-  color: var(--danger-solid);
-}
 .metric[data-tone="inactive"] .statusDot {
   color: var(--text-muted);
-}
-.metric[data-tone="pending"] .statusDot {
-  color: var(--warning-text);
 }
 .metricValue {
   font: var(--weight-semibold) 2rem / 1.2 var(--font-body);
@@ -379,12 +373,6 @@
   }
   .metric {
     padding: var(--space-4);
-  }
-  .metric:nth-child(3) {
-    border-inline-start: 0;
-  }
-  .metric:nth-child(n + 3) {
-    border-top: 1px solid var(--border-subtle);
   }
   .metricLabel {
     flex-wrap: wrap;

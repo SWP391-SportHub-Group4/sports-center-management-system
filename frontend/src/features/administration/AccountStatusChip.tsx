@@ -7,28 +7,22 @@ import type { UserAdminDto } from "@/lib/types";
 
 const statusTones: Partial<Record<string, StatusTone>> = {
   ACTIVE: "success",
-  BANNED: "danger",
   DEACTIVATED: "neutral",
 };
 
 export function AccountStatusChip({ account }: { account: UserAdminDto }) {
   const { t } = useLanguage();
-  const activationRequired = requiresStaffActivation(account);
+  const status = account.status === "ACTIVE" ? "ACTIVE" : "DEACTIVATED";
   const labels: Record<string, string> = {
     ACTIVE: t.staffWork.accountActive,
-    BANNED: t.staffWork.accountLocked,
     DEACTIVATED: t.staffWork.accountDeactivated,
   };
 
   return (
     <StatusChip
-      value={activationRequired ? "ACTIVATION_REQUIRED" : account.status}
-      tone={activationRequired ? "warning" : statusTones[account.status]}
-      label={
-        activationRequired
-          ? t.adminWork.pendingActivation
-          : labels[account.status]
-      }
+      value={status}
+      tone={statusTones[status]}
+      label={labels[status]}
     />
   );
 }

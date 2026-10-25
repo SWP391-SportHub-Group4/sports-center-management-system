@@ -10,9 +10,11 @@ The product owner confirmed the [staff activation and audit policy](api-contract
 
 ### Admin account administration
 
-Admin overview separates database status totals from invitation queues (awaiting activation and expiring within six hours). Queue counts use server-side account filters; awaiting-activation staff remain Active in the database. Account list state survives detail navigation. Access changes and invitation delivery are separate actions; existing Coach specialties can also be edited by Admin without changing the role, with a review of additions and removals; Manager retains Coach profile management. Email feedback confirms queuing, not delivery, and expired invitations retain the fixed 24-hour deadline.
+Admin overview separates the two database status totals, Active and Deactivated, from invitation queues (awaiting activation and expiring within six hours). Queue counts use server-side account filters; awaiting-activation staff remain Active in the database. Account list state survives detail navigation. Activate/Deactivate require a reason and control access; invitation delivery and setting a password are separate actions. Existing Coach specialties can also be edited by Admin without changing the role, with a review of additions and removals; Manager retains Coach profile management. Email feedback confirms queuing, not delivery, and expired invitations retain the fixed 24-hour deadline.
 
-Role/status commands share a transaction-scoped administration lock, lock the target account and recheck the actor's Active/Admin access before mutation. The last-active-Admin guard, status/security stamp, audit and notification outbox are atomic. Coverage notices use a new transition ID for each effective Coach lock/deactivation; no-op retries do not emit duplicates. Their action opens the affected Coach's Overview directly. The urgent assignments table distinguishes lead classes (replace the lead and all future sessions through the shared lead-coach API) from substitute sessions (replace only that session through reschedule). The old locked-only reassignment endpoint has been removed. Audit filtering supports Vietnam calendar days, exact target records and existing event-role visibility. See the [API contract](api-contract.md#coach-coverage-and-lead-coach-changes). No schema migration is required for this refactor.
+The overview has only Active accounts and Deactivated accounts as status KPIs, with staff activation in its own section. Users & roles exposes All/Active/Deactivated in the status dropdown; legacy activation queue deep links show a separate Invitation filter chip. Edit account presents a single Activate or Deactivate action appropriate to the current state, with mandatory reason and review. The duplicate Account enabled switch and Lock/Unlock actions are removed.
+
+Role/status commands share a transaction-scoped administration lock, lock the target account and recheck the actor's Active/Admin access before mutation. Self-deactivation and deactivation of the last active Admin remain blocked. Status/security stamp, audit and notification outbox are atomic. Coverage notices use a new transition ID for each effective Coach deactivation; no-op retries do not emit duplicates. Their action opens the affected Coach's Overview directly. The urgent assignments table distinguishes lead classes (replace the lead and all future sessions through the shared lead-coach API) from substitute sessions (replace only that session through reschedule). The old reassignment endpoint limited to blocked Coaches has been removed. Audit filtering supports Vietnam calendar days, exact target records and existing event-role visibility. See the [API contract](api-contract.md#coach-coverage-and-lead-coach-changes). The two-status migration maps legacy `BANNED` to `DEACTIVATED` without reenabling accounts; historical status/audit values remain readable.
 
 
 SportHub là **hệ thống quản lý trung tâm thể thao với ba môn: Gym, cầu lông và bóng rổ; có khả năng mở rộng thêm môn trong tương lai**.
@@ -54,7 +56,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngo
 | Receptionist | Tiếp đón, Gym check-in, đặt hộ thuê sân và đánh dấu check-in/no-show lượt thuê, chỉnh điểm danh lớp khi Member kiến nghị, checkout thanh toán hộ | Dùng điểm hộ cần OTP Member; nạp điểm hộ Member qua luồng Add points (VNPay) như Member tự nạp; không tự tặng/điều chỉnh điểm hoặc duyệt refund |
 | Coach | Xem lịch được giao; lập giáo án, ghi kết quả và nhận xét cho lớp/học viên được phân công | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
 | CenterManager | Môn/sân, hồ sơ/chuyên môn của Coach (không tạo Coach), lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
-| SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach), đổi role giữa các role staff, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
+| SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach), đổi role giữa các role staff, Activate/Deactivate tài khoản kèm lý do | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
 
 Backend kiểm policy, ownership, quan hệ và approval; ẩn nút frontend không thay thế authorization. Khoảng trống quyền đọc được ghi tại mục 13.
 
@@ -140,7 +142,7 @@ Chi tiết tại [Phụ lục A — Từ điển dữ liệu](#phụ-lục-a--t�
 
 ### 5.1 Tài khoản và Membership Gym
 
-Đăng ký Member bằng email dùng OTP (hoặc Receptionist/Manager đăng ký Member mới tại quầy qua `POST /api/members/front-desk`: tạo Member không mật khẩu, ví 0 điểm, gửi email kích hoạt như staff; chờ kích hoạt thì gửi lại link hoặc sửa email gõ sai; quá 7 ngày chưa kích hoạt và chưa có hóa đơn/ghi danh/thuê sân/gói/điểm thì tài khoản bị gỡ và email được giải phóng). Tài khoản nhân sự (kể cả Coach kèm chuyên môn) chỉ do SystemAdministrator tạo qua `POST /api/users/admin/staff`: tài khoản không có mật khẩu, hệ thống gửi email kích hoạt (link dùng một lần, hạn 24 giờ) để người dùng tự đặt mật khẩu; Admin không đặt mật khẩu hộ và Manager không tạo Coach (Manager chỉ sửa hồ sơ/chuyên môn). **Member và staff là hai loại tài khoản tách biệt, không chuyển đổi qua lại (BR-142)** (409 `member_staff_role_change_not_allowed`); người muốn làm staff phải được Admin tạo tài khoản mới bằng email khác, tài khoản Member cũ giữ nguyên. Đổi role chỉ diễn ra giữa các role staff, Coach rời vai trò bị chặn khi còn lớp, lịch hay quan hệ huấn luyện (xem Phụ lục A, vòng đời CoachProfile). Đổi/reset mật khẩu và khóa tài khoản phải vô hiệu phiên không còn hợp lệ. Email chưa được xác minh là của đúng người khi tạo; việc xác minh là link kích hoạt gửi tới email đó (Admin nhập email một lần, gõ sai thì sửa); tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
+Đăng ký Member bằng email dùng OTP (hoặc Receptionist/Manager đăng ký Member mới tại quầy qua `POST /api/members/front-desk`: tạo Member không mật khẩu, ví 0 điểm, gửi email kích hoạt như staff; chờ kích hoạt thì gửi lại link hoặc sửa email gõ sai; quá 7 ngày chưa kích hoạt và chưa có hóa đơn/ghi danh/thuê sân/gói/điểm thì tài khoản bị gỡ và email được giải phóng). Tài khoản nhân sự (kể cả Coach kèm chuyên môn) chỉ do SystemAdministrator tạo qua `POST /api/users/admin/staff`: tài khoản không có mật khẩu, hệ thống gửi email kích hoạt (link dùng một lần, hạn 24 giờ) để người dùng tự đặt mật khẩu; Admin không đặt mật khẩu hộ và Manager không tạo Coach (Manager chỉ sửa hồ sơ/chuyên môn). **Member và staff là hai loại tài khoản tách biệt, không chuyển đổi qua lại (BR-142)** (409 `member_staff_role_change_not_allowed`); người muốn làm staff phải được Admin tạo tài khoản mới bằng email khác, tài khoản Member cũ giữ nguyên. Đổi role chỉ diễn ra giữa các role staff, Coach rời vai trò bị chặn khi còn lớp, lịch hay quan hệ huấn luyện (xem Phụ lục A, vòng đời CoachProfile). Đổi/reset mật khẩu và Activate/Deactivate tài khoản phải vô hiệu phiên không còn hợp lệ; Activate không hồi sinh token cũ. Email chưa được xác minh là của đúng người khi tạo; việc xác minh là link kích hoạt gửi tới email đó (Admin nhập email một lần, gõ sai thì sửa); tài khoản chưa kích hoạt hiển thị "Chờ kích hoạt" (`activationPending`), Admin được gửi lại link (cooldown 60 giây, link cũ vô hiệu) hoặc sửa email gõ sai (link cũ vô hiệu, link mới tới email mới, có audit) cho tới khi người nhận đặt mật khẩu.
 
 **Quên mật khẩu (BR-103) — đã triển khai bằng link email, không dùng OTP:** `POST /api/auth/password/forgot` luôn trả 204 trung tính (không lộ email nào đã đăng ký; email không tồn tại, bị khóa hay đang chờ gửi lại đều như nhau). Với tài khoản Active, hệ thống tạo token ngẫu nhiên 256-bit, chỉ lưu SHA-256 trong `EmailOtp` (purpose `ResetPassword`), hạn 10 phút, dùng một lần, chỉ link mới nhất hợp lệ, gửi lại sau 60 giây; email mang nút tới `{Frontend:BaseUrl}/reset-password?email=&token=`. `POST /api/auth/password/reset` nhận `{email, token, newPassword, confirmNewPassword}`, tiêu token và đổi security stamp trong cùng transaction. Giao diện: `/forgot-password` (thông điệp trung tính, cooldown 60 giây gắn theo từng email, đổi email gửi được ngay) và `/reset-password` (ô mật khẩu có con mắt, ba trạng thái form/thành công/link hỏng). Đăng ký Member vẫn dùng OTP 6 số. Đổi, đặt lại hoặc tạo mật khẩu lần đầu thành công đều gửi email "mật khẩu đã thay đổi" (sự kiện `PasswordChanged`, cùng transaction với việc đổi; không chứa mật khẩu hay mã; báo đã đăng xuất các thiết bị khác).
 
@@ -420,7 +422,7 @@ Phần này chốt tên field thực tế sau refactor; các bảng logic cũ b�
 | `UserId` (PK) | Định danh duy nhất, dùng làm khóa ngoại ở gần như mọi entity khác (member, coach, staff đều trỏ về đây) |
 | `Email` | Định danh đăng nhập/liên hệ — **unique không phân biệt hoa/thường** (BR-1, BR-49, index `LOWER(email)`). Đặt ở đây (không phải `USER_CREDENTIALS`) vì email là định danh, không phải bí mật — nhiều module (Invoice, Notification) cần đọc mà không nên phải đụng tới bảng chứa `PasswordHash` |
 | `RoleId` (FK → ROLES) | Quyết định phân quyền (RBAC) — 1 user chỉ có 1 role (5 role) |
-| `Status` | `ACTIVE / BANNED / DEACTIVATED` — kiểm soát user có được login/thao tác hay không, không xóa cứng user (giữ lịch sử payment/attendance) |
+| `Status` | Chỉ `ACTIVE / DEACTIVATED` — kiểm soát user có được login/thao tác hay không, không xóa cứng user (giữ lịch sử payment/attendance). Migration chuyển `BANNED` cũ thành `DEACTIVATED`; chờ đặt mật khẩu là metadata riêng, không phải `UserStatus` |
 | `CreatedAt` | Audit, hiển thị "thành viên từ ngày..." |
 | `SecurityStamp` (uuid, ) | Đổi mỗi khi reset/đổi mật khẩu hoặc đổi vai trò (BR-103/104). JWT mang claim `sst`; middleware so với DB nên mọi phiên/token cũ bị vô hiệu ngay sau khi đổi mật khẩu — không cần blacklist token |
 
@@ -1177,7 +1179,7 @@ Entry point — đăng ký DI cho toàn bộ hệ thống:
 
 | File | Chức năng |
 |---|---|
-| `AccountStatusJwtExtensions.cs` (5.2KB) | Chặn token của tài khoản bị khoá/xoá ngay tại bước xác thực (BR-6). PostConfigure thêm `OnTokenValidated` event |
+| `AccountStatusJwtExtensions.cs` (5.2KB) | Chặn token của tài khoản Deactivated/đã xóa ngay tại bước xác thực (BR-6). PostConfigure thêm `OnTokenValidated` event |
 | `AuthorizationPolicyExtensions.cs` (5.6KB) | Định nghĩa authorization policies: RequireAdmin, RequireManager, RequireCoach, RequireMember, RequireReceptionist, RequireStaff |
 | `CorsExtensions.cs` (1.5KB) | Cấu hình CORS cho frontend origin |
 | `SwaggerExtensions.cs` (1.3KB) | Cấu hình Swagger/OpenAPI với JWT bearer scheme |
@@ -1343,7 +1345,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 | File | Chức năng |
 |---|---|
 | `UserRole.cs` | SystemAdministrator, CenterManager, Coach, Member, Receptionist |
-| `UserStatus.cs` | Active, Locked, Deleted |
+| `UserStatus.cs` | Active, Deactivated; không có Banned/Locked/Deleted trong enum trạng thái tài khoản |
 | `EmailOtpPurpose.cs` | Registration, PasswordReset |
 | `ExternalAuthProvider.cs` | Google |
 
@@ -1351,7 +1353,7 @@ Thư viện dùng chung — **KHÔNG chứa logic nghiệp vụ**, chỉ interfa
 
 | File | Chức năng |
 |---|---|
-| `AccountBlockedException.cs` | Tài khoản bị khoá |
+| `AccountBlockedException.cs` | Tài khoản Deactivated bị chặn truy cập |
 | `EmailAlreadyExistsException.cs` | Email đã tồn tại |
 | `InvalidCredentialsException.cs` | Sai email/password |
 | `PhoneAlreadyExistsException.cs` | SĐT đã tồn tại |
@@ -1773,7 +1775,7 @@ Audit module **không có controller riêng** — query audit được xử lý 
 
 | File | Size | Chức năng |
 |---|---|---|
-| `UsersController.cs` | 4.1KB | Quản lý users: list (paged), `POST api/users/admin/staff` (tạo staff, email kích hoạt), lock/unlock, change role, reset password |
+| `UsersController.cs` | 4.1KB | Quản lý users: list (paged), `POST api/users/admin/staff` (tạo staff, email kích hoạt), activate/deactivate (lock/unlock là alias tương thích), change role, reset password |
 | `SystemSettingsController.cs` | 1.1KB | GET/PUT cài đặt hệ thống (key-value) |
 | `AuditLogsController.cs` | 1.4KB | GET audit logs (paged, filtered by actor/action/target) |
 | `ReportExportsController.cs` | 2.5KB | POST tạo report export, GET danh sách, GET download file |
@@ -1799,7 +1801,7 @@ Audit module **không có controller riêng** — query audit được xử lý 
 
 | File | Size | Chức năng |
 |---|---|---|
-| `UserAdminService.cs` | 15.8KB | **Logic quản lý user**: tạo account staff (chưa có credential, gửi email kích hoạt) + profile, lock/unlock (BR-6 — invalidate JWT), change role (validate constraints), reset password, audit trail |
+| `UserAdminService.cs` | 15.8KB | **Logic quản lý user**: tạo account staff (chưa có credential, gửi email kích hoạt) + profile, activate/deactivate có lý do (BR-6 — invalidate JWT), change role (validate constraints), reset password, audit trail |
 | `ReportExportService.cs` | 20.1KB | **Logic export báo cáo**: generate CSV/PDF cho revenue, membership, enrollment reports. Background processing, file storage, expiry cleanup |
 | `SystemSettingService.cs` | 3.2KB | CRUD system settings: cancellation deadline hours, late check-in minutes, etc. |
 | `AuditQueryService.cs` | 2.7KB | Query audit logs với filter + pagination |

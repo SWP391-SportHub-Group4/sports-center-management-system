@@ -141,7 +141,7 @@ export const LABELS: Record<string, string> = {
   Transfer: "Bank transfer",
   EWallet: "E-wallet",
 
-  Banned: "Locked",
+  Banned: "Deactivated",
   Deactivated: "Deactivated",
 
   Archived: "Archived",
@@ -195,9 +195,9 @@ export function chipTone(value: string | null | undefined): string {
     case "CancelledLate":
     case "Void":
     case "Rejected":
-    case "Banned":
     case "Failed":
       return "chip--danger";
+    case "Banned":
     case "Deactivated":
       return "chip--neutral";
     default:

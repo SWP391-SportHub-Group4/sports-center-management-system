@@ -42,8 +42,7 @@ async function setup(
     if (url.pathname === "/api/users/admin") {
       const totals: Record<string, number> = {
         ACTIVE: 137,
-        BANNED: 8,
-        DEACTIVATED: 4,
+        DEACTIVATED: 12,
       };
       return route.fulfill({
         json: {
@@ -123,7 +122,10 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   await installBrowserSession(page, accessToken);
   await page.goto("/admin");
   await expect(
-    page.getByRole("link", { name: `Active ${count}`, exact: true }),
+    page.getByRole("region", { name: "Account overview" }),
+  ).toContainText(`Active accounts${count}`);
+  await expect(
+    page.getByText("Deactivated accounts", { exact: true }),
   ).toBeVisible();
   await assertEnglishOnlyShell(page);
   await expect(
@@ -147,7 +149,7 @@ test("live Admin overview uses account APIs and detail exposes the current G10 p
   });
 });
 
-test("overview uses server totals and preserves status filters without the removed header and shortcuts", async ({
+test("overview uses server totals and the account directory preserves canonical status filters", async ({
   page,
 }) => {
   await setup(page);
@@ -161,14 +163,17 @@ test("overview uses server totals and preserves status filters without the remov
     page.getByRole("heading", { name: "Account administration", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Active 137", exact: true }),
-  ).toBeVisible();
+    page.getByRole("region", { name: "Account overview" }),
+  ).toContainText("Active accounts137");
   await expect(
-    page.getByRole("link", { name: "Locked 8", exact: true }),
-  ).toBeVisible();
+    page.getByRole("region", { name: "Account overview" }),
+  ).toContainText("Deactivated accounts12");
+  await expect(page.getByText("Locked accounts", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("table", { name: "Recent activity" }),
-  ).toContainText("Role changed");
+  ).toContainText("Account role changed");
   // Ảnh minh chứng: lỗi ghi tệp (bị khóa bởi trình xem ảnh) không làm hỏng phép kiểm tra.
   await page
     .screenshot({
@@ -191,9 +196,9 @@ test("overview uses server totals and preserves status filters without the remov
   expect(
     paths.some((path) => /finance|wallet|report|invoice/.test(path)),
   ).toBeFalsy();
-  await page.getByRole("link", { name: "Locked 8", exact: true }).click();
+  await page.goto("/admin/users?status=DEACTIVATED");
   await expect(page.getByLabel("Account status", { exact: true })).toHaveValue(
-    "BANNED",
+    "DEACTIVATED",
   );
   await page.goto("/admin");
   await expect(
@@ -215,7 +220,9 @@ test("overview shows API failure without inventing zero totals", async ({
   await expect(
     page.getByText("Unable to load account totals", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Active \d/ })).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Account overview" }),
+  ).not.toContainText("Active accounts0");
   await expect(
     page.getByRole("table", { name: "Recent activity" }),
   ).toBeVisible();
@@ -370,34 +377,49 @@ test("blocked Coach role change shows specific reasons and shareable handoff lin
   ).toHaveCount(0);
 });
 
-test("lock/unlock require review, refresh the list and display successful outcomes", async ({
+test("deactivate and activate require review, refresh the list and display canonical outcomes", async ({
   page,
 }) => {
   const row = await setup(page);
   let writes = 0;
   await page.route(`**/api/users/${account.userId}/*`, (route) => {
     writes++;
-    row.status = route.request().url().endsWith("/lock") ? "BANNED" : "ACTIVE";
+    expect(route.request().method()).toBe("POST");
+    const action = route.request().url().split("/").at(-1);
+    expect(["deactivate", "activate"]).toContain(action);
+    expect(route.request().postDataJSON()).toEqual({
+      reason: "Approved account change",
+    });
+    row.status = action === "deactivate" ? "DEACTIVATED" : "ACTIVE";
     return route.fulfill({ json: row });
   });
   await page.goto("/admin/users");
-  for (const action of ["Lock", "Unlock"]) {
+  for (const action of ["Deactivate", "Activate"]) {
     await page
       .getByRole("button", { name: "Manage access", exact: true })
       .click();
     const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("switch", { name: "Account enabled" }),
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByRole("button", { name: /^(Lock|Unlock)$/ }),
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByRole("button", { name: action, exact: true }),
+    ).toBeDisabled();
     await dialog
       .getByLabel("Reason", { exact: true })
       .fill("Approved account change");
-    await dialog.getByRole("button", { name: action, exact: true }).click();
     const before = writes;
+    await dialog.getByRole("button", { name: action, exact: true }).click();
     await expect(dialog).toContainText("Approved account change");
     expect(writes).toBe(before);
     await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
     await expect(dialog).toHaveCount(0);
     await expect(
       page.getByRole("table", { name: "Users and roles" }),
-    ).toContainText(action === "Lock" ? "Locked" : "Active");
+    ).toContainText(action === "Deactivate" ? "Deactivated" : "Active");
     await expect(
       page.getByText("Account updated. The list has been refreshed.", {
         exact: true,
@@ -538,7 +560,7 @@ test("own Administrator row hides access changes; details offer the personal acc
   await expect(
     page.getByRole("button", { name: "Save changes", exact: true }),
   ).toHaveCount(0);
-  for (const action of ["Lock", "Unlock", "Deactivate"])
+  for (const action of ["Activate", "Deactivate", "Lock", "Unlock"])
     await expect(
       page.getByRole("button", { name: action, exact: true }),
     ).toHaveCount(0);
@@ -566,7 +588,7 @@ test("another Administrator has no role-change controls in the list or account d
     ).toHaveCount(0);
     await expect(dialog).toContainText("Administrator roles cannot be changed");
     await expect(
-      dialog.getByRole("button", { name: "Lock", exact: true }),
+      dialog.getByRole("button", { name: "Deactivate", exact: true }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
   }
@@ -593,13 +615,13 @@ test("detail reloads current data after mutation when the API allows access", as
   page,
 }) => {
   const row = await setup(page);
-  await page.route(`**/api/users/${account.userId}/lock`, (route) => {
-    row.status = "BANNED";
+  await page.route(`**/api/users/${account.userId}/deactivate`, (route) => {
+    row.status = "DEACTIVATED";
     return route.fulfill({ json: row });
   });
   await page.goto(`/admin/users/${account.userId}`);
   await expect(
-    page.getByRole("heading", { name: "Identity and access" }),
+    page.getByRole("heading", { name: account.fullName, exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Manage access", exact: true })
@@ -608,12 +630,12 @@ test("detail reloads current data after mutation when the API allows access", as
   await dialog
     .getByLabel("Reason", { exact: true })
     .fill("Approved access change");
-  await dialog.getByRole("button", { name: "Lock", exact: true }).click();
+  await dialog.getByRole("button", { name: "Deactivate", exact: true }).click();
   await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator("dl").first()).toContainText("Locked");
+  await expect(page.getByText("Deactivated", { exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.locator("dl").first()).toContainText("Locked");
+  await expect(page.getByText("Deactivated", { exact: true })).toBeVisible();
 });
 
 test("Member accounts cannot be converted to staff and show how to create a staff account", async ({
@@ -635,7 +657,7 @@ test("Member accounts cannot be converted to staff and show how to create a staf
   ).toHaveCount(0);
 });
 
-test("pending staff show Activation required in the list, details and edit dialog", async ({
+test("pending staff keep Active account status and show invitation information separately", async ({
   page,
 }) => {
   const row = await setup(page);
@@ -644,19 +666,25 @@ test("pending staff show Activation required in the list, details and edit dialo
   await page.goto("/admin/users");
   await expect(
     page.getByRole("table", { name: "Users and roles" }),
-  ).toContainText("Activation required");
+  ).toContainText("Active");
+  await expect(
+    page.getByRole("button", { name: /^Manage invitation for/ }),
+  ).toBeVisible();
   await page
     .getByRole("button", { name: "Manage access", exact: true })
     .click();
-  await expect(page.getByRole("dialog")).toContainText("Activation required");
+  await expect(
+    page.getByRole("dialog").getByText("Active", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByText("Activation required", { exact: true }),
+  ).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "View details", exact: true }).click();
   await expect(
     page.getByRole("link", { name: "Back to accounts", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Activation required", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
 });
 test("activated staff do not show pending-activation actions", async ({
   page,
