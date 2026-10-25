@@ -10,6 +10,8 @@ public sealed class IncidentNotice
     public DateTime StartAtUtc { get; set; }
     public DateTime EndAtUtc { get; set; }
     public string Reason { get; set; } = string.Empty;
+    public string RefundsJson { get; set; } = "[]";
+    public string? RequestFingerprint { get; set; }
     public string ResolutionSummary { get; set; } = string.Empty;
     public Guid CreatedByUserId { get; set; }
     public DateTime CreatedAtUtc { get; set; }

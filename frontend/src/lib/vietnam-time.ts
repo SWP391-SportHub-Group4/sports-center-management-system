@@ -17,3 +17,13 @@ export function dayRange(from: string, to: string) {
     ).toISOString(),
   };
 }
+
+/** Calendar-year limit, clamped for leap day, matching DateOnly.AddYears. */
+export function oneYearFromToday(now = Date.now()): string {
+  const today = vietnamLocal(new Date(now).toISOString()).slice(0, 10);
+  const date = new Date(today + "T12:00:00Z");
+  const month = date.getUTCMonth();
+  date.setUTCFullYear(date.getUTCFullYear() + 1);
+  if (date.getUTCMonth() !== month) date.setUTCDate(0);
+  return date.toISOString().slice(0, 10);
+}

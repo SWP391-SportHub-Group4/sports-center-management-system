@@ -139,6 +139,7 @@ export function SportsManager() {
         }
       >
         <CatalogTable
+          className={styles.sportsTable}
           state={state}
           filters={filters}
           caption={l.sports}
@@ -165,32 +166,31 @@ export function SportsManager() {
               id: "services",
               header: l.services,
               cell: (s) => (
-                <ul>
+                <ul className={styles.serviceList}>
                   {s.services.map((svc) => {
                     const readiness = s.readiness?.find(
                       (r) => r.serviceType === svc.serviceType,
                     );
                     return (
                       <li key={svc.serviceType}>
-                        {serviceLabel[svc.serviceType]}
-                        {!svc.isEnabled && (
-                          <span className="muted"> ({l.serviceOff})</span>
-                        )}
+                        <span className={styles.serviceName}>
+                          {serviceLabel[svc.serviceType]}
+                          {!svc.isEnabled && (
+                            <span className="muted"> ({l.serviceOff})</span>
+                          )}
+                        </span>
                         {svc.serviceType === "GROUP_COURSE" && (
-                          <span className="muted">
-                            {" "}
-                            — {svc.defaultSessionMinutes} {c.minutes} ·{" "}
+                          <span className={styles.serviceDetail}>
+                            {svc.defaultSessionMinutes} {c.minutes} ·{" "}
                             {svc.defaultMaxCapacity} {c.people}
                           </span>
                         )}
                         {svc.isEnabled && readiness && !readiness.ready && (
-                          <span className="muted">
-                            {" "}
-                            ({l.notReady}. {l.missingPrefix}{" "}
+                          <span className={styles.serviceDetail}>
+                            {l.notReady}. {l.missingPrefix}{" "}
                             {readiness.missing
                               .map((m) => missingLabel[m] ?? m)
                               .join(", ")}
-                            )
                           </span>
                         )}
                       </li>

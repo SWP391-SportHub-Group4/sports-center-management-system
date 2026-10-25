@@ -3,6 +3,8 @@ namespace SportHub.BuildingBlocks.Abstractions.Scheduling;
 /// <summary>Cho module Membership biết Gym có đang đóng cửa vì sự cố hay không (vé Gym 1 ngày không bán khi Gym đóng).</summary>
 public interface IGymClosureReader
 {
-    /// <summary>True khi có phòng Gym đang hoạt động và mọi phòng Gym đều có RoomBlock bao trùm thời điểm <paramref name="atUtc"/>.</summary>
+    /// <summary>Join the shared schedule barrier after invoice/wallet locks and before activating a day pass.</summary>
+    Task LockForActivationAsync(CancellationToken cancellationToken = default);
+    /// <summary>True when every active Gym room is blocked at the supplied instant.</summary>
     Task<bool> IsGymClosedAtAsync(DateTime atUtc, CancellationToken cancellationToken = default);
 }

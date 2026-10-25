@@ -138,6 +138,16 @@ public class SportHubDbContext : DbContext, ISportHubDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<ManagerRequestReadReceipt>(entity => {
+            entity.ToTable("manager_request_reads");
+            entity.HasKey(r => new { r.ManagerId, r.RequestType, r.RequestId }).HasName("pk_manager_request_reads");
+            entity.Property(r => r.ManagerId).HasColumnName("manager_id");
+            entity.Property(r => r.RequestType).HasColumnName("request_type").HasMaxLength(16);
+            entity.Property(r => r.RequestId).HasColumnName("request_id");
+            entity.Property(r => r.ReadAtUtc).HasColumnName("read_at_utc");
+            entity.HasOne<UserAccount>().WithMany().HasForeignKey(r => r.ManagerId)
+                .OnDelete(DeleteBehavior.Cascade).HasConstraintName("fk_manager_request_reads_user_accounts_manager_id");
+        });
 
         modelBuilder.HasPostgresExtension("citext");
         modelBuilder.HasPostgresExtension("btree_gist"); // exclusion constraint chống trùng lịch phòng/coach

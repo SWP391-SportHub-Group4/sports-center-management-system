@@ -105,6 +105,68 @@
   display: grid;
   gap: var(--space-3);
 }
+.impactDialog:global(.dialog) {
+  width: min(72rem, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100dvh - var(--space-4) * 2);
+}
+.impactDialog :global(.dialog__head),
+.impactDialog :global(.dialog__foot) {
+  flex-shrink: 0;
+  background: var(--bg-surface);
+}
+.impactDialog :global(.dialog__body) {
+  overflow-y: auto;
+  min-height: 0;
+}
+.refundFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  width: 100%;
+}
+.refundFooter > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.refundFooter strong {
+  margin-inline-start: var(--space-3);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+.refundFooter button:only-child {
+  margin-inline-start: auto;
+}
+@media (min-width: 768px) {
+  .impactDialog :global(.legacy-table[data-columns="6"]) {
+    min-width: 0;
+    table-layout: fixed;
+  }
+  .impactDialog :global(.legacy-table[data-columns="6"] th:first-child) {
+    width: 20%;
+  }
+  .impactDialog :global(.legacy-table[data-columns="6"] th:nth-child(2)),
+  .impactDialog :global(.legacy-table[data-columns="6"] th:nth-child(3)) {
+    width: 12%;
+  }
+  .impactDialog :global(.legacy-table[data-columns="6"] th:last-child) {
+    width: 20%;
+  }
+  .impactDialog :global(.legacy-table[data-columns="6"] td:last-child .btn) {
+    min-height: 44px;
+    max-width: 100%;
+    white-space: normal;
+    margin: 0;
+  }
+  .impactDialog :global(.legacy-table[data-columns="6"] td:last-child > div) {
+    width: 100%;
+    min-width: 0;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .impactDialog:global(.dialog) {
     animation: impactOpen var(--duration-slow) var(--ease-out);

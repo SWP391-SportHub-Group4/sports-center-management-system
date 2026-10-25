@@ -317,6 +317,12 @@ Khi tài khoản đã là Coach và `role` vẫn là `COACH`, gửi `sportIds` �
 
 Khi đổi thành công: rời Coach thì giữ `CoachProfile` làm lịch sử nhưng xóa chuyên môn (`UserSportSpecialty`); đổi sang Coach thì Admin phải chọn chuyên môn; `SecurityStamp` đổi nên token cũ mất hiệu lực.
 
+### Manager request inbox and unread badges
+
+The Manager navbar shows the same unread-request badge on **Exception** and **Requests**, on desktop and mobile. `GET /api/manager/requests/summary` keeps the pending totals `coach`, `refunds`, `support` and adds `unread`: pending Coach requests, Requested refunds and open support tickets without a receipt for the authenticated Manager. Done, Rejected and Closed support tickets are excluded. Zero hides the badge; values above 99 display `99+`. Refresh occurs every 60 seconds, on window focus and after request reads/actions.
+
+`POST /api/manager/requests/{type}/{id}/read` (Manager only; type `coach`, `refunds` or `support`) saves an idempotent per-Manager receipt, returning 204; invalid types or missing requests return 404. Opening a Coach drawer or support detail marks it read. Refunds expose full detail cards, so a refund is marked read when its card enters the viewport. Opening the menu or Coach request list alone does not mark requests read. Read receipts do not change business statuses. Migration `20261024100000_ManagerRequestReadReceipts` adds `manager_request_reads`; existing open requests initially have no receipts.
+
 ### Coach coverage and lead-coach changes
 
 When a Coach account is locked or deactivated, each effective account transition queues a separate `COACH_COVERAGE_REQUIRED` notice for active Managers. Its `actionUrl` opens `/manager/coaches/{coachId}?tab=overview` directly. No-op retries do not queue another notice. Transition IDs are resolved through the account audit record; legacy notices whose source is the Coach ID also open the same profile.

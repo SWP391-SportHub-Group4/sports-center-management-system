@@ -6,6 +6,7 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatMoney } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
+import { hasService } from "@/lib/sports";
 import { AsyncSection, Field } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import type { RoomDto } from "@/lib/types";
@@ -210,7 +211,9 @@ export function CreateRentalCourt({
                     >
                       <option value="">{copy.chooseSport}</option>
                       {(sports.data ?? [])
-                        .filter((s) => s.isActive && s.code !== "gym")
+                        .filter(
+                          (s) => s.isActive && hasService(s, "COURT_RENTAL"),
+                        )
                         .map((s) => (
                           <option key={s.sportId} value={s.sportId}>
                             {s.name}

@@ -11,6 +11,9 @@ namespace SportHub.Scheduling.Rental.Application;
 /// </summary>
 public sealed class GymClosureReader(ISportHubDbContext db) : IGymClosureReader
 {
+    public Task LockForActivationAsync(CancellationToken cancellationToken = default)
+        => SportHub.Scheduling.Application.Services.CourseScheduleLock.AcquireAsync(db, changingSchedule: false, cancellationToken);
+
     public async Task<bool> IsGymClosedAtAsync(DateTime atUtc, CancellationToken cancellationToken = default)
     {
         var instant = DateTime.SpecifyKind(atUtc, DateTimeKind.Utc);

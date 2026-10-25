@@ -91,7 +91,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal(100, preview.ExpectedRefundPointsTotal);
 
         // The wallet was fully spent on the rental, so the credited points are exactly the quoted refund.
-        await incidents.ResolveAsync(incident, manager.UserId);
+        await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
         Assert.Equal(100, await factory.QueryAsync(state => state.PointWallets
             .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
     }
@@ -242,7 +242,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal("CheckoutReleased", affected.Outcome);
         Assert.Null(affected.ExpectedRefundPoints);
         Assert.Equal(0, preview.ExpectedRefundPointsTotal);
-        var incidentId = await incidents.ResolveAsync(incident, manager.UserId);
+        var incidentId = await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
         var delivery = await incidents.DeliveryAsync(incidentId);
         Assert.Equal(2, delivery.Total);
         Assert.Equal(2, delivery.Pending);

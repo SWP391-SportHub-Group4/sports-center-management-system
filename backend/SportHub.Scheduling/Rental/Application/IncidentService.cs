@@ -17,10 +17,10 @@ using SportHub.Scheduling.Rental.Domain;
 namespace SportHub.Scheduling.Rental.Application;
 
 /// <summary>Preview first; resolution only commits when every affected resource has an implemented safe disposition.</summary>
-public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occupancy,
+public sealed partial class IncidentService(ISportHubDbContext db, IOccupancyService occupancy,
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
-    INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension,
+    INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension, IIncidentDayPassService dayPasses,
     SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions)
 {
     public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
@@ -49,7 +49,8 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             where fence.Scope == scope && fence.RoomId == details.RoomId
                 && fence.StartAtUtc == details.StartAtUtc && fence.EndAtUtc == details.EndAtUtc && session.IncidentReportJson != null
             select new { session.SessionId, session.ClassId, session.SessionNo, session.Class!.Name, session.IncidentReportJson }).Distinct().ToListAsync(ct);
-        return details with { SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
+        var refundJson = await db.Set<IncidentNotice>().Where(x => x.IncidentId == incidentId).Select(x => x.RefundsJson).SingleAsync(ct);
+        return details with { Refunds = System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(refundJson) ?? [], SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
             ClassSessionService.ReadIncidentReport(r.IncidentReportJson)!)).ToList() };
     }
 
@@ -67,6 +68,8 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             throw new NotFoundException("incident_not_found", "Incident not found.");
         var ids = await db.Set<CourtRental>().Where(x => x.CancellationIncidentId == incidentId)
             .Select(x => x.CourtRentalId).ToListAsync(ct);
+        var receiptJson = await db.Set<IncidentNotice>().Where(i => i.IncidentId == incidentId).Select(i => i.RefundsJson).SingleAsync(ct);
+        ids.AddRange((System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(receiptJson) ?? []).Select(r => r.NotificationSourceId));
         return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
     }
 
@@ -78,17 +81,20 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             or nameof(OccupancySourceType.RoomBlock));
         var gymClosed = await ClosesGymAsync(shape, ct);
         var members = await AffectedMembersAsync(impacts, ct);
+        var refundRows = await RefundRowsAsync(shape, ct);
         var startLocal = DateOnly.FromDateTime(VietnamTime.ToLocal(shape.StartUtc));
         return new IncidentPreviewResponse(shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
             impacts, !needsManual, needsManual
                 ? "The time slot affects a class or room block. Reschedule or arrange a makeup before blocking the room."
                 : null)
         {
+            Refunds = refundRows,
+            PreviewToken = PreviewFingerprint(shape, refundRows, impacts),
             ClosesGym = gymClosed,
-            SuggestedMembershipExtensionDays = gymClosed ? FullClosedDays(shape.StartUtc, shape.EndUtc) : 0,
+            SuggestedMembershipExtensionDays = 0,
             AffectedMemberCount = gymClosed ? await membershipExtension.CountAffectedMembersAsync(startLocal, ct) : 0,
             Members = members,
-            ExpectedRefundPointsTotal = members.Sum(x => x.ExpectedRefundPoints ?? 0)
+            ExpectedRefundPointsTotal = refundRows.Sum(x => x.SuggestedRefundPoints)
         };
     }
 
@@ -142,139 +148,118 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     public async Task<Guid> ResolveAsync(IncidentRequest request, Guid managerId, CancellationToken ct = default)
     {
         var shape = await ValidateAsync(request, ct);
-        var extensionDays = request.MembershipExtensionDays ?? 0;
-        if (extensionDays is < 0 or > 31)
-            throw new BadRequestException("invalid_membership_extension_days", "Membership extension must be between 0 and 31 days.");
-        if (extensionDays > 0 && !await ClosesGymAsync(shape, ct))
-            throw new BadRequestException("membership_extension_not_applicable",
-                "Membership extension only applies when the incident closes every active Gym room.");
-        var incidentId = Guid.NewGuid();
+        if (request.MembershipExtensionDays is not null and not 0)
+            throw new BadRequestException("membership_extension_disabled", "Incidents no longer extend memberships.");
+        if (request.OperationId == Guid.Empty)
+            throw new BadRequestException("incident_operation_required", "Use a valid incident operation ID.");
+        var incidentId = request.OperationId ?? Guid.NewGuid();
+        var requestFingerprint = Fingerprint(new { managerId, request });
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        // Lock item invoices before rental/resource rows so cancellation follows invoice → item → wallet → occupancy.
-        var firstImpacts = await FindImpactsAsync(shape, ct);
-        EnsureResolvable(firstImpacts);
-        var rentalIds = firstImpacts.Where(x => x.SourceType == nameof(OccupancySourceType.CourtRental))
-            .Select(x => x.SourceId).Distinct().ToList();
-        if (shape.EndUtc <= clock.UtcNow && rentalIds.Count > 0)
-            throw new ConflictException("past_rental_requires_review", "This historical incident also affects court rentals. Review those rentals separately; no automatic historical refunds were made.");
-        var rentalRows = await db.Set<CourtRental>().Where(x => rentalIds.Contains(x.CourtRentalId))
-            .OrderBy(x => x.InvoiceId).ThenBy(x => x.CourtRentalId).ToListAsync(ct);
-        if (rentalRows.Count != rentalIds.Count)
-            throw new ConflictException("incident_rental_reference_missing", "Incident rental reference missing.");
-        var pendingIds = rentalRows.Where(x => x.Status == CourtRentalStatus.PendingPayment)
-            .Select(x => x.CourtRentalId).ToHashSet();
-
-        foreach (var rental in rentalRows.Where(x => x.Status == CourtRentalStatus.PendingPayment))
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({$"incident-refund:{incidentId}"}, 0))", ct);
+        var previous = await db.Set<IncidentNotice>().AsNoTracking().SingleOrDefaultAsync(i => i.IncidentId == incidentId, ct);
+        if (previous is not null)
         {
-            if (rental.InvoiceId is not Guid invoiceId)
-                throw new ConflictException("incident_checkout_reference_missing", "Incident checkout reference missing.");
-            await checkouts.ReleaseForSystemAsync(invoiceId, "Cancelled", ct);
-        }
-        foreach (var rental in rentalRows.Where(x => x.Status is CourtRentalStatus.Confirmed or CourtRentalStatus.InUse).OrderBy(x => x.InvoiceId))
-        {
-            if (rental.InvoiceItemId is not Guid itemId)
-                throw new ConflictException("incident_rental_item_missing", "Incident rental item missing.");
-            await refunds.LockPaidItemAsync(itemId, ct);
+            if (previous.CreatedByUserId != managerId || previous.RequestFingerprint != requestFingerprint)
+                throw new ConflictException("incident_operation_conflict", "This confirmation has already been used with different details.");
+            await tx.CommitAsync(ct);
+            return previous.IncidentId;
         }
 
-        foreach (var rental in rentalRows.Where(x => x.Status is CourtRentalStatus.Confirmed or CourtRentalStatus.InUse))
-        {
-            var itemId = rental.InvoiceItemId!.Value;
-            await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
-                "CenterFault:" + request.Reason.Trim(), incidentId), ct);
-            // CancelAsync saves immediately, before the IncidentNotice row exists, so linking the incident here would
-            // violate the foreign key. The link is set below and saved together with the notice.
-            await rentals.CancelAsync(rental.CourtRentalId, request.Reason.Trim(), centerFault: true,
-                incidentId: null, cancellationToken: ct);
-        }
-        foreach (var rental in rentalRows)
-        {
-            rental.CancellationIncidentId = incidentId;
-            var access = await users.GetAsync(rental.MemberId, ct);
-            if (access is not null)
-            {
-                var source = rental.CourtRentalId;
-                var text = pendingIds.Contains(rental.CourtRentalId)
-                    ? "The pending court rental was canceled due to a center incident; held points were released. Contact the manager for priority rebooking support."
-                    : "The court rental was canceled due to a center incident; 100% of the paid value was refunded as wallet points. Contact the manager for priority rebooking support.";
-                notifications.Queue(new NotificationRequest(rental.MemberId,
-                    NotificationEvents.IncidentResolution, text, source));
-                notifications.QueueEmail(new EmailNotificationRequest(rental.MemberId, access.Email,
-                    NotificationEvents.IncidentResolution, source, "SportHub - Court rental canceled",
-                    "<p>" + text + "</p>"));
-            }
-        }
-
-        // Credits/releases follow item→wallet→rental order. Serialize calendar writers afterward,
-        // recheck, then let the occupancy exclusion constraint close the final race.
+        var initialRows = await RefundRowsAsync(shape, ct);
+        await refunds.LockBatchAsync(initialRows.Where(r => r.InvoiceItemId.HasValue).Select(r => r.InvoiceItemId!.Value).ToList(),
+            initialRows.Where(r => r.InvoiceId != Guid.Empty).Select(r => r.InvoiceId).Distinct().ToList(), ct);
+        // Payment locks precede the shared calendar lock, matching checkout and other system refunds.
         await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
         var impacts = await FindImpactsAsync(shape, ct);
         EnsureResolvable(impacts);
-        if (impacts.Any(x => x.SourceType != nameof(OccupancySourceType.CourtRental)))
-            throw new ConflictException("incident_schedule_changed", "Incident schedule changed.");
-
-        // BR-130/138: Gym đóng cửa không hoàn Membership; cộng đúng số ngày đóng cửa cho Membership Active và báo hội viên.
-        var closureStartLocal = DateOnly.FromDateTime(VietnamTime.ToLocal(shape.StartUtc));
-        var extended = extensionDays > 0
-            ? await membershipExtension.ExtendActiveAsync(extensionDays, closureStartLocal, ct)
-            : [];
-        foreach (var member in extended)
-        {
-            var text = $"The Gym was closed because of a center incident. Your membership has been extended by {extensionDays} "
-                + $"day{(extensionDays == 1 ? string.Empty : "s")} and now ends on {member.NewEndDate:dd/MM/yyyy}.";
-            notifications.Queue(new NotificationRequest(member.MemberId, NotificationEvents.IncidentResolution,
-                text, member.MemberPackageId));
-            notifications.QueueEmail(new EmailNotificationRequest(member.MemberId, member.Email,
-                NotificationEvents.IncidentResolution, member.MemberPackageId, "SportHub - Gym closure: membership extended",
-                "<p>" + text + "</p>"));
-        }
-
+        var rows = await RefundRowsAsync(shape, ct);
+        if (rows.Any(r => !initialRows.Any(i => i.SourceId == r.SourceId && i.InvoiceItemId == r.InvoiceItemId))
+            || (rows.Count > 0 && (request.OperationId is null || request.PreviewToken != PreviewFingerprint(shape, rows, impacts)))
+            || (request.PreviewToken is not null && request.PreviewToken != PreviewFingerprint(shape, rows, impacts)))
+            throw new ConflictException("incident_refund_preview_changed", "Affected services or refund balances changed. Refresh and review the preview.");
+        var selections = rows.Count == 0 && request.Refunds is null ? [] : Selections(rows, request);
         var notice = new IncidentNotice
         {
             IncidentId = incidentId, Scope = shape.Scope, RoomId = shape.RoomId,
-            StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc,
-            Reason = request.Reason.Trim(),
-            ResolutionSummary = $"Affected court rentals were refunded and {shape.RoomIds.Count} rooms were blocked during the incident."
-                + (extensionDays > 0 ? $" {extended.Count} members' active memberships were extended by {extensionDays} days." : string.Empty),
+            StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc, Reason = request.Reason.Trim(),
             CreatedByUserId = managerId, CreatedAtUtc = clock.UtcNow,
-            MembershipExtensionDays = extensionDays, ExtendedMemberCount = extended.Count
+            RequestFingerprint = requestFingerprint,
+            RefundsJson = System.Text.Json.JsonSerializer.Serialize(selections),
+            ResolutionSummary = $"Reviewed {rows.Count} rental/day-pass services; refunded {selections.Sum(r => r.Points)} points. Affected services were cancelled and incident rooms blocked."
         };
         db.Set<IncidentNotice>().Add(notice);
+        await db.SaveChangesAsync(ct);
+        foreach (var row in rows)
+        {
+            var selection = selections.Single(s => s.SourceId == row.SourceId);
+            var creditNote = "Center incident: " + request.Reason.Trim() + (selection.AdjustmentReason is null ? "" : ". Adjustment: " + selection.AdjustmentReason);
+            creditNote = creditNote[..Math.Min(1000, creditNote.Length)];
+            if (!row.IsPaid)
+            {
+                if (row.InvoiceId != Guid.Empty)
+                    await checkouts.ReleaseForSystemAsync(row.InvoiceId, "Cancelled", ct);
+            }
+            else
+            {
+                if (selection.Points > 0)
+                    await refunds.CreditAsync(new RefundCreditRequest(row.InvoiceItemId!.Value, 100,
+                        creditNote,
+                        incidentId, ExactPoints: selection.Points), ct);
+                if (row.SourceType == "GymDayPass")
+                    await dayPasses.CancelAsync(row.SourceId, ct);
+                else
+                {
+                    await rentals.CancelAsync(row.SourceId, request.Reason.Trim(), centerFault: true, incidentId: incidentId, cancellationToken: ct);
+                    var rental = await db.Set<CourtRental>().SingleAsync(r => r.CourtRentalId == row.SourceId, ct);
+                    rental.CancellationIncidentId ??= incidentId;
+                }
+            }
+            var recipient = await users.GetAsync(row.MemberId, ct);
+            var text = row.IsPaid
+                ? $"{row.ServiceName} was cancelled due to a center incident. {selection.Points} points were refunded to your wallet. Reason: {request.Reason.Trim()}"
+                : $"Your unpaid {row.ServiceName} booking was cancelled due to a center incident. Held points and places were released.";
+            notifications.Queue(new NotificationRequest(row.MemberId, NotificationEvents.IncidentResolution, text, selection.NotificationSourceId));
+            if (recipient is not null)
+                notifications.QueueEmail(new EmailNotificationRequest(row.MemberId, recipient.Email,
+                    NotificationEvents.IncidentResolution, selection.NotificationSourceId, "SportHub - Incident resolution", "<p>" + System.Net.WebUtility.HtmlEncode(text) + "</p>"));
+        }
+
         foreach (var roomId in shape.RoomIds.Order())
         {
-            var block = new RoomBlock
+            // Overlapping incidents share existing incident blocks; reserve only the uncovered gaps.
+            var existing = await db.Set<RoomBlock>().AsNoTracking().Where(b => b.RoomId == roomId && b.IncidentId != null
+                && b.StartAtUtc < shape.EndUtc && b.EndAtUtc > shape.StartUtc).OrderBy(b => b.StartAtUtc).ToListAsync(ct);
+            var cursor = shape.StartUtc;
+            var gaps = new List<(DateTime Start, DateTime End)>();
+            foreach (var block in existing)
             {
-                BlockId = Guid.NewGuid(), RoomId = roomId, StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc,
-                Reason = request.Reason.Trim(), IncidentId = incidentId, CreatedByUserId = managerId
-            };
-            var result = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.RoomBlock,
-                block.BlockId, roomId, null, new DateTimeOffset(shape.StartUtc, TimeSpan.Zero),
-                new DateTimeOffset(shape.EndUtc, TimeSpan.Zero)), ct);
-            if (!result.Succeeded) throw new OccupancyConflictException(result.Conflicts);
-            db.Set<RoomBlock>().Add(block);
+                if (block.StartAtUtc > cursor) gaps.Add((cursor, block.StartAtUtc < shape.EndUtc ? block.StartAtUtc : shape.EndUtc));
+                if (block.EndAtUtc > cursor) cursor = block.EndAtUtc;
+            }
+            if (cursor < shape.EndUtc) gaps.Add((cursor, shape.EndUtc));
+            foreach (var gap in gaps.Where(g => g.End > g.Start))
+            {
+                var block = new RoomBlock { BlockId = Guid.NewGuid(), RoomId = roomId, StartAtUtc = gap.Start, EndAtUtc = gap.End,
+                    Reason = request.Reason.Trim(), IncidentId = incidentId, CreatedByUserId = managerId };
+                var reserved = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.RoomBlock, block.BlockId,
+                    roomId, null, new DateTimeOffset(gap.Start, TimeSpan.Zero), new DateTimeOffset(gap.End, TimeSpan.Zero)), ct);
+                if (!reserved.Succeeded) throw new OccupancyConflictException(reserved.Conflicts);
+                db.Set<RoomBlock>().Add(block);
+            }
         }
-        // The incident is now applied as room blocks, so any fence held for this window has done its job.
         foreach (var fence in await db.Set<IncidentFence>().Where(f => f.Status == IncidentFenceStatus.Open
-                     && f.Scope == shape.Scope && f.RoomId == shape.RoomId
-                     && f.StartAtUtc >= shape.StartUtc && f.EndAtUtc <= shape.EndUtc).ToListAsync(ct))
+            && f.Scope == shape.Scope && f.RoomId == shape.RoomId && f.StartAtUtc >= shape.StartUtc && f.EndAtUtc <= shape.EndUtc).ToListAsync(ct))
         {
-            fence.Status = IncidentFenceStatus.Resolved;
-            fence.ClosedAtUtc = clock.UtcNow;
-            fence.ResolvedIncidentId = incidentId;
+            fence.Status = IncidentFenceStatus.Resolved; fence.ClosedAtUtc = clock.UtcNow; fence.ResolvedIncidentId = incidentId;
         }
         audit.Write(new AuditEntry(managerId, "RESOLVE_CENTER_INCIDENT", nameof(IncidentNotice), incidentId.ToString(),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new
-            {
-                scope = shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
-                affectedSources = firstImpacts.Select(x => new { x.SourceType, x.SourceId }),
-                cancelledRentals = rentalRows.Count, blockedRooms = shape.RoomIds.Count,
-                membershipExtensionDays = extensionDays, extendedMembers = extended.Count
-            }), Reason: request.Reason.Trim()));
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { Refunds = selections, TotalPoints = selections.Sum(r => r.Points) }), Reason: request.Reason.Trim()));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return incidentId;
     }
+
 
     public static readonly TimeSpan FenceLifetime = TimeSpan.FromHours(2);
 
@@ -526,6 +511,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
     private async Task<List<IncidentImpact>> FindImpactsAsync(IncidentShape shape, CancellationToken ct)
     {
         var roomRows = await db.Set<RoomOccupancy>().AsNoTracking().Where(x => x.IsActive
+                && (x.SourceType != OccupancySourceType.RoomBlock || !db.Set<RoomBlock>().Any(b => b.BlockId == x.SourceId && b.IncidentId != null))
                 && shape.RoomIds.Contains(x.RoomId) && x.StartAtUtc < shape.EndUtc && x.EndAtUtc > shape.StartUtc)
             .Select(x => new IncidentImpact(x.SourceType.ToString(), x.SourceId, x.StartAtUtc, x.EndAtUtc)).ToListAsync(ct);
         if (shape.Scope == IncidentScope.Center)
@@ -553,11 +539,12 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 }
 
 public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason,
-    int? MembershipExtensionDays = null);
+    int? MembershipExtensionDays = null,
+    string? PreviewToken = null, Guid? OperationId = null, IReadOnlyList<IncidentRefundSelection>? Refunds = null);
 public sealed record IncidentDetailsResponse(Guid IncidentId,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
     DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc,
-    IReadOnlyList<IncidentSessionHistory>? SessionReports = null);
+    IReadOnlyList<IncidentSessionHistory>? SessionReports = null, IReadOnlyList<IncidentRefundReceipt>? Refunds = null);
 public sealed record IncidentSessionHistory(Guid SessionId, int ClassId, int SessionNo, string ClassName,
     SportHub.Scheduling.Application.DTOs.IncidentSessionReport Report);
 public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)
@@ -589,6 +576,8 @@ public sealed record IncidentResolutionOption(string Action, string Method, stri
 public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc,
     IReadOnlyList<IncidentImpact> Impacts, bool CanResolve, string? BlockReason)
 {
+    public IReadOnlyList<IncidentRefundRow> Refunds { get; init; } = [];
+    public string PreviewToken { get; init; } = string.Empty;
     public bool ClosesGym { get; init; }
     public int SuggestedMembershipExtensionDays { get; init; }
     public int AffectedMemberCount { get; init; }

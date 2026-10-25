@@ -164,7 +164,10 @@ for (const full of [false, true]) {
       animations: "disabled",
     });
     await page
-      .getByRole("button", { name: en.operations.edit, exact: true })
+      .getByRole("button", {
+        name: en.incidentHistory.arrangeMakeup,
+        exact: true,
+      })
       .click();
     const dialog = page.getByRole("dialog", {
       name: en.incidentHistory.editSession,

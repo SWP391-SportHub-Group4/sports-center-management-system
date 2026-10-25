@@ -41,6 +41,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
                               && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && (r.SportId != null || t.IsActive))
                           select r).SingleOrDefaultAsync(cancellationToken)
             ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
+        if (room.RentalBookingOpensAtUtc > clock.UtcNow)
+            throw new ConflictException("rental_court_not_open_yet", "This new court opens for member bookings on the following day (Vietnam time).");
         if (room.RoomTypeId is not int roomTypeId)
             throw new ConflictException("rental_room_unclassified", "Rental room unclassified.");
 

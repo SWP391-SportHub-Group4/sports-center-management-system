@@ -17,6 +17,7 @@ import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
+import { useManagerRequestUnread } from "@/lib/manager-request-reads";
 import {
   IconKeyboard,
   IconLogout,
@@ -222,14 +223,28 @@ function isActiveHref(pathname: string, href: string, root: string) {
 
 const FrameContext = createContext(false);
 
+function RequestUnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={styles.requestBadge}
+      aria-label={`${count} unread requests`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function NavGroup({
   entry,
   pathname,
   root,
+  unreadRequests = 0,
 }: {
   entry: Extract<NavEntry, { kind: "group" }>;
   pathname: string;
   root: string;
+  unreadRequests?: number;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -266,6 +281,9 @@ function NavGroup({
         onClick={() => setOpen((o) => !o)}
       >
         {entry.label}
+        {entry.items.some((item) => item.href === "/manager/requests") && (
+          <RequestUnreadBadge count={unreadRequests} />
+        )}
         <svg
           width="10"
           height="10"
@@ -292,6 +310,9 @@ function NavGroup({
                   className={`${styles.groupLink} ${on ? styles.groupLinkActive : ""}`}
                 >
                   {item.label}
+                  {item.href === "/manager/requests" && (
+                    <RequestUnreadBadge count={unreadRequests} />
+                  )}
                 </Link>
               </li>
             );
@@ -317,6 +338,7 @@ export function AppFrame({
   const { language, t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
+  const unreadRequests = useManagerRequestUnread();
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
@@ -469,6 +491,7 @@ export function AppFrame({
                   entry={entry}
                   pathname={pathname}
                   root={root}
+                  unreadRequests={unreadRequests}
                 />
               ),
             )}
@@ -679,7 +702,12 @@ export function AppFrame({
                   </Link>
                 ) : (
                   <div key={entry.key} className={styles.drawerGroup}>
-                    <p className={styles.drawerGroupLabel}>{entry.label}</p>
+                    <p className={styles.drawerGroupLabel}>
+                      {entry.label}
+                      {entry.items.some(
+                        (item) => item.href === "/manager/requests",
+                      ) && <RequestUnreadBadge count={unreadRequests} />}
+                    </p>
                     {entry.items.map((item) => {
                       const on = isActiveHref(pathname, item.href, root);
                       return (
@@ -691,6 +719,9 @@ export function AppFrame({
                           onClick={() => setDrawer(false)}
                         >
                           {item.label}
+                          {item.href === "/manager/requests" && (
+                            <RequestUnreadBadge count={unreadRequests} />
+                          )}
                         </Link>
                       );
                     })}

@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatMoney } from "@/lib/format";
+import { formatDateTime, formatMoney } from "@/lib/format";
 import { AsyncSection, Card, Field, StatusChip } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import { RoomBlocks } from "./room-blocks";
@@ -207,6 +207,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           }
         >
           <CatalogTable
+            className={styles.courtsTable}
             state={state}
             visibleRowActions={2}
             filters={filters}
@@ -223,7 +224,8 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                 id: "sportId",
                 header: l.sport,
                 cell: (r) =>
-                  sports.data?.find((x) => x.sportId === r.sportId)?.name,
+                  sports.data?.find((x) => x.sportId === r.sportId)?.name ||
+                  "—",
               },
               { id: "capacity", header: l.capacity, numeric: true },
               {
@@ -259,6 +261,15 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                 cell: (r) => (
                   <>
                     <StatusChip value={r.isActive ? "ACTIVE" : "INACTIVE"} />
+                    {r.rentalBookingOpensAtUtc &&
+                      Date.parse(r.rentalBookingOpensAtUtc) > Date.now() && (
+                        <small className={styles.bookingOpens}>
+                          {t.managerCatalog.bookingsOpenAt.replace(
+                            "{date}",
+                            formatDateTime(r.rentalBookingOpensAtUtc),
+                          )}
+                        </small>
+                      )}
                   </>
                 ),
               },

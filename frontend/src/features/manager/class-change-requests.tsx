@@ -9,6 +9,7 @@ import managerStyles from "./manager-schedule.module.css";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { useManagerRequestRead } from "@/lib/manager-request-reads";
 import { formatDateTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { catalogApi } from "@/features/catalog";
@@ -224,6 +225,7 @@ function ReviewDrawer({
   onSaved: () => void;
 }) {
   const { language } = useLanguage();
+  useManagerRequestRead("coach", r.requestId);
   const vi = language === "vi";
   const action = useAction();
   const lock = useRef(false);

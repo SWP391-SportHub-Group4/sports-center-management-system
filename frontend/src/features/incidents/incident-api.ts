@@ -1,13 +1,19 @@
 import { api } from "@/lib/apiClient";
-import type { IncidentPreviewDto, Paged } from "@/lib/types";
+import type {
+  IncidentPreviewDto,
+  IncidentRefundReceiptDto,
+  Paged,
+} from "@/lib/types";
 
 export interface IncidentRequest {
+  previewToken?: string;
+  operationId?: string;
+  refunds?: { sourceId: string; points: number; adjustmentReason?: string }[];
   scope: string;
   roomId: number | null;
   startAtUtc: string;
   endAtUtc: string;
   reason: string;
-  membershipExtensionDays?: number;
 }
 
 export interface IncidentDelivery {
@@ -20,6 +26,7 @@ export interface IncidentDelivery {
 }
 
 export interface IncidentDetails {
+  refunds?: IncidentRefundReceiptDto[];
   incidentId: string;
   scope: string;
   roomId: number | null;
@@ -30,20 +37,20 @@ export interface IncidentDetails {
   resolutionSummary: string;
   createdAtUtc: string;
   sessionReports?:
-  | {
-    sessionId: string;
-    classId: number;
-    sessionNo: number;
-    className: string;
-    report: {
-      outcome: string;
-      occurredAtUtc: string;
-      recordedAtUtc: string;
-      reason: string;
-      replacementSessionId: string | null;
-    };
-  }[]
-  | null;
+    | {
+        sessionId: string;
+        classId: number;
+        sessionNo: number;
+        className: string;
+        report: {
+          outcome: string;
+          occurredAtUtc: string;
+          recordedAtUtc: string;
+          reason: string;
+          replacementSessionId: string | null;
+        };
+      }[]
+    | null;
 }
 
 export interface IncidentFence {
@@ -67,7 +74,11 @@ export interface IncidentFence {
 
 export interface IncidentFenceStep {
   stepId: string;
-  kind: "RESCHEDULE" | "CANCEL_WITH_MAKEUP" | "REMOVE_ROOM_BLOCK" | "REVIEWED_COMPLETED";
+  kind:
+    | "RESCHEDULE"
+    | "CANCEL_WITH_MAKEUP"
+    | "REMOVE_ROOM_BLOCK"
+    | "REVIEWED_COMPLETED";
   className: string;
   sessionNo: number;
   beforeStartUtc: string;

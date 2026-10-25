@@ -137,7 +137,7 @@ public sealed class IncidentFenceTests(PaymentApiFactory factory)
         Assert.True(listed.CanResolve);
 
         // Applying the incident (room blocks) is exempt from its own fence.
-        var incidentId = await incidents.ResolveAsync(WindowAround(request), manager.UserId);
+        var incidentId = await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, WindowAround(request)), manager.UserId);
 
         Assert.DoesNotContain(await incidents.ListOpenFencesAsync(), f => f.FenceId == fence.FenceId);
         var closed = await factory.QueryAsync(db => db.Set<IncidentFence>().AsNoTracking().SingleAsync(f => f.FenceId == fence.FenceId));

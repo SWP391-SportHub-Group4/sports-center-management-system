@@ -286,6 +286,7 @@ builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>(
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipFulfillment, MembershipFulfillment>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipAccessReader, MembershipAccessReader>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IIncidentDayPassService, IncidentDayPassService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipClosureExtension, MembershipClosureExtension>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IGymClosureReader, SportHub.Scheduling.Rental.Application.GymClosureReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();

@@ -41,7 +41,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Closing_every_active_room_extends_active_memberships_and_notifies_members()
+    public async Task Closing_every_active_room_keeps_membership_dates_unchanged()
     {
         await EnsureGymRoomAsync();
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -52,31 +52,31 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
             SportHub.Membership.Domain.Enums.MemberPackageStatus.Cancelled,
             endDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(500));
         var (start, end) = TwoFullDays(400);
-        var request = new IncidentRequest("Center", null, start, end, "Gym floor flooding", MembershipExtensionDays: 2);
+        var request = new IncidentRequest("Center", null, start, end, "Gym floor flooding");
 
         using (var scope = factory.Services.CreateScope())
         {
             var incidents = scope.ServiceProvider.GetRequiredService<IncidentService>();
             var preview = await incidents.PreviewAsync(request);
             Assert.True(preview.ClosesGym);
-            Assert.Equal(2, preview.SuggestedMembershipExtensionDays);
+            Assert.Equal(0, preview.SuggestedMembershipExtensionDays);
             Assert.True(preview.AffectedMemberCount >= 1);
             await incidents.ResolveAsync(request, manager.UserId);
         }
 
         var extended = await factory.ReloadPackageAsync(package.MemberPackageId);
-        Assert.Equal(package.EndDate.AddDays(2), extended.EndDate);
+        Assert.Equal(package.EndDate, extended.EndDate);
         Assert.Equal(package.StartDate, extended.StartDate);
         var untouched = await factory.ReloadPackageAsync(cancelled.MemberPackageId);
         Assert.Equal(cancelled.EndDate, untouched.EndDate);
 
         var notices = await factory.QueryAsync(db => db.Notifications.AsNoTracking()
             .Where(n => n.UserId == member.UserId && n.SourceEntityId == package.MemberPackageId).ToListAsync());
-        Assert.Equal(2, notices.Count); // một thông báo trong ứng dụng và một email
+        Assert.Empty(notices); // một thông báo trong ứng dụng và một email
         var notice = await factory.QueryAsync(db => db.Set<IncidentNotice>().AsNoTracking()
             .SingleAsync(x => x.StartAtUtc == start && x.EndAtUtc == end));
-        Assert.Equal(2, notice.MembershipExtensionDays);
-        Assert.True(notice.ExtendedMemberCount >= 1);
+        Assert.Equal(0, notice.MembershipExtensionDays);
+        Assert.Equal(0, notice.ExtendedMemberCount);
     }
 
     [Fact]

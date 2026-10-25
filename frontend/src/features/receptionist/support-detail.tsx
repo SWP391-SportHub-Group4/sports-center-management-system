@@ -6,6 +6,7 @@ import { AvatarImage } from "@/components/AvatarImage";
 import { SupportStatus } from "@/components/support-status";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
+import { useManagerRequestRead } from "@/lib/manager-request-reads";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type {
   MemberPackageDto,
@@ -76,6 +77,8 @@ export function SupportDetail({
   const { user } = useAuth();
   const isManager = workspace === "manager";
   const isReceiver = workspace === "coach" || workspace === "admin";
+  const readRef = useRef<HTMLDivElement>(null);
+  useManagerRequestRead("support", request.requestId, isManager, readRef);
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
 
@@ -213,7 +216,7 @@ export function SupportDetail({
         ];
 
   return (
-    <div className={styles.detail}>
+    <div className={styles.detail} ref={readRef}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
           <SupportStatus status={request.status} />

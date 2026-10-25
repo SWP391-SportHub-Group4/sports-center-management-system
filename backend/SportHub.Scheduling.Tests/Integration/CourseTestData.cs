@@ -27,7 +27,13 @@ internal sealed class TestClock(DateTime now) : IClock
 internal static class CourseTestData
 {
     public static readonly DateOnly StartDate =
-        new(2032, 3, 1);
+        NextMonday();
+
+    private static DateOnly NextMonday()
+    {
+        var day = VietnamTime.TodayLocal(new SystemClock()).AddDays(30);
+        return day.AddDays((8 - (int)day.DayOfWeek) % 7);
+    }
 
     public static async Task<CourseData> CreateAsync(
         SchedulingApiFactory factory,

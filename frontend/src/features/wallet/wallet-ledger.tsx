@@ -71,16 +71,16 @@ export function WalletLedger({
                 headers={[
                   t.wallet.date,
                   t.wallet.event,
-                  t.wallet.available,
-                  t.wallet.held,
+                  { text: t.wallet.available, numeric: true },
+                  { text: t.wallet.held, numeric: true },
                 ]}
               >
                 {data.slice(0, 20).map((row) => (
                   <tr key={row.id}>
                     <td>{formatDateTime(row.createdAtUtc)}</td>
                     <td>{events[row.entryType] ?? row.entryType}</td>
-                    <td>{formatPoints(row.availableDelta)}</td>
-                    <td>{formatPoints(row.heldDelta)}</td>
+                    <td className="num">{formatPoints(row.availableDelta)}</td>
+                    <td className="num">{formatPoints(row.heldDelta)}</td>
                   </tr>
                 ))}
               </Table>

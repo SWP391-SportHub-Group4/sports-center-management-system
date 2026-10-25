@@ -385,6 +385,7 @@ public sealed class ClassService(
         CourseRules.ValidateNumSessions(entity.NumSessions);
         CourseRules.ValidateCapacity(entity.Capacity, sport.DefaultMaxCapacity, room.Capacity);
 
+        EnsureStartWithinYear(entity.StartDate);
         var generated = CourseRules.GenerateSessions(
             entity.StartDate,
             entity.NumSessions,
@@ -505,6 +506,9 @@ public sealed class ClassService(
     }
     // ---------------------------------------------------------------- Nội bộ
 
+    private void EnsureStartWithinYear(DateOnly startDate)
+        => CourseRules.ValidateStartDateWithinYear(startDate, VietnamTime.TodayLocal(clock));
+
     private async Task<List<(int DayOfWeek, TimeOnly StartTimeLocal)>> ApplyAsync(
         Class entity, SaveClassRequest request, string code, CancellationToken ct)
     {
@@ -526,6 +530,7 @@ public sealed class ClassService(
             throw new BadRequestException("start_date_in_past", "Start date in past.");
         }
 
+        EnsureStartWithinYear(request.StartDate);
         var rules = new List<(int DayOfWeek, TimeOnly StartTimeLocal)>();
         foreach (var r in request.ScheduleRules)
         {
