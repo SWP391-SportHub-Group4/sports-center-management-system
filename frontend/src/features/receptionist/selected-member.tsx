@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Ban, CalendarClock, CircleCheck } from "lucide-react";
+import { Ban, CalendarClock } from "lucide-react";
 
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";

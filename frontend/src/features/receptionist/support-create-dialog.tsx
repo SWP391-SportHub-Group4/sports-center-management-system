@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Dialog } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
 import { ApiError, api } from "@/lib/apiClient";
@@ -16,20 +16,6 @@ import type { InvoiceSummaryDto, MemberPackageDto, UserAdminDto } from "@/lib/ty
 import type { SupportAssignee } from "./support-request-actions";
 import { ROLE_LABELS, ROLE_RANK, roleKey } from "./support-shared";
 import styles from "./support-center.module.css";
-
-/** Display-friendly service label; never expose internal IDs in an invoice picker. */
-function invoiceServiceLabel(description?: string | null): string {
-  const raw = (description ?? "").trim();
-  if (!raw) return "Service";
-  if (/^PT coach\b/i.test(raw) || /priceVersion\s*\d+/i.test(raw)) {
-    const frequency = raw.match(/(\d+)\s*\/\s*week/i);
-    return frequency
-      ? `Personal training · ${frequency[1]} session(s)/week`
-      : "Personal training";
-  }
-  const normalized = raw.replace(/\s+/g, " ");
-  return normalized.length > 68 ? `${normalized.slice(0, 65).trimEnd()}…` : normalized;
-}
 
 function MemberPlanLine({ memberId }: { memberId: string }) {
   const packages = useApi(
@@ -59,6 +45,33 @@ function MemberPlanLine({ memberId }: { memberId: string }) {
   );
 }
 
+function cleanInvoiceDescription(invoice: InvoiceSummaryDto) {
+  const text = (invoice.itemDescription || "").trim();
+  if (!text) return "Service";
+
+  if (/^pt coach /i.test(text)) {
+    const sessions = text.match(/(\d+)\/week/i)?.[1] ?? "1";
+    return `Personal training · ${sessions} session(s)/week`;
+  }
+
+  return text
+    .replace(/\s*;\s*priceVersion\s+\d+/gi, "")
+    .replace(/\s*;\s*Membership\s+[0-9a-f-]+/gi, "")
+    .replace(/\s*;\s*PT coach\s+[0-9a-f-]+/gi, "Personal training")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function invoiceLabel(invoice: InvoiceSummaryDto) {
+  return [
+    invoice.invoiceNumber,
+    cleanInvoiceDescription(invoice),
+    formatMoney(invoice.totalAmount),
+    formatDateTime(invoice.paidAtUtc ?? invoice.issuedAt),
+    invoice.status,
+  ].join(" · ");
+}
+
 /** "+ Record a request for member": lookup, channel, topic, description, then create and handle or hand over. */
 export function SupportCreateDialog({
   assignees,
@@ -82,6 +95,9 @@ export function SupportCreateDialog({
   const [handoverTo, setHandoverTo] = useState("");
   const [handoverNote, setHandoverNote] = useState("");
   const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceQuery, setInvoiceQuery] = useState("");
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState(0);
   const paidInvoices = useApi(
     (signal) => member && category === "PAYMENT"
       ? api.get<{ items: InvoiceSummaryDto[] }>("/api/invoices", {
@@ -90,6 +106,56 @@ export function SupportCreateDialog({
       : Promise.resolve(null),
     [member?.userId, category],
   );
+  const paidInvoiceItems = useMemo(() =>
+    (paidInvoices.data?.items ?? []).filter((invoice) =>
+      ["PAID", "PAIDAFTERRECONCILIATION", "PAID_AFTER_RECONCILIATION"].includes(
+        invoice.status.toUpperCase().replace(/\s+/g, ""),
+      ),
+    ),
+  [paidInvoices.data]);
+
+  const filteredInvoices = useMemo(() => {
+    const term = invoiceQuery.trim().toLowerCase();
+    if (!term) return paidInvoiceItems;
+    return paidInvoiceItems.filter((invoice) =>
+      invoiceLabel(invoice).toLowerCase().includes(term),
+    );
+  }, [invoiceQuery, paidInvoiceItems]);
+
+
+  function pickInvoice(nextInvoiceId: string) {
+    const selectedInvoice = paidInvoiceItems.find((invoice) => invoice.invoiceId === nextInvoiceId);
+    setInvoiceId(nextInvoiceId);
+    setInvoiceQuery(selectedInvoice ? invoiceLabel(selectedInvoice) : "");
+    setInvoiceOpen(false);
+    setActiveInvoice(0);
+  }
+
+  function onInvoiceKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown" && filteredInvoices.length) {
+      event.preventDefault();
+      setInvoiceOpen(true);
+      setActiveInvoice((index) => (index + 1) % filteredInvoices.length);
+      return;
+    }
+    if (event.key === "ArrowUp" && filteredInvoices.length) {
+      event.preventDefault();
+      setInvoiceOpen(true);
+      setActiveInvoice((index) => (index - 1 + filteredInvoices.length) % filteredInvoices.length);
+      return;
+    }
+    if (event.key === "Enter") {
+      if (invoiceOpen && filteredInvoices[activeInvoice]) {
+        event.preventDefault();
+        pickInvoice(filteredInvoices[activeInvoice].invoiceId);
+      }
+      return;
+    }
+    if (event.key === "Escape") {
+      setInvoiceOpen(false);
+    }
+  }
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
@@ -114,6 +180,10 @@ export function SupportCreateDialog({
       : null;
 
   async function submit(handover: boolean) {
+    if (!isManager && category === "PAYMENT") {
+      setError("Payment requests must be submitted by the member in their own app, with invoice and supporting evidence.");
+      return;
+    }
     if (category === "PAYMENT" && (!handover || roleKey(target?.role) !== "manager")) {
       setError("Payment requests must be assigned to Center Manager, not Receptionist.");
       return;
@@ -161,7 +231,13 @@ export function SupportCreateDialog({
         <div>
           <MemberPicker
             value={member}
-            onChange={setMember}
+            onChange={(nextMember) => {
+              setMember(nextMember);
+              setInvoiceId("");
+              setInvoiceQuery("");
+              setInvoiceOpen(false);
+              setActiveInvoice(0);
+            }}
             label="Member"
             scanner={false}
             autoFocus
@@ -174,7 +250,14 @@ export function SupportCreateDialog({
           {isManager ? "What is your request about? *" : "Topic"}
           <select
             value={category}
-            onChange={(e) => { setCategory(e.target.value as SupportCategory); setHandoverTo(""); setInvoiceId(""); }}
+            onChange={(e) => {
+              setCategory(e.target.value as SupportCategory);
+              setHandoverTo("");
+              setInvoiceId("");
+              setInvoiceQuery("");
+              setInvoiceOpen(false);
+              setActiveInvoice(0);
+            }}
           >
             <option value="">Select a topic</option>
             {SUPPORT_CATEGORIES.map((c) => (
@@ -215,26 +298,62 @@ export function SupportCreateDialog({
         {category === "PAYMENT" && (
           <label className={styles.field}>
             Paid VNPay invoice (required)
-            <select value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)}>
-              <option value="">Select a paid invoice</option>
-              {(paidInvoices.data?.items ?? []).filter((invoice) => invoice.cashAmount > 0 && ["PAID", "PAIDAFTERRECONCILIATION", "PAID_AFTER_RECONCILIATION"].includes(invoice.status.toUpperCase().replace(/\s+/g, ""))).map((invoice) => (
-                <option key={invoice.invoiceId} value={invoice.invoiceId}>
-                  {`${invoice.invoiceNumber} · ${invoiceServiceLabel(invoice.itemDescription)} · ${formatMoney(invoice.cashAmount)} · ${formatDateTime(invoice.paidAtUtc ?? invoice.issuedAt)} · ${invoice.status}`}
-                </option>
-              ))}
-            </select>
-            {invoiceId && (paidInvoices.data?.items ?? []).some((invoice) => invoice.invoiceId === invoiceId) && (() => {
-              const selectedInvoice = (paidInvoices.data?.items ?? []).find((invoice) => invoice.invoiceId === invoiceId)!;
-              return (
-                <div style={{ display: "grid", gap: 4, padding: 12, border: "1px solid var(--border-subtle)", borderRadius: 8 }} aria-live="polite">
-                  <strong>{selectedInvoice.invoiceNumber}</strong>
-                  <span>{invoiceServiceLabel(selectedInvoice.itemDescription)}</span>
-                  <span>Amount: {formatMoney(selectedInvoice.cashAmount)}</span>
-                  <span>Date: {formatDateTime(selectedInvoice.paidAtUtc ?? selectedInvoice.issuedAt)}</span>
-                  <span>Status: {selectedInvoice.status}</span>
-                </div>
-              );
-            })()}
+            <div className={styles.comboBox}>
+              <input
+                value={invoiceQuery}
+                placeholder={paidInvoices.loading ? "Loading paid invoices…" : "Select a paid invoice"}
+                onChange={(event) => {
+                  setInvoiceQuery(event.target.value);
+                  setInvoiceId("");
+                  setInvoiceOpen(true);
+                  setActiveInvoice(0);
+                }}
+                onFocus={() => setInvoiceOpen(true)}
+                onBlur={() => window.setTimeout(() => setInvoiceOpen(false), 150)}
+                onKeyDown={onInvoiceKeyDown}
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={invoiceOpen}
+                aria-controls="paid-invoice-listbox"
+                aria-autocomplete="list"
+              />
+              <button
+                type="button"
+                className={styles.comboToggle}
+                aria-label="Toggle invoice list"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setInvoiceOpen((open) => !open)}
+              >
+                ▾
+              </button>
+              {invoiceOpen && (
+                <ul className={styles.comboList} id="paid-invoice-listbox" role="listbox">
+                  <li className={styles.comboPlaceholder}>Select a paid invoice</li>
+                  {paidInvoices.loading && (
+                    <li className={styles.comboEmpty}>Loading paid invoices…</li>
+                  )}
+                  {!paidInvoices.loading && filteredInvoices.length === 0 && (
+                    <li className={styles.comboEmpty}>No matching paid invoices.</li>
+                  )}
+                  {!paidInvoices.loading && filteredInvoices.map((invoice, index) => (
+                    <li
+                      key={invoice.invoiceId}
+                      role="option"
+                      aria-selected={invoice.invoiceId === invoiceId}
+                      className={styles.comboOption}
+                      data-active={index === activeInvoice || undefined}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        pickInvoice(invoice.invoiceId);
+                      }}
+                      onMouseEnter={() => setActiveInvoice(index)}
+                    >
+                      {invoiceLabel(invoice)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             {paidInvoices.error && <span role="alert">{paidInvoices.error.message}</span>}
             <small>Only Center Manager can handle payment requests.</small>
           </label>

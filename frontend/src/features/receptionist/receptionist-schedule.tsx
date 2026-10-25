@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { Button, Drawer } from "@/components/primitives";
+import { Button } from "@/components/primitives";
 import { Card, Field } from "@/components/ui";
-import { Calendar, type CalendarEvent } from "@/components/scheduling";
+import { Calendar, CalendarEventDrawer, type CalendarEvent } from "@/components/scheduling";
 import { useLanguage } from "@/lib/language";
 import { ReceptionistInlineAttendance } from "./receptionist-inline-attendance";
 import { useMemo, useState } from "react";
@@ -14,7 +14,6 @@ import { api } from "@/lib/apiClient";
 import {
   addDaysIso,
   formatDate,
-  formatDateTime,
   mondayOfIso,
   todayIso,
 } from "@/lib/format";
@@ -121,6 +120,7 @@ export function ReceptionistSchedule() {
   );
 
   const sports = useApi((signal) => catalogApi.sports(signal), []);
+  const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const rentalSports = (sports.data ?? []).filter(
     (sport) =>
       sport.isActive &&
@@ -499,54 +499,57 @@ export function ReceptionistSchedule() {
       )}
 
       {selected && (
-        <Drawer
-          title={selected.title}
-          description={`${formatDateTime(selected.startAtUtc)} – ${formatDateTime(selected.endAtUtc)}`}
-          size="lg"
+        <CalendarEventDrawer
+          entry={selected}
+          roomName={rooms.data?.find((room) => room.roomId === selected.roomId)?.name}
+          showParticipants={false}
           onClose={() => setSelectedId("")}
-        >
-          <dl style={{ display: "grid", gap: 10 }}>
-            <div><dt>Type</dt><dd>{selected.sourceType === "CLASS_SESSION" ? "Class session" : "Court rental"}</dd></div>
-            <div><dt>Status</dt><dd>{businessState(selected)} · {temporalState(selected, now)} · {selected.status}</dd></div>
-            {selected.coachName && <div><dt>Coach</dt><dd>{selected.coachName}</dd></div>}
-          </dl>
-          {selected.sourceType === "CLASS_SESSION" && (
+          extraDetails={
             <>
-              {selected.classId && courseById.get(selected.classId) && (
-                <p>
-                  <strong>Registration: </strong>
-                  {courseById.get(selected.classId)!.enrollmentOpen
-                    ? `Open · ${courseById.get(selected.classId)!.availableSeats} seats available`
-                    : "Locked / registration closed"}
-                </p>
+              {selected.sourceType === "CLASS_SESSION" && (
+                <section style={{ display: "grid", gap: 12, paddingTop: 12 }}>
+                  {selected.classId && courseById.get(selected.classId) && (
+                    <div>
+                      <strong>Registration:</strong>{" "}
+                      {courseById.get(selected.classId)!.enrollmentOpen
+                        ? `Open · ${courseById.get(selected.classId)!.availableSeats} seats available`
+                        : "Locked / registration closed"}
+                    </div>
+                  )}
+                  <ReceptionistInlineAttendance
+                    key={selected.sourceId}
+                    sessionId={selected.sourceId}
+                  />
+                </section>
               )}
-              <ReceptionistInlineAttendance key={selected.sourceId} sessionId={selected.sourceId} />
+              {selected.sourceType === "COURT_RENTAL" && (
+                <section style={{ display: "grid", gap: 10, paddingTop: 12 }}>
+                  <div><strong>Renter:</strong> {selected.memberName || "—"}</div>
+                  <div><strong>Rental status:</strong> {selectedRental?.status || selected.status}</div>
+                  {selectedRentals.loading && <p>Loading rental checkout…</p>}
+                  {selectedRentals.error && <p role="alert">{selectedRentals.error.message}</p>}
+                  {selectedRental?.invoiceId && selectedInvoice.loading && <p>Loading invoice…</p>}
+                  {selectedInvoice.error && <p role="alert">{selectedInvoice.error.message}</p>}
+                  {selectedInvoice.data && (
+                    <>
+                      <div><strong>Invoice:</strong> {selectedInvoice.data.summary.invoiceNumber}</div>
+                      <div><strong>Payment:</strong> {selectedInvoice.data.summary.status} · {selectedInvoice.data.summary.fulfillmentOutcome}</div>
+                      <div><strong>Checkout:</strong> {selectedInvoice.data.summary.outstanding > 0 ? "Awaiting payment" : "No outstanding balance"}</div>
+                      {selectedInvoice.data.summary.reconciliationRequired && (
+                        <p role="alert">Reconciliation required</p>
+                      )}
+                    </>
+                  )}
+                  {selected.memberId && (
+                    <Link href={`/receptionist/members/${selected.memberId}?tab=invoices`} className="btn btn--secondary">
+                      Open member invoices
+                    </Link>
+                  )}
+                </section>
+              )}
             </>
-          )}
-          {selected.sourceType === "COURT_RENTAL" && (
-            <>
-              <p><strong>Renter:</strong> {selected.memberName || "—"}</p>
-              <p><strong>Rental status:</strong> {selectedRental?.status || selected.status}</p>
-              {selectedRentals.loading && <p>Loading rental checkout…</p>}
-              {selectedRentals.error && <p role="alert">{selectedRentals.error.message}</p>}
-              {selectedRental?.invoiceId && selectedInvoice.loading && <p>Loading invoice…</p>}
-              {selectedInvoice.error && <p role="alert">{selectedInvoice.error.message}</p>}
-              {selectedInvoice.data && (
-                <>
-                  <p><strong>Invoice:</strong> {selectedInvoice.data.summary.invoiceNumber}</p>
-                  <p><strong>Payment:</strong> {selectedInvoice.data.summary.status} · {selectedInvoice.data.summary.fulfillmentOutcome}</p>
-                  <p><strong>Checkout:</strong> {selectedInvoice.data.summary.outstanding > 0 ? "Awaiting payment" : "No outstanding balance"}</p>
-                  {selectedInvoice.data.summary.reconciliationRequired && <p role="alert">Reconciliation required</p>}
-                </>
-              )}
-              {selected.memberId && (
-                <Link href={`/receptionist/members/${selected.memberId}?tab=invoices`} className="btn btn--secondary">
-                  Open member invoices
-                </Link>
-              )}
-            </>
-          )}
-        </Drawer>
+          }
+        />
       )}
       {(type === "ALL" || type === "AVAILABLE_SLOT") && (
         <section className="card" style={{ padding: 18 }}>
