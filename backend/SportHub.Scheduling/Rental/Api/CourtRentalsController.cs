@@ -77,11 +77,21 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
         return NoContent();
     }
 
-    [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    /// <summary>BR-159: chỉ Lễ tân đánh dấu Checked-in cho lượt thuê sân.</summary>
+    [Authorize(Roles = SportHubRoleNames.Receptionist)]
     [HttpPost("api/court-rentals/{rentalId:guid}/check-in")]
     public async Task<IActionResult> CheckIn(Guid rentalId, CancellationToken ct)
     {
         await rentals.CheckInAsync(rentalId, ct);
+        return NoContent();
+    }
+
+    /// <summary>BR-159: Lễ tân đánh dấu No-show; hết giờ mà chưa đánh dấu thì hệ thống tự ghi No-show.</summary>
+    [Authorize(Roles = SportHubRoleNames.Receptionist)]
+    [HttpPost("api/court-rentals/{rentalId:guid}/no-show")]
+    public async Task<IActionResult> NoShow(Guid rentalId, CancellationToken ct)
+    {
+        await rentals.MarkNoShowAsync(rentalId, ct);
         return NoContent();
     }
 

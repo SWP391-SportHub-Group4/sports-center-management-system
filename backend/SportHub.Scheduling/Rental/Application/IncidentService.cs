@@ -94,7 +94,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 
     /// <summary>
     /// Every member the incident touches, with what will happen to them and the points the server expects to credit.
-    /// Rentals are refunded 100% as points on resolve (same formula as <c>RefundCreditService</c>); class sessions need a
+    /// Cancelled rentals are offered a 100% points refund that the Member chooses (or auto-credited after 2 days; same formula as <c>RefundCreditService</c>); class sessions need a
     /// schedule decision first, so they carry no refund quote.
     /// </summary>
     private async Task<IReadOnlyList<IncidentAffectedMember>> AffectedMembersAsync(
@@ -180,9 +180,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
 
         foreach (var rental in rentalRows.Where(x => x.Status is CourtRentalStatus.Confirmed or CourtRentalStatus.InUse))
         {
-            var itemId = rental.InvoiceItemId!.Value;
-            await refunds.CreditAsync(new RefundCreditRequest(itemId, 100,
-                "CenterFault:" + request.Reason.Trim(), incidentId), ct);
+            // No points are credited here: the Member is notified and picks points (automatic) or a refund request.
             // CancelAsync saves immediately, before the IncidentNotice row exists, so linking the incident here would
             // violate the foreign key. The link is set below and saved together with the notice.
             await rentals.CancelAsync(rental.CourtRentalId, request.Reason.Trim(), centerFault: true,
@@ -197,11 +195,11 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
                 var source = rental.CourtRentalId;
                 var text = pendingIds.Contains(rental.CourtRentalId)
                     ? "The pending court rental was canceled due to a center incident; held points were released. Contact the manager for priority rebooking support."
-                    : "The court rental was canceled due to a center incident; 100% of the paid value was refunded as wallet points. Contact the manager for priority rebooking support.";
+                    : "The court rental was canceled due to a center incident. Choose your refund: receive 100% of the paid value as wallet points right away, or send a refund request for the Manager. If you do not choose within 2 days, the points are credited automatically. Contact the manager for priority rebooking support.";
                 notifications.Queue(new NotificationRequest(rental.MemberId,
                     NotificationEvents.IncidentResolution, text, source));
                 notifications.QueueEmail(new EmailNotificationRequest(rental.MemberId, access.Email,
-                    NotificationEvents.IncidentResolution, source, "SportHub - Court rental canceled",
+                    NotificationEvents.IncidentResolution, source, "SportHub - Court rental canceled, choose your refund",
                     "<p>" + text + "</p>"));
             }
         }
@@ -235,7 +233,7 @@ public sealed class IncidentService(ISportHubDbContext db, IOccupancyService occ
             IncidentId = incidentId, Scope = shape.Scope, RoomId = shape.RoomId,
             StartAtUtc = shape.StartUtc, EndAtUtc = shape.EndUtc,
             Reason = request.Reason.Trim(),
-            ResolutionSummary = $"Affected court rentals were refunded and {shape.RoomIds.Count} rooms were blocked during the incident."
+            ResolutionSummary = $"Affected court rentals were cancelled (members choose a points refund or send a refund request) and {shape.RoomIds.Count} rooms were blocked during the incident."
                 + (extensionDays > 0 ? $" {extended.Count} members' active memberships were extended by {extensionDays} days." : string.Empty),
             CreatedByUserId = managerId, CreatedAtUtc = clock.UtcNow,
             MembershipExtensionDays = extensionDays, ExtendedMemberCount = extended.Count
@@ -598,7 +596,7 @@ public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.
     public int ExpectedRefundPointsTotal { get; init; }
 }
 
-/// <param name="Outcome">RefundedAsPoints | CheckoutReleased | AwaitsScheduleDecision.</param>
+/// <param name="Outcome">RefundedAsPoints (a 100% points refund is offered to the Member, not credited at resolve) | CheckoutReleased | AwaitsScheduleDecision.</param>
 /// <param name="ExpectedRefundPoints">Null when no refund is decided yet (schedule decision pending).</param>
 public sealed record IncidentAffectedMember(Guid MemberId, string? MemberName,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId,

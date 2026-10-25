@@ -111,6 +111,8 @@ async function setup(
       return route.fulfill({
         json: { items: [summary], page: 1, pageSize: 10, totalCount: 1 },
       });
+    if (path === "/api/refunds/center-cancellations/mine")
+      return route.fulfill({ json: [] });
     if (path === "/api/refunds/mine")
       return route.fulfill({
         json: {

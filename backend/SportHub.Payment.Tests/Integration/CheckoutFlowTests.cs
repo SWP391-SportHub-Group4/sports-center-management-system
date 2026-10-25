@@ -1687,7 +1687,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Member_cancelling_a_class_far_from_start_gets_full_points_and_frees_the_seat(bool makeupOnly)
+    public async Task Member_cancelling_a_class_gets_no_points_but_frees_the_seat(bool makeupOnly)
     {
         var context = await SeedAsync();
 
@@ -1991,13 +1991,18 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             HttpStatusCode.OK,
             cancelled.StatusCode);
 
-        // A member refund is a points credit and must be counted as "points refunded".
+        // Member tự hủy ghi danh không được hoàn điểm (BR-122): không có khoản hoàn nào được tính vào báo cáo.
         Assert.Equal(
-            100,
+            0,
             (await refundReports.GetAsync(
                 refundDay,
                 refundDay)).PointsRefunded -
             refundedBefore);
+
+        Assert.Equal(
+            0,
+            (await cancelled.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>())
+                .GetProperty("refundedPoints").GetInt32());
 
         Assert.Equal(
             HttpStatusCode.Conflict,
@@ -2041,7 +2046,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                         .SingleAsync());
 
                 Assert.Equal(
-                    pointsBefore + 100,
+                    pointsBefore,
                     await db.PointWallets
                         .Where(
                             x =>
