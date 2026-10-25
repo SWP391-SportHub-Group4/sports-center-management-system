@@ -50,8 +50,12 @@ public sealed class OperationsHealthController(SportHubDbContext db, JobHealthRe
                 .CountAsync(e => e.ProcessingStatus == "Pending" && e.VerifiedAtUtc < gatewayCutoff, ct),
             GatewayEventsFailed: await db.Set<SportHub.Payment.Domain.Entities.VerifiedGatewayEvent>().AsNoTracking()
                 .CountAsync(e => e.ProcessingStatus == "Failed", ct),
-            ManualCompensationRequired: await db.Set<SportHub.Payment.Domain.Entities.VerifiedGatewayEvent>().AsNoTracking()
-                .CountAsync(e => e.ProcessingStatus == "ManualCompensationRequired", ct),
+            // Match the front-desk Paid, not activated queue, counting invoices rather than gateway retries.
+            PaidNotActivated: await db.Invoices.AsNoTracking().CountAsync(i =>
+                db.Set<SportHub.Payment.Domain.Entities.VerifiedGatewayEvent>().Any(e =>
+                    e.ProcessingStatus == "Unactivated" && e.ResponseCode == "00" && e.TransactionStatus == "00"
+                    && db.Set<SportHub.Payment.Domain.Entities.PaymentAttempt>().Any(a =>
+                        a.PaymentAttemptId == e.PaymentAttemptId && a.InvoiceId == i.InvoiceId)), ct),
             AttemptsAwaitingReconciliation: await db.Set<SportHub.Payment.Domain.Entities.PaymentAttempt>().AsNoTracking()
                 .CountAsync(a => a.Status == PaymentAttemptStatus.ReconciliationRequired, ct),
             InvoicesFlaggedForReconciliation: await db.Set<SportHub.Payment.Domain.Entities.Invoice>().AsNoTracking()
@@ -60,23 +64,28 @@ public sealed class OperationsHealthController(SportHubDbContext db, JobHealthRe
             ExpiredSeatHoldsNotReleased: await db.Set<SportHub.Scheduling.Domain.Entities.SeatHold>().AsNoTracking()
                 .CountAsync(h => h.Status == SeatHoldStatus.Active && h.ExpiresAtUtc < now - SeatHoldGrace, ct));
 
+        var support = new SupportRequestHealth(await db.MemberSupportRequests.AsNoTracking()
+            .CountAsync(r => r.SlaDueAtUtc <= now && r.Status != "DONE"
+                && r.Status != "CLOSED" && r.Status != "REJECTED", ct));
         var unhealthyJobs = jobRows.Count(j => j.Unhealthy);
-        var needsAttention = payments.ManualCompensationRequired + payments.GatewayEventsFailed
+        var needsAttention = payments.PaidNotActivated + support.OverdueRequests + payments.GatewayEventsFailed
             + payments.AttemptsAwaitingReconciliation + outbox.FailedNeedingAttention + outbox.StuckSending;
         var status = unhealthyJobs > 0 || payments.GatewayEventsUnprocessed > 0 || payments.ExpiredSeatHoldsNotReleased > 0
             ? "Unhealthy"
             : needsAttention > 0 || outbox.Failed > 0 ? "Degraded" : "Healthy";
 
-        return Ok(new OperationsHealthResponse(status, now, jobs.StartedAtUtc, jobRows, outbox, payments));
+        return Ok(new OperationsHealthResponse(status, now, jobs.StartedAtUtc, jobRows, outbox, payments, support));
     }
 }
 
 public sealed record OperationsHealthResponse(string Status, DateTime GeneratedAtUtc, DateTime JobHistorySinceUtc,
-    IReadOnlyList<JobSnapshot> Jobs, OutboxHealth Outbox, PaymentReconciliationHealth Payments);
+    IReadOnlyList<JobSnapshot> Jobs, OutboxHealth Outbox, PaymentReconciliationHealth Payments, SupportRequestHealth Support);
 
 public sealed record OutboxHealth(int Pending, int StuckSending, int Failed, int FailedNeedingAttention,
     DateTime? OldestRetryingAttemptUtc);
 
 public sealed record PaymentReconciliationHealth(int GatewayEventsUnprocessed, int GatewayEventsFailed,
-    int ManualCompensationRequired, int AttemptsAwaitingReconciliation, int InvoicesFlaggedForReconciliation,
+    int PaidNotActivated, int AttemptsAwaitingReconciliation, int InvoicesFlaggedForReconciliation,
     int ExpiredSeatHoldsNotReleased);
+
+public sealed record SupportRequestHealth(int OverdueRequests);

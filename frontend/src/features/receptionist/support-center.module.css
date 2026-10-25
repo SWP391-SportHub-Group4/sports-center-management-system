@@ -11,9 +11,8 @@
   align-items: center;
   justify-content: space-between;
 }
-.head h2 {
-  margin: 0;
-  font-size: var(--text-xl, 20px);
+.head > button:only-child {
+  margin-inline-start: auto;
 }
 .primary {
   display: inline-flex;

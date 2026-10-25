@@ -29,6 +29,8 @@ export function auditRecordType(row: AuditLogDto, t: Translations): string {
   const extra: Record<string, string> = {
     CourtRate: "Court rate",
     ClassRegistration: "Class registration",
+    MemberSupportPayout: "Bank refund",
+    MemberSupportRequest: "Support request",
   };
   return (
     t.managerAudit.entities[
@@ -62,6 +64,13 @@ export function auditEventModel(
     if (key.startsWith("affected."))
       return `Affected records · ${readableAuditLabel(key.split(".")[1])}`;
     const labels: Record<string, string> = {
+      requestId: "Support request",
+      amount: "Amount (VND)",
+      points: "Wallet points",
+      remindCount: "Reminders sent",
+      onBehalfOfMember: "Sent on behalf of member",
+      received: "Refund received",
+      confirmedBy: "Confirmed by",
       price: row.targetEntity === "CourtRate" ? "Price per hour" : "Price",
       days: "Applicable days",
       startTimeLocal: "Start time",
@@ -146,7 +155,7 @@ export function auditEventModel(
           ? "Yes"
           : "No";
     if (typeof item === "number")
-      return /^(price|costAmount|totalAmount)$/.test(key)
+      return /^(price|costAmount|totalAmount|amount)$/.test(key)
         ? formatMoney(item)
         : key === "durationDays"
           ? `${formatNumber(item)} ${item === 1 ? "day" : "days"}`
@@ -176,6 +185,7 @@ export function auditEventModel(
       [
         "status",
         "role",
+        "confirmedBy",
         "serviceType",
         "scope",
         "sourceType",
@@ -199,6 +209,9 @@ export function auditEventModel(
     ...new Set([...Object.keys(before), ...Object.keys(after)]),
   ].filter(
     (key) =>
+      !["avatarSnapshotId", "avatarSnapshotExpiresAtUtc", "hadAvatar"].includes(
+        key,
+      ) &&
       key !== "reason" &&
       key !== "reviewNote" &&
       (!comparison ||
@@ -227,6 +240,7 @@ export function auditEventModel(
       ClassSession: "classId",
       PaymentAdjustment: "invoiceItemId",
       CourtRate: "roomTypeId",
+      MemberSupportPayout: "requestId",
     } as Record<string, string>
   )[row.targetEntity];
   const contextId = after[contextField] ?? before[contextField];

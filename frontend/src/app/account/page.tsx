@@ -287,6 +287,7 @@ export default function AccountPage() {
 
                     {(user?.role === "Member" ||
                       user?.role === "Coach" ||
+                      user?.role === "CenterManager" ||
                       user?.role === "Receptionist") && (
                       <AvatarEditor
                         name={data.fullName || data.email}

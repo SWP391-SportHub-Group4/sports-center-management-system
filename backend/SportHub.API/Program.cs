@@ -215,6 +215,8 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<SupportReminderService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ISupportInvoiceGuard, SportHub.Payment.Application.Services.SupportInvoiceGuard>();
 builder.Services.AddScoped<AvatarService>();
+builder.Services.AddHttpClient<AvatarAuditImageService>(client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<CoachCredentialService>();
 builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(60));

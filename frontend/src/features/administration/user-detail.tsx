@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, ShieldCheck, KeyRound } from "lucide-react";
 import { AvatarImage } from "@/components/AvatarImage";
+import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
 import { Card, Feedback } from "@/components/ui";
-import { StateView, StatusChip } from "@/components/data";
+import { StateView } from "@/components/data";
+import { RoleChip } from "./RoleChip";
 import { ApiError, api } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { useApi } from "@/lib/useApi";
@@ -25,22 +27,26 @@ function CoachSpecialties({ ids }: { ids: number[] }) {
     [],
   );
   if (state.loading)
-    return <StateView kind="loading" title={t.common.loading} />;
+    return (
+      <span className="small muted" role="status">
+        {t.common.loading}
+      </span>
+    );
   if (state.error)
     return (
-      <StateView
-        kind="error"
-        title={t.dataTable.errorTitle}
-        description={state.error.message}
-        action={
-          <button className="btn btn--secondary" onClick={state.reload}>
-            {t.common.retry}
-          </button>
-        }
-      />
+      <span className="small" role="alert">
+        Sports unavailable.{" "}
+        <button
+          type="button"
+          className="btn btn--ghost btn--sm"
+          onClick={state.reload}
+        >
+          {t.common.retry}
+        </button>
+      </span>
     );
   return (
-    <ul className={styles.specialtyNames}>
+    <ul className={styles.specialtyNames} aria-label="Sports">
       {ids.map((id) => (
         <li key={id}>
           {state.data?.find((sport) => sport.sportId === id)?.name ?? `#${id}`}
@@ -58,6 +64,7 @@ export function UserDetail({ userId }: { userId: string }) {
   const returnHref = accountListReturnHref(query.values.returnTo);
   const [edit, setEdit] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
   const state = useApi(
     async (signal) => {
       if (
@@ -107,7 +114,15 @@ export function UserDetail({ userId }: { userId: string }) {
       ) : (
         account && (
           <>
-            <Feedback success={saved ? t.operations.saved : ""} />
+            <Feedback
+              success={
+                photoRemoved
+                  ? "Profile photo removed."
+                  : saved
+                    ? t.operations.saved
+                    : ""
+              }
+            />
             <header className={styles.profileHeading}>
               <span className={styles.profileAvatar} aria-hidden="true">
                 <AvatarImage
@@ -120,11 +135,32 @@ export function UserDetail({ userId }: { userId: string }) {
                 <h2>{account.fullName || account.email}</h2>
                 <p>{account.email}</p>
                 <div className={styles.profileBadges}>
-                  <StatusChip value={account.role} />
+                  <RoleChip role={account.role} />
                   <AccountStatusChip account={account} />
+                  {account.role === "COACH" &&
+                    (account.sportIds.length ? (
+                      <CoachSpecialties ids={account.sportIds} />
+                    ) : (
+                      <span className="small muted">No sports assigned</span>
+                    ))}
                 </div>
               </div>
               <div className={styles.profileControls}>
+                {user?.role === "SystemAdministrator" &&
+                  account.avatarUrl &&
+                  (account.role === "MEMBER" || account.role === "COACH") && (
+                    <RemoveMemberAvatarButton
+                      key={account.userId}
+                      administrator
+                      memberId={account.userId}
+                      memberName={account.fullName || account.email}
+                      onRemoved={() => {
+                        setSaved(false);
+                        setPhotoRemoved(true);
+                        state.reload();
+                      }}
+                    />
+                  )}
                 <Link
                   className="btn btn--secondary"
                   href={`/admin/audit-log?targetEntity=UserAccount&targetId=${encodeURIComponent(userId)}`}
@@ -177,18 +213,6 @@ export function UserDetail({ userId }: { userId: string }) {
                     </p>
                   </details>
                 </Card>
-                {account.role === "COACH" && (
-                  <Card
-                    title={t.staffWork.specialties}
-                    hint="Sports this Coach is qualified to teach."
-                  >
-                    {account.sportIds.length ? (
-                      <CoachSpecialties ids={account.sportIds} />
-                    ) : (
-                      <p>{l.noSports}</p>
-                    )}
-                  </Card>
-                )}
               </section>
               <section
                 className={styles.profileColumn}
@@ -232,6 +256,7 @@ export function UserDetail({ userId }: { userId: string }) {
                 reload={() => {
                   setEdit(false);
                   setSaved(true);
+                  setPhotoRemoved(false);
                   state.reload();
                 }}
               />

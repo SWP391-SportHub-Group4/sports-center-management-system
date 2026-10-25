@@ -17,19 +17,6 @@
   margin-top: var(--space-1);
 }
 
-.advancedFilters summary {
-  padding-block: var(--space-2);
-  cursor: pointer;
-  color: var(--text-strong);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-}
-
-.advancedFilters summary span {
-  color: var(--text-muted);
-  font-weight: var(--weight-regular);
-}
-
 .advancedBody {
   padding: var(--space-4);
   margin-bottom: var(--space-3);

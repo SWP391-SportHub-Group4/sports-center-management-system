@@ -1192,6 +1192,18 @@ export const en = {
     quickLinks: "Management shortcuts",
   },
   settingFields: {
+    supportSlaHours: {
+      label: "Support response deadline (hours)",
+      hint: "Time allowed before a support request is overdue. Existing deadlines are preserved. Choose 1–168 hours.",
+    },
+    supportRemindCooldownHours: {
+      label: "Support reminder interval (hours)",
+      hint: "Minimum interval between reminders for a support request. Choose 1–168 hours.",
+    },
+    supportPayoutConfirmDays: {
+      label: "Payout confirmation period (days)",
+      hint: "Automatically confirm receipt after this period if the member has not responded. Choose 1–30 days.",
+    },
     thresholdDays: {
       label: "Threshold check (days before start)",
       hint: "Evaluate paid enrollments against the break-even threshold before the first session.",

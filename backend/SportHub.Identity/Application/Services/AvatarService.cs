@@ -13,7 +13,7 @@ namespace SportHub.Identity.Application.Services;
 public sealed record AvatarResponse(Guid UserId, string? AvatarUrl);
 
 public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage, IAuditWriter audit,
-    IClock clock, ILogger<AvatarService> logger)
+    IClock clock, ILogger<AvatarService> logger, AvatarAuditImageService auditImages)
 {
     public const int MaxUploadBytes = 5 * 1024 * 1024;
 
@@ -27,11 +27,13 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         {
             user.Profile ??= new UserProfile { UserId = userId };
             var old = user.Profile.AvatarPublicId;
+            var before = await auditImages.CaptureExistingAsync(userId, old, user.Profile.AvatarUrl, ct);
+            var after = auditImages.Record(userId, uploaded.PublicId, bytes, contentType);
             user.Profile.AvatarUrl = uploaded.Url;
             user.Profile.AvatarPublicId = uploaded.PublicId;
             user.Profile.AvatarVersion++;
             QueueDeletion(old);
-            audit.Write(new AuditEntry(userId, "UPDATE_AVATAR", nameof(UserProfile), userId.ToString()));
+            audit.Write(new AuditEntry(userId, "UPDATE_AVATAR", nameof(UserProfile), userId.ToString(), OldValue: before, NewValue: after));
             try { await db.SaveChangesAsync(ct); }
             catch (DbUpdateConcurrencyException)
             { throw new ConflictException("avatar_changed", "The avatar has changed. Please try again."); }
@@ -54,11 +56,12 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         var user = await EditableUserAsync(userId, ct);
         var old = user.Profile?.AvatarPublicId;
         if (user.Profile is null || user.Profile.AvatarUrl is null) return new AvatarResponse(userId, null);
+        var before = await auditImages.CaptureExistingAsync(userId, old, user.Profile.AvatarUrl, ct);
         user.Profile.AvatarUrl = null;
         user.Profile.AvatarPublicId = null;
         user.Profile.AvatarVersion++;
         QueueDeletion(old);
-        audit.Write(new AuditEntry(userId, "DELETE_AVATAR", nameof(UserProfile), userId.ToString()));
+        audit.Write(new AuditEntry(userId, "DELETE_AVATAR", nameof(UserProfile), userId.ToString(), OldValue: before));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
         { throw new ConflictException("avatar_changed", "The avatar has changed. Please try again."); }
@@ -76,7 +79,8 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         user.Profile.AvatarUrl = imported.Url;
         user.Profile.AvatarPublicId = imported.PublicId;
         user.Profile.AvatarVersion++;
-        audit.Write(new AuditEntry(userId, "IMPORT_GOOGLE_AVATAR", nameof(UserProfile), userId.ToString()));
+        var importedSnapshot = await auditImages.CaptureExistingAsync(userId, imported.PublicId, imported.Url, ct);
+        audit.Write(new AuditEntry(userId, "IMPORT_GOOGLE_AVATAR", nameof(UserProfile), userId.ToString(), NewValue: importedSnapshot));
         try { await db.SaveChangesAsync(ct); }
         catch
         {
@@ -89,12 +93,12 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
     {
         var row = await db.Set<UserAccount>().AsNoTracking().Where(u => u.UserId == targetUserId
             && u.Status == UserStatus.Active && u.Role != null
-            && (u.Role.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach))
+            && (u.Role.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach || u.Role.RoleName == UserRole.CenterManager))
             .Select(u => new { Role = u.Role!.RoleName, AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("avatar_owner_not_found", "User not found.");
         if (anonymous && row.Role != UserRole.Coach)
-            throw new ForbiddenException("avatar_not_public", "Member avatars are visible only to signed-in users.");
+            throw new ForbiddenException("avatar_not_public", "This profile photo is visible only to signed-in users.");
         return new AvatarResponse(targetUserId, row.AvatarUrl);
     }
 
@@ -107,6 +111,7 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
             throw new ForbiddenException("avatar_target_not_member", "Only member photos can be removed here.");
         if (member.Profile?.AvatarUrl is null) return new AvatarResponse(memberId, null);
         var old = member.Profile.AvatarPublicId;
+        var before = await auditImages.CaptureExistingAsync(memberId, old, member.Profile.AvatarUrl, ct);
         member.Profile.AvatarUrl = null;
         member.Profile.AvatarPublicId = null;
         member.Profile.AvatarVersion++;
@@ -116,7 +121,7 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
             report.Status = "REMOVED";
             report.ReviewedByUserId = managerId; report.ReviewedAtUtc = clock.UtcNow;
         }
-        audit.Write(new AuditEntry(managerId, "MANAGER_REMOVE_MEMBER_AVATAR", nameof(UserProfile), memberId.ToString()));
+        audit.Write(new AuditEntry(managerId, "MANAGER_REMOVE_MEMBER_AVATAR", nameof(UserProfile), memberId.ToString(), OldValue: before));
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
         { throw new ConflictException("avatar_changed", "The avatar has changed. Please reload the member."); }
@@ -136,14 +141,14 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         var user = await db.Set<UserAccount>().Include(u => u.Role).Include(u => u.Profile)
             .SingleOrDefaultAsync(u => u.UserId == userId, ct)
             ?? throw new NotFoundException("user_not_found", "Account not found.");
-        if (user.Role?.RoleName is not (UserRole.Member or UserRole.Coach))
-            throw new ForbiddenException("avatar_role_forbidden", "Only members and coaches can change their own avatars.");
+        if (user.Role?.RoleName is not (UserRole.Member or UserRole.Coach or UserRole.CenterManager))
+            throw new ForbiddenException("avatar_role_forbidden", "Only members, coaches and center managers can change their own avatars.");
         if (user.Status != UserStatus.Active)
             throw new ForbiddenException("avatar_account_inactive", "This account is inactive.");
         return user;
     }
 
-    private static void ValidateImage(byte[] bytes, string contentType)
+    internal static void ValidateImage(byte[] bytes, string contentType)
     {
         if (bytes.Length == 0 || bytes.Length > MaxUploadBytes)
             throw new BadRequestException("avatar_size_invalid", "The image must be no larger than 5 MB.");

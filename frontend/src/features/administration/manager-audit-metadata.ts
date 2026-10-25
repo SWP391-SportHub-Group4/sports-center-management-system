@@ -5,6 +5,12 @@ export type AuditSnapshot = Record<string, AuditValue>;
 // Explicit public operation fields only. Unknown nested objects, credentials,
 // notification bodies and fingerprints never enter the display model.
 const scalarFields = new Set([
+  "requestId",
+  "amount",
+  "remindCount",
+  "onBehalfOfMember",
+  "received",
+  "confirmedBy",
   "name",
   "code",
   "description",
@@ -117,11 +123,7 @@ const arrayFields = new Set([
   "unmovedSessionIds",
   "columns",
 ]);
-const serviceTypes = [
-  "MembershipAccess",
-  "GroupCourse",
-  "CourtRental",
-];
+const serviceTypes = ["MembershipAccess", "GroupCourse", "CourtRental"];
 const lowerFirst = (key: string) => key.charAt(0).toLowerCase() + key.slice(1);
 const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -256,6 +258,17 @@ export function recordedAuditTarget(row: AuditLogDto): string | undefined {
       const data =
         object(parsed) && object(parsed.value) ? parsed.value : parsed;
       if (!object(data)) continue;
+      const invoiceNumber = data.invoiceNumber ?? data.InvoiceNumber;
+      const requestId = data.requestId ?? data.RequestId;
+      if (row.targetEntity === "Invoice" && typeof invoiceNumber === "string")
+        return invoiceNumber;
+      if (
+        ["MemberSupportPayout", "MemberSupportRequest"].includes(
+          row.targetEntity,
+        ) &&
+        typeof requestId === "string"
+      )
+        return `Support request ${requestId.slice(0, 8).toUpperCase()}`;
       const keys =
         row.targetEntity === "Notification"
           ? ["subject"]
@@ -302,6 +315,7 @@ export const auditReferenceKinds: Record<string, string> = {
   memberId: "UserAccount",
   ownerId: "UserAccount",
   ownerUserId: "UserAccount",
+  requestId: "MemberSupportRequest",
   invoiceId: "Invoice",
   invoiceItemId: "InvoiceItem",
   packageId: "MembershipPackage",

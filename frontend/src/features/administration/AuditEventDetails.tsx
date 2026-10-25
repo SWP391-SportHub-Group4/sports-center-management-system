@@ -7,6 +7,7 @@ import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLogDto, RoomTypeDto } from "@/lib/types";
 import { auditEventModel } from "./audit-event-model";
+import { AuditAvatarImages, isAvatarAuditEvent } from "./AuditAvatarImages";
 import { auditDisplayText } from "./audit-display";
 import styles from "./AuditEventDetails.module.css";
 
@@ -73,7 +74,7 @@ export function AuditEventDetails({
                   <dd>{model.action}</dd>
                 </div>
               </dl>
-              {model.deletion && (
+              {model.deletion && !isAvatarAuditEvent(row) && (
                 <p className={styles.notice}>
                   Record deleted. Values below were recorded before deletion.
                 </p>
@@ -84,6 +85,7 @@ export function AuditEventDetails({
                   <p>{model.reason}</p>
                 </div>
               )}
+              <AuditAvatarImages row={row} />
               {model.fields.length ? (
                 <div className={styles.tableWrap}>
                   <table
@@ -120,13 +122,13 @@ export function AuditEventDetails({
                     </tbody>
                   </table>
                 </div>
-              ) : (
+              ) : !isAvatarAuditEvent(row) ? (
                 <p className="small muted">
                   {row.oldValue || row.newValue
                     ? "No displayable field changes recorded."
                     : "No additional details recorded."}
                 </p>
-              )}
+              ) : null}
             </div>
           </Dialog>,
           document.body,

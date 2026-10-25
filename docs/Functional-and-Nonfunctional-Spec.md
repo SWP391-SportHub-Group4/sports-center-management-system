@@ -128,3 +128,11 @@ Manager đọc/cập nhật bằng `GET/PUT /api/system-settings/{key}`; backend
 ### Assigned support inbox — Admin and Coach
 
 Admin and Coach receive member support requests assigned by Center Manager. Each receiver can view only currently assigned requests, including attachments and activity history, and add a progress note or complete the request with a resolution note. Their inbox uses Not started, In progress and Done. They cannot assign, reject or create requests on behalf of a member. Assignment notifications open the corresponding inbox detail. Completed and historical rejected records remain read-only; their original outcome stays in the history. The Report photo action is removed from profile avatars; existing avatar moderation data is preserved.
+
+### Profile photo audit review
+
+System Administrators can inspect before/after images for profile photo upload, replacement, Google import and removal through Audit log event details. New image evidence is retained privately for 30 days, including after the original public image is removed; only Admin can fetch it. Access stops at expiry and a cleanup job removes expired image data. Audit event metadata remains. Member photo events are included for this review without exposing unrelated Member operations. Legacy or unavailable images show an explicit unavailable state; this feature does not recover previously deleted images.
+
+### Manager support configuration and profile updates
+
+Managers manage their own Cloudinary avatar from Account. Operating settings provides the three existing support deadline/reminder/payout confirmation values, with validation matching the backend. Operations health reports paid-but-unactivated invoices and overdue support requests, replacing the previous manual-compensation count. New support/payment audit events use human-readable labels and safe event details; bank account information is never added to audit values. No new support setting or database migration is introduced by these updates.
