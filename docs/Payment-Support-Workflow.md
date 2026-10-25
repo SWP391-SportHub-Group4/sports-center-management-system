@@ -184,4 +184,6 @@ Job `SupportSlaReminderJob` chạy mỗi 15 phút (dedupe theo `request_id + rec
 7. (25/10/2026) Bỏ nhập số tài khoản ở request PAYMENT. Khi cần thông tin chuyển khoản, Manager gọi điện trực tiếp cho Member, trao đổi rồi ghi chú lại trong payout (ghi chú bắt buộc). Hệ thống không lưu dữ liệu ngân hàng, không mã hóa hay xóa định kỳ.
 8. (25/10/2026) Request PAYMENT không đi qua Lễ tân để xử lý: chỉ Manager xử lý và ghi payout. Lễ tân vẫn thấy request (chỉ xem), có thể bấm Remind giúp Member (nhắc Manager, cùng quy tắc 48 giờ và cooldown), tạo request PAYMENT hộ Member, nhưng không gán cho người khác ngoài Manager, không đóng hay ghi payout, và không nhận thông báo nhắc.
 
+9. (25/10/2026) Điểm: Receptionist **được nạp điểm hộ Member** (Add points) bằng đúng luồng Member tự nạp (VNPay, `targetMemberId`, có audit); Receptionist vẫn không tự tặng, trừ hay điều chỉnh điểm. **Manager** được tặng điểm cho Member (người hoặc nhóm chọn bằng bộ lọc, kèm lý do và điều kiện như phát voucher, có audit); màn hình giống Add points của Member nhưng thêm lý do và bộ lọc.
+
 Không còn câu hỏi mở.
