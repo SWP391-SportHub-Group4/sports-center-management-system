@@ -207,11 +207,7 @@ export function SupportQueue({
         </div>
       )}
 
-      <div
-        className={`${styles.stats} ${isReceiver ? styles.receiverStats : ""}`}
-        role="group"
-        aria-label="Filter by status"
-      >
+      <div className={styles.stats} role="group" aria-label="Filter by status">
         {cards.map((item) => (
           <button
             key={item.key}
