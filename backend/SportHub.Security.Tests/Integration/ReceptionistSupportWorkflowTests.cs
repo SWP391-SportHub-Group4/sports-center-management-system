@@ -73,7 +73,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
         var created = await client.PostAsJsonAsync("/api/member-support-requests", new {
-            memberId = member.UserId, category = "PAYMENT", subject = $"Payment assistance {marker}", description = "Please investigate this member payment." });
+            memberId = member.UserId, category = "ACCOUNT", subject = $"Account assistance {marker}", description = "Please investigate this member account." });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
         var assignment = new { assigneeUserId = admin.UserId, note = "Escalating for administrator review" };
@@ -94,8 +94,8 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         var message = notice.GetProperty("message").GetString()!;
         Assert.Contains("Assigning Manager", message);
         Assert.Contains("Member needing help", message);
-        Assert.Contains($"Payment assistance {marker}", message);
-        Assert.Contains("Please investigate this member payment.", message);
+        Assert.Contains($"Account assistance {marker}", message);
+        Assert.Contains("Please investigate this member account.", message);
         var notificationId = notice.GetProperty("notificationId").GetGuid();
         Assert.Equal(HttpStatusCode.OK, (await recipient.GetAsync($"/api/notifications/{notificationId}")).StatusCode);
         (await recipient.PostAsync($"/api/notifications/{notificationId}/read", null)).EnsureSuccessStatusCode();
