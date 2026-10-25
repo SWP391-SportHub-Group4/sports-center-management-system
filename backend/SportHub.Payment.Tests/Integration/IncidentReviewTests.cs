@@ -22,7 +22,7 @@ public sealed class IncidentReviewTests(PaymentApiFactory factory)
 
     private async Task<int> Room()
         => await factory.QueryAsync(async db => {
-            var room = new Room { Name = "Review " + Guid.NewGuid(), Capacity = 12, RoomTypeId = 3, SportId = 3, IsActive = true };
+            var room = new Room { Name = "Review " + Guid.NewGuid(), Capacity = 12, RoomTypeId = 3, AllowRental = true, IsActive = true };
             db.Rooms.Add(room); await db.SaveChangesAsync();
             db.RoomOpeningHours.AddRange(Enumerable.Range(0, 7).Select(d => new RoomOpeningHour {
                 RoomId = room.RoomId, DayOfWeek = d, OpenTimeLocal = new(6, 0), CloseTimeLocal = new(22, 0) }));
