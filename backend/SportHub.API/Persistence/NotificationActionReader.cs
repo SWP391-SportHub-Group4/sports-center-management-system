@@ -13,7 +13,7 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
     {
         var currentEnrollments = SportHub.Scheduling.Application.Services.MemberClassAccess.Current(db, userId, clock.UtcNow);
         var result = new Dictionary<Guid, string>();
-        var isSupportManager = notifications.Any(n => n.SourceEventType is "SupportSlaReminder" or "SupportPayoutNotReceived")
+        var isSupportManager = notifications.Any(n => n.SourceEventType is "SupportSlaReminder" or "SupportPayoutNotReceived" or "PaymentUnactivated")
             && await db.UserAccounts.AnyAsync(u => u.UserId == userId
                 && u.Status == SportHub.Identity.Domain.Enums.UserStatus.Active
                 && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.CenterManager, ct);
@@ -124,14 +124,16 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                         links[id] = $"/member/invoices/{id}";
                     break;
                 case "PaymentUnactivated":
-                    // The source is the verified gateway event; only its invoice owner gets a link.
+                    // Resolve the gateway event to its invoice; managers use their own finance workspace.
                     foreach (var e in await (from ev in db.Set<SportHub.Payment.Domain.Entities.VerifiedGatewayEvent>()
                                              join a in db.Set<SportHub.Payment.Domain.Entities.PaymentAttempt>()
                                                  on ev.PaymentAttemptId equals a.PaymentAttemptId
                                              join i in db.Invoices on a.InvoiceId equals i.InvoiceId
-                                             where ids.Contains(ev.VerifiedGatewayEventId) && i.MemberId == userId
+                                             where ids.Contains(ev.VerifiedGatewayEventId) && (i.MemberId == userId || isSupportManager)
                                              select new { ev.VerifiedGatewayEventId, i.InvoiceId }).ToListAsync(ct))
-                        links[e.VerifiedGatewayEventId] = $"/member/invoices/{e.InvoiceId}";
+                        links[e.VerifiedGatewayEventId] = isSupportManager
+                            ? $"/manager/finance?invoiceId={e.InvoiceId}"
+                            : $"/member/invoices/{e.InvoiceId}";
                     break;
                 case "SupportPayoutRecorded":
                     foreach (var p in await (from payout in db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>()

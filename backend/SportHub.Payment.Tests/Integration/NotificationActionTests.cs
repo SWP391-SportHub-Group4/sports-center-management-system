@@ -100,6 +100,61 @@ public sealed class NotificationActionTests(PaymentApiFactory factory)
         Assert.Equal("DONE", await factory.QueryAsync(db => db.Set<MemberSupportRequest>().Where(r => r.RequestId == requestId).Select(r => r.Status).SingleAsync()));
     }
 
+    [Fact]
+    public async Task Unactivated_payment_links_managers_and_invoice_owner_only_and_keeps_resolved_history_accessible()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var other = await factory.SeedUserAsync(UserRole.Member);
+        var admin = await factory.SeedUserAsync(UserRole.SystemAdministrator);
+        var desk = await factory.SeedUserAsync(UserRole.Receptionist);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 100000);
+        var eventId = Guid.NewGuid();
+        var missing = Guid.NewGuid();
+        await factory.QueryAsync(async db =>
+        {
+            var attemptId = Guid.NewGuid();
+            db.PaymentAttempts.Add(new()
+            {
+                PaymentAttemptId = attemptId, InvoiceId = invoice.InvoiceId,
+                VnpTxnRef = Guid.NewGuid().ToString("N"), Amount = 100000,
+                CreatedAt = DateTime.UtcNow, VnpExpireDate = DateTime.UtcNow.AddMinutes(15)
+            });
+            db.VerifiedGatewayEvents.Add(new()
+            {
+                VerifiedGatewayEventId = eventId, PaymentAttemptId = attemptId,
+                ProviderTransactionId = Guid.NewGuid().ToString("N"), TransactionReference = Guid.NewGuid().ToString("N"),
+                Amount = 100000, ResponseCode = "00", TransactionStatus = "00",
+                ProviderPaidAtUtc = DateTime.UtcNow, VerifiedAtUtc = DateTime.UtcNow,
+                ProcessingStatus = "ConvertedToPoints"
+            });
+            foreach (var user in new[] { member.UserId, manager.UserId, other.UserId, admin.UserId, desk.UserId })
+                foreach (var source in new[] { eventId, missing })
+                    db.Notifications.Add(new()
+                    {
+                        NotificationId = Guid.NewGuid(), UserId = user, SourceEntityId = source,
+                        SourceEventType = NotificationSourceEventType.PaymentUnactivated,
+                        Message = "Payment needs review", Channel = NotificationChannel.InApp,
+                        Status = NotificationStatus.Sent, SentAt = DateTime.UtcNow
+                    });
+            return await db.SaveChangesAsync();
+        });
+        foreach (var user in new[] { member, manager, other, admin, desk })
+        {
+            var role = user.UserId == manager.UserId ? UserRole.CenterManager
+                : user.UserId == admin.UserId ? UserRole.SystemAdministrator
+                : user.UserId == desk.UserId ? UserRole.Receptionist : UserRole.Member;
+            using var client = factory.CreateApiClient(user.UserId, role);
+            var rows = (await client.GetFromJsonAsync<List<SupportNotice>>("/api/notifications"))!;
+            var notice = rows.Single(x => x.SourceEntityId == eventId);
+            var expected = role == UserRole.CenterManager ? $"/manager/finance?invoiceId={invoice.InvoiceId}"
+                : user.UserId == member.UserId ? $"/member/invoices/{invoice.InvoiceId}" : null;
+            Assert.Equal(expected, notice.ActionUrl);
+            Assert.Null(rows.Single(x => x.SourceEntityId == missing).ActionUrl);
+            Assert.Equal(expected, (await client.GetFromJsonAsync<SupportNotice>($"/api/notifications/{notice.NotificationId}"))!.ActionUrl);
+        }
+    }
+
     private sealed record SupportNotice(Guid NotificationId, Guid? SourceEntityId, string? ActionUrl);
     private sealed record Notice(Guid SourceEntityId, string? ActionUrl);
 }

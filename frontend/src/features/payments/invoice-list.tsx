@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { api, downloadFile } from "@/lib/apiClient";
 
 import { useApi } from "@/lib/useApi";
+import { useUrlQuery } from "@/lib/useUrlQuery";
 
 import { useLanguage } from "@/lib/language";
 
@@ -223,6 +224,9 @@ export function InvoiceList({
   const [page, setPage] = useState(1);
 
   const [selected, setSelected] = useState<string | null>(null);
+  const invoiceLink = useUrlQuery({ invoiceId: "", invoiceItemId: "" });
+  const linkedInvoiceId = invoiceLink.values.invoiceId;
+  const linkedItemId = invoiceLink.values.invoiceItemId;
 
   const [linkError, setLinkError] = useState("");
 
@@ -233,9 +237,7 @@ export function InvoiceList({
   const [exporting, setExporting] = useState<string | null>(null);
 
   useEffect(() => {
-    const item = new URLSearchParams(window.location.search).get(
-      "invoiceItemId",
-    );
+    const item = linkedItemId;
 
     const controller = new AbortController();
 
@@ -266,7 +268,9 @@ export function InvoiceList({
         });
     }
 
-    const id = new URLSearchParams(window.location.search).get("invoiceId");
+    const id = linkedInvoiceId;
+    const resetError = setTimeout(() => setLinkError(""), 0);
+    controller.signal.addEventListener("abort", () => clearTimeout(resetError), { once: true });
 
     if (id && /^[0-9a-f-]{36}$/i.test(id)) {
       if (staff && memberId) {
@@ -289,8 +293,12 @@ export function InvoiceList({
       }
     }
 
+    if (!id && !item) {
+      const timer = setTimeout(() => setSelected(null), 0);
+      controller.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+    }
     return () => controller.abort();
-  }, [staff, memberId, t.operations.invoiceMemberMismatch]);
+  }, [linkedInvoiceId, linkedItemId, staff, memberId, t.operations.invoiceMemberMismatch]);
 
   const state = useApi(
     (signal) =>
@@ -348,7 +356,10 @@ export function InvoiceList({
           invoiceId={selected}
           staff={staff}
           rental={rental}
-          onClose={() => setSelected(null)}
+          onClose={() => {
+            setSelected(null);
+            invoiceLink.setValues({ invoiceId: "", invoiceItemId: "" }, { replace: true });
+          }}
         />
       )}
 

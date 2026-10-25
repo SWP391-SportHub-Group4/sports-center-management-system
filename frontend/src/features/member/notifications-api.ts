@@ -95,7 +95,9 @@ export function notificationPresentation(item: NotificationDto): {
   } else if (source === "PAYMENT_UNACTIVATED") {
     category = "payment";
     label = "Billing";
-    title = "Your payment needs a decision";
+    title = item.actionUrl?.startsWith("/manager/")
+      ? "Payment received, service not activated"
+      : "Your payment needs a decision";
   } else if (source === "PAYMENT_CONVERTED_TO_POINTS") {
     category = "payment";
     label = "Billing";
@@ -228,7 +230,9 @@ export function notificationActionLabel(
     case "REFUND_COMPLETED":
       return vi ? "Kiểm tra hoàn điểm" : "Check refund";
     case "PAYMENT_UNACTIVATED":
-      return "Choose an option";
+      return item.actionUrl?.startsWith("/manager/")
+        ? "Review payment"
+        : "Choose an option";
     case "PAYMENT_CONVERTED_TO_POINTS":
       return "View invoice";
     case "SUPPORT_PAYOUT_RECORDED":

@@ -575,7 +575,9 @@ export function NotificationInbox() {
                             ? destination.includes("request=")
                               ? "Review the request’s current status, latest reply and activity."
                               : "This older notice has no request link. Open the queue to find the request."
-                            : "Continue to the related information."}
+                            : selected.sourceEventType === "PAYMENT_UNACTIVATED" && user?.role === "CenterManager"
+                              ? "Open the invoice to review the payment, purchased service and current status."
+                              : "Continue to the related information."}
                         </p>
                         <Link
                           className={buttonClass({ variant: "primary" })}
