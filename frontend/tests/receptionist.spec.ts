@@ -510,7 +510,7 @@ test("attendance finds the next class day when the selected day has no sessions"
     .getByRole("button", { name: "Next class day: 04/10/2030 (1 session)" })
     .click();
   await page.getByLabel("Class session").selectOption(sessionId);
-  await expect(page.getByText("Member A")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Member A/ })).toBeVisible();
 
   const previousDay = await page
     .getByRole("button", { name: "Previous day" })
