@@ -117,7 +117,7 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Manager_cancellation_refunds_members_immediately_notifies_coach_and_is_idempotent()
+    public async Task Manager_cancellation_notifies_members_who_then_choose_points_and_is_idempotent()
     {
         var course = await CourseTestData.CreateAsync(factory);
         var members = new[] { await BuyAsync(course.Id), await BuyAsync(course.Id) };
@@ -146,7 +146,8 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
             Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
         foreach (var member in members) {
-            Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
+            // Cancelling only notifies: no points are credited until the Member chooses them.
+            Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
             Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == member && n.SourceEventType == NotificationSourceEventType.ClassCancelled && n.Channel == NotificationChannel.Email)));
         }
         Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == course.CoachId && n.SourceEventType == NotificationSourceEventType.ClassCancelled && n.Channel == NotificationChannel.Email)));
@@ -157,7 +158,19 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         using var expiryScope = factory.Services.CreateScope();
         await expiryScope.ServiceProvider.GetRequiredService<ThresholdResponseExpiryService>().ExpireAsync();
         foreach (var member in members)
+            Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
+        // Each Member then picks the points refund: credited automatically, exactly once.
+        using var choiceScope = factory.Services.CreateScope();
+        var refunds = choiceScope.ServiceProvider.GetRequiredService<SportHub.Payment.Application.Services.ICenterCancellationRefundService>();
+        foreach (var member in members)
+        {
+            var offer = Assert.Single(await refunds.ListMineAsync(member));
+            Assert.Equal("Class", offer.Kind);
+            Assert.Equal(100, offer.RefundPoints);
+            Assert.Equal(100, (await refunds.ChoosePointsAsync(member, offer.InvoiceItemId)).PointsCredited);
+            Assert.True((await refunds.ChoosePointsAsync(member, offer.InvoiceItemId)).AlreadyApplied);
             Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
+        }
     }
 
     [Fact]
@@ -251,7 +264,8 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         Assert.Equal(deadlineReached ? HttpStatusCode.OK : HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal(deadlineReached ? ClassStatus.Cancelled : ClassStatus.Published,
             await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
-        Assert.Equal(deadlineReached ? 100 : 0,
+        // Cancelling only notifies; points are credited when the Member chooses them.
+        Assert.Equal(0,
             await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member).Select(w => w.AvailablePoints).SingleAsync()));
         if (deadlineReached)
             Assert.True(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == member

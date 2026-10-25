@@ -12,7 +12,7 @@ using SportHub.Scheduling.Application.Interfaces;
 namespace SportHub.Scheduling.Application.Services;
 
 /// <summary>
-/// Điểm danh khóa học do Lễ tân hoặc coach được phân công ghi (Present/Absent). Kiểm: ghi danh thuộc ĐÚNG lớp của buổi, ghi danh còn Confirmed tại thời điểm
+/// Điểm danh khóa học do Coach được phân công ghi (Present/Absent); Lễ tân chỉ chỉnh bản ghi đã có khi Member kiến nghị, kèm lý do và audit (BR-98). Kiểm: ghi danh thuộc ĐÚNG lớp của buổi, ghi danh còn Confirmed tại thời điểm
 /// thao tác, buổi chưa bị hủy, đúng cửa sổ thời gian. Không còn NoShow tự động cho lớp nhóm và không ghi vào WorkoutResult.
 /// </summary>
 public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUserAccessReader users, IAuditWriter audit) : IAttendanceService
@@ -28,6 +28,10 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
             throw new ForbiddenException("attendance_recorder_required", "Attendance recorder required.");
         }
         var status = ParseStatus(request.Status);
+        var isReceptionist = actor.Role == "Receptionist";
+        var reason = request.Reason?.Trim();
+        if (isReceptionist && (reason is null || reason.Length is < 3 or > 500))
+            throw new BadRequestException("attendance_correction_reason_required", "Attendance correction reason required.");
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT session_id FROM class_sessions WHERE session_id = {sessionId} FOR UPDATE", ct);
@@ -80,7 +84,7 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
             throw new BadRequestException("attendance_not_open", "Attendance not open.");
         }
 
-        if (now > session.EndAtUtc + CorrectionWindow)
+        if (!isReceptionist && now > session.EndAtUtc + CorrectionWindow)
         {
             throw new ConflictException("attendance_closed", "Attendance closed.");
         }
@@ -101,6 +105,8 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
 
         var existing = await db.Set<Attendance>()
             .SingleOrDefaultAsync(a => a.EnrollmentId == enrollmentId && a.SessionId == sessionId, ct);
+        if (isReceptionist && existing is null)
+            throw new ConflictException("attendance_not_recorded", "Receptionist can only correct an attendance record the Coach already made.");
         if (existing is not null && existing.Status == status)
         {
             await tx.CommitAsync(ct);
@@ -120,7 +126,7 @@ public sealed class AttendanceService(ISportHubDbContext db, IClock clock, IUser
         audit.Write(new AuditEntry(recorderUserId, existing is null ? "MARK_COURSE_ATTENDANCE" : "CORRECT_COURSE_ATTENDANCE",
             nameof(Attendance), attendance.AttendanceId.ToString(),
             OldValue: before is null ? null : JsonSerializer.Serialize(new { status = before }),
-            NewValue: JsonSerializer.Serialize(new { sessionId, enrollmentId, status = status.ToString() })));
+            NewValue: JsonSerializer.Serialize(new { sessionId, enrollmentId, status = status.ToString(), reason = isReceptionist ? reason : null })));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return ToResponse(attendance);

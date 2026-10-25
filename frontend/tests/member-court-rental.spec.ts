@@ -55,7 +55,7 @@ async function setup(page: Page) {
         json: {
           slotMinutes: 60,
           maxHours: 4,
-          advanceDays: 30,
+          advanceDays: 2,
           cancelFreeHours: 24,
           serverNowUtc: "2030-10-02T00:00:00Z",
         },

@@ -172,6 +172,74 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Hybrid_invoice_payout_transfers_the_vnpay_share_and_returns_the_points_share_once()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        // 100.000đ = 20 points (20.000đ) + 80.000đ VNPay.
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 100_000m);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Set<Invoice>().Where(x => x.InvoiceId == invoice.InvoiceId).ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.CheckoutCycleId, Guid.NewGuid())
+                .SetProperty(x => x.PointsApplied, 20)
+                .SetProperty(x => x.CashAmount, 80_000m));
+            db.Set<SportHub.Payment.Domain.Entities.Payment>().Add(new SportHub.Payment.Domain.Entities.Payment
+            {
+                PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = 80_000m,
+                Method = PaymentMethod.VnPay, Status = PaymentStatus.Success,
+                ReceivedByUserId = member.UserId, PaidAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var mgr = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var breakdown = await owner.GetFromJsonAsync<JsonElement>($"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
+        Assert.Equal(80_000m, breakdown.GetProperty("refundableVnpayVnd").GetDecimal());
+        Assert.Equal(20, breakdown.GetProperty("refundablePoints").GetInt32());
+        Assert.Equal(20_000m, breakdown.GetProperty("pointsVnd").GetDecimal());
+
+        using var form = Form(invoice.InvoiceId);
+        var created = await owner.PostAsync("/api/support/requests", form);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var requestId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+
+        MultipartFormDataContent Payout(string amount)
+        {
+            var payout = new MultipartFormDataContent();
+            payout.Add(new StringContent(amount), "Amount");
+            payout.Add(new StringContent("Called the member and refunded the VNPay share by transfer"), "Note");
+            AddPng(payout);
+            return payout;
+        }
+        // A hybrid invoice must refund the whole VNPay share; nothing is credited on a rejected attempt.
+        using (var partial = Payout("50000"))
+        {
+            var res = await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", partial);
+            Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+            Assert.Equal("payout_amount_mismatch",
+                (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
+        }
+        Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets
+            .Where(w => w.OwnerUserId == member.UserId).Select(w => w.AvailablePoints).SingleOrDefaultAsync()));
+
+        using var exact = Payout("80000");
+        var recorded = await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", exact);
+        Assert.Equal(HttpStatusCode.OK, recorded.StatusCode);
+        Assert.Equal(20, (await recorded.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("pointsRefunded").GetInt32());
+        Assert.Equal(20, await factory.QueryAsync(db => db.PointWallets
+            .Where(w => w.OwnerUserId == member.UserId).Select(w => w.AvailablePoints).SingleAsync()));
+        using var again = Payout("80000");
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", again)).StatusCode);
+        Assert.Equal(20, await factory.QueryAsync(db => db.PointWallets
+            .Where(w => w.OwnerUserId == member.UserId).Select(w => w.AvailablePoints).SingleAsync()));
+        var after = await owner.GetFromJsonAsync<JsonElement>($"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
+        Assert.Equal(0m, after.GetProperty("refundableVnpayVnd").GetDecimal());
+    }
+
+    [Fact]
     public async Task Unreceived_report_prevents_auto_confirmation_even_if_a_legacy_request_is_closed_again()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);

@@ -136,21 +136,23 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
         foreach (var response in pendingResponses) { response.ResolutionStatus = ThresholdResolutionStatus.Expired; response.ResolvedAtUtc = clock.UtcNow; }
         foreach (var member in current.Members)
         {
-            var result = await refunds.CreditAsync(new RefundCreditRequest(member.InvoiceItemId, 100,
-                "Points refunded immediately after the Manager cancelled a below-threshold class", member.EnrollmentId), ct);
+            // The center only notifies here. The Member then picks points (credited automatically) or sends a
+            // refund request for the Manager; with no choice within 2 days the points are credited automatically.
             await enrollments.CancelAsync(member.InvoiceItemId, EnrollmentEndReason.CancelledByCenter, ct);
-            var message = $"Course {course.Name} was cancelled because it did not meet its enrollment threshold. {result.PointsCredited} points were returned to your wallet. Reason: {request.Reason.Trim()}";
+            var message = $"Course {course.Name} was cancelled because it did not meet its enrollment threshold. Reason: {request.Reason.Trim()}. "
+                + $"Choose how to be refunded for about {member.RefundPoints} points of paid value: receive the points right away, or send a refund request for the Manager. "
+                + "If you do not choose within 2 days, the points are credited automatically.";
             notifications.Queue(new(member.MemberId, NotificationEvents.ClassCancelled, message, member.EnrollmentId));
             var recipient = await users.GetAsync(member.MemberId, ct);
             if (recipient is not null)
                 notifications.QueueEmail(new(member.MemberId, recipient.Email, NotificationEvents.ClassCancelled,
-                    member.EnrollmentId, "SportHub - Class cancelled and points refunded", EmailContent.Paragraph(message)));
+                    member.EnrollmentId, "SportHub - Class cancelled, choose your refund", EmailContent.Paragraph(message)));
         }
         if (course.CoachId is Guid coachId)
         {
             var eventId = Guid.NewGuid();
             var message = current.RefundsImmediately
-                ? $"Course {course.Name} was cancelled by the Manager because it did not meet its enrollment threshold. Enrolled members have received their points refunds. Reason: {request.Reason.Trim()}"
+                ? $"Course {course.Name} was cancelled by the Manager because it did not meet its enrollment threshold. Enrolled members were notified and can choose a points refund or send a refund request. Reason: {request.Reason.Trim()}"
                 : $"Course {course.Name} was cancelled by the Manager. Reason: {request.Reason.Trim()}";
             notifications.Queue(new(coachId, NotificationEvents.ClassCancelled, message, eventId));
             var coach = await users.GetAsync(coachId, ct);

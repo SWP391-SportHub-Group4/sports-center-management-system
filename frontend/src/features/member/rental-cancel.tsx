@@ -2,7 +2,6 @@
 
 import { Dialog } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { rentalApi } from "../rentals/api";
 import type { CourtRentalDto } from "@/lib/types";
@@ -21,16 +20,6 @@ export function RentalCancelConfirm({
   const { t } = useLanguage();
   const m = t.mSchedule;
   const mutation = useMutation();
-  const policy = useApi(async (signal) => {
-    const value = await rentalApi.policy(signal);
-    return { ...value, receivedAtMs: Date.now() };
-  }, []);
-  const hours = policy.data?.cancelFreeHours ?? 24;
-  const clock = useNow(1_000);
-  const now = policy.data
-    ? clock + Date.parse(policy.data.serverNowUtc) - policy.data.receivedAtMs
-    : clock;
-  const free = new Date(rental.startAtUtc).getTime() - now >= hours * 3_600_000;
   return (
     <Dialog
       title={m.cancelTitle}
@@ -42,7 +31,7 @@ export function RentalCancelConfirm({
           <button
             type="button"
             className={`btn btn--danger ${styles.footStart}`}
-            disabled={mutation.busy || policy.loading}
+            disabled={mutation.busy}
             onClick={async () => {
               if (
                 await mutation.run(
@@ -58,8 +47,8 @@ export function RentalCancelConfirm({
         </>
       }
     >
-      <p className={styles.policy} data-refund={free ? "yes" : "no"}>
-        {(free ? m.cancelFree : m.cancelLate).replace("{hours}", String(hours))}
+      <p className={styles.policy} data-refund="no" role="alert">
+        {m.cancelLate}
       </p>
       <MutationFeedback mutation={mutation} />
     </Dialog>

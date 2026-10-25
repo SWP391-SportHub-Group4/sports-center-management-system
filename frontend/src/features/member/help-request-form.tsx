@@ -96,6 +96,24 @@ export function HelpRequestForm({
     [],
   );
 
+  // Invoice Breakdown: the VNPay share goes back to the bank (manager transfer), the points share back to the wallet.
+  const breakdown = useApi(
+    (signal) =>
+      isPayment && invoiceId
+        ? api.get<{
+            totalVnd: number;
+            vnpayVnd: number;
+            pointsApplied: number;
+            pointsVnd: number;
+            refundableVnpayVnd: number;
+            refundablePoints: number;
+          }>(`/api/members/me/invoices/${invoiceId}/refund-breakdown`, {
+            signal,
+          })
+        : Promise.resolve(null),
+    [isPayment, invoiceId],
+  );
+
   const previews = useMemo(
     () => files.map((file) => ({ file, url: URL.createObjectURL(file) })),
     [files],
@@ -269,6 +287,31 @@ export function HelpRequestForm({
                   </span>
                 )}
               </label>
+              {breakdown.data && (
+                <dl className={styles.hint} aria-label="Invoice breakdown">
+                  <div>
+                    <dt>Invoice total</dt>
+                    <dd>{formatMoney(breakdown.data.totalVnd)}</dd>
+                  </div>
+                  <div>
+                    <dt>Paid with VNPay</dt>
+                    <dd>
+                      {formatMoney(breakdown.data.vnpayVnd)} — the manager
+                      transfers this back to your bank.
+                    </dd>
+                  </div>
+                  {breakdown.data.pointsApplied > 0 && (
+                    <div>
+                      <dt>Paid with points</dt>
+                      <dd>
+                        {breakdown.data.pointsApplied} points (
+                        {formatMoney(breakdown.data.pointsVnd)}) — returned to
+                        your wallet automatically when the payout is recorded.
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              )}
             </fieldset>
           )}
 

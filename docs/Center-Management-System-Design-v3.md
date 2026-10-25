@@ -51,7 +51,7 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng nhân sự, gym bên ngo
 |---|---|---|
 | Guest | Xem thông tin trung tâm, môn, khóa/gói công khai; đăng ký | Không phải role tài khoản; không đọc roster, ví hoặc lịch cá nhân |
 | Member | Mua dịch vụ; thuê/hủy sân còn trống; xem lịch, quyền lợi, hóa đơn, ví; yêu cầu hỗ trợ | Chỉ dữ liệu của mình; không tự xác nhận payment |
-| Receptionist | Tiếp đón, Gym check-in, điểm danh lớp, checkout thanh toán hộ | Dùng điểm hộ cần OTP Member; không tự cấp điểm hoặc duyệt refund |
+| Receptionist | Tiếp đón, Gym check-in, đặt hộ thuê sân và đánh dấu check-in/no-show lượt thuê, chỉnh điểm danh lớp khi Member kiến nghị, checkout thanh toán hộ | Dùng điểm hộ cần OTP Member; nạp điểm hộ Member qua luồng Add points (VNPay) như Member tự nạp; không tự tặng/điều chỉnh điểm hoặc duyệt refund |
 | Coach | Xem lịch được giao; lập giáo án, ghi kết quả và nhận xét cho lớp/học viên được phân công | Chỉ lớp/học viên được phân công; kiểm cả role và quan hệ |
 | CenterManager | Môn/sân, hồ sơ/chuyên môn của Coach (không tạo Coach), lớp/lịch, sự cố, hoàn điểm, báo cáo | Theo mức hệ thống tính; không tự duyệt yêu cầu của mình |
 | SystemAdministrator | Tạo tài khoản nhân sự (kể cả Coach), đổi role giữa các role staff, khóa/mở tài khoản | Không mặc nhiên có quyền tài chính hoặc hồ sơ tập luyện |
@@ -156,7 +156,7 @@ gói cố định `package_id = 50000`, 50.000đ, 1 ngày (Manager không sửa/
 
 **Seed lịch cố định (BR-141):** Bóng rổ 01 Thứ 2-4-6 07:00–09:00, Bóng rổ 02 Thứ 3-5-7 14:00–16:00; Cầu lông 01/02 cùng khung giờ trên sân cầu lông riêng. Khung còn lại mở cho Member thuê (mục 5.5); Manager có thể thêm lớp/sân vào khung khác sau.
 
-Manager tạo lớp, nhiều buổi, phòng và Coach phù hợp → publish → Member mua cả khóa → giữ chỗ TTL → payment thành công tạo Enrollment → Receptionist hoặc Coach được phân công điểm danh từng buổi.
+Manager tạo lớp, nhiều buổi, phòng và Coach phù hợp → publish → Member mua cả khóa → giữ chỗ TTL → payment thành công tạo Enrollment → Coach được phân công điểm danh từng buổi (Receptionist chỉ chỉnh khi Coach ghi sai và Member kiến nghị).
 
 Theo phạm vi mở rộng được chủ sản phẩm xác nhận, Coach lớp nhóm có không gian giảng dạy gồm Lịch dạy, Lớp phụ trách và Học viên. Giáo án, kết quả/nhận xét, bài tập và thông báo lưu trong `class_teaching_records`, tách khỏi kế hoạch cá nhân. Quyền ghi kiểm theo lớp/buổi được giao; Member chỉ đọc nội dung chung của lớp đã ghi danh hoặc nội dung dành riêng cho mình. AI gọi Gemini để gợi ý, Coach xem lại trước khi lưu.
 
@@ -198,7 +198,7 @@ Preview tác động → Manager thực hiện phương án dời/bù/hủy lớ
 
 Toàn chuỗi tương tác không phải một transaction duy nhất. Incident history/detail đã có. Preview đã liệt kê từng hội viên bị ảnh hưởng, phương án xử lý và số điểm hoàn dự kiến do server tính. Resolve rental là một transaction (đã sửa lỗi FK `cancellation_incident_id` khi resolve rental đã thanh toán); các bước dời/bù lớp vẫn là thao tác riêng. Khi Manager chọn “giữ khung giờ”, hệ thống lưu một fence (`incident_fences`, hiệu lực 2 giờ) chặn đặt mới chồng khung giờ tại điểm vào chung `OccupancyService` (`409 room_under_incident_review`); fence được lưu nên có thể làm tiếp sau khi bỏ dở, gia hạn, nhả hoặc tự hết hạn, và tự đóng khi resolve.
 
-**Sự cố ảnh hưởng Gym (BR-130, BR-138; quyết định mới 25/10/2026, chưa triển khai):** Incident có phạm vi Gym vẫn chặn sử dụng Gym trong thời gian đóng cửa. Không gia hạn `EndDate` Membership Active và không dời `StartDate` các gói nối tiếp để bù sự cố tạm thời. Sau khi ghi nhận/resolve sự cố, Manager mở danh sách Member có Membership Active giao với thời gian Gym đóng cửa; lọc theo tên/email/mã Member, trạng thái hoặc gói Membership và khoảng thời gian bị ảnh hưởng. Manager chọn chính xác người nhận, đặt số điểm nguyên dương (cùng mức cho nhóm đã chọn hoặc chỉnh riêng từng Member), nhập lý do, xem lại người nhận và tổng điểm, rồi gửi yêu cầu tặng điểm. Bộ lọc chỉ thu hẹp danh sách để chọn, không tự động phát điểm. Mỗi khoản tặng gắn `incidentId` và `memberId`, chống gửi trùng; dùng quy trình CREDIT hiện có: Manager khác người đề xuất duyệt, sau đó mới cộng điểm vào ví, ghi ledger/audit và thông báo/email cho Member. Khoản này là tặng điểm do Manager quyết định, tách khỏi refund Membership và không đổi thời hạn quyền lợi. Buổi lớp bị ảnh hưởng vẫn bù theo BR-54; lượt thuê sân vẫn hoàn 100% bằng điểm. **Hiện trạng code** còn nhận `membershipExtensionDays`, tự gia hạn và gửi email gia hạn khi resolve; phải thay luồng đó, không xem là đáp ứng quyết định mới.
+**Sự cố ảnh hưởng Gym (BR-130, BR-138; quyết định mới 25/10/2026, chưa triển khai):** Incident có phạm vi Gym vẫn chặn sử dụng Gym trong thời gian đóng cửa. Không gia hạn `EndDate` Membership Active và không dời `StartDate` các gói nối tiếp để bù sự cố tạm thời. Sau khi ghi nhận/resolve sự cố, Manager mở danh sách Member có Membership Active giao với thời gian Gym đóng cửa; lọc theo tên/email/mã Member, trạng thái hoặc gói Membership và khoảng thời gian bị ảnh hưởng. Manager chọn chính xác người nhận, đặt số điểm nguyên dương (cùng mức cho nhóm đã chọn hoặc chỉnh riêng từng Member), nhập lý do, xem lại người nhận và tổng điểm, rồi gửi yêu cầu tặng điểm. Bộ lọc chỉ thu hẹp danh sách để chọn, không tự động phát điểm. Mỗi khoản tặng gắn `incidentId` và `memberId`, chống gửi trùng; dùng quy trình CREDIT hiện có: Manager khác người đề xuất duyệt, sau đó mới cộng điểm vào ví, ghi ledger/audit và thông báo/email cho Member. Khoản này là tặng điểm do Manager quyết định, tách khỏi refund Membership và không đổi thời hạn quyền lợi. Cách tặng này là trường hợp riêng của luồng **Manager tặng điểm** (quyết định 25/10/2026): Manager có thể tặng điểm cho Member ngoài sự cố, giống phát voucher, bằng màn hình giống Add points của Member cộng thêm lý do bắt buộc và bộ lọc chọn nhóm/người nhận; có audit đầy đủ. Receptionist không có quyền tặng điểm nhưng nạp điểm hộ Member được. **Gym day pass trong sự cố (25/10/2026):** Khi Gym đóng vì sự cố: không bán thêm Gym day pass (409 `gym_closed_today`); không check-in kể cả người đã mua vé (409 `gym_closed`); vé đã mua vẫn hết hạn 22:00 cùng ngày, không gia hạn và không hoàn điểm qua luồng hoàn hiện có. Manager có thể gửi thông báo email cho Member đã mua day pass vào ngày sự cố, rồi tặng điểm nếu Member đồng ý; nếu không thì Member gửi Support Request. Buổi lớp bị ảnh hưởng vẫn bù theo BR-54; lượt thuê sân vẫn hoàn 100% bằng điểm. **Hiện trạng code** còn nhận `membershipExtensionDays`, tự gia hạn và gửi email gia hạn khi resolve; phải thay luồng đó, không xem là đáp ứng quyết định mới.
 
 **Hoàn tiền do lỗi trung tâm (Center Fault, BR-91):** Membership hoàn theo **phần chưa dùng**, không hoàn 100%: theo ngày còn lại / tổng ngày. Vé Gym 1 ngày không hoàn. Logic nằm ở `RefundCalculator`.
 
@@ -748,7 +748,7 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
 | `ResolvedAt` (nullable) | Khi đã xử lý xong |
 
 #### `ATTENDANCE`
-**Mục đích:** kết quả điểm danh của một học viên ở **một buổi của lớp**. Receptionist hoặc Coach được phân công đúng buổi ghi Present/Absent; backend xác thực Coach qua JWT và đối chiếu `sessionId` với phân công hiện hành.
+**Mục đích:** kết quả điểm danh của một học viên ở **một buổi của lớp**. Coach được phân công đúng buổi ghi Present/Absent; Receptionist chỉ chỉnh sửa khi Coach ghi sai và Member kiến nghị (bắt buộc lý do, có Audit); backend xác thực Coach qua JWT và đối chiếu `sessionId` với phân công hiện hành.
 
 | Field | Vai trò |
 |---|---|
@@ -756,7 +756,7 @@ Ràng buộc: unique một phần `(ClassId, MemberId) WHERE Status = 'Active'`.
 | `EnrollmentId` (FK) | Ghi danh nào |
 | `LastModifiedAt` | Mốc sửa gần nhất — cho phép sửa sau buổi **≤ 24 giờ**, có Audit (BR-98) |
 
-> Lượt thuê sân **không có** bảng điểm danh và không lưu số người đi cùng: trung tâm chỉ tính tiền thuê của Member (BR-128, BR-131, BR-132).
+> Lượt thuê sân **không có** bảng điểm danh và không lưu số người đi cùng; chỉ có trạng thái check-in của lượt (Chưa check-in / Checked-in / No-show) do Receptionist đánh dấu, hết giờ chưa đánh dấu thì hệ thống tự ghi No-show (BR-159). Trung tâm chỉ tính tiền thuê của Member (BR-128, BR-131, BR-132).
 
 #### `ROOM_OCCUPANCIES`
 **Mục đích:** nơi **duy nhất** database kiểm tra trùng phòng/sân (PostgreSQL không cho exclusion constraint chạy chéo nhiều bảng). Mỗi buổi lớp, lượt thuê sân và block đều ghi 1 dòng ở đây.

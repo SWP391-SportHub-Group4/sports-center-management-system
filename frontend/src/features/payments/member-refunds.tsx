@@ -10,6 +10,7 @@ import { useLanguage } from "@/lib/language";
 import { pagedItems } from "@/lib/paged";
 import type { Paged, PaymentAdjustmentDto } from "@/lib/types";
 import { useApi } from "@/lib/useApi";
+import { CenterCancellationOffers } from "./center-cancellation-offers";
 import styles from "./member-finance.module.css";
 
 const PAGE_SIZE = 10;
@@ -28,6 +29,8 @@ export function MemberRefunds() {
   );
 
   return (
+    <>
+    <CenterCancellationOffers />
     <section className={styles.panel} aria-label={l.tabRefunds}>
       <header className={styles.head}>
         <p className={styles.caption}>{l.refundFlow}</p>
@@ -83,5 +86,6 @@ export function MemberRefunds() {
         )}
       </AsyncSection>
     </section>
+    </>
   );
 }

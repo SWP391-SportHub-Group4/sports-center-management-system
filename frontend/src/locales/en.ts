@@ -616,7 +616,7 @@ export const en = {
       "Try again to check whether this class can be cancelled.",
     belowThresholdTitle: "Below enrollment threshold",
     cancellationReviewFrom: "Review from",
-    cancelAndRefund: "Cancel class and refund points",
+    cancelAndRefund: "Cancel class and notify members",
     cancellationBeforeDeadline:
       "Enrolled classes can be cancelled from the opening review deadline while still below threshold.",
     cancellationTeachingCompleted:
@@ -667,11 +667,11 @@ export const en = {
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
     openingRulesHint:
-      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation immediately refunds remaining paid balances as points and notifies the Coach and members.",
+      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation notifies the Coach and members; each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
     cancelBelowThresholdHint:
-      "Cancellation immediately refunds remaining paid balances as points and notifies enrolled members and the teaching coach.",
+      "Cancellation notifies enrolled members and the teaching coach. Each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
   },
   managerCatalog: {
     viewCourt: "View details",
@@ -1264,8 +1264,8 @@ export const en = {
       hint: "Maximum number of days ahead a member can book a court.",
     },
     cancelHours: {
-      label: "Full rental refund cutoff (hours)",
-      hint: "Cancel at least this many hours before the rental to receive a full point refund.",
+      label: "Rental refund cutoff (hours, no longer used)",
+      hint: "No longer used: a Member who cancels a rental is never refunded.",
     },
     maxHours: {
       label: "Maximum rental duration (hours)",
@@ -1477,7 +1477,7 @@ export const en = {
     availability: "Check availability and price",
     priceBreakdown: "Price breakdown",
     rentalPolicy:
-      "Refund eligibility and points are calculated by the server. Cancellation is final.",
+      "Cancelling a rental is never refunded, at any time. Cancellation is final.",
     refundPoints: "Refund points",
     cancelRental: "Cancel rental",
     selfOnly: "Only your own rentals, wallet and invoices are shown.",
@@ -1860,7 +1860,7 @@ export const en = {
     invoiceOwed: "{amount} due",
     refundEmptyTitle: "No point refund requests are open",
     refundEmptyBody:
-      "Eligible cancellation refunds are credited to your wallet automatically. To request another refund, open a paid invoice and choose an eligible item; a manager will review it.",
+      "Cancelling a membership, class enrollment or rental yourself is not refunded. When the center cancels a class or rental, you choose points or a refund through a Support Request.",
     refundFlow:
       "Manual requests are reviewed by a manager; automatic refunds appear in your wallet",
     tabs: "Billing sections",
@@ -2261,9 +2261,9 @@ export const en = {
     approvedPts: "Approved: {points} points",
     reviewHelp: "A reason is required and is saved with the decision.",
     centerFaultHelp:
-      "Use only when another problem prevents the center from providing the service. Temporary Gym closures for repairs are compensated by extending the membership, not a refund. State the reason and supporting facts; membership refunds cover only the unused calendar days.",
+      "Use only when another problem prevents the center from providing the service. Temporary Gym closures for repairs are compensated with points gifted by the Manager, not a refund. State the reason and supporting facts; membership refunds cover only the unused calendar days.",
     membershipRefundPolicy:
-      "Standard Gym membership refunds are capped at 50% of the amount paid when at least two thirds of the term remain. Eligibility uses Vietnam calendar dates, including the first and last day, not the number of gym visits. Below that threshold or after expiry, no standard refund applies.",
+      "Cancelling a Gym membership yourself is never refunded, at any time. Refunds only apply when the center cannot provide the service, and only through the Manager.",
     refundPercent: "Lower refund percent (optional)",
     refundPercentHelp:
       "Percent of the remaining paid value, up to {max}%. Leave blank to use the system amount.",
@@ -2420,9 +2420,9 @@ export const en = {
     cancelRental: "Cancel rental",
     cancelTitle: "Cancel this court rental?",
     cancelFree:
-      "You are cancelling {hours}+ hours ahead, so you get a 100% points refund.",
+      "Cancelling a rental is never refunded, at any time.",
     cancelLate:
-      "Play starts in under {hours} hours, so this rental is not refunded.",
+      "You are cancelling this rental and will not get a refund or points, at any time. Nothing is cancelled until you confirm.",
     rentalBooked: "Court booked",
     cancelKeep: "Keep rental",
     cancelConfirm: "Confirm cancellation",
