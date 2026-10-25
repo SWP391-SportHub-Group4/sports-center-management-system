@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.Interfaces;
@@ -65,7 +66,10 @@ public sealed class CoursePublishTests(SchedulingApiFactory factory)
     public async Task Conflict_in_last_session_rolls_back_entire_publish()
     {
         var c = await CourseTestData.CreateAsync(factory, publish: false);
-        var start = new DateTime(2032, 3, 15, 2, 0, 0, DateTimeKind.Utc);
+        // The fixture schedules one session per week; block the final session.
+        var lastDate = c.Request.StartDate.AddDays(7 * (c.Request.NumSessions - 1));
+        var start = VietnamTime.ToUtc(lastDate.ToDateTime(
+            TimeOnly.Parse(c.Request.ScheduleRules.Single().StartTimeLocal)));
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
@@ -1416,10 +1417,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             await db.SaveChangesAsync();
 
             var start =
-                new DateOnly(
-                    2032,
-                    3,
-                    1);
+                VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
 
             var classService =
                 scope.ServiceProvider
@@ -1768,10 +1766,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             await db.SaveChangesAsync();
 
             var start =
-                new DateOnly(
-                    2032,
-                    3,
-                    1);
+                VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
 
             var classService =
                 scope.ServiceProvider
