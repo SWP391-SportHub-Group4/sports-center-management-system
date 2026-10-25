@@ -302,6 +302,8 @@ public sealed class CapturingPaymentOutboxWriter(
 {
     private readonly NotificationWriter _inner = new(db, protection);
     public void Queue(NotificationRequest request) => _inner.Queue(request);
+    public Task ReviseInvoiceCreatedAsync(Guid memberId, Guid invoiceId, string message, CancellationToken ct)
+        => _inner.ReviseInvoiceCreatedAsync(memberId, invoiceId, message, ct);
     public void QueueEmail(EmailNotificationRequest request)
     {
         emails.Capture(request.RecipientAddress, request.HtmlBody);

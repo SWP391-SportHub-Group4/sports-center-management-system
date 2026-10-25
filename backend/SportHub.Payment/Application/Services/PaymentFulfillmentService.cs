@@ -409,6 +409,13 @@ public sealed class PaymentFulfillmentService(
         session.State =
             reason;
 
+        await notifications.ReviseInvoiceCreatedAsync(
+            invoice.MemberId, invoice.InvoiceId,
+            reason == "Cancelled"
+                ? $"Invoice {invoice.InvoiceNumber} was cancelled. No payment is due."
+                : $"Invoice {invoice.InvoiceNumber} expired. No payment is due.",
+            ct);
+
         await db.Set<PaymentAttempt>()
             .Where(
                 x =>

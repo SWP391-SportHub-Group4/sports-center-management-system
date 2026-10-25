@@ -5,6 +5,8 @@ public interface INotificationWriter
     void Queue(NotificationRequest request);
 
     void QueueEmail(EmailNotificationRequest request);
+
+    Task ReviseInvoiceCreatedAsync(Guid memberId, Guid invoiceId, string message, CancellationToken ct);
 }
 
 public sealed record NotificationRequest(

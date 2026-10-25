@@ -64,6 +64,7 @@
   color: var(--text-muted);
 }
 .field select:focus-visible,
+.field input:focus-visible,
 .field textarea:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;

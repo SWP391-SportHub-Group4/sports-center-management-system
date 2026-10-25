@@ -59,7 +59,7 @@ export function PaymentResult({
               ? "Payment received"
               : "Confirming your payment";
   const description = cancelled
-    ? "You cancelled this payment on VNPay and nothing was charged. Your order is still open, so you can pay again before it expires."
+    ? "You cancelled this payment on VNPay. Your order and invoice have been cancelled."
     : complete
       ? checkout.kind === "WALLET_TOP_UP"
         ? staffMemberId
@@ -160,15 +160,7 @@ export function PaymentResult({
             View points wallet
             <ArrowRight size={18} aria-hidden="true" />
           </Link>
-        ) : cancelled ? (
-          <Link
-            href={`/checkout/${checkout.invoiceId}`}
-            className={buttonClass({ size: "lg", className: styles.primary })}
-          >
-            Pay again
-            <ArrowRight size={18} aria-hidden="true" />
-          </Link>
-        ) : (
+        ) : cancelled ? null : (
           <Button
             size="lg"
             className={styles.primary}

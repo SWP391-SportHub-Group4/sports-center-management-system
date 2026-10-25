@@ -467,7 +467,9 @@ public sealed class CheckoutService(ISportHubDbContext db,
 
     public async Task CancelAsync(Guid invoiceId, Guid actorId, bool isStaff, CancellationToken ct)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // The signed VNPay return closes the attempt and invoice in one caller transaction.
+        await using var tx = db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(ct) : null;
         var invoice = await LockInvoiceAsync(invoiceId, ct);
         EnsureAccess(invoice, actorId, isStaff);
         if (invoice.Status == InvoiceStatus.Void) return;
@@ -483,7 +485,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
             throw new ConflictException("payment_reconciliation_pending", "Payment reconciliation pending.");
         await fulfillment.ReleaseAsync(invoice, session, "Cancelled", actorId, ct);
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
     }
 
     public async Task ReleaseForSystemAsync(Guid invoiceId, string reason, CancellationToken ct = default)

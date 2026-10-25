@@ -71,7 +71,7 @@ Trạng thái giữ `OPEN, ASSIGNED, IN_PROGRESS, CLOSED` (kết quả `DONE` ho
 ### 5.1 Member gửi request
 
 - Danh mục request giữ nguyên bộ hiện có. Chỉ khi Member chọn **danh mục PAYMENT** thì form hiện và **bắt buộc**:
-  - **chọn một hóa đơn của chính mình có phần thanh toán VNPay** (`invoiceId`; hóa đơn trả 100% bằng điểm không chọn được, xem mục 5.7);
+  - **chọn một hóa đơn của chính mình** (`invoiceId`), kể cả hóa đơn đã `Void` để báo sự cố thanh toán; danh sách xếp mới nhất trước, hiện 5 hóa đơn và cho tải thêm hoặc tìm theo mã;
   - mô tả sự cố;
   - **1 đến 3 ảnh minh chứng** (JPG/PNG/WebP, tối đa 5 MB/ảnh), ví dụ biên lai ngân hàng.
 - Form **không có** ô ngân hàng, số tài khoản hay chủ tài khoản. Form ghi rõ "Our manager will call you to arrange the refund", nên số điện thoại trong hồ sơ Member phải còn hiệu lực.
@@ -84,7 +84,7 @@ Trạng thái giữ `OPEN, ASSIGNED, IN_PROGRESS, CLOSED` (kết quả `DONE` ho
 - Request PAYMENT **hiện** trong hàng đợi, thống kê và chi tiết của Lễ tân ở chế độ **chỉ xem**, có nhãn "Handled by Manager". Lễ tân đọc được mô tả, trạng thái, hạn phản hồi, ảnh Member gửi và thông tin payout (số tiền, thời điểm). Lễ tân **không** xem được ảnh chứng từ payout.
 - Lễ tân **không** nhận, gán, chuyển, cập nhật tiến độ, đóng, từ chối hay ghi payout request PAYMENT (403 `payment_request_manager_only`).
 - Lễ tân **bấm Remind giúp Member** được: nút "Remind manager" trên chi tiết request PAYMENT. Cùng quy tắc với Remind của Member (chỉ khi quá 48 giờ chưa xong, cách nhau tối thiểu 48 giờ, dùng chung bộ đếm `canRemindAtUtc` với Member, 409 `support_remind_too_early`). Hệ thống ghi sự kiện `REMINDED_BY_STAFF` (người bấm, thời điểm), audit, và thông báo **chỉ cho Manager** (người được gán, hoặc tất cả Manager nếu chưa gán), không thông báo cho Lễ tân khác. Request danh mục khác Lễ tân tự xử lý nên không có nút này.
-- Lễ tân **tạo được** request PAYMENT hộ Member ở quầy (kênh `COUNTER`, `PHONE` hoặc `FANPAGE`). Bắt buộc chọn **hóa đơn đã thanh toán bằng VNPay của đúng Member đó** (`invoiceId`, cùng quy tắc: một request mở mỗi hóa đơn, 409 `payment_request_already_open`; hóa đơn đã xử lý xong 409 `reconciliation_already_resolved`; sai chủ hoặc chưa trả VNPay 400 `payment_request_invoice_required`). Ảnh minh chứng **không bắt buộc** khi tạo ở quầy (Lễ tân ghi chú vào mô tả). Request luôn vào trạng thái `OPEN` cho Manager: Lễ tân **không** được giải quyết ngay tại quầy (`resolveNote` bị từ chối: 403 `payment_request_manager_only`) và chỉ được bàn giao cho một **Manager** (gán cho vai trò khác: 409 `payment_request_manager_only`).
+- Lễ tân **tạo được** request PAYMENT hộ Member ở quầy (kênh `COUNTER`, `PHONE` hoặc `FANPAGE`). Bắt buộc chọn **hóa đơn của đúng Member đó** (`invoiceId`, cùng quy tắc: một request mở mỗi hóa đơn, 409 `payment_request_already_open`; hóa đơn đã xử lý xong 409 `reconciliation_already_resolved`; sai chủ hoặc thiếu hóa đơn 400 `payment_request_invoice_required`). Ảnh minh chứng **không bắt buộc** khi tạo ở quầy (Lễ tân ghi chú vào mô tả). Request luôn vào trạng thái `OPEN` cho Manager: Lễ tân **không** được giải quyết ngay tại quầy (`resolveNote` bị từ chối: 403 `payment_request_manager_only`) và chỉ được bàn giao cho một **Manager** (gán cho vai trò khác: 409 `payment_request_manager_only`).
 
 ### 5.3 Manager xử lý
 
@@ -122,7 +122,7 @@ Trạng thái giữ `OPEN, ASSIGNED, IN_PROGRESS, CLOSED` (kết quả `DONE` ho
 
 | Trường hợp hóa đơn | Form Support Request (PAYMENT) | Cách hoàn |
 |---|---|---|
-| 1. Trả 100% bằng điểm | Tùy chọn "Yêu cầu hoàn tiền về ngân hàng" **ẩn hoặc khóa**, kèm chú thích: "Hóa đơn này thanh toán bằng điểm; điểm sẽ được hoàn tự động về ví khi được duyệt." Backend từ chối tạo request PAYMENT cho hóa đơn không có thanh toán VNPay thành công (400 `payment_request_invoice_required`). Hủy do trung tâm: Member dùng nút nhận điểm. | Điểm tự cộng lại, không có payout. |
+| 1. Trả 100% bằng điểm hoặc chưa có khoản VNPay xác nhận | Có thể chọn hóa đơn để báo sự cố, nhưng không ghi payout ngân hàng khi chưa có khoản VNPay thực thu. Hủy do trung tâm: Member dùng nút nhận điểm khi đủ điều kiện. | Không có payout ngân hàng nếu số VNPay thực thu bằng 0. |
 | 2. Trả 100% qua VNPay | Cho chọn "Yêu cầu hoàn tiền (VNPay)". | Manager liên hệ SĐT rồi chuyển khoản lại đúng số tiền VNPay đã thu của dòng được hoàn. |
 | 3. Hybrid (điểm + VNPay) | Form hiển thị **bóc tách hóa đơn (Invoice Breakdown)**: Tổng tiền 100.000đ · Thanh toán VNPay 80.000đ ("Manager sẽ xác minh chuyển khoản") · Thanh toán điểm 20 điểm ("Sẽ được cộng trả lại vào ví"). | Phần VNPay chuyển khoản; phần điểm tự cộng lại khi Manager ghi payout. |
 

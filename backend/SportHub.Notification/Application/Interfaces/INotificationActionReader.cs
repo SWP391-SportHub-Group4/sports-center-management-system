@@ -4,4 +4,7 @@ public interface INotificationActionReader
 {
     Task<IReadOnlyDictionary<Guid, string>> GetMemberActionsAsync(
         Guid userId, IReadOnlyList<Services.NotificationResponse> notifications, CancellationToken ct);
+
+    Task<IReadOnlyDictionary<Guid, string>> GetInvoiceNoticeMessagesAsync(
+        Guid userId, IReadOnlyList<Services.NotificationResponse> notifications, CancellationToken ct);
 }
