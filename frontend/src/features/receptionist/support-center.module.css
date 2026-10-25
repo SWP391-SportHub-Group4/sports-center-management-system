@@ -60,9 +60,8 @@
   align-items: center;
   justify-content: space-between;
 }
-.head h2 {
-  margin: 0;
-  font-size: var(--text-xl, 20px);
+.head > button:only-child {
+  margin-inline-start: auto;
 }
 .primary {
   display: inline-flex;
@@ -73,15 +72,21 @@
 
 /* ---------- Stat bar ---------- */
 .stats {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--space-1);
+  overflow-x: auto;
 }
 .stat {
   display: flex;
+  flex: 1 0 9rem;
   gap: var(--space-3);
   align-items: center;
   justify-content: space-between;
+  min-width: max-content;
   min-height: 56px;
   padding: 0 var(--space-4);
   border: 1px solid var(--border-default, #e2e8f0);
@@ -113,8 +118,10 @@
   align-items: center;
   font-size: 13px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 .statValue {
+  flex-shrink: 0;
   font-size: 20px;
   font-variant-numeric: tabular-nums;
 }
@@ -692,9 +699,6 @@
 }
 
 @media (max-width: 1100px) {
-  .stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -706,9 +710,6 @@
   }
 }
 @media (max-width: 560px) {
-  .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .filters,
   .grid2 {
     grid-template-columns: minmax(0, 1fr);

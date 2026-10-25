@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
@@ -78,7 +79,7 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
         request.RemindCount++;
         request.UpdatedAt = now;
         audit.Write(new AuditEntry(actorId, "REMIND_SUPPORT_REQUEST", nameof(MemberSupportRequest),
-            requestId.ToString(), NewValue: byStaff ? "{\"onBehalfOfMember\":true}" : null));
+            requestId.ToString(), NewValue: JsonSerializer.Serialize(new { request.RequestId, request.RemindCount, onBehalfOfMember = byStaff })));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return new SupportRemindResult(requestId, request.RemindCount, now.AddHours(cooldownHours), true);

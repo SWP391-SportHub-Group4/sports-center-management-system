@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -184,7 +185,7 @@ public sealed class InvoiceRefundBreakdownController(ISportHubDbContext db) : Co
 [Authorize(Policy = SportHubPolicies.Member)]
 [Route("api/support/requests")]
 public sealed class MemberSupportPayoutController(ISportHubDbContext db, IClock clock,
-    IAuditWriter audit, INotificationWriter notifications) : ControllerBase
+    IAuditWriter audit, INotificationWriter notifications, ISystemSettingProvider settings) : ControllerBase
 {
     [HttpPost("{requestId:guid}/confirm-received")]
     public Task<IActionResult> Confirm(Guid requestId, CancellationToken ct)
@@ -229,7 +230,7 @@ public sealed class MemberSupportPayoutController(ISportHubDbContext db, IClock 
             request.Status = "OPEN";
             request.AssignedToUserId = null;
             request.ClosedAt = null;
-            request.SlaDueAtUtc = now.AddHours(48);
+            request.SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct));
             request.UpdatedAt = now;
             var managers = await db.Set<UserAccount>().AsNoTracking()
                 .Where(x => x.Status == SportHub.Identity.Domain.Enums.UserStatus.Active && x.Role != null
@@ -246,7 +247,10 @@ public sealed class MemberSupportPayoutController(ISportHubDbContext db, IClock 
         });
         audit.Write(new AuditEntry(request.MemberId,
             received ? "SUPPORT_PAYOUT_CONFIRMED" : "SUPPORT_PAYOUT_NOT_RECEIVED",
-            nameof(MemberSupportPayout), payout.PayoutId.ToString()));
+            nameof(MemberSupportPayout), payout.PayoutId.ToString(), NewValue: JsonSerializer.Serialize(new {
+                request.RequestId, payout.InvoiceId, payout.Amount, received,
+                confirmedBy = received ? "MEMBER" : null
+            })));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return Ok(new { payout.PayoutId, payout.MemberConfirmedAtUtc, payout.MemberConfirmedBy, request.Status });

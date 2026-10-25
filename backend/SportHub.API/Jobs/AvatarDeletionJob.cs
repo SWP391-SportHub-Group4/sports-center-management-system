@@ -12,6 +12,7 @@ public sealed class AvatarDeletionJob(IServiceScopeFactory scopes, ILogger<Avata
             try
             {
                 await using var scope = scopes.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<AvatarAuditImageService>().PurgeExpiredAsync(stoppingToken);
                 await scope.ServiceProvider.GetRequiredService<AvatarService>()
                     .ProcessPendingDeletionsAsync(stoppingToken);
             }

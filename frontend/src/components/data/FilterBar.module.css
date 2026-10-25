@@ -117,3 +117,27 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+.root .actions .clearIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  color: #b42318;
+  border: 1px solid #f2c6c2;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+}
+.root .actions .clearIcon:hover {
+  color: #912018;
+  background: #fff0ee;
+  border-color: #dc8c84;
+}
+.root .actions .clearIcon:focus-visible {
+  outline: 2px solid #b42318;
+  outline-offset: 3px;
+}

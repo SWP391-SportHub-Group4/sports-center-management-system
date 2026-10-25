@@ -224,11 +224,8 @@ export function SupportQueue({
 
   return (
     <section className={styles.page} aria-label="Support requests">
-      <div className={styles.head}>
-        <h2>Support requests</h2>
-        {isReceiver ? (
-          <p>Requests assigned to you by the manager.</p>
-        ) : (
+      {!isReceiver && (
+        <div className={styles.head}>
           <button
             type="button"
             className={`btn ${styles.primary}`}
@@ -237,8 +234,8 @@ export function SupportQueue({
             <Plus size={18} aria-hidden="true" />
             Record a request for member
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div
         className={`${styles.stats} ${isReceiver ? styles.receiverStats : ""}`}

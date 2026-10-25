@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
@@ -55,7 +56,9 @@ public sealed class SupportPayoutMaintenance(ISportHubDbContext db, IClock clock
                     CreatedAt = now
                 });
                 audit.Write(new AuditEntry(request.MemberId, "SUPPORT_PAYOUT_AUTO_CONFIRMED",
-                    nameof(MemberSupportPayout), payout.PayoutId.ToString(), IsSystem: true));
+                    nameof(MemberSupportPayout), payout.PayoutId.ToString(), NewValue: JsonSerializer.Serialize(new {
+                        request.RequestId, payout.InvoiceId, payout.Amount, received = true, confirmedBy = "SYSTEM"
+                    }), IsSystem: true));
                 await db.SaveChangesAsync(ct);
             }
             await tx.CommitAsync(ct);
