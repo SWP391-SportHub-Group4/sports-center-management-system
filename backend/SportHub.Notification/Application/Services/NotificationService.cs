@@ -93,6 +93,7 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock, INo
         IReadOnlyList<NotificationResponse> rows, CancellationToken ct)
     {
         var destinations = await actions.GetMemberActionsAsync(userId, rows, ct);
+        var invoiceMessages = await actions.GetInvoiceNoticeMessagesAsync(userId, rows, ct);
         // Read only subjects/senders of manual notices referenced by this user's own in-app messages.
         var manualIds = rows.Where(n => n.SourceEventType == nameof(NotificationSourceEventType.ManualNotice)
             && n.SourceEntityId.HasValue).Select(n => n.SourceEntityId!.Value).Distinct().ToArray();
@@ -104,6 +105,7 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock, INo
             var manual = n.SourceEventType == nameof(NotificationSourceEventType.ManualNotice)
                 && n.SourceEntityId.HasValue ? notices.GetValueOrDefault(n.SourceEntityId.Value) : null;
             return n with { ActionUrl = destinations.GetValueOrDefault(n.NotificationId),
+                Message = invoiceMessages.GetValueOrDefault(n.NotificationId) ?? n.Message,
                 Title = manual?.Subject, SenderName = manual?.SenderName };
         }).ToList();
     }

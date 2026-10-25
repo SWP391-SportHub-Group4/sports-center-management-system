@@ -102,8 +102,9 @@ public class InvoicesController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? status = null,
+        [FromQuery] string? keyword = null,
         CancellationToken ct = default)
-        => Ok(await invoices.SearchAsync(User.RequireUserId(), status, null, page, pageSize, ct));
+        => Ok(await invoices.SearchAsync(User.RequireUserId(), status, keyword, page, pageSize, ct));
 
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("members/me/unactivated-payments")]

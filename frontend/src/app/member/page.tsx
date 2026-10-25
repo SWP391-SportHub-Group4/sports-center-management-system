@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { MemberShell } from "@/components/MemberShell";
 import { AsyncSection, StatusChip } from "@/components/ui";
@@ -262,7 +263,7 @@ function AttentionList({
 
   // Hóa đơn gấp nhất trước: hạn giữ chỗ gần nhất, sau đó phát hành lâu nhất.
   const owed = invoices
-    .filter((i) => i.outstanding > 0)
+    .filter((i) => i.status.toUpperCase() === "ISSUED" && i.outstanding > 0)
     .sort(
       (x, y) =>
         (x.checkoutExpiresAtUtc ?? "9").localeCompare(
@@ -416,6 +417,15 @@ export default function MemberDashboardPage() {
       }),
     [],
   );
+  useEffect(() => {
+    const refreshInvoices = () => invoices.reload();
+    window.addEventListener("pageshow", refreshInvoices);
+    window.addEventListener("focus", refreshInvoices);
+    return () => {
+      window.removeEventListener("pageshow", refreshInvoices);
+      window.removeEventListener("focus", refreshInvoices);
+    };
+  }, [invoices.reload]);
   const rentals = useApi(
     (signal) =>
       rentalApi.mine(

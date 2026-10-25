@@ -41,13 +41,18 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         var reference = gateway.VerifyCancellation(fields);
         if (reference is null) return false;
         var now = clock.UtcNow;
-        await db.Set<PaymentAttempt>().Where(x => x.VnpTxnRef == reference && x.InvoiceId == invoiceId
+        var closed = await db.Set<PaymentAttempt>().Where(x => x.VnpTxnRef == reference && x.InvoiceId == invoiceId
                 && x.Status == PaymentAttemptStatus.Pending
                 && !db.Set<VerifiedGatewayEvent>().Any(e => e.PaymentAttemptId == x.PaymentAttemptId))
             .ExecuteUpdateAsync(x => x.SetProperty(a => a.Status, PaymentAttemptStatus.Failed)
                 .SetProperty(a => a.VerifiedResult, "Cancelled")
                 .SetProperty(a => a.VerifiedAtUtc, now), ct);
-        return true;
+        if (closed > 0) return true;
+        // Allow a duplicate browser return after the first cancellation committed.
+        return await db.Set<Invoice>().AnyAsync(i => i.InvoiceId == invoiceId
+            && i.Status == InvoiceStatus.Void
+            && db.Set<CheckoutSession>().Any(s => s.CheckoutSessionId == i.CheckoutCycleId
+                && s.State == "Cancelled"), ct);
     }
 
     public async Task<bool> ReconcileAttemptAsync(Guid attemptId, CancellationToken ct)
