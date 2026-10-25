@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { CloudUpload, Eye, Trash2, XCircle } from "lucide-react";
 import { Dialog } from "@/components/ui";
 import { api, ApiError } from "@/lib/apiClient";
@@ -13,13 +13,18 @@ import {
 } from "@/lib/support-categories";
 import { pagedItems } from "@/lib/paged";
 import { useApi } from "@/lib/useApi";
-import type { InvoiceSummaryDto, Paged } from "@/lib/types";
+import type { InvoiceDetailDto, InvoiceSummaryDto, Paged } from "@/lib/types";
 import styles from "./help-center.module.css";
 
 const MAX_FILES = 3;
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPT = "image/jpeg,image/png,image/webp";
 const MAX_LENGTH = 2000;
+const INVOICE_PAGE_SIZE = 20;
+
+function invoiceLabel(invoice: InvoiceSummaryDto): string {
+  return `${invoice.invoiceNumber} · ${invoice.itemDescription || "Service"} · ${formatMoney(invoice.totalAmount)} · ${formatDateTime(invoice.issuedAt)} · ${invoice.status}`;
+}
 
 export interface SentRequest {
   reference: string;
@@ -68,11 +73,22 @@ export function HelpRequestForm({
   const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
   const [invoiceId, setInvoiceId] = useState(initialInvoiceId ?? "");
+  const [invoiceInput, setInvoiceInput] = useState("");
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoiceKeyword, setInvoiceKeyword] = useState("");
-  const [invoicePages, setInvoicePages] = useState(1);
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoiceOptions, setInvoiceOptions] = useState<InvoiceSummaryDto[]>([]);
+  const [invoiceTotal, setInvoiceTotal] = useState<number | null>(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceError, setInvoiceError] = useState(false);
+  const [invoiceReload, setInvoiceReload] = useState(0);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState(-1);
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+  const invoicePicker = useRef<HTMLDivElement>(null);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
+  const invoiceListId = useId();
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<SentRequest | null>(null);
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
@@ -90,27 +106,98 @@ export function HelpRequestForm({
     return () => window.clearTimeout(timer);
   }, [invoiceSearch]);
 
-  const invoices = useApi(
-    async (signal) => {
-      const pages = await Promise.all(
-        Array.from({ length: invoicePages }, (_, index) =>
-          api.get<Paged<InvoiceSummaryDto>>("/api/members/me/invoices", {
-            signal,
-            query: {
-              page: index + 1,
-              pageSize: 5,
-              ...(invoiceKeyword ? { keyword: invoiceKeyword } : {}),
-            },
-          }),
-        ),
-      );
-      return {
-        items: pages.flatMap(pagedItems),
-        totalCount: pages[0]?.totalCount ?? 0,
-      };
-    },
-    [invoicePages, invoiceKeyword],
-  );
+  useEffect(() => {
+    if (!isPayment) return;
+    const controller = new AbortController();
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setInvoiceLoading(true);
+    setInvoiceError(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    api
+      .get<Paged<InvoiceSummaryDto>>("/api/members/me/invoices", {
+        signal: controller.signal,
+        query: {
+          page: invoicePage,
+          pageSize: INVOICE_PAGE_SIZE,
+          ...(invoiceKeyword ? { keyword: invoiceKeyword } : {}),
+        },
+      })
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        const pageItems = pagedItems(result);
+        setInvoiceOptions((current) =>
+          invoicePage === 1
+            ? pageItems
+            : [
+                ...current,
+                ...pageItems.filter(
+                  (item) =>
+                    !current.some((old) => old.invoiceId === item.invoiceId),
+                ),
+              ],
+        );
+        setInvoiceTotal(result.totalCount);
+      })
+      .catch((cause: unknown) => {
+        if (
+          !controller.signal.aborted &&
+          !(cause instanceof DOMException && cause.name === "AbortError")
+        )
+          setInvoiceError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setInvoiceLoading(false);
+      });
+    return () => controller.abort();
+  }, [isPayment, invoiceKeyword, invoicePage, invoiceReload]);
+
+  useEffect(() => {
+    if (!initialInvoiceId) return;
+    const controller = new AbortController();
+    api
+      .get<InvoiceDetailDto>(`/api/invoices/${initialInvoiceId}`, {
+        signal: controller.signal,
+      })
+      .then((detail) => {
+        if (!controller.signal.aborted)
+          setInvoiceInput((current) => current || detail.summary.invoiceNumber);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [initialInvoiceId]);
+
+  useEffect(() => {
+    if (!invoiceOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!invoicePicker.current?.contains(event.target as Node))
+        setInvoiceOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () =>
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [invoiceOpen]);
+
+  useEffect(() => {
+    if (invoiceOpen && activeInvoice >= 0)
+      document
+        .getElementById(`${invoiceListId}-${activeInvoice}`)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [invoiceOpen, activeInvoice, invoiceListId]);
+
+  function chooseInvoice(invoice: InvoiceSummaryDto) {
+    setInvoiceId(invoice.invoiceId);
+    setInvoiceInput(invoice.invoiceNumber);
+    setInvoiceSearch("");
+    if (invoiceKeyword) {
+      setInvoiceOptions([]);
+      setInvoiceTotal(null);
+      setInvoicePage(1);
+      setInvoiceKeyword("");
+    }
+    setInvoiceOpen(false);
+    setActiveInvoice(-1);
+    invoiceInputRef.current?.focus();
+  }
 
   // Invoice Breakdown: the VNPay share goes back to the bank (manager transfer), the points share back to the wallet.
   const breakdown = useApi(
@@ -203,6 +290,7 @@ export function HelpRequestForm({
       setFiles([]);
       setConsent(false);
       setInvoiceId("");
+      setInvoiceInput("");
       onSent();
     } catch (e) {
       setError(friendlyError(e));
@@ -278,64 +366,142 @@ export function HelpRequestForm({
                 refund requires a confirmed VNPay charge; our manager will call
                 the phone number in your profile to review the case.
               </p>
-              <label className={styles.field}>
-                <span>Search invoices</span>
-                <input
-                  type="search"
-                  value={invoiceSearch}
-                  onChange={(event) => {
-                    setInvoiceSearch(event.target.value);
-                    setInvoicePages(1);
-                    setInvoiceId("");
-                  }}
-                  placeholder="Search invoice number"
-                />
-              </label>
-              <label className={styles.field}>
-                <span>Invoice *</span>
-                <select
-                  value={invoiceId}
-                  onChange={(e) => setInvoiceId(e.target.value)}
-                  required
-                  disabled={invoices.loading}
-                >
-                  <option value="">
-                    {invoices.loading
-                      ? "Loading invoices…"
-                      : "Select an invoice"}
-                  </option>
-                  {invoiceId &&
-                    !invoices.data?.items.some(
-                      (i) => i.invoiceId === invoiceId,
-                    ) && (
-                      <option value={invoiceId}>
-                        Selected invoice {invoiceId}
-                      </option>
-                    )}
-                  {(invoices.data?.items ?? []).map((i) => (
-                    <option key={i.invoiceId} value={i.invoiceId}>
-                      {i.invoiceNumber} · {i.itemDescription || "Service"} ·{" "}
-                      {formatMoney(i.totalAmount)} ·{" "}
-                      {formatDateTime(i.issuedAt)} · {i.status}
-                    </option>
-                  ))}
-                </select>
-                {!invoices.loading &&
-                  (invoices.data?.items.length ?? 0) === 0 && (
-                    <span className={styles.hint}>No invoices found.</span>
+              <div className={styles.field}>
+                <label htmlFor="support-invoice">Invoice *</label>
+                <div className={styles.invoicePicker} ref={invoicePicker}>
+                  <input
+                    ref={invoiceInputRef}
+                    id="support-invoice"
+                    type="search"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-haspopup="listbox"
+                    aria-expanded={invoiceOpen}
+                    aria-controls={invoiceOpen ? invoiceListId : undefined}
+                    aria-activedescendant={
+                      invoiceOpen && activeInvoice >= 0
+                        ? invoiceListId + "-" + activeInvoice
+                        : undefined
+                    }
+                    aria-required="true"
+                    autoComplete="off"
+                    value={invoiceInput}
+                    placeholder="Select an invoice or type its number"
+                    onFocus={() => setInvoiceOpen(true)}
+                    onClick={() => setInvoiceOpen(true)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setInvoiceInput(value);
+                      setInvoiceSearch(value);
+                      setInvoiceId("");
+                      setInvoicePage(1);
+                      if (value.trim() !== invoiceKeyword) {
+                        setInvoiceOptions([]);
+                        setInvoiceTotal(null);
+                      }
+                      setActiveInvoice(-1);
+                      setInvoiceOpen(true);
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "ArrowDown" ||
+                        event.key === "ArrowUp"
+                      ) {
+                        event.preventDefault();
+                        setInvoiceOpen(true);
+                        if (invoiceOptions.length)
+                          setActiveInvoice((current) =>
+                            event.key === "ArrowDown"
+                              ? (current + 1) % invoiceOptions.length
+                              : current <= 0
+                                ? invoiceOptions.length - 1
+                                : current - 1,
+                          );
+                      } else if (
+                        event.key === "Enter" &&
+                        invoiceOpen &&
+                        activeInvoice >= 0
+                      ) {
+                        event.preventDefault();
+                        chooseInvoice(invoiceOptions[activeInvoice]);
+                      } else if (event.key === "Escape") {
+                        setInvoiceOpen(false);
+                        setActiveInvoice(-1);
+                      } else if (event.key === "Tab") {
+                        setInvoiceOpen(false);
+                      }
+                    }}
+                  />
+                  {invoiceOpen && (
+                    <div
+                      id={invoiceListId}
+                      role="listbox"
+                      aria-label="Invoices"
+                      className={styles.invoiceOptions}
+                      onScroll={(event) => {
+                        const list = event.currentTarget;
+                        if (
+                          !invoiceLoading &&
+                          !invoiceError &&
+                          invoiceTotal !== null &&
+                          invoiceOptions.length < invoiceTotal &&
+                          list.scrollHeight -
+                            list.scrollTop -
+                            list.clientHeight <
+                            64
+                        ) {
+                          setInvoiceLoading(true);
+                          setInvoicePage((page) => page + 1);
+                        }
+                      }}
+                    >
+                      {invoiceSearch.trim() === invoiceKeyword &&
+                        invoiceOptions.map((invoice, index) => (
+                          <button
+                            key={invoice.invoiceId}
+                            id={invoiceListId + "-" + index}
+                            type="button"
+                            role="option"
+                            tabIndex={-1}
+                            aria-selected={invoice.invoiceId === invoiceId}
+                            className={styles.invoiceOption}
+                            data-active={activeInvoice === index || undefined}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onMouseEnter={() => setActiveInvoice(index)}
+                            onClick={() => chooseInvoice(invoice)}
+                          >
+                            {invoiceLabel(invoice)}
+                          </button>
+                        ))}
+                      {(invoiceLoading ||
+                        invoiceSearch.trim() !== invoiceKeyword) && (
+                        <p className={styles.invoiceListNote} role="status">
+                          Loading invoices…
+                        </p>
+                      )}
+                      {invoiceError && (
+                        <div className={styles.invoiceListNote} role="alert">
+                          Could not load invoices.{" "}
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceReload((n) => n + 1)}
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
+                      {!invoiceLoading &&
+                        !invoiceError &&
+                        invoiceSearch.trim() === invoiceKeyword &&
+                        invoiceOptions.length === 0 && (
+                          <p className={styles.invoiceListNote}>
+                            No invoices found.
+                          </p>
+                        )}
+                    </div>
                   )}
-              </label>
-              {(invoices.data?.items.length ?? 0) <
-                (invoices.data?.totalCount ?? 0) && (
-                <button
-                  className={styles.uploadButton}
-                  type="button"
-                  onClick={() => setInvoicePages((page) => page + 1)}
-                  disabled={invoices.loading}
-                >
-                  Load 5 more invoices
-                </button>
-              )}
+                </div>
+              </div>
               {breakdown.data && (
                 <dl className={styles.hint} aria-label="Invoice breakdown">
                   <div>
