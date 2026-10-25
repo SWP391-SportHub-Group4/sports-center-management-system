@@ -89,12 +89,13 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
     {
         var row = await db.Set<UserAccount>().AsNoTracking().Where(u => u.UserId == targetUserId
             && u.Status == UserStatus.Active && u.Role != null
-            && (u.Role.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach))
+            && (u.Role.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach
+                || u.Role.RoleName == UserRole.CenterManager))
             .Select(u => new { Role = u.Role!.RoleName, AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("avatar_owner_not_found", "User not found.");
         if (anonymous && row.Role != UserRole.Coach)
-            throw new ForbiddenException("avatar_not_public", "Member avatars are visible only to signed-in users.");
+            throw new ForbiddenException("avatar_not_public", "This avatar is visible only to signed-in users.");
         return new AvatarResponse(targetUserId, row.AvatarUrl);
     }
 
@@ -136,8 +137,8 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         var user = await db.Set<UserAccount>().Include(u => u.Role).Include(u => u.Profile)
             .SingleOrDefaultAsync(u => u.UserId == userId, ct)
             ?? throw new NotFoundException("user_not_found", "Account not found.");
-        if (user.Role?.RoleName is not (UserRole.Member or UserRole.Coach))
-            throw new ForbiddenException("avatar_role_forbidden", "Only members and coaches can change their own avatars.");
+        if (user.Role?.RoleName is not (UserRole.Member or UserRole.Coach or UserRole.CenterManager))
+            throw new ForbiddenException("avatar_role_forbidden", "Only members, coaches and center managers can change their own avatars.");
         if (user.Status != UserStatus.Active)
             throw new ForbiddenException("avatar_account_inactive", "This account is inactive.");
         return user;
