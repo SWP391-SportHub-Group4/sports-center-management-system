@@ -244,6 +244,7 @@ export function CourtCalendar({
           }
           manager={user?.role === "CenterManager"}
           coach={user?.role === "Coach"}
+          receptionist={user?.role === "Receptionist"}
           onChanged={state.reload}
           onClose={() => setSelected(null)}
         />

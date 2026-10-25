@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { en } from "../src/locales/en";
 
-for (const points of [0, 500]) {
-  test(`membership cancellation with ${points} quoted points explains the time policy`, async ({
+// Member tự hủy gói Gym thì không được hoàn ở mọi thời điểm (BR-91): dialog luôn báo "No refund" rồi mới hủy khi xác nhận.
+for (const remaining of ["two-thirds left", "almost expired"]) {
+  test(`membership cancellation (${remaining}) always warns there is no refund`, async ({
     page,
   }, testInfo) => {
     await page.addInitScript(() => {
@@ -18,7 +18,7 @@ for (const points of [0, 500]) {
       if (request.method() === "POST") {
         writes.push(request.postDataJSON());
         cancelled = true;
-        return json({ approvedPoints: points });
+        return json({ invoiceItemId: "membership-item-1", refundedPoints: 0 });
       }
       if (path === "/api/users/me")
         return json({
@@ -46,7 +46,7 @@ for (const points of [0, 500]) {
               ],
         );
       if (path === "/api/refunds/quote/membership-item-1")
-        return json({ systemCalculatedPoints: points });
+        return json({ systemCalculatedPoints: 0 });
       if (path === "/api/members/me/enrollments")
         return json({ items: [], totalCount: 0 });
       if (path === "/api/wallet/me")
@@ -60,31 +60,25 @@ for (const points of [0, 500]) {
       .click();
     const dialog = page.getByRole("dialog", { name: "Cancel Gym membership" });
     await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
-    await expect(dialog.getByText("Keep membership")).toHaveCount(0);
+    await expect(dialog.getByText("No refund", { exact: true })).toBeVisible();
     await expect(
-      dialog.getByText(en.finOps.membershipRefundPolicy),
-    ).toBeVisible();
-    await expect(
-      dialog.getByText(points ? "50%" : "0%", { exact: true }),
+      dialog.getByText(/will not get a refund or points, at any time/),
     ).toBeVisible();
     const confirm = dialog.getByRole("button", {
       name: "Confirm cancellation",
     });
-    if (!points) {
-      await expect(confirm).toBeDisabled();
-      expect(writes).toHaveLength(0);
-      await page.setViewportSize({ width: 390, height: 844 });
-      await expect(dialog).toBeVisible();
-      await page.screenshot({
-        path: testInfo.outputPath("membership-policy-mobile.png"),
-        fullPage: true,
-      });
-    } else {
-      await expect(confirm).toBeEnabled();
-      await confirm.click();
-      await expect.poll(() => writes.length).toBe(1);
-      await expect(dialog).not.toBeVisible();
-      expect(writes).toEqual([{ invoiceItemId: "membership-item-1" }]);
-    }
+    // Chưa xác nhận thì chưa có thao tác ghi nào.
+    expect(writes).toHaveLength(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(dialog).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("membership-policy-mobile.png"),
+      fullPage: true,
+    });
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes).toEqual([{ invoiceItemId: "membership-item-1" }]);
+    await expect(dialog.getByRole("status")).toContainText("No refund");
   });
 }

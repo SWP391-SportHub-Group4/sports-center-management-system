@@ -59,9 +59,10 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Only_front_desk_can_check_in_a_confirmed_court_rental()
+    public async Task Only_receptionist_can_check_in_a_confirmed_court_rental()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
         var room = await CourseTestData.RoomAsync(factory);
         var rentalId = Guid.NewGuid();
@@ -80,11 +81,54 @@ public sealed class CourtScheduleAndIncidentTests(SchedulingApiFactory factory)
         var url = $"/api/court-rentals/{rentalId}/check-in";
         using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
         Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.PostAsync(url, null)).StatusCode);
+        // BR-159: Manager không còn check-in sân thuê.
+        using var managerClient = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        Assert.Equal(HttpStatusCode.Forbidden, (await managerClient.PostAsync(url, null)).StatusCode);
         using var deskClient = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
         Assert.Equal(HttpStatusCode.NoContent, (await deskClient.PostAsync(url, null)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await deskClient.PostAsync(url, null)).StatusCode);
         Assert.Equal(CourtRentalStatus.InUse, await factory.QueryAsync(db => db.Set<CourtRental>()
             .Where(x => x.CourtRentalId == rentalId).Select(x => x.Status).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Only_receptionist_can_mark_no_show_and_only_after_the_rental_has_started()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        var room = await CourseTestData.RoomAsync(factory);
+        var futureId = Guid.NewGuid();
+        var startedId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        await factory.QueryAsync(async db =>
+        {
+            db.Set<CourtRental>().AddRange(
+                new CourtRental { CourtRentalId = futureId, MemberId = member.UserId, SportId = 3, RoomId = room,
+                    StartAtUtc = now.AddHours(2), EndAtUtc = now.AddHours(3),
+                    Status = CourtRentalStatus.Confirmed, CreatedAtUtc = now },
+                new CourtRental { CourtRentalId = startedId, MemberId = member.UserId, SportId = 3, RoomId = room,
+                    StartAtUtc = now.AddMinutes(-10), EndAtUtc = now.AddMinutes(50),
+                    Status = CourtRentalStatus.Confirmed, CreatedAtUtc = now.AddHours(-1) });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        string Url(Guid id) => $"/api/court-rentals/{id}/no-show";
+        using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var managerClient = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        using var deskClient = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.PostAsync(Url(startedId), null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await managerClient.PostAsync(Url(startedId), null)).StatusCode);
+        // Chưa đến giờ bắt đầu thì chưa thể đánh dấu No-show.
+        var early = await deskClient.PostAsync(Url(futureId), null);
+        Assert.Equal(HttpStatusCode.Conflict, early.StatusCode);
+        Assert.Contains("rental_not_started", await early.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.NoContent, (await deskClient.PostAsync(Url(startedId), null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await deskClient.PostAsync(Url(startedId), null)).StatusCode);
+        Assert.Equal(CourtRentalStatus.NoShow, await factory.QueryAsync(db => db.Set<CourtRental>()
+            .Where(x => x.CourtRentalId == startedId).Select(x => x.Status).SingleAsync()));
+        Assert.Equal(CourtRentalStatus.Confirmed, await factory.QueryAsync(db => db.Set<CourtRental>()
+            .Where(x => x.CourtRentalId == futureId).Select(x => x.Status).SingleAsync()));
     }
 
     [Fact]

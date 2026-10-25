@@ -346,6 +346,10 @@ builder.Services.AddScoped<IPackageActivationService, PackageActivationService>(
 builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>();
 builder.Services.AddScoped<IPointRefundService, PointRefundService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IRefundCreditService, RefundCreditService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICenterCancellationReader,
+    SportHub.Scheduling.Application.Services.CenterCancellationReader>();
+builder.Services.AddScoped<SportHub.Payment.Application.Services.ICenterCancellationRefundService,
+    SportHub.Payment.Application.Services.CenterCancellationRefundService>();
 builder.Services.AddScoped<IInvoiceReceiptService, InvoiceReceiptService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
 builder.Services.AddScoped<SportHub.Payment.Application.Services.ReportReconciliationService>();
@@ -446,6 +450,7 @@ builder.Services.AddHostedService<MemberInvitationExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
 builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
 builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
+builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
 builder.Services.AddHostedService<RentalStatusJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();

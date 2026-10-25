@@ -73,7 +73,7 @@ public sealed class RentalCourtSetupTests(PaymentApiFactory factory)
         Assert.Equal(100000, courtPrice.PricePerHour);
         Assert.Equal("MON,TUE,WED,THU,FRI,SAT,SUN", courtPrice.DaysOfWeek);
         Assert.Contains(prices, r => r.RoomId == null && r.RoomTypeId == request.RoomTypeId && r.PricePerHour == 200000);
-        var date = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(2);
+        var date = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(1); // Trong cửa sổ hôm nay + 2 ngày (đổi lúc 06:00).
         using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
         var calendarResponse = await memberClient.GetAsync($"/api/court-rentals/calendar?sportId={request.SportId}&date={date:yyyy-MM-dd}&hours=1");
         Assert.True(calendarResponse.IsSuccessStatusCode, await calendarResponse.Content.ReadAsStringAsync());

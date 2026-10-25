@@ -75,7 +75,7 @@ export function MemberCancellations({
 
       detail: `${formatDate(p.startDate)} – ${formatDate(p.endDate)}`,
 
-      label: tx("Hủy gói & hoàn điểm", "Cancel membership & refund points"),
+      label: tx("Hủy gói (không hoàn)", "Cancel membership (no refund)"),
 
       target: {
         kind: "gym" as const,
@@ -109,9 +109,7 @@ export function MemberCancellations({
           `First session ${formatDate(e.firstSessionStartUtc)}`,
         ),
 
-        label: started
-          ? tx("Gửi yêu cầu hoàn", "Send refund request")
-          : tx("Hủy lớp & hoàn điểm", "Cancel class & refund points"),
+        label: tx("Hủy lớp (không hoàn)", "Cancel class (no refund)"),
 
         target: {
           kind: "class" as const,
