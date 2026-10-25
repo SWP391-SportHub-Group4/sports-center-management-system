@@ -63,21 +63,6 @@ export function SupportQueue({
   const { user } = useAuth();
   const isManager = workspace === "manager";
   const isReceiver = workspace === "coach" || workspace === "admin";
-  const cards = isReceiver
-    ? [
-        {
-          key: "notStarted" as const,
-          label: "Not started",
-          status: "NOT_STARTED",
-        },
-        {
-          key: "inProgress" as const,
-          label: "In progress",
-          status: "IN_PROGRESS",
-        },
-        { key: "done" as const, label: "Finished", status: "FINISHED" },
-      ]
-    : summaryCards;
   const statusLabel = (status: string) =>
     status === "NOT_STARTED"
       ? "Not started"
@@ -237,12 +222,8 @@ export function SupportQueue({
         </div>
       )}
 
-      <div
-        className={`${styles.stats} ${isReceiver ? styles.receiverStats : ""}`}
-        role="group"
-        aria-label="Filter by status"
-      >
-        {cards.map((item) => (
+      <div className={styles.stats} role="group" aria-label="Filter by status">
+        {summaryCards.map((item) => (
           <button
             key={item.key}
             type="button"

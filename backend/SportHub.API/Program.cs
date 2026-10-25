@@ -218,8 +218,9 @@ builder.Services.AddScoped<AvatarService>();
 builder.Services.AddHttpClient<AvatarAuditImageService>(client => client.Timeout = TimeSpan.FromSeconds(10))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<CoachCredentialService>();
+builder.Services.AddSingleton<CoachCredentialPdfCache>();
 builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
-    client.Timeout = TimeSpan.FromSeconds(60));
+    client.Timeout = TimeSpan.FromSeconds(120));
 builder.Services.AddHostedService<CoachCredentialCleanupJob>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));

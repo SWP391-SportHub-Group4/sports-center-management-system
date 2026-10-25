@@ -143,6 +143,7 @@
   background: #d97706;
 }
 .dot[data-status="DONE"],
+.dot[data-status="FINISHED"],
 .dot[data-status="CLOSED"] {
   background: #16a34a;
 }
@@ -733,15 +734,4 @@
 .reviewNotice h4,
 .reviewNotice p {
   margin: 0;
-}
-.receiverStats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.dot[data-status="NOT_STARTED"] {
-  background: var(--text-secondary, #475569);
-}
-@media (max-width: 480px) {
-  .receiverStats {
-    grid-template-columns: 1fr;
-  }
 }
