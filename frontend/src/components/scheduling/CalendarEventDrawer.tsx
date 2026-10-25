@@ -2,6 +2,7 @@
 import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 
 import Link from "next/link";
+import { useState } from "react";
 import { api } from "@/lib/apiClient";
 
 import { Drawer, buttonClass } from "@/components/primitives";
@@ -20,6 +21,7 @@ export function CalendarEventDrawer({
   affectedRoomNames,
   manager = false,
   coach = false,
+  receptionist = false,
   onChanged,
   onClose,
 }: {
@@ -28,6 +30,7 @@ export function CalendarEventDrawer({
   affectedRoomNames?: string[];
   manager?: boolean;
   coach?: boolean;
+  receptionist?: boolean;
   onChanged?: () => void;
   onClose: () => void;
 }) {
@@ -37,6 +40,23 @@ export function CalendarEventDrawer({
   const shared = t.calendar;
 
   const participants = entry.participants ?? [];
+  const [rentalBusy, setRentalBusy] = useState(false);
+  const [rentalError, setRentalError] = useState("");
+
+  /** BR-159: chỉ Lễ tân đánh dấu Checked-in hoặc No-show cho lượt thuê sân. */
+  async function markRental(action: "check-in" | "no-show") {
+    setRentalBusy(true);
+    setRentalError("");
+    try {
+      await api.post(`/api/court-rentals/${entry.sourceId}/${action}`);
+      onChanged?.();
+      onClose();
+    } catch (error) {
+      setRentalError((error as Error).message);
+    } finally {
+      setRentalBusy(false);
+    }
+  }
 
   let footer = undefined;
 
@@ -162,6 +182,35 @@ export function CalendarEventDrawer({
               onClose();
             }}
           />
+        )}
+      {receptionist &&
+        entry.sourceType === "COURT_RENTAL" &&
+        entry.status === "CONFIRMED" && (
+          <section>
+            <div className="btn-row">
+              <button
+                type="button"
+                className="btn"
+                disabled={rentalBusy}
+                onClick={() => markRental("check-in")}
+              >
+                Check-in
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={rentalBusy}
+                onClick={() => markRental("no-show")}
+              >
+                No-show
+              </button>
+            </div>
+            <p className="muted">
+              Check-in opens 5 minutes before the start. If the rental is not
+              marked by its end time, the system records No-show automatically.
+            </p>
+            {rentalError && <p role="alert">{rentalError}</p>}
+          </section>
         )}
       {manager && entry.incidentId && (
         <Link

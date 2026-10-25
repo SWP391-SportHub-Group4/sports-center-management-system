@@ -10,7 +10,8 @@ namespace SportHub.Payment.Api;
 [ApiController]
 [Authorize]
 [Route("api/refunds")]
-public sealed class PointRefundsController(IPointRefundService refunds) : ControllerBase
+public sealed class PointRefundsController(IPointRefundService refunds,
+    SportHub.Payment.Application.Services.ICenterCancellationRefundService centerCancellations) : ControllerBase
 {
     [Authorize(Policy = SportHubPolicies.FrontDesk)]
     [HttpGet]
@@ -24,6 +25,18 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
     public async Task<IActionResult> Mine([FromQuery] string? status, [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
         => Ok(await refunds.SearchMineAsync(User.RequireUserId(), status, page, pageSize, cancellationToken));
+
+    /// <summary>Quyền lợi bị trung tâm hủy của Member và lựa chọn hoàn (nhận điểm ngay hoặc gửi yêu cầu cho Manager).</summary>
+    [Authorize(Roles = "Member")]
+    [HttpGet("center-cancellations/mine")]
+    public async Task<IActionResult> CenterCancellations(CancellationToken cancellationToken)
+        => Ok(await centerCancellations.ListMineAsync(User.RequireUserId(), cancellationToken));
+
+    /// <summary>Member chọn nhận 100% giá trị còn lại bằng điểm: hoàn tự động, idempotent, loại trừ yêu cầu hoàn tiền.</summary>
+    [Authorize(Roles = "Member")]
+    [HttpPost("center-cancellations/{invoiceItemId:guid}/points")]
+    public async Task<IActionResult> ChooseCenterCancellationPoints(Guid invoiceItemId, CancellationToken cancellationToken)
+        => Ok(await centerCancellations.ChoosePointsAsync(User.RequireUserId(), invoiceItemId, cancellationToken));
 
     [HttpGet("quote/{invoiceItemId:guid}")]
     public async Task<IActionResult> Quote(Guid invoiceItemId, CancellationToken ct)
@@ -45,7 +58,7 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
         return Ok(result);
     }
 
-    /// <summary>Hủy ghi danh lớp trước buổi đầu: hoàn điểm tự động theo mốc 5 ngày (Member, hoặc Lễ tân/Manager thay Member).</summary>
+    /// <summary>Hủy ghi danh lớp: Member tự hủy (hoặc Lễ tân/Manager hủy thay) thì không được hoàn ở mọi thời điểm (BR-122).</summary>
     [HttpPost("class-cancellations")]
     public async Task<IActionResult> CancelClass([FromBody] CancelClassEnrollmentRequest request,
         CancellationToken cancellationToken)
@@ -56,7 +69,7 @@ public sealed class PointRefundsController(IPointRefundService refunds) : Contro
             cancellationToken));
     }
 
-    /// <summary>Hủy Membership đang hiệu lực: còn từ 2/3 thời hạn hoàn 50% bằng điểm, ít hơn không hoàn.</summary>
+    /// <summary>Hủy Membership đang hiệu lực: Member tự hủy thì không được hoàn ở mọi thời điểm (BR-91).</summary>
     [HttpPost("membership-cancellations")]
     public async Task<IActionResult> CancelMembership([FromBody] CancelClassEnrollmentRequest request,
         CancellationToken cancellationToken)

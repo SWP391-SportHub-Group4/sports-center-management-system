@@ -54,7 +54,7 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
         using (var scope = factory.Services.CreateScope()) {
             var failure = await Assert.ThrowsAsync<ConflictException>(() => scope.ServiceProvider.GetRequiredService<IAttendanceService>()
-                .MarkAsync(s.SessionId, enrollment, new() { Status = "Present" }, receptionist.UserId));
+                .MarkAsync(s.SessionId, enrollment, new() { Status = "Present", Reason = "Member requested correction" }, receptionist.UserId));
             Assert.Equal("class_opening_not_confirmed", failure.ErrorCode);
         }
         foreach (var kind in new[] { "RESULT", "HOMEWORK" }) {

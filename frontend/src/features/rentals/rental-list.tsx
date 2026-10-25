@@ -181,6 +181,15 @@ function RentalDetail({ rentalId }: { rentalId: string }) {
             <p>
               {l.refundPoints}: {detail.refundPoints}
             </p>
+            {detail.refundPoints > 0 && detail.rental.status === "CANCELLED" && (
+              <p className="muted">
+                The center cancelled this rental. If you have not chosen yet, pick your refund in{" "}
+                <Link href="/member/finance?tab=refunds">Refunds</Link>:
+                receive the points right away, or send a refund request.
+                Without a choice, the points are credited automatically after
+                2 days.
+              </p>
+            )}
             <div className="btn-row">
               {detail.rental.invoiceId && (
                 <Link

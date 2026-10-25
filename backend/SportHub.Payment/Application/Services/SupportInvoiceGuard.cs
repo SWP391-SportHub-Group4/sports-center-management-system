@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
+using SportHub.Payment.Wallet.Domain;
 
 namespace SportHub.Payment.Application.Services;
 
@@ -26,5 +27,15 @@ public sealed class SupportInvoiceGuard(ISportHubDbContext db) : ISupportInvoice
                 && r.Status != "REJECTED", ct))
             throw new ConflictException(PaymentSupportErrorCodes.PaymentRequestAlreadyOpen,
                 "An open support request already exists for this invoice.");
+        // A center cancellation is refunded either as points or through a Manager-handled request, never both.
+        var pointsChosen = await (from l in db.Set<PointLedgerEntry>()
+                                  join i in db.Set<InvoiceItem>() on l.InvoiceItemId equals i.ItemId
+                                  where i.InvoiceId == invoiceId && l.ReferenceType == "SystemEvent"
+                                      && l.EntryType == PointEntryType.Earn && l.Note != null
+                                      && l.Note.StartsWith(CenterCancellationRefundService.NotePrefix)
+                                  select l.LedgerEntryId).AnyAsync(ct);
+        if (pointsChosen)
+            throw new ConflictException("center_cancellation_points_chosen",
+                "Points were already chosen for the center cancellation on this invoice, so a refund request cannot be sent.");
     }
 }
