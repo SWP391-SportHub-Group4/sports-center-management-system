@@ -70,7 +70,7 @@ export function notificationActionHref(
 }
 
 export type NotificationCategory =
-  "schedule" | "class" | "payment" | "training" | "notice";
+  "schedule" | "class" | "payment" | "training" | "notice" | "support";
 
 export function notificationPresentation(item: NotificationDto): {
   category: NotificationCategory;
@@ -81,7 +81,15 @@ export function notificationPresentation(item: NotificationDto): {
   let category: NotificationCategory = "notice";
   let label = "Center update";
   let title = "An update from SportHub";
-  if (source === "SUPPORT_REQUEST_ASSIGNED") {
+  if (source === "SUPPORT_SLA_REMINDER") {
+    category = "support";
+    label = "Member support";
+    title = "A support request is overdue";
+  } else if (source === "SUPPORT_PAYOUT_NOT_RECEIVED") {
+    category = "support";
+    label = "Payout review";
+    title = "A member reported a missing payout";
+  } else if (source === "SUPPORT_REQUEST_ASSIGNED") {
     label = "Member support";
     title = "A support request has been assigned to you";
   } else if (source === "PAYMENT_UNACTIVATED") {
@@ -181,6 +189,14 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "SUPPORT_SLA_REMINDER":
+      return item.actionUrl?.includes("request=")
+        ? "Review overdue request"
+        : "View overdue requests";
+    case "SUPPORT_PAYOUT_NOT_RECEIVED":
+      return item.actionUrl?.includes("request=")
+        ? "Review payout request"
+        : "Open support queue";
     case "SUPPORT_REQUEST_ASSIGNED":
       return "View support request";
     case "COACH_ATTENDANCE_REMINDER":

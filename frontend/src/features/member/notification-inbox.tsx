@@ -23,6 +23,7 @@ import {
   Mail,
   MailOpen,
   Megaphone,
+  MessageSquare,
   ReceiptText,
   Search,
   X,
@@ -49,6 +50,7 @@ const categoryIcons = {
   payment: ReceiptText,
   training: Activity,
   notice: Megaphone,
+  support: MessageSquare,
 };
 function announceRead() {
   window.dispatchEvent(
@@ -245,6 +247,12 @@ export function NotificationInbox() {
   const destination = selected
     ? notificationActionHref(selected, user?.role)
     : null;
+  const isSupportNotice =
+    user?.role === "CenterManager" &&
+    selected &&
+    ["SUPPORT_SLA_REMINDER", "SUPPORT_PAYOUT_NOT_RECEIVED"].includes(
+      selected.sourceEventType,
+    );
   const hasUnread =
     (unread.data?.count ?? 0) > 0 || rows.some((item) => !isRead(item));
 
@@ -562,7 +570,13 @@ export function NotificationInbox() {
                   <footer className={styles.readerFooter}>
                     {destination ? (
                       <>
-                        <p>Continue to the related information.</p>
+                        <p>
+                          {isSupportNotice
+                            ? destination.includes("request=")
+                              ? "Review the request’s current status, latest reply and activity."
+                              : "This older notice has no request link. Open the queue to find the request."
+                            : "Continue to the related information."}
+                        </p>
                         <Link
                           className={buttonClass({ variant: "primary" })}
                           href={destination}

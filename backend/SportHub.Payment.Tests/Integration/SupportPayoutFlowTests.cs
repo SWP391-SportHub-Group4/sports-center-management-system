@@ -293,6 +293,13 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, (await other.PostAsync($"/api/support/requests/{id}/report-not-received", null)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await owner.PostAsync($"/api/support/requests/{id}/report-not-received", null)).StatusCode);
         var endpoint = $"/api/member-support-requests/{id}/{action}";
+        var notifications = await mgr.GetFromJsonAsync<JsonElement[]>("/api/notifications");
+        var reportNotice = notifications!.Single(n => n.GetProperty("sourceEventType").GetString() == "SUPPORT_PAYOUT_NOT_RECEIVED"
+            && n.GetProperty("message").GetString()!.Contains(id.ToString()));
+        Assert.Equal($"/manager/requests?type=support&request={id}", reportNotice.GetProperty("actionUrl").GetString());
+        var noticeSourceId = reportNotice.GetProperty("sourceEntityId").GetGuid();
+        Assert.True(await factory.QueryAsync(db => db.Set<MemberSupportEvent>().AnyAsync(e => e.EventId == noticeSourceId
+            && e.RequestId == id && e.Type == "MEMBER_REPORTED_NOT_RECEIVED")));
         const string reason = "Reviewed the original transfer with the bank and contacted the member. Outcome documented.";
         Assert.Equal(HttpStatusCode.Forbidden, (await receptionist.PostAsJsonAsync(endpoint, new { reason })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await mgr.PostAsJsonAsync(endpoint, new { reason = " " })).StatusCode);

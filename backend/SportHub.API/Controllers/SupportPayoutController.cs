@@ -150,6 +150,7 @@ public sealed class MemberSupportPayoutController(ISportHubDbContext db, IClock 
         if (request.Status is "DONE" or "REJECTED")
             throw new ConflictException("support_request_final", "The payout review has already been finalized.");
         var now = clock.UtcNow;
+        var receiptEventId = Guid.NewGuid();
         if (received)
         {
             payout.MemberConfirmedAtUtc = now;
@@ -174,11 +175,11 @@ public sealed class MemberSupportPayoutController(ISportHubDbContext db, IClock 
                 .Select(x => x.UserId).ToListAsync(ct);
             foreach (var manager in managers)
                 notifications.Queue(new NotificationRequest(manager, NotificationEvents.SupportPayoutNotReceived,
-                    $"A member reported that payout for support request {requestId} was not received.", Guid.NewGuid()));
+                    $"A member reported that payout for support request {requestId} was not received.", receiptEventId));
         }
         db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
         {
-            EventId = Guid.NewGuid(), RequestId = requestId, ActorUserId = request.MemberId,
+            EventId = receiptEventId, RequestId = requestId, ActorUserId = request.MemberId,
             Type = received ? "MEMBER_CONFIRMED_RECEIVED" : "MEMBER_REPORTED_NOT_RECEIVED", CreatedAt = now
         });
         audit.Write(new AuditEntry(request.MemberId,

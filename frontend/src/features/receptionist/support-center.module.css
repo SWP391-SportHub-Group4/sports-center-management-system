@@ -4,6 +4,55 @@
   gap: var(--space-4);
   min-width: 0;
 }
+.detailCard {
+  scroll-margin-top: 96px;
+}
+.detailCard:focus {
+  outline: none;
+}
+.linkedRequest {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  line-height: 1.5;
+  font-size: var(--text-sm);
+}
+.linkedRequest > svg {
+  flex-shrink: 0;
+  margin-top: var(--space-1);
+}
+.linkedRequest h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-md);
+}
+.linkedRequest p {
+  margin: 0 0 var(--space-2);
+}
+.queueLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary-soft-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+.queueLink:hover {
+  color: var(--color-primary-hover);
+}
+.queueLink:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
 .head {
   display: flex;
   flex-wrap: wrap;
