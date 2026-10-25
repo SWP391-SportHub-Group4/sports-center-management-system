@@ -16,7 +16,7 @@ public interface IAuditWriter
 }
 
 /// <param name="ActorUserId">Người thực hiện — lấy từ JWT, không nhận từ body.</param>
-/// <param name="Action">Chuỗi tự do UPPER_SNAKE_CASE (SSOT §2), vd LOCK_USER_ACCOUNT.</param>
+/// <param name="Action">Chuỗi tự do UPPER_SNAKE_CASE (SSOT §2), vd DEACTIVATE_USER_ACCOUNT.</param>
 /// <param name="TargetEntity">Tên entity bị tác động, vd UserAccount.</param>
 /// <param name="TargetId">Khoá của đối tượng bị tác động, dạng chuỗi (PK có cả int lẫn Guid).</param>
 /// <param name="OldValue">Trạng thái trước. Null nếu là thao tác tạo mới.</param>

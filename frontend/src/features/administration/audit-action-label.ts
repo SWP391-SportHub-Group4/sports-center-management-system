@@ -4,10 +4,11 @@ const labels: Record<string, string> = {
   UPLOAD_MEDIA_IMAGE: "Homepage image uploaded",
   CREATE_STAFF_ACCOUNT: "Staff account created",
   CHANGE_USER_ROLE: "Account role changed",
-  LOCK_USER_ACCOUNT: "Account locked or deactivated",
-  LOCK_USER: "Account locked",
-  UNLOCK_USER_ACCOUNT: "Account unlocked",
-  UNLOCK_USER: "Account unlocked",
+  LOCK_USER_ACCOUNT: "Account deactivated",
+  LOCK_USER: "Account deactivated",
+  UNLOCK_USER_ACCOUNT: "Account activated",
+  UNLOCK_USER: "Account activated",
+  ACTIVATE_USER_ACCOUNT: "Account activated",
   DEACTIVATE_USER_ACCOUNT: "Account deactivated",
   RESEND_STAFF_ACTIVATION: "Staff activation email queued again",
   CHANGE_PENDING_STAFF_EMAIL: "Unactivated staff account email corrected",
@@ -186,7 +187,8 @@ export function auditActionLabel(
       ) {
         const status = payload.status.toUpperCase();
         if (status === "DEACTIVATED") return "Account deactivated";
-        if (status === "BANNED" || status === "LOCKED") return "Account locked";
+        if (status === "BANNED" || status === "LOCKED")
+          return "Account deactivated";
       }
     } catch {
       /* Older events may not contain a JSON snapshot. */

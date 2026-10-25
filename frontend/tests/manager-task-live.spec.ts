@@ -64,21 +64,24 @@ test("live isolated settings save/reload and Admin audit reason", async ({
   ).json();
   const target = coaches[0].userId;
   const reason = "Manager task acceptance: verify account audit reason";
-  const locked = await request.post(`${liveApiBase}/api/users/${target}/lock`, {
-    headers: adminHeaders,
-    data: { reason },
-  });
-  expect(locked.ok(), await locked.text()).toBeTruthy();
-  const unlocked = await request.post(
-    `${liveApiBase}/api/users/${target}/unlock`,
+  const deactivated = await request.post(
+    `${liveApiBase}/api/users/${target}/deactivate`,
+    {
+      headers: adminHeaders,
+      data: { reason },
+    },
+  );
+  expect(deactivated.ok(), await deactivated.text()).toBeTruthy();
+  const activated = await request.post(
+    `${liveApiBase}/api/users/${target}/activate`,
     {
       headers: adminHeaders,
       data: { reason: "Acceptance cleanup: restore coach" },
     },
   );
-  expect(unlocked.ok(), await unlocked.text()).toBeTruthy();
+  expect(activated.ok(), await activated.text()).toBeTruthy();
   await installBrowserSession(page, admin.accessToken);
-  await page.goto("/admin/audit-log?action=LOCK_USER_ACCOUNT");
+  await page.goto("/admin/audit-log?action=DEACTIVATE_USER_ACCOUNT");
   await expect(page.getByRole("table")).toContainText(reason);
   await expect(page.getByRole("table").locator("del").first()).toHaveText(
     "Active",

@@ -915,8 +915,8 @@ export const en = {
     targetAccountUnavailable: "Account information unavailable",
     createAction: "Staff account created",
     roleAction: "Role changed",
-    lockAction: "Account locked / deactivated",
-    unlockAction: "Account unlocked",
+    lockAction: "Account deactivated",
+    unlockAction: "Account activated",
     viewDetail: "View details",
     manageAccess: "Manage access",
     manageInvitation: "Manage invitation",
@@ -983,13 +983,12 @@ export const en = {
       "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
       "You are changing your own role. You will be signed out after confirmation.",
-    lockImpact:
-      "The account will be blocked from authenticated requests until it is unlocked.",
-    unlockImpact: "The account will regain access for its current role.",
+    activateImpact:
+      "The account will regain access for its current role. The user must sign in again; old sessions remain invalid.",
     deactivateImpact:
-      "The account will be deactivated and cannot access authenticated features until it is unlocked.",
+      "The account will be deactivated and signed out. Its records are retained. An Administrator can activate it again.",
     guardHint:
-      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be locked or deactivated.",
+      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be deactivated.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -1211,15 +1210,12 @@ export const en = {
     role: "Role",
     specialties: "Specialties",
     changeRole: "Change role",
-    lock: "Lock",
-    unlock: "Unlock",
     deactivate: "Deactivate",
     keyword: "Search name or email",
     accountHint: "Manage staff accounts, roles and account access.",
     search: "Search",
     accountState: "Account status",
     accountActive: "Active",
-    accountLocked: "Locked",
     accountDeactivated: "Deactivated",
     mismatch: "Passwords must match.",
     dateRange: "Choose a valid date range of at most 366 days.",
@@ -1534,7 +1530,7 @@ export const en = {
     NOT_EVALUATED: "Not evaluated",
     BLOCKED: "Blocked",
     ACTIVE: "Active",
-    BANNED: "Locked",
+    BANNED: "Deactivated",
     DEACTIVATED: "Deactivated",
     PENDING_PAYMENT: "Awaiting payment",
     CONFIRMED: "Confirmed",
@@ -2431,8 +2427,7 @@ export const en = {
     addToCalendar: "Add to Google Calendar",
     cancelRental: "Cancel rental",
     cancelTitle: "Cancel this court rental?",
-    cancelFree:
-      "Cancelling a rental is never refunded, at any time.",
+    cancelFree: "Cancelling a rental is never refunded, at any time.",
     cancelLate:
       "You are cancelling this rental and will not get a refund or points, at any time. Nothing is cancelled until you confirm.",
     rentalBooked: "Court booked",

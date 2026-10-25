@@ -83,8 +83,8 @@ export function LockedCoachAssignments({
         <div>
           <h2 id="coach-coverage-title">Assignments to review</h2>
           <p>
-            This coach is unavailable. Replace their lead assignments and
-            substitute sessions before the next class.
+            This coach has a deactivated account. Replace their lead assignments
+            and substitute sessions before the next class.
           </p>
         </div>
       </header>

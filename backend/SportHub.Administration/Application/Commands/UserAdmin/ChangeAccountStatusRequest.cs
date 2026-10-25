@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Administration.Application.Commands;
 
-/// <summary>BR-6/BR-7 — khoá/mở khoá BẮT BUỘC kèm lý do.</summary>
+/// <summary>BR-6/BR-7 — activating or deactivating an account requires a reason.</summary>
 public sealed class ChangeAccountStatusRequest
 {
     [Required, MinLength(3), MaxLength(500)]

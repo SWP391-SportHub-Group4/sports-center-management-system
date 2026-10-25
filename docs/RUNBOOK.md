@@ -132,6 +132,12 @@ Chạy backend/frontend trong hai terminal như mục 3.2–3.3. Chỉ cần `do
 
 Member và staff là hai loại tài khoản tách biệt: không đổi Member thành staff được (409 `member_staff_role_change_not_allowed`). Muốn thêm Coach/Receptionist/Manager, đăng nhập Admin, tạo tài khoản staff bằng **email khác** với email Member; Coach phải kèm chuyên môn. Ở Development không có SMTP, mở log backend để lấy link kích hoạt (`Email__DemoLoggingEnabled`).
 
+### 3.6 Trạng thái tài khoản Active/Deactivated
+
+Áp dụng migration theo quy trình triển khai thông thường trước khi dùng bản chỉ có hai trạng thái. Migration chuyển tài khoản `BANNED` cũ thành `DEACTIVATED`, giữ nguyên việc chặn truy cập; không tự Activate người dùng hoặc sửa lịch sử audit. Kiểm tra tổng trạng thái chỉ có Active/Deactivated và tài khoản từng Banned vẫn không đăng nhập được. Không dùng SQL đổi tài khoản bị chặn sang Active để hoàn tất nâng cấp.
+
+Trong Admin → Users & roles, Activate/Deactivate bắt buộc nhập lý do; backend chặn tự Deactivate và bảo vệ Admin Active cuối cùng. API chính là `POST /api/users/{id}/activate` và `/deactivate` với `{reason}`; `/lock` và `/unlock` chỉ là alias tương thích tương ứng với Deactivate và Activate. Thao tác hiệu lực đổi security stamp, audit và outbox cùng transaction; phiên cũ bị từ chối ở request xác thực kế tiếp. Lặp lại trạng thái hiện tại không tạo sự kiện trùng. Lời mời/chờ đặt mật khẩu vẫn là hàng chờ riêng: Activate không gửi lại email hoặc gia hạn link, và không thay việc đặt mật khẩu.
+
 # 4. Bàn giao triển khai và nghiệm thu
 
 Hỗ trợ Member (hạng 5): trên local, chạy backend/frontend theo mục 3.2–3.3. Manager mở `/manager/support` trong nhóm Operations; Receptionist mở `/receptionist/support`. Để tạo yêu cầu, chọn Record a request → mở hồ sơ Member → Member support. Phân công trước khi cập nhật/đóng; lọc/tìm/phân trang và Refresh dùng API thật. Không cần migration mới.

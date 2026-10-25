@@ -1061,7 +1061,10 @@ namespace SportHub.API.Migrations
                     b.HasIndex("RoleId")
                         .HasDatabaseName("ix_user_accounts_role_id");
 
-                    b.ToTable("user_accounts", (string)null);
+                    b.ToTable("user_accounts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_user_accounts_status", "status IN (0, 2)");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserCredential", b =>

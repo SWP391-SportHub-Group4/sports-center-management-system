@@ -50,7 +50,7 @@ public sealed class CoachAvailabilityRequestTests(SchedulingApiFactory factory)
     public async Task Lookup_omits_inactive_and_wrong_sport_coaches()
     {
         var c = await CourseTestData.CreateAsync(factory);
-        var inactive = await factory.SeedUserAsync(UserRole.Coach, UserStatus.Banned);
+        var inactive = await factory.SeedUserAsync(UserRole.Coach, UserStatus.Deactivated);
         var wrongSport = await factory.SeedUserAsync(UserRole.Coach);
         var otherSportId = await factory.QueryAsync(async db => {
             var otherSport = new Sport { Code = "TEST-" + Guid.NewGuid().ToString("N"), Name = "Other test sport", IsActive = true };

@@ -149,9 +149,8 @@ public class GoogleLoginTests(SportHubApiFactory factory)
     }
 
     [Theory]
-    [InlineData(UserStatus.Banned)]
     [InlineData(UserStatus.Deactivated)]
-    public async Task Inactive_or_banned_account_is_not_linked_and_gets_no_token(UserStatus status)
+    public async Task Deactivated_account_is_not_linked_and_gets_no_token(UserStatus status)
     {
         var email = $"g-blocked-{Guid.NewGuid():N}@example.com";
         var user = await factory.SeedUserAsync(email, "CorrectHorse1!", status);

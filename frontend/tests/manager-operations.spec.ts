@@ -326,7 +326,7 @@ async function fillDraft(page: Page, proceed = true) {
     .click();
 }
 
-test("M05 locked coach details reassign the main class and refresh affected assignments", async ({
+test("M05 deactivated coach details reassign the main class and refresh affected assignments", async ({
   page,
 }) => {
   let assigned = false;
@@ -356,7 +356,7 @@ test("M05 locked coach details reassign the main class and refresh affected assi
       json: {
         ...course,
         coachId: memberId,
-        coachName: "Locked coach",
+        coachName: "Deactivated coach",
         status: "PUBLISHED",
       },
     }),
@@ -369,8 +369,8 @@ test("M05 locked coach details reassign the main class and refresh affected assi
         : [
             {
               coachId: memberId,
-              coachName: "Locked coach",
-              coachEmail: "locked@example.com",
+              coachName: "Deactivated coach",
+              coachEmail: "deactivated@example.com",
               affectedClasses: 1,
               futureSessions: 1,
               activeRelationships: 1,
@@ -381,7 +381,9 @@ test("M05 locked coach details reassign the main class and refresh affected assi
     });
   });
   await page.route(`**/api/manager/coaches/${memberId}`, (route) =>
-    route.fulfill({ json: { ...coach, userId: memberId, status: "LOCKED" } }),
+    route.fulfill({
+      json: { ...coach, userId: memberId, status: "DEACTIVATED" },
+    }),
   );
   await page.goto(`/manager/coaches/${memberId}`);
   await page

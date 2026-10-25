@@ -170,6 +170,7 @@ export function MemberPicker({
               <div className="small muted">
                 {value.email}
                 {value.phone ? ` · ${value.phone}` : ""}
+                {` · ${value.status === "ACTIVE" ? "Active" : "Deactivated"}`}
               </div>
             </div>
           </div>
@@ -286,9 +287,7 @@ export function MemberPicker({
               <div className="small muted">
                 {member.email}
                 {member.phone ? ` · ${member.phone}` : ""}
-                {member.status !== "ACTIVE"
-                  ? ` · ${language === "en" ? "Account Locked" : "Tài khoản bị khóa"}`
-                  : ""}
+                {` · ${member.status === "ACTIVE" ? "Active" : "Deactivated"}`}
               </div>
             </button>
           ))}

@@ -58,7 +58,9 @@ import { StatusChip } from "@/components/data";
 
 `label` là chữ hiển thị; `tone` là tông màu (`neutral`, `success`, `warning`, `danger`, `info`). Hai giá trị tùy chọn này có thể ghi đè độc lập. Giá trị thiếu hiển thị dấu `—`; giá trị chưa có bản dịch dùng nhãn dự phòng từ `lib/format`. Import StatusChip từ `components/ui.tsx` vẫn dùng cùng bản mới để các trang khác tiếp tục chạy.
 
-Users & roles truyền nhãn riêng cho tài khoản (dùng chung với bộ lọc) và tông: `ACTIVE` → `success`, `BANNED` → `danger`, `DEACTIVATED` → `neutral`. Đây là lựa chọn của trang Admin; các trang khác vẫn dùng tông mặc định từ `chipTone` nếu không truyền `tone`.
+Users & roles chỉ có hai trạng thái tài khoản (dùng chung nhãn với bộ lọc): `ACTIVE` → `success`, `DEACTIVATED` → `neutral`. Dữ liệu `BANNED` cũ được chuẩn hóa thành `DEACTIVATED`, không có lựa chọn hoặc tông trạng thái tài khoản thứ ba. Hàng chờ `ACTIVATION_REQUIRED`/`ACTIVATION_EXPIRING` là bộ lọc lời mời riêng; không thêm giá trị `UserStatus`. Các trang khác vẫn dùng tông mặc định từ `chipTone` nếu không truyền `tone`.
+
+Bộ chọn trạng thái tài khoản chỉ có All/Active/Deactivated. Deep link activation-required/expiring cũ hiển thị chip Invitation riêng; không đưa hàng chờ lời mời vào dropdown trạng thái tài khoản. Overview cũng chỉ có hai KPI trạng thái tài khoản; phần staff activation được trình bày riêng.
 
 Giao diện của mọi StatusChip nằm chung trong `StatusChip.module.css`: nền `#EDE5E4`, chữ và viền cùng tông, kích thước chữ/padding/bo góc thống nhất. Các tông dùng token của dự án; không ghi đè màu riêng tại page. `DEACTIVATED` cũng mặc định là `neutral` ở `lib/format` để nhất quán giữa các trang. Nhãn dài tự xuống dòng trên màn hình nhỏ.
 
