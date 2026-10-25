@@ -200,7 +200,9 @@ public class GoogleLoginTests(SportHubApiFactory factory)
         var second = client.PostAsync("api/auth/google", GoogleBody(subject, email));
         await Task.WhenAll(first, second);
 
-        var statuses = new[] { first.Result.StatusCode, second.Result.StatusCode };
+        var firstResponse = await first;
+        var secondResponse = await second;
+        var statuses = new[] { firstResponse.StatusCode, secondResponse.StatusCode };
         Assert.Contains(HttpStatusCode.OK, statuses);
         Assert.All(statuses, s => Assert.True(s is HttpStatusCode.OK or HttpStatusCode.Conflict));
 

@@ -99,8 +99,8 @@ public sealed class CoachSupportWorkflowTests(SportHubApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             var notices = await db.Notifications.Where(n => n.UserId == coach.UserId && n.SourceEventType == NotificationSourceEventType.SupportRequestAssigned).ToListAsync();
             Assert.Equal(2, notices.Count);
-            Assert.Single(notices.Where(n => n.Channel == NotificationChannel.InApp));
-            var email = Assert.Single(notices.Where(n => n.Channel == NotificationChannel.Email));
+            Assert.Single(notices, n => n.Channel == NotificationChannel.InApp);
+            var email = Assert.Single(notices, n => n.Channel == NotificationChannel.Email);
             Assert.Equal(coach.Email, email.RecipientAddress);
             Assert.NotNull(email.ProtectedEmailPayload);
         }

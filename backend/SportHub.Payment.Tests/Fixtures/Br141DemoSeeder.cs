@@ -26,7 +26,6 @@ public sealed class Br141DemoSeeder(
     SportHubDbContext db,
     CoachRosterSeeder roster,
     IClassService classes,
-    IPasswordHasher passwordHasher,
     IClock clock,
     ILogger<Br141DemoSeeder> logger)
 {
