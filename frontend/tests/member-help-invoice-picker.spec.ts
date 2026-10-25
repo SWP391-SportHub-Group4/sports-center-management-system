@@ -86,11 +86,26 @@ test("payment support invoice picker filters by number and loads more while scro
   await expect(list.getByRole("option")).toHaveCount(45);
   expect(requestedPages).toContain(3);
 
+  await picker.fill("INV-2026-000117");
+  await expect(
+    page.getByText(
+      "Invoice not found in your account. Check the invoice number.",
+    ),
+  ).toBeVisible();
+  await expect(picker).toHaveAttribute("aria-invalid", "true");
+  await picker.press("Tab");
+  await expect(
+    page.getByText(
+      "Invoice not found in your account. Check the invoice number.",
+    ),
+  ).toBeVisible();
+
   await picker.fill("INV-2026-000003");
   await expect(list.getByRole("option")).toHaveCount(1);
   await expect(list.getByRole("option")).toContainText("INV-2026-000003");
   expect(requestedKeywords).toContain("INV-2026-000003");
   await list.getByRole("option").click();
   await expect(picker).toHaveValue("INV-2026-000003");
+  await expect(picker).toHaveAttribute("aria-invalid", "false");
   await expect(list).toHaveCount(0);
 });
