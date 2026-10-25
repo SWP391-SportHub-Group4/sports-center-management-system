@@ -19,12 +19,14 @@ public sealed class NotificationActionTests(PaymentApiFactory factory)
         var sources = new[] { invoice.InvoiceId, foreign.InvoiceId, Guid.NewGuid() };
         await factory.QueryAsync(async db =>
         {
+            var cancelled = await db.Invoices.SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            cancelled.Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Void;
             foreach (var source in sources)
                 db.Notifications.Add(new()
                 {
                     NotificationId = Guid.NewGuid(), UserId = member.UserId,
                     SourceEventType = NotificationSourceEventType.InvoiceCreated,
-                    SourceEntityId = source, Message = "Invoice ready", Channel = NotificationChannel.InApp,
+                    SourceEntityId = source, Message = "Please pay before the hold expires.", Channel = NotificationChannel.InApp,
                     Status = NotificationStatus.Sent, SentAt = DateTime.UtcNow
                 });
             return await db.SaveChangesAsync();
@@ -33,6 +35,7 @@ public sealed class NotificationActionTests(PaymentApiFactory factory)
         var rows = await client.GetFromJsonAsync<List<Notice>>("/api/notifications");
         Assert.NotNull(rows);
         Assert.Equal($"/member/invoices/{invoice.InvoiceId}", rows.Single(x => x.SourceEntityId == invoice.InvoiceId).ActionUrl);
+        Assert.DoesNotContain("Please pay", rows.Single(x => x.SourceEntityId == invoice.InvoiceId).Message);
         Assert.Null(rows.Single(x => x.SourceEntityId == foreign.InvoiceId).ActionUrl);
         Assert.Null(rows.Single(x => x.SourceEntityId == sources[2]).ActionUrl);
         using var otherClient = factory.CreateApiClient(other.UserId, UserRole.Member);
@@ -156,5 +159,5 @@ public sealed class NotificationActionTests(PaymentApiFactory factory)
     }
 
     private sealed record SupportNotice(Guid NotificationId, Guid? SourceEntityId, string? ActionUrl);
-    private sealed record Notice(Guid SourceEntityId, string? ActionUrl);
+    private sealed record Notice(Guid SourceEntityId, string? ActionUrl, string Message);
 }

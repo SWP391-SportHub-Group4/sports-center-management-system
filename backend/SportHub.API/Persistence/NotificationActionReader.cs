@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.Payment.Domain.Entities;
+using SportHub.Payment.Domain.Enums;
 using SportHub.Notification.Application.Interfaces;
 using SportHub.Notification.Application.Services;
 
@@ -8,6 +10,39 @@ namespace SportHub.API.Persistence;
 // Only return destinations backed by records owned by this notification's recipient.
 public sealed class NotificationActionReader(SportHubDbContext db, SportHub.BuildingBlocks.SharedKernel.Time.IClock clock) : INotificationActionReader
 {
+    public async Task<IReadOnlyDictionary<Guid, string>> GetInvoiceNoticeMessagesAsync(
+        Guid userId, IReadOnlyList<NotificationResponse> notifications, CancellationToken ct)
+    {
+        var notices = notifications.Where(n => n.SourceEventType == "InvoiceCreated" && n.SourceEntityId.HasValue).ToList();
+        if (notices.Count == 0) return new Dictionary<Guid, string>();
+
+        var ids = notices.Select(n => n.SourceEntityId!.Value).Distinct().ToArray();
+        var invoices = await db.Invoices.AsNoTracking()
+            .Where(i => i.MemberId == userId && ids.Contains(i.InvoiceId) && i.Status != InvoiceStatus.Issued)
+            .Select(i => new
+            {
+                i.InvoiceId, i.InvoiceNumber, i.Status,
+                CheckoutState = db.Set<CheckoutSession>()
+                    .Where(s => s.CheckoutSessionId == i.CheckoutCycleId)
+                    .Select(s => s.State).FirstOrDefault()
+            }).ToListAsync(ct);
+        var messages = invoices.ToDictionary(i => i.InvoiceId, i => i.Status switch
+        {
+            InvoiceStatus.Void when i.CheckoutState == "Cancelled" =>
+                $"Invoice {i.InvoiceNumber} was cancelled. No payment is due.",
+            InvoiceStatus.Void when i.CheckoutState == "Expired" =>
+                $"Invoice {i.InvoiceNumber} expired. No payment is due.",
+            InvoiceStatus.Void => $"Invoice {i.InvoiceNumber} is closed. No payment is due.",
+            InvoiceStatus.Paid or InvoiceStatus.PaidAfterReconciliation =>
+                $"Invoice {i.InvoiceNumber} has been paid. No further payment is due.",
+            InvoiceStatus.Compensated =>
+                $"Invoice {i.InvoiceNumber} is closed after compensation. No payment is due.",
+            _ => $"Invoice {i.InvoiceNumber} is closed. No payment is due."
+        });
+        return notices.Where(n => messages.ContainsKey(n.SourceEntityId!.Value))
+            .ToDictionary(n => n.NotificationId, n => messages[n.SourceEntityId!.Value]);
+    }
+
     public async Task<IReadOnlyDictionary<Guid, string>> GetMemberActionsAsync(
         Guid userId, IReadOnlyList<NotificationResponse> notifications, CancellationToken ct)
     {

@@ -34,7 +34,7 @@ function friendlyError(error: unknown): string {
     if (error.code === paymentSupportErrorCodes.reconciliationAlreadyResolved)
       return "This payment was already resolved, so a new request is not needed.";
     if (error.code === "payment_request_invoice_required")
-      return "Choose one of your paid VNPay invoices.";
+      return "Choose one of your invoices.";
     if (error.code === "payment_request_proof_required")
       return "Attach at least one proof image.";
     return error.message;
@@ -44,7 +44,7 @@ function friendlyError(error: unknown): string {
     : "We could not send your request. Please try again.";
 }
 
-/** Form to send a new support request. A PAYMENT request also needs the paid invoice and proof images; a manager calls the member to arrange the refund. */
+/** Form to send a new support request. A PAYMENT request also needs an owned invoice and proof images. */
 export function HelpRequestForm({
   initialTopic,
   initialInvoiceId,
@@ -68,6 +68,9 @@ export function HelpRequestForm({
   const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
   const [invoiceId, setInvoiceId] = useState(initialInvoiceId ?? "");
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceKeyword, setInvoiceKeyword] = useState("");
+  const [invoicePages, setInvoicePages] = useState(1);
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,21 +82,34 @@ export function HelpRequestForm({
   const picker = useRef<HTMLInputElement>(null);
   const isPayment = category === "PAYMENT";
 
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setInvoiceKeyword(invoiceSearch.trim()),
+      250,
+    );
+    return () => window.clearTimeout(timer);
+  }, [invoiceSearch]);
+
   const invoices = useApi(
     async (signal) => {
-      const [paid, late] = await Promise.all(
-        ["PAID", "PAID_AFTER_RECONCILIATION"].map((status) =>
+      const pages = await Promise.all(
+        Array.from({ length: invoicePages }, (_, index) =>
           api.get<Paged<InvoiceSummaryDto>>("/api/members/me/invoices", {
             signal,
-            query: { page: 1, pageSize: 100, status },
+            query: {
+              page: index + 1,
+              pageSize: 5,
+              ...(invoiceKeyword ? { keyword: invoiceKeyword } : {}),
+            },
           }),
         ),
       );
-      return [...pagedItems(paid), ...pagedItems(late)]
-        .filter((i) => i.cashAmount > 0)
-        .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+      return {
+        items: pages.flatMap(pagedItems),
+        totalCount: pages[0]?.totalCount ?? 0,
+      };
     },
-    [],
+    [invoicePages, invoiceKeyword],
   );
 
   // Invoice Breakdown: the VNPay share goes back to the bank (manager transfer), the points share back to the wallet.
@@ -258,12 +274,25 @@ export function HelpRequestForm({
               <legend>Refund details</legend>
               <p className={styles.hint}>
                 Already bought services are not refunded when you cancel them
-                yourself. Use this form for a VNPay payment that went wrong. Our
-                manager will call you on the phone number in your profile to
-                arrange the refund, so please keep it up to date.
+                yourself. Select any invoice to report a payment issue. A bank
+                refund requires a confirmed VNPay charge; our manager will call
+                the phone number in your profile to review the case.
               </p>
               <label className={styles.field}>
-                <span>Paid invoice *</span>
+                <span>Search invoices</span>
+                <input
+                  type="search"
+                  value={invoiceSearch}
+                  onChange={(event) => {
+                    setInvoiceSearch(event.target.value);
+                    setInvoicePages(1);
+                    setInvoiceId("");
+                  }}
+                  placeholder="Search invoice number"
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Invoice *</span>
                 <select
                   value={invoiceId}
                   onChange={(e) => setInvoiceId(e.target.value)}
@@ -271,22 +300,42 @@ export function HelpRequestForm({
                   disabled={invoices.loading}
                 >
                   <option value="">
-                    {invoices.loading ? "Loading invoices…" : "Select an invoice"}
+                    {invoices.loading
+                      ? "Loading invoices…"
+                      : "Select an invoice"}
                   </option>
-                  {(invoices.data ?? []).map((i) => (
+                  {invoiceId &&
+                    !invoices.data?.items.some(
+                      (i) => i.invoiceId === invoiceId,
+                    ) && (
+                      <option value={invoiceId}>
+                        Selected invoice {invoiceId}
+                      </option>
+                    )}
+                  {(invoices.data?.items ?? []).map((i) => (
                     <option key={i.invoiceId} value={i.invoiceId}>
                       {i.invoiceNumber} · {i.itemDescription || "Service"} ·{" "}
-                      {formatMoney(i.cashAmount)} ·{" "}
-                      {formatDateTime(i.paidAtUtc ?? i.issuedAt)}
+                      {formatMoney(i.totalAmount)} ·{" "}
+                      {formatDateTime(i.issuedAt)} · {i.status}
                     </option>
                   ))}
                 </select>
-                {!invoices.loading && (invoices.data ?? []).length === 0 && (
-                  <span className={styles.hint}>
-                    You have no paid VNPay invoices yet.
-                  </span>
-                )}
+                {!invoices.loading &&
+                  (invoices.data?.items.length ?? 0) === 0 && (
+                    <span className={styles.hint}>No invoices found.</span>
+                  )}
               </label>
+              {(invoices.data?.items.length ?? 0) <
+                (invoices.data?.totalCount ?? 0) && (
+                <button
+                  className={styles.uploadButton}
+                  type="button"
+                  onClick={() => setInvoicePages((page) => page + 1)}
+                  disabled={invoices.loading}
+                >
+                  Load 5 more invoices
+                </button>
+              )}
               {breakdown.data && (
                 <dl className={styles.hint} aria-label="Invoice breakdown">
                   <div>
@@ -296,8 +345,10 @@ export function HelpRequestForm({
                   <div>
                     <dt>Paid with VNPay</dt>
                     <dd>
-                      {formatMoney(breakdown.data.vnpayVnd)} — the manager
-                      transfers this back to your bank.
+                      {formatMoney(breakdown.data.vnpayVnd)}
+                      {breakdown.data.vnpayVnd > 0
+                        ? " — any approved bank refund is handled by the manager."
+                        : " — no confirmed VNPay charge has been recorded."}
                     </dd>
                   </div>
                   {breakdown.data.pointsApplied > 0 && (

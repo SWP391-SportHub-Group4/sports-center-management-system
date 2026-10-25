@@ -583,7 +583,9 @@ public sealed partial class DemoDataSeeder(
         Guid invoiceId;
         if (existing is null)
         {
-            var start = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(2)).AddHours(10);
+            // Tomorrow at 10:00 Vietnam time stays inside the rolling booking window,
+            // including CI runs before 06:00 when the window still anchors to yesterday.
+            var start = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)).AddHours(10);
             var checkout = await checkouts.CreateCourtRentalAsync(new(member.UserId, 3, room.RoomId,
                 start, start.AddHours(1)), key, member.UserId, ct);
             invoiceId = checkout.InvoiceId;

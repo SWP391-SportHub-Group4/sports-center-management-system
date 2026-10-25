@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.Notification.Domain.Enums;
 
 namespace SportHub.Notification.Infrastructure;
 
@@ -37,6 +39,30 @@ public sealed class NotificationWriter(
                         NotificationStatus.Pending,
                     RetryCount = 0
                 });
+    }
+
+    public async Task ReviseInvoiceCreatedAsync(Guid memberId, Guid invoiceId, string message, CancellationToken ct)
+    {
+        await db.Set<Domain.Entities.Notification>()
+            .Where(n => n.UserId == memberId && n.Channel == NotificationChannel.InApp
+                && n.SourceEventType == NotificationSourceEventType.InvoiceCreated
+                && n.SourceEntityId == invoiceId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(n => n.Message, message), ct);
+
+        // The original invoice email may still be queued when checkout closes.
+        // Replace its protected payload so a later dispatch cannot ask for payment.
+        var emailPayload = _protector.Protect(JsonSerializer.Serialize(new EmailPayload(
+            "SportHub - Invoice update",
+            SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph(message))));
+        await db.Set<Domain.Entities.Notification>()
+            .Where(n => n.UserId == memberId && n.Channel == NotificationChannel.Email
+                && n.SourceEventType == NotificationSourceEventType.InvoiceCreated
+                && n.SourceEntityId == invoiceId
+                && (n.Status == NotificationStatus.Pending || n.Status == NotificationStatus.Failed))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(n => n.ProtectedEmailPayload, emailPayload)
+                .SetProperty(n => n.Status, NotificationStatus.Pending)
+                .SetProperty(n => n.RetryCount, 0), ct);
     }
 
     public void QueueEmail(

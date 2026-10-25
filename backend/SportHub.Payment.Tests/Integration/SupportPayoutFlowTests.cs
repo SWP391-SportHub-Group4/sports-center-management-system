@@ -34,6 +34,26 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Member_can_report_a_void_invoice_without_a_confirmed_vnpay_charge()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 100_000m);
+        await factory.QueryAsync(async db =>
+        {
+            var row = await db.Invoices.SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            row.Status = InvoiceStatus.Void;
+            return await db.SaveChangesAsync();
+        });
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var form = Form(invoice.InvoiceId);
+        var response = await owner.PostAsync("/api/support/requests", form);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var breakdown = await owner.GetFromJsonAsync<JsonElement>(
+            $"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
+        Assert.Equal(0m, breakdown.GetProperty("vnpayVnd").GetDecimal());
+    }
+
+    [Fact]
     public async Task Payment_request_and_payout_require_proof_and_enforce_roles_and_capture_limit()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);

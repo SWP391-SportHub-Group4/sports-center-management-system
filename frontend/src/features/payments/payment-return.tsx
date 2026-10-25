@@ -77,11 +77,33 @@ export function PaymentReturn({
               { signal: controller.signal },
             );
             if (controller.signal.aborted) return;
-            setCheckout(closed);
-            setCancelled(true);
-            return;
+            // Older API instances only close the VNPay attempt. Close the invoice as well,
+            // then trust the refreshed server state before showing "Payment cancelled".
+            if (closed.invoiceStatus === "ISSUED") {
+              await api.post(
+                `/api/checkouts/${closed.invoiceId}/cancel`,
+                {},
+                { signal: controller.signal },
+              );
+            }
+            const finalState = await api.get<CheckoutDto>(
+              `/api/checkouts/${closed.invoiceId}`,
+              { signal: controller.signal },
+            );
+            if (controller.signal.aborted) return;
+            setCheckout(finalState);
+            if (finalState.invoiceStatus === "VOID") {
+              setCancelled(true);
+              return;
+            }
+            setError(
+              "The invoice is still open. Please check its status before paying again.",
+            );
           } catch {
             if (controller.signal.aborted) return;
+            setError(
+              "We couldn't confirm that the invoice was cancelled. Please check its status before paying again.",
+            );
           }
         }
         // The URL identifies the attempt only. Confirmation comes from the backend's signed QueryDR.
