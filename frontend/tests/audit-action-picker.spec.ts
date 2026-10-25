@@ -4,7 +4,7 @@ const userId = "11111111-1111-4111-8111-111111111111";
 const accountActions = [
   "CHANGE_USER_ROLE",
   "CREATE_STAFF_ACCOUNT",
-  "LOCK_USER_ACCOUNT",
+  "DEACTIVATE_USER_ACCOUNT",
 ];
 const managerActions = [
   ...accountActions,

@@ -22,7 +22,6 @@ public static class AccountAuditActions
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(new[]
     {
         CreateStaffAccount, ChangeUserRole, ActivateUserAccount, DeactivateUserAccount,
-        LockUserAccount, UnlockUserAccount,
         ResendStaffActivation, ChangePendingStaffEmail, FrontDeskCreateMember,
         ResendMemberActivation, ChangePendingMemberEmail, ExpireUnactivatedStaffAccount, ExpireUnactivatedMemberAccount,
         UpdateCoachSpecialties
