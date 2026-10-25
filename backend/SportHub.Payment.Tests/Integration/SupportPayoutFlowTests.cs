@@ -181,7 +181,9 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         await factory.QueryAsync(async db =>
         {
             await db.Set<Invoice>().Where(x => x.InvoiceId == invoice.InvoiceId).ExecuteUpdateAsync(s => s
-                .SetProperty(x => x.CheckoutCycleId, Guid.NewGuid()).SetProperty(x => x.PointsApplied, 20));
+                .SetProperty(x => x.CheckoutCycleId, Guid.NewGuid())
+                .SetProperty(x => x.PointsApplied, 20)
+                .SetProperty(x => x.CashAmount, 80_000m));
             db.Set<SportHub.Payment.Domain.Entities.Payment>().Add(new SportHub.Payment.Domain.Entities.Payment
             {
                 PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = 80_000m,
