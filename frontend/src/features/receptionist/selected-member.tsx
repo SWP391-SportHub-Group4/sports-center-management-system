@@ -377,7 +377,10 @@ export function SelectedMemberPanel({
       )}
 
       <div className={styles.actions}>
-        <span className={styles.tip} title={blocked ? blockReason : undefined}>
+        <span
+          className={styles.tip}
+          title={blocked ? blockReason : undefined}
+        >
           <button
             type="button"
             className="btn"
@@ -385,18 +388,24 @@ export function SelectedMemberPanel({
             aria-describedby={blocked ? "checkin-block-reason" : undefined}
             onClick={checkIn}
           >
-            <CircleCheck size={18} aria-hidden="true" />
             {cooldownSeconds > 0
-              ? `${vi ? "Check-in" : "Check in"} (${cooldownSeconds}s)`
-              : vi
-                ? "Check-in"
-                : "Check in"}
+              ? `Check in (${cooldownSeconds}s)`
+              : "Check in"}
           </button>
         </span>
 
         {!locked && (
-          <Link className="btn btn--secondary" href={sellHref}>
-            {vi ? "Bán dịch vụ" : "Sell a service"}
+          <Link className="btn btn--secondary" href="/receptionist/sales">
+            Sell a service
+          </Link>
+        )}
+
+        {!locked && (
+          <Link
+            className="btn btn--secondary"
+            href={`/receptionist/members/${memberId}/add-points`}
+          >
+            Add points
           </Link>
         )}
 
@@ -405,15 +414,7 @@ export function SelectedMemberPanel({
             className="btn btn--ghost"
             href={`/receptionist/members/${memberId}`}
           >
-            {vi ? "Mở hồ sơ" : "Open profile"}
-          </Link>
-        )}
-        {!locked && (
-          <Link
-            className="btn btn--ghost"
-            href={`/receptionist/members/${memberId}/add-points`}
-          >
-            {vi ? "Nạp điểm" : "Add points"}
+            Open profile
           </Link>
         )}
       </div>

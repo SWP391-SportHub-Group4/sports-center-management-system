@@ -59,7 +59,7 @@ export const RECEPTIONIST_SHORTCUTS: Record<
     label: "Alt + 1",
     contentKey: "gymCheckin",
   },
-  "/receptionist/attendance": {
+  "/receptionist/schedule": {
     key: "2",
     label: "Alt + 2",
     contentKey: "attendance",
@@ -89,8 +89,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   Receptionist: [
     { href: "/receptionist", labelKey: "frontDesk" },
     { href: "/receptionist/members", labelKey: "members" },
-    { href: "/receptionist/attendance", labelKey: "attendance" },
-    { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
+    { href: "/receptionist/schedule", labelKey: "activitySchedule" },
     { href: "/receptionist/support", labelKey: "support" },
   ],
   Coach: [
