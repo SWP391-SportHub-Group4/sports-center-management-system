@@ -174,7 +174,9 @@ export function ReceptionistSchedule() {
 
   const availability = useApi(
     async (signal) => {
-      if (!desk.member || !effectiveSportId) return [];
+      const member = desk.member;
+
+      if (!member || !effectiveSportId) return [];
 
       return Promise.all(
         availabilityDates.map(async (slotDate) => {
@@ -189,7 +191,7 @@ export function ReceptionistSchedule() {
               slotDate,
               1,
               signal,
-              desk.member.userId,
+              member.userId,
             ),
           };
         }),
