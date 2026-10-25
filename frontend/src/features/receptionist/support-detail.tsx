@@ -127,7 +127,8 @@ export function SupportDetail({
       )
     : null;
   const availableRoles = (Object.keys(ROLE_LABELS) as RoleKey[]).filter(
-    (role) => assigneesByRole(assignees, role).length > 0,
+    (role) => (request.category !== "PAYMENT" || role === "manager") &&
+      assigneesByRole(assignees, role).length > 0,
   );
   const [targetRole, setTargetRole] = useState<RoleKey | "">("");
   const [targetUser, setTargetUser] = useState("");
@@ -455,7 +456,7 @@ export function SupportDetail({
                 >
                   Transfer request
                 </button>
-                {user && request.assignedToUserId !== user.userId && (
+                {user && request.category !== "PAYMENT" && request.assignedToUserId !== user.userId && (
                   <button
                     type="button"
                     className="btn btn--secondary"

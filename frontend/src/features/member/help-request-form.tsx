@@ -259,7 +259,7 @@ export function HelpRequestForm({
                     <option key={i.invoiceId} value={i.invoiceId}>
                       {i.invoiceNumber} · {i.itemDescription || "Service"} ·{" "}
                       {formatMoney(i.cashAmount)} ·{" "}
-                      {formatDateTime(i.paidAtUtc ?? i.issuedAt)}
+                      {formatDateTime(i.paidAtUtc ?? i.issuedAt)} · {i.status}
                     </option>
                   ))}
                 </select>

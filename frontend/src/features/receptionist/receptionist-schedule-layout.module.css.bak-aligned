@@ -1,0 +1,9 @@
+/* Shared Manager calendar presentation with a responsive master/detail workspace. */
+.scheduleWorkspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.scheduleWorkspace[data-detail-open="true"] { grid-template-columns: minmax(0, 1.8fr) minmax(310px, 1fr); }
+.calendarPane { min-width: 0; overflow-x: auto; }
+.detailPane { min-width: 0; max-height: min(80vh, 950px); overflow-y: auto; position: sticky; top: 76px; }
+@media (max-width: 1100px) {
+  .scheduleWorkspace[data-detail-open="true"] { grid-template-columns: minmax(0,1fr); }
+  .detailPane { position: static; max-height: none; }
+}

@@ -5,17 +5,31 @@ import { Dialog } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
 import { ApiError, api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney, formatDateTime } from "@/lib/format";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import {
   SUPPORT_CATEGORIES,
   type SupportCategory,
 } from "@/lib/support-categories";
 import { useApi } from "@/lib/useApi";
-import type { MemberPackageDto, UserAdminDto } from "@/lib/types";
+import type { InvoiceSummaryDto, MemberPackageDto, UserAdminDto } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
 import { ROLE_LABELS, ROLE_RANK, roleKey } from "./support-shared";
 import styles from "./support-center.module.css";
+
+/** Display-friendly service label; never expose internal IDs in an invoice picker. */
+function invoiceServiceLabel(description?: string | null): string {
+  const raw = (description ?? "").trim();
+  if (!raw) return "Service";
+  if (/^PT coach\b/i.test(raw) || /priceVersion\s*\d+/i.test(raw)) {
+    const frequency = raw.match(/(\d+)\s*\/\s*week/i);
+    return frequency
+      ? `Personal training · ${frequency[1]} session(s)/week`
+      : "Personal training";
+  }
+  const normalized = raw.replace(/\s+/g, " ");
+  return normalized.length > 68 ? `${normalized.slice(0, 65).trimEnd()}…` : normalized;
+}
 
 function MemberPlanLine({ memberId }: { memberId: string }) {
   const packages = useApi(
@@ -51,20 +65,31 @@ export function SupportCreateDialog({
   onClose,
   onCreated,
   workspace = "receptionist",
+  initialMember = null,
 }: {
   assignees: SupportAssignee[];
   onClose: () => void;
   onCreated: (message: string) => void;
   workspace?: "manager" | "receptionist";
+  initialMember?: UserAdminDto | null;
 }) {
   const { user } = useAuth();
   const isManager = workspace === "manager";
-  const [member, setMember] = useState<UserAdminDto | null>(null);
+  const [member, setMember] = useState<UserAdminDto | null>(initialMember);
   const [category, setCategory] = useState<SupportCategory | "">("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [handoverTo, setHandoverTo] = useState("");
   const [handoverNote, setHandoverNote] = useState("");
+  const [invoiceId, setInvoiceId] = useState("");
+  const paidInvoices = useApi(
+    (signal) => member && category === "PAYMENT"
+      ? api.get<{ items: InvoiceSummaryDto[] }>("/api/invoices", {
+          signal, query: { memberId: member.userId, status: "Paid", page: 1, pageSize: 100 },
+        })
+      : Promise.resolve(null),
+    [member?.userId, category],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
@@ -74,16 +99,25 @@ export function SupportCreateDialog({
   const escalating = !!target && ROLE_RANK[roleKey(target.role)] > myRank;
   const baseReady =
     !!member &&
+    (category !== "PAYMENT" || invoiceId !== "") &&
     category !== "" &&
     (isManager || subject.trim().length >= 3) &&
     description.trim().length >= 3;
-  const handoverBlock = !handoverTo
+  const paymentToReceptionist = category === "PAYMENT" &&
+    (handoverTo ? roleKey(target?.role) === "receptionist" : !isManager);
+  const handoverBlock = paymentToReceptionist
+    ? "Payment requests cannot be assigned to Receptionist. Choose Center Manager."
+    : !handoverTo
     ? "Choose who to hand over to."
     : escalating && handoverNote.trim().length < 3
       ? "Add a handover note to escalate to a higher role."
       : null;
 
   async function submit(handover: boolean) {
+    if (category === "PAYMENT" && (!handover || roleKey(target?.role) !== "manager")) {
+      setError("Payment requests must be assigned to Center Manager, not Receptionist.");
+      return;
+    }
     if (lock.current || !baseReady || !member || (handover && handoverBlock))
       return;
     lock.current = true;
@@ -93,6 +127,7 @@ export function SupportCreateDialog({
       await api.post("/api/member-support-requests", {
         memberId: member.userId,
         category,
+        invoiceId: category === "PAYMENT" ? invoiceId : undefined,
         subject: isManager ? undefined : subject.trim(),
         description: description.trim(),
         assigneeUserId: handover ? handoverTo : user?.userId,
@@ -139,11 +174,11 @@ export function SupportCreateDialog({
           {isManager ? "What is your request about? *" : "Topic"}
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value as SupportCategory)}
+            onChange={(e) => { setCategory(e.target.value as SupportCategory); setHandoverTo(""); setInvoiceId(""); }}
           >
             <option value="">Select a topic</option>
             {SUPPORT_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
+              <option key={c.value} value={c.value} >
                 {c.label}
               </option>
             ))}
@@ -177,6 +212,33 @@ export function SupportCreateDialog({
           </label>
         )}
 
+        {category === "PAYMENT" && (
+          <label className={styles.field}>
+            Paid VNPay invoice (required)
+            <select value={invoiceId} onChange={(event) => setInvoiceId(event.target.value)}>
+              <option value="">Select a paid invoice</option>
+              {(paidInvoices.data?.items ?? []).filter((invoice) => invoice.cashAmount > 0 && ["PAID", "PAIDAFTERRECONCILIATION", "PAID_AFTER_RECONCILIATION"].includes(invoice.status.toUpperCase().replace(/\s+/g, ""))).map((invoice) => (
+                <option key={invoice.invoiceId} value={invoice.invoiceId}>
+                  {`${invoice.invoiceNumber} · ${invoiceServiceLabel(invoice.itemDescription)} · ${formatMoney(invoice.cashAmount)} · ${formatDateTime(invoice.paidAtUtc ?? invoice.issuedAt)} · ${invoice.status}`}
+                </option>
+              ))}
+            </select>
+            {invoiceId && (paidInvoices.data?.items ?? []).some((invoice) => invoice.invoiceId === invoiceId) && (() => {
+              const selectedInvoice = (paidInvoices.data?.items ?? []).find((invoice) => invoice.invoiceId === invoiceId)!;
+              return (
+                <div style={{ display: "grid", gap: 4, padding: 12, border: "1px solid var(--border-subtle)", borderRadius: 8 }} aria-live="polite">
+                  <strong>{selectedInvoice.invoiceNumber}</strong>
+                  <span>{invoiceServiceLabel(selectedInvoice.itemDescription)}</span>
+                  <span>Amount: {formatMoney(selectedInvoice.cashAmount)}</span>
+                  <span>Date: {formatDateTime(selectedInvoice.paidAtUtc ?? selectedInvoice.issuedAt)}</span>
+                  <span>Status: {selectedInvoice.status}</span>
+                </div>
+              );
+            })()}
+            {paidInvoices.error && <span role="alert">{paidInvoices.error.message}</span>}
+            <small>Only Center Manager can handle payment requests.</small>
+          </label>
+        )}
         <label className={styles.field}>
           {isManager ? "Your message *" : "Description"}
           <textarea
@@ -197,9 +259,8 @@ export function SupportCreateDialog({
             >
               <option value="">Select a staff member</option>
               {assignees
-                .filter((x) => x.userId !== user?.userId)
                 .map((x) => (
-                  <option key={x.userId} value={x.userId}>
+                  <option key={x.userId} value={x.userId} disabled={category === "PAYMENT" && roleKey(x.role) !== "manager"}>
                     {x.name} ({ROLE_LABELS[roleKey(x.role)]})
                   </option>
                 ))}
@@ -248,7 +309,7 @@ export function SupportCreateDialog({
           <button
             type="button"
             className="btn"
-            disabled={busy || !baseReady}
+            disabled={busy || !baseReady || (category === "PAYMENT" && !isManager)}
             onClick={() => void submit(false)}
           >
             Create &amp; handle myself

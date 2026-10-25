@@ -44,8 +44,8 @@ const summaryCards: {
   { key: "open", label: "Received", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "done", label: "Finished", status: "FINISHED" },
-  { key: "rejected", label: "Declined", status: "REJECTED" },
+  { key: "done", label: "Done", status: "FINISHED" },
+  { key: "rejected", label: "Reject", status: "REJECTED" },
 ];
 
 /** Support requests workspace for the front desk and managers: filterable list plus a detail panel. */
@@ -62,10 +62,10 @@ export function SupportQueue({
   const cards = isReceiver ? [
     { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
     { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
-    { key: "done" as const, label: "Finished", status: "FINISHED" },
+    { key: "done" as const, label: "Done", status: "FINISHED" },
   ] : summaryCards;
   const statusLabel = (status: string) =>
-    status === "NOT_STARTED" ? "Not started" : status === "FINISHED" ? "Finished" : (SUPPORT_STATUS_LABELS[status] ?? status);
+    status === "NOT_STARTED" ? "Not started" : status === "FINISHED" ? "Done" : (SUPPORT_STATUS_LABELS[status] ?? status);
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -263,7 +263,7 @@ export function SupportQueue({
           >
             <option value="">All statuses</option>
             <option value="NOT_STARTED">Not started (group)</option>
-            <option value="FINISHED">Finished (group)</option>
+            <option value="FINISHED">Done (group)</option>
             {Object.entries(SUPPORT_STATUS_LABELS).map(([status, text]) => (
               <option key={status} value={status}>{text}</option>
             ))}
