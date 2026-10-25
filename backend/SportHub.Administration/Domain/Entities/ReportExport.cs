@@ -57,9 +57,9 @@ public static class ReportTypes
             [RevenueDaily] =
             [
                 "date", "collectedAmount", "refundedAmount", "obligationReduction", "netCollected",
-                "legacyCashCollected", "reconciliationCashCollected"
+                "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid"
             ],
-            [RevenueSummary] = ["fromDate", "toDate", "collectedAmount", "refundedAmount", "netCollected", "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemed", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints", "outstandingPointsAsOfUtc"],
+            [RevenueSummary] = ["fromDate", "toDate", "collectedAmount", "refundedAmount", "netCollected", "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid", "bankRefundCount", "pointsRedeemed", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints", "outstandingPointsAsOfUtc"],
             [RevenueDimensions] = ["source", "sportId", "sportName", "memberName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
             [CourtRentalRevenue] = ["source", "sportId", "sportName", "memberName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
             [MembershipPeriod] = ["fromDate", "toDate", "newMembers", "membersPurchasingMembershipInPeriod", "activeMembersAtPeriodEnd", "dayPassesSold"],

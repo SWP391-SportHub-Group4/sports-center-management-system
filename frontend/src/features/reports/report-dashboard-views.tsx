@@ -358,6 +358,11 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   hint="Money received − cash refunded"
                 />
               </div>
+              <p>
+                Recorded bank payouts: {formatMoney(r.bankRefundPaid ?? 0)} VND
+                ({r.bankRefundCount ?? 0} payout(s)). This amount is shown separately
+                from cash refunds and does not reduce money received.
+              </p>
               <div className={s.charts}>
                 <section className={s.panel}>
                   <h2>After refunds by day</h2>

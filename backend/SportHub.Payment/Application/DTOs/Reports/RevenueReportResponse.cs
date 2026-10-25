@@ -26,6 +26,13 @@ public sealed record RevenueReportResponse(
     public decimal ReconciliationCashCollected { get; init; }
     public int ReconciliationCashCount { get; init; }
 
+    /// <summary>
+    /// Bank transfers a Manager recorded as paid out through Support Requests, dated by the recorded payout time.
+    /// Shown on its own line: it is not subtracted from VNPay cash collected and never added to point refunds.
+    /// </summary>
+    public decimal BankRefundPaid { get; init; }
+    public int BankRefundCount { get; init; }
+
     /// <summary>Points spent during the period.</summary>
     public long PointsRedeemed { get; init; }
 

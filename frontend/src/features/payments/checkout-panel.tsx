@@ -10,12 +10,12 @@ import { PaymentResult } from "./payment-result";
 import { openPaymentGateway } from "./gateway-navigation";
 import { PointsSelector } from "./points-selector";
 import { InvoiceStatus } from "./invoice-status";
-import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import { HoldCountdown } from "./hold-countdown";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatMoney, formatPoints } from "@/lib/format";
+import { formatMoney, formatPoints, formatTime } from "@/lib/format";
+import { paymentSupportErrorCodes } from "@/lib/payment-support-errors";
 import type {
   CheckoutDto,
   PaymentAttemptDto,
@@ -108,6 +108,9 @@ function CheckoutFlow({
   } | null>(null);
   const errorMessage = error?.uncertain
     ? l.uncertain
+    : error?.cause instanceof ApiError &&
+        error.cause.code === paymentSupportErrorCodes.dayPassOutsideHours
+      ? "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time."
     : error?.cause instanceof ApiError &&
         error.cause.code === "duplicate_active_package"
       ? t.apiErrors.duplicateActivePackage
@@ -471,11 +474,9 @@ function CheckoutFlow({
     );
   }
   const dayPassNotice =
-    checkout?.isDayPass ||
-    (intent?.kind === "membership" &&
-      Number(intent.body.packageId) === DAY_PASS_PACKAGE_ID) ? (
+    checkout?.isDayPass && vm?.closingSoon && vm.closesAtUtc ? (
       <p role="note" className={styles.alert}>
-        {t.checkout.dayPassNotice}
+        {t.checkout.dayPassNotice.replace("{time}", formatTime(vm.closesAtUtc))}
       </p>
     ) : null;
   if (!checkout || !vm)

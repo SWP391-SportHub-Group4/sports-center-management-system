@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { AvatarImage } from "@/components/AvatarImage";
-import { StatusChip } from "@/components/ui";
+import { SupportStatus } from "@/components/support-status";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -17,12 +17,10 @@ import { useApi } from "@/lib/useApi";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportAttachments } from "./support-attachments";
+import { SupportPayout } from "./support-payout";
 import {
   ROLE_LABELS,
   ROLE_RANK,
-  STATUS_LABELS,
-  receiverStatusLabel,
-  receiverStatus,
   CHANNEL_LABELS,
   supportReference,
   assigneesByRole,
@@ -218,14 +216,7 @@ export function SupportDetail({
     <div className={styles.detail}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
-          {isManager ? (
-            <StatusChip value={request.status} />
-          ) : (
-            <span className={styles.badge}>
-              <span className={styles.dot} data-status={isReceiver ? receiverStatus(request.status) : request.status} />
-              {isReceiver ? receiverStatusLabel(request.status) : STATUS_LABELS[request.status] ?? request.status}
-            </span>
-          )}
+          <SupportStatus status={request.status} />
           <time className={styles.createdAt} dateTime={request.createdAt}>
             Created {formatDateTime(request.createdAt)}
           </time>
@@ -236,6 +227,15 @@ export function SupportDetail({
         {isManager && (
           <p className={styles.muted}>
             Reference: <strong>{supportReference(request.requestId)}</strong>
+          </p>
+        )}
+        {request.slaDueAtUtc && (
+          <p className={request.isOverdue ? styles.overdueBadge : styles.muted}>
+            {request.isOverdue ? "Overdue since" : "Response due"}{" "}
+            {formatDateTime(request.slaDueAtUtc)}
+            {request.remindCount
+              ? ` · ${request.remindCount} member reminder(s)`
+              : ""}
           </p>
         )}
       </header>
@@ -318,16 +318,37 @@ export function SupportDetail({
         {isManager ? (
           <div className={styles.section}>
             <h4>Attached images</h4>
-            {request.attachments?.length ? (
-              <SupportAttachments attachments={request.attachments} />
+            {request.attachments?.some(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            ) ? (
+              <SupportAttachments
+                attachments={request.attachments.filter(
+                  (attachment) => attachment.kind !== "PAYOUT_PROOF",
+                )}
+              />
             ) : (
               <p className={styles.muted}>No images attached.</p>
             )}
           </div>
         ) : (
-          <SupportAttachments attachments={request.attachments} />
+          <SupportAttachments
+            attachments={request.attachments?.filter(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            )}
+          />
         )}
       </section>
+
+      {isManager && request.category === "PAYMENT" && (
+        <SupportPayout
+          request={request}
+          events={events.data ?? []}
+          onChanged={() => {
+            events.reload();
+            onChanged();
+          }}
+        />
+      )}
 
       {isManager && (
         <section

@@ -82,6 +82,35 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                                  .Select(x => x.InvoiceId).ToListAsync(ct))
                         links[id] = $"/member/invoices/{id}";
                     break;
+                case "PaymentConvertedToPoints":
+                    foreach (var id in await db.Invoices.Where(x => x.MemberId == userId && ids.Contains(x.InvoiceId))
+                                 .Select(x => x.InvoiceId).ToListAsync(ct))
+                        links[id] = $"/member/invoices/{id}";
+                    break;
+                case "PaymentUnactivated":
+                    // The source is the verified gateway event; only its invoice owner gets a link.
+                    foreach (var e in await (from ev in db.Set<SportHub.Payment.Domain.Entities.VerifiedGatewayEvent>()
+                                             join a in db.Set<SportHub.Payment.Domain.Entities.PaymentAttempt>()
+                                                 on ev.PaymentAttemptId equals a.PaymentAttemptId
+                                             join i in db.Invoices on a.InvoiceId equals i.InvoiceId
+                                             where ids.Contains(ev.VerifiedGatewayEventId) && i.MemberId == userId
+                                             select new { ev.VerifiedGatewayEventId, i.InvoiceId }).ToListAsync(ct))
+                        links[e.VerifiedGatewayEventId] = $"/member/invoices/{e.InvoiceId}";
+                    break;
+                case "SupportPayoutRecorded":
+                    foreach (var p in await (from payout in db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>()
+                                             join r in db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>()
+                                                 on payout.RequestId equals r.RequestId
+                                             where ids.Contains(payout.PayoutId) && r.MemberId == userId
+                                             select new { payout.PayoutId, payout.RequestId }).ToListAsync(ct))
+                        links[p.PayoutId] = $"/member/help?tab=requests&requestId={p.RequestId}";
+                    break;
+                case "SupportRequestReceived":
+                    foreach (var id in await db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>()
+                                 .Where(r => r.MemberId == userId && ids.Contains(r.RequestId))
+                                 .Select(r => r.RequestId).ToListAsync(ct))
+                        links[id] = $"/member/help?tab=requests&requestId={id}";
+                    break;
                 case "ClassThresholdAtRisk":
                 case "ClassThresholdConfirmed":
                     foreach (var id in await db.ThresholdResponses.Where(x => x.MemberId == userId && ids.Contains(x.ThresholdResponseId))

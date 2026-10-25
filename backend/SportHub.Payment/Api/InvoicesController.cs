@@ -1,6 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.Payment.Domain.Entities;
+using SportHub.Payment.Domain.Enums;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Payment.Application.Commands;
@@ -18,7 +22,9 @@ public class InvoicesController(
     IInvoiceReceiptService receipts,
     IPackagePurchaseService purchases,
     IPaymentRecordingService payments,
-    IPaymentAdjustmentService adjustments) : ControllerBase
+    IPaymentAdjustmentService adjustments,
+    ISportHubDbContext db,
+    UnactivatedPaymentResolutionService resolutions) : ControllerBase
 {
     [HttpGet("invoices/{invoiceId:guid}/receipt.pdf")]
     public async Task<IActionResult> ReceiptPdf(
@@ -56,6 +62,15 @@ public class InvoicesController(
                 "Invoice not owned.");
         }
 
+        if (!string.Equals(detail.Summary.Status, "PAID", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(detail.Summary.Status, "PAID_AFTER_RECONCILIATION", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(detail.Summary.Status, "COMPENSATED", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ConflictException(
+                "invoice_not_paid",
+                "The invoice can be downloaded only after payment is completed.");
+        }
+
         var model =
             await receipts.BuildAsync(
                 invoiceId,
@@ -89,6 +104,33 @@ public class InvoicesController(
         [FromQuery] string? status = null,
         CancellationToken ct = default)
         => Ok(await invoices.SearchAsync(User.RequireUserId(), status, null, page, pageSize, ct));
+
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpGet("members/me/unactivated-payments")]
+    public async Task<IActionResult> UnactivatedPayments(CancellationToken ct)
+    {
+        var memberId = User.RequireUserId();
+        var rows = await db.Set<Invoice>().AsNoTracking()
+            .Where(i => i.MemberId == memberId && (
+                i.Status == InvoiceStatus.PaidAfterReconciliation && i.ReconciliationRequired
+                    && i.PaidVia == "VnPayAwaitingResolution"
+                || (i.Status == InvoiceStatus.Paid || i.Status == InvoiceStatus.PaidAfterReconciliation
+                    || i.Status == InvoiceStatus.Compensated)
+                    && db.Set<VerifiedGatewayEvent>().Any(e => e.ProcessingStatus == "Unactivated"
+                        && db.Set<PaymentAttempt>().Any(a => a.PaymentAttemptId == e.PaymentAttemptId
+                            && a.InvoiceId == i.InvoiceId))))
+            .OrderByDescending(i => i.PaidAtUtc)
+            .Select(i => new { i.InvoiceId, i.InvoiceNumber, i.TotalAmount,
+                i.CashAmount, i.PaidAtUtc, FulfillmentOutcome = "RECONCILIATION_REQUIRED" })
+            .ToListAsync(ct);
+        return Ok(rows);
+    }
+
+    [Authorize(Policy = SportHubPolicies.Member)]
+    [HttpPost("invoices/{invoiceId:guid}/convert-to-points")]
+    public async Task<IActionResult> ConvertToPoints(Guid invoiceId,
+        [FromHeader(Name = "Idempotency-Key")] string key, CancellationToken ct)
+        => Ok(await resolutions.ConvertToPointsAsync(invoiceId, User.RequireUserId(), key, ct));
 
     [HttpGet("invoices/by-item/{itemId:guid}")]
     public async Task<IActionResult> ByItem(Guid itemId, CancellationToken ct)

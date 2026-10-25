@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { CreditCard, FileText } from "lucide-react";
+import { CreditCard, FileText, MessageSquare } from "lucide-react";
 import { CameraQrScanner } from "@/components/CameraQrScanner";
 import { resolveMemberCode } from "@/components/MemberPicker";
 import { api } from "@/lib/apiClient";
@@ -114,7 +114,14 @@ export function ReceptionDashboard() {
     (signal) =>
       api.get<Paged<unknown>>("/api/front-desk/payment-reconciliation", {
         signal,
-        query: { page: 1, pageSize: 1, caseType: "captured" },
+        query: { outcome: "RECONCILIATION_REQUIRED", page: 1, pageSize: 1 },
+      }),
+    [],
+  );
+  const supportStats = useApi(
+    (signal) =>
+      api.get<{ overdue: number }>("/api/member-support-requests/stats", {
+        signal,
       }),
     [],
   );
@@ -177,7 +184,7 @@ export function ReceptionDashboard() {
         aria-label={vi ? "Kiểm tra quầy" : "Desk checks"}
       >
         <DeskCheck
-          href="/receptionist/payment-reconciliation?caseType=captured"
+          href="/receptionist/payment-reconciliation?view=paid"
           icon={<CreditCard size={20} aria-hidden="true" />}
           count={unfulfilledCount}
           title={vi ? "Đã trả tiền, chưa kích hoạt" : "Paid, not activated"}
@@ -188,7 +195,14 @@ export function ReceptionDashboard() {
           }
         />
         <DeskCheck
-          href="/receptionist/invoices?status=ISSUED"
+          href="/receptionist/support?overdue=1"
+          icon={<MessageSquare size={20} aria-hidden="true" />}
+          count={supportStats.data?.overdue ?? 0}
+          title="Overdue support requests"
+          hint="Requests past the response deadline"
+        />
+        <DeskCheck
+          href="/receptionist/invoices"
           icon={<FileText size={20} aria-hidden="true" />}
           count={invoiceCount}
           title={vi ? "Hóa đơn chờ thanh toán" : "Invoices awaiting payment"}

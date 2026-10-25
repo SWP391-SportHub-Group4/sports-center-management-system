@@ -1770,7 +1770,7 @@ export const en = {
     viewInvoice: "View invoice",
     nextMembership: "Go to my Gym membership",
     dayPassNotice:
-      "Gym day pass: the pass is valid for 24 hours after payment and is not refundable.",
+      "The gym closes at {time}. This pass is valid only until then and is not refundable.",
     nextCourse: "Go to my courses",
     nextRental: "Go to my rentals",
     nextDashboard: "Back to my overview",

@@ -197,7 +197,7 @@ export function SelectedMemberPanel({
     : accessTip;
 
   // Ba ô: gói Gym còn hiệu lực (kèm giờ hết hạn), lần check-in gần nhất, yêu cầu hỗ trợ cần xử lý.
-  // Vé ngày hết hạn đúng 24 giờ sau lúc thanh toán; gói tháng hết hạn cuối ngày EndDate.
+  // Day pass ends at 22:00 on purchase day; monthly plans end at EndDate.
   const access = membership ?? dayPass;
   const expiry = access
     ? access.expiresAtUtc

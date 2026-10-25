@@ -31,11 +31,16 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
 {
     [HttpGet]
     public async Task<IActionResult> Queue([FromQuery] Guid? memberId,
+        [FromQuery] string? outcome = null,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] string? caseType = null, CancellationToken ct = default)
     {
+        var onlyUnactivated = string.Equals(outcome, "RECONCILIATION_REQUIRED", StringComparison.OrdinalIgnoreCase);
+        if (outcome is not null && !onlyUnactivated)
+            throw new BadRequestException("reconciliation_outcome_invalid", "Unsupported reconciliation outcome.");
         if (caseType is not null && caseType != "captured" && caseType != "unverified")
-            return BadRequest(new { error = "Invalid caseType. Use captured or unverified." });
+            throw new BadRequestException("reconciliation_case_type_invalid", "Invalid caseType. Use captured or unverified.");
+        if (onlyUnactivated) caseType = "captured";
         page = Math.Clamp(page, 1, 1000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var scanLimit = page * pageSize;
@@ -49,6 +54,8 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                                   && proof.ProcessingStatus != "Fulfilled"
                                   && proof.ProcessingStatus != "Compensated"
                                   && proof.ProcessingStatus != "Failed"
+                                  && proof.ProcessingStatus != "ConvertedToPoints"
+                                  && (!onlyUnactivated || proof.ProcessingStatus == "Unactivated")
                                   && (!memberId.HasValue || invoice.MemberId == memberId.Value)
                               orderby (invoice.HoldExpiresAtUtc ?? DateTime.MaxValue), proof.ProviderPaidAtUtc descending, attempt.PaymentAttemptId
                               select new FrontDeskReconciliationRow(invoice.InvoiceId, invoice.InvoiceNumber,
@@ -56,7 +63,8 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                                       ? invoice.Member.Profile.FullName : invoice.Member.Email,
                                   attempt.PaymentAttemptId, proof.VerifiedGatewayEventId, proof.Amount,
                                   proof.ProviderPaidAtUtc, invoice.HoldExpiresAtUtc, proof.ProviderPaidAtUtc,
-                                  proof.ProcessingStatus, proof.LastError,
+                                  proof.ProcessingStatus == "Unactivated"
+                                      ? "RECONCILIATION_REQUIRED" : proof.ProcessingStatus, proof.LastError,
                                   invoice.Member.Email, invoice.IssuedAt, invoice.TotalAmount, invoice.PointsApplied,
                                   invoice.Status.ToString(), attempt.CreatedAt)
             );
@@ -68,6 +76,7 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                                 where (attempt.Status == PaymentAttemptStatus.Pending
                                         || attempt.Status == PaymentAttemptStatus.Expired
                                         || attempt.Status == PaymentAttemptStatus.ReconciliationRequired)
+                                    && !onlyUnactivated
                                     && (invoice.Status == InvoiceStatus.Issued || invoice.Status == InvoiceStatus.Void)
                                     && (!memberId.HasValue || invoice.MemberId == memberId.Value)
                                     && !db.Set<VerifiedGatewayEvent>().Any(e =>
@@ -123,6 +132,8 @@ public sealed class FrontDeskPaymentReconciliationController(ISportHubDbContext 
                                && e.ProcessingStatus != "Fulfilled"
                                && e.ProcessingStatus != "Compensated"
                                && e.ProcessingStatus != "Failed"
+                               && e.ProcessingStatus != "Unactivated"
+                               && e.ProcessingStatus != "ConvertedToPoints"
                                && e.ProcessingStatus != "ManualCompensationRequired"
                            orderby e.VerifiedAtUtc descending
                            select e.VerifiedGatewayEventId).FirstOrDefaultAsync(ct);

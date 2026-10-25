@@ -6,16 +6,7 @@ export function supportReference(requestId: string): string {
 }
 
 export type SupportStatus =
-  "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "DONE" | "REJECTED";
-
-export const STATUS_LABELS: Record<string, string> = {
-  OPEN: "New",
-  ASSIGNED: "Assigned",
-  IN_PROGRESS: "In progress",
-  DONE: "Done",
-  CLOSED: "Done",
-  REJECTED: "Rejected",
-};
+  "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "DONE" | "REJECTED" | "CLOSED";
 
 export const CHANNEL_LABELS: Record<string, string> = {
   COUNTER: "At the counter",
@@ -58,7 +49,17 @@ export function assigneesByRole(
 
 export interface SupportEventDto {
   eventId: string;
-  type: "CREATED" | "ASSIGNED" | "PROGRESS" | "DONE" | "REJECTED";
+  type:
+    | "CREATED"
+    | "ASSIGNED"
+    | "PROGRESS"
+    | "DONE"
+    | "REJECTED"
+    | "REMINDED_BY_MEMBER"
+    | "SLA_REMINDER_SENT"
+    | "PAYOUT_RECORDED"
+    | "MEMBER_CONFIRMED_RECEIVED"
+    | "MEMBER_REPORTED_NOT_RECEIVED";
   note: string | null;
   createdAt: string;
   actorName: string;
@@ -78,17 +79,19 @@ export function eventText(event: SupportEventDto): string {
       return `${event.actorName} marked it as done`;
     case "REJECTED":
       return `${event.actorName} rejected the request`;
+    case "REMINDED_BY_MEMBER":
+      return `${event.actorName} reminded the support team`;
+    case "SLA_REMINDER_SENT":
+      return "The response deadline reminder was sent";
+    case "PAYOUT_RECORDED":
+      return `${event.actorName} recorded a bank payout`;
+    case "MEMBER_CONFIRMED_RECEIVED":
+      return event.actorName === "System"
+        ? "Payout receipt was confirmed automatically"
+        : "Member confirmed receiving the payout";
+    case "MEMBER_REPORTED_NOT_RECEIVED":
+      return "Member reported that the payout was not received";
     default:
       return event.actorName;
   }
-}
-
-/** Receiver inbox groups legacy routing states without rewriting request history. */
-export function receiverStatus(status: string): string {
-  if (["OPEN", "ASSIGNED", "NOT_STARTED"].includes(status)) return "NOT_STARTED";
-  if (["DONE", "CLOSED", "REJECTED"].includes(status)) return "DONE";
-  return status;
-}
-export function receiverStatusLabel(status: string): string {
-  return receiverStatus(status) === "NOT_STARTED" ? "Not started" : (STATUS_LABELS[receiverStatus(status)] ?? status);
 }

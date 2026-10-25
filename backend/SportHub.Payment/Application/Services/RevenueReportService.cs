@@ -44,6 +44,15 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
                                 && (e.EntryType == PointEntryType.Spend || e.EntryType == PointEntryType.Earn || e.EntryType == PointEntryType.Adjustment)
                             select new { e.CreatedAtUtc, e.EntryType, e.Points, e.AvailableDelta, e.InvoiceItemId, e.ReferenceType, w.OwnerUserId })
             .ToListAsync(ct);
+        var bankPayouts = await db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>().AsNoTracking()
+            .Where(p => p.RecordedAtUtc >= periodStart && p.RecordedAtUtc < periodEnd)
+            .Join(db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>().AsNoTracking(),
+                payout => payout.RequestId, request => request.RequestId,
+                (payout, request) => new { payout.RecordedAtUtc, payout.Amount, request.MemberId })
+            .Where(x => !memberId.HasValue || x.MemberId == memberId.Value)
+            .ToListAsync(ct);
+        var bankPayoutByDay = bankPayouts.GroupBy(x => DateOnly.FromDateTime(VietnamTime.ToLocal(x.RecordedAtUtc)))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
         var invoiceIds = payments.Select(p => p.InvoiceId).Union(adjustments.Select(a => a.InvoiceId))
             .Union(credits.Select(e => e.InvoiceId)).ToArray();
         var pointItemIds = points.Where(e => e.InvoiceItemId.HasValue).Select(e => e.InvoiceItemId!.Value).ToArray();
@@ -119,7 +128,8 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
             var rows = byDay[date];
             return new RevenueReportRowResponse(date, rows.Sum(e => e.Cash), rows.Sum(e => e.Refund),
                 rows.Sum(e => e.Obligation), rows.Sum(e => e.Cash - e.Refund))
-            { LegacyCashCollected = rows.Sum(e => e.Legacy), ReconciliationCashCollected = rows.Where(e => e.Source == "Reconciliation").Sum(e => e.Cash) };
+            { LegacyCashCollected = rows.Sum(e => e.Legacy), ReconciliationCashCollected = rows.Where(e => e.Source == "Reconciliation").Sum(e => e.Cash),
+                BankRefundPaid = !sportId.HasValue && string.IsNullOrWhiteSpace(source) ? bankPayoutByDay.GetValueOrDefault(date) : 0m };
         }).ToList();
         var cashEntries = selected.Where(e => e.Cash != 0 || e.Spent != 0).ToList();
         var sourceRows = cashEntries.GroupBy(e => e.Source).OrderBy(g => g.Key)
@@ -139,6 +149,8 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
             LegacyCashCollected = selected.Sum(e => e.Legacy),
             ReconciliationCashCollected = selected.Where(e => e.Source == "Reconciliation").Sum(e => e.Cash),
             ReconciliationCashCount = selected.Count(e => e.Source == "Reconciliation"),
+            BankRefundPaid = !sportId.HasValue && string.IsNullOrWhiteSpace(source) ? bankPayouts.Sum(x => x.Amount) : 0m,
+            BankRefundCount = !sportId.HasValue && string.IsNullOrWhiteSpace(source) ? bankPayouts.Count : 0,
             PointsRedeemed = selected.Sum(e => e.Spent), PointsIssued = selected.Sum(e => e.Issued),
             PointsRefunded = selected.Sum(e => e.PointsRefunded), ManagerPointAdjustment = selected.Sum(e => e.Adjustment),
             OutstandingPoints = outstanding, OutstandingPointsAsOfUtc = outstandingAt,
@@ -146,4 +158,3 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
         };
     }
 }
-

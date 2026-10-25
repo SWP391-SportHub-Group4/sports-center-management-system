@@ -63,6 +63,8 @@ export interface CheckoutViewModel {
   // ---- hạn giữ chỗ ----
   expiresAtUtc: string;
   serverNowUtc: string;
+  closingSoon: boolean;
+  closesAtUtc: string | null;
 
   phase: CheckoutPhase;
   /** true khi server yêu cầu đối soát thủ công. */
@@ -128,6 +130,8 @@ export function toCheckoutViewModel(
     cashAmount: dto.cashAmount,
     expiresAtUtc: dto.expiresAtUtc,
     serverNowUtc: dto.serverNowUtc,
+    closingSoon: !!dto.closingSoon,
+    closesAtUtc: dto.closesAtUtc ?? null,
     phase,
     reconciliationRequired: dto.reconciliationRequired,
     next: !pending
