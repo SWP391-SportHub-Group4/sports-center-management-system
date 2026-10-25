@@ -335,10 +335,10 @@ export function EditUser({
   const l = t.staffWork;
   const d = t.adminWork;
   const { user } = useAuth();
-  const [role, setRole] = useState(a.role);
+  const role = a.role;
   const [sports, setSports] = useState(a.sportIds);
   const sportOptions = useCoachSports(role === "COACH");
-  const roleChanged = role !== a.role;
+  const roleChanged = false;
   const addedSports = sports.filter((id) => !a.sportIds.includes(id));
   const removedSports = a.sportIds.filter((id) => !sports.includes(id));
   const specialtiesChanged =
@@ -430,50 +430,44 @@ export function EditUser({
         </div>
         {!review ? (
           <>
-            <section
-              className={styles.accessSection}
-              aria-label="Role and specialties"
-            >
-              <div className={styles.sectionHeading}>
-                <h3>Role &amp; specialties</h3>
-                <p>Control what this account can access.</p>
-              </div>
-              {a.role === "MEMBER" ? (
+            {a.role === "COACH" && (
+              <section
+                className={styles.accessSection}
+                aria-label="Coach specialties"
+              >
+                <div className={styles.sectionHeading}>
+                  <h3>Specialties</h3>
+                  <p>Assign sport specialties for this coach.</p>
+                </div>
+                <SportOptions
+                  state={sportOptions}
+                  value={sports}
+                  onChange={setSports}
+                />
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={
+                    !validReason ||
+                    !specialtiesChanged ||
+                    !sports.length ||
+                    sportOptions.loading ||
+                    !!sportOptions.error
+                  }
+                  onClick={() => setReview("role")}
+                >
+                  {d.saveChanges}
+                </button>
+              </section>
+            )}
+            {a.role === "MEMBER" && (
+              <section
+                className={styles.accessSection}
+                aria-label="Role and specialties"
+              >
                 <p>{d.memberRoleLocked}</p>
-              ) : a.role === "SYSTEM_ADMINISTRATOR" ? null : (
-                <>
-                  <RoleSelect
-                    value={role}
-                    onChange={(r) => {
-                      setRole(r);
-                      setSports(r === a.role ? a.sportIds : []);
-                    }}
-                  />
-                  {role === "COACH" && (
-                    <SportOptions
-                      state={sportOptions}
-                      value={sports}
-                      onChange={setSports}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={
-                      !validReason ||
-                      (!roleChanged && !specialtiesChanged) ||
-                      (role === "COACH" &&
-                        (!sports.length ||
-                          sportOptions.loading ||
-                          !!sportOptions.error))
-                    }
-                    onClick={() => setReview("role")}
-                  >
-                    {d.saveChanges}
-                  </button>
-                </>
-              )}
-            </section>
+              </section>
+            )}
             {a.userId === user?.userId && (
               <Field
                 label={l.reason}
@@ -937,7 +931,7 @@ export function Users() {
                   ? `${state.data.totalCount.toLocaleString()} accounts${activeCount ? " matching your filters" : " in the directory"}`
                   : "Account directory"}
             </span>
-            <span>Manage access changes roles and account status.</span>
+            <span>Manage access controls coach specialties and account status.</span>
           </div>
           <ApiTable
             caption={l.users}
