@@ -68,7 +68,7 @@ public sealed class CenterCancellationRefundService(ISportHubDbContext db, ICent
             return new CenterCancellationChoiceResult(credited, true);
         }
         var item = await db.Set<InvoiceItem>().AsNoTracking().SingleAsync(x => x.ItemId == invoiceItemId, ct);
-        if (await HasRefundRequestAsync(item.InvoiceId, ct))
+        if (await HasRefundRequestAsync(item.InvoiceId, item.ItemId, ct))
             throw new ConflictException("center_cancellation_refund_requested",
                 "A refund request was already sent for this invoice, so points can no longer be chosen.");
         var result = await refunds.CreditAsync(new RefundCreditRequest(invoiceItemId, 100, ReasonFor(row.Kind),
@@ -99,7 +99,7 @@ public sealed class CenterCancellationRefundService(ISportHubDbContext db, ICent
                     await using var tx = await db.Database.BeginTransactionAsync(ct);
                     await refunds.LockPaidItemAsync(row.InvoiceItemId, ct);
                     var item = await db.Set<InvoiceItem>().AsNoTracking().SingleAsync(x => x.ItemId == row.InvoiceItemId, ct);
-                    if (await CreditedPointsAsync(row.InvoiceItemId, ct) > 0 || await HasRefundRequestAsync(item.InvoiceId, ct))
+                    if (await CreditedPointsAsync(row.InvoiceItemId, ct) > 0 || await HasRefundRequestAsync(item.InvoiceId, item.ItemId, ct))
                     {
                         await tx.RollbackAsync(ct);
                         continue;
@@ -126,7 +126,7 @@ public sealed class CenterCancellationRefundService(ISportHubDbContext db, ICent
         var item = await db.Set<InvoiceItem>().AsNoTracking().SingleOrDefaultAsync(x => x.ItemId == row.InvoiceItemId, ct);
         if (item is null) return null;
         var credited = await CreditedPointsAsync(row.InvoiceItemId, ct);
-        var requested = await HasRefundRequestAsync(item.InvoiceId, ct);
+        var requested = await HasRefundRequestAsync(item.InvoiceId, item.ItemId, ct);
         decimal remaining;
         try { remaining = await refunds.GetRemainingItemValueVndAsync(row.InvoiceItemId, ct); }
         catch (ConflictException) { remaining = 0m; }
@@ -144,8 +144,8 @@ public sealed class CenterCancellationRefundService(ISportHubDbContext db, ICent
                 && x.Note != null && x.Note.StartsWith(NotePrefix))
             .SumAsync(x => (int?)x.Points, ct) ?? 0;
 
-    private Task<bool> HasRefundRequestAsync(Guid invoiceId, CancellationToken ct)
-        => db.Set<MemberSupportRequest>().AnyAsync(r => r.InvoiceId == invoiceId && r.Category == "PAYMENT"
+    private Task<bool> HasRefundRequestAsync(Guid invoiceId, Guid itemId, CancellationToken ct)
+        => db.Set<MemberSupportRequest>().AnyAsync(r => r.InvoiceId == invoiceId && (r.InvoiceItemId == null || r.InvoiceItemId == itemId) && r.Category == "PAYMENT"
             && r.Status != "REJECTED", ct);
 
     private static string ReasonFor(string kind)

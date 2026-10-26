@@ -17,13 +17,16 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
+using SportHub.Payment.Application.Services;
 
 namespace SportHub.Identity.Api;
 
 public sealed class RecordSupportPayout
 {
-    [Range(typeof(decimal), "0.01", "9999999999999999")]
+    [Range(typeof(decimal), "0", "9999999999999999")]
     public decimal Amount { get; set; }
+    [Range(0, int.MaxValue)] public int PointsRefunded { get; set; }
+    public Guid? InvoiceItemId { get; set; }
     [Required, MaxLength(1000)] public string? Note { get; set; }
     public List<IFormFile>? Files { get; set; }
 }
@@ -35,18 +38,36 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
     IAuditWriter audit, INotificationWriter notifications,
     IConfiguration configuration, IPointWalletService wallets) : ControllerBase
 {
+    [HttpGet("{requestId:guid}/payout-quote")]
+    public async Task<IActionResult> Quote(Guid requestId, CancellationToken ct)
+    {
+        var request = await db.Set<MemberSupportRequest>().AsNoTracking().SingleOrDefaultAsync(r => r.RequestId == requestId, ct)
+            ?? throw new NotFoundException("support_request_not_found", "Support request not found.");
+        if (request.Category != "PAYMENT" || request.InvoiceId is null)
+            throw new ConflictException("payout_request_invalid", "Payout requires a payment request.");
+        var invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync(i => i.InvoiceId == request.InvoiceId, ct);
+        return Ok(new { request.InvoiceItemId, supportsEnteredPoints = true,
+            items = await SupportRefundCalculator.ItemsAsync(db, invoice, ct) });
+    }
+
     [HttpPost("{requestId:guid}/payout")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(20 * 1024 * 1024)]
     public async Task<IActionResult> Record(Guid requestId, [FromForm] RecordSupportPayout body, CancellationToken ct)
     {
-        var files = await SupportPayoutProof.ReadAsync(body.Files, clock.UtcNow, ct);
         var note = body.Note?.Trim();
         if (string.IsNullOrEmpty(note))
             throw new BadRequestException(PaymentSupportErrorCodes.PayoutNoteRequired,
                 "Add a note about your call with the member and how the refund was made.");
-        if (body.Amount <= 0)
-            throw new BadRequestException("payout_amount_invalid", "Enter a positive payout amount.");
+        if (body.Amount < 0 || body.Amount % 1000m != 0)
+            throw new BadRequestException("payout_amount_invalid", "Cash must be a non-negative multiple of 1,000 VND.");
+        if (body.PointsRefunded < 0)
+            throw new BadRequestException("payout_points_invalid", "Points must be a non-negative whole number.");
+        if (body.Amount == 0 && body.PointsRefunded == 0)
+            throw new BadRequestException("payout_value_required", "Enter cash or points to refund.");
+        var files = body.Amount > 0 || body.Files is { Count: > 0 }
+            ? await SupportPayoutProof.ReadAsync(body.Files, clock.UtcNow, ct)
+            : [];
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var request = await db.Set<MemberSupportRequest>().FromSqlInterpolated(
             $"SELECT * FROM member_support_requests WHERE request_id = {requestId} FOR UPDATE")
@@ -70,23 +91,28 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
         if (body.Amount > captured - alreadyPaid)
             throw new ConflictException(PaymentSupportErrorCodes.PayoutAmountExceedsPaid,
                 "Payout exceeds the remaining captured VNPay amount.");
-        // Refund by original payment method: the VNPay share is paid out by the Manager (bank transfer) and the
-        // points share goes back to the wallet in this same transaction. Hybrid invoices must refund the whole VNPay
-        // share; the points are credited automatically and idempotently per request.
-        var pointsToRefund = await SupportRefundBreakdown.RefundablePointsAsync(db, invoice, ct);
-        if (pointsToRefund > 0 && body.Amount != captured - alreadyPaid)
-            throw new ConflictException("payout_amount_mismatch",
-                $"This invoice was paid partly with points. Transfer exactly the remaining VNPay amount ({captured - alreadyPaid:N0} VND); the points are returned automatically.");
-        var pointsItemId = await db.Set<InvoiceItem>().AsNoTracking().Where(x => x.InvoiceId == invoiceId)
-            .OrderBy(x => x.ItemId).Select(x => (Guid?)x.ItemId).FirstOrDefaultAsync(ct);
+        if (invoice.MemberId != request.MemberId)
+            throw new ConflictException("payout_request_invalid", "The invoice does not belong to this member.");
+        if (request.InvoiceItemId != null && body.InvoiceItemId != null && request.InvoiceItemId != body.InvoiceItemId)
+            throw new ConflictException("payout_item_mismatch", "Refund the service linked to this request.");
+        var itemId = await SupportRefundCalculator.ResolveItemAsync(db, invoiceId, request.InvoiceItemId ?? body.InvoiceItemId, ct);
+        var itemQuote = (await SupportRefundCalculator.ItemsAsync(db, invoice, ct)).Single(i => i.InvoiceItemId == itemId);
+        if (body.Amount > itemQuote.RefundableVnpayVnd)
+            throw new ConflictException(PaymentSupportErrorCodes.PayoutAmountExceedsPaid,
+                "Payout exceeds the remaining VNPay payment for this service.");
+        if (body.PointsRefunded > itemQuote.RefundablePoints)
+            throw new ConflictException("payout_points_exceeds_paid",
+                "Points exceed the remaining points paid for this service.");
+        var pointsToRefund = body.PointsRefunded;
+        request.InvoiceItemId = itemId;
         if (pointsToRefund > 0)
             await wallets.EarnAsync(new WalletOperation(invoice.MemberId, pointsToRefund, "SystemEvent", requestId,
-                User.RequireUserId(), SupportRefundBreakdown.NotePrefix + " points returned with the payout of support request",
-                pointsItemId), ct);
+                User.RequireUserId(), "SupportRefund: points returned with the payout of support request", itemId), ct);
         var now = clock.UtcNow;
         var payout = new MemberSupportPayout
         {
             PayoutId = Guid.NewGuid(), RequestId = requestId, InvoiceId = invoiceId,
+            InvoiceItemId = itemId, PointsRefunded = pointsToRefund,
             Amount = body.Amount, Note = note,
             RecordedByUserId = User.RequireUserId(), RecordedAtUtc = now
         };
@@ -108,15 +134,16 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
         audit.Write(new AuditEntry(User.RequireUserId(), "SUPPORT_PAYOUT_RECORDED", nameof(MemberSupportPayout),
             payout.PayoutId.ToString(), NewValue: JsonSerializer.Serialize(new
             {
-                payout.RequestId, payout.InvoiceId, payout.Amount, PointsRefunded = pointsToRefund
+                payout.RequestId, payout.InvoiceId, payout.InvoiceItemId, payout.Amount, PointsRefunded = pointsToRefund
             })));
         var contact = await db.Set<UserAccount>().AsNoTracking().Where(x => x.UserId == request.MemberId)
             .Select(x => new { x.Email, Name = x.Profile != null ? x.Profile.FullName : x.Email })
             .SingleAsync(ct);
+        var refundDescription = body.Amount > 0 && pointsToRefund > 0
+            ? $"{body.Amount:N0} VND and {pointsToRefund:N0} points"
+            : body.Amount > 0 ? $"{body.Amount:N0} VND" : $"{pointsToRefund:N0} points";
         notifications.Queue(new NotificationRequest(request.MemberId, NotificationEvents.SupportPayoutRecorded,
-            $"A payout of {body.Amount:N0} VND was recorded for your support request"
-            + (pointsToRefund > 0 ? $" and {pointsToRefund:N0} points were returned to your wallet" : string.Empty)
-            + ". Open the request to view proof and confirm receipt.",
+            $"A refund of {refundDescription} was recorded for your support request. Open the request to confirm receipt.",
             payout.PayoutId));
         var frontendUrl = (configuration["Frontend:BaseUrl"]
             ?? configuration["Cors:AllowedOrigins:0"] ?? "http://localhost:3000").TrimEnd('/');
@@ -124,8 +151,8 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
         notifications.QueueEmail(new EmailNotificationRequest(request.MemberId, contact.Email,
             NotificationEvents.SupportPayoutRecorded, payout.PayoutId,
             "SportHub - Payout recorded",
-            EmailContent.Paragraph($"Hi {contact.Name}, a payout of {body.Amount:N0} VND was recorded for your support request.")
-            + EmailContent.Paragraph("Sign in to view the request and payout proof, then confirm whether you received it.")
+            EmailContent.Paragraph($"Hi {contact.Name}, a refund of {refundDescription} was recorded for your support request.")
+            + EmailContent.Paragraph("Sign in to view the request and confirm whether you received the refund.")
             + $"<p><a href=\"{requestUrl}\">View support request</a></p>"));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -135,49 +162,27 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
     }
 }
 
-/// <summary>VNPay share vs points share of an invoice, used by the PAYMENT request form and the payout.</summary>
-internal static class SupportRefundBreakdown
-{
-    public const string NotePrefix = "SupportRefund:";
-
-    /// <summary>Points spent at checkout that were not yet returned by an earlier support refund.</summary>
-    public static async Task<int> RefundablePointsAsync(ISportHubDbContext db, Invoice invoice, CancellationToken ct)
-    {
-        if (invoice.CheckoutCycleId is null || invoice.PointsApplied <= 0) return 0;
-        var returned = await (from l in db.Set<SportHub.Payment.Wallet.Domain.PointLedgerEntry>().AsNoTracking()
-                              join i in db.Set<InvoiceItem>().AsNoTracking() on l.InvoiceItemId equals i.ItemId
-                              where i.InvoiceId == invoice.InvoiceId && l.ReferenceType == "SystemEvent"
-                                  && l.EntryType == SportHub.Payment.Wallet.Domain.PointEntryType.Earn
-                                  && l.Note != null && l.Note.StartsWith(NotePrefix)
-                              select (int?)l.Points).SumAsync(ct) ?? 0;
-        return Math.Max(0, invoice.PointsApplied - returned);
-    }
-}
-
 [ApiController]
-[Authorize(Policy = SportHubPolicies.Member)]
-[Route("api/members/me/invoices")]
+[Authorize]
 public sealed class InvoiceRefundBreakdownController(ISportHubDbContext db) : ControllerBase
 {
-    /// <summary>Invoice Breakdown for the PAYMENT request form: what goes back to the bank and what goes back as points.</summary>
-    [HttpGet("{invoiceId:guid}/refund-breakdown")]
-    public async Task<IActionResult> Get(Guid invoiceId, CancellationToken ct)
+    [HttpGet("api/members/me/invoices/{invoiceId:guid}/refund-breakdown")]
+    [Authorize(Policy = SportHubPolicies.Member)]
+    public Task<IActionResult> Get(Guid invoiceId, CancellationToken ct) => Breakdown(invoiceId, User.RequireUserId(), ct);
+
+    [HttpGet("api/invoices/{invoiceId:guid}/refund-breakdown")]
+    [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    public Task<IActionResult> Staff(Guid invoiceId, CancellationToken ct) => Breakdown(invoiceId, null, ct);
+
+    private async Task<IActionResult> Breakdown(Guid invoiceId, Guid? memberId, CancellationToken ct)
     {
         var invoice = await db.Set<Invoice>().AsNoTracking()
-            .SingleOrDefaultAsync(x => x.InvoiceId == invoiceId && x.MemberId == User.RequireUserId(), ct)
+            .SingleOrDefaultAsync(i => i.InvoiceId == invoiceId && (memberId == null || i.MemberId == memberId), ct)
             ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
-        var vnpay = await db.Set<SportHub.Payment.Domain.Entities.Payment>().AsNoTracking()
-            .Where(x => x.InvoiceId == invoiceId && x.Method == PaymentMethod.VnPay && x.Status == PaymentStatus.Success)
-            .SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
-        var paidOut = await db.Set<MemberSupportPayout>().AsNoTracking()
-            .Where(x => x.InvoiceId == invoiceId).SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
-        var points = await SupportRefundBreakdown.RefundablePointsAsync(db, invoice, ct);
-        return Ok(new
-        {
-            totalVnd = invoice.TotalAmount, vnpayVnd = vnpay, pointsApplied = invoice.PointsApplied,
-            pointsVnd = invoice.PointsApplied * 1000m, refundableVnpayVnd = Math.Max(0m, vnpay - paidOut),
-            refundablePoints = points
-        });
+        var items = await SupportRefundCalculator.ItemsAsync(db, invoice, ct);
+        return Ok(new { totalVnd = invoice.TotalAmount, vnpayVnd = items.Sum(i => i.VnpayVnd),
+            pointsApplied = invoice.PointsApplied, pointsVnd = invoice.PointsApplied * 1000m,
+            refundableVnpayVnd = items.Sum(i => i.RefundableVnpayVnd), refundablePoints = items.Sum(i => i.RefundablePoints), items });
     }
 }
 

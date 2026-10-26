@@ -359,6 +359,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IReven
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();
+builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointGiftLimitService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointConfirmationService>();
 var vnPaySection = builder.Configuration.GetSection(VnPayOptions.SectionName);
 if (!builder.Environment.IsDevelopment())

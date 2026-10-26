@@ -4,6 +4,25 @@ export interface Paged<T> {
   pageSize: number;
   totalCount: number;
 }
+export interface SupportRefundItemDto {
+  invoiceItemId: string;
+  description: string;
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+}
+export interface SupportRefundBreakdownDto {
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+  items: SupportRefundItemDto[];
+}
 export interface MemberSupportRequestDto {
   requestId: string;
   memberId: string;
@@ -41,11 +60,14 @@ export interface MemberSupportRequestDto {
   isOverdue?: boolean;
   remindCount?: number;
   invoiceId?: string | null;
+  invoiceItemId?: string | null;
   outcome?: string | null;
   bankAccountMasked?: string | null;
   payout?: {
     payoutId: string;
     amount: number;
+    invoiceItemId?: string | null;
+    pointsRefunded?: number;
     recordedAtUtc: string;
     memberConfirmedAtUtc: string | null;
     memberConfirmedBy: "MEMBER" | "SYSTEM" | null;
@@ -937,7 +959,7 @@ export interface IncidentPreviewDto {
     sourceType: string;
     sourceId: string;
     outcome:
-      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION";
+      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION" | "DAY_PASS_SUPPORT";
     expectedRefundPoints: number | null;
   }[];
   expectedRefundPointsTotal?: number;

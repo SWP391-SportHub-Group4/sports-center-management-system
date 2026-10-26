@@ -11,6 +11,7 @@ export default function Page() {
   const { values, setValues } = useUrlQuery({
     topic: "",
     invoiceId: "",
+    invoiceItemId: "",
     tab: "new",
     requestId: "",
   });
@@ -21,6 +22,7 @@ export default function Page() {
       <HelpCenter
         initialTopic={values.topic}
         invoiceId={values.invoiceId}
+        invoiceItemId={values.invoiceItemId}
         tab={tab}
         requestId={values.requestId}
         onChange={(next) =>
@@ -29,6 +31,7 @@ export default function Page() {
             requestId: next.requestId,
             topic: "",
             invoiceId: "",
+            invoiceItemId: "",
           })
         }
       />

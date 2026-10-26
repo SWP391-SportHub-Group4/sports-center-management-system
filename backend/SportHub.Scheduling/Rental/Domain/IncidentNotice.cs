@@ -20,4 +20,7 @@ public sealed class IncidentNotice
     public int MembershipExtensionDays { get; set; }
 
     public int ExtendedMemberCount { get; set; }
+    public bool ClosesGym { get; set; }
+    public string DayPassMembersJson { get; set; } = "[]";
+    public DateTime? DayPassNoticeSentAtUtc { get; set; }
 }

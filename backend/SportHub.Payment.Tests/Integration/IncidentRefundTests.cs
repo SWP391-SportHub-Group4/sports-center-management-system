@@ -73,25 +73,27 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
             Refunds = preview.Refunds.Select(r => new IncidentRefundSelection(r.SourceId, r.SuggestedRefundPoints)).ToList() };
 
     [Fact]
-    public async Task Checked_in_day_pass_and_historical_rental_refund_once_and_keep_receipts()
+    public async Task Day_pass_stays_unchanged_while_historical_rental_refunds_once()
     {
         var f = await SeedAsync(); var preview = await Preview(f.Window);
-        Assert.Equal(2, preview.Refunds.Count);
-        Assert.Contains(preview.Refunds, r => r.SourceId == f.Pass && r.Status == "CheckInRecorded" && r.SuggestedRefundPoints == 50);
+        Assert.Single(preview.Refunds);
+        Assert.DoesNotContain(preview.Refunds, r => r.SourceId == f.Pass);
+        Assert.Contains(preview.Members, m => m.SourceId == f.Pass && m.Outcome == "DayPassSupport" && m.ExpectedRefundPoints == null);
         Assert.Contains(preview.Refunds, r => r.SourceId == f.Rental && r.SuggestedRefundPoints == 200);
         var request = Confirm(f.Window, preview);
         var id = await Resolve(request, f.Manager);
         Assert.Equal(id, await Resolve(request, f.Manager));
-        Assert.Equal(250, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
-        Assert.Equal(MemberPackageStatus.Cancelled, await factory.QueryAsync(db => db.MemberPackages.Where(p => p.MemberPackageId == f.Pass).Select(p => p.Status).SingleAsync()));
+        Assert.Equal(200, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.Equal(MemberPackageStatus.Expired, await factory.QueryAsync(db => db.MemberPackages.Where(p => p.MemberPackageId == f.Pass).Select(p => p.Status).SingleAsync()));
         using var scope = factory.Services.CreateScope();
         var receipt = await scope.ServiceProvider.GetRequiredService<IncidentService>().GetAsync(id);
-        Assert.Equal(250, receipt.Refunds!.Sum(r => r.Points));
-        Assert.Equal(4, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == f.Member && receipt.Refunds!.Select(r => r.NotificationSourceId).Contains(n.SourceEntityId!.Value))));
+        Assert.Equal(200, receipt.Refunds!.Sum(r => r.Points));
+        Assert.Single(receipt.DayPassMembers);
+        Assert.Equal(2, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == f.Member && receipt.Refunds!.Select(r => r.NotificationSourceId).Contains(n.SourceEntityId!.Value))));
         var overlap = await Preview(f.Window);
         Assert.All(overlap.Refunds, row => Assert.Equal(0, row.MaximumRefundPoints));
         Assert.Equal("incident_overlap", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(Confirm(f.Window, overlap), f.Manager))).ErrorCode);
-        Assert.Equal(250, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.Equal(200, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
     }
 
     [Fact]
@@ -108,7 +110,7 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         Assert.Equal(150, second.Refunds.Single(r => r.SourceId == f.Rental).MaximumRefundPoints);
         Assert.Equal(50, second.Refunds.Single(r => r.SourceId == f.Rental).RefundedPoints);
         Assert.Equal("incident_overlap", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(Confirm(f.Window, second), f.Manager))).ErrorCode);
-        Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.Equal(50, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
     }
 
     [Fact]
@@ -129,7 +131,7 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         { try { await Resolve(request, f.Manager); return true; } catch (ConflictException) { return false; } }
         var results = await Task.WhenAll(TryResolve(Confirm(f.Window, preview)), TryResolve(Confirm(f.Window, preview)));
         Assert.Single(results, success => success);
-        Assert.Equal(250, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.Equal(200, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
     }
 
     [Fact]
@@ -168,6 +170,6 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         await Resolve(request, f.Manager);
         var changed = request with { Reason = "Different details using the same confirmation" };
         Assert.Equal("incident_operation_conflict", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(changed, f.Manager))).ErrorCode);
-        Assert.Equal(250, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.Equal(200, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
     }
 }

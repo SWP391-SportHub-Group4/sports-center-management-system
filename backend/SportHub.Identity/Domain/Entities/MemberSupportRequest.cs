@@ -19,6 +19,7 @@ public sealed class MemberSupportRequest
     public DateTime CreatedAt { get; set; }
     public DateTime SlaDueAtUtc { get; set; }
     public Guid? InvoiceId { get; set; }
+    public Guid? InvoiceItemId { get; set; }
     public int RemindCount { get; set; }
     public DateTime? LastMemberRemindAtUtc { get; set; }
     public DateTime? LastStaffRemindAtUtc { get; set; }

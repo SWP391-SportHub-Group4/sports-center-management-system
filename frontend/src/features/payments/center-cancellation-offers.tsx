@@ -110,7 +110,7 @@ export function CenterCancellationOffers() {
                 </button>{" "}
                 <a
                   className={styles.quietAction}
-                  href={`/member/help?topic=PAYMENT&invoiceId=${offer.invoiceId}`}
+                  href={`/member/help?topic=PAYMENT&invoiceId=${offer.invoiceId}&invoiceItemId=${offer.invoiceItemId}`}
                 >
                   Request a refund instead
                 </a>

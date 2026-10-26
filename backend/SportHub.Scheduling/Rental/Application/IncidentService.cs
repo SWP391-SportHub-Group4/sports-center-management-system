@@ -50,8 +50,9 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             where fence.Scope == scope && fence.RoomId == details.RoomId
                 && fence.StartAtUtc == details.StartAtUtc && fence.EndAtUtc == details.EndAtUtc && session.IncidentReportJson != null
             select new { session.SessionId, session.ClassId, session.SessionNo, session.Class!.Name, session.IncidentReportJson }).Distinct().ToListAsync(ct);
-        var refundJson = await db.Set<IncidentNotice>().Where(x => x.IncidentId == incidentId).Select(x => x.RefundsJson).SingleAsync(ct);
-        return details with { Refunds = System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(refundJson) ?? [], SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
+        var saved = await db.Set<IncidentNotice>().AsNoTracking().SingleAsync(x => x.IncidentId == incidentId, ct);
+        var refundJson = saved.RefundsJson;
+        return details with { ClosesGym = saved.ClosesGym, DayPassNoticeSentAtUtc = saved.DayPassNoticeSentAtUtc, DayPassMembers = System.Text.Json.JsonSerializer.Deserialize<List<IncidentDayPassMember>>(saved.DayPassMembersJson) ?? [], Refunds = System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(refundJson) ?? [], SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
             ClassSessionService.ReadIncidentReport(r.IncidentReportJson)!)).ToList() };
     }
 
@@ -70,6 +71,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var ids = await db.Set<CourtRental>().Where(x => x.CancellationIncidentId == incidentId)
             .Select(x => x.CourtRentalId).ToListAsync(ct);
         var receiptJson = await db.Set<IncidentNotice>().Where(i => i.IncidentId == incidentId).Select(i => i.RefundsJson).SingleAsync(ct);
+        ids.Add(incidentId);
         ids.AddRange((System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(receiptJson) ?? []).Select(r => r.NotificationSourceId));
         return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
     }
@@ -106,7 +108,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             ClosesGym = gymClosed,
             SuggestedMembershipExtensionDays = 0,
             AffectedMemberCount = gymClosed ? await membershipExtension.CountAffectedMembersAsync(startLocal, ct) : 0,
-            Members = members,
+            Members = members.Concat((await DayPassMembersAsync(shape, ct)).Select(p => new IncidentAffectedMember(p.MemberId, p.MemberName, "GymDayPass", p.PassId, "DayPassSupport", null))).ToList(),
             ExpectedRefundPointsTotal = refundRows.Sum(x => x.SuggestedRefundPoints)
         };
     }
@@ -194,7 +196,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             throw new ConflictException("incident_refund_preview_changed", "Affected services or refund balances changed. Refresh and review the preview.");
         var selections = rows.Count == 0 && request.Refunds is null ? [] : Selections(rows, request);
         // Active rental cancellations offer the Member a choice. Keep reviewed historical
-        // compensation and day-pass refunds, and do not credit a pending choice on a later incident.
+        // rental compensation, and do not credit a pending choice on a later incident.
         var choiceRows = rows.Where(r => r.IsPaid && r.SourceType == "CourtRental"
             && (r.Status is nameof(CourtRentalStatus.Confirmed) or nameof(CourtRentalStatus.InUse)
                 || (r.Status == nameof(CourtRentalStatus.Cancelled) && r.RefundedPoints == 0))).ToList();
@@ -208,7 +210,9 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             CreatedByUserId = managerId, CreatedAtUtc = clock.UtcNow,
             RequestFingerprint = requestFingerprint,
             RefundsJson = System.Text.Json.JsonSerializer.Serialize(selections),
-            ResolutionSummary = $"Reviewed {rows.Count} rental/day-pass services; refunded {creditedPoints} points and offered a refund choice for {choiceRows.Count} rentals. Affected services were cancelled and incident rooms blocked."
+            ClosesGym = await ClosesGymAsync(shape, ct),
+            DayPassMembersJson = System.Text.Json.JsonSerializer.Serialize(await DayPassMembersAsync(shape, ct)),
+            ResolutionSummary = $"Reviewed {rows.Count} rental services; refunded {creditedPoints} points and offered a refund choice for {choiceRows.Count} rentals. Affected services were cancelled and incident rooms blocked."
         };
         db.Set<IncidentNotice>().Add(notice);
         await db.SaveChangesAsync(ct);
@@ -229,14 +233,9 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
                     await refunds.CreditAsync(new RefundCreditRequest(row.InvoiceItemId!.Value, 100,
                         creditNote,
                         incidentId, ExactPoints: selection.Points), ct);
-                if (row.SourceType == "GymDayPass")
-                    await dayPasses.CancelAsync(row.SourceId, ct);
-                else
-                {
-                    await rentals.CancelAsync(row.SourceId, request.Reason.Trim(), centerFault: true, incidentId: incidentId, cancellationToken: ct);
-                    var rental = await db.Set<CourtRental>().SingleAsync(r => r.CourtRentalId == row.SourceId, ct);
-                    rental.CancellationIncidentId ??= incidentId;
-                }
+                await rentals.CancelAsync(row.SourceId, request.Reason.Trim(), centerFault: true, incidentId: incidentId, cancellationToken: ct);
+                var rental = await db.Set<CourtRental>().SingleAsync(r => r.CourtRentalId == row.SourceId, ct);
+                rental.CancellationIncidentId ??= incidentId;
             }
             var recipient = await users.GetAsync(row.MemberId, ct);
             var text = awaitsChoice
@@ -611,7 +610,12 @@ public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.Wire
 public sealed record IncidentDetailsResponse(Guid IncidentId,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
     DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc,
-    IReadOnlyList<IncidentSessionHistory>? SessionReports = null, IReadOnlyList<IncidentRefundReceipt>? Refunds = null);
+    IReadOnlyList<IncidentSessionHistory>? SessionReports = null, IReadOnlyList<IncidentRefundReceipt>? Refunds = null)
+{
+    public bool ClosesGym { get; init; }
+    public DateTime? DayPassNoticeSentAtUtc { get; init; }
+    public IReadOnlyList<IncidentDayPassMember> DayPassMembers { get; init; } = [];
+}
 public sealed record IncidentSessionHistory(Guid SessionId, int ClassId, int SessionNo, string ClassName,
     SportHub.Scheduling.Application.DTOs.IncidentSessionReport Report);
 public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)

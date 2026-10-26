@@ -3,6 +3,7 @@ import { useApi } from "@/lib/useApi";
 
 export interface SupportPayoutView {
   amount: number;
+  pointsRefunded: number;
   recordedAtUtc: string;
   memberConfirmedAtUtc: string | null;
   memberConfirmedBy: string | null;
@@ -65,31 +66,31 @@ export function requestStage(row: SupportRequestDto): RequestStage {
         label: "Paid out",
         hint:
           row.payout.memberConfirmedBy === "SYSTEM"
-            ? "The transfer receipt was confirmed automatically."
-            : "The transfer was recorded and you confirmed receipt.",
+            ? "Refund receipt was confirmed automatically."
+            : "The refund was recorded and you confirmed receipt.",
       };
     if (row.status === "DONE")
       return {
         key: "resolved",
         label: "Review completed",
-        hint: "The manager completed your payout review. Read the reply below. This does not confirm that you received the transfer.",
+        hint: "The manager completed your payout review. Read the reply below. This does not confirm that you received the refund.",
       };
     if (row.status === "REJECTED")
       return {
         key: "rejected",
         label: "Review declined",
-        hint: "The manager declined your payout claim. Read the reason below. This does not confirm that you received the transfer.",
+        hint: "The manager declined your payout claim. Read the reason below. This does not confirm that you received the refund.",
       };
     if (row.status === "CLOSED")
       return {
         key: "confirmReceipt",
         label: "Confirm receipt",
-        hint: "We sent the money. Check the proof and tell us whether you received it.",
+        hint: "Check the refund and tell us whether you received it.",
       };
     return {
       key: "notReceived",
       label: "Reported not received",
-      hint: "You told us the transfer did not arrive. Our manager is checking it.",
+      hint: "You told us the refund did not arrive. Our manager is checking it.",
     };
   }
   switch (row.status) {
@@ -149,6 +150,7 @@ function normalize(row: Partial<SupportRequestDto>): SupportRequestDto {
     payout: row.payout
       ? {
           ...row.payout,
+          pointsRefunded: row.payout.pointsRefunded ?? 0,
           memberConfirmedAtUtc: row.payout.memberConfirmedAtUtc ?? null,
           memberConfirmedBy: row.payout.memberConfirmedBy ?? null,
           proofAttachmentIds: row.payout.proofAttachmentIds ?? [],
