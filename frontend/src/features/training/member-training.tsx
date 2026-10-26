@@ -190,7 +190,9 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
         </div>
       ) : kind === "plans" && (totalVisible > 0 || (source === "ai" && (aiState.loading || aiState.error))) ? null : (
         <p className={styles.muted}>
-          {kind === "plans" ? (vi ? "Không có plan phù hợp với bộ lọc." : "No plans match these filters.")
+          {kind === "plans" ? source || coach || activity || scope || date
+            ? (vi ? "Không có plan phù hợp với bộ lọc." : "No plans match these filters.")
+            : (vi ? "Chưa có nội dung từ huấn luyện viên ở các lớp bạn đang học." : "No coach content is available in your current classes yet.")
             : coach || activity || scope || date
               ? (vi ? "Không có kết quả phù hợp với bộ lọc." : "No results match these filters.")
               : vi ? "Chưa có nội dung từ huấn luyện viên ở các lớp bạn đang học."
