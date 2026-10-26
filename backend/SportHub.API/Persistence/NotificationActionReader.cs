@@ -236,6 +236,7 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                         links[id] = "/member/services";
                     break;
                 case "RefundCompleted":
+                case "ManagerPointsGifted":
                     foreach (var n in group) result[n.NotificationId] = "/member/finance?tab=wallet";
                     break;
             }

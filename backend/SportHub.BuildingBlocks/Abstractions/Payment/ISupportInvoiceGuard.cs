@@ -4,5 +4,5 @@ namespace SportHub.BuildingBlocks.Abstractions.Payment;
 public interface ISupportInvoiceGuard
 {
     /// <summary>Throws 400 payment_request_invoice_required, 409 reconciliation_already_resolved or 409 payment_request_already_open.</summary>
-    Task EnsureEligibleAsync(Guid memberId, Guid invoiceId, CancellationToken ct);
+    Task<Guid> EnsureEligibleAsync(Guid memberId, Guid invoiceId, CancellationToken ct, Guid? invoiceItemId = null);
 }

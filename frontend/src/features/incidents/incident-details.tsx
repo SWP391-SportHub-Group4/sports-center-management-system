@@ -1,5 +1,6 @@
 "use client";
 import { IncidentRefundTable } from "./incident-refund-table";
+import { IncidentDayPassSupport } from "./incident-day-pass-support";
 import { AsyncSection, Card } from "@/components/ui";
 import Link from "next/link";
 import { useApi } from "@/lib/useApi";
@@ -22,6 +23,10 @@ export function IncidentDetailsView({ id }: { id: string }) {
     <AsyncSection state={state}>
       {(incident) => (
         <>
+          <IncidentDayPassSupport
+            incident={incident}
+            onChanged={state.reload}
+          />
           <Card title={incident.reason}>
             <dl className={styles.details}>
               <div>

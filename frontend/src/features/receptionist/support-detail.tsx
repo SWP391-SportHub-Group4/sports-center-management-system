@@ -526,26 +526,30 @@ export function SupportDetail({
               </div>
             )}
             <div className={styles.tabs} role="tablist" aria-label="Action">
-              {TABS.filter((tab) => !isReceiver || tab.mode !== "reject").map(
-                (tab) => (
-                  <button
-                    key={tab.mode}
-                    type="button"
-                    role="tab"
-                    className={styles.tab}
-                    aria-selected={mode === tab.mode}
-                    disabled={busy}
-                    onClick={() => {
-                      setMode(tab.mode);
-                      setConfirming(false);
-                    }}
-                  >
-                    {isReceiver && tab.mode === "progress"
-                      ? "In progress"
-                      : tab.label}
-                  </button>
-                ),
-              )}
+              {TABS.filter(
+                (tab) =>
+                  (!isReceiver || tab.mode !== "reject") &&
+                  (tab.mode !== "done" ||
+                    request.category !== "PAYMENT" ||
+                    !!request.payout),
+              ).map((tab) => (
+                <button
+                  key={tab.mode}
+                  type="button"
+                  role="tab"
+                  className={styles.tab}
+                  aria-selected={mode === tab.mode}
+                  disabled={busy}
+                  onClick={() => {
+                    setMode(tab.mode);
+                    setConfirming(false);
+                  }}
+                >
+                  {isReceiver && tab.mode === "progress"
+                    ? "In progress"
+                    : tab.label}
+                </button>
+              ))}
             </div>
             <label className={styles.field}>
               {copy.field}

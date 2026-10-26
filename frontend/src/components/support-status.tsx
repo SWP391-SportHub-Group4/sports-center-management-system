@@ -6,21 +6,22 @@ export const SUPPORT_STATUS_LABELS: Record<string, string> = {
   IN_PROGRESS: "In progress",
   DONE: "Done",
   REJECTED: "Reject",
-  CLOSED: "Closed",
+  CLOSED: "Done",
 };
 
 export const SUPPORT_STATUS_FILTERS = [
   { value: "NOT_STARTED", label: "Not started (group)" },
-  { value: "FINISHED", label: "Finished (group)" },
-  ...Object.entries(SUPPORT_STATUS_LABELS).map(([value, label]) => ({
+  ...["OPEN", "ASSIGNED", "IN_PROGRESS"].map((value) => ({
     value,
-    label,
+    label: SUPPORT_STATUS_LABELS[value],
   })),
+  { value: "FINISHED", label: "Done" },
+  { value: "REJECTED", label: "Reject" },
 ];
 
 export function supportStatusLabel(status: string) {
   if (status === "NOT_STARTED") return "Not started";
-  if (status === "FINISHED") return "Finished";
+  if (status === "FINISHED") return "Done";
   return SUPPORT_STATUS_LABELS[status] ?? status;
 }
 

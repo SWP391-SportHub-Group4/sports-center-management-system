@@ -6,7 +6,7 @@ import { ArrowLeft, BellRing, CheckCircle2, Clock } from "lucide-react";
 import { SupportStatus } from "@/components/support-status";
 import { AsyncSection, Dialog } from "@/components/ui";
 import { api, ApiError, fetchBlob } from "@/lib/apiClient";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import { paymentSupportErrorCodes } from "@/lib/payment-support-errors";
 import { supportCategoryLabel } from "@/lib/support-categories";
 import { useKeepPrevious } from "@/lib/keep-previous";
@@ -240,12 +240,18 @@ function RequestDetail({
       {confirmNeeded && row.payout && (
         <section className={styles.payout} aria-label="Transfer confirmation">
           <h4>
-            <CheckCircle2 size={18} aria-hidden="true" /> We sent{" "}
-            {formatMoney(row.payout.amount)}
+            <CheckCircle2 size={18} aria-hidden="true" /> Refund recorded
           </h4>
           <p>
+            {row.payout.amount > 0
+              ? `${formatMoney(row.payout.amount)} transferred. `
+              : ""}
+            {(row.payout.pointsRefunded ?? 0) > 0
+              ? `${formatPoints(row.payout.pointsRefunded!)} points returned to your wallet. `
+              : ""}
             Recorded on {formatDateTime(row.payout.recordedAtUtc)}. Check your
-            bank app and the proof below, then tell us.
+            {row.payout.amount > 0 ? " bank account" : " points wallet"} and
+            confirm receipt.
           </p>
           {row.payout.proofAttachmentIds.length > 0 && (
             <div className={styles.proofs}>
@@ -290,8 +296,14 @@ function RequestDetail({
           data-unconfirmed={!row.payout.memberConfirmedAtUtc || undefined}
           aria-label="Transfer"
         >
-          <h4>Transfer of {formatMoney(row.payout.amount)}</h4>
+          <h4>Refund recorded</h4>
           <p>
+            {row.payout.amount > 0
+              ? `${formatMoney(row.payout.amount)} transferred. `
+              : ""}
+            {(row.payout.pointsRefunded ?? 0) > 0
+              ? `${formatPoints(row.payout.pointsRefunded!)} points returned. `
+              : ""}
             Recorded on {formatDateTime(row.payout.recordedAtUtc)}.
             {row.payout.memberConfirmedAtUtc
               ? ` ${row.payout.memberConfirmedBy === "SYSTEM" ? "Marked as received automatically" : "You confirmed receipt"} on ${formatDateTime(row.payout.memberConfirmedAtUtc)}.`
@@ -300,7 +312,7 @@ function RequestDetail({
           {open && !row.payout.memberConfirmedAtUtc && (
             <>
               <p className={styles.hint}>
-                The payout is under review. If the transfer has now arrived, you
+                The payout is under review. If the refund has now arrived, you
                 can confirm receipt here.
               </p>
               <button
@@ -402,12 +414,12 @@ function RequestDetail({
       )}
       {confirmReport && (
         <Dialog
-          title="The money did not arrive?"
+          title="The refund did not arrive?"
           onClose={() => setConfirmReport(false)}
         >
           <p>
             We will reopen this request and tell our manager. You can only
-            report this once, so please check your bank app first.
+            report this once, so please check your refund first.
           </p>
           <div className={styles.payoutActions}>
             <button

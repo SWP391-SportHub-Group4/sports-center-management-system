@@ -84,7 +84,10 @@ async function install(page: Page, deepLink = false) {
         pageSize: 20,
       });
     if (path === `/api/member-support-requests/${requestId}`) return json(row);
-    if (route.request().method() === "POST") {
+    if (
+      route.request().method() === "POST" &&
+      path.startsWith("/api/member-support-requests")
+    ) {
       const body = route.request().postDataJSON();
       writes.push(body);
       if (path.endsWith("/progress")) {
