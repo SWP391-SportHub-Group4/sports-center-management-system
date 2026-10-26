@@ -224,26 +224,33 @@ export function SupportRequestActions({
             role="group"
             aria-label="Ticket action"
           >
-            {(["progress", "done", "reject"] as const).map((action) => (
-              <button
-                key={action}
-                type="button"
-                className={styles.actionModeButton}
-                aria-pressed={mode === action}
-                disabled={busy !== null}
-                onClick={() => {
-                  setMode(action);
-                  setConfirmFinal(false);
-                  setNote("");
-                }}
-              >
-                {action === "progress"
-                  ? "Add Progress Note"
-                  : action === "done"
-                    ? "Mark as Done"
-                    : "Reject Request"}
-              </button>
-            ))}
+            {(["progress", "done", "reject"] as const)
+              .filter(
+                (action) =>
+                  action !== "done" ||
+                  request.category !== "PAYMENT" ||
+                  !!request.payout,
+              )
+              .map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  className={styles.actionModeButton}
+                  aria-pressed={mode === action}
+                  disabled={busy !== null}
+                  onClick={() => {
+                    setMode(action);
+                    setConfirmFinal(false);
+                    setNote("");
+                  }}
+                >
+                  {action === "progress"
+                    ? "Add Progress Note"
+                    : action === "done"
+                      ? "Mark as Done"
+                      : "Reject Request"}
+                </button>
+              ))}
           </div>
           <label className={styles.field}>
             {mode === "progress"

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -12,6 +12,8 @@ import {
 import { AsyncSection, StatusChip } from "@/components/ui";
 import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import { api } from "@/lib/apiClient";
+import { DEFAULT_AVATAR } from "@/lib/avatar";
+import { useUserAvatar } from "@/lib/user-avatar";
 import { useAccessGuard } from "@/lib/use-access-guard";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -88,30 +90,33 @@ export function ScheduleCoursePage({
       ),
     [],
   );
-  const coachRecord = coaches.data?.find((row) => row.fullName === coach);
+  const coachRecord = coaches.data?.find((row) =>
+    enrollment?.coachId
+      ? row.userId === enrollment.coachId
+      : row.fullName === coach,
+  );
   const coachId = enrollment?.coachId ?? coachRecord?.userId;
-  const coachAvatar =
-    coachRecord?.avatarUrl ??
-    "/sporthub/coaches/minh-khang.webp";
+  const coachAvatar = useUserAvatar(coachId, coachRecord?.avatarUrl);
+  const [failedAvatar, setFailedAvatar] = useState<string | null>(null);
   const completed = Math.max(0, enrollment?.completedSessions ?? 0);
   const total = Math.max(0, enrollment?.numSessions ?? 0);
   const coachPortrait = (
     <>
       <Image
-        src={coachAvatar}
+        src={
+          coachAvatar && coachAvatar !== failedAvatar
+            ? coachAvatar
+            : DEFAULT_AVATAR
+        }
         width={800}
         height={1000}
-        alt={
-          vi
-            ? "Ảnh minh họa huấn luyện viên tại trung tâm"
-            : "Illustrative portrait of a sports coach"
-        }
+        alt={coach || (vi ? "Huấn luyện viên" : "Your coach")}
+        onError={() => setFailedAvatar(coachAvatar)}
         priority
       />
       <span className={styles.coachCaption}>
         <span>{vi ? "Huấn luyện viên" : "Your coach"}</span>
         <strong>{coach || (vi ? "Đang phân công" : "To be assigned")}</strong>
-        <small>{vi ? "Ảnh minh họa" : "Illustrative portrait"}</small>
       </span>
     </>
   );
@@ -194,7 +199,9 @@ export function ScheduleCoursePage({
                     className={styles.progressBar}
                     value={Math.min(completed, total)}
                     max={Math.max(total, 1)}
-                    aria-label={vi ? "Số buổi đã hoàn thành" : "Completed sessions"}
+                    aria-label={
+                      vi ? "Số buổi đã hoàn thành" : "Completed sessions"
+                    }
                   />
                 </dd>
               </div>

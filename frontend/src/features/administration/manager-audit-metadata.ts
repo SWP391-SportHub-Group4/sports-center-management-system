@@ -5,6 +5,8 @@ export type AuditSnapshot = Record<string, AuditValue>;
 // Explicit public operation fields only. Unknown nested objects, credentials,
 // notification bodies and fingerprints never enter the display model.
 const scalarFields = new Set([
+  "memberAgreed",
+  "incidentId",
   "requestId",
   "amount",
   "remindCount",

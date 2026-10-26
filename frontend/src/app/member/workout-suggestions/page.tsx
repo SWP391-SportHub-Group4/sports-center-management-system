@@ -136,7 +136,7 @@ export default function MemberWorkoutSuggestionsPage() {
             {busy ? "Generating workout..." : result ? "Regenerate workout" : "Generate workout"}
           </button>
         </div>
-        <p className={styles.setupDisclaimer}><Info size={15} aria-hidden="true" /> Suggestions are guidance only. A coach must review them before use as an official plan.</p>
+        <p className={styles.setupDisclaimer}><Info size={15} aria-hidden="true" /> Generated suggestions are saved under Training → Plans with a “Created by AI” label. They are guidance only.</p>
         {error && (
           <div role="alert" className={styles.error}>
             <Info size={18} aria-hidden="true" />
@@ -209,7 +209,22 @@ export default function MemberWorkoutSuggestionsPage() {
             <p>{result.rationale}</p>
           </section>
           <p className={styles.bottomNote}><ShieldCheck size={17} aria-hidden="true" /> This is an automated, rule-based suggestion—not a coach-approved training plan or medical advice.</p>
-          <div className={styles.bottomActions}><a href="/member/training?tab=plans" aria-disabled={items.length === 0} onClick={(event) => { event.preventDefault(); if (items.length > 0) sendToPlans(); }}>Save suggestion to Plans <ArrowRight size={16} aria-hidden="true" /></a></div>
+<div className={styles.bottomActions}>
+  <a
+    href="/member/training?tab=plans"
+    aria-disabled={items.length === 0}
+    onClick={(event) => {
+      event.preventDefault();
+
+      if (items.length > 0) {
+        sendToPlans();
+      }
+    }}
+  >
+    Save suggestion to Plans
+    <ArrowRight size={16} aria-hidden="true" />
+  </a>
+</div>
         </section>
       )}
     </main>

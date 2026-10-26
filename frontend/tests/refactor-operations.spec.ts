@@ -5,6 +5,7 @@ import { previewSessions } from "../src/features/courses/preview";
 import type { ManagerCourseDto } from "../src/lib/types";
 import { en } from "../src/locales/en";
 import { fillIncidentDateTime } from "./helpers/incident";
+import { chooseNoticeRecipient } from "./helpers/notice-recipients";
 
 // HTTP fixtures validate frontend behavior only. No payments, email, or production API calls.
 
@@ -663,7 +664,9 @@ for (const language of ["en", "vi"] as const)
       exact: true,
     });
     await checkIn.click();
-    const countdown = page.getByRole("button", { name: /Check[ -]in \(\d+s\)/i });
+    const countdown = page.getByRole("button", {
+      name: /Check[ -]in \(\d+s\)/i,
+    });
     await expect(countdown).toBeDisabled();
     expect(visits).toHaveLength(1);
     expect(posts).toBe(1);
@@ -710,7 +713,11 @@ test("notice validation rejection keeps the content editable", async ({
     }),
   );
   await page.goto("/manager/notices");
-  await page.getByRole("checkbox", { name: "Coach A" }).check();
+  await chooseNoticeRecipient(page, "Coach", {
+    userId: memberId,
+    name: "Coach A",
+    email: "coach@example.com",
+  });
   await page.getByLabel("Subject", { exact: true }).fill("Schedule update");
   await page
     .getByLabel("Message", { exact: true })
@@ -721,7 +728,9 @@ test("notice validation rejection keeps the content editable", async ({
     "Recipient is inactive",
   );
   await expect(page.getByLabel("Subject", { exact: true })).toBeEnabled();
-  await expect(page.getByRole("checkbox", { name: "Coach A" })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Choose recipients: Coach", exact: true }),
+  ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Check and retry the same request" }),
   ).toHaveCount(0);
@@ -764,7 +773,11 @@ for (const recovery of ["retry", "reload"] as const)
       return r.fulfill({ json: { noticeId: rentalId } });
     });
     await page.goto("/manager/notices");
-    await page.getByRole("checkbox", { name: "Coach A" }).check();
+    await chooseNoticeRecipient(page, "Coach", {
+      userId: memberId,
+      name: "Coach A",
+      email: "coach@example.com",
+    });
     await page.getByLabel("Subject", { exact: true }).fill("Schedule update");
     await page
       .getByLabel("Message", { exact: true })
@@ -1447,7 +1460,11 @@ test("manual notice reviews explicit recipients and sends only once", async ({
     await r.fulfill({ json: { noticeId: rentalId } });
   });
   await page.goto("/manager/notices");
-  await page.getByRole("checkbox", { name: "Coach A" }).check();
+  await chooseNoticeRecipient(page, "Coach", {
+    userId: memberId,
+    name: "Coach A",
+    email: "coach@example.com",
+  });
   await page.getByLabel("Subject", { exact: true }).fill("Schedule update");
   await page
     .getByLabel("Message", { exact: true })

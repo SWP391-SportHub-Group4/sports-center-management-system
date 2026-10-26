@@ -98,6 +98,8 @@ const labels: Record<string, string> = {
   APPROVE_POINT_CREDIT: "Points credit approved",
   REJECT_POINT_CREDIT: "Points credit rejected",
   ADJUST_POINTS: "Member's points balance adjusted",
+  GIFT_POINTS: "Manager gifted points to a member",
+  NOTIFY_INCIDENT_DAY_PASS_MEMBERS: "Day-pass holders notified about a Gym incident",
   REQUEST_POINT_CONFIRMATION: "Member's approval to use points requested",
   CONFIRM_POINT_SELECTION: "Points payment confirmed",
   SELECT_SELF_POINTS: "Points selected for payment",

@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useNow } from "@/lib/useApi";
+import { sortTeachingSessions } from "@/lib/teaching-order";
 import { StatusChip } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import type { CourseSessionDto } from "@/lib/types";
@@ -20,10 +21,6 @@ import { formatPlanContent } from "./plan-content";
 export type PlanScope = "course" | "session" | "personal";
 export const planScopeOf = (record: TeachingRecord): PlanScope =>
   record.memberId ? "personal" : record.sessionId ? "session" : "course";
-const sessionOrder = (a: CourseSessionDto, b: CourseSessionDto) =>
-  a.sessionNo - b.sessionNo ||
-  a.startAtUtc.localeCompare(b.startAtUtc) ||
-  a.sessionId.localeCompare(b.sessionId);
 const planOrder = (a: TeachingRecord, b: TeachingRecord) =>
   a.createdAtUtc.localeCompare(b.createdAtUtc) ||
   a.recordId.localeCompare(b.recordId);
@@ -62,7 +59,7 @@ export function TrainingPlanView({
       (!memberId || r.memberId === null || r.memberId === memberId),
   );
   const labels = {
-    course: vi ? "Lộ trình lớp" : "Class roadmap",
+    course: vi ? "Kế hoạch buổi học" : "Session plans",
     session: vi ? "Kế hoạch buổi học" : "Lesson plan",
     personal: vi ? "Kế hoạch cá nhân" : "Personal plan",
   };
@@ -71,7 +68,6 @@ export function TrainingPlanView({
     personal: vi ? "Theo từng học viên" : "Tailored to each student",
   };
   const createLabels = {
-    course: vi ? "Tạo lộ trình lớp" : "New class roadmap",
     session: vi ? "Tạo kế hoạch buổi học" : "New lesson plan",
     personal: vi ? "Tạo kế hoạch cá nhân" : "New personal plan",
   };
@@ -104,7 +100,8 @@ export function TrainingPlanView({
         ? !session || r.sessionId === session
         : true,
   );
-  const usedSessions = [...sessions].sort(sessionOrder);
+  const now = useNow();
+  const usedSessions = sortTeachingSessions(sessions, now);
   const shownSessions = usedSessions.filter(
     (s) => !(sessionId || session) || s.sessionId === (sessionId || session),
   );
@@ -165,7 +162,9 @@ export function TrainingPlanView({
             onClick={onViewCoursePlan}
           >
             <BookOpen size={16} aria-hidden="true" />
-            {viewMode === "session" ? "View class roadmap" : "Manage / Edit class plans"}
+            {viewMode === "session"
+              ? "View class roadmap"
+              : "Manage / Edit class plans"}
           </button>
         )}
         {scope === "session" && !sessionId && usedSessions.length > 0 && (
@@ -206,6 +205,7 @@ export function TrainingPlanView({
           </label>
         )}
         {onCreate &&
+          scope !== "course" &&
           (!memberId || scope === "personal") &&
           !(scope === "session" && shownSessions.length) && (
             <button
@@ -214,9 +214,7 @@ export function TrainingPlanView({
               onClick={() =>
                 onCreate(
                   scope,
-                  scope === "course"
-                    ? undefined
-                    : sessionId || session || undefined,
+                  sessionId || session || undefined,
                   scope === "personal"
                     ? memberId || student || undefined
                     : undefined,
@@ -487,11 +485,11 @@ function CourseRoadmap({
   editableCoachId?: string;
 }) {
   const vi = false; // English-only presentation
-  const ordered = sessions
-    .filter((s) => !/cancel/i.test(s.status))
-    .slice()
-    .sort(sessionOrder);
   const now = useNow();
+  const ordered = sortTeachingSessions(
+    sessions.filter((s) => !/cancel/i.test(s.status)),
+    now,
+  );
   const next = ordered
     .filter((s) => !/complet/i.test(s.status) && Date.parse(s.startAtUtc) > now)
     .sort((a, b) => a.startAtUtc.localeCompare(b.startAtUtc))[0];
@@ -585,7 +583,10 @@ function CourseRoadmap({
                   lessonPlans.map((plan) => (
                     <div key={plan.recordId} className={styles.roadmapLesson}>
                       <h4>{plan.title}</h4>
-                      <details className={styles.roadmapDetails} open={phase === "next" || phase === "live"}>
+                      <details
+                        className={styles.roadmapDetails}
+                        open={phase === "next" || phase === "live"}
+                      >
                         <summary>
                           {vi
                             ? "Xem nội dung buổi học"
@@ -641,10 +642,7 @@ export function PlanContent({ content }: { content: string }) {
     .map((line) => line.trim())
     .filter(Boolean);
   return (
-    <ol
-      className={styles.steps}
-      aria-label="Plan content"
-    >
+    <ol className={styles.steps} aria-label="Plan content">
       {lines.map((raw, index) => {
         const line = raw.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)/, "");
         const separator = line.indexOf(" · ");
@@ -661,12 +659,8 @@ export function PlanContent({ content }: { content: string }) {
                 <details className={styles.longText}>
                   <summary>
                     <span>{text.slice(0, 200)}…</span>
-                    <small className={styles.readMore}>
-                      Read full text
-                    </small>
-                    <small className={styles.readLess}>
-                      Collapse
-                    </small>
+                    <small className={styles.readMore}>Read full text</small>
+                    <small className={styles.readLess}>Collapse</small>
                   </summary>
                   <p>{text}</p>
                 </details>

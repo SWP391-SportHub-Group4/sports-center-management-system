@@ -59,6 +59,7 @@ export function CoachDetail({
         {(coach) => (
           <>
             <PersonProfileHeader
+              userId={coach.userId}
               name={coach.fullName}
               avatarUrl={coach.avatarUrl}
               status={<StatusChip value={coach.status} />}
@@ -85,7 +86,9 @@ export function CoachDetail({
                 </>
               }
             />
-            <div className={`${profileStyles.tabs} ${overviewStyles.coachTabs}`}>
+            <div
+              className={`${profileStyles.tabs} ${overviewStyles.coachTabs}`}
+            >
               <Tabs
                 value={activeTab}
                 onChange={(tab) => {

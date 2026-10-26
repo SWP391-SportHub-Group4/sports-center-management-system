@@ -14,12 +14,14 @@ export type HelpTab = "new" | "requests";
 export function HelpCenter({
   initialTopic,
   invoiceId,
+  invoiceItemId,
   tab,
   requestId,
   onChange,
 }: {
   initialTopic?: string;
   invoiceId?: string;
+  invoiceItemId?: string;
   tab: HelpTab;
   requestId: string;
   onChange: (next: { tab: HelpTab; requestId: string }) => void;
@@ -71,8 +73,11 @@ export function HelpCenter({
             <HelpRequestForm
               initialTopic={initialTopic}
               initialInvoiceId={invoiceId}
+              initialInvoiceItemId={invoiceItemId}
               onSent={mine.reload}
-              onViewRequests={(id) => onChange({ tab: "requests", requestId: id })}
+              onViewRequests={(id) =>
+                onChange({ tab: "requests", requestId: id })
+              }
             />
           </div>
         ) : (

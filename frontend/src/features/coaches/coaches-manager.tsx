@@ -63,6 +63,7 @@ export function CoachesManager() {
             cell: (c) => (
               <span>
                 <AvatarImage
+                  userId={c.userId}
                   name={c.fullName}
                   avatarUrl={c.avatarUrl}
                   size={32}

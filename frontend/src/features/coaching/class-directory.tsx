@@ -14,16 +14,10 @@ import { StatusChip } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useNow } from "@/lib/useApi";
+import { sortTeachingClasses } from "@/lib/teaching-order";
 import type { CourseDto, CourseSessionDto } from "@/lib/types";
 import { classSportTone } from "./class-identity";
 import styles from "./class-directory.module.css";
-
-const order: Record<string, number> = {
-  IN_PROGRESS: 0,
-  PUBLISHED: 1,
-  COMPLETED: 2,
-  CANCELLED: 3,
-};
 
 export function ClassDirectory({
   classes,
@@ -35,24 +29,18 @@ export function ClassDirectory({
   const [search, setSearch] = useState("");
   const now = useNow();
   const term = search.trim().toLowerCase();
-  const visible = classes
-    .filter((course) =>
-      `${course.name} ${course.code} ${course.sportName}`
-        .toLowerCase()
-        .includes(term),
-    )
-    .sort(
-      (a, b) =>
-        (order[a.status] ?? 4) - (order[b.status] ?? 4) ||
-        a.name.localeCompare(b.name),
-    );
+  const visible = sortTeachingClasses(classes, sessions, now).filter((course) =>
+    `${course.name} ${course.code} ${course.sportName}`
+      .toLowerCase()
+      .includes(term),
+  );
   return (
     <section className={styles.directory} aria-label="Your assigned classes">
       <div className={styles.toolbar}>
         <p>
           <strong>{classes.length}</strong> assigned{" "}
           {classes.length === 1 ? "class" : "classes"}
-          <span>Active classes first</span>
+          <span>Upcoming classes first · Past classes below</span>
         </p>
         <label className={styles.search}>
           <Search size={18} aria-hidden="true" />

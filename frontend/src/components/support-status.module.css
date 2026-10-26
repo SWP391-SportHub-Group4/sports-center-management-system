@@ -27,4 +27,4 @@
 .badge[data-status="IN_PROGRESS"] { background: #fffbeb; color: #a16207; }
 .badge[data-status="DONE"] { background: #ecfdf5; color: #047857; }
 .badge[data-status="REJECTED"] { background: #fef2f2; color: #b91c1c; }
-.badge[data-status="CLOSED"] { background: #f1f5f9; color: #334155; }
+.badge[data-status="CLOSED"] { background: #ecfdf5; color: #047857; }

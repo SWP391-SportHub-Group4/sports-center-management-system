@@ -194,7 +194,10 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         var transferPoints = await db.Set<PointLedgerEntry>().Where(x => x.InvoiceItemId == item.ItemId
                 && x.ReferenceType == "ClassTransferDifference" && x.EntryType == PointEntryType.Earn)
             .SumAsync(x => (int?)x.Points, ct) ?? 0;
-        return Math.Max(0m, paidShare + paidTransferDifferences - (requestedPoints + systemPoints)
+        var bankPaid = await db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>()
+            .Where(p => p.InvoiceId == invoice.InvoiceId && (p.InvoiceItemId == item.ItemId || p.InvoiceItemId == null))
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+        return Math.Max(0m, paidShare + paidTransferDifferences - bankPaid - (requestedPoints + systemPoints)
             * (decimal)RefundCalculator.VndPerPoint - oldCash
             - transferPoints * (decimal)RefundCalculator.VndPerPoint);
     }

@@ -57,4 +57,11 @@ public sealed class IncidentsController(IncidentService incidents) : ControllerB
     [HttpPost("resolve")]
     public async Task<IActionResult> Resolve([FromBody] IncidentRequest request, CancellationToken ct)
         => Ok(new { incidentId = await incidents.ResolveAsync(request, User.RequireUserId(), ct) });
+
+    [HttpPost("{incidentId:guid}/day-pass-notice")]
+    public async Task<IActionResult> DayPassNotice(Guid incidentId, CancellationToken ct)
+    {
+        await incidents.SendDayPassNoticeAsync(incidentId, User.RequireUserId(), ct);
+        return NoContent();
+    }
 }

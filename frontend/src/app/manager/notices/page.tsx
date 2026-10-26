@@ -1,7 +1,6 @@
 "use client";
 import { OperationsPage } from "@/features/operations/ui";
 import { ManualNoticeForm } from "@/features/incidents/manual-notice-form";
-import { ReceiptLookup } from "@/features/manager/receipt-lookup";
 import { useLanguage } from "@/lib/language";
 import { useState } from "react";
 import { NoticeHistory } from "@/features/incidents/notice-history";
@@ -44,10 +43,6 @@ export default function Page() {
       ) : (
         <NoticeHistory refreshKey={revision} />
       )}
-      <details>
-        <summary>{t.manualNotices.lookup}</summary>
-        <ReceiptLookup kind="notices" />
-      </details>
     </OperationsPage>
   );
 }
