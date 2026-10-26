@@ -240,17 +240,8 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ISche
 builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 
-// Email delivery requires SMTP; missing configuration never reports successful delivery.
-var smtpSection = builder.Configuration.GetSection("Smtp");
-if (string.IsNullOrWhiteSpace(smtpSection["Host"]))
-{
-    var emailSmtpSection = builder.Configuration.GetSection("Email:Smtp");
-    if (!string.IsNullOrWhiteSpace(emailSmtpSection["Host"]))
-    {
-        smtpSection = emailSmtpSection;
-    }
-}
-builder.Services.Configure<EmailOptions>(smtpSection);
+// Select SMTP or HTTPS delivery without changing the encrypted outbox/retry workflow.
+builder.Services.AddSportHubEmail(builder.Configuration, builder.Environment.IsDevelopment());
 var dataProtection = builder.Services.AddDataProtection();
 var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
 if (!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(dataProtectionKeysPath))
@@ -260,15 +251,6 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
     Directory.CreateDirectory(dataProtectionKeysPath);
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 }
-var configuredSmtpHost = smtpSection["Host"];
-var configuredSmtpFrom = smtpSection["FromAddress"];
-if ((!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(configuredSmtpHost))
-    || (!string.IsNullOrWhiteSpace(configuredSmtpHost) && string.IsNullOrWhiteSpace(configuredSmtpFrom)))
-    throw new InvalidOperationException("SMTP Host and FromAddress must be configured outside explicit Development logging mode.");
-builder.Services.AddScoped<IEmailSender>(sp =>
-    string.IsNullOrWhiteSpace(sp.GetRequiredService<IOptions<EmailOptions>>().Value.Host)
-        ? new UnavailableEmailSender()
-        : new SmtpEmailSender(sp.GetRequiredService<IOptions<EmailOptions>>()));
 
 // Administration (BR-2, BR-6, BR-7, BR-39, BR-44..BR-48)
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
@@ -492,6 +474,17 @@ builder.Services.AddScoped<SystemScenarioSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+if (!bootstrapInitialAdmin && seedCommands.Length == 0)
+{
+    app.Logger.LogInformation(
+        "Email startup: provider {EmailProvider}; DataProtectionKeysPath {KeysPath}; RailwayVolumeMountPath {VolumePath}; application {Application}; instance {Instance}.",
+        builder.Configuration["Email:Provider"]?.Trim() ?? "Smtp",
+        dataProtectionKeysPath ?? "(default key store)",
+        Environment.GetEnvironmentVariable("RAILWAY_VOLUME_MOUNT_PATH") ?? "(not mounted)",
+        app.Services.GetRequiredService<IOptions<DataProtectionOptions>>().Value.ApplicationDiscriminator ?? "(default)",
+        Environment.MachineName);
+}
 
 if (bootstrapInitialAdmin)
 {

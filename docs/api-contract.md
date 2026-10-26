@@ -716,7 +716,7 @@ Manager mở/xem ví không ghi VIEW_OWNER_WALLET hoặc VIEW_MEMBER_WALLET. T�
 
 Chu kỳ có snapshot trên Invoice (`CheckoutCycleId/CheckoutRevision/HoldExpiresAtUtc`) và lịch sử trong CheckoutSession. `PointsApplied` là điểm chọn/giữ; `CashAmount=TotalAmount-PointsApplied*1000`. Endpoint attempts thực hiện Spend + fulfillment nguyên tử khi cash=0, không phát QR 0đ. Course/rental dùng quote/reserve ports; callback/reconcile và Spend/Release gắn reference CheckoutSession + cycle ID. Xem Phần G và bản chốt outcome ở đầu tài liệu.
 
-**Email:** dùng SMTP; chỉ Development có `Email:DemoLoggingEnabled=true` mới được log nội dung demo. Gửi thất bại thì revoke mã vừa tạo; không tự giữ điểm hoặc báo xác nhận thành công. Outbox email/retry bền vững thuộc P1.11.
+**Email:** chọn `Email:Provider=Smtp` (mặc định, giữ cấu hình `Smtp:*`/`Email:Smtp:*`) hoặc `Brevo` (HTTPS API, cấu hình `Email:Brevo:ApiKey`, `FromAddress`, `FromName`; sender cần được xác minh). Brevo không yêu cầu cấu hình SMTP và dùng được khi nền tảng chặn SMTP outbound. Không ghi OTP, link kích hoạt hoặc API key vào log; `Email:DemoLoggingEnabled` không thay thế email delivery. Không tự giữ điểm hoặc báo xác nhận thành công khi chưa xác minh mã. Outbox email/retry bền vững thuộc P1.11.
 
 ## Phần F — P1.05 Lớp theo khóa, điểm danh và Gym
 
@@ -800,6 +800,8 @@ Invoice `CLASS_TRANSFER_DIFFERENCE` giữ chỗ lớp đích, release/retry khi 
 | POST | `api/manager/notices` | Manager | `{subject,message,recipientUserIds,sendInApp,sendEmail}`; in-app/email vào outbox theo người nhận, giới hạn 1–200 người. |
 
 Email không xuất hiện trong danh sách/read-all InApp. OTP email được mã hóa ở outbox và gửi bởi dispatcher; status email Sent chỉ sau sender thành công, retry có backoff/lease và gửi at-least-once.
+
+Email sender hỗ trợ cả SMTP và Brevo HTTPS qua cùng `IEmailSender`, gồm file đính kèm. Brevo gọi `POST https://api.brevo.com/v3/smtp/email`; chỉ trả thành công khi HTTP thành công và có message identifier. HTTP lỗi hoặc phản hồi không hợp lệ được đưa về cơ chế outbox retry hiện có, không tự fallback sang SMTP. `Sent` nghĩa provider đã chấp nhận, không xác nhận giao tới Inbox. Không thay đổi route API, schema hoặc migration.
 
 `GET /api/reports/revenue` giữ các field legacy, đồng thời thêm `legacyCashCollected`, `reconciliationCashCollected`, `reconciliationCashCount`, `pointsRedeemed`, `pointsRedeemedVnd` (điểm×1.000 VND), `pointsIssued` (mọi khoản điểm cộng vào ví: hoàn điểm + bù cổng thanh toán), `pointsRefunded` (chỉ phần hoàn điểm: yêu cầu hoàn, huỷ do trung tâm, chênh lệch chuyển lớp; tập con của `pointsIssued`), `managerPointAdjustment`, `outstandingPoints` (available+held tại lúc chạy), và `bySource[{source,cashCollected,pointsRedeemed}]`. Daily rows thêm `legacyCashCollected` và `reconciliationCashCollected`; từ 24/10/2026 thêm `bankRefundPaid` và `bankRefundCount` (tiền hoàn chuyển khoản Manager ghi nhận qua Support Request, theo ngày ghi payout giờ VN; dòng riêng, không trừ vào `totalCollected`/`netRevenue`, không cộng vào `pointsRefunded`; daily row có `bankRefundPaid`; export thêm cột cùng tên); `totalCollected` cộng cả cash reconciliation đã xác minh để đối soát. Group-by-Sport và export dùng cùng tổng hợp theo phần P1.12/P1.13 bên dưới.
 
