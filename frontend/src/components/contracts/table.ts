@@ -76,12 +76,15 @@ export interface FilterField {
 }
 
 export interface FilterBarProps {
+  /** Render fields directly when the caller already provides an expander. */
+  inline?: boolean;
   presets?: ReactNode;
   fields: FilterField[];
   /** Giá trị hiện tại — nguồn sự thật là URL query để reload/chia sẻ link giữ nguyên bộ lọc. */
   values: Record<string, string>;
   onChange: (next: Record<string, string>) => void;
   onReset?: () => void;
+  resetStyle?: "text" | "icon";
   /** Số bộ lọc đang bật, hiện cạnh nút "Xóa lọc". */
   activeCount?: number;
   /** Thanh hành động bên phải (xuất file, tạo mới). */

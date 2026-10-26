@@ -112,7 +112,6 @@ public class LoginContractTests(SportHubApiFactory factory)
     }
 
     [Theory]
-    [InlineData(UserStatus.Banned, "account_banned")]
     [InlineData(UserStatus.Deactivated, "account_deactivated")]
     public async Task Blocked_account_with_correct_password_returns_403(UserStatus status, string errorCode)
     {
@@ -132,7 +131,7 @@ public class LoginContractTests(SportHubApiFactory factory)
     {
         var email = $"blkwrong-{Guid.NewGuid():N}@example.com";
         var user = await factory.SeedUserAsync(email, ValidPassword);
-        await factory.SetStatusAsync(user.UserId, UserStatus.Banned);
+        await factory.SetStatusAsync(user.UserId, UserStatus.Deactivated);
 
         var response = await ClientFor("10.20.0.5")
             .PostAsync("api/auth/login", Body(email, "NotThePassword1"));

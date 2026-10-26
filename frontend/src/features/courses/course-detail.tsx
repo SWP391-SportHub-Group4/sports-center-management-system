@@ -16,6 +16,8 @@ import { Tabs } from "@/components/primitives";
 import { CourseCancellationAction } from "./course-cancellation-action";
 import { CoursePublishReview } from "./course-publish-review";
 import { SessionEditor } from "./session-editor";
+import { ClassSessionList } from "./class-session-list";
+import { ChangeLeadCoachDialog } from "./change-lead-coach-dialog";
 import { ThresholdPanel } from "./threshold-panel";
 import { CourseOperations, CourseCancellation } from "./course-operations";
 import { CourseHistory } from "./course-history";
@@ -105,8 +107,10 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
     return () => cancelAnimationFrame(frame);
   }, [values.tab]);
   const [publishing, setPublishing] = useState(false);
+  const [changingLeadCoach, setChangingLeadCoach] = useState(false);
+  const [coachChanged, setCoachChanged] = useState(false);
   const [session, setSession] = useState<CourseSessionDto | null>(null);
-  const [roster, setRoster] = useState("");
+  const [roster, setRoster] = useState<CourseSessionDto | null>(null);
   const [revision, setRevision] = useState(0);
   const state = useApi(
     (signal) =>
@@ -265,51 +269,41 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                 </div>
               )}
               {values.tab === "sessions" && (
-                <Card title={m.sessionsTab}>
+                <Card
+                  title={m.sessionsTab}
+                  actions={
+                    ["PUBLISHED", "IN_PROGRESS"].includes(c.status) && (
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => {
+                          setCoachChanged(false);
+                          setChangingLeadCoach(true);
+                        }}
+                      >
+                        {t.leadCoach.change}
+                      </button>
+                    )
+                  }
+                >
+                  {coachChanged && (
+                    <p role="status" className={detailStyles.coachSuccess}>
+                      {t.leadCoach.success}
+                    </p>
+                  )}
                   <AsyncSection state={sessions}>
                     {(rows) => (
                       <>
-                        <Table
-                          headers={[
-                            l.start,
-                            l.end,
-                            l.room,
-                            l.coach,
-                            l.status,
-                            "",
-                          ]}
-                        >
-                          {rows.map((s) => (
-                            <tr key={s.sessionId}>
-                              <td>{formatDateTime(s.startAtUtc)}</td>
-                              <td>{formatDateTime(s.endAtUtc)}</td>
-                              <td>{s.roomName}</td>
-                              <td>{s.coachName}</td>
-                              <td>
-                                <StatusChip value={s.status} />
-                              </td>
-                              <td>
-                                <button
-                                  className="btn btn--secondary"
-                                  onClick={() => setRoster(s.sessionId)}
-                                >
-                                  {l.attendance}
-                                </button>
-                                {s.status === "SCHEDULED" &&
-                                  !["CANCELLED", "COMPLETED"].includes(
-                                    c.status,
-                                  ) && (
-                                    <button
-                                      className="btn btn--ghost"
-                                      onClick={() => setSession(s)}
-                                    >
-                                      {l.edit}
-                                    </button>
-                                  )}
-                              </td>
-                            </tr>
-                          ))}
-                        </Table>
+                        {!!rows.length && (
+                          <ClassSessionList
+                            sessions={rows}
+                            editable={
+                              !["CANCELLED", "COMPLETED"].includes(c.status)
+                            }
+                            onAttendance={setRoster}
+                            onEdit={setSession}
+                          />
+                        )}
                         {!rows.length && (
                           <p>
                             {c.status === "DRAFT"
@@ -471,6 +465,17 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                 <CoursePublishReview course={c} onSaved={reload} />
               </Dialog>
             )}
+            {changingLeadCoach && (
+              <ChangeLeadCoachDialog
+                course={c}
+                onClose={() => setChangingLeadCoach(false)}
+                onSaved={() => {
+                  setChangingLeadCoach(false);
+                  setCoachChanged(true);
+                  reload();
+                }}
+              />
+            )}
             {session && (
               <Dialog
                 title={t.classWorkspace.editSession}
@@ -499,9 +504,27 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
               <Dialog
                 title={l.attendance}
                 size="lg"
-                onClose={() => setRoster("")}
+                onClose={() => setRoster(null)}
               >
-                <Roster sessionId={roster} />
+                <div className="stack">
+                  <div>
+                    <strong>
+                      {t.classSessions.session.replace(
+                        "{number}",
+                        String(roster.sessionNo),
+                      )}
+                    </strong>
+                    {roster.isMakeup && <p>{t.classSessions.makeup}</p>}
+                    <p>
+                      {formatDateTime(roster.startAtUtc)} · {roster.roomName} ·{" "}
+                      {roster.coachName}
+                    </p>
+                    <p className="small muted">
+                      {t.classSessions.attendanceHint}
+                    </p>
+                  </div>
+                  <Roster key={roster.sessionId} sessionId={roster.sessionId} />
+                </div>
               </Dialog>
             )}
           </>

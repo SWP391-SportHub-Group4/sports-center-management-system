@@ -2,7 +2,7 @@ export const en = {
   rentalCourtSetup: {
     title: "Create a rental court",
     intro:
-      "Set up your court, opening hours and rental prices together. Members can book available times as soon as you save.",
+      "Set up your court, opening hours and rental prices together. Member bookings open on the day after this court is created.",
     details: "Court details",
     hours: "Opening hours",
     opens: "Opens",
@@ -29,9 +29,9 @@ export const en = {
     fromPrice: "From",
     priceSync: "Prices are also saved to Court Rental Pricing.",
     bookingHint:
-      "Members can book free times within the booking window. Court rental will be enabled for this sport.",
+      "Member bookings open tomorrow, at 00:00 Vietnam time. Court details, hours and prices are saved together.",
     saveHint: "Court details, hours and prices are saved together.",
-    submit: "Create court & open for booking",
+    submit: "Create rental court",
     daysRequired: "Choose at least one opening day.",
     invalidHours:
       "Closing time must be after opening time for every opening day.",
@@ -40,7 +40,7 @@ export const en = {
     noTypes:
       "Add an active room type linked to an active sport before creating a rental court.",
     created:
-      "is open for booking. Opening hours and rental prices have been saved.",
+      "has been created. Member bookings open on the following day (Vietnam time). Opening hours and prices have been saved.",
     viewPrices: "View rental prices",
     create: "Create rental court",
     basicRoom: "Add room only",
@@ -248,6 +248,7 @@ export const en = {
     invalidRange: "Closing time must be later than opening time.",
   },
   courseHistory: {
+    CHANGE_CLASS_LEAD_COACH: "Lead coach changed",
     coachUnavailable: "Coach unavailable",
     actor: "Performed by",
     before: "Before change",
@@ -342,6 +343,8 @@ export const en = {
     capacityExceeded: "Class capacity exceeds the room or sport limit.",
     missingDuration: "This sport has no group-course duration configured.",
     scheduleValidation: {
+      startDateHint:
+        "Choose an opening date within one year from today (Vietnam time).",
       checking: "Checking the schedule…",
       ready: "Schedule ready. You can continue.",
       unavailable: "Update the schedule to continue.",
@@ -353,6 +356,7 @@ export const en = {
         room: "Select a room.",
         date: "Choose a valid start date.",
         pastDate: "Start date is in the past. Choose today or later.",
+        futureDate: "Choose a start date within one year from today.",
         pastTime: "Start time has passed. Choose a future time.",
         count: "Enter 1–100 sessions.",
         duration: "Set this sport’s session duration first.",
@@ -560,6 +564,48 @@ export const en = {
     unavailable: "No operation details were recorded.",
     unchanged: "No changes in the recorded fields.",
   },
+  leadCoach: {
+    change: "Change Lead Coach",
+    title: "Select New Lead Coach",
+    description:
+      "Choose a coach for this class and all future scheduled sessions. Session times and rooms stay the same.",
+    current: "Current lead coach",
+    eligible: "Eligible coaches",
+    search: "Search coaches by name",
+    available: "Available for all remaining sessions",
+    specialty: "Specialty",
+    sessions: "Future sessions to reassign",
+    noCoaches: "No eligible coaches available",
+    noCoachesHint:
+      "No other active coach with this specialty is free for every remaining session. Review the class schedule before trying again.",
+    noSessions: "No future sessions to reassign",
+    noSessionsHint:
+      "The lead coach cannot be changed when no future scheduled sessions remain.",
+    noMatches: "No coaches match your search. Try another name.",
+    reason: "Reason for change",
+    reasonHint:
+      "Enter 3–500 characters. This reason is recorded with the schedule change.",
+    reasonPlaceholder: "Explain why this class needs a new lead coach",
+    confirm: "Confirm Change",
+    saving: "Changing coach…",
+    cancel: "Cancel",
+    selected: "New lead coach",
+    success:
+      "Lead coach changed. The class and future scheduled sessions have been updated.",
+  },
+  classSessions: {
+    session: "Session #{number}",
+    makeup: "Makeup session",
+    makeupFor: "Makeup for session #{number}",
+    replacement: "Makeup session #{number}",
+    groupingHint:
+      "Makeup sessions appear directly below their original session. All times are shown in Vietnam time (UTC+7).",
+    attendanceHint: "Attendance is recorded separately for each session.",
+    incidentMakeupTitle: "Cancel and create makeup",
+    incidentMakeupHint:
+      "The original session will remain cancelled in the class schedule. Its makeup will appear directly below it, with its own attendance list.",
+    makeupStart: "Makeup start",
+  },
   classWorkspace: {
     cancellationUnavailable: "Cancellation unavailable",
     checkingCancellation: "Checking cancellation eligibility",
@@ -570,7 +616,7 @@ export const en = {
       "Try again to check whether this class can be cancelled.",
     belowThresholdTitle: "Below enrollment threshold",
     cancellationReviewFrom: "Review from",
-    cancelAndRefund: "Cancel class and refund points",
+    cancelAndRefund: "Cancel class and notify members",
     cancellationBeforeDeadline:
       "Enrolled classes can be cancelled from the opening review deadline while still below threshold.",
     cancellationTeachingCompleted:
@@ -621,11 +667,11 @@ export const en = {
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
     openingRulesHint:
-      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation immediately refunds remaining paid balances as points and notifies the Coach and members.",
+      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation notifies the Coach and members; each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
     cancelBelowThresholdHint:
-      "Cancellation immediately refunds remaining paid balances as points and notifies enrolled members and the teaching coach.",
+      "Cancellation notifies enrolled members and the teaching coach. Each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
   },
   managerCatalog: {
     viewCourt: "View details",
@@ -652,6 +698,7 @@ export const en = {
     keepBlock: "Keep block",
     pricePerHour: "Price per hour (VND)",
     noRentalPrice: "Not set",
+    bookingsOpenAt: "Member bookings open {date}",
     createLinkedRoomType: "Create a room type with this sport",
     createLinkedRoomTypeHint:
       "Optional. Create a room or court type and link it to this sport when you save.",
@@ -868,8 +915,8 @@ export const en = {
     targetAccountUnavailable: "Account information unavailable",
     createAction: "Staff account created",
     roleAction: "Role changed",
-    lockAction: "Account locked / deactivated",
-    unlockAction: "Account unlocked",
+    lockAction: "Account deactivated",
+    unlockAction: "Account activated",
     viewDetail: "View details",
     manageAccess: "Manage access",
     manageInvitation: "Manage invitation",
@@ -936,13 +983,12 @@ export const en = {
       "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
       "You are changing your own role. You will be signed out after confirmation.",
-    lockImpact:
-      "The account will be blocked from authenticated requests until it is unlocked.",
-    unlockImpact: "The account will regain access for its current role.",
+    activateImpact:
+      "The account will regain access for its current role. The user must sign in again; old sessions remain invalid.",
     deactivateImpact:
-      "The account will be deactivated and cannot access authenticated features until it is unlocked.",
+      "The account will be deactivated and signed out. Its records are retained. An Administrator can activate it again.",
     guardHint:
-      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be locked or deactivated.",
+      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be deactivated.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -1164,15 +1210,12 @@ export const en = {
     role: "Role",
     specialties: "Specialties",
     changeRole: "Change role",
-    lock: "Lock",
-    unlock: "Unlock",
     deactivate: "Deactivate",
     keyword: "Search name or email",
     accountHint: "Manage staff accounts, roles and account access.",
     search: "Search",
     accountState: "Account status",
     accountActive: "Active",
-    accountLocked: "Locked",
     accountDeactivated: "Deactivated",
     mismatch: "Passwords must match.",
     dateRange: "Choose a valid date range of at most 366 days.",
@@ -1192,6 +1235,18 @@ export const en = {
     quickLinks: "Management shortcuts",
   },
   settingFields: {
+    supportSlaHours: {
+      label: "Support response deadline (hours)",
+      hint: "Time allowed before a support request is overdue. Existing deadlines are preserved. Choose 1–168 hours.",
+    },
+    supportRemindCooldownHours: {
+      label: "Support reminder interval (hours)",
+      hint: "Minimum interval between reminders for a support request. Choose 1–168 hours.",
+    },
+    supportPayoutConfirmDays: {
+      label: "Payout confirmation period (days)",
+      hint: "Automatically confirm receipt after this period if the member has not responded. Choose 1–30 days.",
+    },
     thresholdDays: {
       label: "Threshold check (days before start)",
       hint: "Evaluate paid enrollments against the break-even threshold before the first session.",
@@ -1217,8 +1272,8 @@ export const en = {
       hint: "Maximum number of days ahead a member can book a court.",
     },
     cancelHours: {
-      label: "Full rental refund cutoff (hours)",
-      hint: "Cancel at least this many hours before the rental to receive a full point refund.",
+      label: "Rental refund cutoff (hours, no longer used)",
+      hint: "No longer used: a Member who cancels a rental is never refunded.",
     },
     maxHours: {
       label: "Maximum rental duration (hours)",
@@ -1430,7 +1485,7 @@ export const en = {
     availability: "Check availability and price",
     priceBreakdown: "Price breakdown",
     rentalPolicy:
-      "Refund eligibility and points are calculated by the server. Cancellation is final.",
+      "Cancelling a rental is never refunded, at any time. Cancellation is final.",
     refundPoints: "Refund points",
     cancelRental: "Cancel rental",
     selfOnly: "Only your own rentals, wallet and invoices are shown.",
@@ -1475,7 +1530,7 @@ export const en = {
     NOT_EVALUATED: "Not evaluated",
     BLOCKED: "Blocked",
     ACTIVE: "Active",
-    BANNED: "Locked",
+    BANNED: "Deactivated",
     DEACTIVATED: "Deactivated",
     PENDING_PAYMENT: "Awaiting payment",
     CONFIRMED: "Confirmed",
@@ -1813,7 +1868,7 @@ export const en = {
     invoiceOwed: "{amount} due",
     refundEmptyTitle: "No point refund requests are open",
     refundEmptyBody:
-      "Eligible cancellation refunds are credited to your wallet automatically. To request another refund, open a paid invoice and choose an eligible item; a manager will review it.",
+      "Cancelling a membership, class enrollment or rental yourself is not refunded. When the center cancels a class or rental, you choose points or a refund through a Support Request.",
     refundFlow:
       "Manual requests are reviewed by a manager; automatic refunds appear in your wallet",
     tabs: "Billing sections",
@@ -2214,9 +2269,9 @@ export const en = {
     approvedPts: "Approved: {points} points",
     reviewHelp: "A reason is required and is saved with the decision.",
     centerFaultHelp:
-      "Use only when another problem prevents the center from providing the service. Temporary Gym closures for repairs are compensated by extending the membership, not a refund. State the reason and supporting facts; membership refunds cover only the unused calendar days.",
+      "Use only when another problem prevents the center from providing the service. Temporary Gym closures for repairs are compensated with points gifted by the Manager, not a refund. State the reason and supporting facts; membership refunds cover only the unused calendar days.",
     membershipRefundPolicy:
-      "Standard Gym membership refunds are capped at 50% of the amount paid when at least two thirds of the term remain. Eligibility uses Vietnam calendar dates, including the first and last day, not the number of gym visits. Below that threshold or after expiry, no standard refund applies.",
+      "Cancelling a Gym membership yourself is never refunded, at any time. Refunds only apply when the center cannot provide the service, and only through the Manager.",
     refundPercent: "Lower refund percent (optional)",
     refundPercentHelp:
       "Percent of the remaining paid value, up to {max}%. Leave blank to use the system amount.",
@@ -2372,10 +2427,9 @@ export const en = {
     addToCalendar: "Add to Google Calendar",
     cancelRental: "Cancel rental",
     cancelTitle: "Cancel this court rental?",
-    cancelFree:
-      "You are cancelling {hours}+ hours ahead, so you get a 100% points refund.",
+    cancelFree: "Cancelling a rental is never refunded, at any time.",
     cancelLate:
-      "Play starts in under {hours} hours, so this rental is not refunded.",
+      "You are cancelling this rental and will not get a refund or points, at any time. Nothing is cancelled until you confirm.",
     rentalBooked: "Court booked",
     cancelKeep: "Keep rental",
     cancelConfirm: "Confirm cancellation",
@@ -2805,7 +2859,50 @@ export const en = {
       columnResponseTime: "Response Time",
     },
   },
+  incidentRefunds: {
+    title: "Affected services & refunds",
+    hint: "Review each rental and Gym day pass. Refund points are prefilled with the remaining paid value. Adjusting them requires a reason.",
+    empty: "No rental or Gym day pass is affected by this incident.",
+    member: "Member",
+    service: "Service",
+    schedule: "Service date / time",
+    status: "Status",
+    points: "Refund points",
+    rental: "Court rental",
+    dayPass: "Gym day pass",
+    unknown: "Member name unavailable",
+    fullyRefunded: "Fully refunded",
+    unpaid: "Unpaid",
+    checkedIn: "Check-in recorded",
+    active: "Active",
+    expired: "Expired",
+    cancelled: "Cancelled",
+    inUse: "In use",
+    completed: "Completed",
+    noShow: "No-show",
+    previous: "Already refunded {points} points. Maximum remaining: {max}.",
+    previousOnly: "Previously refunded {points} points.",
+    releaseReceipt: "Booking and any held points released; no refund credit.",
+    summary: "Refund summary",
+    maximum: "Up to {points} points remaining.",
+    released: "Release the booking and any held points; no refund credit.",
+    reason: "Reason for adjustment",
+    reasonHint: "Explain the adjusted amount (3-500 characters).",
+    invalid: "Enter whole points from 0 to the remaining balance.",
+    total: "Total refund",
+    members: "members",
+    services: "services",
+    unit: "points",
+    changed:
+      "Affected services or balances changed. The list was refreshed; review the amounts again.",
+    confirm: "Confirm incident & refunds",
+    receipt: "Refund receipt",
+    review: "Review refunds & incident",
+  },
   incidentHistory: {
+    arrangeMakeup: "Arrange a makeup session",
+    makeupHint:
+      "For a serious incident, replace the missed session in full. Members keep their enrollment and pay no extra fee. The coach and members receive the updated schedule.",
     noImpacts: "No activities are affected during this period.",
     editSession: "Edit affected session",
     removeBlockHint:

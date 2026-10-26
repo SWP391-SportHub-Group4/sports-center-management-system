@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Notification.Domain.Enums;
@@ -55,7 +56,7 @@ public sealed class EnrollmentClosureTests(PaymentApiFactory factory)
         db.CoachProfiles.Add(new CoachProfile { UserId = coach.UserId });
         await db.SaveChangesAsync();
 
-        var start = new DateOnly(2033, 3, 1);
+        var start = VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
         var classes = scope.ServiceProvider.GetRequiredService<IClassService>();
         var created = await classes.CreateAsync(new SaveClassRequest
         {

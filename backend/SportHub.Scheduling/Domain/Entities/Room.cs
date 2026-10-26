@@ -12,6 +12,9 @@ public class Room
 
     public int? RoomTypeId { get; set; } // FK -> RoomType; null cho phòng cũ chưa phân loại
 
+    /// <summary>New courts accept member bookings starting the next Vietnam calendar day; null for legacy rooms.</summary>
+    public DateTime? RentalBookingOpensAtUtc { get; set; }
+
     public bool IsActive { get; set; } = true; // ngừng dùng thay cho xóa cứng
 
 }

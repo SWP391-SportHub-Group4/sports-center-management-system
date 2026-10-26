@@ -204,6 +204,7 @@ export interface PaymentAttemptDto {
 }
 
 export interface RoomDto {
+  rentalBookingOpensAtUtc?: string | null;
   sportId?: number | null;
   roomTypeId: number | null;
   isActive: boolean;
@@ -709,6 +710,13 @@ export interface CourseSessionDto {
   status: string;
   isMakeup: boolean;
   rescheduledFromSessionId: string | null;
+  incidentReport?: {
+    outcome: string;
+    occurredAtUtc: string;
+    recordedAtUtc: string;
+    reason: string;
+    replacementSessionId: string | null;
+  } | null;
 }
 export interface PointConfirmationDto {
   confirmationId: string;
@@ -874,7 +882,32 @@ export interface RentalAvailabilityDto extends CourtRentalQuoteDto {
   name: string;
   capacity: number;
 }
+export interface IncidentRefundRowDto {
+  sourceId: string;
+  sourceType: string;
+  memberId: string;
+  memberName: string | null;
+  serviceName: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  status: string;
+  isPaid: boolean;
+  maximumRefundPoints: number;
+  refundedPoints: number;
+  suggestedRefundPoints: number;
+}
+export interface IncidentRefundReceiptDto extends Omit<
+  IncidentRefundRowDto,
+  "maximumRefundPoints" | "refundedPoints" | "suggestedRefundPoints"
+> {
+  points: number;
+  suggestedPoints: number;
+  previouslyRefundedPoints: number;
+  adjustmentReason: string | null;
+}
 export interface IncidentPreviewDto {
+  previewToken?: string;
+  refunds?: IncidentRefundRowDto[];
   scope: string;
   roomId: number | null;
   startAtUtc: string;

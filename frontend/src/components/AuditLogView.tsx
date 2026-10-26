@@ -76,6 +76,7 @@ const auditTargetEntities = [
   "LandingPageContent",
   "MemberPackage",
   "MemberSupportRequest",
+  "MemberSupportPayout",
   "MembershipPackage",
   "Notification",
   "PaymentAdjustment",
@@ -159,6 +160,7 @@ function AuditFilterForm({
   const [rangeError, setRangeError] = useState<string | null>(
     dateRangeError(values.dateFrom, values.dateTo),
   );
+  const moreFiltersId = useId();
   const actionErrorId = useId();
   const rangeErrorId = useId();
   const today = vietnamToday();
@@ -242,6 +244,7 @@ function AuditFilterForm({
                 label: t.navigation.roleLabel.SystemAdministrator,
               },
               { value: "SYSTEM", label: "System" },
+              { value: "MEMBER", label: t.navigation.roleLabel.Member },
             ]
           : [
               {
@@ -329,6 +332,8 @@ function AuditFilterForm({
         </div>
       )}
       <FilterBar
+        inline={administrator}
+        resetStyle={administrator ? "icon" : "text"}
         fields={
           administrator
             ? [
@@ -403,23 +408,35 @@ function AuditFilterForm({
           onReset();
         }}
         actions={
-          <button type="submit" className="btn">
-            {l.apply}
-          </button>
+          <>
+            {administrator && (
+              <button
+                type="button"
+                className="btn btn--secondary"
+                aria-expanded={moreOpen}
+                aria-controls={moreFiltersId}
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                More filters
+                {advancedCount > 0 && <span> ({advancedCount} applied)</span>}
+              </button>
+            )}
+            <button type="submit" className="btn">
+              {l.apply}
+            </button>
+          </>
         }
       />
       {administrator && (
-        <details
+        <section
+          id={moreFiltersId}
           className={styles.advancedFilters}
-          open={moreOpen}
-          onToggle={(event) => setMoreOpen(event.currentTarget.open)}
+          hidden={!moreOpen}
+          aria-label="Additional audit filters"
         >
-          <summary>
-            More filters
-            {advancedCount > 0 && <span> ({advancedCount} applied)</span>}
-          </summary>
           <div className={styles.advancedBody}>
             <FilterBar
+              inline
               fields={fields.filter((field) => field.id !== "actor")}
               values={draft}
               onChange={(next) => {
@@ -429,7 +446,7 @@ function AuditFilterForm({
               }}
             />
           </div>
-        </details>
+        </section>
       )}
       {!administrator && (
         <p className={styles.dateHint}>
@@ -631,7 +648,7 @@ export function AuditLogView({
         title={l.audit}
         hint={
           administrator
-            ? "Events by Managers, Administrators and Coaches, plus automatic system events. Visibility uses the role recorded at event time."
+            ? "Events by Managers, Administrators and Coaches, automatic system events, and Member profile photo, support and payment resolution events. Visibility uses the role recorded at event time."
             : "Events by Managers, Receptionists, Coaches and Members. Administrator and system events are excluded. Open an event to see its recorded values."
         }
       >

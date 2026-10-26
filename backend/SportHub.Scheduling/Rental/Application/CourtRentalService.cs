@@ -41,6 +41,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
                               && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && (r.SportId != null || t.IsActive))
                           select r).SingleOrDefaultAsync(cancellationToken)
             ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
+        if (room.RentalBookingOpensAtUtc > clock.UtcNow)
+            throw new ConflictException("rental_court_not_open_yet", "This new court opens for member bookings on the following day (Vietnam time).");
         if (room.RoomTypeId is not int roomTypeId)
             throw new ConflictException("rental_room_unclassified", "Rental room unclassified.");
 
@@ -48,6 +50,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var endLocal = VietnamTime.ToLocal(request.EndUtc.UtcDateTime);
         if (startLocal.Date != endLocal.Date)
             throw new BadRequestException("rental_cross_day", "Rental cross day.");
+        if (!CourtRentalWindow.FitsDailyHours(startLocal, endLocal))
+            throw new ConflictException("court_outside_hours", "Courts can only be rented from 06:00 to 22:00 Vietnam time.");
         var opening = await db.Set<RoomOpeningHour>().AsNoTracking().SingleOrDefaultAsync(x => x.RoomId == room.RoomId
             && x.DayOfWeek == (int)startLocal.DayOfWeek, cancellationToken);
         if (!RoomOpeningHourService.Covers(opening, startLocal, endLocal))
@@ -171,7 +175,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             row.Status == CourtRentalStatus.Cancelled && row.CancelReason?.StartsWith("CenterFault:", StringComparison.Ordinal) == true);
     }
 
-    /// <summary>Only front-desk staff may record arrival, from five minutes before start until the rental ends.</summary>
+    /// <summary>Only the Receptionist records arrival (Checked-in = InUse), from five minutes before start until the rental ends (BR-159).</summary>
     public async Task CheckInAsync(Guid courtRentalId, CancellationToken cancellationToken = default)
     {
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -182,6 +186,21 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         if (now < rental.StartAtUtc.AddMinutes(-5) || now >= rental.EndAtUtc)
             throw new ConflictException("rental_checkin_window_closed", "Court check-in is available from five minutes before start until the rental ends.");
         rental.Status = CourtRentalStatus.InUse;
+        await db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+    }
+
+    /// <summary>BR-159: the Receptionist marks a confirmed rental as No-show once it has started. Unmarked rentals become No-show automatically at the end time (CompleteDueAsync).</summary>
+    public async Task MarkNoShowAsync(Guid courtRentalId, CancellationToken cancellationToken = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var rental = await LockAsync(courtRentalId, cancellationToken);
+        if (rental.Status != CourtRentalStatus.Confirmed)
+            throw new ConflictException("rental_not_confirmed", "Only a confirmed rental can be marked as no-show.");
+        if (clock.UtcNow < rental.StartAtUtc)
+            throw new ConflictException("rental_not_started", "A rental can be marked as no-show only after it has started.");
+        rental.Status = CourtRentalStatus.NoShow;
+        await occupancy.ReleaseAsync(OccupancySources.CourtRental, courtRentalId, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
     }
@@ -250,11 +269,14 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             || request.StartUtc.Offset != TimeSpan.Zero || request.EndUtc.Offset != TimeSpan.Zero)
             throw new BadRequestException("invalid_rental_request", "Invalid rental request.");
         var duration = request.EndUtc - request.StartUtc;
-        if (slotMinutes is not (30 or 60) || maxHours is < 1 or > 4 || advanceDays is < 1 or > 30
-            || request.StartUtc <= clock.UtcNow || request.StartUtc.UtcDateTime >= VietnamTime.EndOfDayExclusiveUtc(VietnamTime.TodayLocal(clock).AddDays(advanceDays))
+        if (slotMinutes is not (30 or 60) || maxHours is < 1 or > 4
+            || request.StartUtc <= clock.UtcNow
             || duration < TimeSpan.FromHours(1) || duration > TimeSpan.FromHours(maxHours)
             || duration.TotalMinutes % slotMinutes != 0 || request.StartUtc.Minute % slotMinutes != 0
             || request.StartUtc.Second != 0 || request.StartUtc.Millisecond != 0)
-            throw new BadRequestException("invalid_rental_window", $"Rental must start within {advanceDays} days, use {slotMinutes}-minute slots, and last from 1 to {maxHours} hours.");
+            throw new BadRequestException("invalid_rental_window", $"Rental must use {slotMinutes}-minute slots and last from 1 to {maxHours} hours.");
+        // BR-126: hôm nay + 2 ngày, cửa sổ đổi ngày lúc 06:00; áp dụng cho Member tự thuê và Receptionist đặt hộ.
+        if (request.StartUtc.UtcDateTime >= VietnamTime.EndOfDayExclusiveUtc(CourtRentalWindow.LastBookableDate(clock.UtcNow)))
+            throw new ConflictException("court_outside_window", "Courts can only be rented from today and the next 2 days; the window rolls at 06:00.");
     }
 }

@@ -239,9 +239,172 @@
 }
 
 .directoryFilters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr) 44px;
+  align-items: end;
+  gap: var(--space-3);
+  min-width: 0;
   padding: var(--space-4);
   border-radius: var(--radius-sm);
   background: var(--bg-surface-sunken);
+}
+
+.directoryFilters > :global(.field) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.directoryFilters input,
+.directoryFilters select {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  background-color: var(--bg-surface);
+  font-weight: var(--weight-regular);
+}
+
+.filterSearch {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.filterSearch svg {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.filterSearch input {
+  padding-inline-start: var(--space-7);
+}
+
+.filterClear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--danger-text);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.filterClear:hover:not(:disabled) {
+  border-color: var(--danger-text);
+  background: var(--danger-bg);
+}
+
+.filterClear:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.filterClear:disabled {
+  color: var(--text-disabled);
+  border-color: var(--border-subtle);
+  cursor: default;
+}
+
+.filterClearLabel {
+  display: none;
+}
+
+.invitationFilter {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  max-width: 100%;
+  padding-inline: var(--space-3) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+}
+
+.invitationFilter button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.invitationFilter button:hover {
+  background: var(--bg-surface);
+}
+
+.invitationFilter button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+@media (max-width: 900px) {
+  .directoryFilters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) 44px;
+  }
+
+  .directoryFilters > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .directoryFilters {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+    background: transparent;
+  }
+
+  .filterClear {
+    gap: var(--space-2);
+    width: 100%;
+    font: inherit;
+    font-size: var(--text-sm);
+  }
+
+  .filterClearLabel {
+    display: inline;
+  }
+}
+
+@media (pointer: coarse) {
+  .directoryFilters input,
+  .directoryFilters select,
+  .filterClear {
+    min-height: var(--control-height-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterClear {
+    transition: none;
+  }
 }
 
 .resultsHeading {
@@ -509,4 +672,35 @@
   .sportSelector .sportOption {
     min-height: var(--control-height-lg);
   }
+}
+
+.roleBadge {
+  display: inline-flex;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.roleBadge[data-role="SYSTEM_ADMINISTRATOR"] :global(.chip) {
+  --status-chip-bg: #f1edff;
+  --status-chip-color: #56318f;
+  --status-chip-border: #d6c8f0;
+}
+.roleBadge[data-role="CENTER_MANAGER"] :global(.chip) {
+  --status-chip-bg: #e8f0fc;
+  --status-chip-color: #234e86;
+  --status-chip-border: #bfd1ed;
+}
+.roleBadge[data-role="COACH"] :global(.chip) {
+  --status-chip-bg: #e5f3ec;
+  --status-chip-color: #205b41;
+  --status-chip-border: #b2d8c3;
+}
+.roleBadge[data-role="RECEPTIONIST"] :global(.chip) {
+  --status-chip-bg: #fff2db;
+  --status-chip-color: #785014;
+  --status-chip-border: #e8cf9b;
+}
+.roleBadge[data-role="MEMBER"] :global(.chip) {
+  --status-chip-bg: #fff0f5;
+  --status-chip-color: #962b59;
+  --status-chip-border: #e9b1ca;
 }

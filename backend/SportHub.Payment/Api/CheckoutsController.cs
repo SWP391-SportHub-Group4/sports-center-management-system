@@ -156,6 +156,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         // A mere browser Back/Return does not call this endpoint; it stays ISSUED until expiry.
         // CancelAsync refuses paid or reconciliation-pending invoices.
         await checkouts.CancelAsync(checkout.InvoiceId, actorId, IsStaff(), ct);
+
         return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
     }
 

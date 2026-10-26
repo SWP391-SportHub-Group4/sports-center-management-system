@@ -1,4 +1,10 @@
 "use client";
+import {
+  IncidentRefundTable,
+  validRefunds,
+  refundEdit,
+  type RefundEdits,
+} from "./incident-refund-table";
 import { DeliveryStatus } from "./delivery-status";
 import { createPortal } from "react-dom";
 import styles from "./incidents.module.css";
@@ -34,8 +40,7 @@ export function IncidentForm({
   /** Shown under the intro and above the form (the incidents already in progress). */
   aboveForm?: ReactNode;
 }) {
-  const { t, language } = useLanguage();
-  const vi = language === "vi";
+  const { t } = useLanguage();
   const l = t.operations;
   const c = useOperationsCopy();
   const params = useSearchParams();
@@ -43,6 +48,9 @@ export function IncidentForm({
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const revision = useRef(0);
   const resolvePending = useRef(false);
+  const operationId = useRef("");
+  const [refundEdits, setRefundEdits] = useState<RefundEdits>({});
+  const [previewChanged, setPreviewChanged] = useState(false);
   const reviewButtonRef = useRef<HTMLButtonElement>(null);
   const [steps, setSteps] = useState<IncidentStep[]>([]);
   const [scope, setScope] = useState(
@@ -55,8 +63,6 @@ export function IncidentForm({
   const [end, setEnd] = useState(params.get("end") ?? "");
   const [reason, setReason] = useState(params.get("reason") ?? "");
   const [held, setHeld] = useState(false);
-  // null = Manager has not edited the value, so the server's suggestion is used.
-  const [extensionDays, setExtensionDays] = useState<string | null>(null);
   const [review, setReview] = useState<{
     body: IncidentRequest;
     preview: IncidentPreviewDto;
@@ -89,16 +95,8 @@ export function IncidentForm({
     reason.trim().length >= 3 &&
     reason.trim().length <= 500 &&
     (scope !== "ROOM" || Number(roomId) > 0);
-  const selectedExtension =
-    extensionDays ??
-    String(review?.preview.suggestedMembershipExtensionDays ?? 0);
-  const extensionCount = Number(selectedExtension);
-  const validExtension =
-    !review?.preview.closesGym ||
-    (selectedExtension.trim() !== "" &&
-      Number.isInteger(extensionCount) &&
-      extensionCount >= 0 &&
-      extensionCount <= 31);
+  const refundRows = review?.preview.refunds ?? [];
+  const refundValid = validRefunds(refundRows, refundEdits);
   function record(
     type: string,
     id: string,
@@ -122,7 +120,9 @@ export function IncidentForm({
   }
   function clear() {
     revision.current++;
-    setExtensionDays(null);
+    operationId.current = "";
+    setRefundEdits({});
+    setPreviewChanged(false);
     setReview(null);
     setIncidentId("");
     setHeld(false);
@@ -138,7 +138,9 @@ export function IncidentForm({
     }, "");
   }
   async function preview(final = false) {
-    if (!validDraft || (final && !validExtension)) return;
+    if (!validDraft || (final && !refundValid)) return;
+    if (!operationId.current) operationId.current = crypto.randomUUID();
+    const priorToken = review?.preview.previewToken;
     const expectedRevision = revision.current;
     const body = {
       scope,
@@ -152,8 +154,11 @@ export function IncidentForm({
     await mutation.run(async () => {
       const data = await incidentApi.preview(body);
       if (revision.current === expectedRevision) {
+        const changed = !!priorToken && priorToken !== data.previewToken;
+        if (changed || !priorToken) setRefundEdits({});
+        setPreviewChanged(changed);
         setReview({ body, preview: data });
-        setFinalReview(final && data.canResolve);
+        setFinalReview(final && data.canResolve && !changed);
       }
     }, "");
   }
@@ -285,6 +290,17 @@ export function IncidentForm({
         )}
       </Card>
       {incidentId && <DeliveryStatus incidentId={incidentId} />}
+      {incidentId && refundRows.length > 0 && (
+        <Card>
+          <IncidentRefundTable rows={refundRows} edits={refundEdits} readOnly />
+          <Link
+            className="btn btn--secondary"
+            href={`/manager/incidents/${incidentId}`}
+          >
+            {t.incidentRefunds.receipt}
+          </Link>
+        </Card>
+      )}
       {review &&
         !finalReview &&
         !incidentId &&
@@ -294,6 +310,43 @@ export function IncidentForm({
             description={t.incidentHistory.reviewHint}
             size="lg"
             className={`${styles.dialog} ${styles.impactDialog}`}
+            footer={
+              <div className={styles.refundFooter}>
+                {refundRows.length > 0 && (
+                  <span>
+                    {t.incidentRefunds.total}{" "}
+                    <strong>
+                      {refundRows
+                        .reduce(
+                          (sum, row) =>
+                            sum +
+                            (Number(refundEdit(row, refundEdits).points) || 0),
+                          0,
+                        )
+                        .toLocaleString("en-US")}{" "}
+                      {t.incidentRefunds.unit}
+                    </strong>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={`btn ${styles.recheck}`}
+                  disabled={
+                    mutation.busy ||
+                    resolving ||
+                    editing ||
+                    uncertain ||
+                    !!incidentId ||
+                    !refundValid
+                  }
+                  onClick={() => preview(true)}
+                >
+                  {refundRows.length
+                    ? t.incidentRefunds.review
+                    : t.managerOperations.recheck}
+                </button>
+              </div>
+            }
             onClose={() => {
               if (!mutation.busy && !resolving && !editing && !finalReview) {
                 setReview(null);
@@ -304,19 +357,40 @@ export function IncidentForm({
           >
             <div className="stack">
               <div>
-                <IncidentImpactReview
-                  preview={review.preview}
-                  incidentRequest={review.body}
-                  onRefresh={() => preview()}
-                  onResult={(type, id, status, message) => {
-                    record(type, id, status, message);
-                    if (status !== "pending") onFencesChanged?.();
-                  }}
-                  onEditingChange={(value) => {
-                    setEditing(value);
-                    setFinalReview(false);
-                  }}
-                  disabled={mutation.busy || uncertain || !!incidentId}
+                {(review.preview.impacts.some(
+                  (i) => i.sourceType !== "COURT_RENTAL",
+                ) ||
+                  refundRows.length === 0) && (
+                  <IncidentImpactReview
+                    preview={{
+                      ...review.preview,
+                      members: review.preview.members?.filter(
+                        (m) => m.sourceType === "CLASS_SESSION",
+                      ),
+                    }}
+                    incidentRequest={review.body}
+                    onRefresh={() => preview()}
+                    onResult={(type, id, status, message) => {
+                      record(type, id, status, message);
+                      if (status !== "pending") onFencesChanged?.();
+                    }}
+                    onEditingChange={(value) => {
+                      setEditing(value);
+                      setFinalReview(false);
+                    }}
+                    disabled={mutation.busy || uncertain || !!incidentId}
+                  />
+                )}
+                {previewChanged && (
+                  <p className="alert alert--info" role="status">
+                    {t.incidentRefunds.changed}
+                  </p>
+                )}
+                <IncidentRefundTable
+                  rows={refundRows}
+                  edits={refundEdits}
+                  onChange={setRefundEdits}
+                  disabled={mutation.busy || resolving || editing}
                 />
                 {!review.preview.canResolve && (
                   <div className={styles.hold}>
@@ -335,84 +409,7 @@ export function IncidentForm({
                     )}
                   </div>
                 )}
-                {!finalReview && (
-                  <div className={styles.actions}>
-                    <button
-                      type="button"
-                      className={`btn ${styles.recheck}`}
-                      disabled={
-                        mutation.busy ||
-                        resolving ||
-                        editing ||
-                        uncertain ||
-                        !!incidentId ||
-                        !validExtension
-                      }
-                      onClick={() => preview(true)}
-                    >
-                      {t.managerOperations.recheck}
-                    </button>
-                  </div>
-                )}
               </div>
-              {review.preview.closesGym && (
-                <Card
-                  title={
-                    vi
-                      ? "Gia hạn Membership do Gym đóng cửa"
-                      : "Gym closure: extend memberships"
-                  }
-                >
-                  <p>
-                    {vi
-                      ? `Sự cố đóng cửa toàn bộ phòng Gym. ${review.preview.affectedMemberCount ?? 0} hội viên có Membership Active sẽ được cộng thêm số ngày dưới đây và nhận thông báo. Không hoàn tiền Membership vì sự cố tạm thời.`
-                      : `This incident closes every Gym room. ${review.preview.affectedMemberCount ?? 0} members with an active membership get the days below added and are notified. Temporary closures do not trigger membership refunds.`}
-                  </p>
-                  <Field
-                    label={
-                      vi ? "Số ngày gia hạn (0–31)" : "Extension days (0–31)"
-                    }
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      max={31}
-                      step={1}
-                      inputMode="numeric"
-                      value={selectedExtension}
-                      aria-invalid={!validExtension}
-                      aria-describedby={
-                        !validExtension ? "incident-extension-error" : undefined
-                      }
-                      disabled={
-                        mutation.busy ||
-                        resolving ||
-                        editing ||
-                        uncertain ||
-                        !!incidentId
-                      }
-                      onChange={(e) => {
-                        setExtensionDays(e.target.value);
-                        setFinalReview(false);
-                      }}
-                    />
-                  </Field>
-                  {!validExtension && (
-                    <p
-                      id="incident-extension-error"
-                      role="alert"
-                      className="field__error"
-                    >
-                      {t.incidentHistory.invalidExtension}
-                    </p>
-                  )}
-                  <p className="muted">
-                    {vi
-                      ? "Gợi ý = số ngày dương lịch (giờ Việt Nam) bị đóng trọn vẹn. Hãy xác nhận trước khi đóng sự cố."
-                      : "The suggestion is the number of full calendar days (Vietnam time) the Gym is closed. Confirm it before resolving."}
-                  </p>
-                </Card>
-              )}
               <MutationFeedback mutation={mutation} />
             </div>
           </Dialog>,
@@ -425,7 +422,8 @@ export function IncidentForm({
           <Dialog
             title={t.managerOperations.resolveReview}
             description={t.incidentHistory.confirmHint}
-            className={styles.dialog}
+            size="lg"
+            className={`${styles.dialog} ${styles.impactDialog}`}
             onClose={() => {
               if (!resolving && !mutation.busy) setFinalReview(false);
             }}
@@ -445,14 +443,14 @@ export function IncidentForm({
                   disabled={
                     mutation.busy ||
                     resolving ||
-                    !validExtension ||
                     editing ||
                     !review.preview.canResolve ||
                     !!incidentId ||
-                    uncertain
+                    uncertain ||
+                    !refundValid
                   }
                   onClick={async () => {
-                    if (resolvePending.current || !validExtension) return;
+                    if (resolvePending.current || !refundValid) return;
                     resolvePending.current = true;
                     setResolving(true);
                     record("FINAL", "—", "pending");
@@ -461,9 +459,15 @@ export function IncidentForm({
                       const response = await incidentApi
                         .resolve({
                           ...review.body,
-                          membershipExtensionDays: review.preview.closesGym
-                            ? extensionCount
-                            : 0,
+                          previewToken: review.preview.previewToken,
+                          operationId: operationId.current,
+                          refunds: refundRows.map((row) => ({
+                            sourceId: row.sourceId,
+                            points: Number(refundEdit(row, refundEdits).points),
+                            adjustmentReason:
+                              refundEdit(row, refundEdits).reason.trim() ||
+                              undefined,
+                          })),
                         })
                         .then((response) => {
                           if (!validReceiptId(response.incidentId))
@@ -504,7 +508,9 @@ export function IncidentForm({
                     }
                   }}
                 >
-                  {t.managerOperations.finalResolve}
+                  {refundRows.length
+                    ? t.incidentRefunds.confirm
+                    : t.managerOperations.finalResolve}
                 </button>
               </>
             }
@@ -537,14 +543,11 @@ export function IncidentForm({
                 <dd>{review.body.reason}</dd>
               </div>
             </dl>
-            {review.preview.closesGym && (
-              <p className={styles.notice}>
-                {t.incidentHistory.extensionSummary.replace(
-                  "{days}",
-                  String(extensionCount),
-                )}
-              </p>
-            )}
+            <IncidentRefundTable
+              rows={refundRows}
+              edits={refundEdits}
+              readOnly
+            />
           </Dialog>,
           document.body,
         )}

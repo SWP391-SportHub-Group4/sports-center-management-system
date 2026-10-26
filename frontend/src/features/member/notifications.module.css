@@ -246,6 +246,11 @@
   background: var(--warning-bg);
   color: var(--warning-text);
 }
+.messageIcon[data-category="support"],
+.category[data-category="support"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+}
 .messageText {
   display: flex;
   flex-direction: column;

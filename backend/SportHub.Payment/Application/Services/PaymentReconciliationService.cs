@@ -44,12 +44,14 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         // A signed cancellation must still refer to the currently pending attempt.
         // An old attempt, a verified capture, or a duplicate callback must not void the invoice.
         var changed = await db.Set<PaymentAttempt>().Where(x => x.VnpTxnRef == reference && x.InvoiceId == invoiceId
+
                 && x.Status == PaymentAttemptStatus.Pending
                 && !db.Set<VerifiedGatewayEvent>().Any(e => e.PaymentAttemptId == x.PaymentAttemptId))
             .ExecuteUpdateAsync(x => x.SetProperty(a => a.Status, PaymentAttemptStatus.Failed)
                 .SetProperty(a => a.VerifiedResult, "Cancelled")
                 .SetProperty(a => a.VerifiedAtUtc, now), ct);
         return changed == 1;
+
     }
 
     public async Task<bool> ReconcileAttemptAsync(Guid attemptId, CancellationToken ct)

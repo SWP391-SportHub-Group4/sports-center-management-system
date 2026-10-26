@@ -1,4 +1,22 @@
 /* Phần riêng của khung nhân sự; header/nav dùng chung lớp trong MemberShell.module.css */
+.requestBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: var(--space-1);
+  margin-inline-start: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--red-600);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .staffNav {
   display: none;
   align-items: center;

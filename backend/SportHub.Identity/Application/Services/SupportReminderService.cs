@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
@@ -16,6 +17,7 @@ public sealed record SupportRemindResult(Guid RequestId, int RemindCount, DateTi
 public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
     ISystemSettingProvider settings, INotificationWriter notifications, IAuditWriter audit)
 {
+    public const int InactivityHours = 48;
     private const string MemberEvent = "REMINDED_BY_MEMBER";
     private const string StaffEvent = "REMINDED_BY_STAFF";
     private const string SlaEvent = "SLA_REMINDER_SENT";
@@ -77,7 +79,7 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
         request.RemindCount++;
         request.UpdatedAt = now;
         audit.Write(new AuditEntry(actorId, "REMIND_SUPPORT_REQUEST", nameof(MemberSupportRequest),
-            requestId.ToString(), NewValue: byStaff ? "{\"onBehalfOfMember\":true}" : null));
+            requestId.ToString(), NewValue: JsonSerializer.Serialize(new { request.RequestId, request.RemindCount, onBehalfOfMember = byStaff })));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return new SupportRemindResult(requestId, request.RemindCount, now.AddHours(cooldownHours), true);
@@ -90,7 +92,7 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
             .Where(r => r.SlaDueAtUtc <= now && r.Status != "DONE" && r.Status != "REJECTED"
                 && r.Status != "CLOSED")
             .OrderBy(r => r.SlaDueAtUtc).Select(r => r.RequestId).ToListAsync(ct);
-        var cooldownHours = await settings.GetIntAsync(SystemSettingKeys.SupportRemindCooldownHours, ct);
+        var cooldownHours = InactivityHours;
         var sent = 0;
         foreach (var requestId in ids)
         {
@@ -103,7 +105,7 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
                 await tx.CommitAsync(ct);
                 continue;
             }
-            foreach (var recipientId in await RecipientsAsync(request, ct))
+            foreach (var recipientId in await RecipientsAsync(request, ct, managersOnly: true))
             {
                 if (await RecentlyRemindedAsync(requestId, recipientId, now, cooldownHours, ct)) continue;
                 var eventId = Guid.NewGuid();
@@ -124,10 +126,12 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
     }
 
     /// <summary>The assignee, else every manager and receptionist. Payment requests are handled by managers only.</summary>
-    private async Task<List<Guid>> RecipientsAsync(MemberSupportRequest request, CancellationToken ct)
+    private async Task<List<Guid>> RecipientsAsync(MemberSupportRequest request, CancellationToken ct, bool managersOnly = false)
     {
-        var managersOnly = request.Category == "PAYMENT";
-        if (request.AssignedToUserId is Guid assignee)
+        managersOnly |= request.Category == "PAYMENT";
+        if (request.AssignedToUserId is Guid assignee && (!managersOnly || await db.Set<UserAccount>()
+            .AnyAsync(u => u.UserId == assignee && u.Status == UserStatus.Active && u.Role != null
+                && u.Role.RoleName == UserRole.CenterManager, ct)))
             return await db.Set<UserAccount>().AsNoTracking()
                 .Where(u => u.UserId == assignee && u.Status == UserStatus.Active
                     && (!managersOnly || (u.Role != null && u.Role.RoleName == UserRole.CenterManager)))

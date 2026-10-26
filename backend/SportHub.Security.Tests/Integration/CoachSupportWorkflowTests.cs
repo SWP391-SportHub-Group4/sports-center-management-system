@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
+using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Notification.Domain.Enums;
 
@@ -12,6 +13,64 @@ namespace SportHub.Security.Tests.Integration;
 [Collection(nameof(SportHubApiCollection))]
 public sealed class CoachSupportWorkflowTests(SportHubApiFactory factory)
 {
+    [Theory]
+    [InlineData(UserRole.Coach)]
+    [InlineData(UserRole.SystemAdministrator)]
+    public async Task Status_filters_and_totals_preserve_outcomes_and_assigned_only_visibility(UserRole role)
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var member = await factory.SeedUserAsync($"support-status-member-{marker}@example.com", null);
+        var owner = await factory.SeedUserAsync($"support-status-owner-{marker}@example.com", null, role: role);
+        var other = await factory.SeedUserAsync($"support-status-other-{marker}@example.com", null, role: UserRole.Coach);
+        var statuses = new[] { "OPEN", "ASSIGNED", "IN_PROGRESS", "DONE", "REJECTED", "CLOSED" };
+        var now = DateTime.UtcNow;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            foreach (var assignedTo in new[] { owner.UserId, other.UserId })
+            foreach (var status in statuses)
+                db.Set<MemberSupportRequest>().Add(new MemberSupportRequest
+                {
+                    RequestId = Guid.NewGuid(), MemberId = member.UserId,
+                    RecordedByUserId = member.UserId, AssignedToUserId = assignedTo,
+                    Category = "CLASS", Subject = $"Status test {marker}", Description = "Review the lesson plan.",
+                    Status = status, CreatedAt = now, SlaDueAtUtc = now.AddDays(1),
+                    ProgressNote = status == "REJECTED" ? "The request was declined." : null,
+                    ClosedAt = status is "DONE" or "REJECTED" or "CLOSED" ? now : null
+                });
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateApiClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(owner.UserId, role));
+        var stats = await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/stats");
+        Assert.Equal(1, stats.GetProperty("open").GetInt32());
+        Assert.Equal(1, stats.GetProperty("assigned").GetInt32());
+        Assert.Equal(1, stats.GetProperty("inProgress").GetInt32());
+        Assert.Equal(1, stats.GetProperty("rejected").GetInt32());
+        Assert.Equal(2, stats.GetProperty("notStarted").GetInt32());
+        Assert.Equal(2, stats.GetProperty("done").GetInt32());
+        foreach (var status in statuses)
+        {
+            var filtered = await client.GetFromJsonAsync<JsonElement>($"/api/member-support-requests/queue?status={status}");
+            Assert.Equal(1, filtered.GetProperty("totalCount").GetInt32());
+            var row = Assert.Single(filtered.GetProperty("items").EnumerateArray());
+            Assert.Equal(status, row.GetProperty("status").GetString());
+            Assert.Equal(owner.UserId, row.GetProperty("assignedToUserId").GetGuid());
+            if (status == "REJECTED") Assert.Equal("The request was declined.", row.GetProperty("progressNote").GetString());
+        }
+        var finished = await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue?status=FINISHED");
+        Assert.Equal(2, finished.GetProperty("totalCount").GetInt32());
+        Assert.All(finished.GetProperty("items").EnumerateArray(), row =>
+            Assert.Contains(row.GetProperty("status").GetString(), new[] { "DONE", "CLOSED" }));
+        var hidden = await client.GetFromJsonAsync<JsonElement>($"/api/member-support-requests/queue?assignedToUserId={other.UserId}");
+        Assert.Equal(0, hidden.GetProperty("totalCount").GetInt32());
+        var assigned = await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue?status=ASSIGNED");
+        var requestId = Assert.Single(assigned.GetProperty("items").EnumerateArray()).GetProperty("requestId").GetGuid();
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/member-support-requests/{requestId}/reject", new { reason = "Not authorized" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/member-support-requests/{requestId}/assign", new { assigneeUserId = other.UserId })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/member-support-requests", new { memberId = member.UserId, category = "CLASS", description = "Cannot create requests" })).StatusCode);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -40,8 +99,8 @@ public sealed class CoachSupportWorkflowTests(SportHubApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             var notices = await db.Notifications.Where(n => n.UserId == coach.UserId && n.SourceEventType == NotificationSourceEventType.SupportRequestAssigned).ToListAsync();
             Assert.Equal(2, notices.Count);
-            Assert.Single(notices.Where(n => n.Channel == NotificationChannel.InApp));
-            var email = Assert.Single(notices.Where(n => n.Channel == NotificationChannel.Email));
+            Assert.Single(notices, n => n.Channel == NotificationChannel.InApp);
+            var email = Assert.Single(notices, n => n.Channel == NotificationChannel.Email);
             Assert.Equal(coach.Email, email.RecipientAddress);
             Assert.NotNull(email.ProtectedEmailPayload);
         }

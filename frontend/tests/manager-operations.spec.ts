@@ -326,29 +326,51 @@ async function fillDraft(page: Page, proceed = true) {
     .click();
 }
 
-test("M05 locked coach details reassign the main class and refresh affected assignments", async ({
+test("M05 deactivated coach details reassign the main class and refresh affected assignments", async ({
   page,
 }) => {
   let assigned = false;
   let writes = 0;
+  await page.route("**/api/manager/classes/1/lead-coach/candidates", (route) =>
+    route.fulfill({
+      json: {
+        version: 1,
+        currentCoachId: memberId,
+        remainingSessionCount: 2,
+        coaches: [{ coachId, fullName: "Coach Linh" }],
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/lead-coach", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      coachId,
+      expectedVersion: 1,
+      reason: "Replacement audit",
+    });
+    assigned = true;
+    writes++;
+    return route.fulfill({ status: 204 });
+  });
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        coachId: memberId,
+        coachName: "Deactivated coach",
+        status: "PUBLISHED",
+      },
+    }),
+  );
   await page.route("**/api/manager/coach-coverage**", async (route) => {
-    if (route.request().method() === "POST") {
-      expect(route.request().postDataJSON()).toEqual({
-        replacementCoachId: coachId,
-        reason: "Replacement audit",
-      });
-      assigned = true;
-      writes++;
-      return route.fulfill({ status: 204 });
-    }
+    expect(route.request().method()).toBe("GET");
     return route.fulfill({
       json: assigned
         ? []
         : [
             {
               coachId: memberId,
-              coachName: "Locked coach",
-              coachEmail: "locked@example.com",
+              coachName: "Deactivated coach",
+              coachEmail: "deactivated@example.com",
               affectedClasses: 1,
               futureSessions: 1,
               activeRelationships: 1,
@@ -359,18 +381,20 @@ test("M05 locked coach details reassign the main class and refresh affected assi
     });
   });
   await page.route(`**/api/manager/coaches/${memberId}`, (route) =>
-    route.fulfill({ json: { ...coach, userId: memberId, status: "LOCKED" } }),
+    route.fulfill({
+      json: { ...coach, userId: memberId, status: "DEACTIVATED" },
+    }),
   );
   await page.goto(`/manager/coaches/${memberId}`);
   await page
-    .getByRole("button", { name: "Change main coach", exact: true })
+    .getByRole("button", { name: "Change Lead Coach", exact: true })
     .click();
+  await page.getByRole("radio").check();
   await page
-    .getByLabel(en.operations.coach, { exact: true })
-    .selectOption(coachId);
-  await page.getByLabel("Reason", { exact: true }).fill("Replacement audit");
+    .getByRole("textbox", { name: "Reason for change" })
+    .fill("Replacement audit");
   await page
-    .getByRole("button", { name: "Confirm main coach", exact: true })
+    .getByRole("button", { name: "Confirm Change", exact: true })
     .click();
   await expect(
     page.getByText("No assignments need a replacement."),
@@ -2882,11 +2906,11 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
   });
   await page.goto("/manager/classes/1?tab=threshold");
   await page
-    .getByText("Cancel class and refund points", { exact: true })
+    .getByText("Cancel class and notify members", { exact: true })
     .click();
   const form = page.locator("details").filter({
     has: page.locator("summary", {
-      hasText: "Cancel class and refund points",
+      hasText: "Cancel class and notify members",
     }),
   });
   await form
@@ -2898,7 +2922,7 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
       exact: true,
     })
     .click();
-  await expect(form.getByText(/immediately refunds/)).toBeVisible();
+  await expect(form.getByText(/then chooses to receive/)).toBeVisible();
   expect(cancels).toBe(0);
   await page.screenshot({
     path: "../.impeccable/review/operations-threshold-desktop.png",
@@ -2916,7 +2940,7 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
     .click();
   await expect.poll(() => cancels).toBe(1);
   await expect(
-    page.getByText("Cancel class and refund points", { exact: true }),
+    page.getByText("Cancel class and notify members", { exact: true }),
   ).toHaveCount(0);
 });
 

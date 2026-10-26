@@ -67,6 +67,12 @@ public sealed class MemberSelfSupportController(
     public async Task<IActionResult> Submit([FromForm] SubmitSupportRequest request, CancellationToken ct)
     {
         var memberId = User.RequireUserId();
+        if (!await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == memberId
+                && u.Status == UserStatus.Active
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct))
+            throw new ConflictException("member_not_activated", "Activate your account before submitting a support request.");
         var category = request.Category.Trim().ToUpperInvariant();
         if (!CategoryLabels.TryGetValue(category, out var label))
             throw new BadRequestException("support_category_invalid", "Invalid support request category.");
@@ -78,7 +84,7 @@ public sealed class MemberSelfSupportController(
         if (category == "PAYMENT")
         {
             if (request.InvoiceId is null || request.InvoiceId == Guid.Empty)
-                throw new BadRequestException("payment_request_invoice_required", "Choose a paid VNPay invoice.");
+                throw new BadRequestException("payment_request_invoice_required", "Choose one of your invoices.");
             if (files.Count == 0)
                 throw new BadRequestException("payment_request_proof_required", "Attach at least one proof image.");
         }
@@ -125,7 +131,7 @@ public sealed class MemberSelfSupportController(
             Status = "OPEN",
             Channel = "ONLINE",
             CreatedAt = now,
-            SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct))
+            SlaDueAtUtc = now.AddHours(SportHub.Identity.Application.Services.SupportReminderService.InactivityHours)
         };
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (category == "PAYMENT")
@@ -133,10 +139,8 @@ public sealed class MemberSelfSupportController(
             var invoiceId = request.InvoiceId!.Value;
             var invoice = await db.Set<Invoice>().FromSqlInterpolated(
                 $"SELECT * FROM invoices WHERE invoice_id = {invoiceId} FOR UPDATE").SingleOrDefaultAsync(ct);
-            if (invoice is null || invoice.MemberId != memberId || !await db.Set<SportHub.Payment.Domain.Entities.Payment>()
-                    .AnyAsync(p => p.InvoiceId == invoiceId && p.Method == PaymentMethod.VnPay
-                        && p.Status == PaymentStatus.Success, ct))
-                throw new BadRequestException("payment_request_invoice_required", "Choose your paid VNPay invoice.");
+            if (invoice is null || invoice.MemberId != memberId)
+                throw new BadRequestException("payment_request_invoice_required", "Choose one of your invoices.");
             if (invoice.Status == InvoiceStatus.Compensated || invoice.ResolutionIdempotencyKey is not null)
                 throw new ConflictException(PaymentSupportErrorCodes.ReconciliationAlreadyResolved,
                     "This payment has already been resolved.");

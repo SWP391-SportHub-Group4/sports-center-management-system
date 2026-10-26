@@ -108,21 +108,21 @@ public class PasswordResetTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Forgot_is_neutral_for_unknown_locked_and_existing_emails_and_sends_a_link_only_to_active_ones()
+    public async Task Forgot_is_neutral_for_unknown_deactivated_and_existing_emails_and_sends_a_link_only_to_active_ones()
     {
         var existing = NewEmail();
-        var banned = NewEmail();
+        var deactivated = NewEmail();
         var unknown = NewEmail();
         await factory.SeedUserAsync(existing, OldPassword);
-        await factory.SeedUserAsync(banned, OldPassword, status: UserStatus.Banned);
+        await factory.SeedUserAsync(deactivated, OldPassword, status: UserStatus.Deactivated);
 
-        foreach (var email in new[] { existing, banned, unknown })
+        foreach (var email in new[] { existing, deactivated, unknown })
         {
             Assert.Equal(HttpStatusCode.NoContent, (await Forgot(email)).StatusCode);
         }
 
         Assert.Equal(1, factory.Emails.CountFor(existing));
-        Assert.Equal(0, factory.Emails.CountFor(banned));
+        Assert.Equal(0, factory.Emails.CountFor(deactivated));
         Assert.Equal(0, factory.Emails.CountFor(unknown));
         var body = factory.Emails.Sent.Last(m => m.To == existing).Body;
         Assert.Contains("/reset-password?email=", body);

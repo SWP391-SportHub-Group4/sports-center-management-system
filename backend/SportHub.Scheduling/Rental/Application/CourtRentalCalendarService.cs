@@ -27,16 +27,16 @@ public sealed partial class CourtRentalService
             throw new BadRequestException("rental_not_available", "Rental not available.");
         var step = await settings.GetIntAsync(SystemSettingKeys.RentalSlotMinutes, ct);
         var maxHours = await settings.GetIntAsync(SystemSettingKeys.RentalMaxHours, ct);
-        var advanceDays = await settings.GetIntAsync(SystemSettingKeys.RentalAdvanceDays, ct);
         var holdMinutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         var now = clock.UtcNow;
         if (step is not (30 or 60) || hours < 1 || hours > maxHours || hours > 4
-            || date < VietnamTime.TodayLocal(clock) || date > VietnamTime.TodayLocal(clock).AddDays(advanceDays))
+            || date < CourtRentalWindow.AnchorDate(now) || date > CourtRentalWindow.LastBookableDate(now))
             throw new BadRequestException("invalid_rental_window", "Invalid rental window.");
 
         var rooms = await (from room in db.Set<Room>().AsNoTracking()
                            join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
                            where room.IsActive && link.SportId == sportId
+                               && (room.RentalBookingOpensAtUtc == null || room.RentalBookingOpensAtUtc <= now)
                                && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
                            select new { room.RoomId, room.Name, room.RoomTypeId }).Distinct().OrderBy(r => r.Name).ToListAsync(ct);
         var ids = rooms.Select(r => r.RoomId).ToList();
@@ -61,8 +61,9 @@ public sealed partial class CourtRentalService
             var window = opening.SingleOrDefault(h => h.RoomId == room.RoomId);
             if (window is not null)
             {
-                var openMinute = window.OpenTimeLocal.Hour * 60 + window.OpenTimeLocal.Minute;
-                var closeMinute = window.CloseTimeLocal.Hour * 60 + window.CloseTimeLocal.Minute;
+                // BR-126: chỉ hiển thị khung 06:00 đến 22:00 dù phòng mở rộng hơn.
+                var openMinute = Math.Max(window.OpenTimeLocal.Hour * 60 + window.OpenTimeLocal.Minute, CourtRentalWindow.OpenMinute);
+                var closeMinute = Math.Min(window.CloseTimeLocal.Hour * 60 + window.CloseTimeLocal.Minute, CourtRentalWindow.CloseMinute);
                 for (var minute = (int)Math.Ceiling(openMinute / (double)step) * step;
                      minute + hours * 60 <= closeMinute; minute += step)
                 {
@@ -76,7 +77,7 @@ public sealed partial class CourtRentalService
                         OccupancySourceType.RoomBlock => "BLOCKED",
                         _ => "SCHEDULED"
                     };
-                    if (occupied is null && (start <= now.AddMinutes(holdMinutes) || start >= VietnamTime.EndOfDayExclusiveUtc(VietnamTime.TodayLocal(clock).AddDays(advanceDays))))
+                    if (occupied is null && (start <= now.AddMinutes(holdMinutes) || start >= VietnamTime.EndOfDayExclusiveUtc(CourtRentalWindow.LastBookableDate(now))))
                         status = "UNAVAILABLE";
                     CourtRentalQuote? quote = null;
                     if (status == "AVAILABLE")

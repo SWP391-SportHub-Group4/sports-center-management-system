@@ -372,11 +372,45 @@ test("receptionist selects a Member and performs server-authorized Gym check-in"
   await expect.poll(() => checkIns).toBe(1);
 });
 
-test("only receptionist UI writes group attendance and uses enrollment+session identity", async ({
+const rosterWith = (attendanceStatus: string | null) => ({
+  session: {
+    sessionId,
+    classId: 7,
+    className: "Badminton group",
+    sessionNo: 1,
+    roomId: 3,
+    roomName: "Court 3",
+    coachId: "77777777-7777-4777-8777-777777777777",
+    coachName: "Coach A",
+    startAtUtc: "2030-10-03T02:30:00Z",
+    endAtUtc: "2030-10-03T04:00:00Z",
+    status: "SCHEDULED",
+    isMakeup: false,
+    rescheduledFromSessionId: null,
+  },
+  attendanceOpensAtUtc: "2030-10-03T02:30:00Z",
+  attendanceClosesAtUtc: "2030-10-04T04:00:00Z",
+  entries: [
+    {
+      enrollmentId,
+      memberId,
+      memberName: "Member A",
+      enrollmentStatus: "CONFIRMED",
+      attendanceStatus,
+      attendanceRecordedAt: attendanceStatus ? "2030-10-03T03:00:00Z" : null,
+    },
+  ],
+});
+
+// BR-98: Coach điểm danh; Lễ tân chỉ chỉnh bản ghi Coach đã tạo, khi Member kiến nghị, bắt buộc có lý do.
+test("receptionist cannot take first-time attendance, only correct the coach's record with a reason", async ({
   page,
 }) => {
   let payload: unknown = null;
 
+  await page.route(`**/api/class-sessions/${sessionId}/roster`, (route) =>
+    route.fulfill({ json: rosterWith("ABSENT") }),
+  );
   await page.route(
     `**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`,
     async (route) => {
@@ -403,11 +437,49 @@ test("only receptionist UI writes group attendance and uses enrollment+session i
     })
     .click();
 
+  const dialog = page.getByRole("dialog", { name: "Correct attendance" });
+  const confirm = dialog.getByRole("button", { name: "Confirm" });
+  // Chưa nhập lý do thì chưa gửi được.
+  await expect(confirm).toBeDisabled();
+  await dialog.getByRole("textbox").fill("Member asked: Coach marked absent by mistake");
+  await confirm.click();
+
   await expect
     .poll(() => payload)
     .toEqual({
       status: "PRESENT",
+      reason: "Member asked: Coach marked absent by mistake",
     });
+});
+
+test("receptionist attendance buttons stay disabled until the coach has recorded attendance", async ({
+  page,
+}) => {
+  let writes = 0;
+
+  await page.route(`**/api/class-sessions/${sessionId}/roster`, (route) =>
+    route.fulfill({ json: rosterWith(null) }),
+  );
+  await page.route(
+    `**/api/class-sessions/${sessionId}/attendance/${enrollmentId}`,
+    async (route) => {
+      writes += 1;
+      await route.fulfill({ json: { ok: true } });
+    },
+  );
+
+  await page.goto("/receptionist/attendance");
+
+  await page.getByLabel("Class session").selectOption(sessionId);
+
+  await expect(page.getByRole("row", { name: /Member A/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Present", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Absent", exact: true }),
+  ).toBeDisabled();
+  expect(writes).toBe(0);
 });
 
 test("attendance finds the next class day when the selected day has no sessions", async ({
@@ -438,7 +510,7 @@ test("attendance finds the next class day when the selected day has no sessions"
     .getByRole("button", { name: "Next class day: 04/10/2030 (1 session)" })
     .click();
   await page.getByLabel("Class session").selectOption(sessionId);
-  await expect(page.getByText("Member A")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Member A/ })).toBeVisible();
 
   const previousDay = await page
     .getByRole("button", { name: "Previous day" })

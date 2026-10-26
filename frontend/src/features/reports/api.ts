@@ -97,10 +97,11 @@ export interface OperationsHealth {
     failed: number;
     failedNeedingAttention: number;
   };
+  support: { overdueRequests: number };
   payments: {
     gatewayEventsUnprocessed: number;
     gatewayEventsFailed: number;
-    manualCompensationRequired: number;
+    paidNotActivated: number;
     attemptsAwaitingReconciliation: number;
     invoicesFlaggedForReconciliation: number;
     expiredSeatHoldsNotReleased: number;

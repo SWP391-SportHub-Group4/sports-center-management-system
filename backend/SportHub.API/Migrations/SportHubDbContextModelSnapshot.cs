@@ -25,6 +25,18 @@ namespace SportHub.API.Migrations
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.HasSequence("invoice_number_seq");
+            modelBuilder.Entity("SportHub.API.Persistence.ManagerRequestReadReceipt", b =>
+                {
+                    b.Property<Guid>("ManagerId").HasColumnType("uuid").HasColumnName("manager_id");
+                    b.Property<string>("RequestType").HasMaxLength(16).HasColumnType("character varying(16)").HasColumnName("request_type");
+                    b.Property<Guid>("RequestId").HasColumnType("uuid").HasColumnName("request_id");
+                    b.Property<DateTime>("ReadAtUtc").HasColumnType("timestamp with time zone").HasColumnName("read_at_utc");
+                    b.HasKey("ManagerId", "RequestType", "RequestId").HasName("pk_manager_request_reads");
+                    b.ToTable("manager_request_reads", (string)null);
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany().HasForeignKey("ManagerId").OnDelete(DeleteBehavior.Cascade).IsRequired()
+                        .HasConstraintName("fk_manager_request_reads_user_accounts_manager_id");
+                });
 
             modelBuilder.Entity("SportHub.AI.Domain.Entities.AiLog", b =>
                 {
@@ -356,6 +368,53 @@ namespace SportHub.API.Migrations
                         .HasDatabaseName("ix_audit_logs_actor_role_timestamp");
 
                     b.ToTable("audit_logs", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarAuditImage", b =>
+                {
+                    b.Property<Guid>("ImageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("image_id");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("content");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_user_id");
+
+                    b.Property<string>("SourcePublicId")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("source_public_id");
+
+                    b.HasKey("ImageId")
+                        .HasName("pk_avatar_audit_images");
+
+                    b.HasIndex("ExpiresAtUtc")
+                        .HasDatabaseName("ix_avatar_audit_images_expires_at_utc");
+
+                    b.HasIndex("OwnerUserId", "SourcePublicId")
+                        .HasDatabaseName("ix_avatar_audit_images_owner_user_id_source_public_id");
+
+                    b.ToTable("avatar_audit_images", (string)null);
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.AvatarDeletion", b =>
@@ -1002,7 +1061,10 @@ namespace SportHub.API.Migrations
                     b.HasIndex("RoleId")
                         .HasDatabaseName("ix_user_accounts_role_id");
 
-                    b.ToTable("user_accounts", (string)null);
+                    b.ToTable("user_accounts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_user_accounts_status", "status IN (0, 2)");
+                        });
                 });
 
             modelBuilder.Entity("SportHub.Identity.Domain.Entities.UserCredential", b =>
@@ -3446,6 +3508,10 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Domain.Entities.Room", b =>
                 {
+                    b.Property<DateTime?>("RentalBookingOpensAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rental_booking_opens_at_utc");
+
                     b.Property<int>("RoomId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -3894,6 +3960,16 @@ namespace SportHub.API.Migrations
 
             modelBuilder.Entity("SportHub.Scheduling.Rental.Domain.IncidentNotice", b =>
                 {
+                    b.Property<string>("RefundsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("refunds_json");
+
+                    b.Property<string>("RequestFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_fingerprint");
+
                     b.Property<Guid>("IncidentId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")

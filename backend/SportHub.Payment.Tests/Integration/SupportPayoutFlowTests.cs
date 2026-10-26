@@ -34,6 +34,26 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
+    public async Task Member_can_report_a_void_invoice_without_a_confirmed_vnpay_charge()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 100_000m);
+        await factory.QueryAsync(async db =>
+        {
+            var row = await db.Invoices.SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            row.Status = InvoiceStatus.Void;
+            return await db.SaveChangesAsync();
+        });
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var form = Form(invoice.InvoiceId);
+        var response = await owner.PostAsync("/api/support/requests", form);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var breakdown = await owner.GetFromJsonAsync<JsonElement>(
+            $"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
+        Assert.Equal(0m, breakdown.GetProperty("vnpayVnd").GetDecimal());
+    }
+
+    [Fact]
     public async Task Payment_request_and_payout_require_proof_and_enforce_roles_and_capture_limit()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
@@ -172,7 +192,75 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Unreceived_report_reopens_request_and_maintenance_confirms_only_when_due()
+    public async Task Hybrid_invoice_payout_transfers_the_vnpay_share_and_returns_the_points_share_once()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        // 100.000đ = 20 points (20.000đ) + 80.000đ VNPay.
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 100_000m);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Set<Invoice>().Where(x => x.InvoiceId == invoice.InvoiceId).ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.CheckoutCycleId, Guid.NewGuid())
+                .SetProperty(x => x.PointsApplied, 20)
+                .SetProperty(x => x.CashAmount, 80_000m));
+            db.Set<SportHub.Payment.Domain.Entities.Payment>().Add(new SportHub.Payment.Domain.Entities.Payment
+            {
+                PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = 80_000m,
+                Method = PaymentMethod.VnPay, Status = PaymentStatus.Success,
+                ReceivedByUserId = member.UserId, PaidAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var mgr = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var breakdown = await owner.GetFromJsonAsync<JsonElement>($"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
+        Assert.Equal(80_000m, breakdown.GetProperty("refundableVnpayVnd").GetDecimal());
+        Assert.Equal(20, breakdown.GetProperty("refundablePoints").GetInt32());
+        Assert.Equal(20_000m, breakdown.GetProperty("pointsVnd").GetDecimal());
+
+        using var form = Form(invoice.InvoiceId);
+        var created = await owner.PostAsync("/api/support/requests", form);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var requestId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+
+        MultipartFormDataContent Payout(string amount)
+        {
+            var payout = new MultipartFormDataContent();
+            payout.Add(new StringContent(amount), "Amount");
+            payout.Add(new StringContent("Called the member and refunded the VNPay share by transfer"), "Note");
+            AddPng(payout);
+            return payout;
+        }
+        // A hybrid invoice must refund the whole VNPay share; nothing is credited on a rejected attempt.
+        using (var partial = Payout("50000"))
+        {
+            var res = await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", partial);
+            Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+            Assert.Equal("payout_amount_mismatch",
+                (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("error").GetString());
+        }
+        Assert.Equal(0, await factory.QueryAsync(db => db.PointWallets
+            .Where(w => w.OwnerUserId == member.UserId).Select(w => w.AvailablePoints).SingleOrDefaultAsync()));
+
+        using var exact = Payout("80000");
+        var recorded = await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", exact);
+        Assert.Equal(HttpStatusCode.OK, recorded.StatusCode);
+        Assert.Equal(20, (await recorded.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("pointsRefunded").GetInt32());
+        Assert.Equal(20, await factory.QueryAsync(db => db.PointWallets
+            .Where(w => w.OwnerUserId == member.UserId).Select(w => w.AvailablePoints).SingleAsync()));
+        using var again = Payout("80000");
+        Assert.Equal(HttpStatusCode.Conflict,
+            (await mgr.PostAsync($"/api/member-support-requests/{requestId}/payout", again)).StatusCode);
+        Assert.Equal(20, await factory.QueryAsync(db => db.PointWallets
+            .Where(w => w.OwnerUserId == member.UserId).Select(w => w.AvailablePoints).SingleAsync()));
+        var after = await owner.GetFromJsonAsync<JsonElement>($"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
+        Assert.Equal(0m, after.GetProperty("refundableVnpayVnd").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Unreceived_report_prevents_auto_confirmation_even_if_a_legacy_request_is_closed_again()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -236,8 +324,150 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         await factory.QueryAsync(async db =>
         {
             var payout = await db.Set<MemberSupportPayout>().SingleAsync(x => x.RequestId == requestId);
-            Assert.Equal("SYSTEM", payout.MemberConfirmedBy);
+            Assert.Null(payout.MemberConfirmedAtUtc);
+            Assert.Null(payout.MemberConfirmedBy);
             Assert.Equal(2, await db.Set<MemberSupportAttachment>().CountAsync(x => x.RequestId == requestId));
+            return 0;
+        });
+    }
+
+    private async Task<(Guid RequestId, Guid PayoutId, Guid ProofId, DateTime RecordedAt)> SeedRecordedPayoutAsync(Guid memberId, Guid managerId)
+    {
+        var invoice = await factory.SeedInvoiceAsync(memberId, memberId, 50_000m);
+        var requestId = Guid.NewGuid(); var payoutId = Guid.NewGuid(); var proofId = Guid.NewGuid();
+        var recordedAt = DateTime.UtcNow.Date.AddDays(-4);
+        await factory.QueryAsync(async db =>
+        {
+            db.Set<MemberSupportRequest>().Add(new()
+            {
+                RequestId = requestId, MemberId = memberId, RecordedByUserId = memberId,
+                Category = "PAYMENT", Subject = "Transfer receipt review", Description = "Payment needs support",
+                Status = "CLOSED", InvoiceId = invoice.InvoiceId, Channel = "ONLINE",
+                CreatedAt = recordedAt, ClosedAt = recordedAt, SlaDueAtUtc = recordedAt.AddHours(48),
+                ProgressNote = "Payout recorded."
+            });
+            db.Set<MemberSupportPayout>().Add(new()
+            {
+                PayoutId = payoutId, RequestId = requestId, InvoiceId = invoice.InvoiceId,
+                Amount = 50_000m, Note = "Original transfer after calling the member.",
+                RecordedByUserId = managerId, RecordedAtUtc = recordedAt
+            });
+            db.Set<MemberSupportAttachment>().Add(new()
+            {
+                AttachmentId = proofId, RequestId = requestId, PayoutId = payoutId,
+                Kind = SupportAttachmentKinds.PayoutProof, FileName = "original-proof.png",
+                ContentType = "image/png", Content = [137, 80, 78, 71], CreatedAt = recordedAt
+            });
+            await db.SaveChangesAsync(); return 0;
+        });
+        return (requestId, payoutId, proofId, recordedAt);
+    }
+
+    [Theory]
+    [InlineData("done", "DONE")]
+    [InlineData("reject", "REJECTED")]
+    public async Task Manager_finalizes_reopened_payout_review_without_rewriting_or_confirming_the_transfer(string action, string status)
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var desk = await factory.SeedUserAsync(UserRole.Receptionist);
+        var outsider = await factory.SeedUserAsync(UserRole.Member);
+        var recorded = await SeedRecordedPayoutAsync(member.UserId, manager.UserId);
+        var id = recorded.RequestId;
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var mgr = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        using var receptionist = factory.CreateApiClient(desk.UserId, UserRole.Receptionist);
+        using var other = factory.CreateApiClient(outsider.UserId, UserRole.Member);
+        Assert.Equal(HttpStatusCode.Forbidden, (await other.PostAsync($"/api/support/requests/{id}/report-not-received", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await owner.PostAsync($"/api/support/requests/{id}/report-not-received", null)).StatusCode);
+        var endpoint = $"/api/member-support-requests/{id}/{action}";
+        var notifications = await mgr.GetFromJsonAsync<JsonElement[]>("/api/notifications");
+        var reportNotice = notifications!.Single(n => n.GetProperty("sourceEventType").GetString() == "SUPPORT_PAYOUT_NOT_RECEIVED"
+            && n.GetProperty("message").GetString()!.Contains(id.ToString()));
+        Assert.Equal($"/manager/requests?type=support&request={id}", reportNotice.GetProperty("actionUrl").GetString());
+        var noticeSourceId = reportNotice.GetProperty("sourceEntityId").GetGuid();
+        Assert.True(await factory.QueryAsync(db => db.Set<MemberSupportEvent>().AnyAsync(e => e.EventId == noticeSourceId
+            && e.RequestId == id && e.Type == "MEMBER_REPORTED_NOT_RECEIVED")));
+        const string reason = "Reviewed the original transfer with the bank and contacted the member. Outcome documented.";
+        Assert.Equal(HttpStatusCode.Forbidden, (await receptionist.PostAsJsonAsync(endpoint, new { reason })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await mgr.PostAsJsonAsync(endpoint, new { reason = " " })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await mgr.PostAsJsonAsync(endpoint, new { reason = new string('x', 1001) })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await mgr.PostAsJsonAsync(endpoint, new { reason })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await mgr.PostAsJsonAsync(endpoint, new { reason })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await owner.PostAsync($"/api/support/requests/{id}/report-not-received", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await owner.PostAsync($"/api/support/requests/{id}/confirm-received", null)).StatusCode);
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<SupportPayoutMaintenance>().AutoConfirmAsync(default);
+        await factory.QueryAsync(async db =>
+        {
+            var request = await db.Set<MemberSupportRequest>().SingleAsync(r => r.RequestId == id);
+            Assert.Equal(status, request.Status);
+            Assert.Equal(reason, request.ProgressNote);
+            Assert.Equal(manager.UserId, request.AssignedToUserId);
+            Assert.NotNull(request.ClosedAt);
+            var payout = await db.Set<MemberSupportPayout>().SingleAsync(p => p.RequestId == id);
+            Assert.Equal(recorded.PayoutId, payout.PayoutId);
+            Assert.Equal(50_000m, payout.Amount);
+            Assert.Equal(recorded.RecordedAt, payout.RecordedAtUtc);
+            Assert.Equal("Original transfer after calling the member.", payout.Note);
+            Assert.Null(payout.MemberConfirmedAtUtc); Assert.Null(payout.MemberConfirmedBy);
+            Assert.Equal(1, await db.Set<MemberSupportAttachment>().CountAsync(a => a.PayoutId == payout.PayoutId));
+            Assert.True(await db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == id && e.Type == status
+                && e.ActorUserId == manager.UserId && e.Note == reason));
+            var audit = await db.Set<AuditLog>().SingleAsync(a => a.TargetId == id.ToString()
+                && a.Action == (action == "done" ? "COMPLETE_SUPPORT_REQUEST" : "REJECT_SUPPORT_REQUEST")
+                && a.UserId == manager.UserId);
+            using var auditValue = JsonDocument.Parse(audit.NewValue!);
+            Assert.Equal(reason, auditValue.RootElement.GetProperty("reason").GetString());
+            return 0;
+        });
+        var mine = await owner.GetFromJsonAsync<JsonElement>("/api/support/requests/mine");
+        var row = mine.EnumerateArray().Single(r => r.GetProperty("requestId").GetGuid() == id);
+        Assert.Equal(status, row.GetProperty("status").GetString());
+        Assert.Equal(reason, row.GetProperty("response").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync($"/api/support/attachments/{recorded.ProofId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Member_can_confirm_a_delayed_transfer_during_review_and_duplicate_reports_do_not_reset_assignment()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var recorded = await SeedRecordedPayoutAsync(member.UserId, manager.UserId);
+        var id = recorded.RequestId;
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var mgr = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        Assert.Equal(HttpStatusCode.OK, (await owner.PostAsync($"/api/support/requests/{id}/report-not-received", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await mgr.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = manager.UserId })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await owner.PostAsync($"/api/support/requests/{id}/report-not-received", null)).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            Assert.Equal(manager.UserId, await db.Set<MemberSupportRequest>().Where(r => r.RequestId == id).Select(r => r.AssignedToUserId).SingleAsync());
+            return 0;
+        });
+        Assert.Equal(HttpStatusCode.OK, (await owner.PostAsync($"/api/support/requests/{id}/confirm-received", null)).StatusCode);
+        await factory.QueryAsync(async db =>
+        {
+            Assert.Equal("CLOSED", await db.Set<MemberSupportRequest>().Where(r => r.RequestId == id).Select(r => r.Status).SingleAsync());
+            var payout = await db.Set<MemberSupportPayout>().SingleAsync(p => p.RequestId == id);
+            Assert.Equal("MEMBER", payout.MemberConfirmedBy); Assert.NotNull(payout.MemberConfirmedAtUtc);
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Unreported_payout_still_auto_confirms_after_the_configured_wait()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var recorded = await SeedRecordedPayoutAsync(member.UserId, manager.UserId);
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<SupportPayoutMaintenance>().AutoConfirmAsync(default);
+        await factory.QueryAsync(async db =>
+        {
+            var payout = await db.Set<MemberSupportPayout>().SingleAsync(p => p.PayoutId == recorded.PayoutId);
+            Assert.Equal("SYSTEM", payout.MemberConfirmedBy);
+            Assert.NotNull(payout.MemberConfirmedAtUtc);
             return 0;
         });
     }

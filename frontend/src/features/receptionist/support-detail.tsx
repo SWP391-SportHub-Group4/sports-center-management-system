@@ -6,6 +6,7 @@ import { AvatarImage } from "@/components/AvatarImage";
 import { SupportStatus } from "@/components/support-status";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
+import { useManagerRequestRead } from "@/lib/manager-request-reads";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type {
   MemberPackageDto,
@@ -76,6 +77,8 @@ export function SupportDetail({
   const { user } = useAuth();
   const isManager = workspace === "manager";
   const isReceiver = workspace === "coach" || workspace === "admin";
+  const readRef = useRef<HTMLDivElement>(null);
+  useManagerRequestRead("support", request.requestId, isManager, readRef);
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
 
@@ -189,14 +192,33 @@ export function SupportDetail({
     }
   }
 
-  const copy = MODE_COPY[mode];
+  const payoutReview =
+    isManager &&
+    request.category === "PAYMENT" &&
+    !!request.payout &&
+    (events.data ?? []).some(
+      (event) => event.type === "MEMBER_REPORTED_NOT_RECEIVED",
+    );
+  const copy =
+    payoutReview && mode !== "progress"
+      ? {
+          field:
+            mode === "done"
+              ? "Payout review outcome"
+              : "Reason for declining the payout claim",
+          placeholder:
+            "Describe the transfer checks, contact with the member, and your decision.",
+          submit: MODE_COPY[mode].submit,
+        }
+      : MODE_COPY[mode];
   const noteReady = note.trim().length >= 3;
   const unassigned = !request.assignedToUserId;
-  const actionBlock = unassigned
-    ? "Assign this request to someone before updating it."
-    : !noteReady
-      ? "Write at least 3 characters."
-      : null;
+  const actionBlock =
+    unassigned && !(payoutReview && mode !== "progress")
+      ? "Assign this request to someone before updating it."
+      : !noteReady
+        ? "Write at least 3 characters."
+        : null;
 
   const timeline: SupportEventDto[] =
     events.data && events.data.length > 0
@@ -214,7 +236,7 @@ export function SupportDetail({
         ];
 
   return (
-    <div className={styles.detail}>
+    <div className={styles.detail} ref={readRef}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
           <SupportStatus status={request.status} />
@@ -482,23 +504,47 @@ export function SupportDetail({
           )}
 
           <section className={styles.section} aria-label="Handle request">
+            {payoutReview && (
+              <div className={styles.reviewNotice}>
+                <h4>Review the reported payout</h4>
+                <p>
+                  Check the original transfer and contact the member before
+                  choosing Done or Reject. Your outcome will be visible to the
+                  member.
+                </p>
+                <p>
+                  Closing this review keeps the original payout and does not
+                  confirm receipt or record another payment.
+                </p>
+                {unassigned && (
+                  <p>
+                    You can finish the review directly. You will be recorded as
+                    the handler.
+                  </p>
+                )}
+              </div>
+            )}
             <div className={styles.tabs} role="tablist" aria-label="Action">
-              {TABS.filter((tab) => !isReceiver || tab.mode !== "reject").map((tab) => (
-                <button
-                  key={tab.mode}
-                  type="button"
-                  role="tab"
-                  className={styles.tab}
-                  aria-selected={mode === tab.mode}
-                  disabled={busy}
-                  onClick={() => {
-                    setMode(tab.mode);
-                    setConfirming(false);
-                  }}
-                >
-                  {isReceiver && tab.mode === "progress" ? "In progress" : tab.label}
-                </button>
-              ))}
+              {TABS.filter((tab) => !isReceiver || tab.mode !== "reject").map(
+                (tab) => (
+                  <button
+                    key={tab.mode}
+                    type="button"
+                    role="tab"
+                    className={styles.tab}
+                    aria-selected={mode === tab.mode}
+                    disabled={busy}
+                    onClick={() => {
+                      setMode(tab.mode);
+                      setConfirming(false);
+                    }}
+                  >
+                    {isReceiver && tab.mode === "progress"
+                      ? "In progress"
+                      : tab.label}
+                  </button>
+                ),
+              )}
             </div>
             <label className={styles.field}>
               {copy.field}
@@ -530,9 +576,11 @@ export function SupportDetail({
                       run(
                         mode,
                         { reason: note.trim() },
-                        mode === "done"
-                          ? "Request marked as done."
-                          : "Request rejected.",
+                        payoutReview
+                          ? "Payout review finalized. The original payout is unchanged."
+                          : mode === "done"
+                            ? "Request marked as done."
+                            : "Request rejected.",
                       )
                     }
                   >
@@ -593,7 +641,7 @@ export function SupportDetail({
               <span className={styles.muted}>
                 {formatDateTime(event.createdAt)}
                 {event.actorRole
-                  ? ` · ${ROLE_LABELS[roleKey(event.actorRole)]}`
+                  ? ` · ${event.actorRole.toUpperCase() === "MEMBER" ? "Member" : ROLE_LABELS[roleKey(event.actorRole)]}`
                   : ""}
               </span>
               {event.note && <p className={styles.eventNote}>{event.note}</p>}

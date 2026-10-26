@@ -35,7 +35,7 @@ public sealed class IncidentFenceTests(PaymentApiFactory factory)
                     DaysOfWeek = "MON,TUE,WED,THU,FRI,SAT,SUN", StartTimeLocal = new(6, 0),
                     EndTimeLocal = new(22, 0), PricePerHour = 100_000 });
             await db.SaveChangesAsync();
-            var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(2)).AddHours(10);
+            var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(1)).AddHours(10);
             return new CourtRentalRequest(member.UserId, 3, room.RoomId, start, start.AddHours(1));
         });
     }
@@ -137,7 +137,7 @@ public sealed class IncidentFenceTests(PaymentApiFactory factory)
         Assert.True(listed.CanResolve);
 
         // Applying the incident (room blocks) is exempt from its own fence.
-        var incidentId = await incidents.ResolveAsync(WindowAround(request), manager.UserId);
+        var incidentId = await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, WindowAround(request)), manager.UserId);
 
         Assert.DoesNotContain(await incidents.ListOpenFencesAsync(), f => f.FenceId == fence.FenceId);
         var closed = await factory.QueryAsync(db => db.Set<IncidentFence>().AsNoTracking().SingleAsync(f => f.FenceId == fence.FenceId));

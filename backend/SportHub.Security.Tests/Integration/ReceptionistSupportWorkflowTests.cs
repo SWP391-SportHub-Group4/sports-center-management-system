@@ -280,7 +280,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         var member = await factory.SeedUserAsync($"support-find-{marker}@example.com", null, fullName: $"Support member {marker}");
         var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager);
         var handler = await factory.SeedUserAsync($"support-handler-{marker}@example.com", null, role: UserRole.Receptionist, fullName: "Support handler");
-        var inactive = await factory.SeedUserAsync($"support-banned-{marker}@example.com", null, UserStatus.Banned, UserRole.Receptionist);
+        var inactive = await factory.SeedUserAsync($"support-banned-{marker}@example.com", null, UserStatus.Deactivated, UserRole.Receptionist);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
         var ids = new List<Guid>();

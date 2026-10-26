@@ -4,10 +4,11 @@ const labels: Record<string, string> = {
   UPLOAD_MEDIA_IMAGE: "Homepage image uploaded",
   CREATE_STAFF_ACCOUNT: "Staff account created",
   CHANGE_USER_ROLE: "Account role changed",
-  LOCK_USER_ACCOUNT: "Account locked or deactivated",
-  LOCK_USER: "Account locked",
-  UNLOCK_USER_ACCOUNT: "Account unlocked",
-  UNLOCK_USER: "Account unlocked",
+  LOCK_USER_ACCOUNT: "Account deactivated",
+  LOCK_USER: "Account deactivated",
+  UNLOCK_USER_ACCOUNT: "Account activated",
+  UNLOCK_USER: "Account activated",
+  ACTIVATE_USER_ACCOUNT: "Account activated",
   DEACTIVATE_USER_ACCOUNT: "Account deactivated",
   RESEND_STAFF_ACTIVATION: "Staff activation email queued again",
   CHANGE_PENDING_STAFF_EMAIL: "Unactivated staff account email corrected",
@@ -35,6 +36,7 @@ const labels: Record<string, string> = {
   UNDO_CANCEL_CLASS_SESSION: "Class session cancellation reversed",
   UNDO_RESCHEDULE_CLASS_SESSION: "Class session rescheduling reversed",
   REASSIGN_LOCKED_MAIN_COACH: "Main Coach replaced after an account lock",
+  CHANGE_CLASS_LEAD_COACH: "Class lead coach and future sessions updated",
   CREATE_CLASS_SESSION_CHANGE_REQUEST: "Session change request submitted",
   UPDATE_CLASS_SESSION_CHANGE_REQUEST: "Session change request updated",
   WITHDRAW_CLASS_SESSION_CHANGE_REQUEST: "Session change request cancelled",
@@ -104,6 +106,17 @@ const labels: Record<string, string> = {
   ASSIGN_SUPPORT_REQUEST: "Member support request assigned",
   UPDATE_SUPPORT_PROGRESS: "Member support progress updated",
   CLOSE_SUPPORT_REQUEST: "Member support request closed",
+  COMPLETE_SUPPORT_REQUEST: "Support request marked as done",
+  REJECT_SUPPORT_REQUEST: "Support request rejected",
+  REMIND_SUPPORT_REQUEST: "Support request reminder sent",
+  PAYMENT_NOT_ACTIVATED: "Payment received but service not activated",
+  SUPPORT_PAYOUT_RECORDED: "Bank refund recorded",
+  SUPPORT_PAYOUT_CONFIRMED: "Member confirmed receiving the refund",
+  SUPPORT_PAYOUT_NOT_RECEIVED:
+    "Member reported that the refund was not received",
+  SUPPORT_PAYOUT_AUTO_CONFIRMED: "Refund receipt automatically confirmed",
+  CONVERT_UNACTIVATED_PAYMENT_TO_POINTS:
+    "Unactivated payment converted to wallet points",
   SEND_MANUAL_NOTICE: "Center announcement queued",
   RECORD_SESSION_INCIDENT: "Class session incident recorded",
   RESOLVE_CENTER_INCIDENT: "Center incident handled",
@@ -120,7 +133,7 @@ const labels: Record<string, string> = {
   IMPORT_GOOGLE_AVATAR: "Google profile photo imported",
   REPORT_AVATAR: "Profile photo reported",
   DISMISS_AVATAR_REPORT: "Profile photo report dismissed",
-  MANAGER_REMOVE_MEMBER_AVATAR: "Profile photo removed by a Manager",
+  MANAGER_REMOVE_MEMBER_AVATAR: "Profile photo removed by staff",
   CREATE_REPORT_EXPORT: "Report export requested",
   DELETE_REPORT_EXPORT: "Exported report deleted",
   UPDATE_SYSTEM_SETTING: "Center setting updated",
@@ -174,7 +187,8 @@ export function auditActionLabel(
       ) {
         const status = payload.status.toUpperCase();
         if (status === "DEACTIVATED") return "Account deactivated";
-        if (status === "BANNED" || status === "LOCKED") return "Account locked";
+        if (status === "BANNED" || status === "LOCKED")
+          return "Account deactivated";
       }
     } catch {
       /* Older events may not contain a JSON snapshot. */

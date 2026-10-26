@@ -99,7 +99,6 @@ public sealed class MemberSupportRequestsController(
     IClock clock,
     IAuditWriter audit,
     INotificationWriter notifications,
-    ISystemSettingProvider settings,
     SupportReminderService reminders,
     ISupportInvoiceGuard invoiceGuard) : ControllerBase
 {
@@ -175,6 +174,8 @@ public sealed class MemberSupportRequestsController(
             .Set<UserAccount>()
             .AsNoTracking()
             .Include(x => x.Role)
+            .Include(x => x.Credential)
+            .Include(x => x.ExternalLogins)
             .AnyAsync(
                 x =>
                     x.UserId == memberId &&
@@ -227,6 +228,19 @@ public sealed class MemberSupportRequestsController(
                 message = "Member was not found."
             });
         }
+
+        // Newly registered members can be Active but still lack login credentials.
+        if (!await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == request.MemberId
+                && u.Status == UserStatus.Active
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct))
+            throw new ConflictException("member_not_activated", "Member must activate the account before a support request can be created.");
+
+        // Front-desk registration creates an Active user before email activation.
+        // Require either a local password or a completed external login.
+        if (member.Credential?.PasswordHash is null && member.ExternalLogins.Count == 0)
+            throw new ConflictException("member_activation_pending", "Member must activate the account before support requests can be created.");
 
         var description = request.Description.Trim();
         var category = request.Category.Trim().ToUpperInvariant();
@@ -298,7 +312,7 @@ public sealed class MemberSupportRequestsController(
             Status = "OPEN",
             Channel = channel,
             CreatedAt = now,
-            SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct)),
+            SlaDueAtUtc = now.AddHours(SupportReminderService.InactivityHours),
             InvoiceId = category == "PAYMENT" ? request.InvoiceId : null
         };
         AddEvent(entity.RequestId, "CREATED", null);
@@ -380,7 +394,7 @@ public sealed class MemberSupportRequestsController(
             assigned = Count("ASSIGNED"),
             inProgress = Count("IN_PROGRESS"),
             overdue,
-            done = Count("DONE") + Count("CLOSED") + (IsAssignedHandler ? Count("REJECTED") : 0),
+            done = Count("DONE") + Count("CLOSED"),
             rejected = Count("REJECTED")
         });
     }
@@ -413,7 +427,7 @@ public sealed class MemberSupportRequestsController(
             if (value == "NOT_STARTED")
                 query = query.Where(x => x.Status == "OPEN" || x.Status == "ASSIGNED");
             else if (value == "FINISHED")
-                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED" || (IsAssignedHandler && x.Status == "REJECTED"));
+                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED");
             else
                 query = query.Where(x => x.Status == value);
         }
@@ -511,6 +525,7 @@ public sealed class MemberSupportRequestsController(
         row.Status = "IN_PROGRESS";
         row.ProgressNote = note;
         row.UpdatedAt = clock.UtcNow;
+        row.SlaDueAtUtc = clock.UtcNow.AddHours(SupportReminderService.InactivityHours);
         AddEvent(requestId, "PROGRESS", note);
         audit.Write(new AuditEntry(User.RequireUserId(), "UPDATE_SUPPORT_PROGRESS", nameof(MemberSupportRequest),
             requestId.ToString(), NewValue: JsonSerializer.Serialize(note)));
@@ -541,6 +556,17 @@ public sealed class MemberSupportRequestsController(
         RequireManagerForPayment(row);
         if (IsFinal(row.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
+        var payoutReview = row.Category == "PAYMENT"
+            && await db.Set<MemberSupportPayout>().AnyAsync(p => p.RequestId == requestId, ct)
+            && await db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == requestId
+                && e.Type == "MEMBER_REPORTED_NOT_RECEIVED", ct);
+        // Reporting non-receipt clears the assignee. A manager may finish the review
+        // directly; preserve ownership and history in the same locked transaction.
+        if (row.AssignedToUserId is null && payoutReview)
+        {
+            row.AssignedToUserId = User.RequireUserId();
+            AddEvent(requestId, "ASSIGNED", "Taken for payout receipt review.", User.RequireUserId());
+        }
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before finalizing it.");
         row.Status = target;

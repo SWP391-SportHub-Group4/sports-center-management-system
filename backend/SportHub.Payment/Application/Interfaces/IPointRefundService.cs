@@ -14,14 +14,17 @@ public interface IPointRefundService
     Task<RefundApprovalQuote> ApprovalQuoteAsync(Guid adjustmentId, bool centerFault, Guid managerUserId, CancellationToken ct);
     Task<PaymentAdjustmentResponse> RequestAsync(Guid invoiceItemId, string reason, Guid actorUserId,
         bool canRequestForAnotherUser, CancellationToken cancellationToken = default);
-    Task<PaymentAdjustmentResponse> CancelClassEnrollmentAsync(Guid invoiceItemId, Guid actorUserId,
+    Task<SelfCancelResult> CancelClassEnrollmentAsync(Guid invoiceItemId, Guid actorUserId,
         bool canActForAnotherUser, CancellationToken cancellationToken = default);
-    Task<PaymentAdjustmentResponse> CancelMembershipAsync(Guid invoiceItemId, Guid actorUserId,
+    Task<SelfCancelResult> CancelMembershipAsync(Guid invoiceItemId, Guid actorUserId,
         bool canActForAnotherUser, CancellationToken cancellationToken = default);
     Task<PaymentAdjustmentResponse> ApproveAsync(Guid adjustmentId, ApprovePointRefundRequest request,
         Guid managerUserId, CancellationToken cancellationToken = default);
     Task<PaymentAdjustmentResponse> RejectAsync(Guid adjustmentId, string reason, Guid managerUserId,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>Kết quả Member tự hủy hoặc nhân viên hủy hộ: quyền lợi bị hủy và không hoàn (BR-91, BR-122).</summary>
+public sealed record SelfCancelResult(Guid InvoiceItemId, int RefundedPoints);
 
 public sealed record RefundApprovalQuote(int SystemCalculatedPoints, decimal RemainingPaidVnd, int MaxPercent, bool CenterFault);

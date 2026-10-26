@@ -16,15 +16,18 @@ concurrency:
 jobs:
   backend:
     name: Backend Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "10.0.x"
+      # The Ubuntu image already includes .NET 10. Avoid setup-dotnet's
+      # floating download, which can resolve to an unavailable SDK/runtime.
+      - name: Verify preinstalled .NET 10 SDK
+        run: |
+          dotnet --list-sdks
+          dotnet --version | grep -E '^10\.0\.'
 
       - name: Restore dependencies
         run: dotnet restore backend/SportHub.sln
@@ -102,7 +105,7 @@ jobs:
 
   e2e:
     name: Frontend E2E + API
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [backend, frontend]
     env:
@@ -151,9 +154,10 @@ jobs:
           done
           exit 1
 
-      - uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "10.0.x"
+      - name: Verify preinstalled .NET 10 SDK
+        run: |
+          dotnet --list-sdks
+          dotnet --version | grep -E '^10\.0\.'
 
       - name: Configure isolated API
         shell: bash

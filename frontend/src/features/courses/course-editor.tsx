@@ -12,6 +12,7 @@ import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { useNow, useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { oneYearFromToday } from "@/lib/vietnam-time";
 import { todayIso, formatMoney } from "@/lib/format";
 import { Card, Field } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -538,11 +539,15 @@ export function CourseEditor({
                   }
                 />
 
-                <Field label={l.startDate}>
+                <Field
+                  label={l.startDate}
+                  hint={t.managerOperations.scheduleValidation.startDateHint}
+                >
                   <input
                     required
                     type="date"
                     min={todayIso()}
+                    max={oneYearFromToday(now)}
                     value={form.startDate}
                     onChange={(event) =>
                       setForm({

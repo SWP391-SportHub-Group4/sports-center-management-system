@@ -5,6 +5,9 @@ public static class AccountAuditActions
 {
     public const string CreateStaffAccount = "CREATE_STAFF_ACCOUNT";
     public const string ChangeUserRole = "CHANGE_USER_ROLE";
+    public const string ActivateUserAccount = "ACTIVATE_USER_ACCOUNT";
+    public const string DeactivateUserAccount = "DEACTIVATE_USER_ACCOUNT";
+    // Historical actions remain searchable; new transitions use Activate/Deactivate.
     public const string LockUserAccount = "LOCK_USER_ACCOUNT";
     public const string UnlockUserAccount = "UNLOCK_USER_ACCOUNT";
     public const string ResendStaffActivation = "RESEND_STAFF_ACTIVATION";
@@ -18,7 +21,8 @@ public static class AccountAuditActions
 
     public static IReadOnlyList<string> All { get; } = Array.AsReadOnly(new[]
     {
-        CreateStaffAccount, ChangeUserRole, LockUserAccount, UnlockUserAccount,
+        CreateStaffAccount, ChangeUserRole, ActivateUserAccount, DeactivateUserAccount,
+        LockUserAccount, UnlockUserAccount,
         ResendStaffActivation, ChangePendingStaffEmail, FrontDeskCreateMember,
         ResendMemberActivation, ChangePendingMemberEmail, ExpireUnactivatedStaffAccount, ExpireUnactivatedMemberAccount,
         UpdateCoachSpecialties

@@ -14,6 +14,10 @@ public interface ISportHubDbContext
     // (xung đột chiếm chỗ) mà không phải bỏ cả DbContext của caller.
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
 
+    // Background jobs may continue with the same scoped context after a failed item.
+    // Clear tracked entities before processing the next item so failed writes are not retried implicitly.
+    ChangeTracker ChangeTracker { get; }
+
     // Cần cho các đường ghi phải tự mở transaction và tự khóa dòng (vd BR-64 ở
     // GymCheckInRepository: check-then-insert không được hở khe race). Vẫn generic —
     // DatabaseFacade là type của EF Core, không phải entity nghiệp vụ, nên

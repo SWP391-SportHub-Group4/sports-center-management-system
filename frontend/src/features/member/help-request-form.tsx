@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { CloudUpload, Eye, Trash2, XCircle } from "lucide-react";
 import { Dialog } from "@/components/ui";
 import { api, ApiError } from "@/lib/apiClient";
@@ -13,13 +13,18 @@ import {
 } from "@/lib/support-categories";
 import { pagedItems } from "@/lib/paged";
 import { useApi } from "@/lib/useApi";
-import type { InvoiceSummaryDto, Paged } from "@/lib/types";
+import type { InvoiceDetailDto, InvoiceSummaryDto, Paged } from "@/lib/types";
 import styles from "./help-center.module.css";
 
 const MAX_FILES = 3;
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPT = "image/jpeg,image/png,image/webp";
 const MAX_LENGTH = 2000;
+const INVOICE_PAGE_SIZE = 20;
+
+function invoiceLabel(invoice: InvoiceSummaryDto): string {
+  return `${invoice.invoiceNumber} · ${invoice.itemDescription || "Service"} · ${formatMoney(invoice.totalAmount)} · ${formatDateTime(invoice.issuedAt)} · ${invoice.status}`;
+}
 
 export interface SentRequest {
   reference: string;
@@ -34,7 +39,7 @@ function friendlyError(error: unknown): string {
     if (error.code === paymentSupportErrorCodes.reconciliationAlreadyResolved)
       return "This payment was already resolved, so a new request is not needed.";
     if (error.code === "payment_request_invoice_required")
-      return "Choose one of your paid VNPay invoices.";
+      return "Choose one of your invoices.";
     if (error.code === "payment_request_proof_required")
       return "Attach at least one proof image.";
     return error.message;
@@ -44,7 +49,7 @@ function friendlyError(error: unknown): string {
     : "We could not send your request. Please try again.";
 }
 
-/** Form to send a new support request. A PAYMENT request also needs the paid invoice and proof images; a manager calls the member to arrange the refund. */
+/** Form to send a new support request. A PAYMENT request also needs an owned invoice and proof images. */
 export function HelpRequestForm({
   initialTopic,
   initialInvoiceId,
@@ -68,8 +73,23 @@ export function HelpRequestForm({
   const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
   const [invoiceId, setInvoiceId] = useState(initialInvoiceId ?? "");
+  const [invoiceInput, setInvoiceInput] = useState("");
+  const [invoiceTouched, setInvoiceTouched] = useState(false);
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+  const [invoiceKeyword, setInvoiceKeyword] = useState("");
+  const [invoicePage, setInvoicePage] = useState(1);
+  const [invoiceOptions, setInvoiceOptions] = useState<InvoiceSummaryDto[]>([]);
+  const [invoiceTotal, setInvoiceTotal] = useState<number | null>(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceError, setInvoiceError] = useState(false);
+  const [invoiceReload, setInvoiceReload] = useState(0);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState(-1);
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+  const invoicePicker = useRef<HTMLDivElement>(null);
+  const invoiceInputRef = useRef<HTMLInputElement>(null);
+  const invoiceListId = useId();
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<SentRequest | null>(null);
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
@@ -79,21 +99,123 @@ export function HelpRequestForm({
   const picker = useRef<HTMLInputElement>(null);
   const isPayment = category === "PAYMENT";
 
-  const invoices = useApi(
-    async (signal) => {
-      const [paid, late] = await Promise.all(
-        ["PAID", "PAID_AFTER_RECONCILIATION"].map((status) =>
-          api.get<Paged<InvoiceSummaryDto>>("/api/members/me/invoices", {
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setInvoiceKeyword(invoiceSearch.trim()),
+      250,
+    );
+    return () => window.clearTimeout(timer);
+  }, [invoiceSearch]);
+
+  useEffect(() => {
+    if (!isPayment) return;
+    const controller = new AbortController();
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setInvoiceLoading(true);
+    setInvoiceError(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    api
+      .get<Paged<InvoiceSummaryDto>>("/api/members/me/invoices", {
+        signal: controller.signal,
+        query: {
+          page: invoicePage,
+          pageSize: INVOICE_PAGE_SIZE,
+          ...(invoiceKeyword ? { keyword: invoiceKeyword } : {}),
+        },
+      })
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        const pageItems = pagedItems(result);
+        setInvoiceOptions((current) =>
+          invoicePage === 1
+            ? pageItems
+            : [
+                ...current,
+                ...pageItems.filter(
+                  (item) =>
+                    !current.some((old) => old.invoiceId === item.invoiceId),
+                ),
+              ],
+        );
+        setInvoiceTotal(result.totalCount);
+      })
+      .catch((cause: unknown) => {
+        if (
+          !controller.signal.aborted &&
+          !(cause instanceof DOMException && cause.name === "AbortError")
+        )
+          setInvoiceError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setInvoiceLoading(false);
+      });
+    return () => controller.abort();
+  }, [isPayment, invoiceKeyword, invoicePage, invoiceReload]);
+
+  useEffect(() => {
+    if (!initialInvoiceId) return;
+    const controller = new AbortController();
+    api
+      .get<InvoiceDetailDto>(`/api/invoices/${initialInvoiceId}`, {
+        signal: controller.signal,
+      })
+      .then((detail) => {
+        if (!controller.signal.aborted)
+          setInvoiceInput((current) => current || detail.summary.invoiceNumber);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [initialInvoiceId]);
+
+  useEffect(() => {
+    if (!invoiceOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!invoicePicker.current?.contains(event.target as Node))
+        setInvoiceOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () =>
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [invoiceOpen]);
+
+  useEffect(() => {
+    if (invoiceOpen && activeInvoice >= 0)
+      document
+        .getElementById(`${invoiceListId}-${activeInvoice}`)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [invoiceOpen, activeInvoice, invoiceListId]);
+
+  function chooseInvoice(invoice: InvoiceSummaryDto) {
+    setInvoiceId(invoice.invoiceId);
+    setInvoiceInput(invoice.invoiceNumber);
+    setInvoiceSearch("");
+    if (invoiceKeyword) {
+      setInvoiceOptions([]);
+      setInvoiceTotal(null);
+      setInvoicePage(1);
+      setInvoiceKeyword("");
+    }
+    setInvoiceOpen(false);
+    setActiveInvoice(-1);
+    invoiceInputRef.current?.focus();
+  }
+
+  // Invoice Breakdown: the VNPay share goes back to the bank (manager transfer), the points share back to the wallet.
+  const breakdown = useApi(
+    (signal) =>
+      isPayment && invoiceId
+        ? api.get<{
+            totalVnd: number;
+            vnpayVnd: number;
+            pointsApplied: number;
+            pointsVnd: number;
+            refundableVnpayVnd: number;
+            refundablePoints: number;
+          }>(`/api/members/me/invoices/${invoiceId}/refund-breakdown`, {
             signal,
-            query: { page: 1, pageSize: 100, status },
-          }),
-        ),
-      );
-      return [...pagedItems(paid), ...pagedItems(late)]
-        .filter((i) => i.cashAmount > 0)
-        .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
-    },
-    [],
+          })
+        : Promise.resolve(null),
+    [isPayment, invoiceId],
   );
 
   const previews = useMemo(
@@ -106,6 +228,24 @@ export function HelpRequestForm({
   );
 
   const paymentReady = invoiceId !== "" && files.length >= 1;
+  const invoiceSearchReady =
+    invoiceSearch.trim() === invoiceKeyword && !invoiceLoading;
+  const invoiceValidationMessage =
+    invoiceTouched && !invoiceId
+      ? !invoiceInput.trim()
+        ? invoiceOpen
+          ? null
+          : "Select an invoice."
+        : !invoiceSearchReady
+          ? null
+          : invoiceError
+            ? "Could not check this invoice. Open the list and retry."
+            : invoiceTotal === 0
+              ? "Invoice not found in your account. Check the invoice number."
+              : invoiceOpen
+                ? null
+                : "Choose an invoice from the list to continue."
+      : null;
   const ready =
     category !== "" &&
     message.trim().length >= 3 &&
@@ -169,6 +309,8 @@ export function HelpRequestForm({
       setFiles([]);
       setConsent(false);
       setInvoiceId("");
+      setInvoiceInput("");
+      setInvoiceTouched(false);
       onSent();
     } catch (e) {
       setError(friendlyError(e));
@@ -240,35 +382,191 @@ export function HelpRequestForm({
               <legend>Refund details</legend>
               <p className={styles.hint}>
                 Already bought services are not refunded when you cancel them
-                yourself. Use this form for a VNPay payment that went wrong. Our
-                manager will call you on the phone number in your profile to
-                arrange the refund, so please keep it up to date.
+                yourself. Select any invoice to report a payment issue. A bank
+                refund requires a confirmed VNPay charge; our manager will call
+                the phone number in your profile to review the case.
               </p>
-              <label className={styles.field}>
-                <span>Paid invoice *</span>
-                <select
-                  value={invoiceId}
-                  onChange={(e) => setInvoiceId(e.target.value)}
-                  required
-                  disabled={invoices.loading}
-                >
-                  <option value="">
-                    {invoices.loading ? "Loading invoices…" : "Select an invoice"}
-                  </option>
-                  {(invoices.data ?? []).map((i) => (
-                    <option key={i.invoiceId} value={i.invoiceId}>
-                      {i.invoiceNumber} · {i.itemDescription || "Service"} ·{" "}
-                      {formatMoney(i.cashAmount)} ·{" "}
-                      {formatDateTime(i.paidAtUtc ?? i.issuedAt)} · {i.status}
-                    </option>
-                  ))}
-                </select>
-                {!invoices.loading && (invoices.data ?? []).length === 0 && (
-                  <span className={styles.hint}>
-                    You have no paid VNPay invoices yet.
+              <div className={styles.field}>
+                <label htmlFor="support-invoice">Invoice *</label>
+                <div className={styles.invoicePicker} ref={invoicePicker}>
+                  <input
+                    ref={invoiceInputRef}
+                    id="support-invoice"
+                    type="search"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-haspopup="listbox"
+                    aria-expanded={invoiceOpen}
+                    aria-controls={invoiceOpen ? invoiceListId : undefined}
+                    aria-activedescendant={
+                      invoiceOpen && activeInvoice >= 0
+                        ? invoiceListId + "-" + activeInvoice
+                        : undefined
+                    }
+                    aria-required="true"
+                    aria-invalid={!!invoiceValidationMessage}
+                    aria-describedby={
+                      invoiceValidationMessage
+                        ? invoiceListId + "-error"
+                        : undefined
+                    }
+                    autoComplete="off"
+                    value={invoiceInput}
+                    placeholder="Select an invoice or type its number"
+                    onFocus={() => setInvoiceOpen(true)}
+                    onClick={() => setInvoiceOpen(true)}
+                    onBlur={() => setInvoiceTouched(true)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setInvoiceTouched(true);
+                      setInvoiceInput(value);
+                      setInvoiceSearch(value);
+                      setInvoiceId("");
+                      setInvoicePage(1);
+                      if (value.trim() !== invoiceKeyword) {
+                        setInvoiceOptions([]);
+                        setInvoiceTotal(null);
+                      }
+                      setActiveInvoice(-1);
+                      setInvoiceOpen(true);
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "ArrowDown" ||
+                        event.key === "ArrowUp"
+                      ) {
+                        event.preventDefault();
+                        setInvoiceOpen(true);
+                        if (invoiceOptions.length)
+                          setActiveInvoice((current) =>
+                            event.key === "ArrowDown"
+                              ? (current + 1) % invoiceOptions.length
+                              : current <= 0
+                                ? invoiceOptions.length - 1
+                                : current - 1,
+                          );
+                      } else if (
+                        event.key === "Enter" &&
+                        invoiceOpen &&
+                        activeInvoice >= 0
+                      ) {
+                        event.preventDefault();
+                        chooseInvoice(invoiceOptions[activeInvoice]);
+                      } else if (event.key === "Escape") {
+                        setInvoiceOpen(false);
+                        setActiveInvoice(-1);
+                      } else if (event.key === "Tab") {
+                        setInvoiceOpen(false);
+                      }
+                    }}
+                  />
+                  {invoiceOpen && (
+                    <div
+                      id={invoiceListId}
+                      role="listbox"
+                      aria-label="Invoices"
+                      className={styles.invoiceOptions}
+                      onScroll={(event) => {
+                        const list = event.currentTarget;
+                        if (
+                          !invoiceLoading &&
+                          !invoiceError &&
+                          invoiceTotal !== null &&
+                          invoiceOptions.length < invoiceTotal &&
+                          list.scrollHeight -
+                            list.scrollTop -
+                            list.clientHeight <
+                            64
+                        ) {
+                          setInvoiceLoading(true);
+                          setInvoicePage((page) => page + 1);
+                        }
+                      }}
+                    >
+                      {invoiceSearch.trim() === invoiceKeyword &&
+                        invoiceOptions.map((invoice, index) => (
+                          <button
+                            key={invoice.invoiceId}
+                            id={invoiceListId + "-" + index}
+                            type="button"
+                            role="option"
+                            tabIndex={-1}
+                            aria-selected={invoice.invoiceId === invoiceId}
+                            className={styles.invoiceOption}
+                            data-active={activeInvoice === index || undefined}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onMouseEnter={() => setActiveInvoice(index)}
+                            onClick={() => chooseInvoice(invoice)}
+                          >
+                            {invoiceLabel(invoice)}
+                          </button>
+                        ))}
+                      {(invoiceLoading ||
+                        invoiceSearch.trim() !== invoiceKeyword) && (
+                        <p className={styles.invoiceListNote} role="status">
+                          Loading invoices…
+                        </p>
+                      )}
+                      {invoiceError && (
+                        <div className={styles.invoiceListNote} role="alert">
+                          Could not load invoices.{" "}
+                          <button
+                            type="button"
+                            onClick={() => setInvoiceReload((n) => n + 1)}
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
+                      {!invoiceLoading &&
+                        !invoiceError &&
+                        invoiceSearch.trim() === invoiceKeyword &&
+                        invoiceOptions.length === 0 && (
+                          <p className={styles.invoiceListNote}>
+                            No invoices found.
+                          </p>
+                        )}
+                    </div>
+                  )}
+                </div>
+                {invoiceValidationMessage && (
+                  <span
+                    id={invoiceListId + "-error"}
+                    className={styles.fieldError}
+                    role="alert"
+                  >
+                    {invoiceValidationMessage}
+
                   </span>
                 )}
-              </label>
+              </div>
+              {breakdown.data && (
+                <dl className={styles.hint} aria-label="Invoice breakdown">
+                  <div>
+                    <dt>Invoice total</dt>
+                    <dd>{formatMoney(breakdown.data.totalVnd)}</dd>
+                  </div>
+                  <div>
+                    <dt>Paid with VNPay</dt>
+                    <dd>
+                      {formatMoney(breakdown.data.vnpayVnd)}
+                      {breakdown.data.vnpayVnd > 0
+                        ? " — any approved bank refund is handled by the manager."
+                        : " — no confirmed VNPay charge has been recorded."}
+                    </dd>
+                  </div>
+                  {breakdown.data.pointsApplied > 0 && (
+                    <div>
+                      <dt>Paid with points</dt>
+                      <dd>
+                        {breakdown.data.pointsApplied} points (
+                        {formatMoney(breakdown.data.pointsVnd)}) — returned to
+                        your wallet automatically when the payout is recorded.
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              )}
             </fieldset>
           )}
 

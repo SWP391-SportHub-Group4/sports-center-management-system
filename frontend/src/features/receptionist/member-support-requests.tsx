@@ -42,13 +42,13 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         <p>Use the same request form as Support requests, prefilled with the selected member.</p>
       </div>
       <div className={styles.form}>
-        <button type="button" className="btn" onClick={() => setCreating(true)}>
+        <button type="button" className="btn" disabled={member?.activationPending === true} onClick={() => { if (!member?.activationPending) setCreating(true); }}>
           Record a request for member
         </button>
         {notice && <p role="status">{notice}</p>}
         {assignees.error && <p role="alert">Unable to load staff: {assignees.error.message}</p>}
       </div>
-      {creating && (
+      {creating && !member?.activationPending && (
         <SupportCreateDialog
           assignees={assignees.data ?? []}
           initialMember={member?.userId === memberId ? member : null}

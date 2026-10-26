@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Notification.Application.DTOs;
@@ -529,10 +530,7 @@ public sealed class OperationsCompletionTests(
         await db.SaveChangesAsync();
 
         var start =
-            new DateOnly(
-                2032,
-                3,
-                1);
+            VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
 
         var service =
             scope.ServiceProvider

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Tabs } from "@/components/primitives";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
+import { notifyManagerRequestsChanged } from "@/lib/manager-request-reads";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import type { UserAdminDto } from "@/lib/types";
 import { MemberPicker } from "@/components/MemberPicker";
@@ -35,6 +36,10 @@ export function RequestCenter() {
       )}
     </>
   );
+  const refresh = () => {
+    counts.reload();
+    notifyManagerRequestsChanged();
+  };
   const [member, setMember] = useState<UserAdminDto | null>(null);
   return (
     <div className={styles.page}>
@@ -52,11 +57,9 @@ export function RequestCenter() {
       >
         <div className={styles.body}>
           {values.type === "coach" && (
-            <ManagerClassChangeRequests onChanged={counts.reload} />
+            <ManagerClassChangeRequests onChanged={refresh} />
           )}
-          {values.type === "refunds" && (
-            <ManagerRefunds onChanged={counts.reload} />
-          )}
+          {values.type === "refunds" && <ManagerRefunds onChanged={refresh} />}
           {values.type === "support" && (
             <>
               {recording && (
@@ -76,7 +79,7 @@ export function RequestCenter() {
                   {member && <MemberSupportRequests memberId={member.userId} />}
                 </div>
               ) : (
-                <SupportQueue workspace="manager" onChanged={counts.reload} />
+                <SupportQueue workspace="manager" onChanged={refresh} />
               )}
             </>
           )}

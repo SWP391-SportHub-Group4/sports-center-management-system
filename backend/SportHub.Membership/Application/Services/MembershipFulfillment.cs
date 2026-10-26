@@ -100,6 +100,9 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         entity.EndDate = end;
         if (entity.PackageId == DayPass.PackageId)
         {
+            await gymClosure.LockForActivationAsync(ct);
+            if (await gymClosure.IsGymClosedAtAsync(clock.UtcNow, ct))
+                throw new ConflictException("gym_closed_today", "The Gym is closed due to an incident; this day pass cannot be activated.");
             if (!DayPassClock.IsOpen(clock.UtcNow) || purchaseDay != today)
                 throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
                     "This Gym day pass cannot be activated after 22:00 Vietnam time.");

@@ -136,7 +136,6 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
     }
 
     [Theory]
-    [InlineData(UserStatus.Banned)]
     [InlineData(UserStatus.Deactivated)]
     public async Task Inactive_administrators_roles_are_also_protected(UserStatus status)
     {
@@ -211,7 +210,7 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Locking_coach_is_immediate_and_creates_a_manager_coverage_task()
+    public async Task Deactivating_coach_is_immediate_and_creates_a_manager_coverage_task()
     {
         using var admin = await AdminAsync();
         var manager = await factory.SeedUserAsync(NewEmail(), Password, role: UserRole.CenterManager);
@@ -230,7 +229,7 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
             await db.SaveChangesAsync();
         }
 
-        var result = await admin.PostAsJsonAsync($"api/users/{coachId}/lock", new { reason = "Emergency suspension" });
+        var result = await admin.PostAsJsonAsync($"api/users/{coachId}/deactivate", new { reason = "Emergency suspension" });
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.NotEqual(originalStamp, factory.StampOf(coachId));
 
@@ -244,12 +243,22 @@ public class RoleChangeValidationTests(SportHubApiFactory factory)
         var dbCheck = verify.ServiceProvider.GetRequiredService<SportHubDbContext>();
         var statusAudit = await dbCheck.Set<SportHub.Audit.Domain.Entities.AuditLog>()
             .SingleAsync(x => x.TargetEntity == nameof(UserAccount)
-                && x.TargetId == coachId.ToString() && x.Action == "LOCK_USER_ACCOUNT");
+                && x.TargetId == coachId.ToString() && x.Action == "DEACTIVATE_USER_ACCOUNT");
         using var statusChange = JsonDocument.Parse(statusAudit.NewValue!);
         var transitionId = statusChange.RootElement.GetProperty("value").GetProperty("transitionId").GetGuid();
         Assert.NotEqual(Guid.Empty, transitionId);
         Assert.True(await dbCheck.Notifications.AnyAsync(x => x.UserId == manager.UserId
             && x.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.CoachCoverageRequired
             && x.SourceEntityId == transitionId));
+        var inbox = await Json(await managerClient.GetAsync("api/notifications"));
+        Assert.Contains(inbox.EnumerateArray(), n => n.GetProperty("sourceEntityId").GetGuid() == transitionId
+            && n.GetProperty("actionUrl").GetString() == $"/manager/coaches/{coachId}?tab=overview");
+
+        // Historical coverage notices must continue to resolve after action names change.
+        statusAudit.Action = "LOCK_USER_ACCOUNT";
+        await dbCheck.SaveChangesAsync();
+        var historicalInbox = await Json(await managerClient.GetAsync("api/notifications"));
+        Assert.Contains(historicalInbox.EnumerateArray(), n => n.GetProperty("sourceEntityId").GetGuid() == transitionId
+            && n.GetProperty("actionUrl").GetString() == $"/manager/coaches/{coachId}?tab=overview");
     }
 }

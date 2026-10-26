@@ -107,22 +107,18 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
         Guid userId, [FromBody] ChangeUserRoleRequest request, CancellationToken ct)
         => Ok(await users.ChangeRoleAsync(userId, request, User.RequireUserId(), ct));
 
-    /// <summary>BR-6/BR-7 — khóa tài khoản, bắt buộc kèm lý do và ghi audit.</summary>
-    [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
-    [HttpPost("{userId:guid}/lock")]
-    public async Task<IActionResult> Lock(
-        Guid userId, [FromBody] ChangeAccountStatusRequest request, CancellationToken ct)
-        => Ok(await users.SetStatusAsync(userId, UserStatus.Banned, request.Reason, User.RequireUserId(), ct));
-
-    [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
-    [HttpPost("{userId:guid}/unlock")]
-    public async Task<IActionResult> Unlock(
-        Guid userId, [FromBody] ChangeAccountStatusRequest request, CancellationToken ct)
-        => Ok(await users.SetStatusAsync(userId, UserStatus.Active, request.Reason, User.RequireUserId(), ct));
-
+    /// <summary>Deactivate an account with a reason. The lock route remains for older clients.</summary>
     [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     [HttpPost("{userId:guid}/deactivate")]
+    [HttpPost("{userId:guid}/lock")]
     public async Task<IActionResult> Deactivate(
         Guid userId, [FromBody] ChangeAccountStatusRequest request, CancellationToken ct)
         => Ok(await users.SetStatusAsync(userId, UserStatus.Deactivated, request.Reason, User.RequireUserId(), ct));
+
+    [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
+    [HttpPost("{userId:guid}/activate")]
+    [HttpPost("{userId:guid}/unlock")]
+    public async Task<IActionResult> Activate(
+        Guid userId, [FromBody] ChangeAccountStatusRequest request, CancellationToken ct)
+        => Ok(await users.SetStatusAsync(userId, UserStatus.Active, request.Reason, User.RequireUserId(), ct));
 }

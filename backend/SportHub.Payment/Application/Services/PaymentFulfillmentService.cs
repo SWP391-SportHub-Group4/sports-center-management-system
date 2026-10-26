@@ -409,6 +409,13 @@ public sealed class PaymentFulfillmentService(
         session.State =
             reason;
 
+        await notifications.ReviseInvoiceCreatedAsync(
+            invoice.MemberId, invoice.InvoiceId,
+            reason == "Cancelled"
+                ? $"Invoice {invoice.InvoiceNumber} was cancelled. No payment is due."
+                : $"Invoice {invoice.InvoiceNumber} expired. No payment is due.",
+            ct);
+
         await db.Set<PaymentAttempt>()
             .Where(
                 x =>
@@ -482,11 +489,13 @@ public sealed class PaymentFulfillmentService(
                 : $"Payment for invoice {invoice.InvoiceNumber} was received, but the service could not be activated. Open the invoice to choose points or request support.", ct);
         var deskIds = await db.Set<UserAccount>().AsNoTracking()
             .Where(u => u.Status == UserStatus.Active && u.Role != null
-                && u.Role.RoleName == UserRole.Receptionist)
-            .Select(u => u.UserId).ToListAsync(ct);
-        foreach (var deskId in deskIds)
-            notifications.Queue(new NotificationRequest(deskId, NotificationEvents.PaymentUnactivated,
-                $"Invoice {invoice.InvoiceNumber} was paid but not activated. Review it at the front desk.",
+                && (u.Role.RoleName == UserRole.Receptionist || u.Role.RoleName == UserRole.CenterManager))
+            .Select(u => new { u.UserId, u.Role!.RoleName }).ToListAsync(ct);
+        foreach (var desk in deskIds)
+            notifications.Queue(new NotificationRequest(desk.UserId, NotificationEvents.PaymentUnactivated,
+                desk.RoleName == UserRole.CenterManager
+                    ? $"Invoice {invoice.InvoiceNumber} was paid but the service was not activated. Review the payment and invoice details."
+                    : $"Invoice {invoice.InvoiceNumber} was paid but not activated. Review it at the front desk.",
                 proof.VerifiedGatewayEventId));
         audit.Write(new AuditEntry(invoice.IssuedByUserId, "PAYMENT_NOT_ACTIVATED", nameof(Invoice),
             invoice.InvoiceId.ToString(), IsSystem: true));

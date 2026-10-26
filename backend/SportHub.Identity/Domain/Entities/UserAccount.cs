@@ -10,7 +10,7 @@ public class UserAccount
 
     public Role? Role { get; set; }
 
-    public UserStatus Status { get; set; } // Active/Banned/Deactivated — không xoá cứng user
+    public UserStatus Status { get; set; } // Active/Deactivated — không xoá cứng user
 
     // Đổi khi reset/đổi mật khẩu hoặc đổi vai trò; JWT mang claim sst để vô hiệu phiên cũ (BR-103/104).
     public Guid SecurityStamp { get; set; } = Guid.NewGuid();

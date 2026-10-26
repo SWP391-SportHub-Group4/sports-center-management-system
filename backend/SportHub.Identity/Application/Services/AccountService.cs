@@ -71,7 +71,7 @@ public sealed class AccountService(
                    u.Profile != null ? u.Profile.FullName : string.Empty,
                    u.Profile != null ? u.Profile.Phone : null,
                    u.Role!.RoleName.ToString(),
-                   u.Status.ToString(),
+                   u.Status == UserStatus.Active ? nameof(UserStatus.Active) : nameof(UserStatus.Deactivated),
                    u.CreatedAt,
                    u.Credential != null && u.Credential.PasswordHash != null,
                    u.ExternalLogins.Any(),

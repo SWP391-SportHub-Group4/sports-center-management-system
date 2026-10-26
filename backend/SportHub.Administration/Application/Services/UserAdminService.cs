@@ -424,12 +424,15 @@ public sealed class UserAdminService(
         Guid actorUserId,
         CancellationToken ct = default)
     {
-        // BR-6 — không được tự khoá tài khoản của chính mình.
+        if (target is not (UserStatus.Active or UserStatus.Deactivated))
+            throw new BadRequestException("invalid_status", "Invalid account status.");
+
+        // BR-6 — administrators cannot deactivate their own account.
         if (userId == actorUserId && target != UserStatus.Active)
         {
             throw new ForbiddenException(
-                "cannot_lock_self",
-                "Cannot lock self.");
+                "cannot_deactivate_self",
+                "You cannot deactivate your own account.");
         }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -450,7 +453,7 @@ public sealed class UserAdminService(
         var previous = user.Status;
         var transitionId = Guid.NewGuid();
         user.Status = target;
-        // A restored account must not revive a token issued before the lock.
+        // Reactivation must not revive tokens issued before deactivation.
         user.SecurityStamp = Guid.NewGuid();
 
         if (target != UserStatus.Active && user.Role!.RoleName == UserRole.Coach)
@@ -466,10 +469,9 @@ public sealed class UserAdminService(
                 var managers = await db.Set<UserAccount>().AsNoTracking()
                     .Where(x => x.Status == UserStatus.Active && x.Role!.RoleName == UserRole.CenterManager)
                     .Select(x => new { x.UserId, x.Email }).ToListAsync(ct);
-                var statusLabel = target == UserStatus.Banned ? "locked" : "deactivated";
-                var message = $"Coach {user.Profile?.FullName ?? user.Email} was {statusLabel}. {classCount} unfinished classes, "
+                var message = $"Coach {user.Profile?.FullName ?? user.Email} was deactivated. {classCount} unfinished classes, "
                     + $"{futureSessions} future sessions and {relationshipCount} active coaching relationships need review. "
-                    + "Assign an eligible replacement or reschedule the affected sessions. Open /manager/coach-coverage.";
+                    + $"Assign eligible replacements from /manager/coaches/{userId}?tab=overview.";
                 foreach (var manager in managers)
                 {
                     notifications.Queue(new NotificationRequest(manager.UserId, NotificationEvents.CoachCoverageRequired,
@@ -483,10 +485,13 @@ public sealed class UserAdminService(
 
         audit.Write(new AuditEntry(
             actorUserId,
-            target == UserStatus.Active ? AccountAuditActions.UnlockUserAccount : AccountAuditActions.LockUserAccount,
+            target == UserStatus.Active ? AccountAuditActions.ActivateUserAccount : AccountAuditActions.DeactivateUserAccount,
             nameof(UserAccount),
             userId.ToString(),
-            OldValue: $"{{\"status\":\"{previous}\"}}",
+            OldValue: System.Text.Json.JsonSerializer.Serialize(new
+            {
+                status = previous == UserStatus.Active ? nameof(UserStatus.Active) : nameof(UserStatus.Deactivated)
+            }),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { status = target.ToString(), transitionId }),
 
             // BR-7 nêu đích danh: thao tác khoá/mở khoá phải ghi thêm lý do.
@@ -504,7 +509,7 @@ public sealed class UserAdminService(
     private async Task<UserAccount> LockAccountAdministrationAsync(Guid userId, Guid actorUserId, CancellationToken ct)
     {
         // Status and role changes share a transaction-scoped barrier, acquired before any account row lock.
-        // This serializes the last-Admin check with promotion/lock/unlock, including two Admins locking each other.
+        // This serializes the last-Admin check with role/status changes, including two Admins deactivating each other.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 24)", ct);
 
         // Lock only the target, like invitation activation/resend/expiry. Locking the actor first can deadlock
@@ -569,7 +574,10 @@ public sealed class UserAdminService(
             : throw new BadRequestException("invalid_role", "Invalid role.");
 
     private static UserStatus ParseStatus(string status)
-        => SportHub.BuildingBlocks.Api.WireEnum.TryParse<UserStatus>(status, ignoreCase: true, out var parsed)
+        // Older clients can still request the retired filter; it selects deactivated accounts.
+        => string.Equals(status, "BANNED", StringComparison.OrdinalIgnoreCase)
+            ? UserStatus.Deactivated
+            : SportHub.BuildingBlocks.Api.WireEnum.TryParse<UserStatus>(status, ignoreCase: true, out var parsed)
             ? parsed
             : throw new BadRequestException("invalid_status", "Invalid status.");
 
@@ -603,7 +611,7 @@ public sealed class UserAdminService(
             u.Profile != null ? u.Profile.FullName : string.Empty,
             u.Profile != null ? u.Profile.Phone : null,
             u.Role!.RoleName.ToString(),
-            u.Status.ToString(),
+            u.Status == UserStatus.Active ? nameof(UserStatus.Active) : nameof(UserStatus.Deactivated),
             u.CreatedAt,
 
             // BR-60: FE dùng cờ này để biết tài khoản Google-only chưa đặt mật khẩu.

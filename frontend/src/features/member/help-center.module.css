@@ -54,7 +54,7 @@
   font-weight: var(--weight-regular);
 }
 .field textarea {
-  width: min(100%, 240px);
+  width: 100%;
   min-height: 140px;
   border-color: var(--border-control);
   resize: vertical;
@@ -64,6 +64,7 @@
   color: var(--text-muted);
 }
 .field select:focus-visible,
+.field input:focus-visible,
 .field textarea:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
@@ -348,6 +349,53 @@
 .paymentBox .hint {
   margin: 0;
 }
+.invoicePicker {
+  position: relative;
+  min-width: 0;
+}
+.invoiceOptions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+.invoiceOption {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  font-weight: var(--weight-regular);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.invoiceOption:hover,
+.invoiceOption[data-active="true"],
+.invoiceOption[aria-selected="true"] {
+  background: var(--color-primary-soft);
+}
+.invoiceOption:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.invoiceListNote {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+}
 .fieldError {
   color: var(--danger-text);
   font-size: var(--text-xs);
@@ -568,6 +616,10 @@
 .payoutDone {
   border: 1px solid var(--success-solid);
   background: var(--success-bg);
+}
+.payoutDone[data-unconfirmed] {
+  border-color: var(--border-subtle);
+  background: var(--bg-surface-sunken);
 }
 .payout h4,
 .payoutDone h4 {

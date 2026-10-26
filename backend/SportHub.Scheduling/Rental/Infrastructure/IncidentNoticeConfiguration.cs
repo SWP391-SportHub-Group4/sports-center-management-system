@@ -14,6 +14,8 @@ public sealed class IncidentNoticeConfiguration : IEntityTypeConfiguration<Incid
             t.HasCheckConstraint("ck_incident_membership_extension", "membership_extension_days BETWEEN 0 AND 31 AND extended_member_count >= 0");
         });
         builder.HasKey(x => x.IncidentId);
+        builder.Property(x => x.RefundsJson).HasColumnType("jsonb");
+        builder.Property(x => x.RequestFingerprint).HasMaxLength(64);
         builder.Property(x => x.Reason).HasMaxLength(500);
         builder.Property(x => x.ResolutionSummary).HasMaxLength(2000);
         builder.HasIndex(x => new { x.Scope, x.RoomId, x.StartAtUtc });

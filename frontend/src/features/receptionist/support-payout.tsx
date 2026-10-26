@@ -5,17 +5,9 @@ import { ApiError, api } from "@/lib/apiClient";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { paymentSupportErrorCodes } from "@/lib/payment-support-errors";
 import type { MemberSupportRequestDto } from "@/lib/types";
-import { useApi } from "@/lib/useApi";
 import { SupportAttachments } from "./support-attachments";
 import type { SupportEventDto } from "./support-shared";
 import styles from "./support-center.module.css";
-
-type BankDetails = {
-  bankName: string | null;
-  accountNumber: string | null;
-  accountHolder: string | null;
-  purgedAtUtc: string | null;
-};
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxImageBytes = 5 * 1024 * 1024;
@@ -29,16 +21,6 @@ export function SupportPayout({
   events: SupportEventDto[];
   onChanged: () => void;
 }) {
-  const bank = useApi(
-    (signal) =>
-      request.invoiceId
-        ? api.get<BankDetails>(
-            `/api/member-support-requests/${request.requestId}/bank-details`,
-            { signal },
-          )
-        : Promise.resolve(null),
-    [request.requestId, request.invoiceId],
-  );
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -73,9 +55,9 @@ export function SupportPayout({
     parsedAmount > 0 &&
     files.length >= 1 &&
     !fileError &&
+    note.trim().length > 0 &&
     note.length <= 1000 &&
-    transferConfirmed &&
-    !!bank.data?.accountNumber;
+    transferConfirmed;
 
   async function record() {
     if (!ready || lock.current) return;
@@ -124,42 +106,6 @@ export function SupportPayout({
       ) : (
         <>
           <p className={styles.helper}>Invoice: {request.invoiceId}</p>
-          {bank.loading && (
-            <p className={styles.helper}>Loading receiving account…</p>
-          )}
-          {bank.error && (
-            <p role="alert">
-              Receiving account could not be loaded.{" "}
-              <button
-                type="button"
-                className="btn btn--secondary btn--sm"
-                onClick={bank.reload}
-              >
-                Retry
-              </button>
-            </p>
-          )}
-          {bank.data &&
-            (bank.data.purgedAtUtc ? (
-              <p className={styles.helper}>
-                Bank details were removed after the retention period.
-              </p>
-            ) : (
-              <dl className={styles.requestMetadata}>
-                <div>
-                  <dt>Bank</dt>
-                  <dd>{bank.data.bankName}</dd>
-                </div>
-                <div>
-                  <dt>Account</dt>
-                  <dd>{bank.data.accountNumber}</dd>
-                </div>
-                <div>
-                  <dt>Account holder</dt>
-                  <dd>{bank.data.accountHolder}</dd>
-                </div>
-              </dl>
-            ))}
           {payout ? (
             <div className={styles.box}>
               <strong>Recorded: {formatMoney(payout.amount)}</strong>
@@ -170,7 +116,11 @@ export function SupportPayout({
                   : payout.memberConfirmedBy === "SYSTEM"
                     ? `Automatically confirmed on ${formatDateTime(payout.memberConfirmedAtUtc!)}`
                     : reportedNotReceived
-                      ? "Member reported not received. Follow up in this request."
+                      ? request.status === "DONE"
+                        ? "Payout review completed. Receipt has not been confirmed by the member."
+                        : request.status === "REJECTED"
+                          ? "Payout claim declined. Receipt has not been confirmed by the member."
+                          : "Member reported not received. Awaiting manager review."
                       : "Awaiting member receipt confirmation."}
               </span>
               {proof.length > 0 && <SupportAttachments attachments={proof} />}
@@ -217,7 +167,7 @@ export function SupportPayout({
                   </p>
                 )}
                 <label className={styles.field}>
-                  Note (optional)
+                  Note about the call and refund (required)
                   <textarea
                     maxLength={1000}
                     value={note}

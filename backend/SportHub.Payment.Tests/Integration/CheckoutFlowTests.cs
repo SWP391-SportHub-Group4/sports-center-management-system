@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
@@ -974,6 +975,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     [Fact]
     public async Task Odd_verified_capture_releases_hold_and_waits_for_member_choice()
     {
+        var notifiedManager = await factory.SeedUserAsync(UserRole.CenterManager);
         var context = await SeedAsync();
 
         using var member =
@@ -1113,6 +1115,11 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                 Assert.Equal(
                     "Unactivated",
                     proof.ProcessingStatus);
+
+                Assert.Equal(1, await db.Notifications.CountAsync(n =>
+                    n.UserId == notifiedManager.UserId
+                    && n.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.PaymentUnactivated
+                    && n.SourceEntityId == proof.VerifiedGatewayEventId));
 
                 Assert.Equal(
                     100,
@@ -1416,10 +1423,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             await db.SaveChangesAsync();
 
             var start =
-                new DateOnly(
-                    2032,
-                    3,
-                    1);
+                VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
 
             var classService =
                 scope.ServiceProvider
@@ -1687,7 +1691,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Member_cancelling_a_class_far_from_start_gets_full_points_and_frees_the_seat(bool makeupOnly)
+    public async Task Member_cancelling_a_class_gets_no_points_but_frees_the_seat(bool makeupOnly)
     {
         var context = await SeedAsync();
 
@@ -1768,10 +1772,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             await db.SaveChangesAsync();
 
             var start =
-                new DateOnly(
-                    2032,
-                    3,
-                    1);
+                VietnamTime.TodayLocal(scope.ServiceProvider.GetRequiredService<IClock>()).AddDays(30);
 
             var classService =
                 scope.ServiceProvider
@@ -1991,13 +1992,18 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
             HttpStatusCode.OK,
             cancelled.StatusCode);
 
-        // A member refund is a points credit and must be counted as "points refunded".
+        // Member tự hủy ghi danh không được hoàn điểm (BR-122): không có khoản hoàn nào được tính vào báo cáo.
         Assert.Equal(
-            100,
+            0,
             (await refundReports.GetAsync(
                 refundDay,
                 refundDay)).PointsRefunded -
             refundedBefore);
+
+        Assert.Equal(
+            0,
+            (await cancelled.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>())
+                .GetProperty("refundedPoints").GetInt32());
 
         Assert.Equal(
             HttpStatusCode.Conflict,
@@ -2041,7 +2047,7 @@ public sealed class CheckoutFlowTests(PaymentApiFactory factory)
                         .SingleAsync());
 
                 Assert.Equal(
-                    pointsBefore + 100,
+                    pointsBefore,
                     await db.PointWallets
                         .Where(
                             x =>

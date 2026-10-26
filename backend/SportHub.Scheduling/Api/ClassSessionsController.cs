@@ -6,7 +6,7 @@ using SportHub.Scheduling.Application.Interfaces;
 
 namespace SportHub.Scheduling.Api;
 
-/// <summary>Buổi học của khóa: xem, roster, điểm danh (chỉ Lễ tân), dời và hủy kèm buổi bù (chỉ Manager).</summary>
+/// <summary>Buổi học của khóa: xem, roster, điểm danh (Coach phụ trách; Lễ tân chỉ chỉnh khi Member kiến nghị), dời và hủy kèm buổi bù (chỉ Manager).</summary>
 [ApiController]
 [Authorize]
 [Route("api/class-sessions")]
@@ -25,8 +25,8 @@ public class ClassSessionsController(
     public async Task<IActionResult> Roster(Guid sessionId, CancellationToken ct)
         => Ok(await sessions.GetRosterAsync(sessionId, CoachScope(), ct));
 
-    /// <summary>BR-98: chỉ Lễ tân điểm danh (Present/Absent). Manager và Coach chỉ đọc qua roster.</summary>
-    [Authorize(Policy = SportHubPolicies.AttendanceCheckIn)]
+    /// <summary>BR-98: Coach phụ trách điểm danh (Present/Absent). Lễ tân chỉ chỉnh bản ghi đã có khi Member kiến nghị (bắt buộc Reason). Manager chỉ đọc qua roster.</summary>
+    [Authorize(Roles = SportHubRoleNames.Coach + "," + SportHubRoleNames.Receptionist)]
     [HttpPut("{sessionId:guid}/attendance/{enrollmentId:guid}")]
     public async Task<IActionResult> MarkAttendance(
         Guid sessionId, Guid enrollmentId, [FromBody] MarkAttendanceRequest request, CancellationToken ct)

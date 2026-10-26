@@ -2,6 +2,7 @@
 
 import { TableFilters } from "./TableFilters";
 import { useId } from "react";
+import { Trash2 } from "lucide-react";
 import type { FilterBarProps } from "@/components/contracts/table";
 import { Field } from "@/components/ui";
 import { Input, Select } from "@/components/primitives/Controls";
@@ -10,11 +11,13 @@ import styles from "./FilterBar.module.css";
 
 /** Controlled fields; the owning page decides when to apply values to the URL/API. */
 export function FilterBar({
+  inline = false,
   presets,
   fields,
   values,
   onChange,
   onReset,
+  resetStyle = "text",
   activeCount,
   actions,
 }: FilterBarProps) {
@@ -33,7 +36,7 @@ export function FilterBar({
     ).length;
   return (
     <div className={styles.wrapper}>
-      <TableFilters activeCount={count}>
+      <TableFilters activeCount={count} inline={inline}>
         {presets}
         <div className={styles.root} role="group" aria-label={t.common.filter}>
           <div className={styles.fields}>
@@ -124,17 +127,38 @@ export function FilterBar({
             {onReset && (
               <button
                 type="button"
-                className="btn btn--ghost"
+                className={
+                  resetStyle === "icon"
+                    ? `btn btn--ghost ${styles.clearIcon}`
+                    : "btn btn--ghost"
+                }
+                title={
+                  resetStyle === "icon" ? t.dataTable.clearFilters : undefined
+                }
+                aria-label={
+                  resetStyle === "icon" ? t.dataTable.clearFilters : undefined
+                }
                 onClick={onReset}
               >
-                {t.dataTable.clearFilters}
-                {count > 0 && <span className={styles.count}>({count})</span>}
+                {resetStyle === "icon" ? (
+                  <Trash2 size={18} aria-hidden="true" />
+                ) : (
+                  <>
+                    {t.dataTable.clearFilters}
+                    {count > 0 && (
+                      <span className={styles.count}>({count})</span>
+                    )}
+                  </>
+                )}
               </button>
             )}
+            {inline && actions}
           </div>
         </div>
       </TableFilters>
-      {actions && <div className={styles.outerActions}>{actions}</div>}
+      {!inline && actions && (
+        <div className={styles.outerActions}>{actions}</div>
+      )}
     </div>
   );
 }

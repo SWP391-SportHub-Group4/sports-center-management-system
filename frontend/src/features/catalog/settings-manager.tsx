@@ -19,6 +19,9 @@ const settingLabels: Record<string, keyof Translations["settingFields"]> = {
   "rental.cancel_free_hours": "cancelHours",
   "rental.max_hours": "maxHours",
   "rental.slot_minutes": "slotMinutes",
+  "support.sla_hours": "supportSlaHours",
+  "support.remind_cooldown_hours": "supportRemindCooldownHours",
+  "support.payout_confirm_days": "supportPayoutConfirmDays",
 };
 const ranges: Record<string, [number, number]> = {
   "membership.expiry_notice_days": [1, 90],
@@ -29,6 +32,9 @@ const ranges: Record<string, [number, number]> = {
   "rental.max_hours": [1, 4],
   "rental.advance_days": [1, 30],
   "rental.cancel_free_hours": [0, 168],
+  "support.sla_hours": [1, 168],
+  "support.remind_cooldown_hours": [1, 168],
+  "support.payout_confirm_days": [1, 30],
 };
 export function SettingsManager() {
   const { t } = useLanguage();

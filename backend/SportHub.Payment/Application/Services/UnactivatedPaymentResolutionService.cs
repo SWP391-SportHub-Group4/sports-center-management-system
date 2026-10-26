@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
@@ -83,7 +84,7 @@ public sealed class UnactivatedPaymentResolutionService(ISportHubDbContext db, I
                 && a.InvoiceId == invoiceId))
             .ExecuteUpdateAsync(s => s.SetProperty(e => e.ProcessingStatus, "ConvertedToPoints"), ct);
         audit.Write(new AuditEntry(memberId, "CONVERT_UNACTIVATED_PAYMENT_TO_POINTS",
-            nameof(Invoice), invoiceId.ToString(), IsSystem: false));
+            nameof(Invoice), invoiceId.ToString(), NewValue: JsonSerializer.Serialize(new { invoice.InvoiceNumber, result.Points, amount = convertibleAmount }), IsSystem: false));
         notifications.Queue(new NotificationRequest(memberId, NotificationEvents.PaymentConvertedToPoints,
             $"{result.Points:N0} points were added for invoice {invoice.InvoiceNumber}.", invoiceId));
         await db.SaveChangesAsync(ct);

@@ -14,6 +14,12 @@ public static class CourseRules
 {
     public const int MaxNumSessions = 100;
 
+    public static void ValidateStartDateWithinYear(DateOnly startDate, DateOnly today)
+    {
+        if (startDate > today.AddYears(1))
+            throw new BadRequestException("start_date_too_far", "Choose a start date within one year from today.");
+    }
+
     /// <summary>BR-113: giá dương và bội số 1.000 VND.</summary>
     public static void ValidatePrice(decimal price)
     {
