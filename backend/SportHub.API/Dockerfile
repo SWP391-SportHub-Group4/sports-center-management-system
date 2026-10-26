@@ -1,4 +1,7 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /var/lib/sporthub/dataprotection-keys /var/lib/sporthub/reports \
     && chown -R $APP_UID:$APP_UID /var/lib/sporthub
 USER $APP_UID
@@ -29,7 +32,25 @@ FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "./SportHub.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
+FROM build AS migrations
+ARG BUILD_CONFIGURATION=Release
+ARG TARGETARCH
+RUN dotnet tool install --tool-path /tools dotnet-ef --version 10.0.11
+RUN case "$TARGETARCH" in \
+        amd64) migration_runtime=linux-x64 ;; \
+        arm64) migration_runtime=linux-arm64 ;; \
+        *) echo "Unsupported migration architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+    && mkdir -p /app/migrations \
+    && /tools/dotnet-ef migrations bundle \
+        --project ./SportHub.API.csproj \
+        --configuration "$BUILD_CONFIGURATION" \
+        --target-runtime "$migration_runtime" \
+        --output /app/migrations/efbundle
+
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=migrations --chmod=755 /app/migrations/efbundle /app/efbundle
+COPY --chmod=755 ["SportHub.API/migrate.sh", "/app/migrate"]
 ENTRYPOINT ["dotnet", "SportHub.API.dll"]
