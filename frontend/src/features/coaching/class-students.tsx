@@ -53,7 +53,11 @@ export function ClassStudents({
       <ul className={styles.studentList}>
         {visible.map((member) => (
           <li key={member.memberId} className={styles.student}>
-            <AvatarImage name={member.memberName} size={40} />
+            <AvatarImage
+              userId={member.memberId}
+              name={member.memberName}
+              size={40}
+            />
             <div className={styles.studentBody}>
               <strong>{member.memberName}</strong>
               <span className={styles.email}>{member.email}</span>

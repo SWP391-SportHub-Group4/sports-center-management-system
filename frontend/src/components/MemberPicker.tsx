@@ -160,6 +160,7 @@ export function MemberPicker({
         >
           <div className="row">
             <AvatarImage
+              userId={value.userId}
               name={value.fullName || value.email}
               avatarUrl={value.avatarUrl}
             />
@@ -270,6 +271,7 @@ export function MemberPicker({
               >
                 <span className="row">
                   <AvatarImage
+                    userId={member.userId}
                     name={member.fullName || member.email}
                     avatarUrl={member.avatarUrl}
                     size={32}

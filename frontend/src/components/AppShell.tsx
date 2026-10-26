@@ -25,7 +25,6 @@ import {
   IconClose,
   IconSettings,
   IconUser,
-  IconClipboard,
 } from "@/components/icons";
 import shell from "./MemberShell.module.css";
 import styles from "./AppShell.module.css";
@@ -98,7 +97,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/attendance", labelKey: "attendance" },
-    { href: "/coach/support", labelKey: "support" },
+    { href: "/coach/support", labelKey: "requests" },
   ],
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
@@ -133,7 +132,7 @@ export function getNavForUser(user: {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/classes", labelKey: "assignedClasses" },
     { href: "/coach/members", labelKey: "classStudents" },
-    { href: "/coach/support", labelKey: "support" },
+    { href: "/coach/support", labelKey: "requests" },
   ];
 }
 
@@ -530,6 +529,7 @@ export function AppFrame({
                 aria-label={user.fullName || user.email}
               >
                 <AvatarImage
+                  userId={user.userId}
                   name={user.fullName || user.email}
                   avatarUrl={user.avatarUrl}
                   size={36}
@@ -570,25 +570,6 @@ export function AppFrame({
                     <IconUser size={15} />
                     <span>{t.navigation.myAccount}</span>
                   </Link>
-                  {user.role === "Coach" && (
-                    <Link
-                      href="/coach/change-requests"
-                      className={`${shell.dropdownItem} ${styles.profileItem}`}
-                      aria-current={
-                        isActiveHref(
-                          pathname,
-                          "/coach/change-requests",
-                          "/coach",
-                        )
-                          ? "page"
-                          : undefined
-                      }
-                      onClick={() => setUserMenu(false)}
-                    >
-                      <IconClipboard size={15} aria-hidden="true" />
-                      <span>{t.navigation.items.changeRequests}</span>
-                    </Link>
-                  )}
                   {user.role === "CenterManager" && (
                     <>
                       <Link

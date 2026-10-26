@@ -243,6 +243,7 @@ function ProfileEditor({ initial }: { initial: Dto }) {
         </p>
         <div className={styles.identity}>
           <AvatarImage
+            userId={user?.userId}
             name={user?.fullName ?? "Coach"}
             avatarUrl={user?.avatarUrl}
             size={64}

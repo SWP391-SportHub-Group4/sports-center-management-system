@@ -259,6 +259,7 @@ export function FeaturedCoachPicker({
                 }}
               >
                 <AvatarImage
+                  userId={coach.userId}
                   name={coach.fullName}
                   avatarUrl={coach.avatarUrl}
                   size={40}

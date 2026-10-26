@@ -117,15 +117,33 @@ for (const width of [1440, 390])
       page.getByRole("link", { name: "View profile", exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Update", exact: true }),
+      page.getByRole("button", { name: "Update progress", exact: true }),
     ).toBeDisabled();
     await page
-      .getByLabel("Progress note", { exact: true })
+      .getByRole("textbox", { name: "Progress note", exact: true })
       .fill("Reviewed the member's schedule.");
-    await page.getByRole("button", { name: "Update", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Update progress", exact: true })
+      .click();
     await expect(
       page.getByText("Progress updated.", { exact: true }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Update progress", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("textbox", { name: "Progress note", exact: true })
+      .fill("  Reviewed the member's schedule.  ");
+    await expect(
+      page.getByRole("button", { name: "Update progress", exact: true }),
+    ).toBeEnabled();
+    expect(writes).toHaveLength(1);
+    await page
+      .getByRole("textbox", { name: "Progress note", exact: true })
+      .fill("Discussed the updated plan with the member.");
+    await expect(
+      page.getByRole("button", { name: "Update progress", exact: true }),
+    ).toBeEnabled();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

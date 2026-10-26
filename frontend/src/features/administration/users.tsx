@@ -664,11 +664,7 @@ export function EditUser({
               </button>
               <button
                 type="button"
-                className={
-                  review === "deactivate"
-                    ? "btn btn--danger"
-                    : "btn"
-                }
+                className={review === "deactivate" ? "btn btn--danger" : "btn"}
                 disabled={mutation.busy}
                 onClick={confirmAction}
               >
@@ -770,6 +766,7 @@ export function Users() {
         <div className={styles.person}>
           <span className={styles.personIcon} aria-hidden="true">
             <AvatarImage
+              userId={account.userId}
               name={account.fullName || account.email}
               avatarUrl={account.avatarUrl}
               size={36}
@@ -931,7 +928,9 @@ export function Users() {
                   ? `${state.data.totalCount.toLocaleString()} accounts${activeCount ? " matching your filters" : " in the directory"}`
                   : "Account directory"}
             </span>
-            <span>Manage access controls coach specialties and account status.</span>
+            <span>
+              Manage access controls coach specialties and account status.
+            </span>
           </div>
           <ApiTable
             caption={l.users}
