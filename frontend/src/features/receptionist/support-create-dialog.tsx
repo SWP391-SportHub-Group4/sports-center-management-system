@@ -168,7 +168,7 @@ export function SupportCreateDialog({
     !member.activationPending &&
     (category !== "PAYMENT" || invoiceId !== "") &&
     category !== "" &&
-    (isManager || subject.trim().length >= 3) &&
+    subject.trim().length >= 3 &&
     description.trim().length >= 3;
   const paymentToReceptionist = category === "PAYMENT" &&
     (handoverTo ? roleKey(target?.role) === "receptionist" : !isManager);
@@ -255,7 +255,7 @@ export function SupportCreateDialog({
         </div>
 
         <label className={styles.field}>
-          {isManager ? "What is your request about? *" : "Topic"}
+          Request type
           <select
             value={category}
             onChange={(e) => {
@@ -267,7 +267,7 @@ export function SupportCreateDialog({
               setActiveInvoice(0);
             }}
           >
-            <option value="">Select a topic</option>
+            <option value="">Select a request type</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value} >
                 {c.label}
@@ -291,17 +291,15 @@ export function SupportCreateDialog({
           </label>
         )}
 
-        {!isManager && (
-          <label className={styles.field}>
-            Subject
-            <input
-              value={subject}
-              maxLength={200}
-              placeholder="Short summary"
-              onChange={(e) => setSubject(e.target.value)}
-            />
-          </label>
-        )}
+        <label className={styles.field}>
+          Subject
+          <input
+            value={subject}
+            maxLength={200}
+            placeholder="Short summary"
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </label>
 
         {category === "PAYMENT" && (
           <label className={styles.field}>
@@ -367,7 +365,7 @@ export function SupportCreateDialog({
           </label>
         )}
         <label className={styles.field}>
-          {isManager ? "Your message *" : "Description"}
+          Description
           <textarea
             value={description}
             maxLength={2000}

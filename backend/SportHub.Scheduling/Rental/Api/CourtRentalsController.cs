@@ -45,6 +45,12 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
         CancellationToken ct)
         => Ok(await operations.MineAsync(memberId, fromUtc, toUtc, ct));
 
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/manager/members/{memberId:guid}/court-rentals")]
+    public async Task<IActionResult> MemberRentalHistory(Guid memberId, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await operations.MemberHistoryAsync(memberId, page, pageSize, ct));
+
     [Authorize(Policy = SportHubPolicies.CourtRental)]
     [HttpGet("api/court-rentals/availability")]
     public async Task<IActionResult> Availability([FromQuery] int sportId, [FromQuery] DateTime startUtc,

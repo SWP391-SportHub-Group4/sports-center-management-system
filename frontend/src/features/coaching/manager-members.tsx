@@ -22,6 +22,7 @@ import { PersonProfileHeader } from "@/components/PersonProfileHeader";
 import profileStyles from "@/components/PersonProfile.module.css";
 import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
 import { RegisterMemberDialog } from "@/features/receptionist";
+import { MemberRentalHistory } from "./member-rental-history";
 
 /** Danh sách hội viên của Manager và đăng ký Member tại quầy. */
 export function ManagerMemberList() {
@@ -220,6 +221,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
           tabs={[
             { id: "packages", label: "Memberships" },
             { id: "classes", label: "Classes" },
+            { id: "rentals", label: "Rental history" },
             { id: "invoices", label: "Payment history" },
           ]}
         >
@@ -278,6 +280,9 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
               </AsyncSection>
             )}
             {tab === "invoices" && <InvoiceList staff memberId={memberId} />}
+            {tab === "rentals" && (
+              <MemberRentalHistory key={memberId} memberId={memberId} />
+            )}
           </div>
         </Tabs>
       </div>

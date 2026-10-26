@@ -68,9 +68,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
     (r) =>
       !roomId ||
       r.roomId === roomId ||
-      (!r.roomId &&
-        r.roomTypeId === court?.roomTypeId &&
-        (!r.sportId || r.sportId === currentSport)),
+      (!r.roomId && r.roomTypeId === court?.roomTypeId),
   );
   function edit(rate?: CourtRateDto) {
     action.reset();
@@ -107,9 +105,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
       <AsyncSection state={rooms}>{() => null}</AsyncSection>
       <AsyncSection state={types}>
         {(rows) =>
-          rows.length ? null : (
-            <p>Create a court with its sport before adding rental prices.</p>
-          )
+          rows.length ? null : <p>Create a room before adding rental prices.</p>
         }
       </AsyncSection>
       <AsyncSection state={sports}>{() => null}</AsyncSection>
@@ -246,17 +242,19 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
               <div className={styles.grid}>
                 <Field label="Sport" required={!editor.id}>
                   <select
-                    disabled={!!roomId || !!editor.id}
+                    disabled={!!editor.id}
                     required={!editor.id}
                     value={editor.form.sportId}
                     onChange={(e) =>
                       update({
                         sportId: e.target.value,
-                        roomId: "",
+                        roomId: roomId ? String(roomId) : "",
                         roomTypeId:
+                          court?.roomTypeId ??
                           types.data?.find((t) =>
                             t.sportIds.includes(Number(e.target.value)),
-                          )?.roomTypeId ?? 0,
+                          )?.roomTypeId ??
+                          0,
                       })
                     }
                   >
@@ -295,8 +293,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                       ?.filter(
                         (r) =>
                           r.roomId === Number(editor.form.roomId) ||
-                          sportOf(r.sportId, r.roomTypeId) ===
-                            Number(editor.form.sportId),
+                          (r.isActive && r.allowRental),
                       )
                       .map((r) => (
                         <option key={r.roomId} value={r.roomId}>

@@ -31,7 +31,9 @@ export function RemoveMemberAvatarButton({
     setError("");
     try {
       await api.del(
-        `/api/${administrator ? "admin" : "manager"}/users/${memberId}/avatar`,
+        administrator
+          ? `/api/admin/users/${memberId}/avatar`
+          : `/api/manager/members/${memberId}/avatar`,
       );
       setOpen(false);
       onRemoved();

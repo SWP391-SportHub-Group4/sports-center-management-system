@@ -426,6 +426,7 @@
 .editableImage {
   position: relative;
   width: 100%;
+  aspect-ratio: 3 / 2;
   isolation: isolate;
   overflow: hidden;
   background: var(--bg-surface-sunken);

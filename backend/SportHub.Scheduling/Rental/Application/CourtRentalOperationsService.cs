@@ -8,8 +8,10 @@ using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Scheduling.Rental.Domain;
 using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Domain.Entities;
 using System.Text.Json;
 
 namespace SportHub.Scheduling.Rental.Application;
@@ -59,6 +61,25 @@ public sealed class CourtRentalOperationsService(ISportHubDbContext db,
         var query = db.Set<CourtRental>().AsNoTracking().Where(x => x.StartAtUtc < toUtc && x.EndAtUtc > fromUtc);
         if (roomId is int id) query = query.Where(x => x.RoomId == id);
         return await query.OrderBy(x => x.StartAtUtc).Select(Project()).ToListAsync(ct);
+    }
+
+    public async Task<PagedResult<MemberCourtRentalHistory>> MemberHistoryAsync(Guid memberId,
+        int page = 1, int pageSize = 20, CancellationToken ct = default)
+    {
+        page = Math.Clamp(page, 1, 100000);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var query = db.Set<CourtRental>().AsNoTracking().Where(r => r.MemberId == memberId);
+        var total = await query.CountAsync(ct);
+        var items = await (from rental in query
+                           join room in db.Set<Room>() on rental.RoomId equals room.RoomId
+                           join sport in db.Set<Sport>() on rental.SportId equals sport.SportId
+                           orderby rental.StartAtUtc descending, rental.CourtRentalId descending
+                           select new MemberCourtRentalHistory(rental.CourtRentalId, room.Name, sport.Name,
+                               rental.StartAtUtc, rental.EndAtUtc, rental.TotalPrice, rental.Status.ToString(),
+                               rental.InvoiceId, rental.InvoiceItemId))
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return new PagedResult<MemberCourtRentalHistory>
+        { Items = items, TotalCount = total, Page = page, PageSize = pageSize };
     }
 
     public async Task CancelByOwnerAsync(Guid rentalId, Guid ownerId, CancellationToken ct = default)
@@ -131,3 +152,6 @@ public sealed record CourtRentalSummary(Guid CourtRentalId, int SportId, int Roo
 public sealed record CourtRentalPolicy(int SlotMinutes, int MaxHours, int AdvanceDays, int CancelFreeHours, DateTime ServerNowUtc);
 public sealed record CourtRentalDetail(CourtRentalSummary Rental, string RoomName, string SportName,
     IReadOnlyList<CourtRentalBlockPrice> Blocks, string? CancelReason, DateTime? CancelledAtUtc, int RefundPoints);
+public sealed record MemberCourtRentalHistory(Guid CourtRentalId, string RoomName, string SportName,
+    DateTime StartAtUtc, DateTime EndAtUtc, decimal TotalPrice,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status, Guid? InvoiceId, Guid? InvoiceItemId);

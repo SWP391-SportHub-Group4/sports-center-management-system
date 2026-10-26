@@ -8,12 +8,13 @@ import {
 import { DeliveryStatus } from "./delivery-status";
 import { createPortal } from "react-dom";
 import styles from "./incidents.module.css";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
-import { Card, Field, Dialog } from "@/components/ui";
+import { AsyncSection, Card, Field, Dialog } from "@/components/ui";
+import { loadCenterHours, timeToMinutes } from "@/lib/center-hours";
 import { RoomSelector, catalogApi } from "@/features/catalog";
 import { useApi } from "@/lib/useApi";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -32,26 +33,22 @@ import {
   type IncidentStep,
   type StepStatus,
 } from "./incident-progress";
-export function IncidentForm({
-  onFencesChanged,
-  aboveForm,
-}: {
-  onFencesChanged?: () => void;
-  /** Shown under the intro and above the form (the incidents already in progress). */
-  aboveForm?: ReactNode;
-}) {
+export function IncidentForm() {
   const { t } = useLanguage();
   const l = t.operations;
   const c = useOperationsCopy();
   const params = useSearchParams();
   const mutation = useMutation();
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
+  const center = useApi(loadCenterHours, []);
   const revision = useRef(0);
   const resolvePending = useRef(false);
   const operationId = useRef("");
   const [refundEdits, setRefundEdits] = useState<RefundEdits>({});
   const [previewChanged, setPreviewChanged] = useState(false);
   const reviewButtonRef = useRef<HTMLButtonElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [timeError, setTimeError] = useState("");
   const [steps, setSteps] = useState<IncidentStep[]>([]);
   const [scope, setScope] = useState(
     params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
@@ -62,7 +59,6 @@ export function IncidentForm({
   const [start, setStart] = useState(params.get("start") ?? "");
   const [end, setEnd] = useState(params.get("end") ?? "");
   const [reason, setReason] = useState(params.get("reason") ?? "");
-  const [held, setHeld] = useState(false);
   const [review, setReview] = useState<{
     body: IncidentRequest;
     preview: IncidentPreviewDto;
@@ -88,9 +84,16 @@ export function IncidentForm({
       ? t.incidentHistory.invalidRange
       : endMs - startMs > 31 * 86400000
         ? t.incidentHistory.rangeTooLong
-        : null;
+        : center.data &&
+            (start.slice(0, 10) !== end.slice(0, 10) ||
+              timeToMinutes(start.slice(11)) < center.data.openingMinute ||
+              timeToMinutes(end.slice(11)) > center.data.closingMinute)
+          ? t.incidentHistory.outsideHours
+          : null;
   const validDraft =
     hasValidDates &&
+    !!center.data &&
+    !center.error &&
     !rangeError &&
     reason.trim().length >= 3 &&
     reason.trim().length <= 500 &&
@@ -125,19 +128,24 @@ export function IncidentForm({
     setPreviewChanged(false);
     setReview(null);
     setIncidentId("");
-    setHeld(false);
     mutation.reset();
     setFinalReview(false);
   }
-  async function holdWindow() {
-    if (!review) return;
-    await mutation.run(async () => {
-      await incidentApi.openFence(review.body);
-      setHeld(true);
-      onFencesChanged?.();
-    }, "");
-  }
   async function preview(final = false) {
+    if (center.data && (!hasValidDates || rangeError)) {
+      const hours = t.incidentHistory.reviewTimeError
+        .replace("{open}", center.data.opens)
+        .replace("{close}", center.data.closes);
+      setTimeError(
+        !hasValidDates
+          ? `${t.incidentHistory.invalidTime} ${hours}`
+          : rangeError === t.incidentHistory.outsideHours
+            ? hours
+            : `${rangeError} ${hours}`,
+      );
+      return;
+    }
+    if (!formRef.current?.reportValidity()) return;
     if (!validDraft || (final && !refundValid)) return;
     if (!operationId.current) operationId.current = crypto.randomUUID();
     const priorToken = review?.preview.previewToken;
@@ -164,14 +172,36 @@ export function IncidentForm({
   }
   return (
     <div className={styles.page}>
+      {timeError &&
+        createPortal(
+          <Dialog
+            title={t.incidentHistory.timeErrorTitle}
+            onClose={() => setTimeError("")}
+            showCloseButton={false}
+            footer={
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setTimeError("")}
+              >
+                {t.common.close}
+              </button>
+            }
+          >
+            <p role="alert">{timeError}</p>
+          </Dialog>,
+          document.body,
+        )}
       <p className={styles.intro}>{t.incidentHistory.intro}</p>
-      {aboveForm}
       <Card
         title={incidentId ? l.resolved : t.incidentHistory.formTitle}
         hint={!incidentId ? t.incidentHistory.formHint : undefined}
       >
+        <AsyncSection state={center}>{() => null}</AsyncSection>
         {!incidentId && (
           <form
+            ref={formRef}
+            noValidate
             onSubmit={async (e) => {
               e.preventDefault();
               await preview();
@@ -213,6 +243,8 @@ export function IncidentForm({
               <div className={formStyles.formGrid}>
                 <IncidentDateTime
                   label={l.start}
+                  minTime={center.data?.opens}
+                  maxTime={center.data?.closes}
                   value={start}
                   onChange={(value) => {
                     setStart(value);
@@ -221,6 +253,8 @@ export function IncidentForm({
                 />
                 <IncidentDateTime
                   label={l.end}
+                  minTime={center.data?.opens}
+                  maxTime={center.data?.closes}
                   value={end}
                   minDate={start.split("T")[0]}
                   onChange={(value) => {
@@ -229,11 +263,6 @@ export function IncidentForm({
                   }}
                 />
               </div>
-              {rangeError && (
-                <p role="alert" className="field__error">
-                  {rangeError}
-                </p>
-              )}
               <Field label={l.reason} required>
                 <textarea
                   required
@@ -250,7 +279,12 @@ export function IncidentForm({
                 <button
                   ref={reviewButtonRef}
                   className="btn"
-                  disabled={mutation.busy || !validDraft}
+                  disabled={
+                    mutation.busy ||
+                    !center.data ||
+                    !!center.error ||
+                    (scope === "ROOM" && Number(roomId) <= 0)
+                  }
                 >
                   {l.review}
                 </button>
@@ -372,7 +406,6 @@ export function IncidentForm({
                     onRefresh={() => preview()}
                     onResult={(type, id, status, message) => {
                       record(type, id, status, message);
-                      if (status !== "pending") onFencesChanged?.();
                     }}
                     onEditingChange={(value) => {
                       setEditing(value);
@@ -392,23 +425,6 @@ export function IncidentForm({
                   onChange={setRefundEdits}
                   disabled={mutation.busy || resolving || editing}
                 />
-                {!review.preview.canResolve && (
-                  <div className={styles.hold}>
-                    <p className="small muted">
-                      {held ? c.holdWindowDone : c.holdWindowHint}
-                    </p>
-                    {!held && (
-                      <button
-                        type="button"
-                        className="btn btn--secondary"
-                        disabled={mutation.busy || uncertain}
-                        onClick={() => void holdWindow()}
-                      >
-                        {c.holdWindow}
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
               <MutationFeedback mutation={mutation} />
             </div>
@@ -482,7 +498,6 @@ export function IncidentForm({
                           throw error;
                         });
                       setIncidentId(response.incidentId);
-                      onFencesChanged?.();
                       setFinalReview(false);
                       record("FINAL", response.incidentId, "succeeded");
                       window.history.replaceState(

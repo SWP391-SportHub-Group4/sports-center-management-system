@@ -268,113 +268,35 @@ test("Admin detail displays access denial on reload and distinguishes a missing 
   ).toHaveCount(0);
 });
 
-test("role change requires reason and review; backend denial preserves the form", async ({
+test("role change dropdown is not available in manage access dialog for staff", async ({
   page,
 }) => {
   await setup(page);
-  let writes = 0;
-  await page.route(`**/api/users/${account.userId}/role`, (route) => {
-    writes++;
-    expect(route.request().postDataJSON()).toMatchObject({
-      role: "SYSTEM_ADMINISTRATOR",
-      reason: "Approved role change",
-    });
-    return route.fulfill({
-      status: 409,
-      json: {
-        error: "last_active_system_administrator",
-        message: "Cannot demote the last active Administrator",
-      },
-    });
-  });
   await page.goto("/admin/users");
   await page
     .getByRole("button", { name: "Manage access", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  await dialog
-    .getByLabel("Role", { exact: true })
-    .selectOption("SYSTEM_ADMINISTRATOR");
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
   await expect(
     dialog.getByRole("button", { name: "Save changes", exact: true }),
-  ).toBeDisabled();
-  await dialog
-    .getByLabel("Reason", { exact: true })
-    .fill("Approved role change");
-  await dialog
-    .getByRole("button", { name: "Save changes", exact: true })
-    .click();
-  await expect(dialog).toContainText(
-    "Changing the role invalidates existing sessions",
-  );
-  expect(writes).toBe(0);
-  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
-  await expect(dialog).toContainText(
-    "Cannot demote the last active Administrator",
-  );
-  await dialog
-    .getByRole("button", { name: "Edit change", exact: true })
-    .click();
-  await expect(dialog.getByLabel("Reason", { exact: true })).toHaveValue(
-    "Approved role change",
-  );
-  await expect(dialog.getByLabel("Role", { exact: true })).toHaveValue(
-    "SYSTEM_ADMINISTRATOR",
-  );
+  ).toHaveCount(0);
 });
 
-test("blocked Coach role change shows specific reasons and shareable handoff links", async ({
+test("Coach manage access dialog does not show role change dropdown but shows coach specialties", async ({
   page,
 }) => {
   const row = await setup(page);
   row.role = "COACH";
-  await page.route(`**/api/users/${row.userId}/role`, (route) =>
-    route.fulfill({
-      status: 409,
-      json: {
-        error: "role_change_blocked",
-        message: "Role change is blocked.",
-        reasons: [
-          "Main coach of 1 unfinished class. Reassign it first.",
-          "2 upcoming class session(s) are still assigned. Reassign or cancel them first.",
-          "1 active coaching relationship(s). End or transfer them first.",
-        ],
-      },
-    }),
-  );
   await page.goto("/admin/users");
   await page
     .getByRole("button", { name: "Manage access", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  await dialog
-    .getByLabel("Reason", { exact: true })
-    .fill("Hire as receptionist");
-  await dialog.getByLabel("Role", { exact: true }).selectOption("RECEPTIONIST");
-  await dialog
-    .getByRole("button", { name: "Save changes", exact: true })
-    .click();
-  await dialog.getByRole("button", { name: /^Confirm(?: update)?$/ }).click();
-
-  const blockers = dialog.getByRole("region", {
-    name: "Resolve these items before changing the role",
-  });
-  await expect(blockers.getByRole("listitem")).toHaveCount(3);
-  await expect(blockers).toContainText("Main coach of 1 unfinished class");
-  await expect(blockers).toContainText("2 upcoming class session(s)");
-  await expect(blockers).toContainText("1 active coaching relationship(s)");
-  await expect(blockers).toContainText(
-    "Ask a Center Manager to reassign or close them",
-  );
+  await expect(dialog.getByLabel("Role", { exact: true })).toHaveCount(0);
   await expect(
-    blockers.getByRole("link", { name: "View account details" }),
-  ).toHaveAttribute("href", `/admin/users/${row.userId}`);
-  await expect(
-    blockers.getByRole("button", { name: "Copy Coach management link" }),
+    dialog.getByRole("region", { name: "Coach specialties" }),
   ).toBeVisible();
-  await expect(
-    blockers.getByRole("button", { name: "Copy Receptionist member link" }),
-  ).toHaveCount(0);
 });
 
 test("deactivate and activate require review, refresh the list and display canonical outcomes", async ({

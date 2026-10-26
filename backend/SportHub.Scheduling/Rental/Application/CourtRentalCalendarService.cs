@@ -29,13 +29,16 @@ public sealed partial class CourtRentalService
         var maxHours = await settings.GetIntAsync(SystemSettingKeys.RentalMaxHours, ct);
         var holdMinutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         var now = clock.UtcNow;
+        var centerHours = await CenterOperatingHours.ReadAsync(settings, ct);
         if (step is not (30 or 60) || hours < 1 || hours > maxHours || hours > 4
             || date < CourtRentalWindow.AnchorDate(now) || date > CourtRentalWindow.LastBookableDate(now))
             throw new BadRequestException("invalid_rental_window", "Invalid rental window.");
 
         var rooms = await (from room in db.Set<Room>().AsNoTracking()
-                           join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
-                           where room.IsActive && link.SportId == sportId
+                           where room.IsActive && room.AllowRental
+                               && db.Set<CourtRate>().Any(rate => rate.IsActive && rate.RoomTypeId == room.RoomTypeId
+                                   && (rate.RoomId == null || rate.RoomId == room.RoomId)
+                                   && (rate.SportId == null || rate.SportId == sportId))
                                && (room.RentalBookingOpensAtUtc == null || room.RentalBookingOpensAtUtc <= now)
                                && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
                            select new { room.RoomId, room.Name, room.RoomTypeId }).Distinct().OrderBy(r => r.Name).ToListAsync(ct);
@@ -61,9 +64,8 @@ public sealed partial class CourtRentalService
             var window = opening.SingleOrDefault(h => h.RoomId == room.RoomId);
             if (window is not null)
             {
-                // BR-126: chỉ hiển thị khung 06:00 đến 22:00 dù phòng mở rộng hơn.
-                var openMinute = Math.Max(window.OpenTimeLocal.Hour * 60 + window.OpenTimeLocal.Minute, CourtRentalWindow.OpenMinute);
-                var closeMinute = Math.Min(window.CloseTimeLocal.Hour * 60 + window.CloseTimeLocal.Minute, CourtRentalWindow.CloseMinute);
+                var openMinute = Math.Max(window.OpenTimeLocal.Hour * 60 + window.OpenTimeLocal.Minute, centerHours.OpeningMinute);
+                var closeMinute = Math.Min(window.CloseTimeLocal.Hour * 60 + window.CloseTimeLocal.Minute, centerHours.ClosingMinute);
                 for (var minute = (int)Math.Ceiling(openMinute / (double)step) * step;
                      minute + hours * 60 <= closeMinute; minute += step)
                 {

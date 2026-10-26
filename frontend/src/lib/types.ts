@@ -204,6 +204,7 @@ export interface PaymentAttemptDto {
 }
 
 export interface RoomDto {
+  allowRental?: boolean;
   rentalBookingOpensAtUtc?: string | null;
   sportId?: number | null;
   roomTypeId: number | null;
@@ -808,6 +809,7 @@ export interface CourtRentalDetailDto {
 }
 
 export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
+  sessionMinutes?: number | null;
   status: "DRAFT" | CourseDto["status"];
   costAmount: number;
   breakEvenThreshold: number | null;

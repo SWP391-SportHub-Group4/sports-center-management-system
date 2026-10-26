@@ -34,12 +34,9 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         // Môn phải đang hoạt động và dịch vụ thuê sân đang bật; không whitelist theo tên hay ID môn.
         if (!await catalog.IsServiceEnabledAsync(request.SportId, SportServiceType.CourtRental, cancellationToken))
             throw new BadRequestException("rental_not_available", "Rental not available.");
-        var room = await (from r in db.Set<Room>().AsNoTracking()
-                          join link in db.Set<SportRoomType>().AsNoTracking() on r.RoomTypeId equals link.RoomTypeId
-                          where r.RoomId == request.RoomId && r.IsActive && link.SportId == request.SportId
-                              && (r.SportId == null || r.SportId == request.SportId)
-                              && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && (r.SportId != null || t.IsActive))
-                          select r).SingleOrDefaultAsync(cancellationToken)
+        var room = await db.Set<Room>().AsNoTracking().SingleOrDefaultAsync(r =>
+            r.RoomId == request.RoomId && r.IsActive && r.AllowRental
+            && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive), cancellationToken)
             ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
         if (room.RentalBookingOpensAtUtc > clock.UtcNow)
             throw new ConflictException("rental_court_not_open_yet", "This new court opens for member bookings on the following day (Vietnam time).");
@@ -50,8 +47,9 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
         var endLocal = VietnamTime.ToLocal(request.EndUtc.UtcDateTime);
         if (startLocal.Date != endLocal.Date)
             throw new BadRequestException("rental_cross_day", "Rental cross day.");
-        if (!CourtRentalWindow.FitsDailyHours(startLocal, endLocal))
-            throw new ConflictException("court_outside_hours", "Courts can only be rented from 06:00 to 22:00 Vietnam time.");
+        var centerHours = await CenterOperatingHours.ReadAsync(settings, cancellationToken);
+        if (!centerHours.Covers(startLocal, endLocal))
+            throw new ConflictException("court_outside_hours", $"Courts can only be rented within {centerHours.Opens}–{centerHours.Closes}, Vietnam time.");
         var opening = await db.Set<RoomOpeningHour>().AsNoTracking().SingleOrDefaultAsync(x => x.RoomId == room.RoomId
             && x.DayOfWeek == (int)startLocal.DayOfWeek, cancellationToken);
         if (!RoomOpeningHourService.Covers(opening, startLocal, endLocal))
@@ -240,7 +238,7 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             return false;
         var room = await db.Set<Room>().AsNoTracking().SingleOrDefaultAsync(x => x.RoomId == rental.RoomId, cancellationToken);
         var sportActive = await db.Set<Sport>().AsNoTracking().AnyAsync(x => x.SportId == rental.SportId && x.IsActive, cancellationToken);
-        if (room is null || !room.IsActive || !sportActive) return false;
+        if (room is null || !room.IsActive || !room.AllowRental || !sportActive) return false;
         if (room.RoomTypeId is int typeId && !await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == typeId && t.IsActive, cancellationToken)) return false;
         var result = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.CourtRental, courtRentalId,
             rental.RoomId, null,

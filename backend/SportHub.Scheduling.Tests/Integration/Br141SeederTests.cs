@@ -65,6 +65,9 @@ public sealed class Br141SeederTests(SchedulingApiFactory factory)
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             var occupancy = scope.ServiceProvider.GetRequiredService<IOccupancyService>();
             await using var tx = await db.Database.BeginTransactionAsync();
+            // Opt this class room into rentals before checking the shared occupancy rules.
+            await db.Rooms.Where(r => r.RoomId == first.RoomId)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.AllowRental, true));
             var blocked = await occupancy.ReserveAsync(new OccupancyRequest(OccupancySources.CourtRental,
                 Guid.NewGuid(), first.RoomId, null, new DateTimeOffset(first.StartAtUtc), new DateTimeOffset(first.EndAtUtc)));
             Assert.False(blocked.Succeeded);

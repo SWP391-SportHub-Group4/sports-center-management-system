@@ -9,7 +9,8 @@ import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDateTime } from "@/lib/format";
 import {
   SupportStatus,
-  SUPPORT_STATUS_LABELS,
+  SUPPORT_STATUS_FILTERS,
+  supportStatusLabel,
 } from "@/components/support-status";
 import {
   SUPPORT_CATEGORIES,
@@ -240,7 +241,7 @@ export function SupportQueue({
           >
             <span className={styles.statLabel}>
               <span className={styles.dot} data-status={item.status} />
-              {statusLabel(item.status)}
+              {supportStatusLabel(item.status)}
             </span>
             <strong className={styles.statValue}>
               {stats.data ? stats.data[item.key] : "—"}
@@ -277,11 +278,7 @@ export function SupportQueue({
               type="search"
               value={search}
               maxLength={200}
-              placeholder={
-                isManager
-                  ? "Search name, email, message…"
-                  : "Search name, email, subject…"
-              }
+              placeholder="Search name, email, subject…"
               onChange={(e) => setSearch(e.target.value)}
             />
           </span>
@@ -293,22 +290,31 @@ export function SupportQueue({
             onChange={(e) => patch({ status: e.target.value })}
           >
             <option value="">All statuses</option>
-            <option value="NOT_STARTED">Not started (group)</option>
-            <option value="FINISHED">Done (group)</option>
-            {Object.entries(SUPPORT_STATUS_LABELS).map(([status, text]) => (
-              <option key={status} value={status}>
-                {text}
+              const cards = isReceiver
+                ? [
+                    { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
+                    { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
+                    { key: "done" as const, label: "Done", status: "FINISHED" },
+                  ]
+                : summaryCards;
+
+              const statusLabel = (status: string) =>
+                status === "NOT_STARTED"
+                  ? "Not started"
+                  : status === "FINISHED"
+                    ? "Done"
+                    : (SUPPORT_STATUS_LABELS[status] ?? status);
               </option>
             ))}
           </select>
         </label>
         <label>
-          {isManager ? "Topic" : "Request type"}
+          Request type
           <select
             value={filters.category}
             onChange={(e) => patch({ category: e.target.value })}
           >
-            <option value="">{isManager ? "All topics" : "All types"}</option>
+            <option value="">All types</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -442,9 +448,8 @@ export function SupportQueue({
                         </span>
                       </span>
                       <span className={styles.rowSubject}>
-                        {isManager
-                          ? supportCategoryLabel(request.category)
-                          : request.subject}
+                        {request.subject?.trim() ||
+                          supportCategoryLabel(request.category)}
                       </span>
                       {isManager && (
                         <>

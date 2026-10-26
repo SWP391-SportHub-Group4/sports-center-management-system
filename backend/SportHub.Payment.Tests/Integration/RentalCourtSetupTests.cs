@@ -32,7 +32,8 @@ public sealed class RentalCourtSetupTests(PaymentApiFactory factory)
         var response = await client.PostAsJsonAsync("/api/rooms/rental", new {template.Name, template.Capacity, sportId, template.Hours, template.Rates});
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         var court = (await response.Content.ReadFromJsonAsync<RoomResponse>())!;
-        Assert.Equal(sportId, court.SportId);
+        Assert.Null(court.SportId);
+        Assert.True(court.AllowRental);
         Assert.True(await factory.QueryAsync(db => db.Set<SportRoomType>().AnyAsync(l => l.SportId == sportId && l.RoomTypeId == court.RoomTypeId)));
         Assert.True(await factory.QueryAsync(db => db.Set<CourtRate>().AnyAsync(r => r.RoomId == court.RoomId && r.SportId == sportId)));
     }

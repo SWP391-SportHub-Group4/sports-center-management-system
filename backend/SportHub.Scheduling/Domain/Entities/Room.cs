@@ -8,7 +8,9 @@ public class Room
 
     public int Capacity { get; set; } // trần sức chứa vật lý
 
-    public int? SportId { get; set; } // Direct sport selection; null only for unclassified legacy rooms.
+    public int? SportId { get; set; } // Legacy metadata only; rooms can host classes for any sport.
+
+    public bool AllowRental { get; set; } // Explicit manager opt-in; independent of class scheduling.
 
     public int? RoomTypeId { get; set; } // FK -> RoomType; null cho phòng cũ chưa phân loại
 

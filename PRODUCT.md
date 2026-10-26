@@ -54,6 +54,10 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 
 Payment/checkout/wallet và VNPay adapter đã có mã; sandbox thật cần nghiệm thu riêng. Member assistant/workout AI đã có nền tảng, Manager AI chưa triển khai. Danh sách evidence, khoảng trống và tiêu chí nghiệm thu nằm ở mục 13 của [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md).
 
+## Room workflow — 26/10/2026
+
+Rooms are physical facilities created and named independently of sports at `/manager/facilities`. Classes select from all active rooms. Create room asks for name and capacity, always creates an active room, and includes an **Allow rental** toggle, off by default. Turning it on reveals hourly pricing and a weekly schedule, saved atomically with the room. Disabling rental preserves existing classes and bookings. This replaces older descriptions of assigning a room to one sport. See [the room workflow](docs/Independent-Rooms-Workflow.md).
+
 ## Product Principles
 
 1. **Minh bạch trạng thái & Tác vụ tiếp theo**: Luôn hiển thị rõ kết quả hành động, thời hạn giữ chỗ, số điểm sẽ bị trừ/hoàn và bước kế tiếp cho người dùng.

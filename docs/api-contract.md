@@ -1,5 +1,11 @@
 # Hợp đồng API refactor đa môn (backend)
 
+## Phòng độc lập và quyền cho thuê — 26/10/2026
+
+Form tạo phòng hiện nhập tên và sức chứa; nút Allow rental mặc định tắt, Active luôn bật. Khi bật thuê, `POST /api/rooms` nhận thêm `allowRental=true` và `rentalSetup: {pricePerHour, hours:[{dayOfWeek,openTimeLocal,closeTimeLocal}]}`. Giá/lịch và phòng được lưu nguyên tử, không cần chọn Sport; cấu hình sai không tạo phòng. Xem [ví dụ và validation](Independent-Rooms-Workflow.md#tạo-phòng-kèm-cấu-hình-thuê). Không cần migration mới cho phần giá/lịch.
+
+Contract hiện hành nằm tại [Independent Rooms Workflow](Independent-Rooms-Workflow.md#api-backend). `POST /api/rooms` chỉ cần tên và sức chứa; response bổ sung `allowRental`. `PUT /api/rooms/{roomId}/rental-access` nhận `{allowRental}` và chỉ CenterManager được gọi. Phòng lớp không bị lọc theo Sport; quyền thuê được kiểm tra riêng trong calendar, quote và transaction chiếm chỗ. Áp dụng migration `20261026100000_IndependentRooms` trước khi chạy backend mới.
+
 ## Landing page content
 
 - Media supports inline plain-text editing of titles and content by double-click (Enter/F2 also opens editing). Enter finishes, Shift+Enter inserts an intentional newline, Escape restores the prior value; blank edits revert. Catalog sport names and linked Coach profile details remain read-only. Draft text participates in Preview, Save changes, Cancel and revision conflict protection.
@@ -649,7 +655,8 @@ Actor viết tắt: **M** = CenterManager (policy `CatalogManage`), **FD** = Man
 | PUT | `api/manager/room-types/{id}/sports` | M | `{sportIds[]}` (thay toàn bộ) | 200; 400 `invalid_sport` |
 | DELETE | `api/manager/room-types/{id}` | M | — | 204; 409 `room_type_in_use` |
 | GET | `api/rooms` | Staff | — | `RoomResponse` thêm `roomTypeId`, `isActive` |
-| POST, PUT | `api/rooms`, `api/rooms/{id}` | M | `{name, capacity, roomTypeId?, isActive?}` (isActive null = giữ nguyên) | 400 `invalid_room_type`; 409 `room_name_taken` |
+| POST, PUT | `api/rooms`, `api/rooms/{id}` | M | `{name, capacity, roomTypeId?, isActive?, allowRental?}`; không cần Sport; tạo mới mặc định không cho thuê | 400 `invalid_room_type`; 409 `room_name_taken` |
+| PUT | `api/rooms/{id}/rental-access` | M | `{allowRental}`; cấu hình độc lập với Active, giữ lớp/booking hiện có; inactive vẫn không nhận booking | 404 `room_not_found` |
 | DELETE | `api/rooms/{id}` | M | — | 204; 409 `room_in_use` |
 | GET | `api/rooms/{roomId}/opening-hours` | Auth | — | `[{dayOfWeek(0=CN..6), openTimeLocal "HH:mm", closeTimeLocal}]` |
 | PUT | `api/manager/rooms/{roomId}/opening-hours` | M | `{hours:[{dayOfWeek, openTimeLocal, closeTimeLocal}]}` (thay toàn bộ, ≤7) | 200; 400 `invalid_opening_hours` `duplicate_opening_day` `invalid_time` |

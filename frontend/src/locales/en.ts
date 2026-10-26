@@ -11,7 +11,7 @@ export const en = {
       "Vietnam time (UTC+7). Choose whole hours and at least one opening day.",
     applyAll: "Apply hours to all days",
     closed: "Closed",
-    pricing: "Rental pricing",
+    pricing: "Price per hour",
     priceHint:
       "Prices apply only to this court. Use multiples of 2,000 VND per hour to support 30-minute bookings.",
     customPrices: "Use different prices by time of day",
@@ -326,9 +326,19 @@ export const en = {
     requests: "Change requests awaiting review",
     refunds: "Refund requests awaiting review",
     schedule: "Operations schedule",
-    facilities: "Court",
+    facilities: "Rooms",
     roomTypes: "Room types",
     contentStep: "Class information",
+    classInputValidation: {
+      codeLength: "Enter a class code with 2-50 characters.",
+      codeTaken: "This class code is already in use. Enter a different code.",
+      codeChecking: "Checking class code…",
+      codeCheckFailed: "Unable to check this code. Try again.",
+      nameRequired: "Enter a class name with 1-150 characters.",
+      price: "Enter tuition of at least 1,000 VND, in multiples of 1,000.",
+      capacity: "Enter a whole number of members, at least 1.",
+      cost: "Enter a class cost of 0 VND or more.",
+    },
     scheduleStep: "Coach, room & schedule",
     pricingStep: "Tuition, cost & capacity",
     reviewStep: "Review generated sessions",
@@ -359,7 +369,7 @@ export const en = {
         futureDate: "Choose a start date within one year from today.",
         pastTime: "Start time has passed. Choose a future time.",
         count: "Enter 1–100 sessions.",
-        duration: "Set this sport’s session duration first.",
+        duration: "Enter a whole number of minutes between 1 and 720.",
         durationLimit: "Sessions must be 12 hours or shorter.",
         rules: "Add a weekly session.",
         time: "Set a valid weekday and start time.",
@@ -376,6 +386,8 @@ export const en = {
         room_incompatible: "Room does not support this sport.",
         room_capacity_exceeded: "Class exceeds room capacity.",
         outside_opening_hours: "Session is outside room opening hours.",
+        outside_center_hours:
+          "Session is outside the center opening hours configured in Settings.",
         room_busy: "Room is occupied or blocked.",
         room_occupied: "Room is occupied or blocked.",
         room_under_incident_review: "Room is under incident review.",
@@ -414,6 +426,8 @@ export const en = {
       room_capacity_exceeded: "The room cannot accommodate this class.",
       outside_opening_hours:
         "The room is closed during part or all of this session.",
+      outside_center_hours:
+        "The session must be within the center opening hours configured in Settings.",
       room_busy: "The room has an overlapping activity or block.",
       room_under_incident_review:
         "The room is under incident review for this time. Choose another room or time.",
@@ -674,6 +688,38 @@ export const en = {
       "Cancellation notifies enrolled members and the teaching coach. Each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
   },
   managerCatalog: {
+    createRoom: "Create room",
+    createRoomRentalHint:
+      "Turn on to set an hourly price and weekly rental schedule. New rooms are active by default.",
+    rentalSchedule: "Weekly rental schedule",
+    rentalDay: "Day",
+    rentalOpens: "Opens",
+    rentalCloses: "Closes",
+    rentalPriceHint: "Enter a positive hourly price in multiples of 2,000 VND.",
+    rentalDaysRequired: "Select at least one rental day.",
+    rentalHoursInvalid:
+      "Each rental day needs at least one hour, within the center opening hours.",
+    rentalHoursLoading:
+      "Wait for the center opening hours to load, or retry if loading failed.",
+    searchRooms: "Search rooms…",
+    allRoomStatuses: "All statuses",
+    allRentalStatuses: "All rental statuses",
+    manageRooms: "Manage rooms",
+    roomPickerHint: "Choose an active room. Rooms are shared across sports.",
+    independentRoomsHint:
+      "Create shared rooms for classes. Turn on rental access during setup to add hourly pricing and a weekly schedule.",
+    allowRental: "Allow rental",
+    disableRental: "Disable rental",
+    rentalAccess: "Rental access",
+    rentalStatus: "Rental status",
+    rentalEnabled: "Enabled",
+    roomDeactive: "Deactive",
+    rentalAllowed: "Allowed",
+    rentalDisabled: "Disabled",
+    enableRentalFirst:
+      "Select Allow rental to configure rental pricing for this room.",
+    rentalSetupHint:
+      "Set opening hours and rental prices before members can book. Disabling rental only stops new bookings; existing bookings and classes are preserved.",
     viewCourt: "View details",
     landingImage: "Landing page image",
     browseImage: "Browse",
@@ -688,7 +734,42 @@ export const en = {
     imageFileInvalid: "Choose a JPG, PNG or WebP image no larger than 10 MB.",
     imageOpenFailed: "Could not open this image. Choose another file.",
     imageUploadFailed: "Could not save the image. Please try again.",
-    editCourt: "Edit court",
+    editCourt: "Edit room",
+    roomEditDescription:
+      "Update the room details. Rental pricing and schedules are managed separately on the room page.",
+    roomNameRequired: "Enter a room name with 1–100 characters.",
+    roomCapacityRange: "Enter a whole number between 1 and 500.",
+    roomCapacityHint: "Maximum number of people the room can hold.",
+    capacityPeople: "people",
+    capacityPerson: "person",
+    roomActiveHint:
+      "Turn off to stop new class schedules and rental bookings. Existing schedules and bookings are preserved.",
+    roomSaveChanges: "Save changes",
+    roomRentalSettings: "Rental settings",
+    roomRentalDescription:
+      "Choose whether this room can be rented, then manage its rental prices.",
+    roomRentalAccessHint:
+      "Allow rental can be configured even when the room is inactive. Turning it off preserves existing bookings and prices.",
+    roomRentalRequirements:
+      "Members can book only when the room is active, rental is enabled, and hours and prices are configured.",
+    roomUnsavedChanges: "You have unsaved changes to rental access.",
+    roomSaveRentalAccess: "Save rental access",
+    roomSaveRentalFirst:
+      "Save rental access to start adding prices for this room.",
+    roomPriceWindowsHint:
+      "Price windows control when each rental price applies. Room opening hours are managed separately below.",
+    roomOpeningHoursDescription:
+      "Set when the room is open for classes and rentals. Every time range must remain within the center opening hours.",
+    roomBlockedDescription:
+      "Block a time range for maintenance or other unavailable periods. These blocks prevent overlapping reservations.",
+    roomDeleteHint:
+      "Delete a room only when it is no longer needed and has no schedule or booking references. This action cannot be undone.",
+    roomActions: "Room operations",
+    roomNoBlockedTimes: "No blocked times.",
+    viewIncident: "View incident",
+    roomViewSchedule: "View schedule",
+    roomRentalEnabled: "Rental enabled",
+    roomRentalDisabled: "Rental disabled",
     blockTimes: "Blocked times",
     addBlock: "Add block time",
     editBlock: "Edit block time",
@@ -746,6 +827,8 @@ export const en = {
     invalidReference:
       "The selected reference is no longer valid. Reload the list and check the selection.",
     duplicateName: "This name is already in use. Enter another name.",
+    duplicateSportCode:
+      "This sport code is already in use. Enter another code.",
     forbidden: "You do not have permission to make this change.",
     notFound: "This item no longer exists. Close the form and reload the list.",
   },
@@ -1234,7 +1317,54 @@ export const en = {
     courseCount: "Courses in report period",
     quickLinks: "Management shortcuts",
   },
+  settingsPage: {
+    intro: "Manage daily operations. Save changes separately for each section.",
+    updated: "Last updated",
+    discard: "Discard changes",
+    invalidHours: "Opening time must be earlier than closing time.",
+    unavailable: "Some settings are unavailable. Reload the page to try again.",
+    rentalBlock: "Court rentals use {minutes}-minute blocks.",
+    units: { minutes: "minutes", hours: "hours", days: "days" },
+    groups: {
+      hours: {
+        title: "Center hours",
+        description:
+          "Opening and closing times in Vietnam (UTC+7). Applies to classes, courts and incidents.",
+      },
+      classes: {
+        title: "Classes",
+        description:
+          "Choose when to review enrollment against the class opening threshold.",
+      },
+      payment: {
+        title: "Checkout & points",
+        description:
+          "Set checkout hold times and point confirmation security at the counter.",
+      },
+      rental: {
+        title: "Court rentals",
+        description: "Limit how long a court can be rented in one booking.",
+      },
+      membership: {
+        title: "Membership",
+        description: "Let members know before their membership expires.",
+      },
+      support: {
+        title: "Support requests",
+        description:
+          "Set response deadlines, reminder intervals and payout confirmation periods.",
+      },
+    },
+  },
   settingFields: {
+    centerOpeningTime: {
+      label: "Center opening time",
+      hint: "Vietnam time (UTC+7). Classes and court opening hours must start at or after this time.",
+    },
+    centerClosingTime: {
+      label: "Center closing time",
+      hint: "Vietnam time (UTC+7). Classes and court opening hours must end at or before this time.",
+    },
     supportSlaHours: {
       label: "Support response deadline (hours)",
       hint: "Time allowed before a support request is overdue. Existing deadlines are preserved. Choose 1–168 hours.",
@@ -1322,6 +1452,8 @@ export const en = {
     coach: "Coach",
     capacity: "Capacity",
     duration: "Session duration (minutes)",
+    classDurationHint:
+      "Applies to every session in this class. Enter 1–720 minutes.",
     operation: "Operation type",
     walkIn: "Walk-in",
     oneOnOne: "One-on-one",
@@ -2003,7 +2135,7 @@ export const en = {
       SystemAdministrator: "System Administrator",
     },
     items: {
-      courts: "Courts",
+      courts: "Rooms",
       pointWallets: "Point wallets",
       report: "Report",
       incident: "Incident",
@@ -2913,7 +3045,13 @@ export const en = {
     formHint:
       "Choose the affected area and period. Times are shown in Vietnam time (UTC+7).",
     reviewHint:
-      "Check the affected activities before confirming. No rooms are blocked at this step.",
+      "New bookings in this window are automatically blocked while you review. The lock is renewed on review and expires after 2 hours if left unfinished.",
+    outsideHours:
+      "Choose a period on the same day, entirely within the center opening hours.",
+    allowedHours: "Allowed time: {open}–{close} (Vietnam time).",
+    timeErrorTitle: "Check incident time",
+    reviewTimeError:
+      "The incident must start and end on the same day, between the center opening time ({open}) and closing time ({close}).",
     backToImpacts: "Back to affected activities",
     ready: "Ready for final review",
     changesNeeded: "Schedule changes required",

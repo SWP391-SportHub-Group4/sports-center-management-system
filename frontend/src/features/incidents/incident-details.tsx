@@ -6,7 +6,6 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { incidentApi } from "./incident-api";
-import { DeliveryStatus } from "./delivery-status";
 import styles from "./incident-history.module.css";
 
 export function IncidentDetailsView({ id }: { id: string }) {
@@ -93,7 +92,6 @@ export function IncidentDetailsView({ id }: { id: string }) {
               </section>
             )}
           </Card>
-          <DeliveryStatus incidentId={id} />
         </>
       )}
     </AsyncSection>
