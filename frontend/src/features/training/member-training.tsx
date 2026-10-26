@@ -9,6 +9,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Tabs } from "@/components/primitives";
+import { Dialog } from "@/components/ui";
 import { memberEnrollments } from "@/features/member";
 import {
   TeachingRecords,
@@ -50,8 +51,9 @@ function readPlansSnapshot() {
   }
 }
 
-function AiWorkoutDraft() {
+function AiWorkoutDraft({ activity, date }: { activity: string; date: string }) {
   const raw = useSyncExternalStore(subscribeToPlans, readPlansSnapshot, () => "[]");
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   let saved: SavedAiPlan[] = [];
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -65,7 +67,7 @@ function AiWorkoutDraft() {
   } catch { /* Treat corrupt storage as empty. */ }
 
   function removePlan(id: string) {
-    if (!window.confirm("Delete this AI workout plan?")) return;
+    setPendingDelete(null);
     try {
       const current: unknown = JSON.parse(localStorage.getItem(AI_PLANS_KEY) ?? "[]");
       if (!Array.isArray(current)) return;
@@ -74,6 +76,9 @@ function AiWorkoutDraft() {
     } catch { /* Local storage may be unavailable. */ }
   }
 
+  saved = saved.filter(({ suggestion, savedAt }) =>
+    (!activity || suggestion.sport === activity) &&
+    (!date || vietnamDate(savedAt) === date));
   if (!saved.length) return null;
   return (
     <section className={styles.aiPlanSection} aria-label="Saved AI workout plans">
@@ -100,9 +105,21 @@ function AiWorkoutDraft() {
               {plan.rationale && <p className={styles.aiPlanRationale}><strong>Why this workout?</strong> {" \u00b7 "} {plan.rationale}</p>}
             </div>
           </div>
-          <button className={styles.aiPlanRemove} type="button" onClick={() => removePlan(id)}>Delete plan</button>
+          <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
         </article>
       ))}
+      {pendingDelete && (
+        <Dialog
+          title="Delete this AI workout plan?"
+          description="This plan will be removed from your Training page. This cannot be undone."
+          size="sm"
+          onClose={() => setPendingDelete(null)}
+          footer={<>
+            <button type="button" className="btn btn--secondary" onClick={() => setPendingDelete(null)}>Cancel</button>
+            <button type="button" className="btn btn--danger" onClick={() => removePlan(pendingDelete)}>Delete</button>
+          </>}
+        >{null}</Dialog>
+      )}
     </section>
   );
 }
@@ -214,17 +231,12 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
           </select></label>
           <label>{vi ? "Ngày tạo" : "Created date"}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       </div>
+      {kind === "plans" && source !== "coach" && !coach &&
+        (scope === "" || scope === "personal") && <AiWorkoutDraft activity={activity} date={date} />}
       {kind === "plans" && (
         <div className={styles.aiPlans}>
           {aiState.loading && source !== "coach" ? <p role="status">{vi ? "Đang tải gợi ý AI…" : "Loading AI suggestions…"}</p>
-            : aiState.error && source !== "coach" ? <p role="alert">
-              {aiState.error instanceof ApiError && aiState.error.status === 404
-                ? (vi ? "Backend chưa có API danh sách gợi ý AI. Hãy chạy phiên bản backend mới." : "The backend does not have the AI suggestions list API yet. Restart the updated backend.")
-                : (vi ? "Không tải được gợi ý AI." : "AI suggestions could not be loaded.")}
-              {aiState.error instanceof ApiError && aiState.error.status !== 404 &&
-                ` (${aiState.error.code}, HTTP ${aiState.error.status})`}
-              {" "}<button type="button" onClick={aiState.reload}>Retry</button>
-            </p>
+            : aiState.error ? null
             : visibleAi.map((plan) => (
               <article className={styles.panel} key={plan.id}>
                 <div className={styles.planHeading}>
@@ -341,7 +353,7 @@ export function MemberTraining() {
         onChange={(id) => setValues({ tab: id })}
       >
         <div className={styles.tabBody}>
-          {tab === "plans" && <><AiWorkoutDraft /><CoachingTab kind="plans" /></>}
+          {tab === "plans" && <CoachingTab kind="plans" />}
           {tab === "results" && <CoachingTab kind="results" />}
           {tab === "profile" && <TrainingProfile />}
         </div>
