@@ -115,7 +115,9 @@ test("desk assigns, updates and closes support from the queue", async ({
   await page
     .getByRole("textbox", { name: "Progress note" })
     .fill("Checking the membership");
-  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Update progress", exact: true })
+    .click();
   await expect(page.getByText("Progress updated.")).toBeVisible();
   await page.getByRole("tab", { name: "Mark as done" }).click();
   await page
