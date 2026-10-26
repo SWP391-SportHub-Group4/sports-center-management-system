@@ -174,6 +174,8 @@ public sealed class MemberSupportRequestsController(
             .Set<UserAccount>()
             .AsNoTracking()
             .Include(x => x.Role)
+            .Include(x => x.Credential)
+            .Include(x => x.ExternalLogins)
             .AnyAsync(
                 x =>
                     x.UserId == memberId &&
@@ -226,6 +228,15 @@ public sealed class MemberSupportRequestsController(
                 message = "Member was not found."
             });
         }
+
+        // Newly registered members can be Active but still lack login credentials.
+        if (!await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == request.MemberId
+                && u.Status == UserStatus.Active
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct))
+            throw new ConflictException("member_not_activated", "Member must activate the account before a support request can be created.");
+
 
         var description = request.Description.Trim();
         var category = request.Category.Trim().ToUpperInvariant();

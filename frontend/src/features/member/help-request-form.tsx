@@ -536,6 +536,7 @@ export function HelpRequestForm({
                     role="alert"
                   >
                     {invoiceValidationMessage}
+
                   </span>
                 )}
               </div>

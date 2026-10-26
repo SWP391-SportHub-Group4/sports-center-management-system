@@ -1,18 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Dialog } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
 import { ApiError, api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney, formatDateTime } from "@/lib/format";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import {
   SUPPORT_CATEGORIES,
   type SupportCategory,
 } from "@/lib/support-categories";
 import { useApi } from "@/lib/useApi";
-import type { MemberPackageDto, UserAdminDto } from "@/lib/types";
+import type { InvoiceSummaryDto, MemberPackageDto, UserAdminDto } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
 import { ROLE_LABELS, ROLE_RANK, roleKey } from "./support-shared";
 import styles from "./support-center.module.css";
@@ -45,26 +45,117 @@ function MemberPlanLine({ memberId }: { memberId: string }) {
   );
 }
 
+function cleanInvoiceDescription(invoice: InvoiceSummaryDto) {
+  const text = (invoice.itemDescription || "").trim();
+  if (!text) return "Service";
+
+  if (/^pt coach /i.test(text)) {
+    const sessions = text.match(/(\d+)\/week/i)?.[1] ?? "1";
+    return `Personal training · ${sessions} session(s)/week`;
+  }
+
+  return text
+    .replace(/\s*;\s*priceVersion\s+\d+/gi, "")
+    .replace(/\s*;\s*Membership\s+[0-9a-f-]+/gi, "")
+    .replace(/\s*;\s*PT coach\s+[0-9a-f-]+/gi, "Personal training")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function invoiceLabel(invoice: InvoiceSummaryDto) {
+  return [
+    invoice.invoiceNumber,
+    cleanInvoiceDescription(invoice),
+    formatMoney(invoice.totalAmount),
+    formatDateTime(invoice.paidAtUtc ?? invoice.issuedAt),
+    invoice.status,
+  ].join(" · ");
+}
+
 /** "+ Record a request for member": lookup, channel, topic, description, then create and handle or hand over. */
 export function SupportCreateDialog({
   assignees,
   onClose,
   onCreated,
   workspace = "receptionist",
+  initialMember = null,
 }: {
   assignees: SupportAssignee[];
   onClose: () => void;
   onCreated: (message: string) => void;
   workspace?: "manager" | "receptionist";
+  initialMember?: UserAdminDto | null;
 }) {
   const { user } = useAuth();
   const isManager = workspace === "manager";
-  const [member, setMember] = useState<UserAdminDto | null>(null);
+  const [member, setMember] = useState<UserAdminDto | null>(initialMember);
   const [category, setCategory] = useState<SupportCategory | "">("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [handoverTo, setHandoverTo] = useState("");
   const [handoverNote, setHandoverNote] = useState("");
+  const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceQuery, setInvoiceQuery] = useState("");
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState(0);
+  const paidInvoices = useApi(
+    (signal) => member && category === "PAYMENT"
+      ? api.get<{ items: InvoiceSummaryDto[] }>("/api/invoices", {
+          signal, query: { memberId: member.userId, status: "Paid", page: 1, pageSize: 100 },
+        })
+      : Promise.resolve(null),
+    [member?.userId, category],
+  );
+  const paidInvoiceItems = useMemo(() =>
+    (paidInvoices.data?.items ?? []).filter((invoice) =>
+      ["PAID", "PAIDAFTERRECONCILIATION", "PAID_AFTER_RECONCILIATION"].includes(
+        invoice.status.toUpperCase().replace(/\s+/g, ""),
+      ),
+    ),
+  [paidInvoices.data]);
+
+  const filteredInvoices = useMemo(() => {
+    const term = invoiceQuery.trim().toLowerCase();
+    if (!term) return paidInvoiceItems;
+    return paidInvoiceItems.filter((invoice) =>
+      invoiceLabel(invoice).toLowerCase().includes(term),
+    );
+  }, [invoiceQuery, paidInvoiceItems]);
+
+
+  function pickInvoice(nextInvoiceId: string) {
+    const selectedInvoice = paidInvoiceItems.find((invoice) => invoice.invoiceId === nextInvoiceId);
+    setInvoiceId(nextInvoiceId);
+    setInvoiceQuery(selectedInvoice ? invoiceLabel(selectedInvoice) : "");
+    setInvoiceOpen(false);
+    setActiveInvoice(0);
+  }
+
+  function onInvoiceKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown" && filteredInvoices.length) {
+      event.preventDefault();
+      setInvoiceOpen(true);
+      setActiveInvoice((index) => (index + 1) % filteredInvoices.length);
+      return;
+    }
+    if (event.key === "ArrowUp" && filteredInvoices.length) {
+      event.preventDefault();
+      setInvoiceOpen(true);
+      setActiveInvoice((index) => (index - 1 + filteredInvoices.length) % filteredInvoices.length);
+      return;
+    }
+    if (event.key === "Enter") {
+      if (invoiceOpen && filteredInvoices[activeInvoice]) {
+        event.preventDefault();
+        pickInvoice(filteredInvoices[activeInvoice].invoiceId);
+      }
+      return;
+    }
+    if (event.key === "Escape") {
+      setInvoiceOpen(false);
+    }
+  }
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
@@ -74,16 +165,32 @@ export function SupportCreateDialog({
   const escalating = !!target && ROLE_RANK[roleKey(target.role)] > myRank;
   const baseReady =
     !!member &&
+    !member.activationPending &&
+    (category !== "PAYMENT" || invoiceId !== "") &&
     category !== "" &&
     subject.trim().length >= 3 &&
     description.trim().length >= 3;
-  const handoverBlock = !handoverTo
+  const paymentToReceptionist = category === "PAYMENT" &&
+    (handoverTo ? roleKey(target?.role) === "receptionist" : !isManager);
+  const handoverBlock = paymentToReceptionist
+    ? "Payment requests cannot be assigned to Receptionist. Choose Center Manager."
+    : !handoverTo
     ? "Choose who to hand over to."
     : escalating && handoverNote.trim().length < 3
       ? "Add a handover note to escalate to a higher role."
       : null;
 
   async function submit(handover: boolean) {
+    if (member?.activationPending) {
+      setError("Activate the member account before creating a support request.");
+      return;
+    }
+    if (category === "PAYMENT" &&
+        ((handover && roleKey(target?.role) !== "manager") ||
+         (!handover && !isManager))) {
+      setError("Payment requests must be handled by Center Manager, not Receptionist.");
+      return;
+    }
     if (lock.current || !baseReady || !member || (handover && handoverBlock))
       return;
     lock.current = true;
@@ -93,7 +200,8 @@ export function SupportCreateDialog({
       await api.post("/api/member-support-requests", {
         memberId: member.userId,
         category,
-        subject: subject.trim(),
+        invoiceId: category === "PAYMENT" ? invoiceId : undefined,
+        subject: isManager ? undefined : subject.trim(),
         description: description.trim(),
         assigneeUserId: handover ? handoverTo : user?.userId,
         handoverNote: handover ? handoverNote.trim() : undefined,
@@ -126,24 +234,42 @@ export function SupportCreateDialog({
         <div>
           <MemberPicker
             value={member}
-            onChange={setMember}
+            onChange={(nextMember) => {
+              setMember(nextMember);
+              setInvoiceId("");
+              setInvoiceQuery("");
+              setInvoiceOpen(false);
+              setActiveInvoice(0);
+            }}
             label="Member"
             scanner={false}
             autoFocus
             placeholder="Search by name, phone or email…"
           />
-          {member && <MemberPlanLine memberId={member.userId} />}
+          {member?.activationPending && (
+            <p role="alert" className={styles.helper}>
+              Member account is pending activation. Support requests are unavailable.
+            </p>
+          )}
+          {member && !member.activationPending && <MemberPlanLine memberId={member.userId} />}
         </div>
 
         <label className={styles.field}>
           Request type
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value as SupportCategory)}
+            onChange={(e) => {
+              setCategory(e.target.value as SupportCategory);
+              setHandoverTo("");
+              setInvoiceId("");
+              setInvoiceQuery("");
+              setInvoiceOpen(false);
+              setActiveInvoice(0);
+            }}
           >
             <option value="">Select a request type</option>
             {SUPPORT_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
+              <option key={c.value} value={c.value} >
                 {c.label}
               </option>
             ))}
@@ -175,6 +301,69 @@ export function SupportCreateDialog({
           />
         </label>
 
+        {category === "PAYMENT" && (
+          <label className={styles.field}>
+            Paid VNPay invoice (required)
+            <div className={styles.comboBox}>
+              <input
+                value={invoiceQuery}
+                placeholder={paidInvoices.loading ? "Loading paid invoices…" : "Select a paid invoice"}
+                onChange={(event) => {
+                  setInvoiceQuery(event.target.value);
+                  setInvoiceId("");
+                  setInvoiceOpen(true);
+                  setActiveInvoice(0);
+                }}
+                onFocus={() => setInvoiceOpen(true)}
+                onBlur={() => window.setTimeout(() => setInvoiceOpen(false), 150)}
+                onKeyDown={onInvoiceKeyDown}
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={invoiceOpen}
+                aria-controls="paid-invoice-listbox"
+                aria-autocomplete="list"
+              />
+              <button
+                type="button"
+                className={styles.comboToggle}
+                aria-label="Toggle invoice list"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setInvoiceOpen((open) => !open)}
+              >
+                ▾
+              </button>
+              {invoiceOpen && (
+                <ul className={styles.comboList} id="paid-invoice-listbox" role="listbox">
+                  <li className={styles.comboPlaceholder}>Select a paid invoice</li>
+                  {paidInvoices.loading && (
+                    <li className={styles.comboEmpty}>Loading paid invoices…</li>
+                  )}
+                  {!paidInvoices.loading && filteredInvoices.length === 0 && (
+                    <li className={styles.comboEmpty}>No matching paid invoices.</li>
+                  )}
+                  {!paidInvoices.loading && filteredInvoices.map((invoice, index) => (
+                    <li
+                      key={invoice.invoiceId}
+                      role="option"
+                      aria-selected={invoice.invoiceId === invoiceId}
+                      className={styles.comboOption}
+                      data-active={index === activeInvoice || undefined}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        pickInvoice(invoice.invoiceId);
+                      }}
+                      onMouseEnter={() => setActiveInvoice(index)}
+                    >
+                      {invoiceLabel(invoice)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {paidInvoices.error && <span role="alert">{paidInvoices.error.message}</span>}
+            <small>Only Center Manager can handle payment requests.</small>
+          </label>
+        )}
         <label className={styles.field}>
           Description
           <textarea
@@ -195,9 +384,8 @@ export function SupportCreateDialog({
             >
               <option value="">Select a staff member</option>
               {assignees
-                .filter((x) => x.userId !== user?.userId)
                 .map((x) => (
-                  <option key={x.userId} value={x.userId}>
+                  <option key={x.userId} value={x.userId} disabled={category === "PAYMENT" && roleKey(x.role) !== "manager"}>
                     {x.name} ({ROLE_LABELS[roleKey(x.role)]})
                   </option>
                 ))}
@@ -246,7 +434,7 @@ export function SupportCreateDialog({
           <button
             type="button"
             className="btn"
-            disabled={busy || !baseReady}
+            disabled={busy || !baseReady || (category === "PAYMENT" && !isManager)}
             onClick={() => void submit(false)}
           >
             Create &amp; handle myself

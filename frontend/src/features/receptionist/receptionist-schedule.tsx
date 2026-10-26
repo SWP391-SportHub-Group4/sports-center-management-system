@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { Button } from "@/components/primitives";
+import { Card, Field } from "@/components/ui";
+import { Calendar, CalendarEventDrawer, type CalendarEvent } from "@/components/scheduling";
+import { useLanguage } from "@/lib/language";
+import { ReceptionistInlineAttendance } from "./receptionist-inline-attendance";
 import { useMemo, useState } from "react";
 
 import { MemberPicker } from "@/components/MemberPicker";
 import { api } from "@/lib/apiClient";
 import {
   addDaysIso,
-  formatDateTime,
-  formatMoney,
+  formatDate,
   mondayOfIso,
   todayIso,
 } from "@/lib/format";
@@ -19,14 +24,15 @@ import type {
   InvoiceDetailDto,
 } from "@/lib/types";
 import { useApi, useNow } from "@/lib/useApi";
-import { vietnamLocal } from "@/lib/vietnam-time";
 import { catalogApi } from "@/features/catalog";
 import { courseApi } from "@/features/courses";
 import { rentalApi } from "@/features/rentals";
 
 import { useDeskMember } from "./desk-context";
+import styles from "../manager/manager-schedule.module.css";
+import { ReceptionistAvailabilityGrid } from "./receptionist-availability-grid";
 
-type View = "month" | "week" | "day" | "list";
+type View = "week" | "day" | "list";
 type TypeFilter = "ALL" | "CLASS_SESSION" | "COURT_RENTAL" | "AVAILABLE_SLOT";
 type StatusFilter =
   | "ALL"
@@ -42,21 +48,6 @@ type StatusFilter =
   | "AVAILABLE";
 
 const OPEN_MINUTE = 6 * 60;
-const CLOSE_MINUTE = 22 * 60;
-
-const dayOf = (utc: string) => vietnamLocal(utc).slice(0, 10);
-const monthStart = (day: string) => `${day.slice(0, 7)}-01`;
-
-function nextMonth(day: string, offset: number) {
-  const [year, month] = day.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1 + offset, 1))
-    .toISOString()
-    .slice(0, 10);
-}
-
-function endOfMonth(day: string) {
-  return addDaysIso(nextMonth(day, 1), -1);
-}
 
 function utcStart(localDate: string) {
   return new Date(`${localDate}T00:00:00+07:00`).toISOString();
@@ -79,18 +70,6 @@ function operatingBaseDate(nowMs: number) {
   return local.minute < OPEN_MINUTE ? addDaysIso(local.date, -1) : local.date;
 }
 
-function localMinuteOf(utc: string) {
-  const local = vietnamLocal(utc);
-  const [hour, minute] = local.slice(11, 16).split(":").map(Number);
-  return hour * 60 + minute;
-}
-
-function isRentalWindowSlot(startUtc: string, endUtc: string) {
-  const start = localMinuteOf(startUtc);
-  const end = localMinuteOf(endUtc);
-  return start >= OPEN_MINUTE && end <= CLOSE_MINUTE && end > start;
-}
-
 function temporalState(row: CourtScheduleEntryDto, now: number) {
   const raw = row.status.toUpperCase();
   if (raw.includes("CANCEL")) return "CANCELLED";
@@ -102,7 +81,8 @@ function temporalState(row: CourtScheduleEntryDto, now: number) {
 export function ReceptionistSchedule() {
   const desk = useDeskMember();
   const [date, setDate] = useState(todayIso());
-  const [view, setView] = useState<View>("month");
+  const [view, setView] = useState<View>("week");
+  const { t } = useLanguage();
   const [type, setType] = useState<TypeFilter>("ALL");
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [query, setQuery] = useState("");
@@ -112,18 +92,10 @@ export function ReceptionistSchedule() {
   const now = useNow(30_000);
 
   const first =
-    view === "month" || view === "list"
-      ? monthStart(date)
-      : view === "day"
-        ? date
-        : mondayOfIso(date);
+    view === "day" ? date : mondayOfIso(date);
 
   const last =
-    view === "month" || view === "list"
-      ? endOfMonth(date)
-      : view === "day"
-        ? date
-        : addDaysIso(first, 6);
+    view === "day" ? date : addDaysIso(first, 6);
 
   const schedule = useApi(
     (signal) =>
@@ -148,6 +120,7 @@ export function ReceptionistSchedule() {
   );
 
   const sports = useApi((signal) => catalogApi.sports(signal), []);
+  const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const rentalSports = (sports.data ?? []).filter(
     (sport) =>
       sport.isActive &&
@@ -240,7 +213,7 @@ export function ReceptionistSchedule() {
     return temporalState(row, now);
   }
 
-  const filteredRows = useMemo(() => {
+  const filteredRows = (() => {
     const term = query.trim().toLowerCase();
 
     return (schedule.data ?? []).filter((row) => {
@@ -278,7 +251,7 @@ export function ReceptionistSchedule() {
 
       return true;
     });
-  }, [schedule.data, type, status, query, now, courseById]);
+  })();
 
   const selected = (schedule.data ?? []).find(
     (row) => `${row.sourceType}:${row.sourceId}` === selectedId,
@@ -316,146 +289,107 @@ export function ReceptionistSchedule() {
     [selectedRental?.invoiceId],
   );
 
-  const freeSlots = useMemo(
-    () =>
-      (availability.data ?? []).flatMap(({ date: slotDate, calendar }) =>
-        (calendar?.rooms ?? []).flatMap((room) =>
-          room.slots
-            .filter(
-              (slot) =>
-                slot.status === "AVAILABLE" &&
-                isRentalWindowSlot(slot.startUtc, slot.endUtc) &&
-                Date.parse(slot.startUtc) > now,
-            )
-            .map((slot) => ({
-              date: slotDate,
-              roomId: room.roomId,
-              roomName: room.name,
-              startUtc: slot.startUtc,
-              endUtc: slot.endUtc,
-              totalPrice: slot.totalPrice,
-            })),
-        ),
-      ),
-    [availability.data, now],
-  );
-
-  const blockedSlots = useMemo(
-    () =>
-      (availability.data ?? []).flatMap(({ date: slotDate, calendar }) =>
-        (calendar?.rooms ?? []).flatMap((room) =>
-          room.slots
-            .filter(
-              (slot) =>
-                slot.status === "BLOCKED" &&
-                isRentalWindowSlot(slot.startUtc, slot.endUtc),
-            )
-            .map((slot) => ({
-              date: slotDate,
-              roomId: room.roomId,
-              roomName: room.name,
-              startUtc: slot.startUtc,
-              endUtc: slot.endUtc,
-            })),
-        ),
-      ),
-    [availability.data],
-  );
-
-  const freeSlotsByDate = useMemo(
-    () =>
-      availabilityDates.map((slotDate) => ({
-        date: slotDate,
-        slots: freeSlots.filter((slot) => slot.date === slotDate),
-        blockedCount: blockedSlots.filter((slot) => slot.date === slotDate)
-          .length,
-      })),
-    [availabilityDates, freeSlots, blockedSlots],
-  );
-
-  const monthDates = useMemo(() => {
-    if (view !== "month") return [];
-    const count = Number(endOfMonth(first).slice(8));
-    return Array.from(
-      { length: count },
-      (_, index) =>
-        `${first.slice(0, 7)}-${String(index + 1).padStart(2, "0")}`,
-    );
-  }, [view, first]);
-
   function changeDate(next: string) {
     setDate(next);
     setSelectedId("");
   }
 
   function move(offset: -1 | 1) {
-    if (view === "month" || view === "list")
-      changeDate(nextMonth(date, offset));
-    else if (view === "day") changeDate(addDaysIso(date, offset));
-    else changeDate(addDaysIso(date, offset * 7));
+    changeDate(addDaysIso(date, view === "day" ? offset : offset * 7));
   }
+
+  const calendarEvents: CalendarEvent[] = filteredRows.map((row) => ({
+    id: `${row.sourceType}:${row.sourceId}`,
+    title: row.title,
+    type: row.sourceType,
+    startAtUtc: row.startAtUtc,
+    endAtUtc: row.endAtUtc,
+    roomName: null,
+    coachName: row.coachName,
+    status: row.sourceType === "CLASS_SESSION" && businessState(row) === "LOCKED"
+      ? "LOCKED"
+      : row.status,
+  }));
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
-      <section className="card" style={{ padding: 18 }}>
-        <h2>Activity schedule</h2>
-        <p>
-          Classes, court rentals, registration locks, available court slots and
-          payment state in one receptionist workspace.
-        </p>
-
-        <div className="btn-row">
-          {(["month", "week", "day", "list"] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={
-                view === item ? "btn btn--sm" : "btn btn--secondary btn--sm"
-              }
-              aria-pressed={view === item}
-              onClick={() => {
-                setView(item);
-                setSelectedId("");
-              }}
-            >
-              {item[0].toUpperCase() + item.slice(1)}
-            </button>
-          ))}
-
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={() => move(-1)}
-          >
-            Previous
-          </button>
-
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={() => changeDate(todayIso())}
-          >
-            Today
-          </button>
-
-          <button
-            type="button"
-            className="btn btn--secondary btn--sm"
-            onClick={() => move(1)}
-          >
-            Next
-          </button>
-
-          <label>
-            Date{" "}
+      <Card>
+        <div className={styles.weekToolbar}>
+          <Field label="Date">
             <input
               type="date"
               value={date}
-              onChange={(event) => changeDate(event.target.value)}
+              onChange={(e) => { if (e.target.value) { changeDate(e.target.value); if (view !== "day") setView("week"); } }}
             />
-          </label>
+          </Field>
+          <div className={styles.weekNavigation}>
+            <div
+              className={styles.viewNavigation}
+              role="group"
+              aria-label="Calendar view"
+            >
+              {(["day", "week", "list"] as const).map((item) => (
+                <Button
+                  key={item}
+                  variant="secondary"
+                  size="sm"
+                  className={styles.viewButton}
+                  aria-pressed={view === item}
+                  onClick={() => { setView(item); setSelectedId(""); }}
+                >
+                  {t.calendar[item]}
+                </Button>
+              ))}
+            </div>
+            <div className={styles.dateNavigation}>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.arrowButton}
+                data-direction="previous"
+                aria-label={
+                  view === "day"
+                    ? "Previous"
+                    : "Previous week"
+                }
+                title={
+                  view === "day"
+                    ? "Previous"
+                    : "Previous week"
+                }
+                onClick={() => move(-1)}
+              >
+                <ArrowLeft size={22} strokeWidth={2.25} aria-hidden="true" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.currentButton}
+                onClick={() => changeDate(view === "day" ? todayIso() : mondayOfIso(todayIso()))}
+              >
+                {view === "day"
+                  ? t.calendar.today
+                  : "Current week"}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.arrowButton}
+                data-direction="next"
+                aria-label={
+                  view === "day" ? "Next" : "Next week"
+                }
+                title={
+                  view === "day" ? "Next" : "Next week"
+                }
+                onClick={() => move(1)}
+              >
+                <ArrowRight size={22} strokeWidth={2.25} aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
         </div>
-
+        <div className={styles.filters}>
         <div
           style={{
             display: "grid",
@@ -533,364 +467,110 @@ export function ReceptionistSchedule() {
             court availability against that member&apos;s class conflicts.
           </small>
         </div>
-      </section>
+        </div>
+      </Card>
 
-      {schedule.loading && <p>Loading schedule…</p>}
       {schedule.error && <p role="alert">{schedule.error.message}</p>}
 
-      {!schedule.error && view === "month" && (
-        <section className="card" style={{ padding: 18 }}>
-          <h3>
-            {new Date(`${first}T00:00:00Z`).toLocaleDateString("en-US", {
-              month: "long",
-              year: "numeric",
-              timeZone: "UTC",
-            })}
-          </h3>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7,minmax(0,1fr))",
-              gap: 6,
+      {!schedule.error && (
+        <Card title={view === "day" ? formatDate(date) : `${formatDate(first)} – ${formatDate(last)}`}>
+          <Calendar
+            events={calendarEvents}
+            date={view === "day" ? date : first}
+            view={view}
+            labels={{
+              types: t.calendar.types,
+              weekdays: t.mSchedule.weekdays,
+              day: t.calendar.day,
+              week: t.calendar.week,
+              list: t.calendar.list,
+              previous: t.calendar.previous,
+              today: t.calendar.today,
+              next: t.calendar.next,
+              empty: t.calendar.empty,
+              eventDetails: t.calendar.eventDetails,
             }}
-          >
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-              <strong key={d} style={{ textAlign: "center" }}>
-                {d}
-              </strong>
-            ))}
-
-            {Array.from(
-              {
-                length:
-                  (new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7,
-              },
-              (_, index) => <span key={`pad-${index}`} />,
-            )}
-
-            {monthDates.map((d) => {
-              const items = filteredRows.filter(
-                (row) => dayOf(row.startAtUtc) === d,
-              );
-              const locked = items.filter(
-                (row) => businessState(row) === "LOCKED",
-              ).length;
-              const freeCount =
-                freeSlotsByDate.find((group) => group.date === d)?.slots
-                  .length ?? 0;
-
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => {
-                    changeDate(d);
-                    setView("day");
-                  }}
-                  style={{
-                    minHeight: 90,
-                    padding: 7,
-                    textAlign: "left",
-                    border: "1px solid var(--line)",
-                    borderRadius: 8,
-                    background:
-                      d === date ? "var(--ice)" : "var(--surface)",
-                    color: "inherit",
-                  }}
-                >
-                  <strong>{Number(d.slice(8))}</strong>
-                  <div style={{ fontSize: 12 }}>
-                    {
-                      items.filter(
-                        (row) => row.sourceType === "CLASS_SESSION",
-                      ).length
-                    }{" "}
-                    classes
-                  </div>
-                  <div style={{ fontSize: 12 }}>
-                    {
-                      items.filter(
-                        (row) => row.sourceType === "COURT_RENTAL",
-                      ).length
-                    }{" "}
-                    rentals
-                  </div>
-
-                  {locked > 0 && (
-                    <div style={{ fontSize: 12 }}>{locked} locked</div>
-                  )}
-
-                  {freeCount > 0 && (
-                    <div style={{ fontSize: 12 }}>
-                      {freeCount} available slots
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+            onDateChange={changeDate}
+            onViewChange={(next) => { setView(next); setSelectedId(""); }}
+            onSelectEvent={(event) => setSelectedId(event.id)}
+            hideToolbar
+          />
+        </Card>
       )}
 
+      {selected && (
+        <CalendarEventDrawer
+          entry={selected}
+          roomName={rooms.data?.find((room) => room.roomId === selected.roomId)?.name}
+          showParticipants={false}
+          onClose={() => setSelectedId("")}
+          extraDetails={
+            <>
+              {selected.sourceType === "CLASS_SESSION" && (
+                <section style={{ display: "grid", gap: 12, paddingTop: 12 }}>
+                  {selected.classId && courseById.get(selected.classId) && (
+                    <div>
+                      <strong>Registration:</strong>{" "}
+                      {courseById.get(selected.classId)!.enrollmentOpen
+                        ? `Open · ${courseById.get(selected.classId)!.availableSeats} seats available`
+                        : "Locked / registration closed"}
+                    </div>
+                  )}
+                  <ReceptionistInlineAttendance
+                    key={selected.sourceId}
+                    sessionId={selected.sourceId}
+                  />
+                </section>
+              )}
+              {selected.sourceType === "COURT_RENTAL" && (
+                <section style={{ display: "grid", gap: 10, paddingTop: 12 }}>
+                  <div><strong>Renter:</strong> {selected.memberName || "—"}</div>
+                  <div><strong>Rental status:</strong> {selectedRental?.status || selected.status}</div>
+                  {selectedRentals.loading && <p>Loading rental checkout…</p>}
+                  {selectedRentals.error && <p role="alert">{selectedRentals.error.message}</p>}
+                  {selectedRental?.invoiceId && selectedInvoice.loading && <p>Loading invoice…</p>}
+                  {selectedInvoice.error && <p role="alert">{selectedInvoice.error.message}</p>}
+                  {selectedInvoice.data && (
+                    <>
+                      <div><strong>Invoice:</strong> {selectedInvoice.data.summary.invoiceNumber}</div>
+                      <div><strong>Payment:</strong> {selectedInvoice.data.summary.status} · {selectedInvoice.data.summary.fulfillmentOutcome}</div>
+                      <div><strong>Checkout:</strong> {selectedInvoice.data.summary.outstanding > 0 ? "Awaiting payment" : "No outstanding balance"}</div>
+                      {selectedInvoice.data.summary.reconciliationRequired && (
+                        <p role="alert">Reconciliation required</p>
+                      )}
+                    </>
+                  )}
+                  {selected.memberId && (
+                    <Link href={`/receptionist/members/${selected.memberId}?tab=invoices`} className="btn btn--secondary">
+                      Open member invoices
+                    </Link>
+                  )}
+                </section>
+              )}
+            </>
+          }
+        />
+      )}
       {(type === "ALL" || type === "AVAILABLE_SLOT") && (
         <section className="card" style={{ padding: 18 }}>
           <h3>Available court slots · 06:00–22:00 · 3 operating days</h3>
-          <p>
-            The operating day rolls forward at 06:00. The final valid one-hour
-            slot is 21:00–22:00. No rental starts at or after 22:00.
-          </p>
-
+          <p>Hourly availability by court. The last slot is 21:00–22:00; the three-day window rolls over at 06:00.</p>
           {!desk.member ? (
-            <p>Select a member above to calculate bookable court slots.</p>
+            <p>Select a member to verify bookable slots against their schedule.</p>
           ) : availability.loading ? (
             <p>Checking court availability…</p>
           ) : availability.error ? (
             <p role="alert">{availability.error.message}</p>
           ) : (
-            <div style={{ display: "grid", gap: 14 }}>
-              {freeSlotsByDate.map((group, index) => {
-                const dayLabel =
-                  index === 0
-                    ? "Operating day 1"
-                    : index === 1
-                      ? "Operating day 2"
-                      : "Operating day 3";
-
-                return (
-                  <section
-                    key={group.date}
-                    style={{
-                      padding: 12,
-                      border: "1px solid var(--line)",
-                      borderRadius: 10,
-                    }}
-                  >
-                    <h4 style={{ marginTop: 0 }}>
-                      {dayLabel} · {group.date} · {group.slots.length} available
-                    </h4>
-
-                    {group.slots.length === 0 ? (
-                      <p>No remaining bookable 1-hour court slots.</p>
-                    ) : (
-                      <div style={{ display: "grid", gap: 7 }}>
-                        {group.slots.map((slot) => (
-                          <div
-                            key={`${slot.roomId}-${slot.startUtc}`}
-                            style={{
-                              padding: 10,
-                              border: "1px solid var(--line)",
-                              borderRadius: 8,
-                            }}
-                          >
-                            <strong>{slot.roomName}</strong> ·{" "}
-                            {formatDateTime(slot.startUtc)} –{" "}
-                            {formatDateTime(slot.endUtc)}
-                            {slot.totalPrice != null && (
-                              <> · {formatMoney(slot.totalPrice)}</>
-                            )}
-                            <span style={{ marginLeft: 10 }}>AVAILABLE</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {group.blockedCount > 0 && (
-                      <p style={{ marginBottom: 0 }}>
-                        {group.blockedCount} slot(s) blocked by an operational
-                        restriction / incident.
-                      </p>
-                    )}
-                  </section>
-                );
-              })}
-            </div>
+            <ReceptionistAvailabilityGrid
+              days={availability.data ?? []}
+              now={now}
+              selectedSport={rentalSports.find(sport => String(sport.sportId) === effectiveSportId)?.name}
+            />
           )}
         </section>
       )}
 
-      {type !== "AVAILABLE_SLOT" && (
-        <section className="card" style={{ padding: 18 }}>
-          <h3>Schedules · {filteredRows.length}</h3>
-
-          {filteredRows.length === 0 && <p>No matching schedules.</p>}
-
-          {filteredRows.map((row) => {
-            const rowState = businessState(row);
-            const timeState = temporalState(row, now);
-
-            return (
-              <button
-                type="button"
-                key={`${row.sourceType}:${row.sourceId}`}
-                onClick={() =>
-                  setSelectedId(`${row.sourceType}:${row.sourceId}`)
-                }
-                style={{
-                  display: "flex",
-                  width: "100%",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  textAlign: "left",
-                  padding: 12,
-                  marginBottom: 6,
-                  border: "1px solid var(--line)",
-                  borderRadius: 8,
-                  background: "var(--surface)",
-                  color: "inherit",
-                }}
-              >
-                <span>
-                  <strong>{row.title}</strong>
-                  <small style={{ display: "block" }}>
-                    {formatDateTime(row.startAtUtc)} –{" "}
-                    {formatDateTime(row.endAtUtc)} ·{" "}
-                    {row.sourceType === "CLASS_SESSION"
-                      ? "CLASS SESSION"
-                      : "COURT RENTAL"}
-                  </small>
-                </span>
-
-                <span>
-                  {rowState}
-                  {timeState !== rowState ? ` · ${timeState}` : ""}
-                  {row.status ? ` · ${row.status}` : ""}
-                </span>
-              </button>
-            );
-          })}
-        </section>
-      )}
-
-      {selected && (
-        <section className="card" style={{ padding: 18 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <h3>{selected.title}</h3>
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              onClick={() => setSelectedId("")}
-            >
-              Close
-            </button>
-          </div>
-
-          <p>
-            <strong>Schedule:</strong> {formatDateTime(selected.startAtUtc)} –{" "}
-            {formatDateTime(selected.endAtUtc)}
-          </p>
-
-          <p>
-            <strong>Status:</strong> {businessState(selected)} ·{" "}
-            {temporalState(selected, now)} · {selected.status}
-          </p>
-
-          {selected.sourceType === "CLASS_SESSION" && (
-            <>
-              <p>
-                <strong>Coach:</strong> {selected.coachName || "—"}
-              </p>
-
-              {selected.classId && courseById.get(selected.classId) && (
-                <p>
-                  <strong>Registration:</strong>{" "}
-                  {courseById.get(selected.classId)!.enrollmentOpen
-                    ? `Open · ${courseById.get(selected.classId)!.availableSeats} seat(s) available`
-                    : "LOCKED / closed for new registrations"}
-                </p>
-              )}
-
-              <h4>Enrolled members</h4>
-
-              {selected.participants?.length ? (
-                <ul>
-                  {selected.participants.map((participant) => (
-                    <li
-                      key={`${participant.memberId}-${participant.enrollmentId}`}
-                    >
-                      {participant.memberName} ·{" "}
-                      {participant.attendanceStatus || "Unmarked"}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No enrolled members.</p>
-              )}
-
-              <Link
-                className="btn"
-                href={`/receptionist/attendance?date=${dayOf(
-                  selected.startAtUtc,
-                )}&session=${selected.sourceId}`}
-              >
-                View / edit attendance
-              </Link>
-            </>
-          )}
-
-          {selected.sourceType === "COURT_RENTAL" && (
-            <>
-              <p>
-                <strong>Renter:</strong> {selected.memberName || "—"}
-              </p>
-
-              <p>
-                <strong>Rental state:</strong>{" "}
-                {selectedRental?.status || selected.status}
-              </p>
-
-              {selectedRentals.loading ? (
-                <p>Loading rental checkout…</p>
-              ) : selectedRental?.invoiceId ? (
-                selectedInvoice.loading ? (
-                  <p>Loading payment status…</p>
-                ) : selectedInvoice.error ? (
-                  <p role="alert">{selectedInvoice.error.message}</p>
-                ) : selectedInvoice.data ? (
-                  <>
-                    <p>
-                      <strong>Invoice:</strong>{" "}
-                      {selectedInvoice.data.summary.invoiceNumber}
-                    </p>
-                    <p>
-                      <strong>Payment:</strong>{" "}
-                      {selectedInvoice.data.summary.status}
-                      {" · "}
-                      {selectedInvoice.data.summary.fulfillmentOutcome}
-                      {selectedInvoice.data.summary.reconciliationRequired
-                        ? " · RECONCILIATION REQUIRED"
-                        : ""}
-                    </p>
-                    <p>
-                      <strong>Checkout:</strong>{" "}
-                      {selectedInvoice.data.summary.outstanding > 0
-                        ? "Awaiting payment"
-                        : "No outstanding balance"}
-                    </p>
-                  </>
-                ) : null
-              ) : (
-                <p>No invoice is linked to this rental.</p>
-              )}
-
-              {selected.memberId && (
-                <Link
-                  className="btn btn--secondary"
-                  href={`/receptionist/members/${selected.memberId}?tab=invoices`}
-                >
-                  Open member invoices
-                </Link>
-              )}
-            </>
-          )}
-        </section>
-      )}
     </div>
   );
 }

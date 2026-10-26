@@ -10,7 +10,6 @@ import { formatDateTime } from "@/lib/format";
 import {
   SupportStatus,
   SUPPORT_STATUS_FILTERS,
-  supportStatusLabel,
 } from "@/components/support-status";
 import {
   SUPPORT_CATEGORIES,
@@ -49,8 +48,8 @@ const summaryCards: {
   { key: "open", label: "Received", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "done", label: "Finished", status: "FINISHED" },
-  { key: "rejected", label: "Declined", status: "REJECTED" },
+  { key: "done", label: "Done", status: "FINISHED" },
+  { key: "rejected", label: "Reject", status: "REJECTED" },
 ];
 
 /** Support requests workspace for the front desk and managers: filterable list plus a detail panel. */
@@ -64,6 +63,14 @@ export function SupportQueue({
   const { user } = useAuth();
   const isManager = workspace === "manager";
   const isReceiver = workspace === "coach" || workspace === "admin";
+  const cards = isReceiver
+    ? [
+        { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
+        { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
+        { key: "done" as const, label: "Done", status: "FINISHED" },
+      ]
+    : summaryCards;
+
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -218,7 +225,7 @@ export function SupportQueue({
       )}
 
       <div className={styles.stats} role="group" aria-label="Filter by status">
-        {summaryCards.map((item) => (
+        {cards.map((item) => (
           <button
             key={item.key}
             type="button"
@@ -233,7 +240,7 @@ export function SupportQueue({
           >
             <span className={styles.statLabel}>
               <span className={styles.dot} data-status={item.status} />
-              {supportStatusLabel(item.status)}
+              {item.label}
             </span>
             <strong className={styles.statValue}>
               {stats.data ? stats.data[item.key] : "—"}
@@ -270,32 +277,36 @@ export function SupportQueue({
               type="search"
               value={search}
               maxLength={200}
-              placeholder="Search name, email, subject…"
+              placeholder={
+                isManager
+                  ? "Search name, email, message…"
+                  : "Search name, email, subject…"
+              }
               onChange={(e) => setSearch(e.target.value)}
             />
           </span>
         </label>
         <label>
-          Status
-          <select
-            value={filters.status}
-            onChange={(e) => patch({ status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            {SUPPORT_STATUS_FILTERS.map(({ value, label }) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+            Status
+            <select
+              value={filters.status}
+              onChange={(e) => patch({ status: e.target.value })}
+            >
+              <option value="">All statuses</option>
+              {SUPPORT_STATUS_FILTERS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
         <label>
-          Request type
+          {isManager ? "Topic" : "Request type"}
           <select
             value={filters.category}
             onChange={(e) => patch({ category: e.target.value })}
           >
-            <option value="">All types</option>
+            <option value="">{isManager ? "All topics" : "All types"}</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -429,8 +440,9 @@ export function SupportQueue({
                         </span>
                       </span>
                       <span className={styles.rowSubject}>
-                        {request.subject?.trim() ||
-                          supportCategoryLabel(request.category)}
+                        {isManager
+                          ? supportCategoryLabel(request.category)
+                          : request.subject}
                       </span>
                       {isManager && (
                         <>

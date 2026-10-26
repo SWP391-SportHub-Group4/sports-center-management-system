@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import type { Paged } from "@/lib/types";
-import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import styles from "./payment-reconciliation.module.css";
 
 type Line = {
@@ -57,13 +55,8 @@ function explain(row: Case) {
 }
 
 export function FrontDeskPaymentReconciliation() {
-  const query = useSearchParams();
-  const caseType = query.get("caseType") === "captured" ? "captured" : undefined;
-  const { values, setValues } = useUrlQuery(
-    { view: "paid" },
-    { view: choiceQuery(["paid", "all"], "paid") },
-  );
-  const paidOnly = values.view === "paid";
+  const caseType = "captured";
+  const paidOnly = true;
   const [page, setPage] = useState(1);
   const cases = useApi(
     (signal) =>
@@ -101,38 +94,8 @@ export function FrontDeskPaymentReconciliation() {
 
   return (
     <section>
-      <div
-        className={styles.actions}
-        role="group"
-        aria-label="Payment follow-up view"
-      >
-        <button
-          type="button"
-          className="btn btn--secondary"
-          aria-pressed={paidOnly}
-          onClick={() => {
-            setValues({ view: "paid" });
-            setPage(1);
-          }}
-        >
-          Paid, not activated
-        </button>
-        <button
-          type="button"
-          className="btn btn--secondary"
-          aria-pressed={!paidOnly}
-          onClick={() => {
-            setValues({ view: "all" });
-            setPage(1);
-          }}
-        >
-          All follow-up cases
-        </button>
-      </div>
       <p className={styles.intro}>
-        {paidOnly
-          ? "These VNPay payments were collected but the purchased service was not activated. Help the member review their invoice and support options."
-          : "Check pending or expired payments with VNPay and retry service delivery when needed. Completed payments and point compensation remain in invoice history."}
+        These VNPay payments were collected but the purchased service was not activated. Help the member review their invoice and support options.
       </p>
       {cases.loading && !cases.data && <p>Loading…</p>}
       {cases.error && (

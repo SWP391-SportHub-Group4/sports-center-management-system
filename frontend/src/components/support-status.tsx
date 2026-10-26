@@ -4,8 +4,8 @@ export const SUPPORT_STATUS_LABELS: Record<string, string> = {
   OPEN: "Received",
   ASSIGNED: "Assigned",
   IN_PROGRESS: "In progress",
-  DONE: "Resolved",
-  REJECTED: "Declined",
+  DONE: "Done",
+  REJECTED: "Reject",
   CLOSED: "Closed",
 };
 

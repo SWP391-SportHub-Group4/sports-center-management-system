@@ -21,7 +21,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     public async Task Only_manager_can_list_and_assign_active_administrators(UserRole actorRole)
     {
         var marker = Guid.NewGuid().ToString("N");
-        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", null);
+        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", "Str0ngPassw0rd!");
         var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager);
         var admin = await factory.SeedUserAsync($"support-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
         var inactive = await factory.SeedUserAsync($"support-inactive-admin-{marker}@example.com", null,
@@ -66,7 +66,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     public async Task Admin_receives_assignment_in_bell_and_inbox_without_duplicate_notifications_on_retry()
     {
         var marker = Guid.NewGuid().ToString("N");
-        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", null, fullName: "Member needing help");
+        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", "Str0ngPassw0rd!", fullName: "Member needing help");
         var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager, fullName: "Assigning Manager");
         var admin = await factory.SeedUserAsync($"support-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
         var otherAdmin = await factory.SeedUserAsync($"support-other-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
@@ -119,7 +119,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     [InlineData(UserRole.CenterManager)]
     public async Task Desk_assigns_updates_and_completes_a_member_request(UserRole actorRole)
     {
-        var member = await factory.SeedUserAsync($"support-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
+        var member = await factory.SeedUserAsync($"support-member-{Guid.NewGuid():N}@example.com", "Str0ngPassw0rd!", role: UserRole.Member);
         var desk = await factory.SeedUserAsync($"support-desk-{Guid.NewGuid():N}@example.com", null, role: actorRole);
         var handler = await factory.SeedUserAsync($"support-handler-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
         var coach = await factory.SeedUserAsync($"support-coach-{Guid.NewGuid():N}@example.com", null, UserStatus.Deactivated, UserRole.Coach);
@@ -184,7 +184,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     {
         var marker = Guid.NewGuid().ToString("N");
         var manager = await factory.SeedUserAsync($"support-owner-manager-{marker}@example.com", null, role: UserRole.CenterManager);
-        var member = await factory.SeedUserAsync($"support-owner-member-{marker}@example.com", null);
+        var member = await factory.SeedUserAsync($"support-owner-member-{marker}@example.com", "Str0ngPassw0rd!");
         var admin = await factory.SeedUserAsync($"support-owner-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
         var other = await factory.SeedUserAsync($"support-owner-other-{marker}@example.com", null, role: UserRole.SystemAdministrator);
         using var client = factory.CreateApiClient();
@@ -236,7 +236,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     [InlineData(UserRole.CenterManager)]
     public async Task Desk_rejects_request_and_blocks_further_changes(UserRole actorRole)
     {
-        var member = await factory.SeedUserAsync($"support-reject-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
+        var member = await factory.SeedUserAsync($"support-reject-member-{Guid.NewGuid():N}@example.com", "Str0ngPassw0rd!", role: UserRole.Member);
         var desk = await factory.SeedUserAsync($"support-reject-desk-{Guid.NewGuid():N}@example.com", null, role: actorRole);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(desk.UserId, actorRole));
@@ -277,7 +277,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     public async Task Manager_filters_pages_and_sees_inactive_assignee_name()
     {
         var marker = Guid.NewGuid().ToString("N");
-        var member = await factory.SeedUserAsync($"support-find-{marker}@example.com", null, fullName: $"Support member {marker}");
+        var member = await factory.SeedUserAsync($"support-find-{marker}@example.com", "Str0ngPassw0rd!", fullName: $"Support member {marker}");
         var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager);
         var handler = await factory.SeedUserAsync($"support-handler-{marker}@example.com", null, role: UserRole.Receptionist, fullName: "Support handler");
         var inactive = await factory.SeedUserAsync($"support-banned-{marker}@example.com", null, UserStatus.Deactivated, UserRole.Receptionist);
@@ -321,7 +321,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     [Fact]
     public async Task Concurrent_done_and_progress_keep_final_note_and_single_completion_audit()
     {
-        var member = await factory.SeedUserAsync($"support-race-member-{Guid.NewGuid():N}@example.com", null);
+        var member = await factory.SeedUserAsync($"support-race-member-{Guid.NewGuid():N}@example.com", "Str0ngPassw0rd!");
         var manager = await factory.SeedUserAsync($"support-race-manager-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));

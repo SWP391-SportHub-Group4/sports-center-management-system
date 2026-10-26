@@ -67,6 +67,12 @@ public sealed class MemberSelfSupportController(
     public async Task<IActionResult> Submit([FromForm] SubmitSupportRequest request, CancellationToken ct)
     {
         var memberId = User.RequireUserId();
+        if (!await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == memberId
+                && u.Status == UserStatus.Active
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct))
+            throw new ConflictException("member_not_activated", "Activate your account before submitting a support request.");
         var category = request.Category.Trim().ToUpperInvariant();
         if (!CategoryLabels.TryGetValue(category, out var label))
             throw new BadRequestException("support_category_invalid", "Invalid support request category.");

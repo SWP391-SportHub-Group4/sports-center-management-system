@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { CalendarClock } from "lucide-react";
 
+
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -151,8 +152,9 @@ export function SelectedMemberPanel({
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const ready = !packages.loading && !visits.loading;
   const deactivated = member.status !== "ACTIVE";
+  const activationPending = Boolean(member.activationPending);
   const hasAccess = Boolean(membership || dayPass);
-  const blocked = deactivated || (ready && !hasAccess);
+  const blocked = deactivated || activationPending || (ready && !hasAccess);
 
   const daysLeft = membership ? daysUntil(membership.endDate) : null;
   const expiring =
@@ -162,6 +164,7 @@ export function SelectedMemberPanel({
     if (
       !ready ||
       deactivated ||
+      activationPending ||
       !hasAccess ||
       mutation.busy ||
       cooldownSeconds > 0
@@ -201,7 +204,11 @@ export function SelectedMemberPanel({
     : "Requires an active Gym membership or Day Pass.";
   const blockReason = deactivated
     ? "This account is deactivated, so check-in and sales are unavailable."
-    : accessTip;
+    : activationPending
+      ? vi
+        ? "Hội viên chưa kích hoạt tài khoản. Không thể check-in, mua gói hoặc gửi yêu cầu hỗ trợ."
+        : "Member has not activated the account. Check-in, purchases and support requests are unavailable."
+      : accessTip;
 
   // Ba ô: gói Gym còn hiệu lực (kèm giờ hết hạn), lần check-in gần nhất, yêu cầu hỗ trợ cần xử lý.
   // Day pass ends at 22:00 on purchase day; monthly plans end at EndDate.
@@ -340,7 +347,7 @@ export function SelectedMemberPanel({
         ))}
       </dl>
 
-      {expiring && membership && !deactivated && (
+      {expiring && membership && !deactivated && !activationPending && (
         <div className={styles.expiring} role="status">
           <CalendarClock size={18} aria-hidden="true" />
           <span>
@@ -376,13 +383,13 @@ export function SelectedMemberPanel({
           </button>
         </span>
 
-        {!deactivated && (
+        {!deactivated && !activationPending && (
           <Link className="btn btn--secondary" href="/receptionist/sales">
             Sell a service
           </Link>
         )}
 
-        {!deactivated && (
+        {!deactivated && !activationPending && (
           <Link
             className="btn btn--secondary"
             href={`/receptionist/members/${memberId}/add-points`}
@@ -416,7 +423,7 @@ export function SelectedMemberPanel({
             packages={packages.data ?? []}
             onChanged={packages.reload}
           />
-          <MemberSupportRequests memberId={memberId} />
+          {!activationPending && <MemberSupportRequests memberId={memberId} />}
         </>
       )}
     </section>
