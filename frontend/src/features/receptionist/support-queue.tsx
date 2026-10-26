@@ -9,7 +9,7 @@ import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDateTime } from "@/lib/format";
 import {
   SupportStatus,
-  SUPPORT_STATUS_LABELS,
+  SUPPORT_STATUS_FILTERS,
 } from "@/components/support-status";
 import {
   SUPPORT_CATEGORIES,
@@ -48,8 +48,8 @@ const summaryCards: {
   { key: "open", label: "Received", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "done", label: "Finished", status: "FINISHED" },
-  { key: "rejected", label: "Declined", status: "REJECTED" },
+  { key: "done", label: "Done", status: "FINISHED" },
+  { key: "rejected", label: "Reject", status: "REJECTED" },
 ];
 
 /** Support requests workspace for the front desk and managers: filterable list plus a detail panel. */
@@ -65,25 +65,12 @@ export function SupportQueue({
   const isReceiver = workspace === "coach" || workspace === "admin";
   const cards = isReceiver
     ? [
-        {
-          key: "notStarted" as const,
-          label: "Not started",
-          status: "NOT_STARTED",
-        },
-        {
-          key: "inProgress" as const,
-          label: "In progress",
-          status: "IN_PROGRESS",
-        },
-        { key: "done" as const, label: "Finished", status: "FINISHED" },
+        { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
+        { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
+        { key: "done" as const, label: "Done", status: "FINISHED" },
       ]
     : summaryCards;
-  const statusLabel = (status: string) =>
-    status === "NOT_STARTED"
-      ? "Not started"
-      : status === "FINISHED"
-        ? "Finished"
-        : (SUPPORT_STATUS_LABELS[status] ?? status);
+
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -237,11 +224,7 @@ export function SupportQueue({
         </div>
       )}
 
-      <div
-        className={`${styles.stats} ${isReceiver ? styles.receiverStats : ""}`}
-        role="group"
-        aria-label="Filter by status"
-      >
+      <div className={styles.stats} role="group" aria-label="Filter by status">
         {cards.map((item) => (
           <button
             key={item.key}
@@ -257,7 +240,7 @@ export function SupportQueue({
           >
             <span className={styles.statLabel}>
               <span className={styles.dot} data-status={item.status} />
-              {statusLabel(item.status)}
+              {item.label}
             </span>
             <strong className={styles.statValue}>
               {stats.data ? stats.data[item.key] : "—"}
@@ -304,21 +287,19 @@ export function SupportQueue({
           </span>
         </label>
         <label>
-          Status
-          <select
-            value={filters.status}
-            onChange={(e) => patch({ status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            <option value="NOT_STARTED">Not started (group)</option>
-            <option value="FINISHED">Finished (group)</option>
-            {Object.entries(SUPPORT_STATUS_LABELS).map(([status, text]) => (
-              <option key={status} value={status}>
-                {text}
-              </option>
-            ))}
-          </select>
-        </label>
+            Status
+            <select
+              value={filters.status}
+              onChange={(e) => patch({ status: e.target.value })}
+            >
+              <option value="">All statuses</option>
+              {SUPPORT_STATUS_FILTERS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
         <label>
           {isManager ? "Topic" : "Request type"}
           <select

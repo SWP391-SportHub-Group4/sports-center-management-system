@@ -27,7 +27,7 @@ public class OccupancyConcurrencyTests(SchedulingApiFactory factory)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-        var room = new Room { Name = "Occ-" + Guid.NewGuid().ToString("N")[..10], Capacity = 10, RoomTypeId = roomTypeId };
+        var room = new Room { Name = "Occ-" + Guid.NewGuid().ToString("N")[..10], Capacity = 10, RoomTypeId = roomTypeId, AllowRental = true };
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
         return room.RoomId;

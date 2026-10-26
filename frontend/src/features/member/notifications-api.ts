@@ -98,6 +98,10 @@ export function notificationPresentation(item: NotificationDto): {
     title = item.actionUrl?.startsWith("/manager/")
       ? "Payment received, service not activated"
       : "Your payment needs a decision";
+  } else if (source === "MANAGER_POINTS_GIFTED") {
+    category = "payment";
+    label = "Points gift";
+    title = "The Manager added a gift to your wallet";
   } else if (source === "PAYMENT_CONVERTED_TO_POINTS") {
     category = "payment";
     label = "Billing";
@@ -175,6 +179,8 @@ export function memberNotificationHref(item: NotificationDto): string | null {
     return "/member/finance?tab=invoices";
   if (item.sourceEventType === "PACKAGE_EXPIRING")
     return "/member/services?section=gym&view=owned";
+  if (item.sourceEventType === "MANAGER_POINTS_GIFTED")
+    return "/member/finance?tab=wallet";
   if (
     ["SCHEDULE_CHANGED", "CLASS_CANCELLED", "INCIDENT_RESOLUTION"].includes(
       item.sourceEventType,
@@ -229,6 +235,8 @@ export function notificationActionLabel(
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":
       return vi ? "Kiểm tra hoàn điểm" : "Check refund";
+    case "MANAGER_POINTS_GIFTED":
+      return vi ? "Xem điểm được tặng" : "View points gift";
     case "PAYMENT_UNACTIVATED":
       return item.actionUrl?.startsWith("/manager/")
         ? "Review payment"

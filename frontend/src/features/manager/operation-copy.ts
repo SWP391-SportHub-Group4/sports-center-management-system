@@ -80,7 +80,10 @@ const copy = {
     quoteNote:
       "Quoted by the server now. Final amounts are calculated again when the member chooses.",
     outcomes: {
-      AWAITS_REFUND_CHOICE: "Rental cancelled; member chooses 100% as points or a refund request",
+      DAY_PASS_SUPPORT:
+        "Day pass remains valid until 22:00; notify and arrange support separately",
+      REFUNDED_AS_POINTS:
+        "Rental cancelled; member chooses 100% as points or a refund request",
       CHECKOUT_RELEASED: "Unpaid checkout released, held points returned",
       AWAITS_SCHEDULE_DECISION:
         "Needs a schedule decision first (reschedule or makeup); no refund yet",
@@ -186,7 +189,8 @@ const copy = {
     quoteNote:
       "Server báo giá ngay lúc này. Số điểm cuối được tính lại khi bạn xác nhận.",
     outcomes: {
-      AWAITS_REFUND_CHOICE: "Hủy lượt thuê, Member chọn nhận 100% bằng điểm hoặc gửi yêu cầu hoàn tiền",
+      DAY_PASS_SUPPORT: "Vé giữ hạn 22:00; thông báo và hỗ trợ riêng",
+      REFUNDED_AS_POINTS: "Hủy lượt thuê, hoàn 100% bằng điểm",
       CHECKOUT_RELEASED: "Nhả đơn chưa thanh toán, trả lại điểm đang giữ",
       AWAITS_SCHEDULE_DECISION:
         "Cần quyết định lịch trước (dời buổi hoặc buổi bù); chưa hoàn điểm",

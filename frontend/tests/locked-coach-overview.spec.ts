@@ -71,7 +71,7 @@ async function fixture(page: Page) {
           fullName: "Alex Nguyen",
           email: "alex@example.com",
           phone: "0901234567",
-          status: "BANNED",
+          status: "DEACTIVATED",
           sportIds: [3],
           title: "Badminton coach",
           yearsExperience: 7,
@@ -149,6 +149,11 @@ test("urgent overview separates lead classes and substitute sessions on desktop 
   page,
 }) => {
   await fixture(page);
+  await expect(page.getByText("Deactivated", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("This coach has a deactivated account.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText("Locked", { exact: true })).toHaveCount(0);
   const region = page.getByRole("region", {
     name: "Assignment, Class / session, Schedule affected, Action",
   });
@@ -191,7 +196,7 @@ test("lead replacement uses the shared API and leaves substitute assignments vis
   await dialog.getByRole("radio").check();
   await dialog
     .getByRole("textbox", { name: "Reason for change" })
-    .fill("Replace locked lead coach");
+    .fill("Replace deactivated lead coach");
   await dialog.getByRole("button", { name: "Confirm Change" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
@@ -206,7 +211,7 @@ test("lead replacement uses the shared API and leaves substitute assignments vis
       body: {
         coachId: "replacement",
         expectedVersion: 3,
-        reason: "Replace locked lead coach",
+        reason: "Replace deactivated lead coach",
       },
     },
   ]);
@@ -226,7 +231,7 @@ test("substitute replacement changes only its session using qualified available 
   await dialog.getByRole("radio").check();
   await dialog
     .getByRole("textbox", { name: "Reason for change" })
-    .fill("Replace locked substitute coach");
+    .fill("Replace deactivated substitute coach");
   await dialog.getByRole("button", { name: "Confirm Change" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(
@@ -241,7 +246,7 @@ test("substitute replacement changes only its session using qualified available 
       body: {
         startAtUtc: "2032-11-02T01:00:00Z",
         coachId: "replacement",
-        reason: "Replace locked substitute coach",
+        reason: "Replace deactivated substitute coach",
       },
     },
   ]);

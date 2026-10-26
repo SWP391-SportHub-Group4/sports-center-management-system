@@ -9,6 +9,8 @@ import { api } from "@/lib/apiClient";
 import type { Paged, ManagerCourseDto } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CoachCredentialsShowcase } from "@/components/coach-credentials/coach-credentials";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
@@ -18,14 +20,22 @@ import { catalogApi } from "@/features/catalog";
 import { CoachEditor } from "./coach-editor";
 import { ManagerSchedule } from "@/features/manager";
 import type { CoachAdminDto } from "@/lib/types";
-export function CoachDetail({ userId }: { userId: string }) {
+export function CoachDetail({
+  userId,
+  certificatePage = false,
+}: {
+  userId: string;
+  certificatePage?: boolean;
+}) {
   const { t } = useLanguage();
   const m = t.managerOperations;
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { values, setValues } = useUrlQuery(
     { tab: "overview" },
     { tab: choiceQuery(["overview", "classes", "schedule"], "overview") },
   );
+  const activeTab = certificatePage ? "certificates" : values.tab;
   const state = useApi(
     (signal) =>
       api.get<CoachAdminDto>(`/api/manager/coaches/${userId}`, { signal }),
@@ -49,6 +59,7 @@ export function CoachDetail({ userId }: { userId: string }) {
         {(coach) => (
           <>
             <PersonProfileHeader
+              userId={coach.userId}
               name={coach.fullName}
               avatarUrl={coach.avatarUrl}
               status={<StatusChip value={coach.status} />}
@@ -75,18 +86,27 @@ export function CoachDetail({ userId }: { userId: string }) {
                 </>
               }
             />
-            <div className={profileStyles.tabs}>
+            <div
+              className={`${profileStyles.tabs} ${overviewStyles.coachTabs}`}
+            >
               <Tabs
-                value={values.tab}
-                onChange={(tab) => setValues({ tab })}
+                value={activeTab}
+                onChange={(tab) => {
+                  if (tab === "certificates")
+                    router.push(`/manager/coaches/${userId}/certificates`);
+                  else if (certificatePage)
+                    router.push(`/manager/coaches/${userId}?tab=${tab}`);
+                  else setValues({ tab });
+                }}
                 ariaLabel={m.coachDetail}
                 tabs={[
                   { id: "overview", label: m.overviewTab },
                   { id: "classes", label: "Assigned classes" },
                   { id: "schedule", label: m.assignedSchedule },
+                  { id: "certificates", label: "Certificate" },
                 ]}
               >
-                {values.tab === "overview" && (
+                {activeTab === "overview" && (
                   <div className={overviewStyles.overview}>
                     {coach.status !== "ACTIVE" && (
                       <LockedCoachAssignments
@@ -135,7 +155,7 @@ export function CoachDetail({ userId }: { userId: string }) {
                     </section>
                   </div>
                 )}
-                {values.tab === "classes" && (
+                {activeTab === "classes" && (
                   <AsyncSection state={classes}>
                     {(data) => (
                       <div
@@ -161,8 +181,17 @@ export function CoachDetail({ userId }: { userId: string }) {
                     )}
                   </AsyncSection>
                 )}
-                {values.tab === "schedule" && (
+                {activeTab === "schedule" && (
                   <ManagerSchedule coachId={coach.userId} />
+                )}
+                {activeTab === "certificates" && (
+                  <div className={profileStyles.surface}>
+                    <CoachCredentialsShowcase
+                      key={userId}
+                      coachId={userId}
+                      kind="CERTIFICATE"
+                    />
+                  </div>
                 )}
               </Tabs>
             </div>

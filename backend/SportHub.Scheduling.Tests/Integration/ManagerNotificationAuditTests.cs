@@ -51,7 +51,7 @@ public sealed class ManagerNotificationAuditTests(SchedulingApiFactory factory)
         var replacement = await ReplacementAsync();
         var before = await CourseTestData.SessionsAsync(factory, c.Id);
         await factory.QueryAsync(db => db.UserAccounts.Where(u => u.UserId == c.CoachId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Banned)));
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Deactivated)));
         using var manager = factory.CreateApiClient(c.ManagerId, UserRole.CenterManager);
         var version = await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id).Select(x => x.Version).SingleAsync());
         var url = $"api/manager/classes/{c.Id}/lead-coach";

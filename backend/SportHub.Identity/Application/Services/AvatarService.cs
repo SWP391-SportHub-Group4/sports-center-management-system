@@ -94,7 +94,8 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         var row = await db.Set<UserAccount>().AsNoTracking().Where(u => u.UserId == targetUserId
             && u.Status == UserStatus.Active && u.Role != null
             && (u.Role.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach
-                || u.Role.RoleName == UserRole.CenterManager))
+                || u.Role.RoleName == UserRole.CenterManager || u.Role.RoleName == UserRole.SystemAdministrator
+                || u.Role.RoleName == UserRole.Receptionist))
             .Select(u => new { Role = u.Role!.RoleName, AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("avatar_owner_not_found", "User not found.");
@@ -142,10 +143,10 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         var user = await db.Set<UserAccount>().Include(u => u.Role).Include(u => u.Profile)
             .SingleOrDefaultAsync(u => u.UserId == userId, ct)
             ?? throw new NotFoundException("user_not_found", "Account not found.");
-        if (user.Role?.RoleName is not (UserRole.Member or UserRole.Coach or UserRole.CenterManager))
-            throw new ForbiddenException("avatar_role_forbidden", "Only members, coaches and center managers can change their own avatars.");
+        if (user.Role?.RoleName is not (UserRole.Member or UserRole.Coach or UserRole.CenterManager or UserRole.SystemAdministrator))
+            throw new ForbiddenException("avatar_role_forbidden", "Only members, coaches, center managers and administrators can change their own avatars.");
         if (user.Status != UserStatus.Active)
-            throw new ForbiddenException("avatar_account_inactive", "This account is inactive.");
+            throw new ForbiddenException("avatar_account_inactive", "This account is deactivated.");
         return user;
     }
 

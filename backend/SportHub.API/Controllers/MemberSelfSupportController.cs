@@ -31,6 +31,7 @@ public sealed class SubmitSupportRequest
 
     public List<IFormFile>? Files { get; set; }
     public Guid? InvoiceId { get; set; }
+    public Guid? InvoiceItemId { get; set; }
 }
 
 /// <summary>
@@ -46,7 +47,8 @@ public sealed class MemberSelfSupportController(
     IAuditWriter audit,
     INotificationWriter notifications,
     ISystemSettingProvider settings,
-    SupportReminderService reminders) : ControllerBase
+    SupportReminderService reminders,
+    SportHub.BuildingBlocks.Abstractions.Payment.ISupportInvoiceGuard invoiceGuard) : ControllerBase
 {
     public const int MaxFiles = 3;
     public const int MaxFileBytes = 5 * 1024 * 1024;
@@ -67,6 +69,12 @@ public sealed class MemberSelfSupportController(
     public async Task<IActionResult> Submit([FromForm] SubmitSupportRequest request, CancellationToken ct)
     {
         var memberId = User.RequireUserId();
+        if (!await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == memberId
+                && u.Status == UserStatus.Active
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct))
+            throw new ConflictException("member_not_activated", "Activate your account before submitting a support request.");
         var category = request.Category.Trim().ToUpperInvariant();
         if (!CategoryLabels.TryGetValue(category, out var label))
             throw new BadRequestException("support_category_invalid", "Invalid support request category.");
@@ -135,14 +143,7 @@ public sealed class MemberSelfSupportController(
                 $"SELECT * FROM invoices WHERE invoice_id = {invoiceId} FOR UPDATE").SingleOrDefaultAsync(ct);
             if (invoice is null || invoice.MemberId != memberId)
                 throw new BadRequestException("payment_request_invoice_required", "Choose one of your invoices.");
-            if (invoice.Status == InvoiceStatus.Compensated || invoice.ResolutionIdempotencyKey is not null)
-                throw new ConflictException(PaymentSupportErrorCodes.ReconciliationAlreadyResolved,
-                    "This payment has already been resolved.");
-            if (await db.Set<MemberSupportRequest>().AnyAsync(r => r.InvoiceId == invoiceId
-                    && r.Category == "PAYMENT" && r.Status != "CLOSED" && r.Status != "DONE"
-                    && r.Status != "REJECTED", ct))
-                throw new ConflictException(PaymentSupportErrorCodes.PaymentRequestAlreadyOpen,
-                    "An open support request already exists for this invoice.");
+            entity.InvoiceItemId = await invoiceGuard.EnsureEligibleAsync(memberId, invoiceId, ct, request.InvoiceItemId);
             entity.InvoiceId = invoiceId;
         }
         db.Set<MemberSupportEvent>().Add(new MemberSupportEvent
@@ -201,6 +202,7 @@ public sealed class MemberSelfSupportController(
                 x.Description,
                 x.Status,
                 x.InvoiceId,
+                x.InvoiceItemId,
                 x.CreatedAt,
                 x.UpdatedAt,
                 Response = x.ProgressNote,
@@ -212,7 +214,7 @@ public sealed class MemberSelfSupportController(
         var requestIds = rows.Select(x => x.RequestId).ToArray();
         var payouts = await db.Set<MemberSupportPayout>().AsNoTracking()
             .Where(p => requestIds.Contains(p.RequestId))
-            .Select(p => new { p.RequestId, p.PayoutId, p.Amount, p.RecordedAtUtc,
+            .Select(p => new { p.RequestId, p.PayoutId, p.Amount, p.PointsRefunded, p.InvoiceItemId, p.RecordedAtUtc,
                 p.MemberConfirmedAtUtc, p.MemberConfirmedBy })
             .ToDictionaryAsync(p => p.RequestId, ct);
         var payoutIds = payouts.Values.Select(p => p.PayoutId).ToArray();
@@ -221,10 +223,10 @@ public sealed class MemberSelfSupportController(
             .Select(a => new { a.PayoutId, a.AttachmentId }).ToListAsync(ct);
         return Ok(rows.Select(x => new
         {
-            x.RequestId, x.Category, x.Description, x.Status, x.InvoiceId, x.CreatedAt, x.UpdatedAt,
+            x.RequestId, x.Category, x.Description, x.Status, x.InvoiceId, x.InvoiceItemId, x.CreatedAt, x.UpdatedAt,
             x.Response, x.SlaDueAtUtc, x.RemindCount,
             Payout = payouts.TryGetValue(x.RequestId, out var p)
-                ? new { p.Amount, p.RecordedAtUtc, p.MemberConfirmedAtUtc, p.MemberConfirmedBy,
+                ? new { p.Amount, p.PointsRefunded, p.InvoiceItemId, p.RecordedAtUtc, p.MemberConfirmedAtUtc, p.MemberConfirmedBy,
                     ProofAttachmentIds = proofs.Where(a => a.PayoutId == p.PayoutId)
                         .Select(a => a.AttachmentId).ToArray() } : null,
             IsOverdue = x.Status is not ("DONE" or "REJECTED" or "CLOSED") && x.SlaDueAtUtc <= now,

@@ -4,10 +4,11 @@ const labels: Record<string, string> = {
   UPLOAD_MEDIA_IMAGE: "Homepage image uploaded",
   CREATE_STAFF_ACCOUNT: "Staff account created",
   CHANGE_USER_ROLE: "Account role changed",
-  LOCK_USER_ACCOUNT: "Account locked or deactivated",
-  LOCK_USER: "Account locked",
-  UNLOCK_USER_ACCOUNT: "Account unlocked",
-  UNLOCK_USER: "Account unlocked",
+  LOCK_USER_ACCOUNT: "Account deactivated (legacy)",
+  LOCK_USER: "Account deactivated (legacy)",
+  UNLOCK_USER_ACCOUNT: "Account activated (legacy)",
+  UNLOCK_USER: "Account activated (legacy)",
+  ACTIVATE_USER_ACCOUNT: "Account activated",
   DEACTIVATE_USER_ACCOUNT: "Account deactivated",
   RESEND_STAFF_ACTIVATION: "Staff activation email queued again",
   CHANGE_PENDING_STAFF_EMAIL: "Unactivated staff account email corrected",
@@ -53,6 +54,8 @@ const labels: Record<string, string> = {
   AUTO_END_COACH_MEMBER_RELATIONSHIP: "Coach assignment ended automatically",
   CREATE_ROOM: "Court or room created",
   UPDATE_ROOM: "Court or room details updated",
+  ALLOW_ROOM_RENTAL: "Room rental allowed",
+  DISABLE_ROOM_RENTAL: "Room rental disabled",
   DELETE_ROOM: "Court or room deleted",
   CREATE_ROOM_TYPE: "Court or room type created",
   UPDATE_ROOM_TYPE: "Court or room type updated",
@@ -95,6 +98,8 @@ const labels: Record<string, string> = {
   APPROVE_POINT_CREDIT: "Points credit approved",
   REJECT_POINT_CREDIT: "Points credit rejected",
   ADJUST_POINTS: "Member's points balance adjusted",
+  GIFT_POINTS: "Manager gifted points to a member",
+  NOTIFY_INCIDENT_DAY_PASS_MEMBERS: "Day-pass holders notified about a Gym incident",
   REQUEST_POINT_CONFIRMATION: "Member's approval to use points requested",
   CONFIRM_POINT_SELECTION: "Points payment confirmed",
   SELECT_SELF_POINTS: "Points selected for payment",
@@ -186,7 +191,8 @@ export function auditActionLabel(
       ) {
         const status = payload.status.toUpperCase();
         if (status === "DEACTIVATED") return "Account deactivated";
-        if (status === "BANNED" || status === "LOCKED") return "Account locked";
+        if (status === "BANNED" || status === "LOCKED")
+          return "Account deactivated";
       }
     } catch {
       /* Older events may not contain a JSON snapshot. */

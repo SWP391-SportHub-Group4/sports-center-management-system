@@ -21,6 +21,28 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class CourtRentalTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Disabling_room_rental_preserves_existing_checkout_and_reserved_slot()
+    {
+        var request = await SetupAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var scope = factory.Services.CreateScope();
+        var checkout = await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+            .CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default);
+        var rentalId = checkout.ResourceHoldId!.Value;
+        var statusBefore = await factory.QueryAsync(db => db.Set<CourtRental>().Where(r => r.CourtRentalId == rentalId).Select(r => r.Status).SingleAsync());
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        (await client.PutAsJsonAsync($"/api/rooms/{request.RoomId}/rental-access", new { allowRental = false })).EnsureSuccessStatusCode();
+        await factory.QueryAsync(async db => {
+            Assert.Equal(statusBefore, await db.Set<CourtRental>().Where(r => r.CourtRentalId == rentalId).Select(r => r.Status).SingleAsync());
+            Assert.True(await db.RoomOccupancies.AnyAsync(o => o.SourceId == rentalId && o.IsActive));
+            Assert.True(await db.Invoices.AnyAsync(i => i.InvoiceId == checkout.InvoiceId));
+            return 0;
+        });
+        var rentals = scope.ServiceProvider.GetRequiredService<CourtRentalService>();
+        Assert.Equal("rental_room_incompatible", (await Assert.ThrowsAsync<ConflictException>(() => rentals.QuoteAsync(request))).ErrorCode);
+    }
+
+    [Fact]
     public async Task Paid_rental_is_private_and_center_cancellation_only_notifies_until_member_chooses_points()
     {
         var request = await SetupAsync();
@@ -150,7 +172,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         var affected = Assert.Single(preview.Members);
         Assert.Equal(request.MemberId, affected.MemberId);
         Assert.Equal("CourtRental", affected.SourceType);
-        Assert.Equal("AwaitsRefundChoice", affected.Outcome);
+        Assert.Equal("RefundedAsPoints", affected.Outcome);
         Assert.Equal(100, affected.ExpectedRefundPoints);
         Assert.Equal(100, preview.ExpectedRefundPointsTotal);
 
@@ -162,7 +184,9 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         var offer = Assert.Single(await refunds.ListMineAsync(request.MemberId));
         Assert.Equal(affected.ExpectedRefundPoints, offer.RefundPoints);
         // Resolving another overlapping incident must not bypass the Member's choice.
-        await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
+        var overlap = await Assert.ThrowsAsync<ConflictException>(async () =>
+            await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId));
+        Assert.Equal("incident_overlap", overlap.ErrorCode);
         Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
             .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
         await refunds.AutoRefundDueAsync();
@@ -177,11 +201,11 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
     /// <summary>Member không có Membership Gym, chuyên môn hay hồ sơ nào: chỉ cần tài khoản hoạt động.</summary>
     private async Task<CourtRentalRequest> SetupAsync(bool active = true)
     {
-        var member = await factory.SeedUserAsync(UserRole.Member, active ? UserStatus.Active : UserStatus.Banned);
+        var member = await factory.SeedUserAsync(UserRole.Member, active ? UserStatus.Active : UserStatus.Deactivated);
         return await factory.QueryAsync(async db =>
         {
             // Sức chứa phòng không còn lọc lượt thuê: phòng 2 chỗ vẫn thuê được.
-            var room = new Room { Name = "Rental test " + Guid.NewGuid(), Capacity = 2, RoomTypeId = 3 };
+            var room = new Room { Name = "Rental test " + Guid.NewGuid(), Capacity = 2, RoomTypeId = 3, AllowRental = true };
             db.Rooms.Add(room);
             await db.SaveChangesAsync();
             db.RoomOpeningHours.AddRange(Enumerable.Range(0, 7).Select(day => new RoomOpeningHour
@@ -332,7 +356,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
     {
         var request = await SetupAsync(active: false);
         using var scope = factory.Services.CreateScope();
-        await Assert.ThrowsAsync<ForbiddenException>(() => scope.ServiceProvider.GetRequiredService<CheckoutService>()
+        await Assert.ThrowsAsync<ConflictException>(() => scope.ServiceProvider.GetRequiredService<CheckoutService>()
             .CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default));
         Assert.False(await factory.QueryAsync(db => db.Invoices.AnyAsync(x => x.MemberId == request.MemberId)));
     }

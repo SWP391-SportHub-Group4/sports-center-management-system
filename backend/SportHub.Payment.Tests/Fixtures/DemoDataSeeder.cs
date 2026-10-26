@@ -564,6 +564,7 @@ public sealed partial class DemoDataSeeder(
         var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
         var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Badminton Class BC1", ct);
         if (manager is null || member is null || room is null) return;
+        room.AllowRental = true; // This named demo room explicitly offers rentals.
         var reference = Guid.Parse("311aa2a3-764e-4a9f-a8c2-988790e52723");
         await using (var tx = await db.Database.BeginTransactionAsync(ct))
         {
@@ -586,6 +587,7 @@ public sealed partial class DemoDataSeeder(
             // Tomorrow at 10:00 Vietnam time stays inside the rolling booking window,
             // including CI runs before 06:00 when the window still anchors to yesterday.
             var start = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)).AddHours(10);
+
             var checkout = await checkouts.CreateCourtRentalAsync(new(member.UserId, 3, room.RoomId,
                 start, start.AddHours(1)), key, member.UserId, ct);
             invoiceId = checkout.InvoiceId;

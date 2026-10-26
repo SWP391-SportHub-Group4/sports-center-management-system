@@ -10,5 +10,5 @@ public interface IUserAccessReader
 }
 
 /// <param name="Role">Tên role như trong JWT (<see cref="Api.SportHubRoleNames"/>).</param>
-/// <param name="IsActive">Tài khoản đang Active (chưa Banned/Deactivated).</param>
+/// <param name="IsActive">Tài khoản đang Active (chưa Deactivated).</param>
 public sealed record UserAccessInfo(Guid UserId, string Role, bool IsActive, string Email, string FullName);

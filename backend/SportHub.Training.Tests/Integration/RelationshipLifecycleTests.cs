@@ -234,7 +234,7 @@ public sealed class RelationshipLifecycleTests(TrainingApiFactory factory)
         var replacement = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         await factory.QueryAsync(db => db.UserAccounts.Where(u => u.UserId == pair.CoachId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Banned)));
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Deactivated)));
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var response = await client.PostAsJsonAsync(
             $"api/manager/coach-coverage/{pair.CoachId}/classes/{pair.ClassIds[0]}/reassign-main",

@@ -13,7 +13,12 @@ import {
 } from "@/lib/support-categories";
 import { pagedItems } from "@/lib/paged";
 import { useApi } from "@/lib/useApi";
-import type { InvoiceDetailDto, InvoiceSummaryDto, Paged } from "@/lib/types";
+import type {
+  InvoiceDetailDto,
+  InvoiceSummaryDto,
+  Paged,
+  SupportRefundBreakdownDto,
+} from "@/lib/types";
 import styles from "./help-center.module.css";
 
 const MAX_FILES = 3;
@@ -35,7 +40,7 @@ export interface SentRequest {
 function friendlyError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === paymentSupportErrorCodes.paymentRequestAlreadyOpen)
-      return "You already have an open payment request for this invoice. Follow it in My requests.";
+      return "You already have an open payment request for this service. Follow it in My requests.";
     if (error.code === paymentSupportErrorCodes.reconciliationAlreadyResolved)
       return "This payment was already resolved, so a new request is not needed.";
     if (error.code === "payment_request_invoice_required")
@@ -53,11 +58,13 @@ function friendlyError(error: unknown): string {
 export function HelpRequestForm({
   initialTopic,
   initialInvoiceId,
+  initialInvoiceItemId,
   onSent,
   onViewRequests,
 }: {
   initialTopic?: string;
   initialInvoiceId?: string;
+  initialInvoiceItemId?: string;
   onSent: () => void;
   onViewRequests: (requestId: string) => void;
 }) {
@@ -73,6 +80,9 @@ export function HelpRequestForm({
   const [files, setFiles] = useState<File[]>([]);
   const [consent, setConsent] = useState(false);
   const [invoiceId, setInvoiceId] = useState(initialInvoiceId ?? "");
+  const [invoiceItemId, setInvoiceItemId] = useState(
+    initialInvoiceItemId ?? "",
+  );
   const [invoiceInput, setInvoiceInput] = useState("");
   const [invoiceTouched, setInvoiceTouched] = useState(false);
   const [invoiceSearch, setInvoiceSearch] = useState("");
@@ -187,6 +197,7 @@ export function HelpRequestForm({
 
   function chooseInvoice(invoice: InvoiceSummaryDto) {
     setInvoiceId(invoice.invoiceId);
+    setInvoiceItemId("");
     setInvoiceInput(invoice.invoiceNumber);
     setInvoiceSearch("");
     if (invoiceKeyword) {
@@ -204,16 +215,12 @@ export function HelpRequestForm({
   const breakdown = useApi(
     (signal) =>
       isPayment && invoiceId
-        ? api.get<{
-            totalVnd: number;
-            vnpayVnd: number;
-            pointsApplied: number;
-            pointsVnd: number;
-            refundableVnpayVnd: number;
-            refundablePoints: number;
-          }>(`/api/members/me/invoices/${invoiceId}/refund-breakdown`, {
-            signal,
-          })
+        ? api.get<SupportRefundBreakdownDto>(
+            `/api/members/me/invoices/${invoiceId}/refund-breakdown`,
+            {
+              signal,
+            },
+          )
         : Promise.resolve(null),
     [isPayment, invoiceId],
   );
@@ -227,7 +234,16 @@ export function HelpRequestForm({
     [previews],
   );
 
-  const paymentReady = invoiceId !== "" && files.length >= 1;
+  const refundItems = breakdown.data?.items ?? [];
+  const selectedRefund =
+    refundItems.find((item) => item.invoiceItemId === invoiceItemId) ??
+    (refundItems.length === 1 ? refundItems[0] : null);
+  const paymentReady =
+    invoiceId !== "" &&
+    files.length >= 1 &&
+    !!selectedRefund &&
+    !breakdown.loading &&
+    !breakdown.error;
   const invoiceSearchReady =
     invoiceSearch.trim() === invoiceKeyword && !invoiceLoading;
   const invoiceValidationMessage =
@@ -298,6 +314,7 @@ export function HelpRequestForm({
       form.append("description", message.trim());
       if (isPayment) {
         form.append("invoiceId", invoiceId);
+        form.append("invoiceItemId", selectedRefund!.invoiceItemId);
       }
       files.forEach((file) => form.append("files", file));
       const result = await api.postForm<{
@@ -309,6 +326,7 @@ export function HelpRequestForm({
       setFiles([]);
       setConsent(false);
       setInvoiceId("");
+      setInvoiceItemId("");
       setInvoiceInput("");
       setInvoiceTouched(false);
       onSent();
@@ -536,31 +554,72 @@ export function HelpRequestForm({
                     role="alert"
                   >
                     {invoiceValidationMessage}
+
                   </span>
                 )}
               </div>
-              {breakdown.data && (
+              {breakdown.loading && (
+                <p role="status">Loading invoice services…</p>
+              )}
+              {breakdown.error && (
+                <div role="alert">
+                  <p>{breakdown.error.message}</p>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={breakdown.reload}
+                  >
+                    Retry invoice services
+                  </button>
+                </div>
+              )}
+              {refundItems.length > 0 && (
+                <label className={styles.field}>
+                  <span>Service requiring support *</span>
+                  <select
+                    value={selectedRefund?.invoiceItemId ?? ""}
+                    onChange={(event) => setInvoiceItemId(event.target.value)}
+                  >
+                    <option value="">Choose a service on this invoice</option>
+                    {refundItems.map((item) => (
+                      <option
+                        key={item.invoiceItemId}
+                        value={item.invoiceItemId}
+                      >
+                        {item.description} · {formatMoney(item.totalVnd)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {selectedRefund && (
                 <dl className={styles.hint} aria-label="Invoice breakdown">
                   <div>
-                    <dt>Invoice total</dt>
-                    <dd>{formatMoney(breakdown.data.totalVnd)}</dd>
-                  </div>
-                  <div>
-                    <dt>Paid with VNPay</dt>
+                    <dt>Selected service</dt>
                     <dd>
-                      {formatMoney(breakdown.data.vnpayVnd)}
-                      {breakdown.data.vnpayVnd > 0
-                        ? " — any approved bank refund is handled by the manager."
-                        : " — no confirmed VNPay charge has been recorded."}
+                      {selectedRefund.description} ·{" "}
+                      {formatMoney(selectedRefund.totalVnd)}
                     </dd>
                   </div>
-                  {breakdown.data.pointsApplied > 0 && (
+                  <div>
+                    <dt>Remaining VNPay refund</dt>
+                    <dd>
+                      {formatMoney(selectedRefund.refundableVnpayVnd)} — any
+                      approved bank refund is handled by the manager.
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Points returned with payout</dt>
+                    <dd>
+                      {selectedRefund.refundablePoints} points — returned
+                      automatically when the payout is recorded.
+                    </dd>
+                  </div>
+                  {selectedRefund.refundableVnpayVnd <= 0 && (
                     <div>
-                      <dt>Paid with points</dt>
                       <dd>
-                        {breakdown.data.pointsApplied} points (
-                        {formatMoney(breakdown.data.pointsVnd)}) — returned to
-                        your wallet automatically when the payout is recorded.
+                        No remaining confirmed VNPay charge is available for a
+                        bank payout. You can still report the payment issue.
                       </dd>
                     </div>
                   )}

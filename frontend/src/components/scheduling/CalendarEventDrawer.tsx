@@ -2,7 +2,7 @@
 import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { api } from "@/lib/apiClient";
 
 import { Drawer, buttonClass } from "@/components/primitives";
@@ -24,6 +24,8 @@ export function CalendarEventDrawer({
   receptionist = false,
   onChanged,
   onClose,
+  extraDetails,
+  showParticipants = true,
 }: {
   entry: CourtScheduleEntryDto;
   roomName?: string | null;
@@ -33,6 +35,10 @@ export function CalendarEventDrawer({
   receptionist?: boolean;
   onChanged?: () => void;
   onClose: () => void;
+  /** Optional role-specific content inside the same Manager drawer. */
+  extraDetails?: ReactNode;
+  /** Hide read-only participant summary when role-specific attendance is supplied. */
+  showParticipants?: boolean;
 }) {
   const { t } = useLanguage();
 
@@ -221,7 +227,7 @@ export function CalendarEventDrawer({
         </Link>
       )}
 
-      {entry.sourceType === "CLASS_SESSION" && (
+      {showParticipants && entry.sourceType === "CLASS_SESSION" && (
         <section className={styles.participants}>
           <h3>{shared.participants}</h3>
 
@@ -252,6 +258,7 @@ export function CalendarEventDrawer({
           )}
         </section>
       )}
+      {extraDetails}
     </Drawer>
   );
 }

@@ -79,28 +79,190 @@
   color: var(--text-body);
   font-size: var(--text-sm);
 }
+.directoryPanel {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.directoryHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+.directoryHeading > div {
+  min-width: 0;
+}
+.directoryHeading h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+.directoryHeading p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.directoryEmblem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.directoryToolbar {
+  padding: 0 var(--space-5) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.directoryToolbar .filters {
+  grid-template-columns: minmax(0, 520px) minmax(180px, 240px);
+  gap: var(--space-3);
+}
+.directoryToolbar .filters label {
+  font-size: var(--text-sm);
+}
+.directoryToolbar .filters select,
+.directoryToolbar .search {
+  height: 44px;
+  padding: 0 var(--space-3);
+}
+.directoryToolbar .search input {
+  height: 42px;
+  min-height: 0;
+  box-shadow: none;
+}
+.directorySummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.directoryLabels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.35fr) minmax(0, 1fr) 128px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-block: 1px solid var(--border-subtle);
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
 .directory {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.directory > li + li {
   border-top: 1px solid var(--border-subtle);
 }
 .student {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.35fr) minmax(0, 1fr) 128px;
   gap: var(--space-4);
   align-items: center;
-  padding: var(--space-4) var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
+  min-height: 76px;
+  padding: var(--space-3) var(--space-5);
   text-decoration: none;
   color: var(--text-strong);
   transition: background-color 160ms ease-out;
 }
+.studentIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.studentIdentity > :first-child {
+  flex-shrink: 0;
+}
+.classCount {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.classInfo {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.classNames {
+  color: var(--text-body);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.classView {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 38px;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.classCount small {
+  color: var(--text-body);
+  font-weight: 400;
+}
+.directoryPagination {
+  padding: 0 var(--space-5) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
 .student:hover {
-  background: var(--bg-surface-sunken);
+  background: var(--color-primary-soft);
+}
+.student:hover .classView,
+.student:focus-visible .classView {
+  background: var(--bg-brand-deep);
+  border-color: var(--bg-brand-deep);
+  color: var(--text-on-inverse);
+}
+.student:focus-visible {
+  outline-offset: -3px;
 }
 .studentInfo {
   flex: 1;
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.studentInfo strong {
+  font-size: var(--text-base);
+  line-height: 1.4;
+}
+.studentInfo small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.directory .sportTags > span {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--color-primary);
+  line-height: 1.4;
 }
 .studentInfo small,
 .identity small {
@@ -249,14 +411,43 @@
   line-height: 1.7;
 }
 @media (max-width: 600px) {
-  .filters {
+  .filters,
+  .directoryToolbar .filters {
     grid-template-columns: minmax(0, 1fr);
   }
   .assessment {
     padding: var(--space-4);
   }
   .student {
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-3);
+    padding-inline: var(--space-4);
+  }
+  .directoryLabels,
+  .classView > span {
+    display: none;
+  }
+  .student .sportTags {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    padding-inline-start: 56px;
+  }
+  .classInfo {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding-inline-start: 56px;
+  }
+  .classView {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .directoryHeading,
+  .directoryToolbar,
+  .directorySummary,
+  .directoryPagination {
+    padding-inline: var(--space-4);
   }
 }
 @media (prefers-reduced-motion: reduce) {

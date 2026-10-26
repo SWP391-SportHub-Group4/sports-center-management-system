@@ -48,7 +48,7 @@ const MODE_COPY: Record<
   progress: {
     field: "Progress note",
     placeholder: "What has been checked, and what happens next?",
-    submit: "Update",
+    submit: "Update progress",
   },
   done: {
     field: "Resolution note",
@@ -130,7 +130,8 @@ export function SupportDetail({
       )
     : null;
   const availableRoles = (Object.keys(ROLE_LABELS) as RoleKey[]).filter(
-    (role) => assigneesByRole(assignees, role).length > 0,
+    (role) => (request.category !== "PAYMENT" || role === "manager") &&
+      assigneesByRole(assignees, role).length > 0,
   );
   const [targetRole, setTargetRole] = useState<RoleKey | "">("");
   const [targetUser, setTargetUser] = useState("");
@@ -244,7 +245,7 @@ export function SupportDetail({
           </time>
         </div>
         <h3>
-          {isManager ? supportCategoryLabel(request.category) : request.subject}
+          {request.subject?.trim() || supportCategoryLabel(request.category)}
         </h3>
         {isManager && (
           <p className={styles.muted}>
@@ -264,6 +265,7 @@ export function SupportDetail({
 
       <div className={styles.banner}>
         <AvatarImage
+          userId={request.memberId}
           name={request.memberName || request.memberEmail || "Member"}
           avatarUrl={member.data?.avatarUrl}
           size={44}
@@ -295,10 +297,10 @@ export function SupportDetail({
       </div>
 
       <section className={styles.section} aria-label="Request message">
-        <h4>{isManager ? "Member request" : "Request"}</h4>
+        <h4>Request</h4>
         <dl className={styles.requestMetadata}>
           <div>
-            <dt>{isManager ? "Topic" : "Request type"}</dt>
+            <dt>Request type</dt>
             <dd>
               <span
                 className={styles.categoryBadge}
@@ -308,12 +310,13 @@ export function SupportDetail({
               </span>
             </dd>
           </div>
-          {!isManager && (
-            <div>
-              <dt>Subject</dt>
-              <dd>{request.subject}</dd>
-            </div>
-          )}
+          <div>
+            <dt>Subject</dt>
+            <dd>
+              {request.subject?.trim() ||
+                supportCategoryLabel(request.category)}
+            </dd>
+          </div>
           {isManager && (
             <>
               <div>
@@ -331,7 +334,7 @@ export function SupportDetail({
             </>
           )}
           <div>
-            <dt>{isManager ? "Your message" : "Details"}</dt>
+            <dt>Details</dt>
             <dd className={styles.message}>
               {request.description?.trim() || "No details provided."}
             </dd>
@@ -477,7 +480,7 @@ export function SupportDetail({
                 >
                   Transfer request
                 </button>
-                {user && request.assignedToUserId !== user.userId && (
+                {user && request.category !== "PAYMENT" && request.assignedToUserId !== user.userId && (
                   <button
                     type="button"
                     className="btn btn--secondary"
@@ -524,30 +527,35 @@ export function SupportDetail({
               </div>
             )}
             <div className={styles.tabs} role="tablist" aria-label="Action">
-              {TABS.filter((tab) => !isReceiver || tab.mode !== "reject").map(
-                (tab) => (
-                  <button
-                    key={tab.mode}
-                    type="button"
-                    role="tab"
-                    className={styles.tab}
-                    aria-selected={mode === tab.mode}
-                    disabled={busy}
-                    onClick={() => {
-                      setMode(tab.mode);
-                      setConfirming(false);
-                    }}
-                  >
-                    {isReceiver && tab.mode === "progress"
-                      ? "In progress"
-                      : tab.label}
-                  </button>
-                ),
-              )}
+              {TABS.filter(
+                (tab) =>
+                  (!isReceiver || tab.mode !== "reject") &&
+                  (tab.mode !== "done" ||
+                    request.category !== "PAYMENT" ||
+                    !!request.payout),
+              ).map((tab) => (
+                <button
+                  key={tab.mode}
+                  type="button"
+                  role="tab"
+                  className={styles.tab}
+                  aria-selected={mode === tab.mode}
+                  disabled={busy}
+                  onClick={() => {
+                    setMode(tab.mode);
+                    setConfirming(false);
+                  }}
+                >
+                  {isReceiver && tab.mode === "progress"
+                    ? "In progress"
+                    : tab.label}
+                </button>
+              ))}
             </div>
             <label className={styles.field}>
               {copy.field}
               <textarea
+                aria-label={copy.field}
                 value={note}
                 maxLength={1000}
                 disabled={busy}
@@ -558,6 +566,12 @@ export function SupportDetail({
                 }}
               />
             </label>
+            {mode === "progress" && (
+              <p className={styles.helper}>
+                Update the request as often as needed. Each saved note is kept
+                in the activity history.
+              </p>
+            )}
             {isManager && (
               <p className={styles.helper}>
                 The member will see this text as their latest reply. It replaces

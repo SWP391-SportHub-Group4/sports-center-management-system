@@ -150,11 +150,13 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         var reference = fields.GetValueOrDefault("vnp_TxnRef") ?? string.Empty;
         var checkout = await checkouts.FindByReferenceAsync(reference, actorId, ct);
         // The return URL is attacker-controllable, so only a correctly signed cancel code is honoured.
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (!await reconciliation.RecordUserCancellationAsync(fields, checkout.InvoiceId, ct))
             throw new ConflictException("payment_not_cancelled", "The gateway did not report a cancellation.");
+        // A verified payer cancellation closes the invoice and releases its reservation.
+        // A mere browser Back/Return does not call this endpoint; it stays ISSUED until expiry.
+        // CancelAsync refuses paid or reconciliation-pending invoices.
         await checkouts.CancelAsync(checkout.InvoiceId, actorId, IsStaff(), ct);
-        await tx.CommitAsync(ct);
+
         return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
     }
 

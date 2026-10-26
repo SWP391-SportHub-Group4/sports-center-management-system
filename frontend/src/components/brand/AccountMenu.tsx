@@ -7,6 +7,7 @@ import s from "./brand.module.css";
 
 export function AccountMenu({
   name,
+  userId,
   subtitle,
   links,
   logoutLabel,
@@ -15,6 +16,7 @@ export function AccountMenu({
   avatarUrl,
 }: {
   name: string;
+  userId?: string;
   subtitle: string;
   links: { href: string; label: string; icon: CourtIconName }[];
   logoutLabel: string;
@@ -60,7 +62,12 @@ export function AccountMenu({
         onClick={() => setOpen(!open)}
       >
         <span className={s.avatar} aria-hidden="true">
-          <AvatarImage name={name} avatarUrl={avatarUrl} size={36} />
+          <AvatarImage
+            userId={userId}
+            name={name}
+            avatarUrl={avatarUrl}
+            size={36}
+          />
         </span>
         <span className={s.accountName}>{name}</span>
         <CourtIcon name="chevron" size={16} />

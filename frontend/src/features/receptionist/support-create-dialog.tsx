@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Dialog } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
 import { ApiError, api } from "@/lib/apiClient";
+import { SupportInvoicePicker } from "./support-invoice-picker";
 import { useAuth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
@@ -51,15 +52,22 @@ export function SupportCreateDialog({
   onClose,
   onCreated,
   workspace = "receptionist",
+  initialMember = null,
 }: {
   assignees: SupportAssignee[];
   onClose: () => void;
   onCreated: (message: string) => void;
   workspace?: "manager" | "receptionist";
+  initialMember?: UserAdminDto | null;
 }) {
   const { user } = useAuth();
   const isManager = workspace === "manager";
-  const [member, setMember] = useState<UserAdminDto | null>(null);
+  const [member, setMember] = useState<UserAdminDto | null>(initialMember);
+  const [paymentSelection, setPaymentSelection] = useState<{
+    memberId: string;
+    invoiceId: string;
+    invoiceItemId: string;
+  } | null>(null);
   const [category, setCategory] = useState<SupportCategory | "">("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -74,16 +82,39 @@ export function SupportCreateDialog({
   const escalating = !!target && ROLE_RANK[roleKey(target.role)] > myRank;
   const baseReady =
     !!member &&
+    !member.activationPending &&
     category !== "" &&
-    (isManager || subject.trim().length >= 3) &&
-    description.trim().length >= 3;
-  const handoverBlock = !handoverTo
-    ? "Choose who to hand over to."
-    : escalating && handoverNote.trim().length < 3
-      ? "Add a handover note to escalate to a higher role."
-      : null;
+    description.trim().length >= 3 &&
+    (category !== "PAYMENT" || paymentSelection?.memberId === member?.userId);
+  const paymentToNonManager =
+    category === "PAYMENT" &&
+    !!handoverTo &&
+    roleKey(target?.role) !== "manager";
+  const handoverBlock = paymentToNonManager
+    ? "Payment requests must be assigned to Center Manager."
+    : !handoverTo
+      ? "Choose who to hand over to."
+      : escalating && handoverNote.trim().length < 3
+        ? "Add a handover note to escalate to a higher role."
+        : null;
 
   async function submit(handover: boolean) {
+    if (member?.activationPending) {
+      setError(
+        "Activate the member account before creating a support request.",
+      );
+      return;
+    }
+    if (
+      category === "PAYMENT" &&
+      handover &&
+      roleKey(target?.role) !== "manager"
+    ) {
+      setError(
+        "Payment requests must be handled by Center Manager, not Receptionist.",
+      );
+      return;
+    }
     if (lock.current || !baseReady || !member || (handover && handoverBlock))
       return;
     lock.current = true;
@@ -93,15 +124,27 @@ export function SupportCreateDialog({
       await api.post("/api/member-support-requests", {
         memberId: member.userId,
         category,
-        subject: isManager ? undefined : subject.trim(),
+        ...(category === "PAYMENT"
+          ? {
+              invoiceId: paymentSelection?.invoiceId,
+              invoiceItemId: paymentSelection?.invoiceItemId,
+            }
+          : {}),
+        ...(subject.trim() ? { subject: subject.trim() } : {}),
         description: description.trim(),
-        assigneeUserId: handover ? handoverTo : user?.userId,
+        assigneeUserId: handover
+          ? handoverTo
+          : category === "PAYMENT" && !isManager
+            ? undefined
+            : user?.userId,
         handoverNote: handover ? handoverNote.trim() : undefined,
       });
       onCreated(
         handover
           ? `Request created and handed over to ${target?.name ?? "staff"}.`
-          : "Request created. You are handling it.",
+          : category === "PAYMENT" && !isManager
+            ? "Request created for Center Manager."
+            : "Request created. You are handling it.",
       );
     } catch (e) {
       setError(
@@ -126,22 +169,37 @@ export function SupportCreateDialog({
         <div>
           <MemberPicker
             value={member}
-            onChange={setMember}
+            onChange={(nextMember) => {
+              setMember(nextMember);
+              setPaymentSelection(null);
+            }}
             label="Member"
             scanner={false}
             autoFocus
             placeholder="Search by name, phone or email…"
           />
-          {member && <MemberPlanLine memberId={member.userId} />}
+          {member?.activationPending && (
+            <p role="alert" className={styles.helper}>
+              Member account is pending activation. Support requests are
+              unavailable.
+            </p>
+          )}
+          {member && !member.activationPending && (
+            <MemberPlanLine memberId={member.userId} />
+          )}
         </div>
 
         <label className={styles.field}>
-          {isManager ? "What is your request about? *" : "Topic"}
+          {isManager ? "What is your request about? *" : "Request type"}
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value as SupportCategory)}
+            onChange={(e) => {
+              setCategory(e.target.value as SupportCategory);
+              setHandoverTo("");
+              setPaymentSelection(null);
+            }}
           >
-            <option value="">Select a topic</option>
+            <option value="">Select a request type</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -149,6 +207,18 @@ export function SupportCreateDialog({
             ))}
           </select>
         </label>
+
+        {category === "PAYMENT" && member && (
+          <SupportInvoicePicker
+            key={member.userId}
+            memberId={member.userId}
+            onChange={(selection) =>
+              setPaymentSelection(
+                selection ? { ...selection, memberId: member.userId } : null,
+              )
+            }
+          />
+        )}
 
         {isManager && (
           <label className={styles.field}>
@@ -167,7 +237,7 @@ export function SupportCreateDialog({
 
         {!isManager && (
           <label className={styles.field}>
-            Subject
+            Subject (optional)
             <input
               value={subject}
               maxLength={200}
@@ -197,7 +267,11 @@ export function SupportCreateDialog({
             >
               <option value="">Select a staff member</option>
               {assignees
-                .filter((x) => x.userId !== user?.userId)
+                .filter(
+                  (x) =>
+                    x.userId !== user?.userId &&
+                    (category !== "PAYMENT" || roleKey(x.role) === "manager"),
+                )
                 .map((x) => (
                   <option key={x.userId} value={x.userId}>
                     {x.name} ({ROLE_LABELS[roleKey(x.role)]})
@@ -251,7 +325,9 @@ export function SupportCreateDialog({
             disabled={busy || !baseReady}
             onClick={() => void submit(false)}
           >
-            Create &amp; handle myself
+            {category === "PAYMENT" && !isManager
+              ? "Create for manager"
+              : "Create & handle myself"}
           </button>
         </div>
         {baseReady && handoverBlock && (

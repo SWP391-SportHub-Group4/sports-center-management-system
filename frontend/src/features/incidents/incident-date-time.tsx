@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { Field } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
 import styles from "./incident-date-time.module.css";
@@ -19,21 +18,32 @@ export function IncidentDateTime({
   value,
   onChange,
   minDate,
+  minTime,
+  maxTime,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   minDate?: string;
+  minTime?: string;
+  maxTime?: string;
 }) {
   const { t } = useLanguage();
-  const [touched, setTouched] = useState(false);
   const [date = "", time = ""] = value.split("T");
-  const timeValid = new RegExp(`^${timePattern}$`).test(time);
   return (
     <fieldset className={styles.group}>
       <legend>{label}</legend>
       <div className={styles.inputs}>
-        <Field label={t.operations.date}>
+        <Field
+          label={t.operations.date}
+          hint={
+            minTime && maxTime
+              ? t.incidentHistory.allowedHours
+                  .replace("{open}", minTime)
+                  .replace("{close}", maxTime)
+              : undefined
+          }
+        >
           <input
             type="date"
             required
@@ -43,26 +53,17 @@ export function IncidentDateTime({
             onChange={(event) => onChange(`${event.target.value}T${time}`)}
           />
         </Field>
-        <Field
-          label={t.incidentHistory.time24}
-          error={
-            touched && time !== "" && !timeValid
-              ? t.incidentHistory.invalidTime
-              : undefined
-          }
-        >
+        <Field label={t.incidentHistory.time24}>
           <input
             type="text"
             required
             inputMode="numeric"
             placeholder="HH:mm"
             maxLength={5}
-            pattern={timePattern}
             autoComplete="off"
             value={time}
             onChange={(event) => onChange(`${date}T${event.target.value}`)}
             onBlur={() => {
-              setTouched(true);
               const match = /^(\d{1,2}):?(\d{2})$/.exec(time);
               if (!match) return;
               const normalized = `${match[1].padStart(2, "0")}:${match[2]}`;

@@ -14,6 +14,8 @@ using SportHub.Training.Application.Services;
 using SportHub.Training.Domain.Entities;
 using SportHub.Training.Domain.Enums;
 using SportHub.AI.Application.DTOs.Manager;
+using SportHub.AI.Domain.Constants;
+using SportHub.AI.Domain.Entities;
 
 namespace SportHub.AI.Api;
 
@@ -25,6 +27,15 @@ public sealed record AiLogResponse(
     string ResponsePayload,
     int ResponseTimeMs,
     DateTime CreatedAt);
+
+public sealed record MemberWorkoutSuggestionHistoryItem(
+    Guid Id,
+    DateTime GeneratedAt,
+    string Sport,
+    string Goal,
+    string Level,
+    IReadOnlyList<WorkoutSuggestedExercise> Items,
+    string Rationale);
 
 [ApiController]
 [Authorize]
@@ -93,6 +104,50 @@ public class AiController(
     {
         var memberId = User.RequireUserId();
         return Ok(await recommendations.SuggestAsync(memberId, memberId, ct, sport));
+    }
+
+    [Authorize(Roles = "Member")]
+    [HttpGet("workout-suggestions/me")]
+    public async Task<ActionResult<IReadOnlyList<MemberWorkoutSuggestionHistoryItem>>> MyWorkoutSuggestions(CancellationToken ct)
+    {
+        var memberId = User.RequireUserId();
+        var logs = await db.Set<AiLog>().AsNoTracking()
+            .Where(log => log.UserId == memberId && log.QueryType == AiQueryTypes.WorkoutSuggestion)
+            .OrderByDescending(log => log.CreatedAt)
+            .Take(50)
+            .ToListAsync(ct);
+        var history = new List<MemberWorkoutSuggestionHistoryItem>();
+        foreach (var log in logs)
+        {
+            try
+            {
+                using var input = JsonDocument.Parse(log.InputPayload);
+                using var output = JsonDocument.Parse(log.ResponsePayload);
+                var source = input.RootElement;
+                var response = output.RootElement;
+                if (!source.TryGetProperty("MemberId", out var owner) ||
+                    !owner.TryGetGuid(out var ownerId) || ownerId != memberId ||
+                    !response.TryGetProperty("items", out var itemsJson) ||
+                    itemsJson.ValueKind != JsonValueKind.Array ||
+                    itemsJson.GetArrayLength() == 0 ||
+                    response.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
+                    continue;
+                var items = itemsJson.Deserialize<List<WorkoutSuggestedExercise>>(new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                if (items is null) continue;
+                history.Add(new MemberWorkoutSuggestionHistoryItem(
+                    log.LogId, log.CreatedAt,
+                    source.TryGetProperty("Sport", out var sportValue) ? sportValue.GetString() ?? "Gym" : "Gym",
+                    source.TryGetProperty("Goal", out var goal) ? goal.GetString() ?? "" : "",
+                    source.TryGetProperty("Level", out var level) ? level.GetString() ?? "" : "",
+                    items,
+                    response.TryGetProperty("rationale", out var rationale) ? rationale.GetString() ?? "" : ""));
+            }
+            catch (JsonException) { /* Ignore malformed legacy log entries. */ }
+        }
+        return Ok(history);
     }
 
     [Authorize(Roles = "Member,Coach")]

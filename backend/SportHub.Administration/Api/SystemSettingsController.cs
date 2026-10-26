@@ -23,4 +23,8 @@ public class SystemSettingsController(ISystemSettingService settings) : Controll
     public async Task<IActionResult> Update(
         string key, [FromBody] UpdateSystemSettingRequest request, CancellationToken ct)
         => Ok(await settings.UpdateAsync(key, request.Value, User.RequireUserId(), ct));
+
+    [HttpPut]
+    public async Task<IActionResult> UpdateGroup([FromBody] UpdateSystemSettingsRequest request, CancellationToken ct)
+        => Ok(await settings.UpdateManyAsync(request.Values, User.RequireUserId(), ct));
 }

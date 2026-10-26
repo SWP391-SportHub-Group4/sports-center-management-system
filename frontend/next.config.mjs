@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "res.cloudinary.com" },
+    ],
+  },
   async redirects() {
     return [
       ["/dang-ky", "/register"],
@@ -36,8 +41,8 @@ const nextConfig = {
       ["/quan-ly/lich-hoc", "/manager/class-schedule"],
       ["/quan-ly/lop-hoc", "/manager/classes"],
       ["/quan-ly/nhat-ky", "/manager/audit-log"],
-      ["/quan-ly/phong-tap", "/manager/facilities"],
-      ["/quan-ly/quan-he-hlv", "/manager/coaches"],
+      ["/quan-ly/phong-tap", "/manager/training-rooms"],
+      ["/quan-ly/quan-he-hlv", "/manager/coaching-relationships"],
       ["/quan-tri", "/admin"],
       ["/quan-tri/nguoi-dung", "/admin/users"],
       ["/quan-tri/nhat-ky", "/admin/audit-log"],

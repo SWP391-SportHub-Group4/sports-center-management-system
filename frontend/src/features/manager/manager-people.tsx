@@ -85,6 +85,7 @@ export function ManagerPeople() {
             cell: (user) => (
               <span className={styles.name}>
                 <AvatarImage
+                  userId={user.userId}
                   name={user.fullName || user.email}
                   avatarUrl={user.avatarUrl}
                   size={32}

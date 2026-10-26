@@ -417,15 +417,18 @@ export default function MemberDashboardPage() {
       }),
     [],
   );
+  const reloadInvoices = invoices.reload;
   useEffect(() => {
-    const refreshInvoices = () => invoices.reload();
+    const refreshInvoices = () => {
+      void reloadInvoices();
+    };
     window.addEventListener("pageshow", refreshInvoices);
     window.addEventListener("focus", refreshInvoices);
     return () => {
       window.removeEventListener("pageshow", refreshInvoices);
       window.removeEventListener("focus", refreshInvoices);
     };
-  }, [invoices.reload]);
+  }, [reloadInvoices]);
   const rentals = useApi(
     (signal) =>
       rentalApi.mine(

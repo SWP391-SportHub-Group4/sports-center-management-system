@@ -135,7 +135,7 @@ async function setup(
 }
 
 for (const [route, title, endpoint] of [
-  ["facilities", "Delete room", "/api/rooms/7"],
+  ["training-rooms", "Delete room", "/api/rooms/7"],
   ["court-rates", "Delete rental price", "/api/manager/court-rates/9"],
   [
     "reports/exports",
@@ -171,7 +171,7 @@ for (const [route, title, endpoint] of [
 }
 
 for (const [route, code, message] of [
-  ["facilities", "room_in_use", "Deactivate it instead"],
+  ["training-rooms", "room_in_use", "Deactivate it instead"],
 ]) {
   test(`${route}: referenced records remain visible when deletion is rejected`, async ({
     page,

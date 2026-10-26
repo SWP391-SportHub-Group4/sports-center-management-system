@@ -15,6 +15,8 @@ public sealed record VersionedIntSetting(int Value, string Version);
 
 public static class SystemSettingKeys
 {
+    public const string CenterOpeningMinutes = "center.opening_minutes";
+    public const string CenterClosingMinutes = "center.closing_minutes";
     /// <summary>
     /// BR-33 — nhắc trước bao nhiêu ngày khi gói sắp hết hạn. BR chỉ nêu "ví dụ: 7 ngày",
     /// nên đây là cấu hình, không phải ngưỡng đã chốt.

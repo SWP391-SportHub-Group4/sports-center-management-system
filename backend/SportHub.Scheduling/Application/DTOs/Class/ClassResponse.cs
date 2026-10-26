@@ -64,4 +64,5 @@ public sealed record ClassManagerResponse(
     DateTime CreatedAt,
     DateTime? PublishedAt,
     DateTime? FirstSessionStartUtc,
-    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules);
+    IReadOnlyList<ClassScheduleRuleResponse> ScheduleRules,
+    int? SessionMinutes = null);

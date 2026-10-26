@@ -24,14 +24,31 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
     {
         var noticeId = idempotencyKey is null ? Guid.NewGuid() : IdForKey(managerId, idempotencyKey);
         var recipients = request.RecipientUserIds.Distinct().Order().ToList();
+        var roleNames = request.SendToRoles.Select(r => (r ?? "").Trim().ToUpperInvariant()).Distinct().Order().ToArray();
+        var selectedRoles = roleNames.Select(role => role switch {
+            "SYSTEM_ADMINISTRATOR" => UserRole.SystemAdministrator,
+            "CENTER_MANAGER" => UserRole.CenterManager,
+            "RECEPTIONIST" => UserRole.Receptionist,
+            "COACH" => UserRole.Coach,
+            "MEMBER" => UserRole.Member,
+            _ => throw new BadRequestException("notice_recipient_role_invalid", "Choose a valid recipient role.")
+        }).ToArray();
         var safeSubject = request.Subject.Trim();
         var safeMessage = request.Message.Trim();
-        if (recipients.Count is < 1 or > 200 || (!request.SendInApp && !request.SendEmail))
+        if ((request.SendToAll ? recipients.Count != 0 || selectedRoles.Length != 0
+                : recipients.Count > 200 || (recipients.Count == 0 && selectedRoles.Length == 0))
+            || (!request.SendInApp && !request.SendEmail))
             throw new BadRequestException("invalid_manual_notice", "Invalid manual notice.");
         if (safeSubject.Length is < 3 or > 150 || safeMessage.Length is < 3 or > 3000)
             throw new BadRequestException("invalid_manual_notice", "Invalid manual notice.");
-        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
-            { recipients, safeSubject, safeMessage, request.SendInApp, request.SendEmail }))));
+        // Broadcast fingerprints describe the requested scope, not the changing account directory.
+        // Replays return the original receipt and never add accounts activated after the first send.
+        var fingerprintPayload = request.SendToAll
+            ? JsonSerializer.Serialize(new { recipients, safeSubject, safeMessage, request.SendInApp, request.SendEmail, sendToAll = true })
+            : selectedRoles.Length > 0
+            ? JsonSerializer.Serialize(new { recipients, safeSubject, safeMessage, request.SendInApp, request.SendEmail, sendToRoles = roleNames })
+            : JsonSerializer.Serialize(new { recipients, safeSubject, safeMessage, request.SendInApp, request.SendEmail });
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(fingerprintPayload)));
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT pg_advisory_xact_lock(hashtextextended({$"manual-notice:{noticeId}"}, 0))", ct);
@@ -44,11 +61,14 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
             await tx.CommitAsync(ct);
             return noticeId;
         }
-        var users = await db.Set<UserAccount>().AsNoTracking()
-            .Where(x => recipients.Contains(x.UserId) && x.Status == UserStatus.Active)
+        var usersQuery = db.Set<UserAccount>().AsNoTracking().Where(x => x.Status == UserStatus.Active);
+        if (!request.SendToAll) usersQuery = usersQuery.Where(x => recipients.Contains(x.UserId)
+            || selectedRoles.Contains(x.Role!.RoleName));
+        var users = await usersQuery
             .Select(x => new NoticeRecipientSnapshot(x.UserId,
                 x.Profile != null && x.Profile.FullName != "" ? x.Profile.FullName : x.Email, x.Email)).ToListAsync(ct);
-        if (users.Count != recipients.Count)
+        var foundIds = users.Select(u => u.UserId).ToHashSet();
+        if (users.Count == 0 || recipients.Any(id => !foundIds.Contains(id)))
             throw new BadRequestException("manual_notice_recipient_invalid", "Manual notice recipient invalid.");
 
         var senderName = await db.Set<UserAccount>().Where(x => x.UserId == managerId)
@@ -73,7 +93,7 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
         audit.Write(new AuditEntry(managerId, "SEND_MANUAL_NOTICE", "Notification", noticeId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new
             {
-                recipientCount = users.Count, request.SendInApp, request.SendEmail, subject = safeSubject, requestFingerprint = fingerprint
+                recipientCount = users.Count, request.SendToAll, sendToRoles = roleNames, request.SendInApp, request.SendEmail, subject = safeSubject, requestFingerprint = fingerprint
             })));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

@@ -106,6 +106,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         if (!await db.Set<SportHub.Identity.Domain.Entities.UserAccount>().AnyAsync(u => u.UserId == memberId
             && u.Role!.RoleName == SportHub.Identity.Domain.Enums.UserRole.Member, ct))
             throw new BadRequestException("target_member_invalid", "Target must be a member.");
+        await RequireActivatedMemberAsync(memberId, ct);
         var now = clock.UtcNow;
         var expiry = now.AddMinutes(await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct));
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -182,6 +183,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
     {
         var memberId = ResolveMember(request.TargetMemberId, actorId, isFrontDesk);
         RequireKey(idempotencyKey);
+        await RequireActivatedMemberAsync(memberId, ct);
         var now = clock.UtcNow;
         var minutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -264,6 +266,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         if (request.MemberId != actorId && !isFrontDesk)
             throw new ForbiddenException("rental_owner_mismatch", "Rental owner mismatch.");
         RequireKey(idempotencyKey);
+        await RequireActivatedMemberAsync(request.MemberId, ct);
         var now = clock.UtcNow;
         var minutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -516,6 +519,17 @@ public sealed class CheckoutService(ISportHubDbContext db,
             .SingleOrDefaultAsync(x => x.CheckoutSessionId == invoice.CheckoutCycleId, cancellationToken)
             ?? throw new ConflictException("checkout_unavailable", "Checkout unavailable.");
         return new PendingCheckoutState(invoice.Status.ToString(), session.State, session.ExpiresAtUtc);
+    }
+
+    private async Task RequireActivatedMemberAsync(Guid memberId, CancellationToken ct)
+    {
+        var activated = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == memberId
+                && u.Status == SportHub.Identity.Domain.Enums.UserStatus.Active
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct);
+        if (!activated)
+            throw new ConflictException("member_not_activated", "Member must activate the account before checkout.");
     }
 
     private static Guid ResolveMember(Guid? target, Guid actorId, bool isFrontDesk)

@@ -1,9 +1,104 @@
-.settings table {
-  min-width: 840px;
+﻿.page {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
 }
-.settings td:first-child {
-  min-width: 180px;
+.intro {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 65ch;
+  line-height: var(--leading-relaxed);
 }
-.settings input {
-  min-width: 90px;
+.settings {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+.group {
+  padding: var(--space-6);
+}
+.group + .group {
+  border-top: 1px solid var(--border-subtle);
+}
+.heading {
+  margin-bottom: var(--space-5);
+}
+.heading h2 {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+}
+.heading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+.fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-6);
+  align-items: start;
+}
+.grid > * {
+  min-width: 0;
+}
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.control input {
+  width: 100%;
+  min-width: 0;
+  max-width: 18rem;
+  font-variant-numeric: tabular-nums;
+}
+.unit {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.fixed {
+  margin: var(--space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.updated {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  .group {
+    padding: var(--space-5) var(--space-4);
+  }
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .control input {
+    max-width: none;
+  }
 }

@@ -33,6 +33,13 @@ test("incident history scrolls, pages and opens details without entering an ID",
       });
     if (path === "/api/notifications/unread-count")
       return route.fulfill({ json: { count: 0 } });
+    if (path === "/api/system-settings")
+      return route.fulfill({
+        json: [
+          { key: "center.opening_minutes", value: "360" },
+          { key: "center.closing_minutes", value: "1320" },
+        ],
+      });
     if (path === "/api/manager/incidents") {
       const currentPage = Number(url.searchParams.get("page") || 1);
       return route.fulfill({
@@ -74,7 +81,7 @@ test("incident history scrolls, pages and opens details without entering an ID",
   ).toBeTruthy();
   await region.scrollIntoViewIfNeeded();
   await region.screenshot({ path: "../.tmp/incident-history-desktop.png" });
-  const next = page.getByRole("button", { name: /next/i });
+  const next = page.getByRole("button", { name: "Next page", exact: true });
   await next.click();
   await expect(
     region.getByText("Court maintenance 21", { exact: true }),
@@ -85,9 +92,6 @@ test("incident history scrolls, pages and opens details without entering an ID",
     page.getByRole("heading", { name: "Court maintenance 21", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(incidents[20].resolutionSummary)).toBeVisible();
-  await expect(
-    page.getByRole("columnheader", { name: "Sent", exact: true }),
-  ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/manager/incidents");
   await expect(

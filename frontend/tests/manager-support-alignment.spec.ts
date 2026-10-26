@@ -84,7 +84,10 @@ async function install(page: Page, deepLink = false) {
         pageSize: 20,
       });
     if (path === `/api/member-support-requests/${requestId}`) return json(row);
-    if (route.request().method() === "POST") {
+    if (
+      route.request().method() === "POST" &&
+      path.startsWith("/api/member-support-requests")
+    ) {
       const body = route.request().postDataJSON();
       writes.push(body);
       if (path.endsWith("/progress")) {
@@ -152,7 +155,9 @@ test("manager shows the member topic, message, images and public reply on deskto
   await page
     .getByRole("textbox", { name: "Progress note", exact: true })
     .fill("An electrician will inspect the court today.");
-  await page.getByRole("button", { name: "Update", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Update progress", exact: true })
+    .click();
   await expect(
     reply.getByText("An electrician will inspect the court today.", {
       exact: true,
@@ -258,9 +263,7 @@ test("manager records a member topic and message without requiring a subject", a
   await expect(
     dialog.getByRole("textbox", { name: "Subject", exact: true }),
   ).toHaveCount(0);
-  await dialog
-    .getByRole("textbox", { name: /^Your message/ })
-    .fill(message);
+  await dialog.getByRole("textbox", { name: /^Your message/ }).fill(message);
   await dialog
     .getByRole("button", { name: "Create & handle myself", exact: true })
     .click();

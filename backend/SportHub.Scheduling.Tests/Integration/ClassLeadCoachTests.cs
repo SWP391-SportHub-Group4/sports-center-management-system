@@ -74,7 +74,7 @@ public sealed class ClassLeadCoachTests(SchedulingApiFactory factory)
         var c = await CourseTestData.CreateAsync(factory);
         var replacement = await CoachAsync();
         var wrongSport = await CoachAsync(false);
-        var inactive = await CoachAsync(status: UserStatus.Banned);
+        var inactive = await CoachAsync(status: UserStatus.Deactivated);
         var rows = await CourseTestData.SessionsAsync(factory, c.Id);
         using var manager = factory.CreateApiClient(c.ManagerId, UserRole.CenterManager);
         var preview = (await manager.GetFromJsonAsync<Preview>(Url(c.Id) + "/candidates"))!;
@@ -106,7 +106,7 @@ public sealed class ClassLeadCoachTests(SchedulingApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await manager.PostAsJsonAsync($"api/class-sessions/{substitute.SessionId}/reschedule",
             new { startAtUtc = substitute.StartAtUtc, coachId = lead.CoachId, reason = "Substitute assignment" })).StatusCode);
         await factory.QueryAsync(db => db.UserAccounts.Where(u => u.UserId == lead.CoachId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Banned)));
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Deactivated)));
         var coverage = await manager.GetFromJsonAsync<System.Text.Json.JsonElement[]>("api/manager/coach-coverage");
         var row = Assert.Single(coverage!, x => x.GetProperty("coachId").GetGuid() == lead.CoachId);
         Assert.Single(row.GetProperty("mainClasses").EnumerateArray());

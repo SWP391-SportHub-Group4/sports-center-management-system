@@ -5,6 +5,7 @@ import { vi } from "../src/locales/vi";
 import { previewSessions } from "../src/features/courses/preview";
 import { fillIncidentDateTime } from "./helpers/incident";
 import { todayIso } from "../src/lib/format";
+import { chooseNoticeRecipient } from "./helpers/notice-recipients";
 
 const managerId = "11111111-1111-4111-8111-111111111111";
 const coachId = "22222222-2222-4222-8222-222222222222";
@@ -326,7 +327,7 @@ async function fillDraft(page: Page, proceed = true) {
     .click();
 }
 
-test("M05 locked coach details reassign the main class and refresh affected assignments", async ({
+test("M05 deactivated coach details reassign the main class and refresh affected assignments", async ({
   page,
 }) => {
   let assigned = false;
@@ -356,7 +357,7 @@ test("M05 locked coach details reassign the main class and refresh affected assi
       json: {
         ...course,
         coachId: memberId,
-        coachName: "Locked coach",
+        coachName: "Deactivated coach",
         status: "PUBLISHED",
       },
     }),
@@ -369,8 +370,8 @@ test("M05 locked coach details reassign the main class and refresh affected assi
         : [
             {
               coachId: memberId,
-              coachName: "Locked coach",
-              coachEmail: "locked@example.com",
+              coachName: "Deactivated coach",
+              coachEmail: "deactivated@example.com",
               affectedClasses: 1,
               futureSessions: 1,
               activeRelationships: 1,
@@ -381,7 +382,9 @@ test("M05 locked coach details reassign the main class and refresh affected assi
     });
   });
   await page.route(`**/api/manager/coaches/${memberId}`, (route) =>
-    route.fulfill({ json: { ...coach, userId: memberId, status: "LOCKED" } }),
+    route.fulfill({
+      json: { ...coach, userId: memberId, status: "DEACTIVATED" },
+    }),
   );
   await page.goto(`/manager/coaches/${memberId}`);
   await page
@@ -1460,6 +1463,7 @@ test("incident APIs complete the gym closure flow and retain the chosen extensio
         canResolve: true,
         blockReason: null,
         closesGym: true,
+        suggestedMembershipExtensionDays: 1,
         affectedMemberCount: 4,
       },
     });
@@ -1486,10 +1490,22 @@ test("incident APIs complete the gym closure flow and retain the chosen extensio
   await page
     .getByRole("button", { name: en.operations.review, exact: true })
     .click();
-  await expect(page.getByRole("spinbutton")).toHaveCount(0);
+  const extension = page.getByRole("spinbutton");
+  await expect(extension).toHaveValue("1");
+  for (const invalid of ["", "-1", "32", "1.5"]) {
+    await extension.fill(invalid);
+    await expect(
+      page.getByText(en.incidentHistory.invalidExtension),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: en.managerOperations.recheck }),
+    ).toBeDisabled();
+  }
+  await extension.fill("2");
   await page
     .getByRole("button", { name: en.managerOperations.recheck })
     .click();
+  await expect(page.getByText("Membership extension: 2 days.")).toBeVisible();
   await expect(
     page.getByRole("dialog", { name: en.managerOperations.resolveReview }),
   ).toBeVisible();
@@ -1506,7 +1522,7 @@ test("incident APIs complete the gym closure flow and retain the chosen extensio
     endAtUtc: new Date(incident.endAtUtc).toISOString(),
     reason: incident.reason,
   });
-  expect(requests[2]).toEqual({ ...requests[0], membershipExtensionDays: 0 });
+  expect(requests[2]).toEqual({ ...requests[0], membershipExtensionDays: 2 });
   await expect(
     page.getByRole("region", {
       name: en.managerOperations.incidentHistory,
@@ -1695,7 +1711,7 @@ test("incident timeout blocks blind resolve retries", async ({ page }) => {
   ).toBeDisabled();
   expect(resolves).toBe(1);
 });
-test("notice supports rental members and sends once after review", async ({
+test("notice supports member recipients and sends once after review", async ({
   page,
 }) => {
   await page.route("**/api/manager/court-schedule?**", (route) =>
@@ -1711,10 +1727,11 @@ test("notice supports rental members and sends once after review", async ({
     return route.fulfill({ json: { noticeId } });
   });
   await page.goto("/manager/notices");
-  await page
-    .getByLabel(en.operations.recipients, { exact: true })
-    .selectOption("MEMBER");
-  await page.getByRole("checkbox", { name: "Member An", exact: true }).check();
+  await chooseNoticeRecipient(page, "Member", {
+    userId: memberId,
+    name: "Member An",
+    email: "member@example.com",
+  });
   await page
     .getByLabel(en.operations.subject, { exact: true })
     .fill("Court update");
@@ -1789,7 +1806,7 @@ test("manual scheduling preserves the class draft without AI actions or writes",
   expect(writes).toBe(0);
 });
 
-test("notice audience changes clear selection and invalidate review", async ({
+test("notice audience additions keep earlier selections and invalidate review", async ({
   page,
 }) => {
   let writes = 0;
@@ -1798,7 +1815,11 @@ test("notice audience changes clear selection and invalidate review", async ({
       writes++;
   });
   await page.goto("/manager/notices");
-  await page.getByRole("checkbox", { name: "Coach Linh", exact: true }).check();
+  await chooseNoticeRecipient(page, "Coach", {
+    userId: coachId,
+    name: "Coach Linh",
+    email: "coach@example.com",
+  });
   await page
     .getByLabel(en.operations.subject, { exact: true })
     .fill("Schedule update");
@@ -1814,18 +1835,23 @@ test("notice audience changes clear selection and invalidate review", async ({
     ),
   ).toBeVisible();
   await expect(page.getByText(/G07|Waiting for API/i)).toHaveCount(0);
-  await page
-    .getByLabel(en.operations.recipients, { exact: true })
-    .selectOption("MEMBER");
+  await chooseNoticeRecipient(page, "Member", {
+    userId: memberId,
+    name: "Member An",
+    email: "member@example.com",
+  });
   await expect(
-    page.getByRole("checkbox", { name: "Member An", exact: true }),
-  ).not.toBeChecked();
+    page.getByRole("article", { name: "Coach recipients" }),
+  ).toContainText("1 selected");
+  await expect(
+    page.getByRole("article", { name: "Member recipients" }),
+  ).toContainText("1 selected");
   await expect(
     page.getByRole("button", { name: en.operations.send, exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: en.operations.review, exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   expect(writes).toBe(0);
 });
 
@@ -1844,7 +1870,11 @@ test("notice locks its reviewed audience while sending and keeps one request", a
     await route.fulfill({ json: { noticeId } });
   });
   await page.goto("/manager/notices");
-  await page.getByRole("checkbox", { name: "Coach Linh", exact: true }).check();
+  await chooseNoticeRecipient(page, "Coach", {
+    userId: coachId,
+    name: "Coach Linh",
+    email: "coach@example.com",
+  });
   await page
     .getByLabel(en.operations.subject, { exact: true })
     .fill("Coach timetable");
@@ -1858,10 +1888,13 @@ test("notice locks its reviewed audience while sending and keeps one request", a
     .getByRole("button", { name: en.operations.send, exact: true })
     .click();
   await expect(
-    page.getByLabel(en.operations.recipients, { exact: true }),
+    page.getByRole("button", {
+      name: "Choose recipients: Member",
+      exact: true,
+    }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("checkbox", { name: "Coach Linh", exact: true }),
+    page.getByRole("button", { name: "Choose recipients: Coach", exact: true }),
   ).toBeDisabled();
   finish();
   await expect(page).toHaveURL(/noticeId=/);
@@ -1881,7 +1914,7 @@ test("notice recovery failure never unlocks a new send", async ({ page }) => {
     page.getByLabel(en.operations.subject, { exact: true }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("checkbox", { name: "Coach Linh", exact: true }),
+    page.getByRole("button", { name: "Choose recipients: Coach", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Start a new notice", exact: true }),
@@ -2184,7 +2217,7 @@ for (const width of [390, 1440])
   }) => {
     await page.setViewportSize({ width, height: 600 });
     for (const path of [
-      "/manager/facilities",
+      "/manager/training-rooms",
       "/manager/coaches",
       "/manager/classes/new",
       "/manager/notices",
@@ -2193,10 +2226,10 @@ for (const width of [390, 1440])
       await page.goto(
         path.endsWith("coaches") ? `/manager/coaches/${coachId}` : path,
       );
-      if (path.endsWith("facilities") || path.endsWith("coaches"))
+      if (path.endsWith("training-rooms") || path.endsWith("coaches"))
         await page
           .getByRole("button", {
-            name: path.endsWith("facilities")
+            name: path.endsWith("training-rooms")
               ? "Add room only"
               : en.operations.edit,
             exact: true,

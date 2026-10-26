@@ -184,6 +184,7 @@ export function CoachProfilePreview({
               aria-label={`View coach profile: ${name}`}
             >
               <AvatarImage
+                userId={coachId}
                 name={coach?.fullName || name}
                 avatarUrl={coach?.avatarUrl}
                 size={64}

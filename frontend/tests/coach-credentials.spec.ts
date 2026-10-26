@@ -4,6 +4,66 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6h4AAAAAASUVORK5CYII=",
   "base64",
 );
+
+function twoPagePdf() {
+  const stream = (text: string) => {
+    const value = `BT /F1 18 Tf 40 160 Td (${text}) Tj ET`;
+    return `<< /Length ${Buffer.byteLength(value)} >>\nstream\n${value}\nendstream`;
+  };
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Count 2 /Kids [3 0 R 5 0 R] >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 7 0 R >> >> /Contents 4 0 R >>",
+    stream("Certificate page one"),
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>",
+    stream("Certificate page two"),
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let source = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(source));
+    source += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const startXref = Buffer.byteLength(source);
+  source += `xref\n0 ${offsets.length}\n0000000000 65535 f \n`;
+  source += offsets
+    .slice(1)
+    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+    .join("");
+  source += `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF\n`;
+  return Buffer.from(source);
+}
+
+const pdfFile = twoPagePdf();
+const pdfUrl =
+  "https://res.cloudinary.com/test/raw/upload/v1/coaching-certificate.pdf";
+const pdfContentPath = `/api/coaches/${coachId}/credentials/55555555-5555-4555-8555-555555555555/file`;
+const pdfDocument = {
+  credentialId: "55555555-5555-4555-8555-555555555555",
+  kind: "CERTIFICATE",
+  title: "Multi-page Coaching Certificate",
+  issuer: "Sports Federation",
+  issuedOn: "2025-06-01",
+  fileName: "coaching-certificate.pdf",
+  fileUrl: pdfUrl,
+  contentUrl: pdfContentPath,
+  contentType: "application/pdf",
+  sizeBytes: pdfFile.length,
+  isPublished: true,
+  version: 1,
+  createdAtUtc: "2026-10-23T00:00:00Z",
+};
+
+async function pdfFixture(page: Page) {
+  await fixture(page);
+  await page.route(`**/api/coaches/${coachId}/credentials`, (route) =>
+    route.fulfill({ json: [pdfDocument] }),
+  );
+  await page.route("**/api/coaches/me/credentials", (route) =>
+    route.fulfill({ json: [pdfDocument] }),
+  );
+}
 const coach = {
   userId: coachId,
   fullName: "Morgan Nguyen",
@@ -234,6 +294,96 @@ test("file validation blocks unsupported documents and upload failures keep the 
   );
 });
 for (const width of [1440, 320]) {
+  test(`public PDF viewer loads all pages and offers a download at ${width}px`, async ({
+    page,
+  }) => {
+    await pdfFixture(page);
+    await page.addInitScript(() =>
+      localStorage.removeItem("sporthub.accessToken"),
+    );
+    await page.setViewportSize({ width, height: 900 });
+    let release = () => {};
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(`**${pdfContentPath}`, async (route) => {
+      expect(route.request().headers().authorization).toBeUndefined();
+      await ready;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/octet-stream",
+        headers: {
+          "access-control-allow-origin": "*",
+          "content-disposition":
+            "attachment; filename=coaching-certificate.pdf",
+        },
+        body: pdfFile,
+      });
+    });
+    try {
+      await page.goto(`/coaches/${coachId}?tab=certificates`);
+      const button = page.getByRole("button", {
+        name: `View ${pdfDocument.title}`,
+        exact: true,
+      });
+      await button.click();
+      const dialog = page.getByRole("dialog", {
+        name: pdfDocument.title,
+        exact: true,
+      });
+      await expect(dialog.getByRole("status")).toHaveText("Loading PDF…");
+      release();
+      const frame = dialog.locator(
+        `iframe[title="${pdfDocument.title} PDF preview"]`,
+      );
+      await expect(frame).toBeVisible();
+      await expect(frame).toHaveAttribute(
+        "src",
+        /^blob:.*#toolbar=1&navpanes=0$/,
+      );
+      const download = dialog.getByRole("link", {
+        name: "Download PDF",
+        exact: true,
+      });
+      await expect(download).toHaveAttribute("download", pdfDocument.fileName);
+      const blobUrl = await download.getAttribute("href");
+      const delivered = await page.evaluate(async (url) => {
+        const response = await fetch(url!);
+        return {
+          type: response.headers.get("content-type"),
+          text: await response.text(),
+        };
+      }, blobUrl);
+      expect(delivered.type).toBe("application/pdf");
+      expect(delivered.text).toContain("/Count 2");
+      expect(delivered.text).toContain("Certificate page one");
+      expect(delivered.text).toContain("Certificate page two");
+      await expect(
+        dialog.getByRole("link", { name: "Open original" }),
+      ).toHaveAttribute("href", blobUrl!);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(button).toBeFocused();
+      expect(
+        await page.evaluate(async (url) => {
+          try {
+            await fetch(url!);
+            return false;
+          } catch {
+            return true;
+          }
+        }, blobUrl),
+      ).toBe(true);
+    } finally {
+      release();
+    }
+  });
+
   test(`public credentials and account controls fit ${width}px and viewer closes with Escape`, async ({
     page,
   }) => {
@@ -286,3 +436,155 @@ for (const width of [1440, 320]) {
     }
   });
 }
+
+test("PDF viewer reports blocked delivery and retries without exposing a broken original link", async ({
+  page,
+}) => {
+  await pdfFixture(page);
+  let attempts = 0;
+  let blocked = true;
+  await page.route(`**${pdfContentPath}`, (route) => {
+    expect(route.request().headers().authorization).toBe(
+      "Bearer coach-fixture-token",
+    );
+    attempts++;
+    return blocked
+      ? route.fulfill({
+          status: 403,
+          headers: { "access-control-allow-origin": "*" },
+          body: "Delivery blocked",
+        })
+      : route.fulfill({
+          contentType: "application/pdf",
+          headers: { "access-control-allow-origin": "*" },
+          body: pdfFile,
+        });
+  });
+  await page.goto("/account");
+  await page
+    .getByRole("button", { name: `View ${pdfDocument.title}`, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: pdfDocument.title,
+    exact: true,
+  });
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Could not load this PDF.",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "Open original" }),
+  ).toBeDisabled();
+  await expect(dialog.getByRole("link", { name: "Open original" })).toHaveCount(
+    0,
+  );
+  await expect(dialog.locator("iframe")).toHaveCount(0);
+  blocked = false;
+  const failedAttempts = attempts;
+  await dialog.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(dialog.locator("iframe")).toBeVisible();
+  expect(attempts).toBeGreaterThan(failedAttempts);
+});
+
+test("PDF viewer supports an older public URL without forwarding the access token", async ({
+  page,
+}) => {
+  await fixture(page);
+  const legacy = { ...pdfDocument, contentUrl: undefined };
+  await page.route("**/api/coaches/me/credentials", (route) =>
+    route.fulfill({ json: [legacy] }),
+  );
+  await page.route(pdfUrl, (route) => {
+    expect(route.request().headers().authorization).toBeUndefined();
+    return route.fulfill({
+      contentType: "application/pdf",
+      headers: { "access-control-allow-origin": "*" },
+      body: pdfFile,
+    });
+  });
+  await page.goto("/account");
+  await page
+    .getByRole("button", { name: `View ${pdfDocument.title}`, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: pdfDocument.title,
+    exact: true,
+  });
+  await expect(dialog.locator("iframe")).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: "Open original" }),
+  ).toHaveAttribute("href", /^blob:/);
+});
+
+test("coach uploads a PDF and reads its returned document through the API", async ({
+  page,
+}) => {
+  await fixture(page);
+  let uploaded = false;
+  await page.route("**/api/coaches/me/credentials", (route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postData() ?? "";
+      expect(body).toContain('filename="coaching-certificate.pdf"');
+      expect(body).toContain("Content-Type: application/pdf");
+      expect(body).toContain("%PDF-1.4");
+      uploaded = true;
+      return route.fulfill({ json: pdfDocument });
+    }
+    return uploaded ? route.fulfill({ json: [pdfDocument] }) : route.fallback();
+  });
+  await page.route(`**${pdfContentPath}`, (route) =>
+    route.fulfill({ contentType: "application/pdf", body: pdfFile }),
+  );
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Add document", exact: true }).click();
+  await page.getByLabel("Document file").setInputFiles({
+    name: pdfDocument.fileName,
+    mimeType: "application/pdf",
+    buffer: pdfFile,
+  });
+  await page.getByLabel("Title", { exact: true }).fill(pdfDocument.title);
+  await page
+    .getByRole("button", { name: "Upload document", exact: true })
+    .click();
+  await expect(
+    page.getByText("Document saved.", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: `View ${pdfDocument.title}`, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: pdfDocument.title,
+    exact: true,
+  });
+  await expect(dialog.locator("iframe")).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: "Open original" }),
+  ).toHaveAttribute("href", /^blob:/);
+});
+
+test("PDF viewer rejects an error page returned as a successful file response", async ({
+  page,
+}) => {
+  await pdfFixture(page);
+  await page.route(`**${pdfContentPath}`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<html>File unavailable</html>",
+    }),
+  );
+  await page.goto("/account");
+  await page
+    .getByRole("button", { name: `View ${pdfDocument.title}`, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: pdfDocument.title,
+    exact: true,
+  });
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Could not load this PDF.",
+  );
+  await expect(dialog.locator("iframe")).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: "Open original" }),
+  ).toBeDisabled();
+});

@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SportHub.Scheduling.Application.Commands;
 
-/// <summary>Một quy tắc lịch lặp: thứ trong tuần + giờ bắt đầu địa phương (HH:mm). Thời lượng lấy từ môn.</summary>
+/// <summary>Weekly rule: weekday and local start time (HH:mm). Duration is configured per class.</summary>
 public sealed class ScheduleRuleInput
 {
     /// <summary>0 = Chủ nhật … 6 = Thứ bảy.</summary>
@@ -33,6 +33,10 @@ public sealed class SaveClassRequest
     public DateOnly StartDate { get; set; }
 
     public int NumSessions { get; set; }
+
+    /// <summary>Minutes per session. Omitted by legacy clients to use the existing class or sport default.</summary>
+    [Range(1, 720)]
+    public int? SessionMinutes { get; set; }
 
     public int Capacity { get; set; }
 

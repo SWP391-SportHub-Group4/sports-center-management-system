@@ -7,7 +7,7 @@ const member = "33333333-3333-4333-8333-333333333333";
 for (const width of [1440, 390])
   test(`coach handles an assigned support request at ${width}px`, async ({
     page,
-  }, info) => {
+  }) => {
     await page.setViewportSize({ width, height: 1000 });
     let status = "ASSIGNED",
       note = "";
@@ -49,11 +49,13 @@ for (const width of [1440, 390])
         return json(path.endsWith("unread-count") ? { count: 0 } : []);
       if (path === "/api/member-support-requests/stats")
         return json({
+          notStarted: status === "ASSIGNED" ? 1 : 0,
           open: 0,
           assigned: status === "ASSIGNED" ? 1 : 0,
           inProgress: status === "IN_PROGRESS" ? 1 : 0,
           done: status === "DONE" ? 1 : 0,
           rejected: 0,
+          overdue: 0,
         });
       if (path === "/api/member-support-requests/queue")
         return json({ items: [row], totalCount: 1, page: 1, pageSize: 20 });
@@ -115,20 +117,33 @@ for (const width of [1440, 390])
       page.getByRole("link", { name: "View profile", exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Update", exact: true }),
+      page.getByRole("button", { name: "Update progress", exact: true }),
     ).toBeDisabled();
     await page
-      .getByLabel("Progress note", { exact: true })
+      .getByRole("textbox", { name: "Progress note", exact: true })
       .fill("Reviewed the member's schedule.");
-    await page.getByRole("button", { name: "Update", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Update progress", exact: true })
+      .click();
     await expect(
       page.getByText("Progress updated.", { exact: true }),
     ).toBeVisible();
-    await page.screenshot({
-      path: info.outputPath(`coach-support-${width}.png`),
-      fullPage: true,
-      animations: "disabled",
-    });
+    await expect(
+      page.getByRole("tab", { name: "Update progress", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("textbox", { name: "Progress note", exact: true })
+      .fill("  Reviewed the member's schedule.  ");
+    await expect(
+      page.getByRole("button", { name: "Update progress", exact: true }),
+    ).toBeEnabled();
+    expect(writes).toHaveLength(1);
+    await page
+      .getByRole("textbox", { name: "Progress note", exact: true })
+      .fill("Discussed the updated plan with the member.");
+    await expect(
+      page.getByRole("button", { name: "Update progress", exact: true }),
+    ).toBeEnabled();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -151,6 +166,156 @@ for (const width of [1440, 390])
     expect(writes).toHaveLength(2);
     expect(privateReads).toEqual([]);
   });
+
+for (const workspace of ["coach", "receptionist", "admin"] as const)
+  for (const width of [1440, 320])
+    test(`${workspace} uses separate support status filters at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.addInitScript(() => {
+        localStorage.setItem("sporthub.accessToken", "fixture");
+        localStorage.setItem("sporthub_lang", "en");
+      });
+      const statuses = [
+        "OPEN",
+        "ASSIGNED",
+        "IN_PROGRESS",
+        "DONE",
+        "CLOSED",
+        "REJECTED",
+      ];
+      const queries: string[] = [];
+      await page.route("**/api/**", (route) => {
+        const url = new URL(route.request().url());
+        const path = url.pathname;
+        const json = (value: unknown) => route.fulfill({ json: value });
+        if (path === "/api/users/me")
+          return json({
+            userId: coach,
+            role:
+              workspace === "coach"
+                ? "COACH"
+                : workspace === "admin"
+                  ? "SYSTEM_ADMINISTRATOR"
+                  : "RECEPTIONIST",
+            fullName: "Support staff",
+            email: "staff@example.test",
+            sportIds: [3],
+          });
+        if (path.includes("notifications"))
+          return json(path.endsWith("unread-count") ? { count: 0 } : []);
+        if (path.endsWith("/stats"))
+          return json({
+            notStarted: 2,
+            open: 1,
+            assigned: 1,
+            inProgress: 1,
+            done: 2,
+            rejected: 1,
+            overdue: 0,
+          });
+        if (path.endsWith("/queue")) {
+          const filter = url.searchParams.get("status") ?? "";
+          queries.push(filter);
+          const items = statuses
+            .filter(
+              (status) =>
+                !filter ||
+                (filter === "FINISHED"
+                  ? ["DONE", "CLOSED"].includes(status)
+                  : status === filter),
+            )
+            .map((status) => ({
+              requestId: `${requestId}-${status}`,
+              memberId: member,
+              memberName: "Member An",
+              category: "CLASS",
+              subject: `Request ${status}`,
+              description: `Details for ${status}`,
+              status,
+              assignedToUserId: coach,
+              assignedToName: "Support staff",
+              createdAt: "2026-10-23T02:00:00Z",
+              progressNote: "Historical outcome",
+              attachments: [],
+            }));
+          return json({
+            items,
+            totalCount: items.length,
+            page: 1,
+            pageSize: 20,
+          });
+        }
+        return json([]);
+      });
+      await page.goto(`/${workspace}/support`);
+      const summary = page.getByRole("group", {
+        name: "Filter by status",
+        exact: true,
+      });
+      await expect(summary.getByRole("button")).toHaveCount(6);
+      for (const label of [
+        "Received",
+        "Assigned",
+        "In progress",
+        "Finished",
+        "Declined",
+        "Overdue",
+      ])
+        await expect(
+          summary.getByRole("button", { name: new RegExp(`^${label}`) }),
+        ).toBeVisible();
+      await expect(summary).not.toContainText("Not started");
+      const queue = page
+        .getByRole("region", { name: "Support requests", exact: true })
+        .getByRole("list")
+        .first();
+      await expect(queue.getByRole("listitem")).toHaveCount(6);
+      await summary.getByRole("button", { name: /^Finished/ }).click();
+      await expect.poll(() => queries.at(-1)).toBe("FINISHED");
+      await expect(queue.getByRole("listitem")).toHaveCount(2);
+      await expect(queue).not.toContainText("Request REJECTED");
+      await expect(
+        page.getByRole("combobox", { name: "Status", exact: true }),
+      ).toHaveValue("FINISHED");
+      await summary.getByRole("button", { name: /^Declined/ }).click();
+      await expect.poll(() => queries.at(-1)).toBe("REJECTED");
+      await expect(queue.getByRole("listitem")).toHaveCount(1);
+      await expect(queue).toContainText("Declined");
+      await expect(queue).toContainText("Request REJECTED");
+      if (workspace === "coach" || workspace === "admin") {
+        await expect(
+          page.getByRole("tab", { name: "Reject", exact: true }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole("region", { name: "Final note", exact: true }),
+        ).toContainText("Historical outcome");
+        await expect(
+          page.getByRole("button", {
+            name: "Record a request for member",
+            exact: true,
+          }),
+        ).toHaveCount(0);
+        await expect(
+          page.getByRole("region", {
+            name: "Routing and escalation",
+            exact: true,
+          }),
+        ).toHaveCount(0);
+      }
+      await page
+        .getByRole("combobox", { name: "Status", exact: true })
+        .selectOption("ASSIGNED");
+      await expect.poll(() => queries.at(-1)).toBe("ASSIGNED");
+      await expect(queue.getByRole("listitem")).toHaveCount(1);
+      await expect(queue).toContainText("Request ASSIGNED");
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+    });
 
 test("manager can route a support request to the Coach department", async ({
   page,
@@ -210,8 +375,12 @@ test("manager can route a support request to the Coach department", async ({
     return json([]);
   });
   await page.goto("/manager/requests?type=support");
-  await page.getByLabel("Department", { exact: true }).selectOption("coach");
-  await page.getByLabel("Staff member", { exact: true }).selectOption(coach);
+  await page
+    .getByRole("combobox", { name: "Department", exact: true })
+    .selectOption("coach");
+  await page
+    .getByRole("combobox", { name: "Staff member", exact: true })
+    .selectOption(coach);
   await page
     .getByRole("button", { name: "Transfer request", exact: true })
     .click();

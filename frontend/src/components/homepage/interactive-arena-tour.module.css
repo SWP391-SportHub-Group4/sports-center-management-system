@@ -423,6 +423,7 @@
 
 .featurePhoto {
   position: relative;
+  aspect-ratio: 3 / 2;
   min-height: 0;
   flex: none;
   overflow: hidden;

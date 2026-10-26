@@ -75,6 +75,9 @@ public sealed class OccupancyService(ISportHubDbContext db, IClock clock) : IOcc
                 .AsNoTracking().ToListAsync(ct);
             if (roomTypes.Any(t => !t.IsActive))
                 throw new ConflictException("room_type_inactive", "This room type is discontinued. Choose another room.");
+            if (type == OccupancySourceType.CourtRental
+                && !await db.Set<Room>().AnyAsync(r => r.RoomId == fencedRoomId && r.AllowRental && r.IsActive, ct))
+                throw new ConflictException("rental_not_allowed", "This room is not available for new rentals.");
             var now = clock.UtcNow;
             if (await db.Set<IncidentFence>().AsNoTracking().AnyAsync(f => f.Status == IncidentFenceStatus.Open
                     && f.ExpiresAtUtc > now && f.StartAtUtc < end && f.EndAtUtc > start

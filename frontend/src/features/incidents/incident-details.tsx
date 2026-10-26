@@ -1,12 +1,12 @@
 "use client";
 import { IncidentRefundTable } from "./incident-refund-table";
+import { IncidentDayPassSupport } from "./incident-day-pass-support";
 import { AsyncSection, Card } from "@/components/ui";
 import Link from "next/link";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import { incidentApi } from "./incident-api";
-import { DeliveryStatus } from "./delivery-status";
 import styles from "./incident-history.module.css";
 
 export function IncidentDetailsView({ id }: { id: string }) {
@@ -23,6 +23,10 @@ export function IncidentDetailsView({ id }: { id: string }) {
     <AsyncSection state={state}>
       {(incident) => (
         <>
+          <IncidentDayPassSupport
+            incident={incident}
+            onChanged={state.reload}
+          />
           <Card title={incident.reason}>
             <dl className={styles.details}>
               <div>
@@ -93,7 +97,6 @@ export function IncidentDetailsView({ id }: { id: string }) {
               </section>
             )}
           </Card>
-          <DeliveryStatus incidentId={id} />
         </>
       )}
     </AsyncSection>

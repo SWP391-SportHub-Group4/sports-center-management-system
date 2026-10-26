@@ -16,10 +16,10 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
 {
     // Cửa sổ xa trong tương lai để không đụng lịch lớp/thuê sân do các test khác tạo.
-    private static (DateTime Start, DateTime End) TwoFullDays(int daysAhead)
+    private static (DateTime Start, DateTime End) OperatingDay(int daysAhead)
     {
         var first = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(daysAhead);
-        return (VietnamTime.StartOfDayUtc(first), VietnamTime.StartOfDayUtc(first.AddDays(2)));
+        return (VietnamTime.StartOfDayUtc(first).AddHours(6), VietnamTime.StartOfDayUtc(first).AddHours(22));
     }
 
     private async Task EnsureGymRoomAsync()
@@ -41,7 +41,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Closing_every_active_room_extends_active_memberships_and_notifies_members()
+    public async Task Closing_every_active_room_keeps_membership_dates_unchanged()
     {
         await EnsureGymRoomAsync();
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -51,8 +51,8 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
         var cancelled = await factory.SeedMemberPackageAsync((await factory.SeedUserAsync(UserRole.Member)).UserId,
             SportHub.Membership.Domain.Enums.MemberPackageStatus.Cancelled,
             endDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(500));
-        var (start, end) = TwoFullDays(400);
-        var request = new IncidentRequest("Center", null, start, end, "Gym floor flooding", MembershipExtensionDays: 2);
+        var (start, end) = OperatingDay(400);
+        var request = new IncidentRequest("Center", null, start, end, "Gym floor flooding");
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -61,8 +61,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
             Assert.True(preview.ClosesGym);
             Assert.Equal(0, preview.SuggestedMembershipExtensionDays);
             Assert.True(preview.AffectedMemberCount >= 1);
-            await Assert.ThrowsAsync<BadRequestException>(() => incidents.ResolveAsync(request, manager.UserId));
-            await incidents.ResolveAsync(request with { MembershipExtensionDays = 0 }, manager.UserId);
+            await incidents.ResolveAsync(request, manager.UserId);
         }
 
         var extended = await factory.ReloadPackageAsync(package.MemberPackageId);
@@ -73,11 +72,11 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
 
         var notices = await factory.QueryAsync(db => db.Notifications.AsNoTracking()
             .Where(n => n.UserId == member.UserId && n.SourceEntityId == package.MemberPackageId).ToListAsync());
-        Assert.Equal(2, notices.Count); // một thông báo trong ứng dụng và một email (không còn gia hạn)
+        Assert.Empty(notices); // một thông báo trong ứng dụng và một email
         var notice = await factory.QueryAsync(db => db.Set<IncidentNotice>().AsNoTracking()
             .SingleAsync(x => x.StartAtUtc == start && x.EndAtUtc == end));
         Assert.Equal(0, notice.MembershipExtensionDays);
-        Assert.True(notice.ExtendedMemberCount >= 1);
+        Assert.Equal(0, notice.ExtendedMemberCount);
     }
 
     [Fact]
@@ -91,7 +90,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
             await db.SaveChangesAsync();
             return room.RoomId;
         });
-        var (start, end) = TwoFullDays(430);
+        var (start, end) = OperatingDay(430);
         var request = new IncidentRequest("Room", roomId, start, end, "Court repainting", MembershipExtensionDays: 1);
 
         using var scope = factory.Services.CreateScope();

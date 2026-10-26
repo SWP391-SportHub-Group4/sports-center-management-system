@@ -26,6 +26,20 @@ public sealed class CoachCredentialsController(CoachCredentialService service) :
     [HttpGet("{coachId:guid}/credentials"), AllowAnonymous]
     public async Task<IActionResult> Public(Guid coachId, CancellationToken ct) => Ok(await service.ListAsync(coachId, false, ct));
 
+    [HttpGet("{coachId:guid}/credentials/{credentialId:guid}/file"), AllowAnonymous]
+    public async Task<IActionResult> ReadFile(Guid coachId, Guid credentialId, CancellationToken ct)
+    {
+        Guid? viewerUserId = User.Identity?.IsAuthenticated == true && User.IsInRole(SportHubRoleNames.Coach)
+            ? User.RequireUserId() : null;
+        var document = await service.ReadPdfAsync(coachId, credentialId, viewerUserId, ct);
+        var disposition = new Microsoft.Net.Http.Headers.ContentDispositionHeaderValue("inline");
+        disposition.SetHttpFileName(document.FileName);
+        Response.Headers.ContentDisposition = disposition.ToString();
+        Response.Headers.CacheControl = "private, no-store";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(document.Content, document.ContentType, enableRangeProcessing: true);
+    }
+
     [HttpGet("me/credentials"), Authorize(Roles = SportHubRoleNames.Coach)]
     public async Task<IActionResult> Mine(CancellationToken ct) => Ok(await service.ListAsync(User.RequireUserId(), true, ct));
 

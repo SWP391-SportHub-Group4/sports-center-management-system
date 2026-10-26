@@ -82,6 +82,7 @@ export function CoachProfile({
               <header className={styles.hero}>
                 <div className={styles.identity}>
                   <AvatarImage
+                    userId={coach.userId}
                     name={coach.fullName}
                     avatarUrl={coach.avatarUrl}
                     size={128}

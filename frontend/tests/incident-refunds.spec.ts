@@ -78,6 +78,13 @@ async function setup(page: Page) {
       });
     if (path.endsWith("unread-count"))
       return route.fulfill({ json: { count: 0 } });
+    if (path === "/api/system-settings")
+      return route.fulfill({
+        json: [
+          { key: "center.opening_minutes", value: "360" },
+          { key: "center.closing_minutes", value: "1320" },
+        ],
+      });
     if (path === "/api/rooms")
       return route.fulfill({
         json: [

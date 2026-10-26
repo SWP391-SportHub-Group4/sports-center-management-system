@@ -26,6 +26,15 @@ export interface IncidentDelivery {
 }
 
 export interface IncidentDetails {
+  closesGym?: boolean;
+  dayPassNoticeSentAtUtc?: string | null;
+  dayPassMembers?: {
+    passId: string;
+    memberId: string;
+    memberName: string | null;
+    useDate: string;
+    expiresAtUtc: string;
+  }[];
   refunds?: IncidentRefundReceiptDto[];
   incidentId: string;
   scope: string;

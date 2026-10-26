@@ -15,8 +15,8 @@ public sealed class CenterCancellationReader(ISportHubDbContext db) : ICenterCan
     public async Task<IReadOnlyList<CenterCancelledEntitlement>> ListForMemberAsync(Guid memberId, DateTime sinceUtc,
         CancellationToken ct = default)
     {
-        var classes = await ClassRows(e => e.MemberId == memberId && e.EndedAt >= sinceUtc).ToListAsync(ct);
-        var rentals = await RentalRows(r => r.MemberId == memberId && r.CancelledAtUtc >= sinceUtc).ToListAsync(ct);
+        var classes = await ClassQuery(memberId: memberId, fromUtc: sinceUtc).ToListAsync(ct);
+        var rentals = await RentalQuery(memberId: memberId, fromUtc: sinceUtc).ToListAsync(ct);
         return Merge(classes, rentals);
     }
 
@@ -25,35 +25,49 @@ public sealed class CenterCancellationReader(ISportHubDbContext db) : ICenterCan
     {
         // Mỗi nguồn lấy tối đa skip+take dòng cũ nhất rồi gộp để phân trang ổn định.
         var limit = skip + take;
-        var classes = await ClassRows(e => e.EndedAt >= fromUtc && e.EndedAt < toUtc)
-            .OrderBy(x => x.At).ThenBy(x => x.ItemId).Take(limit).ToListAsync(ct);
-        var rentals = await RentalRows(r => r.CancelledAtUtc >= fromUtc && r.CancelledAtUtc < toUtc)
-            .OrderBy(x => x.At).ThenBy(x => x.ItemId).Take(limit).ToListAsync(ct);
+        var classes = await ClassQuery(fromUtc: fromUtc, toUtc: toUtc, limit: limit).ToListAsync(ct);
+        var rentals = await RentalQuery(fromUtc: fromUtc, toUtc: toUtc, limit: limit).ToListAsync(ct);
         return Merge(classes, rentals).Skip(skip).Take(take).ToList();
     }
 
     public async Task<CenterCancelledEntitlement?> GetAsync(Guid invoiceItemId, CancellationToken ct = default)
     {
-        var classes = await ClassRows(e => e.InvoiceItemId == invoiceItemId).ToListAsync(ct);
-        var rentals = await RentalRows(r => r.InvoiceItemId == invoiceItemId).ToListAsync(ct);
+        var classes = await ClassQuery(itemId: invoiceItemId).ToListAsync(ct);
+        var rentals = await RentalQuery(itemId: invoiceItemId).ToListAsync(ct);
         return Merge(classes, rentals).FirstOrDefault();
     }
 
-    // Filters are applied to the entities before projecting, so EF translates them without relying on the DTO shape.
-    private IQueryable<Row> ClassRows(System.Linq.Expressions.Expression<Func<Enrollment, bool>> filter)
-        => from e in db.Set<Enrollment>().AsNoTracking()
-               .Where(x => x.Status == EnrollmentStatus.CancelledByCenter && x.InvoiceItemId != null && x.EndedAt != null)
-               .Where(filter)
-           join c in db.Set<Class>().AsNoTracking() on e.ClassId equals c.ClassId
-           select new Row("Class", e.InvoiceItemId!.Value, e.MemberId, c.Name, e.EndedAt!.Value, null);
+    private IQueryable<Row> ClassQuery(Guid? memberId = null, DateTime? fromUtc = null,
+        DateTime? toUtc = null, Guid? itemId = null, int? limit = null)
+    {
+        var query = db.Set<Enrollment>().AsNoTracking()
+            .Where(e => e.Status == EnrollmentStatus.CancelledByCenter && e.InvoiceItemId != null && e.EndedAt != null);
+        if (memberId.HasValue) query = query.Where(e => e.MemberId == memberId.Value);
+        if (fromUtc.HasValue) query = query.Where(e => e.EndedAt >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(e => e.EndedAt < toUtc.Value);
+        if (itemId.HasValue) query = query.Where(e => e.InvoiceItemId == itemId.Value);
+        query = query.OrderBy(e => e.EndedAt).ThenBy(e => e.InvoiceItemId);
+        if (limit.HasValue) query = query.Take(limit.Value);
+        return from e in query
+               join c in db.Set<Class>().AsNoTracking() on e.ClassId equals c.ClassId
+               select new Row("Class", e.InvoiceItemId!.Value, e.MemberId, c.Name, e.EndedAt!.Value, null);
+    }
 
-    private IQueryable<Row> RentalRows(System.Linq.Expressions.Expression<Func<CourtRental, bool>> filter)
-        => db.Set<CourtRental>().AsNoTracking()
+    private IQueryable<Row> RentalQuery(Guid? memberId = null, DateTime? fromUtc = null,
+        DateTime? toUtc = null, Guid? itemId = null, int? limit = null)
+    {
+        var query = db.Set<CourtRental>().AsNoTracking()
             .Where(r => r.Status == CourtRentalStatus.Cancelled && r.InvoiceItemId != null && r.CancelledAtUtc != null
-                && r.CancelReason != null && r.CancelReason.StartsWith(CenterFaultPrefix))
-            .Where(filter)
-            .Select(r => new Row("CourtRental", r.InvoiceItemId!.Value, r.MemberId, "Court rental",
-                r.CancelledAtUtc!.Value, r.CancelReason!.Substring(CenterFaultPrefix.Length)));
+                && r.CancelReason != null && r.CancelReason.StartsWith(CenterFaultPrefix));
+        if (memberId.HasValue) query = query.Where(r => r.MemberId == memberId.Value);
+        if (fromUtc.HasValue) query = query.Where(r => r.CancelledAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(r => r.CancelledAtUtc < toUtc.Value);
+        if (itemId.HasValue) query = query.Where(r => r.InvoiceItemId == itemId.Value);
+        query = query.OrderBy(r => r.CancelledAtUtc).ThenBy(r => r.InvoiceItemId);
+        if (limit.HasValue) query = query.Take(limit.Value);
+        return query.Select(r => new Row("CourtRental", r.InvoiceItemId!.Value, r.MemberId, "Court rental",
+            r.CancelledAtUtc!.Value, r.CancelReason!.Substring(CenterFaultPrefix.Length)));
+    }
 
     private static List<CenterCancelledEntitlement> Merge(IEnumerable<Row> classes, IEnumerable<Row> rentals)
         => classes.Concat(rentals).OrderBy(x => x.At).ThenBy(x => x.ItemId)

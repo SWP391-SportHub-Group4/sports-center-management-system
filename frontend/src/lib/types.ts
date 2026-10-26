@@ -4,6 +4,25 @@ export interface Paged<T> {
   pageSize: number;
   totalCount: number;
 }
+export interface SupportRefundItemDto {
+  invoiceItemId: string;
+  description: string;
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+}
+export interface SupportRefundBreakdownDto {
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+  items: SupportRefundItemDto[];
+}
 export interface MemberSupportRequestDto {
   requestId: string;
   memberId: string;
@@ -41,11 +60,14 @@ export interface MemberSupportRequestDto {
   isOverdue?: boolean;
   remindCount?: number;
   invoiceId?: string | null;
+  invoiceItemId?: string | null;
   outcome?: string | null;
   bankAccountMasked?: string | null;
   payout?: {
     payoutId: string;
     amount: number;
+    invoiceItemId?: string | null;
+    pointsRefunded?: number;
     recordedAtUtc: string;
     memberConfirmedAtUtc: string | null;
     memberConfirmedBy: "MEMBER" | "SYSTEM" | null;
@@ -204,6 +226,7 @@ export interface PaymentAttemptDto {
 }
 
 export interface RoomDto {
+  allowRental?: boolean;
   rentalBookingOpensAtUtc?: string | null;
   sportId?: number | null;
   roomTypeId: number | null;
@@ -590,6 +613,16 @@ export interface WorkoutSuggestionDto {
   generatedAt: string;
 }
 
+export interface SavedWorkoutSuggestionDto {
+  id: string;
+  generatedAt: string;
+  sport: string;
+  goal: string;
+  level: string;
+  items: { exercise: string; sets: number; reps: number; notes?: string | null }[];
+  rationale: string;
+}
+
 export interface SystemSettingDto {
   key: string;
   value: string;
@@ -808,6 +841,7 @@ export interface CourtRentalDetailDto {
 }
 
 export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
+  sessionMinutes?: number | null;
   status: "DRAFT" | CourseDto["status"];
   costAmount: number;
   breakEvenThreshold: number | null;
@@ -925,7 +959,7 @@ export interface IncidentPreviewDto {
     sourceType: string;
     sourceId: string;
     outcome:
-      "AWAITS_REFUND_CHOICE" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION";
+      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION" | "DAY_PASS_SUPPORT";
     expectedRefundPoints: number | null;
   }[];
   expectedRefundPointsTotal?: number;

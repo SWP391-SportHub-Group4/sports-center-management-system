@@ -4,7 +4,7 @@ import { managerLayoutFixture, layoutRoutes } from "./helpers/manager-layout";
 const groups = {
   Sport: [
     ["Sports", "/manager/sports"],
-    ["Courts", "/manager/facilities"],
+    ["Rooms", "/manager/facilities"],
     ["Membership", "/manager/membership-plans"],
     ["Classes", "/manager/classes"],
   ],

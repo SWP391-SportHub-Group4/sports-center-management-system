@@ -48,6 +48,7 @@ public sealed class CreateMemberSupportRequest
 
     /// <summary>Bắt buộc với danh mục PAYMENT: hóa đơn VNPay đã thanh toán của chính Member này.</summary>
     public Guid? InvoiceId { get; set; }
+    public Guid? InvoiceItemId { get; set; }
 }
 
 public sealed record MemberSupportRequestResponse(
@@ -70,10 +71,11 @@ public sealed record MemberSupportRequestResponse(
     string Channel = "COUNTER", DateTime? SlaDueAtUtc = null,
     bool IsOverdue = false, int RemindCount = 0,
     Guid? InvoiceId = null, SupportPayoutInfo? Payout = null,
-    string? Outcome = null);
+    string? Outcome = null, Guid? InvoiceItemId = null);
 
 public sealed record SupportPayoutInfo(Guid PayoutId, decimal Amount, DateTime RecordedAtUtc,
-    DateTime? MemberConfirmedAtUtc, string? MemberConfirmedBy, IReadOnlyList<Guid> ProofAttachmentIds);
+    DateTime? MemberConfirmedAtUtc, string? MemberConfirmedBy, IReadOnlyList<Guid> ProofAttachmentIds,
+    Guid? InvoiceItemId = null, int PointsRefunded = 0);
 
 public sealed record SupportAttachmentInfo(Guid AttachmentId, string FileName,
     string Kind = SupportAttachmentKinds.MemberProof);
@@ -109,7 +111,7 @@ public sealed class MemberSupportRequestsController(
         SlaDueAtUtc: x.SlaDueAtUtc,
         IsOverdue: !IsFinal(x.Status) && x.SlaDueAtUtc <= clock.UtcNow,
         RemindCount: x.RemindCount, InvoiceId: x.InvoiceId,
-        Outcome: x.Status == "CLOSED" ? "DONE" : null);
+        Outcome: x.Status == "CLOSED" ? "DONE" : null, InvoiceItemId: x.InvoiceItemId);
 
     private bool IsAssignedHandler => User.IsInRole(nameof(UserRole.Coach))
         || User.IsInRole(nameof(UserRole.SystemAdministrator));
@@ -160,8 +162,8 @@ public sealed class MemberSupportRequestsController(
                 .Select(p => new SupportPayoutInfo(p.PayoutId, p.Amount, p.RecordedAtUtc,
                     p.MemberConfirmedAtUtc, p.MemberConfirmedBy,
                     db.Set<MemberSupportAttachment>().Where(a => canSeePayoutProof && a.PayoutId == p.PayoutId)
-                        .Select(a => a.AttachmentId).ToList())).FirstOrDefault(),
-            x.Status == "CLOSED" ? "DONE" : null));
+                        .Select(a => a.AttachmentId).ToList(), p.InvoiceItemId, p.PointsRefunded)).FirstOrDefault(),
+            x.Status == "CLOSED" ? "DONE" : null, x.InvoiceItemId));
     }
 
     [HttpGet]
@@ -174,6 +176,8 @@ public sealed class MemberSupportRequestsController(
             .Set<UserAccount>()
             .AsNoTracking()
             .Include(x => x.Role)
+            .Include(x => x.Credential)
+            .Include(x => x.ExternalLogins)
             .AnyAsync(
                 x =>
                     x.UserId == memberId &&
@@ -227,6 +231,15 @@ public sealed class MemberSupportRequestsController(
             });
         }
 
+        // Newly registered members can be Active but still lack login credentials.
+        if (!await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == request.MemberId
+                && u.Status == UserStatus.Active
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct))
+            throw new ConflictException("member_not_activated", "Member must activate the account before a support request can be created.");
+
+
         var description = request.Description.Trim();
         var category = request.Category.Trim().ToUpperInvariant();
 
@@ -261,6 +274,7 @@ public sealed class MemberSupportRequestsController(
             });
         }
 
+        await using var createTx = await db.Database.BeginTransactionAsync(ct);
         if (category == "PAYMENT")
         {
             if (request.InvoiceId is null || request.InvoiceId == Guid.Empty)
@@ -269,7 +283,8 @@ public sealed class MemberSupportRequestsController(
             if (!string.IsNullOrWhiteSpace(request.ResolveNote))
                 throw new ForbiddenException(PaymentSupportErrorCodes.PaymentRequestManagerOnly,
                     "A payment request cannot be resolved at the counter. A manager handles it.");
-            await invoiceGuard.EnsureEligibleAsync(request.MemberId, request.InvoiceId.Value, ct);
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM invoices WHERE invoice_id = {request.InvoiceId.Value} FOR UPDATE", ct);
+            request.InvoiceItemId = await invoiceGuard.EnsureEligibleAsync(request.MemberId, request.InvoiceId.Value, ct, request.InvoiceItemId);
         }
 
         var channel = (request.Channel ?? "COUNTER").Trim().ToUpperInvariant();
@@ -298,7 +313,8 @@ public sealed class MemberSupportRequestsController(
             Channel = channel,
             CreatedAt = now,
             SlaDueAtUtc = now.AddHours(SupportReminderService.InactivityHours),
-            InvoiceId = category == "PAYMENT" ? request.InvoiceId : null
+            InvoiceId = category == "PAYMENT" ? request.InvoiceId : null,
+            InvoiceItemId = category == "PAYMENT" ? request.InvoiceItemId : null
         };
         AddEvent(entity.RequestId, "CREATED", null);
         if (!string.IsNullOrWhiteSpace(request.ResolveNote))
@@ -357,6 +373,7 @@ public sealed class MemberSupportRequestsController(
 
         await db.SaveChangesAsync(ct);
 
+        await createTx.CommitAsync(ct);
         return Ok(Map(entity));
     }
 
@@ -379,7 +396,7 @@ public sealed class MemberSupportRequestsController(
             assigned = Count("ASSIGNED"),
             inProgress = Count("IN_PROGRESS"),
             overdue,
-            done = Count("DONE") + Count("CLOSED") + (IsAssignedHandler ? Count("REJECTED") : 0),
+            done = Count("DONE") + Count("CLOSED"),
             rejected = Count("REJECTED")
         });
     }
@@ -412,7 +429,7 @@ public sealed class MemberSupportRequestsController(
             if (value == "NOT_STARTED")
                 query = query.Where(x => x.Status == "OPEN" || x.Status == "ASSIGNED");
             else if (value == "FINISHED")
-                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED" || (IsAssignedHandler && x.Status == "REJECTED"));
+                query = query.Where(x => x.Status == "DONE" || x.Status == "CLOSED");
             else
                 query = query.Where(x => x.Status == value);
         }
@@ -541,6 +558,9 @@ public sealed class MemberSupportRequestsController(
         RequireManagerForPayment(row);
         if (IsFinal(row.Status))
             throw new ConflictException("support_request_final", "Support request has already been finalized.");
+        if (target == "DONE" && row.Category == "PAYMENT"
+            && !await db.Set<MemberSupportPayout>().AnyAsync(p => p.RequestId == requestId, ct))
+            throw new ConflictException("payout_required", "Record the bank payout and proof before completing this payment request.");
         var payoutReview = row.Category == "PAYMENT"
             && await db.Set<MemberSupportPayout>().AnyAsync(p => p.RequestId == requestId, ct)
             && await db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == requestId

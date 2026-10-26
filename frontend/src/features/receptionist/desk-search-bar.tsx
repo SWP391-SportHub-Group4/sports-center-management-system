@@ -58,7 +58,8 @@ export function DeskSearchBar({ showScan = true }: { showScan?: boolean }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const ready = debounced.length >= MIN_KEYWORD_LENGTH && !isMemberCode(debounced);
+  const ready =
+    debounced.length >= MIN_KEYWORD_LENGTH && !isMemberCode(debounced);
   const search = useApi(
     (signal) =>
       ready
@@ -147,15 +148,11 @@ export function DeskSearchBar({ showScan = true }: { showScan?: boolean }) {
         {showList && (
           <ul className={styles.results} id={listId} role="listbox">
             {search.loading && (
-              <li className={styles.note}>
-                {vi ? "Đang tìm…" : "Searching…"}
-              </li>
+              <li className={styles.note}>{vi ? "Đang tìm…" : "Searching…"}</li>
             )}
             {!search.loading && !results.length && (
               <li className={styles.note}>
-                {vi
-                  ? "Không có hội viên phù hợp."
-                  : "No matching members."}
+                {vi ? "Không có hội viên phù hợp." : "No matching members."}
               </li>
             )}
             {results.map((row, index) => (
@@ -172,6 +169,7 @@ export function DeskSearchBar({ showScan = true }: { showScan?: boolean }) {
                 onMouseEnter={() => setActive(index)}
               >
                 <AvatarImage
+                  userId={row.userId}
                   name={row.fullName || row.email}
                   avatarUrl={row.avatarUrl}
                   size={32}
@@ -217,7 +215,9 @@ export function DeskSearchBar({ showScan = true }: { showScan?: boolean }) {
 
       {scanning && (
         <Dialog
-          title={vi ? "Quét mã check-in của hội viên" : "Scan the member's code"}
+          title={
+            vi ? "Quét mã check-in của hội viên" : "Scan the member's code"
+          }
           description={
             vi
               ? "Đưa mã QR 6 số hoặc mã trong SportHub của hội viên vào khung hình."
@@ -248,7 +248,11 @@ export function DeskSearchBar({ showScan = true }: { showScan?: boolean }) {
   );
 }
 
-function ScanBody({ onResolved }: { onResolved: (member: UserAdminDto) => void }) {
+function ScanBody({
+  onResolved,
+}: {
+  onResolved: (member: UserAdminDto) => void;
+}) {
   const { language } = useLanguage();
   const [error, setError] = useState<string | null>(null);
   return (

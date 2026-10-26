@@ -20,7 +20,6 @@ import { AvatarImage } from "@/components/AvatarImage";
 
 const accountQueues = [
   "ACTIVE",
-  "BANNED",
   "DEACTIVATED",
   "ACTIVATION_REQUIRED",
   "ACTIVATION_EXPIRING",
@@ -81,8 +80,10 @@ export function AdminOverview() {
       ),
     );
     return {
-      counts: pages.map((page) => page.totalCount),
-      invitations: pagedItems(pages[3]),
+      counts: Object.fromEntries(
+        pages.map((page, index) => [accountQueues[index], page.totalCount]),
+      ),
+      invitations: pagedItems(pages[2]),
       fetchedAt: new Date().toISOString(),
     };
   }, []);
@@ -114,8 +115,8 @@ export function AdminOverview() {
     [],
   );
   const loading = totals.loading || roles.loading || activity.loading;
-  const pending = totals.data?.counts[3] ?? 0;
-  const expiring = totals.data?.counts[4] ?? 0;
+  const pending = totals.data?.counts.ACTIVATION_REQUIRED ?? 0;
+  const expiring = totals.data?.counts.ACTIVATION_EXPIRING ?? 0;
   const roleTotal = roles.data?.reduce((sum, role) => sum + role.count, 0) ?? 0;
   const metrics = [
     {
@@ -125,22 +126,10 @@ export function AdminOverview() {
       tone: "active",
     },
     {
-      status: "BANNED",
-      label: "Locked accounts",
-      hint: "Sign-in is blocked",
-      tone: "locked",
-    },
-    {
       status: "DEACTIVATED",
       label: "Deactivated accounts",
       hint: "Account access is disabled",
       tone: "inactive",
-    },
-    {
-      status: "ACTIVATION_REQUIRED",
-      label: "Pending activation",
-      hint: "Staff who have not activated yet",
-      tone: "pending",
     },
   ];
   const columns: TableColumn<AuditLogDto>[] = [
@@ -155,6 +144,7 @@ export function AdminOverview() {
               <ShieldCheck size={17} />
             ) : (
               <AvatarImage
+                userId={row.userId}
                 name={row.actorFullName?.trim() || row.actorEmail || "Account"}
                 size={32}
               />
@@ -309,7 +299,7 @@ export function AdminOverview() {
 
       <section aria-label="Account overview" aria-busy={totals.loading}>
         <div className={styles.metrics}>
-          {metrics.map((metric, index) => (
+          {metrics.map((metric) => (
             <div
               className={styles.metric}
               data-tone={metric.tone}
@@ -326,7 +316,7 @@ export function AdminOverview() {
                     aria-label="Loading"
                   />
                 ) : totals.data ? (
-                  formatNumber(totals.data.counts[index])
+                  formatNumber(totals.data.counts[metric.status])
                 ) : (
                   "—"
                 )}

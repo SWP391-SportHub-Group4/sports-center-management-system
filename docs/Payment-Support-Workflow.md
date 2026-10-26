@@ -2,7 +2,7 @@
 
 Quyết định ngày 24/10/2026, xác nhận sau buổi họp nhóm. Văn bản này là nguồn duy nhất cho các quy tắc dưới đây; khi mâu thuẫn với mô tả cũ trong [Nguồn thống nhất](00-Source-of-Truth.md), [Thiết kế hệ thống](Center-Management-System-Design-v3.md), [API contract](api-contract.md) hay [Functional spec](Functional-and-Nonfunctional-Spec.md), văn bản này thắng.
 
-**Hướng giữ nguyên:** ví điểm (1 điểm = 1.000 VND, không hết hạn), hoàn điểm theo invoice item (mỗi hóa đơn checkout chỉ có đúng 1 dòng nên hóa đơn và dòng trùng nhau), dùng điểm khi checkout. **Bổ sung:** giờ bán và hiệu lực của day pass, xử lý thanh toán đến muộn, SLA 2 ngày cho Support Request và luồng Manager hoàn tiền chuyển khoản theo Support Request.
+**Hướng giữ nguyên:** ví điểm (1 điểm = 1.000 VND, không hết hạn), hoàn điểm theo invoice item, dùng điểm khi checkout. **Bổ sung:** giờ bán và hiệu lực của day pass, xử lý thanh toán đến muộn, SLA 2 ngày cho Support Request và luồng Manager hoàn tiền chuyển khoản theo Support Request.
 
 **Không thuộc quyết định này:** voucher, Compensation Campaign, bỏ ví điểm. Các hướng đó đã bị loại.
 
@@ -42,7 +42,7 @@ Khóa trạng thái: một khoản chỉ được xử lý một lần. Sau khi 
 
 ## 3. Nguyên tắc hoàn tiền
 
-- **Đã mua thì không hoàn, kể cả khi Member tự hủy gói.** Hủy ghi danh, hủy thuê sân hoặc hủy gói của Member không tạo hoàn tiền tự động. Máy tính hoàn điểm (`RefundCalculator`) trả 0 cho Member tự hủy Membership, ghi danh lớp và lượt thuê sân; chỉ lỗi phía trung tâm mới có số điểm hoàn (Membership theo phần ngày chưa dùng, lớp theo buổi chưa cung cấp, sân 100%).
+- **Đã mua thì không hoàn, kể cả khi Member tự hủy gói.** Hủy ghi danh, hủy thuê sân hoặc hủy gói của Member không tạo hoàn tiền tự động. Chính sách hoàn điểm hiện hành theo invoice item (Membership, hủy sân theo ngưỡng miễn phí) giữ nguyên.
 - Hoàn phát sinh khi:
   - **Member gửi Support Request** (danh mục PAYMENT) và Manager hỗ trợ (mục 5).
   - **Sự cố hoặc quyết định phía trung tâm**: lớp dưới ngưỡng bị Manager hủy, hủy sân do trung tâm, sự cố sân. Lúc hủy hệ thống **chỉ gửi thông báo** cho Member. Member chọn một trong hai: nhận 100% giá trị còn lại bằng điểm (hoàn tự động ngay) hoặc gửi Support Request PAYMENT để Manager xử lý. Quá 2 ngày không chọn thì hệ thống tự hoàn điểm.
@@ -148,7 +148,7 @@ Các endpoint dưới đây chưa có trong backend; không dùng như endpoint 
 | POST | `/api/support/requests/{id}/confirm-received` | Member | Chỉ khi có payout. Idempotent. |
 | POST | `/api/support/requests/{id}/report-not-received` | Member | Chỉ khi có payout và chưa xác nhận; mở lại request. |
 | POST | `/api/member-support-requests/{id}/payout` (multipart) | CenterManager | `amount` (phần VNPay), `note` (bắt buộc), `files[1..3]`. Phần điểm của khoản hoàn tự cộng lại trong cùng giao dịch (mục 5.7); response thêm `pointsRefunded`. Lỗi: 400 `payout_proof_required`, 400 `payout_note_required`, 409 `payout_amount_mismatch`, 409 `payout_amount_exceeds_paid`, 409 `payout_already_recorded`, 403 cho Receptionist. |
-| GET | `/api/members/me/invoices/{invoiceId}/refund-breakdown` | Member | `{totalVnd, vnpayVnd, pointsApplied, pointsVnd, refundableVnpayVnd, refundablePoints}` tính theo hóa đơn (mỗi hóa đơn checkout chỉ có 1 dòng); form PAYMENT dùng để hiện Invoice Breakdown và khóa lựa chọn ngân hàng khi `vnpayVnd = 0`. |
+| GET | `/api/members/me/invoices/{invoiceId}/refund-breakdown` | Member | `{totalVnd, vnpayVnd, pointsApplied, pointsVnd, refundableVnpayVnd, refundablePoints}` theo từng dòng; form PAYMENT dùng để hiện Invoice Breakdown và khóa lựa chọn ngân hàng khi `vnpayVnd = 0`. |
 | GET | `/api/support/attachments/{id}` (mở rộng) | Chủ request, FrontDesk, Manager | Ảnh Member gửi: chủ request, Lễ tân, Manager. Ảnh chứng từ payout: chỉ chủ request và CenterManager, Lễ tân nhận 404. |
 | GET | `/api/members/me/unactivated-payments` | Member | Danh sách invoice `RECONCILIATION_REQUIRED` của mình. |
 | POST | `/api/invoices/{invoiceId}/convert-to-points` | Member | Quy phần tiền đã thu ra điểm ngay (mục 2); 409 `reconciliation_already_resolved`. |
@@ -210,7 +210,7 @@ Job `SupportSlaReminderJob` chạy mỗi 15 phút (dedupe theo `request_id + rec
 7. (25/10/2026) Bỏ nhập số tài khoản ở request PAYMENT. Khi cần thông tin chuyển khoản, Manager gọi điện trực tiếp cho Member, trao đổi rồi ghi chú lại trong payout (ghi chú bắt buộc). Hệ thống không lưu dữ liệu ngân hàng, không mã hóa hay xóa định kỳ.
 8. (25/10/2026) Request PAYMENT không đi qua Lễ tân để xử lý: chỉ Manager xử lý và ghi payout. Lễ tân vẫn thấy request (chỉ xem), có thể bấm Remind giúp Member (nhắc Manager, cùng quy tắc 48 giờ và cooldown), tạo request PAYMENT hộ Member, nhưng không gán cho người khác ngoài Manager, không đóng hay ghi payout, và không nhận thông báo nhắc.
 
-9. (25/10/2026) Điểm: Receptionist **được nạp điểm hộ Member** (Add points) bằng đúng luồng Member tự nạp (VNPay, `targetMemberId`, có audit); Receptionist vẫn không tự tặng, trừ hay điều chỉnh điểm. **Manager** được tặng điểm cho Member (người hoặc nhóm chọn bằng bộ lọc, kèm lý do và điều kiện như phát voucher, có audit); màn hình giống Add points của Member nhưng thêm lý do và bộ lọc.
+9. (25/10/2026) Điểm: Receptionist **được nạp điểm hộ Member** (Add points) bằng đúng luồng Member tự nạp (VNPay, `targetMemberId`, có audit); Receptionist vẫn không tự tặng, trừ hay điều chỉnh điểm. **Manager** được tặng điểm cho Member (người hoặc nhóm chọn bằng bộ lọc, kèm lý do và điều kiện như phát voucher, có audit); màn hình có lý do, bộ lọc và bước xem lại danh sách/tổng điểm. Chính Manager xác nhận thì cộng ngay, không cần Manager khác phê duyệt.
 10. (25/10/2026) Khi Gym đóng vì sự cố: không bán thêm Gym day pass (409 `gym_closed_today`); không check-in kể cả người đã mua vé (409 `gym_closed`); vé đã mua vẫn hết hạn 22:00 cùng ngày, không gia hạn và không hoàn điểm qua luồng hoàn hiện có. Manager có thể gửi thông báo email cho Member đã mua day pass vào ngày sự cố, rồi tặng điểm nếu Member đồng ý; nếu không thì Member gửi Support Request.
 11. (25/10/2026) Thuê sân của Member: chỉ thuê trong khung 06:00 đến trước 22:00 giờ Việt Nam, từ 22:00 đến 06:00 sáng hôm sau không thuê được; chỉ hiển thị và đặt trong 3 ngày lịch (hôm nay và 2 ngày kế tiếp), cửa sổ chuyển ngày lúc 06:00 (ví dụ từ 06:00 ngày 26 mở 26, 27, 28; từ 06:00 ngày 27 mở 27, 28, 29). Áp dụng cho cả Member tự thuê và Lễ tân đặt hộ Member; Lịch sân mà Manager và Lễ tân xem không bị giới hạn bởi cửa sổ này.
 12. (25/10/2026) Điểm danh lớp nhóm do **Coach** phụ trách lớp ghi (Present/Absent). Khi Coach ghi sai và Member kiến nghị, **Lễ tân** được chỉnh sửa bản ghi (bắt buộc lý do, ghi nhận Member đã kiến nghị, có audit); Lễ tân không điểm danh thay Coach.
@@ -219,3 +219,21 @@ Job `SupportSlaReminderJob` chạy mỗi 15 phút (dedupe theo `request_id + rec
 14. (25/10/2026) Hoàn song song theo tỷ lệ thanh toán gốc (mục 5.7): phần VNPay hoàn qua Manager chuyển khoản, phần điểm tự cộng lại vào ví trong cùng giao dịch ghi payout; hóa đơn 100% điểm không gửi được request ngân hàng; tách theo từng dòng hóa đơn; 1 điểm = 1.000đ.
 
 Không còn câu hỏi mở.
+
+## Cập nhật 26/10/2026: Manager chọn riêng tiền và điểm hoàn
+
+Quyết định này thay thế quy tắc “VNPay phải hoàn đúng toàn bộ và điểm tự hoàn toàn bộ” ở mục 5.7, hợp đồng API và tiêu chí nghiệm thu cũ.
+
+- Trên một request PAYMENT cho một dòng hóa đơn, Manager nhập `Amount` (tiền chuyển khoản) và `PointsRefunded` (điểm trả về ví) độc lập. Mỗi số không được vượt phần còn có thể hoàn của phương thức tương ứng; được chọn chỉ tiền, chỉ điểm, hoặc cả hai. Không cho cả hai bằng 0.
+- Tiền phải là bội số 1.000đ; điểm phải là số nguyên không âm. Ví dụ dòng đã trả 80.000đ VNPay và 20 điểm: có thể hoàn 80.000đ + 0 điểm, 0đ + 20 điểm, hoặc bất kỳ kết hợp nào trong hai hạn mức.
+- Ghi chú vẫn bắt buộc. Chứng từ và xác nhận chuyển khoản chỉ bắt buộc khi `Amount > 0`. Ghi payout và cộng điểm trong cùng transaction; mỗi request chỉ ghi payout một lần. Member xem được cả hai giá trị và xác nhận đã nhận.
+
+### Manager tặng điểm trực tiếp và hỗ trợ vé Gym ngày
+
+Giới hạn điểm mỗi người nhận lấy động từ **Net collected** của Overview: dùng cùng `IRevenueReportService.GetAsync` và trường `NetRevenue`, từ ngày đầu tháng đến hôm nay theo giờ Việt Nam. Điểm tối đa = phần nguyên của `max(0, NetRevenue) / PointWalletService.VndPerPoint`. Form tải giới hạn qua `/api/manager/point-gifts/limits`, báo lỗi ngay khi nhập vượt mức và chặn xem lại/xác nhận; backend tính lại giới hạn khi gửi. Không dùng số tiền hay tỷ lệ quy đổi gán cứng trên frontend. Quay lại tab hoặc tặng thành công sẽ tải lại giới hạn.
+
+Danh sách Gift points chỉ gồm Member đã mua Membership Gym hoặc vé Gym ngày, bao gồm gói/vé đã hết hạn. Member chưa mua hoặc chỉ có gói/vé chờ thanh toán không xuất hiện và không nhận điểm qua API tặng này. Điều kiện được kiểm tra lại khi xác nhận; phạm vi sự cố tiếp tục lọc theo Membership hoặc vé Gym ngày bị ảnh hưởng. Tặng điểm theo sự cố cho người có vé ngày vẫn cần ghi nhận Member đồng ý.
+
+Manager lọc rồi chọn rõ từng người nhận (tối đa 100 người/lần), đặt điểm nguyên dương theo người hoặc áp dụng mức chung, nhập lý do và xem lại tổng điểm. Xác nhận cộng điểm ngay, không có bước Manager thứ hai duyệt. Một batch được lưu nguyên tử với ledger Earn (`ManagerGift`), audit `GIFT_POINTS` và outbox thông báo/email; gửi lại cùng batch/payload không cộng trùng. Tặng theo sự cố gắn incident + Member duy nhất và chỉ cho người bị ảnh hưởng. Người có vé Gym ngày phải đồng ý trước; Manager ghi nhận sự đồng ý khi gửi.
+
+Resolve Incident không hoàn điểm, hủy hay gia hạn day pass. Vé giữ hạn 22:00 ngày gốc và dùng lại được khi Gym mở trước hạn. Chi tiết Incident lưu snapshot vé bị ảnh hưởng; Manager xem lại rồi gửi thông báo/email một lần, sau đó tặng điểm có sự đồng ý hoặc xử lý Support Request PAYMENT gắn hóa đơn. Việc gửi thông báo không cộng điểm.

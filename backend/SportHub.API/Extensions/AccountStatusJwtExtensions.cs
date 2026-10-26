@@ -17,9 +17,9 @@ namespace SportHub.API.Extensions;
 /// module nghiệp vụ (cùng lý do với AuthorizationPolicyExtensions).
 ///
 /// Ngữ nghĩa đã chốt của task: sau khi thay đổi trạng thái đã commit, request xác thực TIẾP
-/// THEO bị chặn. Request đang chạy hoặc kết nối dài đã xác thực không bị huỷ. Khi mở khoá,
-/// token cũ còn hạn dùng lại được. Thu hồi token vĩnh viễn (security stamp / token version,
-/// logout-all, refresh token, WebSocket) KHÔNG nằm trong phạm vi và chưa được triển khai.
+/// THEO bị chặn. Request đang chạy hoặc kết nối dài đã xác thực không bị huỷ.
+/// The security stamp is rotated by account administration, so old tokens remain invalid
+/// after the account is reactivated.
 /// </summary>
 public static class AccountStatusJwtExtensions
 {
@@ -68,7 +68,7 @@ public static class AccountStatusJwtExtensions
                 // không chạy. Nuốt lỗi rồi coi user là Active sẽ phá đúng BR-6.
                 var state = await repository.GetAuthStateAsync(userId, context.HttpContext.RequestAborted);
 
-                // Banned / Deactivated / user không còn tồn tại đều rơi vào đây. Không tiết lộ
+                // Deactivated / user không còn tồn tại đều rơi vào đây. Không tiết lộ
                 // trạng thái cụ thể của tài khoản trong response.
                 if (state is null || state.Status != UserStatus.Active)
                 {

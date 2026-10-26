@@ -13,7 +13,9 @@ namespace SportHub.Identity.Application.Services;
 
 public sealed record CoachCredentialResponse(Guid CredentialId, [property: WireEnum] string Kind, string Title,
     string? Issuer, DateOnly? IssuedOn, string FileName, string FileUrl, string ContentType, long SizeBytes,
-    bool IsPublished, int Version, DateTime CreatedAtUtc);
+    bool IsPublished, int Version, DateTime CreatedAtUtc, string? ContentUrl = null);
+
+public sealed record CoachCredentialFile(byte[] Content, string FileName, string ContentType);
 
 public sealed class CoachCredentialService(ISportHubDbContext db, ICoachCredentialStorage storage,
     IAuditWriter audit, IClock clock, ILogger<CoachCredentialService> logger)
@@ -21,7 +23,8 @@ public sealed class CoachCredentialService(ISportHubDbContext db, ICoachCredenti
     public const int MaxUploadBytes = 10 * 1024 * 1024;
     public const int MaxDocuments = 20;
     private static CoachCredentialResponse Response(CoachCredential c) => new(c.CredentialId, c.Kind.ToString(), c.Title,
-        c.Issuer, c.IssuedOn, c.FileName, c.FileUrl, c.ContentType, c.SizeBytes, c.IsPublished, c.Version, c.CreatedAtUtc);
+        c.Issuer, c.IssuedOn, c.FileName, c.FileUrl, c.ContentType, c.SizeBytes, c.IsPublished, c.Version, c.CreatedAtUtc,
+        c.ContentType == "application/pdf" ? $"/api/coaches/{c.CoachUserId:D}/credentials/{c.CredentialId:D}/file" : null);
 
     public async Task<IReadOnlyList<CoachCredentialResponse>> ListAsync(Guid coachId, bool mine, CancellationToken ct)
     {
@@ -30,6 +33,18 @@ public sealed class CoachCredentialService(ISportHubDbContext db, ICoachCredenti
             && c.DeletedAtUtc == null && (mine || c.IsPublished))
             .OrderByDescending(c => c.IssuedOn).ThenByDescending(c => c.CreatedAtUtc).ThenBy(c => c.CredentialId)
             .ToListAsync(ct)).Select(Response).ToList();
+    }
+
+    public async Task<CoachCredentialFile> ReadPdfAsync(Guid coachId, Guid credentialId, Guid? viewerUserId, CancellationToken ct)
+    {
+        await RequireCoachAsync(coachId, ct);
+        var owner = viewerUserId == coachId;
+        var row = await db.Set<CoachCredential>().AsNoTracking()
+            .SingleOrDefaultAsync(c => c.CoachUserId == coachId && c.CredentialId == credentialId
+                && c.DeletedAtUtc == null && c.ContentType == "application/pdf" && (c.IsPublished || owner), ct)
+            ?? throw new NotFoundException("credential_not_found", "Document not found.");
+        var content = await storage.DownloadPdfAsync(row.FilePublicId, ct);
+        return new(content, row.FileName, "application/pdf");
     }
 
     public async Task<CoachCredentialResponse> UploadAsync(Guid coachId, string kind, string title, string? issuer,

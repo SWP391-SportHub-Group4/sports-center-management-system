@@ -4,11 +4,10 @@ const id = "22222222-2222-4222-8222-222222222222";
 const now = new Date("2026-10-14T03:00:00Z");
 const deadline = "2026-10-20T03:00:00Z";
 
-test("Account status filters activation required through the API and URL", async ({
+test("legacy invitation filters stay separate from account status and clear independently", async ({
   page,
 }) => {
   await setup(page);
-  await page.goto("/admin/users");
   const request = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return (
@@ -16,18 +15,39 @@ test("Account status filters activation required through the API and URL", async
       url.searchParams.get("status") === "ACTIVATION_REQUIRED"
     );
   });
-  await page
-    .getByLabel("Account status", { exact: true })
-    .selectOption("ACTIVATION_REQUIRED");
+  await page.goto("/admin/users?status=ACTIVATION_REQUIRED&keep=1");
   await request;
   expect(new URL(page.url()).searchParams.get("status")).toBe(
     "ACTIVATION_REQUIRED",
   );
-  await expect(page.getByRole("table")).toContainText("Activation required");
+  const status = page.getByLabel("Account status", { exact: true });
+  await expect(status).toHaveValue("ACTIVE");
+  await expect(status.locator("option")).toHaveText([
+    "All statuses",
+    "Active",
+    "Deactivated",
+  ]);
+  await expect(
+    page.getByText("Invitations: Activation required", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table").getByText("Active", { exact: true }),
+  ).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Account status", { exact: true })).toHaveValue(
-    "ACTIVATION_REQUIRED",
-  );
+  await expect(status).toHaveValue("ACTIVE");
+  await expect(
+    page.getByRole("button", { name: "Clear invitation filter", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Clear invitation filter", exact: true })
+    .click();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("status"))
+    .toBe("ACTIVE");
+  expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
+  await expect(
+    page.getByRole("button", { name: "Clear invitation filter", exact: true }),
+  ).toHaveCount(0);
 });
 
 async function setup(
@@ -178,7 +198,7 @@ test("resend is available in the list and obeys the cooldown", async ({
   ).toBeEnabled();
 });
 
-test("only Activation required rows have a Manage invitation button, and its popup closes with Escape", async ({
+test("only active staff awaiting setup can manage invitations, separately from account status", async ({
   page,
 }) => {
   await setup(page);
@@ -207,13 +227,13 @@ test("only Activation required rows have a Manage invitation button, and its pop
     {
       ...base,
       userId: "44444444-4444-4444-8444-444444444444",
-      fullName: "Locked Employee",
-      status: "BANNED",
+      fullName: "Deactivated Employee",
+      status: "DEACTIVATED",
     },
     {
       ...base,
       userId: "55555555-5555-4555-8555-555555555555",
-      fullName: "Inactive Employee",
+      fullName: "Former Employee",
       status: "DEACTIVATED",
     },
     {
@@ -229,6 +249,19 @@ test("only Activation required rows have a Manage invitation button, and its pop
     }),
   );
   await page.goto("/admin/users");
+  const table = page.getByRole("table");
+  await expect(
+    table
+      .getByRole("row")
+      .filter({ hasText: "Pending Employee" })
+      .getByText("Active", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    table
+      .getByRole("row")
+      .filter({ hasText: "Deactivated Employee" })
+      .getByText("Deactivated", { exact: true }),
+  ).toBeVisible();
   const more = page.getByRole("button", { name: /^Manage invitation for/ });
   await expect(more).toHaveCount(1);
   await expect(page.locator("details")).toHaveCount(0);

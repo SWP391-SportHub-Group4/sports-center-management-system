@@ -126,6 +126,7 @@ export function UserDetail({ userId }: { userId: string }) {
             <header className={styles.profileHeading}>
               <span className={styles.profileAvatar} aria-hidden="true">
                 <AvatarImage
+                  userId={account.userId}
                   name={account.fullName || account.email}
                   avatarUrl={account.avatarUrl}
                   size={64}
