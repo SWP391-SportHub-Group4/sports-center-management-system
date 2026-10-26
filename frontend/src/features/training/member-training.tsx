@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import {
   CalendarDays,
   ClipboardList,
@@ -18,9 +19,89 @@ import { ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import type { CourseEnrollmentDto } from "@/lib/types";
+import type { CourseEnrollmentDto, WorkoutSuggestionDto } from "@/lib/types";
 import { TrainingProfile } from "./training-profile";
 import styles from "./training.module.css";
+
+const AI_PLANS_KEY = "sporthub:member:ai-workout-plans:v1";
+const AI_PLANS_EVENT = "sporthub:ai-plans-changed";
+type AiDraft = { suggestion: WorkoutSuggestionDto; savedAt: string };
+type SavedAiPlan = AiDraft & { id: string };
+
+function subscribeToPlans(onChange: () => void) {
+  window.addEventListener(AI_PLANS_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(AI_PLANS_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function readPlansSnapshot() {
+  try {
+    // Old single-plan data is migrated by the save action; show it until then.
+    return localStorage.getItem(AI_PLANS_KEY) ?? "[]";
+  } catch {
+    return "[]";
+  }
+}
+
+function AiWorkoutDraft() {
+  const raw = useSyncExternalStore(subscribeToPlans, readPlansSnapshot, () => "[]");
+  let saved: SavedAiPlan[] = [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      saved = parsed.filter((p): p is SavedAiPlan =>
+        p !== null && typeof p === "object" &&
+        typeof p.id === "string" &&
+        p.suggestion !== null && typeof p.suggestion === "object" &&
+        Array.isArray(p.suggestion.items));
+    }
+  } catch { /* Treat corrupt storage as empty. */ }
+
+  function removePlan(id: string) {
+    if (!window.confirm("Delete this AI workout plan?")) return;
+    try {
+      const current: unknown = JSON.parse(localStorage.getItem(AI_PLANS_KEY) ?? "[]");
+      if (!Array.isArray(current)) return;
+      localStorage.setItem(AI_PLANS_KEY, JSON.stringify(current.filter((p) => p?.id !== id)));
+      window.dispatchEvent(new Event(AI_PLANS_EVENT));
+    } catch { /* Local storage may be unavailable. */ }
+  }
+
+  if (!saved.length) return null;
+  return (
+    <section className={styles.aiPlanSection} aria-label="Saved AI workout plans">
+      <h2 className={styles.aiPlanHeading}>AI workout suggestions</h2>
+      {saved.map(({ id, suggestion: plan, savedAt }) => (
+        <article className={styles.aiPlanCard} key={id}>
+          <div className={styles.aiPlanAccent}>
+            <span className={styles.aiPlanKind}>
+              <ClipboardList size={15} aria-hidden="true" /> Lesson plan
+              <span className={styles.aiPlanDraftTag}>AI suggestion</span>
+            </span>
+            <h3 className={styles.aiPlanTitle}>{plan.sport} workout - {plan.goal}</h3>
+            <p className={styles.aiPlanMeta}>
+              Individual {" \u00b7 "} {plan.level} {" \u00b7 "} Saved {new Date(savedAt).toLocaleDateString("en-GB")} {" \u00b7 "} Not coach-approved
+            </p>
+            <div className={styles.aiPlanContent}>
+              <p><strong>Goal</strong> {" \u00b7 "} {plan.goal}</p>
+              {(plan.items ?? []).map((item, index) => (
+                <p key={`${index}-${item.exercise}`}>
+                  <strong>{index + 1}. {item.exercise}</strong> {" \u00b7 "} {item.sets} {item.sets === 1 ? "set" : "sets"} {" \u00d7 "} {item.reps} {item.reps === 1 ? "rep" : "reps"}
+                  {item.notes ? ` ${String.fromCharCode(183)} ${item.notes}` : ""}
+                </p>
+              ))}
+              {plan.rationale && <p className={styles.aiPlanRationale}><strong>Why this workout?</strong> {" \u00b7 "} {plan.rationale}</p>}
+            </div>
+          </div>
+          <button className={styles.aiPlanRemove} type="button" onClick={() => removePlan(id)}>Delete plan</button>
+        </article>
+      ))}
+    </section>
+  );
+}
 
 const TABS = ["plans", "results", "profile"] as const;
 type Tab = (typeof TABS)[number];
@@ -162,7 +243,7 @@ export function MemberTraining() {
         onChange={(id) => setValues({ tab: id })}
       >
         <div className={styles.tabBody}>
-          {tab === "plans" && <CoachingTab kind="plans" />}
+          {tab === "plans" && <><AiWorkoutDraft /><CoachingTab kind="plans" /></>}
           {tab === "results" && <CoachingTab kind="results" />}
           {tab === "profile" && <TrainingProfile />}
         </div>
@@ -170,3 +251,4 @@ export function MemberTraining() {
     </div>
   );
 }
+

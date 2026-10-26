@@ -143,3 +143,21 @@
   color: var(--color-primary-soft-text, var(--color-primary));
   font-weight: 600;
 }
+
+/* AI workout draft: same compact lesson-plan language as coach Plans. */
+.aiPlanSection { display:flex; flex-direction:column; gap:12px; min-width:0; }
+.aiPlanHeading { margin:0; font-size:var(--text-lg); color:var(--text-strong); }
+.aiPlanCard { background:var(--bg-surface, #fff); border:1px solid var(--border-subtle, #d8e0e0); border-radius:12px; padding:20px 22px; min-width:0; }
+.aiPlanAccent { border-left:2px solid #19857d; padding:0 0 0 15px; }
+.aiPlanKind { display:inline-flex; align-items:center; flex-wrap:wrap; gap:7px; color:var(--text-strong); font-size:13px; font-weight:600; }
+.aiPlanDraftTag { border-radius:99px; padding:3px 8px; background:#edf5f0; color:#426d59; font-size:11px; font-weight:600; }
+.aiPlanTitle { margin:7px 0 5px; font-size:16px; font-weight:700; line-height:1.45; color:var(--text-strong); overflow-wrap:anywhere; }
+.aiPlanMeta { margin:0 0 12px; color:var(--text-muted); font-size:12px; }
+.aiPlanContent { display:flex; flex-direction:column; gap:5px; font-size:13px; line-height:1.65; color:var(--text-strong); overflow-wrap:anywhere; }
+.aiPlanContent p { margin:0; }
+.aiPlanContent strong { font-weight:650; }
+.aiPlanRationale { color:var(--text-muted); margin-top:8px !important; }
+.aiPlanRemove { display:inline-flex; align-items:center; margin-top:16px; padding:0; background:transparent; border:0; color:#16746c; font:inherit; font-size:12px; font-weight:650; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.aiPlanRemove:hover { color:#0b504b; }
+.aiPlanRemove:focus-visible { outline:2px solid #0b7770; outline-offset:4px; }
+@media(max-width:600px) { .aiPlanCard { padding:16px; } .aiPlanAccent { padding-left:12px; } }

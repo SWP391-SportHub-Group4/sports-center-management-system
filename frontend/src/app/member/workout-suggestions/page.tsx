@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   ArrowRight,
@@ -22,8 +23,10 @@ import styles from "./workout-suggestions.module.css";
 
 type Sport = "Gym" | "Badminton" | "Basketball";
 const sports: Sport[] = ["Gym", "Badminton", "Basketball"];
+const AI_SUGGESTION_PLAN_KEY = "sporthub:member:ai-workout-draft:v1";
 
 export default function MemberWorkoutSuggestionsPage() {
+  const router = useRouter();
   const [sport, setSport] = useState<Sport>("Gym");
   const [result, setResult] = useState<WorkoutSuggestionDto | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,6 +54,41 @@ export default function MemberWorkoutSuggestionsPage() {
       }
     } finally {
       setBusy(false);
+    }
+  }
+
+  function sendToPlans() {
+    if (!result || !result.items?.length) return;
+    try {
+      const storageKey = "sporthub:member:ai-workout-plans:v1";
+      const legacyKey = "sporthub:member:ai-workout-draft:v1";
+      const previous = localStorage.getItem(storageKey);
+      const parsed: unknown = previous ? JSON.parse(previous) : [];
+      const plans: Array<{id: string; suggestion: WorkoutSuggestionDto; savedAt: string}> =
+        Array.isArray(parsed) ? parsed : [];
+
+      // Migrate the old single draft so it isn't lost during upgrade.
+      const old = sessionStorage.getItem(legacyKey);
+      if (old && plans.length === 0) {
+        try {
+          const legacy = JSON.parse(old) as {suggestion?: WorkoutSuggestionDto; savedAt?: string};
+          if (legacy.suggestion && Array.isArray(legacy.suggestion.items)) {
+            plans.push({ id: crypto.randomUUID(), suggestion: legacy.suggestion,
+              savedAt: legacy.savedAt ?? new Date().toISOString() });
+          }
+        } catch { /* Ignore invalid legacy data. */ }
+      }
+      plans.unshift({
+        id: crypto.randomUUID(),
+        suggestion: result,
+        savedAt: new Date().toISOString(),
+      });
+      localStorage.setItem(storageKey, JSON.stringify(plans));
+      sessionStorage.removeItem(legacyKey);
+      window.dispatchEvent(new Event("sporthub:ai-plans-changed"));
+      router.push("/member/training?tab=plans");
+    } catch {
+      setError("Unable to save your workout. Please allow browser storage and try again.");
     }
   }
 
@@ -171,9 +209,10 @@ export default function MemberWorkoutSuggestionsPage() {
             <p>{result.rationale}</p>
           </section>
           <p className={styles.bottomNote}><ShieldCheck size={17} aria-hidden="true" /> This is an automated, rule-based suggestion—not a coach-approved training plan or medical advice.</p>
-          <div className={styles.bottomActions}><Link href="/member/training?tab=profile">Update fitness profile <ArrowRight size={16} aria-hidden="true" /></Link></div>
+          <div className={styles.bottomActions}><a href="/member/training?tab=plans" aria-disabled={items.length === 0} onClick={(event) => { event.preventDefault(); if (items.length > 0) sendToPlans(); }}>Save suggestion to Plans <ArrowRight size={16} aria-hidden="true" /></a></div>
         </section>
       )}
     </main>
   );
 }
+
