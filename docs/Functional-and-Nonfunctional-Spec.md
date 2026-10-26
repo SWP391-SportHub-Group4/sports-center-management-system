@@ -133,6 +133,8 @@ Manager đọc/cập nhật bằng `GET/PUT /api/system-settings/{key}`; backend
 
 ### Assigned support inbox — Admin and Coach
 
+Coach uses a single Requests page at `/coach/support`, with **Absence requests** and **Member support** tabs. Member support remains the default so existing assignment links (`?request=id`) continue to open the assigned request. Absence requests use `?type=absence`; `/coach/change-requests` redirects to that tab. The separate personal-menu absence link is removed. Grouping the inboxes does not change permissions: Coach submits/cancels absence requests for Manager review and only handles assigned member support requests.
+
 Admin and Coach receive member support requests assigned by Center Manager. Each receiver can view only currently assigned requests, including attachments and activity history, and add a progress note or complete the request with a resolution note. Both use the same status summaries, filters and badge colors as Receptionist: Received (OPEN), Assigned (ASSIGNED), In progress (IN_PROGRESS), Finished (DONE/CLOSED) and Declined (REJECTED). Declined requests are counted separately from Finished for every role. Overdue is a separate response-deadline filter, not a request status. Neither receiver can assign, reject or create requests on behalf of a member. Assignment notifications open the corresponding inbox detail. Completed and historical rejected records remain read-only; their original outcome stays in the history. The Report photo action is removed from profile avatars; existing avatar moderation data is preserved.
 
 ### Profile photo audit review

@@ -264,6 +264,7 @@ export function SupportDetail({
 
       <div className={styles.banner}>
         <AvatarImage
+          userId={request.memberId}
           name={request.memberName || request.memberEmail || "Member"}
           avatarUrl={member.data?.avatarUrl}
           size={44}

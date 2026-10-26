@@ -86,6 +86,7 @@ export function MemberList() {
                       <td>
                         <span className={styles.person}>
                           <AvatarImage
+                            userId={m.userId}
                             name={m.fullName || m.email}
                             avatarUrl={m.avatarUrl}
                             size={32}

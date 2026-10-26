@@ -276,6 +276,7 @@ export function SelectedMemberPanel({
     >
       <div className={styles.selectedTop}>
         <AvatarImage
+          userId={member.userId}
           name={member.fullName || member.email}
           avatarUrl={member.avatarUrl}
           size={64}

@@ -43,7 +43,7 @@ public sealed class ClassTeachingService(ISportHubDbContext db, IUserAccessReade
             query = query.Where(u => u.Email.ToLower().Contains(term) || (u.Profile != null && u.Profile.FullName.ToLower().Contains(term)));
         }
         var totalCount = await query.CountAsync(ct);
-        const int pageSize = 12;
+        const int pageSize = 10;
         var items = await query.OrderBy(u => u.Profile != null ? u.Profile.FullName : u.Email).ThenBy(u => u.UserId)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(u => new { MemberId = u.UserId, MemberName = u.Profile != null ? u.Profile.FullName : u.Email, Email = u.Email }).ToListAsync(ct);

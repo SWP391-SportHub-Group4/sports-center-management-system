@@ -144,6 +144,7 @@ export function AdminOverview() {
               <ShieldCheck size={17} />
             ) : (
               <AvatarImage
+                userId={row.userId}
                 name={row.actorFullName?.trim() || row.actorEmail || "Account"}
                 size={32}
               />

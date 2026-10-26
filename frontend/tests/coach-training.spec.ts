@@ -26,6 +26,331 @@ const pendingRequest = () => ({
   resultSessionId: null,
 });
 
+test("coach sees upcoming classes and sessions first and AI only for a future session", async ({
+  page,
+}) => {
+  await coachFixture(page, [3]);
+  await page.clock.setFixedTime(new Date("2026-10-26T03:00:00Z"));
+  const course = {
+    classId: 1,
+    name: "Upcoming badminton",
+    code: "UPCOMING",
+    coachId,
+    coachName: "Coach",
+    sportId: 3,
+    sportName: "Badminton",
+    startDate: "2026-10-20",
+    numSessions: 2,
+    capacity: 12,
+    price: 900000,
+    roomName: "Court 1",
+    defaultRoomId: 1,
+    status: "IN_PROGRESS",
+  };
+  const sessions = [
+    {
+      sessionId: "66666666-6666-4666-8666-666666666661",
+      classId: 1,
+      sessionNo: 1,
+      coachId,
+      roomId: 1,
+      roomName: "Court 1",
+      startAtUtc: "2026-10-20T02:00:00Z",
+      endAtUtc: "2026-10-20T04:00:00Z",
+      status: "COMPLETED",
+    },
+    {
+      sessionId: "66666666-6666-4666-8666-666666666662",
+      classId: 1,
+      sessionNo: 2,
+      coachId,
+      roomId: 1,
+      roomName: "Court 1",
+      startAtUtc: "2026-10-28T02:00:00Z",
+      endAtUtc: "2026-10-28T04:00:00Z",
+      status: "SCHEDULED",
+    },
+  ];
+  const aiRequests: Record<string, unknown>[] = [];
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/coaches/me/classes")
+      return route.fulfill({
+        json: [
+          {
+            ...course,
+            classId: 2,
+            name: "Past badminton",
+            status: "COMPLETED",
+            startDate: "2026-09-01",
+          },
+          course,
+        ],
+      });
+    if (path === "/api/classes/1/sessions")
+      return route.fulfill({ json: sessions });
+    if (path === "/api/classes/2/sessions")
+      return route.fulfill({
+        json: [
+          {
+            ...sessions[0],
+            classId: 2,
+            sessionId: "77777777-7777-4777-8777-777777777777",
+          },
+        ],
+      });
+    if (path.endsWith("/members")) return route.fulfill({ json: [] });
+    if (path.endsWith("/records"))
+      return route.fulfill({
+        json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
+      });
+    if (path.endsWith("/suggestion")) {
+      aiRequests.push(route.request().postDataJSON());
+      return route.fulfill({
+        json: {
+          content: "Footwork · 3 sets × 12 reps",
+          provider: "test",
+          model: "test",
+        },
+      });
+    }
+    return route.fallback();
+  });
+  await page.goto("/coach/classes");
+  const classes = page.getByRole("region", {
+    name: "Your assigned classes",
+    exact: true,
+  });
+  await expect(classes.getByRole("link").first()).toContainText(
+    "Upcoming badminton",
+  );
+  await page.goto("/coach/classes/1?tab=plans");
+  await expect(
+    page.getByRole("button", { name: "New class roadmap", exact: true }),
+  ).toHaveCount(0);
+  const roadmap = page.getByRole("region", {
+    name: "Full course roadmap",
+    exact: true,
+  });
+  await expect(roadmap.locator("ol > li").first()).toContainText("Session 2");
+  await roadmap
+    .getByRole("button", { name: "Add session content", exact: true })
+    .first()
+    .click();
+  const editor = page.getByRole("region", { name: "Lesson plan", exact: true });
+  await expect(
+    editor
+      .getByRole("combobox", { name: "1. Plan scope", exact: true })
+      .locator('option[value="course"]'),
+  ).toHaveCount(0);
+  await editor.getByText("AI lesson suggestions", { exact: true }).click();
+  await editor
+    .getByRole("textbox", { name: "Training goal", exact: true })
+    .fill("Improve movement and control");
+  await editor
+    .getByRole("button", { name: "Generate suggestion", exact: true })
+    .click();
+  await expect(
+    editor.getByRole("button", { name: "Use this suggestion", exact: true }),
+  ).toBeVisible();
+  expect(aiRequests).toHaveLength(1);
+  expect(aiRequests[0]).toMatchObject({
+    scope: "session",
+    sessionId: sessions[1].sessionId,
+  });
+  await editor.getByRole("button", { name: "Close", exact: true }).click();
+  await roadmap
+    .getByRole("button", { name: "Add session content", exact: true })
+    .last()
+    .click();
+  await expect(
+    editor.getByText("AI lesson suggestions", { exact: true }),
+  ).toHaveCount(0);
+});
+
+for (const width of [1440, 320])
+  test(`student directory is framed and pages ten members at ${width}px`, async ({
+    page,
+  }) => {
+    await coachFixture(page, [3, 4]);
+    await page.setViewportSize({ width, height: 1000 });
+    const students = Array.from({ length: 21 }, (_, index) => ({
+      memberId: `88888888-8888-4888-8888-${String(index + 1).padStart(12, "0")}`,
+      memberName: `Student ${String(index + 1).padStart(2, "0")}`,
+      email: `student${index + 1}@example.test`,
+      classes: [
+        {
+          classId: index + 1,
+          className: "Assigned class",
+          sportId: index % 2 ? 4 : 3,
+          sportName: index % 2 ? "Basketball" : "Badminton",
+        },
+      ],
+    }));
+    await page.route("**/api/coaches/me/teaching/students**", (route) => {
+      const query = new URL(route.request().url()).searchParams;
+      const pageNumber = Number(query.get("page") || 1);
+      const keyword = (query.get("search") || "").toLowerCase();
+      const sport = query.get("sportId");
+      const filtered = students.filter(
+        (x) =>
+          x.memberName.toLowerCase().includes(keyword) &&
+          (!sport || String(x.classes[0].sportId) === sport),
+      );
+      return route.fulfill({
+        json: {
+          items: filtered.slice((pageNumber - 1) * 10, pageNumber * 10),
+          page: pageNumber,
+          pageSize: 10,
+          totalCount: filtered.length,
+          sports: [
+            { sportId: 3, sportName: "Badminton" },
+            { sportId: 4, sportName: "Basketball" },
+          ],
+        },
+      });
+    });
+    await page.goto("/coach/members");
+    const directory = page.getByRole("region", {
+      name: "Student directory",
+      exact: true,
+    });
+    const rows = directory
+      .getByRole("list", { name: "Students", exact: true })
+      .getByRole("listitem");
+    await expect(rows).toHaveCount(10);
+    await expect(
+      directory.getByText("1–10 of 21 students", { exact: true }),
+    ).toBeVisible();
+    await directory
+      .getByRole("button", { name: "Next page", exact: true })
+      .click();
+    await expect(
+      directory.getByText("11–20 of 21 students", { exact: true }),
+    ).toBeVisible();
+    await expect(rows).toHaveCount(10);
+    await directory
+      .getByRole("button", { name: "Next page", exact: true })
+      .click();
+    await expect(rows).toHaveCount(1);
+    await expect(
+      directory.getByRole("link", { name: /Student 21/ }),
+    ).toHaveAttribute("href", `/coach/members/${students[20].memberId}`);
+    await expect(
+      directory.getByRole("button", { name: "Next page", exact: true }),
+    ).toBeDisabled();
+    await directory
+      .getByRole("searchbox", { name: "Find a student", exact: true })
+      .fill("Student 01");
+    await expect(rows).toHaveCount(1);
+    await expect(
+      directory.getByText("1–1 of 1 student", { exact: true }),
+    ).toBeVisible();
+    await directory
+      .getByRole("searchbox", { name: "Find a student", exact: true })
+      .fill("");
+    await directory
+      .getByRole("combobox", { name: "Sport", exact: true })
+      .selectOption("4");
+    await expect(rows).toHaveCount(10);
+    await expect(
+      directory.getByText("1–10 of 10 students", { exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  });
+
+for (const width of [1440, 320])
+  test(`coach manages absence and member support in one request center at ${width}px`, async ({
+    page,
+  }) => {
+    await coachFixture(page, [3]);
+    await page.setViewportSize({ width, height: 1000 });
+    const supportRequest = {
+      requestId: "44444444-4444-4444-8444-444444444444",
+      memberId: "55555555-5555-4555-8555-555555555555",
+      memberName: "Member An",
+      category: "CLASS",
+      subject: "Member needs help",
+      description: "Please explain my training plan.",
+      status: "ASSIGNED",
+      assignedToUserId: coachId,
+      assignedToName: "Coach",
+      createdAt: "2026-10-25T02:00:00Z",
+      attachments: [],
+    };
+    await page.route("**/api/member-support-requests/**", (route) => {
+      const path = new URL(route.request().url()).pathname;
+      return route.fulfill({
+        json: path.endsWith("/stats")
+          ? {
+              open: 0,
+              assigned: 1,
+              inProgress: 0,
+              done: 0,
+              rejected: 0,
+              overdue: 0,
+            }
+          : path.endsWith("/queue")
+            ? { items: [supportRequest], totalCount: 1, page: 1, pageSize: 20 }
+            : path.endsWith("/events")
+              ? []
+              : supportRequest,
+      });
+    });
+    await page.route("**/api/coaches/me/teaching/change-requests**", (route) =>
+      route.fulfill({
+        json: {
+          items: [pendingRequest()],
+          totalCount: 1,
+          page: 1,
+          pageSize: 50,
+        },
+      }),
+    );
+    await page.goto("/coach/support?type=absence");
+    const absence = page.getByRole("tab", {
+      name: "Absence requests",
+      exact: true,
+    });
+    const support = page.getByRole("tab", {
+      name: "Member support",
+      exact: true,
+    });
+    await expect(absence).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("region", { name: "Request list", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('a[href="/coach/change-requests"]')).toHaveCount(
+      0,
+    );
+    await support.click();
+    await expect(support).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("heading", { name: "Member needs help", exact: true }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(absence).toHaveAttribute("aria-selected", "true");
+    await page.reload();
+    await expect(absence).toHaveAttribute("aria-selected", "true");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.goto("/coach/change-requests");
+    await expect(page).toHaveURL(/\/coach\/support\?type=absence$/);
+    await expect(absence).toHaveAttribute("aria-selected", "true");
+    await page.goto(`/coach/support?request=${supportRequest.requestId}`);
+    await expect(support).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("heading", { name: "Member needs help", exact: true }),
+    ).toBeVisible();
+  });
+
 test("coach can only withdraw a pending request without editing its details", async ({
   page,
 }) => {
@@ -198,7 +523,7 @@ async function coachFixture(
     if (path === "/api/coaches/me/classes") return route.fulfill({ json: [] });
     if (path === "/api/coaches/me/teaching/students")
       return route.fulfill({
-        json: { items: [], sports: [], totalCount: 0, page: 1, pageSize: 12 },
+        json: { items: [], sports: [], totalCount: 0, page: 1, pageSize: 10 },
       });
     if (path === "/api/coaches/me/students")
       return route.fulfill({
@@ -236,7 +561,7 @@ test("group-only coach uses a single navbar for teaching, classes and students",
   await navbar.getByRole("link", { name: "Students", exact: true }).click();
   await expect(page).toHaveURL(/\/coach\/members$/);
   await expect(
-    page.getByRole("heading", { name: "Your students", exact: true }),
+    page.getByRole("heading", { name: "Student directory", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByText("No matching students", { exact: true }),

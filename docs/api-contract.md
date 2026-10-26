@@ -87,7 +87,7 @@ Các bảng mô tả contract; phần route baseline chỉ để tra cứu đư�
 
 | Verb | Route | Contract |
 |---|---|---|
-| GET | `/api/coaches/me/teaching/students?page&search&sportId` | Coach; học viên duy nhất từ các lớp đang phân công, 12 mục/trang; `items[{memberId,memberName,email,classes[]}]`, `sports[]`, `page`, `pageSize`, `totalCount`. |
+| GET | `/api/coaches/me/teaching/students?page&search&sportId` | Coach; học viên duy nhất từ các lớp đang phân công, 10 mục/trang; `items[{memberId,memberName,email,classes[]}]`, `sports[]`, `page`, `pageSize`, `totalCount`. |
 | GET | `/api/coaches/me/teaching/students/{memberId}` | Coach; thông tin học viên và lớp/môn hiện tại trong phạm vi phân công. |
 | GET | `/api/coaches/me/teaching/students/{memberId}/history?classId&page` | Coach; `RESULT` của chính học viên từ lớp trước cùng môn, mới nhất trước, 20 mục/trang; mỗi mục gồm `record,className,sportName,coachName,sessionNo,sessionStartAtUtc`. Yêu cầu phân công hiện tại và ghi danh Confirmed tại classId; lịch sử chỉ đọc. |
 | GET | `/api/coaches/me/teaching/students/{memberId}/history/classes?classId&page&search` | Coach; lớp có đánh giá trong phạm vi lịch sử hợp lệ, 8 lớp/trang, `classId,className,startDate,assessmentCount,averageScore,lastRecordedAtUtc`. Sắp xếp theo đánh giá gần nhất; điểm trung bình null nếu chưa có điểm. Endpoint `history` nhận thêm `sourceClassId` để tải đánh giá riêng cho lớp đã chọn. |
@@ -165,6 +165,9 @@ Các endpoint dưới đây phục vụ frontend API-backed. Không thay schema/
 ## API bổ sung cho Coach lớp nhóm
 
 Các endpoint được giới hạn theo lớp/buổi được phân công, hỗ trợ lưu giáo án, kết quả, bài tập/thông báo, điểm danh và Gemini suggestion. Coach chủ nhiệm chỉ đọc hồ sơ học viên Confirmed của lớp Published/InProgress; HLV dạy thay chỉ đọc roster và bản ghi của buổi được giao. Member có feed khi Enrollment Confirmed, `EndedAt` rỗng và lớp Published/InProgress/Completed, kể cả sau buổi cuối; lớp Cancelled/Draft hoặc ghi danh đã kết thúc bị chặn. Có migration `AddClassTeachingWorkspace`; extension này được chủ sản phẩm xác nhận cho phép Coach ghi điểm danh lớp nhóm qua route mới.
+
+- `POST /api/coaches/me/teaching/classes/{classId}/suggestion` accepts only `scope: "session"` with a required `sessionId` belonging to that class. The primary Coach may generate suggestions only for a Scheduled session whose start is still in the future; other scopes/missing session return `400 suggestion_context_invalid`, and past, started, completed or cancelled sessions return `409 session_suggestion_unavailable`. Suggestions cover that session only and include positive sets and reps for every exercise. The UI no longer offers creation of a new course roadmap; existing plans remain available. Class and session lists place current/upcoming items first (soonest first), followed by past items (most recent first).
+- User avatar displays resolve the current image through `GET /api/avatars/{userId}` and share upload/removal updates across mounted views. Authenticated active Receptionists may read avatars alongside other staff roles; this does not grant avatar upload or removal rights. Public anonymous reads remain limited to Coach avatars.
 
 `hold.minutes` cho checkout mới: Manager đặt số nguyên **10–30**, mặc định **15**. Hạn lưu trên checkout/attempt hiện có là snapshot, không thay đổi khi Manager cập nhật setting. Lớp, sân và chuyển lớp có thể cắt hạn sớm theo giờ bắt đầu hoặc deadline nghiệp vụ; client dùng `expiresAtUtc` trả về, không tự cộng số phút cấu hình.
 
