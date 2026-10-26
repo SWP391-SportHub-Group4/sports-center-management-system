@@ -587,7 +587,7 @@ Quan hệ 1–N với `USER_SPORT_SPECIALTIES` (Coach); Member có thêm 1 `POIN
 Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ (`GROUP_COURSE`, `COURT_RENTAL`; mặc định lớp 120 phút theo BR-141).
 
 #### `ROOM_TYPES`
-**Mục đích:** loại sân/phòng (Phòng Gym, Sân cầu lông, Sân bóng rổ) — đơn vị gắn giá thuê sân (`COURT_RATES`) và ràng buộc môn nào chơi được ở đâu.
+**Mục đích:** nhóm tương thích bảng giá thuê cũ (`COURT_RATES`). Từ quyết định 26/10/2026, phòng vật lý độc lập với Sport; RoomType/SportRoomType không lọc phòng cho lớp. Phòng mới dùng nhóm nội bộ Multipurpose rooms nếu không có nhóm cũ. Xem [Phòng dùng chung và quyền cho thuê](Independent-Rooms-Workflow.md).
 
 | Field | Vai trò |
 |---|---|
@@ -608,7 +608,8 @@ Seed: Gym (`MEMBERSHIP_ACCESS`, `PERSONAL_TRAINING`), Cầu lông và Bóng rổ
 |---|---|
 | `RoomId` (PK) | Định danh phòng/sân |
 | `Name` | Hiển thị lịch/booking — **unique toàn trung tâm** (BR-57) |
-| `RoomTypeId` (FK, ) | Loại sân/phòng; quyết định môn nào dùng được và bảng giá thuê |
+| `RoomTypeId` (FK, ) | Nhóm giá thuê tương thích dữ liệu cũ; không giới hạn môn của lớp |
+| `AllowRental` | Cho phép booking thuê mới; mặc định false cho phòng mới, bật riêng bằng Allow rental |
 | `IsActive` () | Ngừng dùng thay cho xóa; sân ngừng hoạt động không nhận lịch mới |
 
 #### `ROOM_OPENING_HOURS`

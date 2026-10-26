@@ -25,7 +25,7 @@ public sealed class IncidentFenceTests(PaymentApiFactory factory)
         var member = await factory.SeedUserAsync(UserRole.Member);
         return await factory.QueryAsync(async db =>
         {
-            var room = new Room { Name = "Fence test " + Guid.NewGuid(), Capacity = 2, RoomTypeId = 3 };
+            var room = new Room { Name = "Fence test " + Guid.NewGuid(), Capacity = 2, RoomTypeId = 3, AllowRental = true };
             db.Rooms.Add(room);
             await db.SaveChangesAsync();
             db.RoomOpeningHours.AddRange(Enumerable.Range(0, 7).Select(day => new RoomOpeningHour

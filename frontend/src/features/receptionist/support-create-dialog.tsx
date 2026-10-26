@@ -75,7 +75,7 @@ export function SupportCreateDialog({
   const baseReady =
     !!member &&
     category !== "" &&
-    (isManager || subject.trim().length >= 3) &&
+    subject.trim().length >= 3 &&
     description.trim().length >= 3;
   const handoverBlock = !handoverTo
     ? "Choose who to hand over to."
@@ -93,7 +93,7 @@ export function SupportCreateDialog({
       await api.post("/api/member-support-requests", {
         memberId: member.userId,
         category,
-        subject: isManager ? undefined : subject.trim(),
+        subject: subject.trim(),
         description: description.trim(),
         assigneeUserId: handover ? handoverTo : user?.userId,
         handoverNote: handover ? handoverNote.trim() : undefined,
@@ -136,12 +136,12 @@ export function SupportCreateDialog({
         </div>
 
         <label className={styles.field}>
-          {isManager ? "What is your request about? *" : "Topic"}
+          Request type
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as SupportCategory)}
           >
-            <option value="">Select a topic</option>
+            <option value="">Select a request type</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -165,20 +165,18 @@ export function SupportCreateDialog({
           </label>
         )}
 
-        {!isManager && (
-          <label className={styles.field}>
-            Subject
-            <input
-              value={subject}
-              maxLength={200}
-              placeholder="Short summary"
-              onChange={(e) => setSubject(e.target.value)}
-            />
-          </label>
-        )}
+        <label className={styles.field}>
+          Subject
+          <input
+            value={subject}
+            maxLength={200}
+            placeholder="Short summary"
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </label>
 
         <label className={styles.field}>
-          {isManager ? "Your message *" : "Description"}
+          Description
           <textarea
             value={description}
             maxLength={2000}

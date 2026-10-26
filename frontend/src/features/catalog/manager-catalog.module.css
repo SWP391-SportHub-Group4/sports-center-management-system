@@ -6,6 +6,11 @@
   white-space: nowrap;
   overflow-wrap: normal;
 }
+.roomStatus {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
 .linkedRoomType {
   border-top: 1px solid var(--border-subtle);
   padding-top: var(--space-4);
@@ -53,12 +58,15 @@
   overflow-wrap: break-word;
 }
 @media (min-width: 768px) {
-  .sportsTable.catalogTable
-    :global([data-management-table] table[data-columns="6"]),
   .courtsTable.catalogTable
     :global([data-management-table] table[data-columns="6"]) {
     table-layout: fixed;
     min-width: 52rem;
+  }
+  .sportsTable.catalogTable
+    :global([data-management-table] table[data-columns="5"]) {
+    table-layout: fixed;
+    min-width: 36rem;
   }
   .sportsTable.catalogTable :global([data-management-table] tr > *),
   .courtsTable.catalogTable :global([data-management-table] tr > *) {
@@ -76,12 +84,12 @@
     white-space: nowrap;
   }
   .sportsTable.catalogTable :global(thead th:nth-child(2)) {
-    width: 18%;
+    width: 40%;
   }
   .sportsTable.catalogTable :global(thead th:nth-child(3)) {
-    width: 15%;
+    width: 24%;
   }
-  .sportsTable.catalogTable :global([data-management-table] tr > :nth-child(5)),
+  .sportsTable.catalogTable :global([data-management-table] tr > :nth-child(4)),
   .courtsTable.catalogTable
     :global([data-management-table] tr > :nth-child(5)) {
     width: 8rem;

@@ -51,6 +51,7 @@ async function fixture(page: Page) {
       roomTypeId: 3,
       sportId: 3,
       isActive: true,
+      allowRental: true,
     },
   ];
   const sports = [
@@ -132,7 +133,10 @@ async function fixture(page: Page) {
     } else if (path === `/api/members/front-desk/${pendingId}/email`) {
       pending.email = String(req.postDataJSON().email);
       data = pending;
-    } else if (path === `/api/manager/users/${memberId}/avatar`) {
+    } else if (
+      path === `/api/manager/members/${memberId}/avatar` &&
+      req.method() === "DELETE"
+    ) {
       member.avatarUrl = "";
       reportStatus = "REMOVED";
       data = { userId: memberId, avatarUrl: null };
@@ -290,6 +294,89 @@ async function fixture(page: Page) {
   return calls;
 }
 
+for (const width of [1440, 390]) {
+  test(`manager removes a member photo through the supported endpoint at ${width}px`, async ({
+    page,
+  }) => {
+    const calls = await fixture(page);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/manager/members/${memberId}`);
+    await page
+      .getByRole("button", { name: "Remove photo", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Remove profile photo" });
+    await expect(dialog).toContainText("Member Sample");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(calls.filter((c) => c.method === "DELETE")).toEqual([]);
+    await page
+      .getByRole("button", { name: "Remove photo", exact: true })
+      .click();
+    await expect(dialog).toBeVisible();
+    await page.screenshot({
+      path: `../.tmp/manager-remove-avatar/dialog-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+    await dialog
+      .getByRole("button", { name: "Remove photo", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Remove photo", exact: true }),
+    ).toHaveCount(0);
+    expect(calls.filter((c) => c.method === "DELETE")).toEqual([
+      {
+        path: `/api/manager/members/${memberId}/avatar`,
+        method: "DELETE",
+        body: null,
+      },
+    ]);
+    await page.screenshot({
+      path: `../.tmp/manager-remove-avatar/removed-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+  });
+}
+
+test("manager member details show rental history and its invoice", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.route(
+    `**/api/manager/members/${memberId}/court-rentals*`,
+    (route) =>
+      route.fulfill({
+        json: {
+          items: [
+            {
+              courtRentalId: "rental-history",
+              roomName: "Badminton Court A",
+              sportName: "Badminton",
+              startAtUtc: "2026-10-20T02:00:00Z",
+              endAtUtc: "2026-10-20T03:00:00Z",
+              totalPrice: 100000,
+              status: "COMPLETED",
+              invoiceId: managerId,
+              invoiceItemId: null,
+            },
+          ],
+          totalCount: 1,
+          page: 1,
+          pageSize: 20,
+        },
+      }),
+  );
+  await page.goto(`/manager/members/${memberId}`);
+  await page.getByRole("tab", { name: "Rental history", exact: true }).click();
+  await expect(
+    page.getByText("Badminton Court A", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "View invoice", exact: true }),
+  ).toHaveAttribute("href", `/manager/finance?invoiceId=${managerId}`);
+});
+
 test("manager navigation matches the agreed workspace", async ({ page }) => {
   await fixture(page);
   await page.setViewportSize({ width: 1600, height: 900 });
@@ -317,7 +404,7 @@ test("manager requests omit avatar reports and reject the old tab", async ({
   expect(calls.some((c) => c.path.includes("avatar-reports"))).toBe(false);
 });
 
-test("activation actions stay in the list and room creation selects only sport", async ({
+test("activation actions stay in the list and room creation is independent of sport", async ({
   page,
 }) => {
   const calls = await fixture(page);
@@ -350,13 +437,11 @@ test("activation actions stay in the list and room creation selects only sport",
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/manager/facilities");
-  await page
-    .getByRole("button", { name: "Add room only", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Create room", exact: true }).click();
   const form = page.getByRole("dialog");
   await expect(form.getByLabel(/Room type/)).toHaveCount(0);
   await form.getByLabel(/^Name/).fill("New badminton court");
-  await form.getByLabel(/^Sport/).selectOption("3");
+  await expect(form.getByLabel(/^Sport/)).toHaveCount(0);
   await form
     .getByRole("button", { name: /Save|Create/ })
     .last()
@@ -367,7 +452,7 @@ test("activation actions stay in the list and room creation selects only sport",
   const request = calls.find(
     (c) => c.method === "POST" && c.path === "/api/rooms",
   );
-  expect(request?.body?.sportId).toBe(3);
+  expect(request?.body).not.toHaveProperty("sportId");
   expect(request?.body).not.toHaveProperty("roomTypeId");
   await page.goto("/manager/facilities/1");
   await page.getByRole("tab", { name: "Rental pricing", exact: true }).click();

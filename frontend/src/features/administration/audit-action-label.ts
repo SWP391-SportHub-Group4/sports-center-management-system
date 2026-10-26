@@ -54,6 +54,8 @@ const labels: Record<string, string> = {
   AUTO_END_COACH_MEMBER_RELATIONSHIP: "Coach assignment ended automatically",
   CREATE_ROOM: "Court or room created",
   UPDATE_ROOM: "Court or room details updated",
+  ALLOW_ROOM_RENTAL: "Room rental allowed",
+  DISABLE_ROOM_RENTAL: "Room rental disabled",
   DELETE_ROOM: "Court or room deleted",
   CREATE_ROOM_TYPE: "Court or room type created",
   UPDATE_ROOM_TYPE: "Court or room type updated",

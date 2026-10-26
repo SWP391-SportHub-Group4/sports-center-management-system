@@ -16,10 +16,10 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
 {
     // Cửa sổ xa trong tương lai để không đụng lịch lớp/thuê sân do các test khác tạo.
-    private static (DateTime Start, DateTime End) TwoFullDays(int daysAhead)
+    private static (DateTime Start, DateTime End) OperatingDay(int daysAhead)
     {
         var first = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(daysAhead);
-        return (VietnamTime.StartOfDayUtc(first), VietnamTime.StartOfDayUtc(first.AddDays(2)));
+        return (VietnamTime.StartOfDayUtc(first).AddHours(6), VietnamTime.StartOfDayUtc(first).AddHours(22));
     }
 
     private async Task EnsureGymRoomAsync()
@@ -51,7 +51,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
         var cancelled = await factory.SeedMemberPackageAsync((await factory.SeedUserAsync(UserRole.Member)).UserId,
             SportHub.Membership.Domain.Enums.MemberPackageStatus.Cancelled,
             endDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(500));
-        var (start, end) = TwoFullDays(400);
+        var (start, end) = OperatingDay(400);
         var request = new IncidentRequest("Center", null, start, end, "Gym floor flooding");
 
         using (var scope = factory.Services.CreateScope())
@@ -90,7 +90,7 @@ public sealed class GymClosureIncidentTests(SchedulingApiFactory factory)
             await db.SaveChangesAsync();
             return room.RoomId;
         });
-        var (start, end) = TwoFullDays(430);
+        var (start, end) = OperatingDay(430);
         var request = new IncidentRequest("Room", roomId, start, end, "Court repainting", MembershipExtensionDays: 1);
 
         using var scope = factory.Services.CreateScope();

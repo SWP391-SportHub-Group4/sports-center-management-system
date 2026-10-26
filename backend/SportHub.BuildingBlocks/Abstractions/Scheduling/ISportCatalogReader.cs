@@ -7,7 +7,7 @@ public interface ISportCatalogReader
 
     Task<RoomInfo?> GetRoomAsync(int roomId, CancellationToken cancellationToken = default);
 
-    /// <summary>Loại phòng của room được phép tổ chức môn này (bảng tương thích), cả hai đang active.</summary>
+    /// <summary>Rooms are shared physical facilities; check room and sport activity without a sport assignment.</summary>
     Task<bool> IsRoomCompatibleAsync(int roomId, int sportId, CancellationToken cancellationToken = default);
 
     /// <summary>Môn đang hoạt động và dịch vụ này đang bật. Cờ chỉ chặn giao dịch mới, không hủy thứ đã bán.</summary>

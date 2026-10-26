@@ -14,4 +14,6 @@ public interface ISystemSettingService
     Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default);
 
     Task<SystemSettingResponse> UpdateAsync(string key, string value, Guid actorUserId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<SystemSettingResponse>> UpdateManyAsync(IReadOnlyDictionary<string, string> values, Guid actorUserId, CancellationToken ct = default);
 }

@@ -23,7 +23,7 @@ public sealed class IncidentsController(IncidentService incidents) : ControllerB
 
     [HttpPost("preview")]
     public async Task<IActionResult> Preview([FromBody] IncidentRequest request, CancellationToken ct)
-        => Ok(await incidents.PreviewAsync(request, ct));
+        => Ok(await incidents.ReviewAsync(request, User.RequireUserId(), ct));
 
     /// <summary>Start handling: holds the window so no one books into it while schedule work is done.</summary>
     [HttpPost("fences")]

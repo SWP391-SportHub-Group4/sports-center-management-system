@@ -564,6 +564,7 @@ public sealed partial class DemoDataSeeder(
         var member = await db.UserAccounts.SingleOrDefaultAsync(x => x.Email == "an.member@sporthub.vn", ct);
         var room = await db.Rooms.FirstOrDefaultAsync(x => x.Name == "Badminton Class BC1", ct);
         if (manager is null || member is null || room is null) return;
+        room.AllowRental = true; // This named demo room explicitly offers rentals.
         var reference = Guid.Parse("311aa2a3-764e-4a9f-a8c2-988790e52723");
         await using (var tx = await db.Database.BeginTransactionAsync(ct))
         {

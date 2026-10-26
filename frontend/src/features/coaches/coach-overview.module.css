@@ -216,3 +216,10 @@
     white-space: normal;
   }
 }
+
+@media (max-width: 640px) {
+  .coachTabs.coachTabs :global([role="tablist"]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

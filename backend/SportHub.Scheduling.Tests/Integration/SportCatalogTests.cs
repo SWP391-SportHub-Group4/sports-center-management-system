@@ -361,7 +361,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         var reader = scope.ServiceProvider.GetRequiredService<ISportCatalogReader>();
 
         Assert.True(await reader.IsRoomCompatibleAsync(roomId, BadmintonSportId));
-        Assert.False(await reader.IsRoomCompatibleAsync(roomId, GymSportId));
+        Assert.True(await reader.IsRoomCompatibleAsync(roomId, GymSportId));
 
         await manager.PostAsJsonAsync($"api/manager/sports/{BadmintonSportId}/deactivate", new { });
         try
@@ -474,6 +474,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
             .GetProperty("roomId").GetInt32();
         var wrongType = (await Json(await manager.PostAsJsonAsync("api/rooms", new { name = Unique("Hoop"), capacity = 8, roomTypeId = BasketballRoomTypeId })))
             .GetProperty("roomId").GetInt32();
+        (await manager.PutAsJsonAsync($"api/manager/rooms/{closedRoom}/opening-hours", new { hours = Array.Empty<object>() })).EnsureSuccessStatusCode();
 
         foreach (var id in new[] { openRoom, wrongType })
         {
@@ -499,7 +500,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         var free = await FreeAsync(start, end);
         Assert.Contains(openRoom, free);
         Assert.DoesNotContain(closedRoom, free);  // không có giờ mở cửa
-        Assert.DoesNotContain(wrongType, free);   // loại phòng không chơi được môn này
+        Assert.Contains(wrongType, free); // Physical rooms are shared across sports.
 
         // Ngoài giờ mở cửa (05:00 VN = 22:00 UTC hôm trước).
         Assert.DoesNotContain(openRoom, await FreeAsync(start.AddHours(-4), start.AddHours(-3)));

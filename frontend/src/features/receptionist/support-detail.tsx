@@ -244,7 +244,7 @@ export function SupportDetail({
           </time>
         </div>
         <h3>
-          {isManager ? supportCategoryLabel(request.category) : request.subject}
+          {request.subject?.trim() || supportCategoryLabel(request.category)}
         </h3>
         {isManager && (
           <p className={styles.muted}>
@@ -295,10 +295,10 @@ export function SupportDetail({
       </div>
 
       <section className={styles.section} aria-label="Request message">
-        <h4>{isManager ? "Member request" : "Request"}</h4>
+        <h4>Request</h4>
         <dl className={styles.requestMetadata}>
           <div>
-            <dt>{isManager ? "Topic" : "Request type"}</dt>
+            <dt>Request type</dt>
             <dd>
               <span
                 className={styles.categoryBadge}
@@ -308,12 +308,13 @@ export function SupportDetail({
               </span>
             </dd>
           </div>
-          {!isManager && (
-            <div>
-              <dt>Subject</dt>
-              <dd>{request.subject}</dd>
-            </div>
-          )}
+          <div>
+            <dt>Subject</dt>
+            <dd>
+              {request.subject?.trim() ||
+                supportCategoryLabel(request.category)}
+            </dd>
+          </div>
           {isManager && (
             <>
               <div>
@@ -331,7 +332,7 @@ export function SupportDetail({
             </>
           )}
           <div>
-            <dt>{isManager ? "Your message" : "Details"}</dt>
+            <dt>Details</dt>
             <dd className={styles.message}>
               {request.description?.trim() || "No details provided."}
             </dd>

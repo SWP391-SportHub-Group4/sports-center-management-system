@@ -79,6 +79,8 @@ Ngoài phạm vi: đa chi nhánh, payroll/hợp đồng, chia doanh thu với ng
 
 ## 4. Bất biến nghiệp vụ
 
+- **Quyết định 26/10/2026 — [Phòng dùng chung và quyền cho thuê](Independent-Rooms-Workflow.md):** tạo và đặt tên phòng tại `/manager/facilities` khi trung tâm bổ sung cơ sở vật chất, không gắn phòng vào môn cụ thể. Lớp chọn từ tất cả phòng đang hoạt động. Quyền **Allow rental** riêng của từng phòng, mặc định tắt với phòng mới; tắt thuê không thay đổi lớp hay booking đã có. Quyết định này thay thế yêu cầu chọn Sport lúc tạo phòng và lọc phòng lớp theo SportRoomType trong các quyết định/tài liệu cũ.
+
 - Quy tắc xác nhận 13/10/2026 (BR-96): một Coach có thể dạy nhiều môn, có ít nhất một chuyên môn và được chọn nhiều môn ngay khi Admin tạo tài khoản hoặc đổi role sang Coach. Manager chỉnh sửa chuyên môn; phân công lớp phải khớp chuyên môn. Giới hạn đúng một môn trong luồng tạo Coach hiện tại là khoảng trống triển khai, không phải quy tắc nghiệp vụ.
 - Quy tắc xác nhận 13/10/2026: không đổi role của bất kỳ tài khoản đang là SystemAdministrator nào, kể cả chính mình và Admin khác. Việc tạo Admin hoặc nâng một tài khoản staff khác lên Admin vẫn được phép. Quy tắc Activate/Deactivate tuân theo quyết định 25/10/2026; vẫn bảo vệ Admin Active cuối cùng.
 - Membership Gym và gói lớp độc lập.

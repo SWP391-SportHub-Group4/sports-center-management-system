@@ -47,6 +47,7 @@ export function useCatalogFilters() {
   const values = {
     q: params.get("q") ?? "",
     status: params.get("status") ?? "",
+    rentalStatus: params.get("rentalStatus") ?? "",
     roomType: params.get("roomType") ?? "",
     service: params.get("service") ?? "",
   };
