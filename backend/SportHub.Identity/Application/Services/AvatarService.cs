@@ -94,7 +94,8 @@ public sealed class AvatarService(ISportHubDbContext db, IAvatarStorage storage,
         var row = await db.Set<UserAccount>().AsNoTracking().Where(u => u.UserId == targetUserId
             && u.Status == UserStatus.Active && u.Role != null
             && (u.Role.RoleName == UserRole.Member || u.Role.RoleName == UserRole.Coach
-                || u.Role.RoleName == UserRole.CenterManager || u.Role.RoleName == UserRole.SystemAdministrator))
+                || u.Role.RoleName == UserRole.CenterManager || u.Role.RoleName == UserRole.SystemAdministrator
+                || u.Role.RoleName == UserRole.Receptionist))
             .Select(u => new { Role = u.Role!.RoleName, AvatarUrl = u.Profile != null ? u.Profile.AvatarUrl : null })
             .SingleOrDefaultAsync(ct)
             ?? throw new NotFoundException("avatar_owner_not_found", "User not found.");

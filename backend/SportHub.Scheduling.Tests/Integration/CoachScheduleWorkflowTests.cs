@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
@@ -14,6 +15,68 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public sealed class CoachScheduleWorkflowTests(SchedulingApiFactory factory)
 {
+    [Fact]
+    public async Task Ai_suggestions_require_a_specific_upcoming_session_and_reject_course_personal_and_past_scopes()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var session = (await CourseTestData.SessionsAsync(factory, course.Id))[0];
+        using var coach = factory.CreateApiClient(course.CoachId, UserRole.Coach);
+        var path = $"api/coaches/me/teaching/classes/{course.Id}/suggestion";
+        foreach (var scope in new[] { "course", "personal" })
+            Assert.Equal(HttpStatusCode.BadRequest, (await coach.PostAsJsonAsync(path,
+                new { scope, sessionId = session.SessionId, goal = "Improve footwork", level = "Beginner", language = "en" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await coach.PostAsJsonAsync(path,
+            new { scope = "session", goal = "Improve footwork", level = "Beginner", language = "en" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await coach.PostAsJsonAsync(path,
+            new { scope = "session", sessionId = Guid.NewGuid(), goal = "Improve footwork", level = "Beginner", language = "en" })).StatusCode);
+        using (var services = factory.Services.CreateScope())
+        {
+            var db = services.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            await db.ClassSessions.Where(x => x.SessionId == session.SessionId)
+                .ExecuteUpdateAsync(x => x.SetProperty(s => s.Status, ClassSessionStatus.Completed));
+        }
+        Assert.Equal(HttpStatusCode.Conflict, (await coach.PostAsJsonAsync(path,
+            new { scope = "session", sessionId = session.SessionId, goal = "Improve footwork", level = "Beginner", language = "en" })).StatusCode);
+        using (var services = factory.Services.CreateScope())
+        {
+            var db = services.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            await db.ClassSessions.Where(x => x.SessionId == session.SessionId).ExecuteUpdateAsync(x => x
+                .SetProperty(s => s.Status, ClassSessionStatus.Scheduled)
+                .SetProperty(s => s.StartAtUtc, DateTime.UtcNow.AddHours(-3))
+                .SetProperty(s => s.EndAtUtc, DateTime.UtcNow.AddHours(-1)));
+        }
+        Assert.Equal(HttpStatusCode.Conflict, (await coach.PostAsJsonAsync(path,
+            new { scope = "session", sessionId = session.SessionId, goal = "Improve footwork", level = "Beginner", language = "en" })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Student_directory_pages_ten_unique_assigned_members_without_losing_the_last_page()
+    {
+        var course = await CourseTestData.CreateAsync(factory, capacity: 12);
+        var ids = new HashSet<Guid>();
+        for (var index = 0; index < 11; index++)
+        {
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            ids.Add(member.UserId);
+            await CourseTestData.EnrollmentAsync(factory, course.Id, member.UserId);
+        }
+        var unassigned = await factory.SeedUserAsync(UserRole.Member);
+        using var coach = factory.CreateApiClient(course.CoachId, UserRole.Coach);
+        var first = await coach.GetFromJsonAsync<JsonElement>("api/coaches/me/teaching/students?page=1");
+        var second = await coach.GetFromJsonAsync<JsonElement>("api/coaches/me/teaching/students?page=2");
+        Assert.Equal(10, first.GetProperty("pageSize").GetInt32());
+        Assert.Equal(10, first.GetProperty("items").GetArrayLength());
+        Assert.Equal(11, first.GetProperty("totalCount").GetInt32());
+        Assert.Equal(2, second.GetProperty("page").GetInt32());
+        Assert.Equal(10, second.GetProperty("pageSize").GetInt32());
+        Assert.Equal(1, second.GetProperty("items").GetArrayLength());
+        var returned = first.GetProperty("items").EnumerateArray().Concat(second.GetProperty("items").EnumerateArray())
+            .Select(x => x.GetProperty("memberId").GetGuid()).ToArray();
+        Assert.Equal(11, returned.Distinct().Count());
+        Assert.True(ids.SetEquals(returned));
+        Assert.DoesNotContain(unassigned.UserId, returned);
+    }
+
     [Fact]
     public async Task Cancelling_a_whole_course_closes_pending_session_requests()
     {

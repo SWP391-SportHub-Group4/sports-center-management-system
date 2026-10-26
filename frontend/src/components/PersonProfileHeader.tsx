@@ -4,12 +4,14 @@ import styles from "./PersonProfile.module.css";
 
 export function PersonProfileHeader({
   name,
+  userId,
   avatarUrl,
   contact,
   status,
   actions,
 }: {
   name: string;
+  userId?: string;
   avatarUrl?: string | null;
   contact: ReactNode;
   status: ReactNode;
@@ -20,6 +22,7 @@ export function PersonProfileHeader({
     <section className={styles.header} aria-labelledby={heading}>
       <div className={styles.identity}>
         <AvatarImage
+          userId={userId}
           name={name}
           avatarUrl={avatarUrl}
           size={80}

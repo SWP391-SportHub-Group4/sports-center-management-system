@@ -48,7 +48,7 @@ const MODE_COPY: Record<
   progress: {
     field: "Progress note",
     placeholder: "What has been checked, and what happens next?",
-    submit: "Update",
+    submit: "Update progress",
   },
   done: {
     field: "Resolution note",
@@ -265,6 +265,7 @@ export function SupportDetail({
 
       <div className={styles.banner}>
         <AvatarImage
+          userId={request.memberId}
           name={request.memberName || request.memberEmail || "Member"}
           avatarUrl={member.data?.avatarUrl}
           size={44}
@@ -554,6 +555,7 @@ export function SupportDetail({
             <label className={styles.field}>
               {copy.field}
               <textarea
+                aria-label={copy.field}
                 value={note}
                 maxLength={1000}
                 disabled={busy}
@@ -564,6 +566,12 @@ export function SupportDetail({
                 }}
               />
             </label>
+            {mode === "progress" && (
+              <p className={styles.helper}>
+                Update the request as often as needed. Each saved note is kept
+                in the activity history.
+              </p>
+            )}
             {isManager && (
               <p className={styles.helper}>
                 The member will see this text as their latest reply. It replaces

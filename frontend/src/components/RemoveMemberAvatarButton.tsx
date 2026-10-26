@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { Dialog } from "@/components/ui";
+import { publishUserAvatar, type UserAvatarResponse } from "@/lib/user-avatar";
 
 export function RemoveMemberAvatarButton({
   memberId,
@@ -30,11 +31,12 @@ export function RemoveMemberAvatarButton({
     setBusy(true);
     setError("");
     try {
-      await api.del(
+      const photo = await api.del<UserAvatarResponse>(
         administrator
           ? `/api/admin/users/${memberId}/avatar`
           : `/api/manager/members/${memberId}/avatar`,
       );
+      publishUserAvatar(photo);
       setOpen(false);
       onRemoved();
     } catch (cause) {

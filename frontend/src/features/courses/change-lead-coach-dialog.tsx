@@ -194,7 +194,11 @@ export function ChangeLeadCoachDialog({
                               checked={selected === coach.coachId}
                               onChange={() => setSelected(coach.coachId)}
                             />
-                            <AvatarImage name={coach.fullName} size={40} />
+                            <AvatarImage
+                              userId={coach.coachId}
+                              name={coach.fullName}
+                              size={40}
+                            />
                             <span>
                               <strong>{coach.fullName}</strong>
                               <small>

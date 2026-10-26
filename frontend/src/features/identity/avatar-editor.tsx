@@ -3,6 +3,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { ImagePlus, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { api } from "@/lib/apiClient";
+import {
+  publishUserAvatar,
+  useUserAvatar,
+  type UserAvatarResponse,
+} from "@/lib/user-avatar";
+import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { AvatarImage } from "@/components/AvatarImage";
 import { homepageImageSpecs } from "@/components/homepage/image-specs";
@@ -165,7 +171,9 @@ function AvatarCropDialog({
         );
       const form = new FormData();
       form.append("file", blob, "avatar.jpg");
-      await api.postForm("/api/avatars/me", form);
+      publishUserAvatar(
+        await api.postForm<UserAvatarResponse>("/api/avatars/me", form),
+      );
       setClosing(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -357,6 +365,8 @@ export function AvatarEditor({
   avatarUrl?: string | null;
   onChanged: () => Promise<void> | void;
 }) {
+  const { user } = useAuth();
+  const currentAvatarUrl = useUserAvatar(user?.userId, avatarUrl);
   const { language } = useLanguage();
   const vi = language === "vi";
   const input = useRef<HTMLInputElement>(null);
@@ -381,7 +391,7 @@ export function AvatarEditor({
     setError("");
     setSuccess("");
     try {
-      await api.del("/api/avatars/me");
+      publishUserAvatar(await api.del<UserAvatarResponse>("/api/avatars/me"));
       await changed();
       setSuccess(vi ? "Đã xóa ảnh đại diện." : "Avatar removed.");
     } catch (cause) {
@@ -393,7 +403,12 @@ export function AvatarEditor({
   return (
     <div className={styles.layout}>
       <div className={styles.pick}>
-        <AvatarImage name={name} avatarUrl={avatarUrl} size={72} />
+        <AvatarImage
+          userId={user?.userId}
+          name={name}
+          avatarUrl={currentAvatarUrl}
+          size={72}
+        />
         <div className={styles.tools}>
           <div className={styles.actions}>
             <button
@@ -406,7 +421,7 @@ export function AvatarEditor({
               <ImagePlus size={17} aria-hidden="true" />
               Browse
             </button>
-            {avatarUrl && (
+            {currentAvatarUrl && (
               <button
                 className={styles.remove}
                 type="button"

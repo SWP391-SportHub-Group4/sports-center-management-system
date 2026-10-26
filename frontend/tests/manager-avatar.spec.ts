@@ -52,6 +52,10 @@ for (const actor of [
       await page.route("**/api/**", async (route) => {
         const path = new URL(route.request().url()).pathname;
         if (path === "/api/users/me") return route.fulfill({ json: account });
+        if (path === `/api/avatars/${account.userId}`)
+          return route.fulfill({
+            json: { userId: account.userId, avatarUrl: account.avatarUrl },
+          });
         if (path === "/api/avatars/me") {
           const method = route.request().method();
           writes.push(method);

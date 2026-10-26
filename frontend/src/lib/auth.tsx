@@ -10,6 +10,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api, setUnauthorizedHandler, TOKEN_STORAGE_KEY } from "./apiClient";
+import { clearUserAvatars } from "./user-avatar";
 
 /** Khớp tên member enum UserRole of backend (PascalCase — SSOT §5.6). */
 export type Role =
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const clearSession = useCallback(() => {
+    clearUserAvatars();
     try {
       window.localStorage.removeItem(TOKEN_STORAGE_KEY);
       window.localStorage.removeItem(USER_STORAGE_KEY);
@@ -106,7 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   useEffect(() => {
-    if (!loading && user?.mustChangePassword && pathname !== "/change-initial-password")
+    if (
+      !loading &&
+      user?.mustChangePassword &&
+      pathname !== "/change-initial-password"
+    )
       router.replace("/change-initial-password");
   }, [loading, user, pathname, router]);
 

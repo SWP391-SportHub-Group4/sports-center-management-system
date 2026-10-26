@@ -317,6 +317,7 @@ export function PublicHeader() {
             />
           ) : user ? (
             <AccountMenu
+              userId={user.userId}
               name={user.fullName}
               avatarUrl={user.avatarUrl}
               subtitle={copy.subtitle}

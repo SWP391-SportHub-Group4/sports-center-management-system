@@ -15,6 +15,26 @@ namespace SportHub.Security.Tests.Integration;
 [Collection(nameof(SportHubApiCollection))]
 public sealed class ManagerOwnAvatarTests(SportHubApiFactory factory)
 {
+    [Fact]
+    public async Task Signed_in_staff_can_resolve_a_receptionist_avatar_but_guests_cannot()
+    {
+        var receptionist = await factory.SeedUserAsync($"reception-avatar-{Guid.NewGuid():N}@example.com", null, role: UserRole.Receptionist);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            var profile = await db.UserProfiles.SingleAsync(p => p.UserId == receptionist.UserId);
+            profile.AvatarUrl = "https://res.cloudinary.com/test/image/upload/receptionist.jpg";
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            factory.IssueToken(receptionist.UserId, UserRole.Receptionist));
+        var avatar = await client.GetFromJsonAsync<AvatarResponse>($"/api/avatars/{receptionist.UserId}");
+        Assert.Equal("https://res.cloudinary.com/test/image/upload/receptionist.jpg", avatar!.AvatarUrl);
+        using var guest = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Forbidden, (await guest.GetAsync($"/api/avatars/{receptionist.UserId}")).StatusCode);
+    }
+
     [Theory]
     [InlineData(UserRole.CenterManager, "CENTER_MANAGER")]
     [InlineData(UserRole.SystemAdministrator, "SYSTEM_ADMINISTRATOR")]

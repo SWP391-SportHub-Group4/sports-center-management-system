@@ -92,6 +92,7 @@ export function ManagerMemberList() {
                       <tr key={m.userId}>
                         <td>
                           <AvatarImage
+                            userId={m.userId}
                             name={m.fullName || m.email}
                             avatarUrl={m.avatarUrl}
                             size={32}
@@ -188,6 +189,7 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
       <AsyncSection state={member}>
         {(m) => (
           <PersonProfileHeader
+            userId={m.userId}
             name={m.fullName || m.email}
             avatarUrl={m.avatarUrl}
             contact={

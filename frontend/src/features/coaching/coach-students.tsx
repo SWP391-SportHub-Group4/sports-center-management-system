@@ -49,128 +49,170 @@ export function CoachStudentDirectory() {
   );
   return (
     <div className={styles.workspace}>
-      <header className={styles.heading}>
-        <div>
-          <h2>{vi ? "Học viên bạn đang phụ trách" : "Your students"}</h2>
-          <p>
-            {vi
-              ? "Xem hồ sơ sức khỏe trước, sau đó chọn môn và lớp để xem kế hoạch và đánh giá."
-              : "Review their health profile first, then choose a sport and class to view plans and assessments."}
-          </p>
-        </div>
-        <Users size={32} aria-hidden="true" />
-      </header>
-      <TableFilters>
-        <div className={styles.filters}>
-          <label>
-            {vi ? "Tìm học viên" : "Find a student"}
-            <span className={styles.search}>
-              <Search size={18} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                maxLength={150}
-                placeholder={vi ? "Tên hoặc email" : "Name or email"}
+      <section className={styles.directoryPanel} aria-label="Student directory">
+        <header className={styles.directoryHeading}>
+          <span className={styles.directoryEmblem}>
+            <Users size={22} aria-hidden="true" />
+          </span>
+          <div>
+            <h2>{vi ? "Danh sách học viên" : "Student directory"}</h2>
+            <p>
+              {vi
+                ? "Chọn học viên để xem hồ sơ sức khỏe, kế hoạch học và đánh giá."
+                : "Health profiles, plans and assessments in one place."}
+            </p>
+          </div>
+        </header>
+        <div className={styles.directoryToolbar}>
+          <div className={styles.filters}>
+            <label>
+              {vi ? "Tìm học viên" : "Find a student"}
+              <span className={styles.search}>
+                <Search size={18} aria-hidden="true" />
+                <input
+                  type="search"
+                  value={search}
+                  maxLength={150}
+                  placeholder={vi ? "Tên hoặc email" : "Name or email"}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </span>
+            </label>
+            <label>
+              {vi ? "Bộ môn" : "Sport"}
+              <select
+                value={sport}
                 onChange={(e) => {
-                  setSearch(e.target.value);
+                  setSport(e.target.value);
                   setPage(1);
                 }}
-              />
-            </span>
-          </label>
-          <label>
-            {vi ? "Bộ môn" : "Sport"}
-            <select
-              value={sport}
-              onChange={(e) => {
-                setSport(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">{vi ? "Tất cả bộ môn" : "All sports"}</option>
-              {sports.data?.sports.map((s) => (
-                <option key={s.sportId} value={s.sportId}>
-                  {s.sportName}
-                </option>
-              ))}
-            </select>
-          </label>
+              >
+                <option value="">{vi ? "Tất cả bộ môn" : "All sports"}</option>
+                {sports.data?.sports.map((s) => (
+                  <option key={s.sportId} value={s.sportId}>
+                    {s.sportName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
-      </TableFilters>
-      <AsyncSection state={state}>
-        {(data) => (
-          <>
-            <p className={styles.count} role="status">
-              {data.totalCount} {vi ? "học viên" : "students"}
-            </p>
-            <div className={styles.directory}>
-              {data.items.map((student) => (
-                <Link
-                  key={student.memberId}
-                  href={`/coach/members/${student.memberId}`}
-                  className={styles.student}
-                >
-                  <UserAvatar
-                    userId={student.memberId}
-                    name={student.memberName}
-                    size={44}
-                  />
-                  <span className={styles.studentInfo}>
-                    <strong>{student.memberName}</strong>
-                    <small>{student.email}</small>
-                    <span className={styles.sportTags}>
-                      {Array.from(
-                        new Set(student.classes.map((c) => c.sportName)),
-                      ).map((name) => (
-                        <span key={name}>{name}</span>
-                      ))}
-                    </span>
-                    <small>
-                      {student.classes.length}{" "}
-                      {vi ? "lớp đang phụ trách" : "assigned classes"}
-                    </small>
-                  </span>
-                  <ArrowRight size={18} aria-hidden="true" />
-                </Link>
-              ))}
-            </div>
-            {!data.items.length && (
-              <div className={styles.empty}>
-                <Users size={32} aria-hidden="true" />
-                <h3>
-                  {vi ? "Không có học viên phù hợp" : "No matching students"}
-                </h3>
-                <p>
+        <AsyncSection state={state}>
+          {(data) => (
+            <>
+              <div className={styles.directorySummary}>
+                <p className={styles.count} role="status">
+                  {data.totalCount > 0 &&
+                    `${(data.page - 1) * data.pageSize + 1}–${Math.min(data.page * data.pageSize, data.totalCount)} of `}
+                  {data.totalCount}{" "}
                   {vi
-                    ? "Danh sách gồm học viên thuộc các lớp bạn đang được phân công."
-                    : "This directory includes students in your currently assigned classes."}
+                    ? "học viên"
+                    : data.totalCount === 1
+                      ? "student"
+                      : "students"}
                 </p>
-                {(search || sport) && (
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => {
-                      setSearch("");
-                      setSport("");
-                      setPage(1);
-                    }}
-                  >
-                    {vi ? "Xóa bộ lọc" : "Clear filters"}
-                  </button>
-                )}
+                <span>{vi ? "10 học viên / trang" : "10 per page"}</span>
               </div>
-            )}
-            {data.totalCount > data.pageSize && (
-              <Pager
-                page={data.page}
-                pageSize={data.pageSize}
-                totalCount={data.totalCount}
-                onChange={setPage}
-              />
-            )}
-          </>
-        )}
-      </AsyncSection>
+              {data.items.length > 0 && (
+                <div className={styles.directoryLabels} aria-hidden="true">
+                  <span>Student</span>
+                  <span>Current classes</span>
+                  <span>Sport</span>
+                  <span />
+                </div>
+              )}
+              <ul className={styles.directory} aria-label="Students">
+                {data.items.map((student) => (
+                  <li key={student.memberId}>
+                    <Link
+                      href={`/coach/members/${student.memberId}`}
+                      className={styles.student}
+                    >
+                      <span className={styles.studentIdentity}>
+                        <UserAvatar
+                          userId={student.memberId}
+                          name={student.memberName}
+                          size={44}
+                        />
+                        <span className={styles.studentInfo}>
+                          <strong>{student.memberName}</strong>
+                          <small title={student.email}>{student.email}</small>
+                        </span>
+                      </span>
+                      <span className={styles.classInfo}>
+                        <span className={styles.classCount}>
+                          {student.classes.length}{" "}
+                          <small>
+                            {vi
+                              ? "lớp"
+                              : student.classes.length === 1
+                                ? "class"
+                                : "classes"}
+                          </small>
+                        </span>
+                        <small className={styles.classNames}>
+                          {student.classes.map((c) => c.className).join(" · ")}
+                        </small>
+                      </span>
+                      <span className={styles.sportTags}>
+                        {Array.from(
+                          new Set(student.classes.map((c) => c.sportName)),
+                        ).map((name) => (
+                          <span key={name}>{name}</span>
+                        ))}
+                      </span>
+                      <span className={styles.classView}>
+                        <span>{vi ? "Xem hồ sơ" : "View profile"}</span>
+                        <ArrowRight size={16} aria-hidden="true" />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {!data.items.length && (
+                <div className={styles.empty}>
+                  <Users size={32} aria-hidden="true" />
+                  <h3>
+                    {vi ? "Không có học viên phù hợp" : "No matching students"}
+                  </h3>
+                  <p>
+                    {vi
+                      ? "Danh sách gồm học viên thuộc các lớp bạn đang được phân công."
+                      : "This directory includes students in your currently assigned classes."}
+                  </p>
+                  {(search || sport) && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      onClick={() => {
+                        setSearch("");
+                        setSport("");
+                        setPage(1);
+                      }}
+                    >
+                      {vi ? "Xóa bộ lọc" : "Clear filters"}
+                    </button>
+                  )}
+                </div>
+              )}
+              {data.totalCount > data.pageSize && (
+                <div className={styles.directoryPagination}>
+                  <Pager
+                    page={data.page}
+                    pageSize={data.pageSize}
+                    totalCount={data.totalCount}
+                    onChange={setPage}
+                    noun={vi ? "học viên" : "students"}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </AsyncSection>
+      </section>
     </div>
   );
 }

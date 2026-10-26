@@ -5,6 +5,7 @@ import { Save, Send, Sparkles, X } from "lucide-react";
 import { Feedback } from "@/components/ui";
 import { useAction, useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { sortTeachingSessions } from "@/lib/teaching-order";
 import type { CourseSessionDto } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -115,8 +116,9 @@ export function TeachingEditor({
           : existing.sessionId
             ? "session"
             : "course"
-        : (planScope ??
-          (memberId ? "personal" : sessionId ? "session" : "course")),
+        : planScope === "personal" || memberId
+          ? "personal"
+          : "session",
   );
   const labels = {
     PLAN: vi ? "Soạn kế hoạch" : "Lesson plan",
@@ -206,11 +208,13 @@ export function TeachingEditor({
                 setSuggestion("");
               }}
             >
-              <option value="course" disabled={sessionOnly}>
-                {vi
-                  ? "Cả khóa · dành cho toàn bộ học viên"
-                  : "Course · for all students"}
-              </option>
+              {existing && scope === "course" && (
+                <option value="course" disabled={sessionOnly}>
+                  {vi
+                    ? "Cả khóa · dành cho toàn bộ học viên"
+                    : "Course · for all students"}
+                </option>
+              )}
               <option value="session">
                 {vi
                   ? "Buổi tập · giáo án cho một buổi"
@@ -306,7 +310,7 @@ export function TeachingEditor({
                       ? "Áp dụng xuyên suốt khóa"
                       : "Throughout the course"}
                 </option>
-                {sessions
+                {sortTeachingSessions(sessions, now)
                   .filter(
                     (s) =>
                       !/cancel/i.test(s.status) &&
@@ -339,107 +343,103 @@ export function TeachingEditor({
             disabled={busy}
           />
         </label>
-        {kind === "PLAN" && !sessionOnly && (
-          <details className={styles.aiTools}>
-            <summary>
-              <Sparkles size={16} aria-hidden="true" />
-              {vi ? "Gợi ý giáo án bằng AI" : "AI lesson suggestions"}
-            </summary>
-            <div className={styles.formRow}>
-              <label>
-                {scope === "course"
-                  ? vi
-                    ? "Mục tiêu cả khóa"
-                    : "Course goal"
-                  : vi
-                    ? "Mục tiêu tập luyện"
-                    : "Training goal"}
-                <input
-                  value={goal}
-                  onChange={(e) => {
-                    setGoal(e.target.value);
-                    setSuggestion("");
-                  }}
-                  maxLength={1000}
-                  disabled={busy}
-                />
-              </label>
-              <label>
-                {vi ? "Trình độ" : "Experience"}
-                <select
-                  value={level}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setLevel(e.target.value);
-                    setSuggestion("");
-                  }}
-                >
-                  <option value="Beginner">{vi ? "Cơ bản" : "Beginner"}</option>
-                  <option value="Intermediate">
-                    {vi ? "Trung cấp" : "Intermediate"}
-                  </option>
-                  <option value="Advanced">
-                    {vi ? "Nâng cao" : "Advanced"}
-                  </option>
-                </select>
-              </label>
-            </div>
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              disabled={
-                busy ||
-                !goal.trim() ||
-                (scope === "personal" && !student) ||
-                (scope === "session" && !session)
-              }
-              onClick={async () => {
-                const data = await ai.run(() =>
-                  teachingApi.suggest(
-                    classId,
-                    student || null,
-                    goal,
-                    level,
-                    language,
-                    scope,
-                    session || null,
-                  ),
-                );
-                if (data) setSuggestion(formatPlanContent(data.content));
-              }}
-            >
-              {ai.busy
-                ? vi
-                  ? "Đang tạo gợi ý…"
-                  : "Generating…"
-                : vi
-                  ? "Tạo gợi ý"
-                  : "Generate suggestion"}
-            </button>
-            <Feedback error={ai.error} />
-            {suggestion && (
-              <div className={styles.suggestion}>
-                <PlanContent content={suggestion} />
-                <button
-                  type="button"
-                  className="btn btn--secondary btn--sm"
-                  disabled={busy}
-                  onClick={() => {
-                    setContent(suggestion);
-                    setSuggestion("");
-                  }}
-                >
-                  {vi ? "Dùng bản gợi ý" : "Use this suggestion"}
-                </button>
-                <small>
-                  {vi
-                    ? "Xem lại và điều chỉnh trước khi lưu kế hoạch."
-                    : "Review and adjust before saving the plan."}
-                </small>
+        {kind === "PLAN" &&
+          !sessionOnly &&
+          scope === "session" &&
+          homeworkSession &&
+          !/completed|cancelled/i.test(homeworkSession.status) &&
+          Date.parse(homeworkSession.startAtUtc) > now && (
+            <details className={styles.aiTools}>
+              <summary>
+                <Sparkles size={16} aria-hidden="true" />
+                {vi ? "Gợi ý giáo án bằng AI" : "AI lesson suggestions"}
+              </summary>
+              <div className={styles.formRow}>
+                <label>
+                  {vi ? "Mục tiêu tập luyện" : "Training goal"}
+                  <input
+                    value={goal}
+                    onChange={(e) => {
+                      setGoal(e.target.value);
+                      setSuggestion("");
+                    }}
+                    maxLength={1000}
+                    disabled={busy}
+                  />
+                </label>
+                <label>
+                  {vi ? "Trình độ" : "Experience"}
+                  <select
+                    value={level}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setLevel(e.target.value);
+                      setSuggestion("");
+                    }}
+                  >
+                    <option value="Beginner">
+                      {vi ? "Cơ bản" : "Beginner"}
+                    </option>
+                    <option value="Intermediate">
+                      {vi ? "Trung cấp" : "Intermediate"}
+                    </option>
+                    <option value="Advanced">
+                      {vi ? "Nâng cao" : "Advanced"}
+                    </option>
+                  </select>
+                </label>
               </div>
-            )}
-          </details>
-        )}
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                disabled={busy || !goal.trim() || !session}
+                onClick={async () => {
+                  const data = await ai.run(() =>
+                    teachingApi.suggest(
+                      classId,
+                      student || null,
+                      goal,
+                      level,
+                      language,
+                      "session",
+                      session || null,
+                    ),
+                  );
+                  if (data) setSuggestion(formatPlanContent(data.content));
+                }}
+              >
+                {ai.busy
+                  ? vi
+                    ? "Đang tạo gợi ý…"
+                    : "Generating…"
+                  : vi
+                    ? "Tạo gợi ý"
+                    : "Generate suggestion"}
+              </button>
+              <Feedback error={ai.error} />
+              {suggestion && (
+                <div className={styles.suggestion}>
+                  <PlanContent content={suggestion} />
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    disabled={busy}
+                    onClick={() => {
+                      setContent(suggestion);
+                      setSuggestion("");
+                    }}
+                  >
+                    {vi ? "Dùng bản gợi ý" : "Use this suggestion"}
+                  </button>
+                  <small>
+                    {vi
+                      ? "Xem lại và điều chỉnh trước khi lưu kế hoạch."
+                      : "Review and adjust before saving the plan."}
+                  </small>
+                </div>
+              )}
+            </details>
+          )}
         <label>
           {kind === "PLAN"
             ? scope === "course"

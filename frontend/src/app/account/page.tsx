@@ -237,6 +237,7 @@ export default function AccountPage() {
               <>
                 <header className={styles.profileHero}>
                   <AvatarImage
+                    userId={data.userId}
                     avatarUrl={data.avatarUrl}
                     name={data.fullName || data.email}
                     size={72}
