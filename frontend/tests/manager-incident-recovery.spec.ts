@@ -42,6 +42,13 @@ for (const full of [false, true]) {
         });
       if (path.endsWith("unread-count"))
         return route.fulfill({ json: { count: 0 } });
+      if (path === "/api/system-settings")
+        return route.fulfill({
+          json: [
+            { key: "center.opening_minutes", value: "360" },
+            { key: "center.closing_minutes", value: "1320" },
+          ],
+        });
       if (path === "/api/rooms")
         return route.fulfill({
           json: [
@@ -164,7 +171,10 @@ for (const full of [false, true]) {
       animations: "disabled",
     });
     await page
-      .getByRole("button", { name: en.operations.edit, exact: true })
+      .getByRole("button", {
+        name: en.incidentHistory.arrangeMakeup,
+        exact: true,
+      })
       .click();
     const dialog = page.getByRole("dialog", {
       name: en.incidentHistory.editSession,

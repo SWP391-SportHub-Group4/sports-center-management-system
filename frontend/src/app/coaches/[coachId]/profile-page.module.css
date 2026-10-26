@@ -1,0 +1,16 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg-page, #f3f7f5);
+}
+.profileMain {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 24px 0 48px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .profileMain {
+    width: calc(100% - 24px);
+    padding-top: 16px;
+  }
+}

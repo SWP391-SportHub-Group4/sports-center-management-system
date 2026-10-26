@@ -1,0 +1,757 @@
+.dashboard {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  color: var(--text-body);
+}
+.header,
+.headerActions,
+.period,
+.reportLink {
+  display: flex;
+  align-items: center;
+}
+.header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.header h1 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 700 1.5rem / 1.3 var(--font-body);
+  letter-spacing: -0.025em;
+}
+.header p,
+.panelHeader p,
+.footnote,
+.note {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.headerActions {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.period {
+  gap: 7px;
+  font-size: 0.8125rem;
+  color: var(--text-body);
+}
+.reportLink {
+  min-height: 44px;
+  gap: 6px;
+  color: var(--court-700);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.reportLink:hover {
+  text-decoration: underline;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+.metric {
+  min-width: 0;
+  padding: 16px 24px;
+}
+.metric + .metric {
+  border-inline-start: 1px solid var(--border-subtle);
+}
+.metric h3,
+.panelHeader h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 700 0.875rem / 1.5 var(--font-body);
+}
+.metricValue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 48px;
+  margin: 8px 0;
+  color: var(--court-800);
+  font: 650 2rem / 1.4 var(--font-body);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.valueUnit {
+  color: var(--text-muted);
+  font: 500 0.75rem / 1.5 var(--font-body);
+  letter-spacing: 0;
+}
+.reviewCount {
+  color: var(--warning-text);
+}
+.classSummary {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  min-width: 0;
+}
+.classSummary header {
+  flex: 0 1 190px;
+}
+.classSummary h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font: 700 0.875rem / 1.5 var(--font-body);
+}
+.classSummary p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+.classCounts {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+  min-width: 0;
+}
+.classCounts > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  min-width: 0;
+}
+.classCounts dt {
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.classCounts dd {
+  margin: 0;
+  color: var(--court-800);
+  font: 700 1.5rem / 1.3 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.classCounts [data-status="completed"] dd {
+  color: var(--info-text);
+}
+.classCounts [data-status="unpublished"] dd {
+  color: var(--text-body);
+}
+.classCounts dd.classDescription {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font: 400 0.6875rem / 1.5 var(--font-body);
+}
+.attendance {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.bookingSummary {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.bookingSummary .panelHeader {
+  margin-bottom: 8px;
+}
+.bookingSummary .note {
+  font-size: 0.6875rem;
+  margin-top: 10px;
+}
+.bookingTable {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  border: 0;
+  background: transparent;
+}
+.bookingTable th,
+.bookingTable td {
+  padding: 12px;
+  text-align: right;
+  vertical-align: middle;
+  border: 0;
+  background: transparent;
+  text-transform: none;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.bookingTable th:first-child {
+  width: 46%;
+  text-align: left;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.bookingTable thead th {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding-block: 11px;
+}
+.bookingTable tbody th {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+.bookingTable tbody td {
+  color: var(--text-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.bookingTable tbody tr[data-empty] td {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.bookingTable tr > :first-child {
+  border-radius: 6px 0 0 6px;
+}
+.bookingTable tr > :last-child {
+  border-radius: 0 6px 6px 0;
+}
+.bookingTable tfoot th,
+.bookingTable tfoot td {
+  border: 0;
+  background: var(--court-50);
+  color: var(--court-800);
+  font-weight: 700;
+  padding-block: 14px;
+}
+.bookingTable tfoot td {
+  font-size: 0.9375rem;
+}
+.attendanceHeader,
+.attendanceSummary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.attendanceHeader h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.attendanceHeader > span,
+.attendanceSummary {
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.attendanceSummary strong {
+  font-weight: 600;
+  color: var(--court-800);
+}
+.attendanceBars {
+  touch-action: pan-y;
+}
+.volumeAxis {
+  height: 80px;
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--text-muted);
+  text-align: right;
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+.volumeBar {
+  fill: var(--court-600);
+}
+.volumeBar[data-selected] {
+  fill: var(--court-900);
+}
+.volumeCap {
+  fill: var(--volt-400);
+}
+.attendance > .plot {
+  margin: 10px 0 4px;
+}
+.attendanceBars:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+}
+.attendance .note {
+  font-size: 0.625rem;
+}
+.activityPanel .plotBody svg {
+  height: 132px;
+}
+.activityPanel .attendanceBars svg {
+  height: 88px;
+}
+.activityPanel .yAxis {
+  height: 120px;
+}
+.reviewLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  margin-top: 3px;
+  color: var(--court-700);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reviewLink:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.metricContext {
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.metricContext p {
+  margin: 6px 0 0;
+}
+.metricContext small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  margin-top: 3px;
+}
+.cashCalculation {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 0;
+}
+.cashCalculation > div {
+  min-width: 0;
+}
+.cashCalculation dt {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.cashCalculation dd {
+  margin: 1px 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cashCalculation > span {
+  color: var(--text-muted);
+}
+.capacityTrack,
+.sourceTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-surface-sunken);
+  overflow: hidden;
+}
+.capacityTrack > span,
+.sourceTrack > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--court-700);
+}
+.metricContext .capacityTrack {
+  max-width: 180px;
+  margin: 4px 0 8px;
+}
+.chartGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 18px;
+}
+.panel {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+.panelHeader {
+  margin-bottom: 14px;
+}
+.panelHeader h2 {
+  font-size: 0.9375rem;
+}
+.trend {
+  display: grid;
+  gap: 12px;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend i {
+  width: 16px;
+  height: 3px;
+  display: inline-block;
+}
+.collectedKey {
+  background: var(--court-700);
+}
+.netKey {
+  border-top: 2px dashed var(--wood-600);
+}
+.plot {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+}
+.yAxis {
+  height: 148px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-top: 5px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+.plotBody {
+  min-width: 0;
+  position: relative;
+  touch-action: pan-y;
+  border-radius: 4px;
+}
+.plotBody svg {
+  display: block;
+  width: 100%;
+  height: 164px;
+  overflow: visible;
+}
+.gridLine {
+  stroke: var(--border-subtle);
+  stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+}
+.zeroLine {
+  stroke: var(--text-muted);
+  vector-effect: non-scaling-stroke;
+}
+.collectedLine,
+.netLine {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.collectedLine {
+  stroke: var(--court-700);
+  stroke-width: 2.5;
+}
+.netLine {
+  stroke: var(--wood-600);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+}
+.cursor {
+  stroke: var(--text-muted);
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+}
+.collectedDot {
+  fill: var(--court-700);
+}
+.netDot {
+  fill: var(--wood-600);
+}
+.xAxis {
+  position: relative;
+  height: 20px;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+}
+.xAxis span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+.inspection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.inspection > span:first-child {
+  color: var(--text-muted);
+}
+.inspection small {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+}
+.inspection .money {
+  font-weight: 600;
+}
+.sources {
+  display: grid;
+  gap: 12px;
+}
+.sourceList,
+.sportList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 13px;
+}
+.sourceHeading,
+.sportHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.sourceHeading > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sourceHeading > span:last-child {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.sourceHeading small {
+  min-width: 42px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  text-align: right;
+}
+.sourceHeading .money {
+  font-weight: 600;
+}
+.insight {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.insight strong {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.occupancyPanel {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.65fr) minmax(0, 2fr);
+  gap: 16px 24px;
+  align-items: start;
+}
+.occupancyPanel .panelHeader {
+  margin-bottom: 0;
+}
+.occupancy {
+  min-width: 0;
+}
+.sportList {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 14px 28px;
+}
+.sportHeading > span:last-child {
+  text-align: right;
+}
+.sportHeading strong {
+  color: var(--court-800);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+.sportHeading small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+.occupancy .note {
+  margin-top: 10px;
+}
+.footnote {
+  margin: -6px 0 0;
+  font-size: 0.6875rem;
+}
+.empty {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.emptyMetric,
+.unavailable {
+  color: var(--text-muted);
+  font: 500 0.875rem / 1.5 var(--font-body);
+  letter-spacing: 0;
+}
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--text-body);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+}
+.skeleton {
+  display: inline-block;
+  width: 100px;
+  max-width: 100%;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--bg-surface-sunken);
+}
+.money {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+  border-radius: 2px;
+}
+.exactValue {
+  position: absolute;
+  z-index: 2;
+  inset-inline-start: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 9px;
+  border-radius: 5px;
+  background: var(--court-900);
+  color: white;
+  font: 500 0.75rem / 1.5 var(--font-body);
+  letter-spacing: 0;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+.money:hover .exactValue,
+.money:focus .exactValue {
+  visibility: visible;
+  opacity: 1;
+}
+.sourceHeading .exactValue {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+.inspection > span:last-child .exactValue {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+.money:focus-visible,
+.plotBody:focus-visible,
+.reportLink:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+}
+@media (max-width: 1050px) {
+  .metric {
+    padding: 18px;
+  }
+  .metricValue {
+    font-size: 1.75rem;
+  }
+  .chartGrid {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+  .occupancyPanel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+@media (max-width: 760px) {
+  .classSummary {
+    display: block;
+    padding: 16px;
+  }
+  .classCounts {
+    margin-top: 12px;
+    gap: 12px;
+  }
+  .chartGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metric + .metric {
+    border-inline-start: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .metricValue {
+    min-height: 0;
+  }
+  .metricContext .capacityTrack {
+    max-width: none;
+  }
+}
+@media (max-width: 420px) {
+  .dashboard {
+    gap: 14px;
+  }
+  .panel {
+    padding: 16px 12px;
+  }
+  .metric {
+    padding: 16px;
+  }
+  .headerActions {
+    gap: 12px;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .period {
+    font-size: 0.75rem;
+  }
+  .inspection {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .inspection > span:first-child {
+    grid-column: 1 / -1;
+  }
+  .inspection small {
+    min-height: 28px;
+  }
+  .plot {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 6px;
+  }
+}

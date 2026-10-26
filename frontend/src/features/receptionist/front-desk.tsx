@@ -5,6 +5,7 @@ import { pagedItems } from "@/lib/paged";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
+import { isGymClosingSoon } from "@/lib/day-pass";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import {
@@ -294,12 +295,12 @@ export function PlanSales({
                   label: l.membershipDuration,
                   value: `${selectedPlan.durationDays} ${t.refactor.days}`,
                 },
-                ...(selectedPlan.durationDays === 1
+                ...(selectedPlan.durationDays === 1 && isGymClosingSoon()
                   ? [
                       {
-                        label: "Lưu ý trước khi thanh toán",
+                        label: "Before payment",
                         value:
-                          "Vé Gym 1 ngày chỉ có hiệu lực 24 giờ kể từ lúc thanh toán thành công. Hãy thông báo điều này cho Member trước khi thu tiền.",
+                          "The gym closes at 22:00. This day pass is valid only until then. Please tell the member before payment.",
                       },
                     ]
                   : []),

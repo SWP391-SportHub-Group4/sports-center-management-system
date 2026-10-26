@@ -24,6 +24,11 @@ function loginErrorMessage(
       ? "Địa chỉ API chưa được cấu hình đúng. Đặt NEXT_PUBLIC_API_BASE_URL thành URL HTTPS đầy đủ của backend và deploy lại frontend."
       : cause.message;
   }
+  if (
+    cause instanceof ApiError &&
+    ["account_banned", "account_deactivated"].includes(cause.code)
+  )
+    return "This account is deactivated. Contact an administrator for help.";
   if (language === "vi")
     return cause instanceof ApiError
       ? cause.message
@@ -36,10 +41,6 @@ function loginErrorMessage(
 
   const messages: Record<string, string> = {
     invalid_credentials: "The email or password is incorrect.",
-    account_banned:
-      "This account is locked. Contact an administrator for help.",
-    account_deactivated:
-      "This account is inactive. Contact an administrator for help.",
     too_many_requests: "Too many sign-in attempts. Please wait and try again.",
     network_error:
       "We could not reach SportHub. Check your connection and try again.",

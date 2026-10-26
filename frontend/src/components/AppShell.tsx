@@ -17,6 +17,7 @@ import { HOME_BY_ROLE, useAuth, type Role } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import type { Translations } from "@/locales/en";
 import { NotificationBell } from "./NotificationBell";
+import { useManagerRequestUnread } from "@/lib/manager-request-reads";
 import {
   IconKeyboard,
   IconLogout,
@@ -24,7 +25,6 @@ import {
   IconClose,
   IconSettings,
   IconUser,
-  IconClipboard,
 } from "@/components/icons";
 import shell from "./MemberShell.module.css";
 import styles from "./AppShell.module.css";
@@ -59,7 +59,7 @@ export const RECEPTIONIST_SHORTCUTS: Record<
     label: "Alt + 1",
     contentKey: "gymCheckin",
   },
-  "/receptionist/attendance": {
+  "/receptionist/schedule": {
     key: "2",
     label: "Alt + 2",
     contentKey: "attendance",
@@ -89,8 +89,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   Receptionist: [
     { href: "/receptionist", labelKey: "frontDesk" },
     { href: "/receptionist/members", labelKey: "members" },
-    { href: "/receptionist/attendance", labelKey: "attendance" },
-    { href: "/receptionist/court-schedule", labelKey: "courtSchedule" },
+    { href: "/receptionist/schedule", labelKey: "activitySchedule" },
     { href: "/receptionist/support", labelKey: "support" },
   ],
   Coach: [
@@ -98,6 +97,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/members", labelKey: "assignedMembers" },
     { href: "/coach/attendance", labelKey: "attendance" },
+    { href: "/coach/support", labelKey: "requests" },
   ],
   CenterManager: [
     { href: "/manager", labelKey: "overview" },
@@ -118,6 +118,7 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/admin", labelKey: "overview" },
     { href: "/admin/users", labelKey: "usersRoles" },
     { href: "/admin/audit-log", labelKey: "auditLog" },
+    { href: "/admin/support", labelKey: "support" },
   ],
 };
 
@@ -131,6 +132,7 @@ export function getNavForUser(user: {
     { href: "/coach/schedule", labelKey: "teachingSchedule" },
     { href: "/coach/classes", labelKey: "assignedClasses" },
     { href: "/coach/members", labelKey: "classStudents" },
+    { href: "/coach/support", labelKey: "requests" },
   ];
 }
 
@@ -219,14 +221,28 @@ function isActiveHref(pathname: string, href: string, root: string) {
 
 const FrameContext = createContext(false);
 
+function RequestUnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={styles.requestBadge}
+      aria-label={`${count} unread requests`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function NavGroup({
   entry,
   pathname,
   root,
+  unreadRequests = 0,
 }: {
   entry: Extract<NavEntry, { kind: "group" }>;
   pathname: string;
   root: string;
+  unreadRequests?: number;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -263,6 +279,9 @@ function NavGroup({
         onClick={() => setOpen((o) => !o)}
       >
         {entry.label}
+        {entry.items.some((item) => item.href === "/manager/requests") && (
+          <RequestUnreadBadge count={unreadRequests} />
+        )}
         <svg
           width="10"
           height="10"
@@ -289,6 +308,9 @@ function NavGroup({
                   className={`${styles.groupLink} ${on ? styles.groupLinkActive : ""}`}
                 >
                   {item.label}
+                  {item.href === "/manager/requests" && (
+                    <RequestUnreadBadge count={unreadRequests} />
+                  )}
                 </Link>
               </li>
             );
@@ -314,6 +336,7 @@ export function AppFrame({
   const { language, t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
+  const unreadRequests = useManagerRequestUnread();
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
@@ -466,6 +489,7 @@ export function AppFrame({
                   entry={entry}
                   pathname={pathname}
                   root={root}
+                  unreadRequests={unreadRequests}
                 />
               ),
             )}
@@ -505,6 +529,7 @@ export function AppFrame({
                 aria-label={user.fullName || user.email}
               >
                 <AvatarImage
+                  userId={user.userId}
                   name={user.fullName || user.email}
                   avatarUrl={user.avatarUrl}
                   size={36}
@@ -545,25 +570,6 @@ export function AppFrame({
                     <IconUser size={15} />
                     <span>{t.navigation.myAccount}</span>
                   </Link>
-                  {user.role === "Coach" && (
-                    <Link
-                      href="/coach/change-requests"
-                      className={`${shell.dropdownItem} ${styles.profileItem}`}
-                      aria-current={
-                        isActiveHref(
-                          pathname,
-                          "/coach/change-requests",
-                          "/coach",
-                        )
-                          ? "page"
-                          : undefined
-                      }
-                      onClick={() => setUserMenu(false)}
-                    >
-                      <IconClipboard size={15} aria-hidden="true" />
-                      <span>{t.navigation.items.changeRequests}</span>
-                    </Link>
-                  )}
                   {user.role === "CenterManager" && (
                     <>
                       <Link
@@ -676,7 +682,12 @@ export function AppFrame({
                   </Link>
                 ) : (
                   <div key={entry.key} className={styles.drawerGroup}>
-                    <p className={styles.drawerGroupLabel}>{entry.label}</p>
+                    <p className={styles.drawerGroupLabel}>
+                      {entry.label}
+                      {entry.items.some(
+                        (item) => item.href === "/manager/requests",
+                      ) && <RequestUnreadBadge count={unreadRequests} />}
+                    </p>
                     {entry.items.map((item) => {
                       const on = isActiveHref(pathname, item.href, root);
                       return (
@@ -688,6 +699,9 @@ export function AppFrame({
                           onClick={() => setDrawer(false)}
                         >
                           {item.label}
+                          {item.href === "/manager/requests" && (
+                            <RequestUnreadBadge count={unreadRequests} />
+                          )}
                         </Link>
                       );
                     })}

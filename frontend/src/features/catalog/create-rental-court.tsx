@@ -1,54 +1,83 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Clock3, CalendarDays } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatMoney } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
 import { AsyncSection, Field } from "@/components/ui";
+import { useOperatingHoursPopup } from "@/components/OperatingHoursPopup";
 import { useMutation } from "@/features/operations";
 import type { RoomDto } from "@/lib/types";
 import { CatalogFeedback } from "./manager-shared";
 import { catalogApi } from "./api";
+import { InlineCreate } from "./inline-create";
 import styles from "./rental-court-setup.module.css";
+import {
+  loadCenterHours,
+  centerHoursHint,
+  centerHoursError,
+  minutesToTime,
+  type CenterHours,
+} from "@/lib/center-hours";
 
 const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const order = [1, 2, 3, 4, 5, 6, 0];
-type PriceWindow = { start: string; end: string; price: number };
 
-export function CreateRentalCourt({
-  onCancel,
-  onCreated,
-}: {
+type CreateRentalCourtProps = {
+  embedded?: boolean;
+  initialSportId?: number;
+  onBusyChange?: (busy: boolean) => void;
   onCancel: () => void;
   onCreated: (room: RoomDto) => void;
-}) {
+};
+
+export function CreateRentalCourt(props: CreateRentalCourtProps) {
+  const center = useApi(loadCenterHours, []);
+  return (
+    <AsyncSection state={center}>
+      {(hours) => <CreateRentalCourtForm {...props} center={hours} />}
+    </AsyncSection>
+  );
+}
+
+function CreateRentalCourtForm({
+  onCancel,
+  onCreated,
+  initialSportId,
+  onBusyChange,
+  embedded = false,
+  center,
+}: CreateRentalCourtProps & { center: CenterHours }) {
   const { t } = useLanguage();
   const copy = t.rentalCourtSetup;
+  const notice = useOperatingHoursPopup();
   const sports = useApi((s) => catalogApi.sports(s, true), []);
 
   const mutation = useMutation();
+  useEffect(() => {
+    onBusyChange?.(mutation.busy);
+  }, [mutation.busy, onBusyChange]);
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState(12);
-  const [sportId, setSportId] = useState("");
+  const [sportId, setSportId] = useState(
+    initialSportId ? String(initialSportId) : "",
+  );
+  const courtOpens = minutesToTime(Math.ceil(center.openingMinute / 60) * 60);
+  const courtCloses = minutesToTime(Math.floor(center.closingMinute / 60) * 60);
 
   const [hours, setHours] = useState(
     order.map((dayOfWeek) => ({
       dayOfWeek,
-      openTimeLocal: "06:00",
-      closeTimeLocal: "22:00",
+      openTimeLocal: courtOpens,
+      closeTimeLocal: courtCloses,
       enabled: true,
     })),
   );
-  const [open, setOpen] = useState("06:00");
-  const [close, setClose] = useState("22:00");
-  const [custom, setCustom] = useState(false);
+  const [open, setOpen] = useState(courtOpens);
+  const [close, setClose] = useState(courtCloses);
   const [price, setPrice] = useState(100000);
-  const [windows, setWindows] = useState<PriceWindow[]>([
-    { start: "06:00", end: "17:00", price: 100000 },
-    { start: "17:00", end: "22:00", price: 120000 },
-  ]);
   const [validation, setValidation] = useState("");
   const enabled = hours.filter((h) => h.enabled);
   const ready = !!sports.data && !sports.error;
@@ -64,19 +93,22 @@ export function CreateRentalCourt({
     />
   );
   return (
-    <section className={styles.setup} aria-labelledby="rental-court-title">
+    <section
+      className={`${styles.setup} ${embedded ? styles.embedded : ""}`}
+      aria-label={copy.title}
+      onChangeCapture={(event) =>
+        notice.checkTime(event, centerHoursError(center))
+      }
+      onInvalidCapture={(event) =>
+        notice.checkTime(event, centerHoursError(center))
+      }
+    >
+      {notice.popup}
       <header className={styles.header}>
         <div>
-          <h2 id="rental-court-title">{copy.title}</h2>
+          {!embedded && <h2>{copy.title}</h2>}
           <p>{copy.intro}</p>
         </div>
-        <button
-          className="btn btn--ghost"
-          disabled={mutation.busy}
-          onClick={onCancel}
-        >
-          {t.operations.cancel}
-        </button>
       </header>
       <AsyncSection state={sports}>{() => null}</AsyncSection>
 
@@ -92,51 +124,22 @@ export function CreateRentalCourt({
             setValidation(copy.invalidHours);
             return;
           }
-          const rates = enabled.flatMap((h) =>
-            custom
-              ? windows
-                  .filter(
-                    (w) =>
-                      w.start < h.closeTimeLocal && w.end > h.openTimeLocal,
-                  )
-                  .map((w) => ({
-                    daysOfWeek: [days[h.dayOfWeek]],
-                    startTimeLocal:
-                      w.start < h.openTimeLocal ? h.openTimeLocal : w.start,
-                    endTimeLocal:
-                      w.end > h.closeTimeLocal ? h.closeTimeLocal : w.end,
-                    pricePerHour: w.price,
-                  }))
-              : [
-                  {
-                    daysOfWeek: [days[h.dayOfWeek]],
-                    startTimeLocal: h.openTimeLocal,
-                    endTimeLocal: h.closeTimeLocal,
-                    pricePerHour: price,
-                  },
-                ],
-          );
-          // Validate coverage before sending; the API repeats this check in the transaction.
           if (
-            custom &&
-            (windows.some((w) => w.end <= w.start) ||
-              enabled.some((h) => {
-                let cursor = h.openTimeLocal;
-                const rows = rates
-                  .filter((r) => r.daysOfWeek[0] === days[h.dayOfWeek])
-                  .sort((a, b) =>
-                    a.startTimeLocal.localeCompare(b.startTimeLocal),
-                  );
-                for (const row of rows) {
-                  if (row.startTimeLocal !== cursor) return true;
-                  cursor = row.endTimeLocal;
-                }
-                return cursor !== h.closeTimeLocal;
-              }))
+            enabled.some(
+              (h) =>
+                h.openTimeLocal < center.opens ||
+                h.closeTimeLocal > center.closes,
+            )
           ) {
-            setValidation(copy.priceCoverage);
+            setValidation(centerHoursError(center));
             return;
           }
+          const rates = enabled.map((h) => ({
+            daysOfWeek: [days[h.dayOfWeek]],
+            startTimeLocal: h.openTimeLocal,
+            endTimeLocal: h.closeTimeLocal,
+            pricePerHour: price,
+          }));
           let result: RoomDto | undefined;
           const groupedRates = new Map<string, (typeof rates)[number]>();
           for (const rate of rates) {
@@ -200,24 +203,30 @@ export function CreateRentalCourt({
                       onChange={(e) => setCapacity(Number(e.target.value))}
                     />
                   </Field>
-                  <Field label={t.operations.sport} required>
-                    <select
-                      required
-                      value={sportId}
-                      onChange={(e) => {
-                        setSportId(e.target.value);
-                      }}
-                    >
-                      <option value="">{copy.chooseSport}</option>
-                      {(sports.data ?? [])
-                        .filter((s) => s.isActive && s.code !== "gym")
-                        .map((s) => (
+                  <InlineCreate
+                    kind="sport"
+                    onCreated={(sport) => {
+                      sports.reload();
+                      setSportId(String(sport.sportId));
+                    }}
+                  >
+                    <Field label={t.operations.sport} required>
+                      <select
+                        required
+                        value={sportId}
+                        onChange={(e) => {
+                          setSportId(e.target.value);
+                        }}
+                      >
+                        <option value="">{copy.chooseSport}</option>
+                        {(sports.data ?? []).map((s) => (
                           <option key={s.sportId} value={s.sportId}>
                             {s.name}
                           </option>
                         ))}
-                    </select>
-                  </Field>
+                      </select>
+                    </Field>
+                  </InlineCreate>
                 </div>
               </section>
               <section
@@ -225,11 +234,14 @@ export function CreateRentalCourt({
                 aria-labelledby="court-hours-title"
               >
                 <h3 id="court-hours-title">{copy.hours}</h3>
+                <p className={styles.hint}>{centerHoursHint(center)}</p>
                 <p className={styles.hint}>{copy.hoursHint}</p>
                 <div className={styles.applyHours}>
                   <Field label={copy.opens}>
                     <input
                       type="time"
+                      min={courtOpens}
+                      max={courtCloses}
                       required
                       step={3600}
                       value={open}
@@ -239,6 +251,8 @@ export function CreateRentalCourt({
                   <Field label={copy.closes}>
                     <input
                       type="time"
+                      min={courtOpens}
+                      max={courtCloses}
                       required
                       step={3600}
                       value={close}
@@ -286,6 +300,8 @@ export function CreateRentalCourt({
                           <input
                             aria-label={`${t.operations.weekdays[h.dayOfWeek]} ${copy.opens}`}
                             type="time"
+                            min={courtOpens}
+                            max={courtCloses}
                             required
                             step={3600}
                             value={h.openTimeLocal}
@@ -303,6 +319,8 @@ export function CreateRentalCourt({
                           <input
                             aria-label={`${t.operations.weekdays[h.dayOfWeek]} ${copy.closes}`}
                             type="time"
+                            min={courtOpens}
+                            max={courtCloses}
                             required
                             step={3600}
                             value={h.closeTimeLocal}
@@ -330,93 +348,9 @@ export function CreateRentalCourt({
               >
                 <h3 id="court-price-title">{copy.pricing}</h3>
                 <p className={styles.hint}>{copy.priceHint}</p>
-                <label className={styles.dayToggle}>
-                  <input
-                    type="checkbox"
-                    checked={custom}
-                    onChange={(e) => setCustom(e.target.checked)}
-                  />
-                  {copy.customPrices}
-                </label>
-                {!custom ? (
-                  <Field label={t.operations.priceHour} required>
-                    {hourlyInput(price, setPrice)}
-                  </Field>
-                ) : (
-                  <>
-                    {windows.map((w, i) => (
-                      <div key={i} className={styles.priceRow}>
-                        <Field label={copy.from}>
-                          <input
-                            required
-                            type="time"
-                            step={3600}
-                            value={w.start}
-                            onChange={(e) =>
-                              setWindows(
-                                windows.map((r, j) =>
-                                  i === j ? { ...r, start: e.target.value } : r,
-                                ),
-                              )
-                            }
-                          />
-                        </Field>
-                        <Field label={copy.to}>
-                          <input
-                            required
-                            type="time"
-                            step={3600}
-                            value={w.end}
-                            onChange={(e) =>
-                              setWindows(
-                                windows.map((r, j) =>
-                                  i === j ? { ...r, end: e.target.value } : r,
-                                ),
-                              )
-                            }
-                          />
-                        </Field>
-                        <Field label={t.operations.priceHour} required>
-                          {hourlyInput(w.price, (value) =>
-                            setWindows(
-                              windows.map((r, j) =>
-                                i === j ? { ...r, price: value } : r,
-                              ),
-                            ),
-                          )}
-                        </Field>
-                        <button
-                          type="button"
-                          className="btn btn--ghost"
-                          disabled={windows.length === 1}
-                          aria-label={`${copy.removeWindow} ${i + 1}`}
-                          onClick={() =>
-                            setWindows(windows.filter((_, j) => j !== i))
-                          }
-                        >
-                          {t.operations.remove}
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      className="btn btn--secondary"
-                      disabled={windows.length >= 7}
-                      onClick={() =>
-                        setWindows([
-                          ...windows,
-                          {
-                            start: windows.at(-1)?.end ?? "06:00",
-                            end: "22:00",
-                            price,
-                          },
-                        ])
-                      }
-                    >
-                      {copy.addWindow}
-                    </button>
-                  </>
-                )}
+                <Field label={t.operations.priceHour} required>
+                  {hourlyInput(price, setPrice)}
+                </Field>
               </section>
             </div>
             <aside
@@ -439,10 +373,7 @@ export function CreateRentalCourt({
                 </li>
               </ul>
               <p className={styles.price}>
-                {custom ? copy.fromPrice + " " : ""}
-                {formatMoney(
-                  custom ? Math.min(...windows.map((w) => w.price)) : price,
-                )}
+                {formatMoney(price)}
                 <span> / {copy.hour}</span>
               </p>
               <p className={styles.promise}>
@@ -460,13 +391,23 @@ export function CreateRentalCourt({
           <CatalogFeedback mutation={mutation} />
           <footer className={styles.footer}>
             <span className={styles.hint}>{copy.saveHint}</span>
-            <button
-              type="submit"
-              className="btn"
-              disabled={mutation.busy || !ready || !enabled.length}
-            >
-              {mutation.busy ? t.common.loading : copy.submit}
-            </button>
+            <div className={styles.actions}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={mutation.busy}
+                onClick={onCancel}
+              >
+                {t.operations.cancel}
+              </button>
+              <button
+                type="submit"
+                className="btn"
+                disabled={mutation.busy || !ready || !enabled.length}
+              >
+                {mutation.busy ? t.common.loading : copy.submit}
+              </button>
+            </div>
           </footer>
         </fieldset>
       </form>

@@ -9,6 +9,7 @@ namespace SportHub.Scheduling.Application.Interfaces;
 
 public interface IRoomService
 {
+    Task<RoomResponse> SetRentalAccessAsync(int roomId, bool allowRental, Guid actorUserId, CancellationToken ct = default);
     Task<RoomResponse> CreateRentalAsync(CreateRentalCourtRequest request, Guid actorUserId, CancellationToken ct = default);
     Task<IReadOnlyList<RoomResponse>> GetAllAsync(CancellationToken ct = default);
 

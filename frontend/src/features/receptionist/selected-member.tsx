@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Ban, CalendarClock, CircleCheck } from "lucide-react";
+import { CalendarClock } from "lucide-react";
+
 
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
@@ -150,15 +151,26 @@ export function SelectedMemberPanel({
   );
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const ready = !packages.loading && !visits.loading;
-  const locked = member.status === "BANNED" || member.status === "DEACTIVATED";
+  const deactivated = member.status !== "ACTIVE";
+  const activationPending = Boolean(member.activationPending);
   const hasAccess = Boolean(membership || dayPass);
-  const blocked = ready && (!hasAccess || locked);
+  const blocked = deactivated || activationPending || (ready && !hasAccess);
 
   const daysLeft = membership ? daysUntil(membership.endDate) : null;
   const expiring =
     membership && daysLeft !== null && daysLeft <= EXPIRY_WARNING_DAYS;
 
   async function checkIn() {
+    if (
+      !ready ||
+      deactivated ||
+      activationPending ||
+      !hasAccess ||
+      mutation.busy ||
+      cooldownSeconds > 0
+    )
+      return;
+
     const ok = await mutation.run(async () => {
       try {
         await api.post("/api/gym-checkins", { targetMemberId: memberId });
@@ -190,14 +202,16 @@ export function SelectedMemberPanel({
   const accessTip = vi
     ? "Cần Membership Gym còn hạn hoặc vé Gym 1 ngày."
     : "Requires an active Gym membership or Day Pass.";
-  const blockReason = locked
-    ? vi
-      ? "Tài khoản đang bị khóa; không thể check-in hoặc bán dịch vụ."
-      : "This account is locked, so check-in and sales are unavailable."
-    : accessTip;
+  const blockReason = deactivated
+    ? "This account is deactivated, so check-in and sales are unavailable."
+    : activationPending
+      ? vi
+        ? "Hội viên chưa kích hoạt tài khoản. Không thể check-in, mua gói hoặc gửi yêu cầu hỗ trợ."
+        : "Member has not activated the account. Check-in, purchases and support requests are unavailable."
+      : accessTip;
 
   // Ba ô: gói Gym còn hiệu lực (kèm giờ hết hạn), lần check-in gần nhất, yêu cầu hỗ trợ cần xử lý.
-  // Vé ngày hết hạn đúng 24 giờ sau lúc thanh toán; gói tháng hết hạn cuối ngày EndDate.
+  // Day pass ends at 22:00 on purchase day; monthly plans end at EndDate.
   const access = membership ?? dayPass;
   const expiry = access
     ? access.expiresAtUtc
@@ -264,11 +278,12 @@ export function SelectedMemberPanel({
 
   return (
     <section
-      className={`${styles.selected} ${locked ? styles.selectedLocked : ""}`}
+      className={`${styles.selected} ${deactivated ? styles.selectedDeactivated : ""}`}
       aria-label={vi ? "Hội viên đang chọn" : "Selected member"}
     >
       <div className={styles.selectedTop}>
         <AvatarImage
+          userId={member.userId}
           name={member.fullName || member.email}
           avatarUrl={member.avatarUrl}
           size={64}
@@ -279,33 +294,11 @@ export function SelectedMemberPanel({
             <h2 className={styles.selectedName}>
               {member.fullName || member.email}
             </h2>
-            {member.status === "BANNED" && (
-              <span className={styles.lockBadge}>
-                <Ban size={16} aria-hidden="true" />
-                {vi ? "Đã khóa" : "Locked"}
-              </span>
-            )}
-            {member.status === "DEACTIVATED" && (
-              <span className={styles.lockBadge}>
-                <Ban size={16} aria-hidden="true" />
-                {vi ? "Đã vô hiệu hóa" : "Deactivated"}
-              </span>
-            )}
-            {member.activationPending ? (
-              <StatusChip
-                value="PENDING_ACTIVATION"
-                tone="warning"
-                label={vi ? "Chờ kích hoạt" : "Activation pending"}
-              />
-            ) : (
-              !locked && (
-                <StatusChip
-                  value="ACTIVE"
-                  tone="success"
-                  label={vi ? "Đã kích hoạt" : "Activated"}
-                />
-              )
-            )}
+            <StatusChip
+              value={deactivated ? "DEACTIVATED" : "ACTIVE"}
+              tone={deactivated ? "neutral" : "success"}
+              label={deactivated ? "Deactivated" : "Active"}
+            />
           </div>
 
           <p className={styles.selectedMeta}>
@@ -355,7 +348,7 @@ export function SelectedMemberPanel({
         ))}
       </dl>
 
-      {expiring && membership && (
+      {expiring && membership && !deactivated && !activationPending && (
         <div className={styles.expiring} role="status">
           <CalendarClock size={18} aria-hidden="true" />
           <span>
@@ -385,18 +378,24 @@ export function SelectedMemberPanel({
             aria-describedby={blocked ? "checkin-block-reason" : undefined}
             onClick={checkIn}
           >
-            <CircleCheck size={18} aria-hidden="true" />
             {cooldownSeconds > 0
-              ? `${vi ? "Check-in" : "Check in"} (${cooldownSeconds}s)`
-              : vi
-                ? "Check-in"
-                : "Check in"}
+              ? `Check in (${cooldownSeconds}s)`
+              : "Check in"}
           </button>
         </span>
 
-        {!locked && (
-          <Link className="btn btn--secondary" href={sellHref}>
-            {vi ? "Bán dịch vụ" : "Sell a service"}
+        {!deactivated && !activationPending && (
+          <Link className="btn btn--secondary" href="/receptionist/sales">
+            Sell a service
+          </Link>
+        )}
+
+        {!deactivated && !activationPending && (
+          <Link
+            className="btn btn--secondary"
+            href={`/receptionist/members/${memberId}/add-points`}
+          >
+            Add points
           </Link>
         )}
 
@@ -405,15 +404,7 @@ export function SelectedMemberPanel({
             className="btn btn--ghost"
             href={`/receptionist/members/${memberId}`}
           >
-            {vi ? "Mở hồ sơ" : "Open profile"}
-          </Link>
-        )}
-        {!locked && (
-          <Link
-            className="btn btn--ghost"
-            href={`/receptionist/members/${memberId}/add-points`}
-          >
-            {vi ? "Nạp điểm" : "Add points"}
+            Open profile
           </Link>
         )}
       </div>
@@ -433,7 +424,7 @@ export function SelectedMemberPanel({
             packages={packages.data ?? []}
             onChanged={packages.reload}
           />
-          <MemberSupportRequests memberId={memberId} />
+          {!activationPending && <MemberSupportRequests memberId={memberId} />}
         </>
       )}
     </section>

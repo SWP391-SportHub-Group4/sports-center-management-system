@@ -1,142 +1,205 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { api } from "@/lib/apiClient";
-import { useApi, useAction } from "@/lib/useApi";
-import { AsyncSection, Field } from "@/components/ui";
-import { CoachSelector } from "./coach-selector";
+import { useApi } from "@/lib/useApi";
+import { AsyncSection, StatusChip, Table } from "@/components/ui";
+import { ChangeLeadCoachDialog } from "@/features/courses";
+import type { CourseSessionDto, ManagerCourseDto } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
-type Course = { classId: number; name: string; sportId: number };
+import styles from "./coach-overview.module.css";
+
+type CoverageSession = Pick<
+  CourseSessionDto,
+  | "sessionId"
+  | "classId"
+  | "startAtUtc"
+  | "endAtUtc"
+  | "sessionNo"
+  | "roomId"
+  | "roomName"
+  | "coachId"
+> & { isSubstitute: boolean };
 type Coverage = {
   coachId: string;
-  mainClasses: Course[];
-  sessions: { sessionId: string; classId: number; startAtUtc: string }[];
+  mainClasses: { classId: number }[];
+  sessions: CoverageSession[];
 };
+type Selection = { course: ManagerCourseDto; session?: CourseSessionDto };
+
 export function LockedCoachAssignments({
   coachId,
+  coachName,
   onChanged,
 }: {
   coachId: string;
+  coachName: string;
   onChanged: () => void;
 }) {
+  const [selected, setSelected] = useState<Selection | null>(null);
+  const [success, setSuccess] = useState("");
   const state = useApi(
-    (signal) => api.get<Coverage[]>("/api/manager/coach-coverage", { signal }),
-    [coachId],
+    async (signal) => {
+      const coverage = await api.get<Coverage[]>(
+        "/api/manager/coach-coverage",
+        { signal },
+      );
+      const row = coverage.find((entry) => entry.coachId === coachId);
+      const ids = [
+        ...new Set([
+          ...(row?.mainClasses ?? []).map((c) => c.classId),
+          ...(row?.sessions ?? []).map((s) => s.classId),
+        ]),
+      ];
+      const courses = await Promise.all(
+        ids.map((id) =>
+          api.get<ManagerCourseDto>(`/api/manager/classes/${id}`, { signal }),
+        ),
+      );
+      const main = courses.filter((c) => c.coachId === coachId);
+      const substitutes = (row?.sessions ?? [])
+        .filter((s) => s.isSubstitute)
+        .map((s) => ({
+          course: courses.find((c) => c.classId === s.classId)!,
+          session: {
+            ...s,
+            className: courses.find((c) => c.classId === s.classId)!.name,
+            coachName,
+            status: "SCHEDULED",
+            isMakeup: false,
+            rescheduledFromSessionId: null,
+          } satisfies CourseSessionDto,
+        }));
+      return { main, substitutes };
+    },
+    [coachId, coachName],
   );
+
   return (
-    <section className="stack" aria-label="Assignments needing a replacement">
-      <h3>Assignments to review</h3>
-      <p>
-        Changing the main coach keeps existing session assignments. Review the
-        sessions below.
-      </p>
+    <section className={styles.coverage} aria-labelledby="coach-coverage-title">
+      <header className={styles.coverageHeader}>
+        <AlertTriangle size={24} aria-hidden="true" />
+        <div>
+          <h2 id="coach-coverage-title">Assignments to review</h2>
+          <p>
+            This coach has a deactivated account. Replace their lead assignments
+            and substitute sessions before the next class.
+          </p>
+        </div>
+      </header>
+      {success && (
+        <p role="status" className={styles.success}>
+          {success}
+        </p>
+      )}
       <AsyncSection state={state}>
-        {(rows) => {
-          const row = rows.find((r) => r.coachId === coachId);
-          if (!row || (!row.mainClasses.length && !row.sessions.length))
-            return <p>No assignments need a replacement.</p>;
-          return (
-            <>
-              {row.mainClasses.map((course) => (
-                <MainCoach
-                  key={course.classId}
-                  coachId={coachId}
-                  course={course}
-                  onChanged={() => {
-                    state.reload();
-                    onChanged();
-                  }}
-                />
+        {({ main, substitutes }) =>
+          main.length || substitutes.length ? (
+            <Table
+              headers={[
+                "Assignment",
+                "Class / session",
+                "Schedule affected",
+                "Action",
+              ]}
+            >
+              {main.map((course) => (
+                <tr key={`class-${course.classId}`}>
+                  <td>
+                    <span className={styles.assignmentType}>Lead coach</span>
+                  </td>
+                  <td>
+                    <div className={styles.classInfo}>
+                      <Link href={`/manager/classes/${course.classId}`}>
+                        {course.name}
+                      </Link>
+                      <span>{course.sportName}</span>
+                      <StatusChip value={course.status} />
+                    </div>
+                  </td>
+                  <td>All future scheduled sessions</td>
+                  <td>
+                    {["PUBLISHED", "IN_PROGRESS"].includes(course.status) ? (
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => setSelected({ course })}
+                      >
+                        Change Lead Coach
+                      </button>
+                    ) : (
+                      <Link
+                        className="btn btn--secondary"
+                        href={`/manager/classes/${course.classId}/edit`}
+                      >
+                        Review draft class
+                      </Link>
+                    )}
+                  </td>
+                </tr>
               ))}
-              {!!row.sessions.length && (
-                <>
-                  <h4>Sessions still assigned to this coach</h4>
-                  <ul>
-                    {row.sessions.map((s) => (
-                      <li key={s.sessionId}>
-                        <Link
-                          href={`/manager/classes/${s.classId}?tab=sessions`}
-                        >
-                          {formatDateTime(s.startAtUtc)} · View session
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </>
-          );
-        }}
+              {substitutes.map(({ course, session }) => (
+                <tr key={session.sessionId}>
+                  <td>
+                    <span className={styles.substituteType}>
+                      Substitute coach
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.classInfo}>
+                      <Link
+                        href={`/manager/classes/${course.classId}?tab=sessions`}
+                      >
+                        {course.name}
+                      </Link>
+                      <span>
+                        Session {session.sessionNo} · {course.sportName}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={styles.classInfo}>
+                      <span>{formatDateTime(session.startAtUtc)}</span>
+                      <span>
+                        {formatDateTime(session.endAtUtc)} · {session.roomName}
+                      </span>
+                      <small>This session only</small>
+                    </div>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      onClick={() => setSelected({ course, session })}
+                    >
+                      Change Session Coach
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          ) : (
+            <p className={styles.empty}>No assignments need a replacement.</p>
+          )
+        }
       </AsyncSection>
-    </section>
-  );
-}
-function MainCoach({
-  coachId,
-  course,
-  onChanged,
-}: {
-  coachId: string;
-  course: Course;
-  onChanged: () => void;
-}) {
-  const [replacement, setReplacement] = useState("");
-  const [reason, setReason] = useState("");
-  const [editing, setEditing] = useState(false);
-  const action = useAction();
-  return (
-    <section className="stack">
-      <div className="row">
-        <Link href={`/manager/classes/${course.classId}`}>{course.name}</Link>
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          onClick={() => setEditing((v) => !v)}
-        >
-          {editing ? "Close" : "Change main coach"}
-        </button>
-      </div>
-      {editing && (
-        <form
-          className="stack"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void action.run(async () => {
-              await api.post(
-                `/api/manager/coach-coverage/${coachId}/classes/${course.classId}/reassign-main`,
-                { replacementCoachId: replacement, reason: reason.trim() },
-              );
-              onChanged();
-            });
+      {selected && (
+        <ChangeLeadCoachDialog
+          course={selected.course}
+          session={selected.session}
+          onClose={() => setSelected(null)}
+          onSaved={() => {
+            setSuccess(
+              selected.session
+                ? `Session ${selected.session.sessionNo} of ${selected.course.name} has a new coach.`
+                : `Lead coach and future scheduled sessions updated for ${selected.course.name}.`,
+            );
+            setSelected(null);
+            state.reload();
+            onChanged();
           }}
-        >
-          <CoachSelector
-            sportId={course.sportId}
-            value={replacement}
-            onChange={setReplacement}
-          />
-          <Field label="Reason" required>
-            <textarea
-              required
-              minLength={3}
-              maxLength={500}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
-          {action.error && <p role="alert">{action.error}</p>}
-          <button
-            className="btn"
-            disabled={
-              action.busy ||
-              !replacement ||
-              replacement === coachId ||
-              reason.trim().length < 3
-            }
-          >
-            {action.busy ? "Saving…" : "Confirm main coach"}
-          </button>
-        </form>
+        />
       )}
     </section>
   );

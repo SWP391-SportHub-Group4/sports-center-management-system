@@ -23,7 +23,7 @@ public sealed class IncidentsController(IncidentService incidents) : ControllerB
 
     [HttpPost("preview")]
     public async Task<IActionResult> Preview([FromBody] IncidentRequest request, CancellationToken ct)
-        => Ok(await incidents.PreviewAsync(request, ct));
+        => Ok(await incidents.ReviewAsync(request, User.RequireUserId(), ct));
 
     /// <summary>Start handling: holds the window so no one books into it while schedule work is done.</summary>
     [HttpPost("fences")]
@@ -57,4 +57,11 @@ public sealed class IncidentsController(IncidentService incidents) : ControllerB
     [HttpPost("resolve")]
     public async Task<IActionResult> Resolve([FromBody] IncidentRequest request, CancellationToken ct)
         => Ok(new { incidentId = await incidents.ResolveAsync(request, User.RequireUserId(), ct) });
+
+    [HttpPost("{incidentId:guid}/day-pass-notice")]
+    public async Task<IActionResult> DayPassNotice(Guid incidentId, CancellationToken ct)
+    {
+        await incidents.SendDayPassNoticeAsync(incidentId, User.RequireUserId(), ct);
+        return NoContent();
+    }
 }

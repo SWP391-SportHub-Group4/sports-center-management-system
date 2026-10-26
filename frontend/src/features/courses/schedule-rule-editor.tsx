@@ -1,19 +1,36 @@
 "use client";
 import { Field } from "@/components/ui";
+import { useOperatingHoursPopup } from "@/components/OperatingHoursPopup";
 import { useLanguage } from "@/lib/language";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
 export type ScheduleRule = { dayOfWeek: number; startTimeLocal: string };
 export function ScheduleRuleEditor({
   value,
   onChange,
+  minStart,
+  maxStart,
+  timeError,
 }: {
   value: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
+  minStart?: string;
+  maxStart?: string;
+  timeError?: string;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
+  const notice = useOperatingHoursPopup();
   return (
-    <fieldset className={styles.scheduleRules}>
+    <fieldset
+      className={styles.scheduleRules}
+      onChangeCapture={(event) => {
+        if (timeError) notice.checkTime(event, timeError);
+      }}
+      onInvalidCapture={(event) => {
+        if (timeError) notice.checkTime(event, timeError);
+      }}
+    >
+      {notice.popup}
       <legend>{l.scheduleRules}</legend>
       {value.map((r, i) => (
         <div className={styles.scheduleRule} key={i}>
@@ -39,6 +56,8 @@ export function ScheduleRuleEditor({
             <input
               required
               type="time"
+              min={minStart}
+              max={maxStart}
               value={r.startTimeLocal}
               onChange={(e) =>
                 onChange(
@@ -64,7 +83,13 @@ export function ScheduleRuleEditor({
         className="btn btn--secondary"
         disabled={value.length >= 14}
         onClick={() =>
-          onChange([...value, { dayOfWeek: 1, startTimeLocal: "18:00" }])
+          onChange([
+            ...value,
+            {
+              dayOfWeek: 1,
+              startTimeLocal: value[0]?.startTimeLocal || minStart || "",
+            },
+          ])
         }
       >
         {l.add}

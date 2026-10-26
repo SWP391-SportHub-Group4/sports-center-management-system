@@ -5,6 +5,8 @@ public interface INotificationWriter
     void Queue(NotificationRequest request);
 
     void QueueEmail(EmailNotificationRequest request);
+
+    Task ReviseInvoiceCreatedAsync(Guid memberId, Guid invoiceId, string message, CancellationToken ct);
 }
 
 public sealed record NotificationRequest(
@@ -29,8 +31,15 @@ public sealed record EmailNotificationRequest(
 
 public static class NotificationEvents
 {
+    public const string ManagerPointsGifted = nameof(ManagerPointsGifted);
+    public const string PaymentUnactivated = nameof(PaymentUnactivated);
+    public const string PaymentConvertedToPoints = nameof(PaymentConvertedToPoints);
     public const string SupportRequestAssigned = nameof(SupportRequestAssigned);
     public const string SupportRequestReceived = nameof(SupportRequestReceived);
+    public const string SupportRequestReminded = nameof(SupportRequestReminded);
+    public const string SupportSlaReminder = nameof(SupportSlaReminder);
+    public const string SupportPayoutRecorded = nameof(SupportPayoutRecorded);
+    public const string SupportPayoutNotReceived = nameof(SupportPayoutNotReceived);
     public const string CoachAttendanceReminder = nameof(CoachAttendanceReminder);
     public const string AvatarReported = nameof(AvatarReported);
     public const string ClassSessionReminder = nameof(ClassSessionReminder);

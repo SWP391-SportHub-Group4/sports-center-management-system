@@ -31,6 +31,7 @@ public class Invoice
     public string? PaidVia { get; set; }
     public DateTime? PaidAtUtc { get; set; }
     public bool ReconciliationRequired { get; set; }
+    public string? ResolutionIdempotencyKey { get; set; }
 
     public InvoiceStatus Status { get; set; }
 

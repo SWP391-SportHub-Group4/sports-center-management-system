@@ -65,7 +65,7 @@
 
 .imageFrame {
   position: relative;
-  aspect-ratio: 1.48;
+  aspect-ratio: 3 / 2;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -131,10 +131,6 @@
 
   .photo {
     width: 250px;
-  }
-
-  .imageFrame {
-    aspect-ratio: 1.38;
   }
 }
 

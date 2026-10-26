@@ -117,7 +117,6 @@ public class AuthServiceLoginTests
     // --- Trang thai tai khoan chi lo SAU khi password da dung ---
 
     [Theory]
-    [InlineData(UserStatus.Banned)]
     [InlineData(UserStatus.Deactivated)]
     public async Task Blocked_account_with_wrong_password_still_returns_invalid_credentials(UserStatus status)
     {
@@ -128,7 +127,6 @@ public class AuthServiceLoginTests
     }
 
     [Theory]
-    [InlineData(UserStatus.Banned)]
     [InlineData(UserStatus.Deactivated)]
     public async Task Blocked_account_with_correct_password_returns_account_blocked(UserStatus status)
     {

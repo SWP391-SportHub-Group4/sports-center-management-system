@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { paymentApi, type PurchaseIntent } from "./api";
+import { paymentSupportErrorCodes } from "@/lib/payment-support-errors";
 
 /** Create a resumable invoice, then open the shared checkout page. */
 export function useStartCheckout() {
@@ -26,7 +27,10 @@ export function useStartCheckout() {
       router.push(`/checkout/${checkout.invoiceId}`);
     } catch (cause) {
       const message =
-        cause instanceof ApiError && cause.code === "duplicate_active_package"
+        cause instanceof ApiError &&
+        cause.code === paymentSupportErrorCodes.dayPassOutsideHours
+          ? "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time."
+          : cause instanceof ApiError && cause.code === "duplicate_active_package"
           ? t.apiErrors.duplicateActivePackage
           : cause instanceof Error
             ? cause.message

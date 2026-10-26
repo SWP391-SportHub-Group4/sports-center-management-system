@@ -70,7 +70,7 @@ export function notificationActionHref(
 }
 
 export type NotificationCategory =
-  "schedule" | "class" | "payment" | "training" | "notice";
+  "schedule" | "class" | "payment" | "training" | "notice" | "support";
 
 export function notificationPresentation(item: NotificationDto): {
   category: NotificationCategory;
@@ -81,9 +81,38 @@ export function notificationPresentation(item: NotificationDto): {
   let category: NotificationCategory = "notice";
   let label = "Center update";
   let title = "An update from SportHub";
-  if (source === "SUPPORT_REQUEST_ASSIGNED") {
+  if (source === "SUPPORT_SLA_REMINDER") {
+    category = "support";
+    label = "Member support";
+    title = "A support request is overdue";
+  } else if (source === "SUPPORT_PAYOUT_NOT_RECEIVED") {
+    category = "support";
+    label = "Payout review";
+    title = "A member reported a missing payout";
+  } else if (source === "SUPPORT_REQUEST_ASSIGNED") {
     label = "Member support";
     title = "A support request has been assigned to you";
+  } else if (source === "PAYMENT_UNACTIVATED") {
+    category = "payment";
+    label = "Billing";
+    title = item.actionUrl?.startsWith("/manager/")
+      ? "Payment received, service not activated"
+      : "Your payment needs a decision";
+  } else if (source === "MANAGER_POINTS_GIFTED") {
+    category = "payment";
+    label = "Points gift";
+    title = "The Manager added a gift to your wallet";
+  } else if (source === "PAYMENT_CONVERTED_TO_POINTS") {
+    category = "payment";
+    label = "Billing";
+    title = "Points added to your wallet";
+  } else if (source === "SUPPORT_PAYOUT_RECORDED") {
+    category = "payment";
+    label = "Support";
+    title = "We sent your refund";
+  } else if (source === "SUPPORT_REQUEST_RECEIVED") {
+    label = "Support";
+    title = "We received your support request";
   } else if (source === "COACH_ATTENDANCE_REMINDER") {
     category = "schedule";
     label = "Attendance";
@@ -150,6 +179,8 @@ export function memberNotificationHref(item: NotificationDto): string | null {
     return "/member/finance?tab=invoices";
   if (item.sourceEventType === "PACKAGE_EXPIRING")
     return "/member/services?section=gym&view=owned";
+  if (item.sourceEventType === "MANAGER_POINTS_GIFTED")
+    return "/member/finance?tab=wallet";
   if (
     ["SCHEDULE_CHANGED", "CLASS_CANCELLED", "INCIDENT_RESOLUTION"].includes(
       item.sourceEventType,
@@ -166,6 +197,16 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "SUPPORT_SLA_REMINDER":
+      return item.actionUrl?.includes("request=")
+        ? "Review overdue request"
+        : "View overdue requests";
+    case "SUPPORT_PAYOUT_NOT_RECEIVED":
+      return item.actionUrl?.includes("request=")
+        ? "Review payout request"
+        : "Open support queue";
+    case "SUPPORT_REQUEST_ASSIGNED":
+      return "View support request";
     case "COACH_ATTENDANCE_REMINDER":
       return "Complete attendance";
     case "AVATAR_REPORTED":
@@ -194,6 +235,18 @@ export function notificationActionLabel(
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":
       return vi ? "Kiểm tra hoàn điểm" : "Check refund";
+    case "MANAGER_POINTS_GIFTED":
+      return vi ? "Xem điểm được tặng" : "View points gift";
+    case "PAYMENT_UNACTIVATED":
+      return item.actionUrl?.startsWith("/manager/")
+        ? "Review payment"
+        : "Choose an option";
+    case "PAYMENT_CONVERTED_TO_POINTS":
+      return "View invoice";
+    case "SUPPORT_PAYOUT_RECORDED":
+      return "Confirm receipt";
+    case "SUPPORT_REQUEST_RECEIVED":
+      return "Track request";
     default:
       return vi ? "Mở để xử lý" : "Open to take action";
   }

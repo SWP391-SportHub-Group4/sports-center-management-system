@@ -228,21 +228,21 @@ public sealed class RelationshipLifecycleTests(TrainingApiFactory factory)
     }
 
     [Fact]
-    public async Task Existing_coach_reassignment_API_ends_old_pair_and_assigns_replacement()
+    public async Task Removed_locked_coach_reassignment_API_cannot_change_relationships()
     {
         var pair = await SeedAsync(RelationshipSourceType.AssignedByManager, classCount: 1);
         var replacement = await factory.SeedCoachAsync(CoachKind.ClassInstructor);
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         await factory.QueryAsync(db => db.UserAccounts.Where(u => u.UserId == pair.CoachId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Banned)));
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UserStatus.Deactivated)));
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var response = await client.PostAsJsonAsync(
             $"api/manager/coach-coverage/{pair.CoachId}/classes/{pair.ClassIds[0]}/reassign-main",
             new { replacementCoachId = replacement.UserId, reason = "Replacement for locked coach" });
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         var rows = await factory.QueryAsync(db => db.CoachMemberRelationships.AsNoTracking()
             .Where(r => r.MemberId == pair.MemberId).ToListAsync());
-        Assert.Equal(RelationshipStatus.Ended, Assert.Single(rows, r => r.CoachId == pair.CoachId).Status);
-        Assert.Equal(RelationshipStatus.Active, Assert.Single(rows, r => r.CoachId == replacement.UserId).Status);
+        Assert.Equal(RelationshipStatus.Active, Assert.Single(rows, r => r.CoachId == pair.CoachId).Status);
+        Assert.DoesNotContain(rows, r => r.CoachId == replacement.UserId);
     }
 }

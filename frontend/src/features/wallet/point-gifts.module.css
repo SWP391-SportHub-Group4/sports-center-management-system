@@ -1,0 +1,39 @@
+.form {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.commonPoints {
+  max-width: 32rem;
+}
+.selectionTable :global(.table-wrap) {
+  max-height: min(24rem, 50dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.selectionTable :global(.table-wrap::-webkit-scrollbar) {
+  display: none;
+}
+.selectionTable :global(th:last-child),
+.selectionTable :global(td:last-child) {
+  width: 6rem;
+  text-align: right;
+}
+.selectionTable :global(td:last-child > div) {
+  display: flex;
+  justify-content: flex-end;
+}
+.reason {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .selectionTable :global(td:last-child) {
+    width: auto;
+  }
+}

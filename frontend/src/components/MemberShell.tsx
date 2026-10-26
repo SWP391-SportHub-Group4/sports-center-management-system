@@ -230,6 +230,7 @@ export function MemberFrame({
                 aria-label={user.fullName || user.email}
               >
                 <AvatarImage
+                  userId={user.userId}
                   name={user.fullName || user.email}
                   avatarUrl={user.avatarUrl}
                   size={36}

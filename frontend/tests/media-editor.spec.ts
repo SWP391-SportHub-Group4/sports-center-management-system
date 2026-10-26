@@ -1,6 +1,8 @@
 ﻿import { expect, test, type Page } from "@playwright/test";
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import type { GallerySport } from "../src/components/homepage/sport-gallery";
+import { originalHeroBackground } from "../src/components/homepage/hero-background";
 
 const coachIds = [1, 2, 3].map(
   (n) => `00000000-0000-4000-8000-00000000000${n}`,
@@ -56,6 +58,7 @@ async function setup(
   };
   const calls: {
     uploads: number;
+    videoUploads: number;
     saves: Record<string, string>[];
     uploadError: boolean;
     conflict: boolean;
@@ -63,6 +66,7 @@ async function setup(
     galleryError: boolean;
   } = {
     uploads: 0,
+    videoUploads: 0,
     saves: [],
     uploadError: false,
     conflict: false,
@@ -174,6 +178,20 @@ async function setup(
           })
         : route.fulfill({ json: { url: uploadUrl } });
     }
+    if (url.pathname === "/api/manager/media/videos") {
+      calls.videoUploads++;
+      return calls.uploadError
+        ? route.fulfill({
+            status: 503,
+            json: { message: "Video upload failed. Try again." },
+          })
+        : route.fulfill({
+            json: {
+              url: `/sporthub/hero/arena-loop.webm?clip=${calls.videoUploads}`,
+              posterUrl: "/sporthub/hero/arena-poster-v2.jpg",
+            },
+          });
+    }
     if (url.pathname === "/api/landing-page") {
       if (request.method() === "PUT") {
         const body = request.postDataJSON();
@@ -222,6 +240,243 @@ async function chooseImage(
     page.getByRole("dialog", { name: "Frame your image" }),
   ).toBeVisible();
 }
+
+async function addHeroVideos(page: Page, names: string[]) {
+  const chooser = page.waitForEvent("filechooser");
+  await page
+    .getByRole("button", { name: "Add WebM video", exact: true })
+    .click();
+  const buffer = readFileSync(
+    path.resolve("public/sporthub/hero/arena-loop.webm"),
+  );
+  await (
+    await chooser
+  ).setFiles(names.map((name) => ({ name, mimeType: "video/webm", buffer })));
+  await expect(
+    page
+      .getByRole("list", { name: "Video playback order" })
+      .locator("li[data-video-id]"),
+  ).toHaveCount(names.length);
+}
+
+for (const width of [1440, 390]) {
+  test(`hero playlist previews locally, reorders, saves only videos and restores original at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const calls = await setup(page);
+    await page.locator('[data-media-field="hero.lead"]').dblclick();
+    await page
+      .getByRole("textbox", { name: "Hero description", exact: true })
+      .fill("Unsaved text stays in Media");
+    await page
+      .getByRole("textbox", { name: "Hero description", exact: true })
+      .press("Enter");
+    await page
+      .getByRole("button", { name: "Change hero video", exact: true })
+      .click();
+    const picker = page.getByRole("dialog", {
+      name: "Change hero video",
+      exact: true,
+    });
+    await expect(
+      picker.getByRole("heading", { name: "Default video" }),
+    ).toBeVisible();
+    await expect(
+      picker.getByRole("heading", { name: "Your videos" }),
+    ).toBeVisible();
+    await addHeroVideos(page, ["one.webm", "two.webm", "three.webm"]);
+    await expect(
+      page.getByRole("button", { name: "Add WebM video", exact: true }),
+    ).toHaveCount(0);
+    const queue = page.getByRole("list", { name: "Video playback order" });
+    await expect(
+      picker.getByRole("button", { name: "Use your videos" }),
+    ).toHaveCount(0);
+    const handle = page.getByRole("group", {
+      name: "Reorder three.webm",
+      exact: true,
+    });
+    await handle.scrollIntoViewIfNeeded();
+    if (width === 390) {
+      await handle.press("ArrowLeft");
+      await handle.press("ArrowLeft");
+    } else {
+      const from = await handle.boundingBox();
+      const to = await queue.locator("li[data-video-id]").first().boundingBox();
+      await page.mouse.move(
+        from!.x + from!.width / 2,
+        from!.y + from!.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(to!.x + to!.width / 2, to!.y + 20, { steps: 8 });
+      await page.mouse.up();
+    }
+    await expect(queue.locator("li[data-video-id]").first()).toContainText(
+      "three.webm",
+    );
+    await page
+      .getByRole("group", { name: "Reorder one.webm", exact: true })
+      .press("ArrowLeft");
+    await expect(queue.locator("li[data-video-id]").first()).toContainText(
+      "one.webm",
+    );
+    await page.screenshot({
+      path: `test-results/hero-picker-${width}.png`,
+      fullPage: true,
+    });
+    await page
+      .getByRole("button", { name: "Preview landing page", exact: true })
+      .click();
+    const preview = page.getByRole("dialog", {
+      name: "Hero video preview",
+      exact: true,
+    });
+    const frame = page.frameLocator('iframe[title="Draft homepage"]');
+    await expect(frame.locator("video")).toHaveAttribute("src", /^blob:/);
+    const first = await frame.locator("video").getAttribute("src");
+    await frame.locator("video").evaluate((video: HTMLVideoElement) => {
+      video.pause();
+      video.dispatchEvent(new Event("ended"));
+    });
+    await expect(frame.locator("video")).not.toHaveAttribute("src", first!);
+    expect(calls.videoUploads).toBe(0);
+    expect(calls.saves).toHaveLength(0);
+    await page.screenshot({
+      path: `test-results/hero-preview-${width}.png`,
+      fullPage: true,
+    });
+    calls.uploadError = true;
+    await preview
+      .getByRole("button", { name: "Save change", exact: true })
+      .click();
+    await expect(preview.getByRole("alert")).toContainText(
+      "Video upload failed",
+    );
+    expect(calls.saves).toHaveLength(0);
+    calls.uploadError = false;
+    await preview
+      .getByRole("button", { name: "Save change", exact: true })
+      .click();
+    await expect(preview).toHaveCount(0);
+    const saved = JSON.parse(calls.saves[0]["hero.background.playlist"]);
+    expect(saved.map((video: { name: string }) => video.name)).toEqual([
+      "one.webm",
+      "three.webm",
+      "two.webm",
+    ]);
+    expect(
+      saved.every((video: { url: string }) => !video.url.startsWith("blob:")),
+    ).toBe(true);
+    expect(calls.saves[0]["hero.lead"]).toBe("Published introduction");
+    await expect(page.locator('[data-media-field="hero.lead"]')).toHaveText(
+      "Unsaved text stays in Media",
+    );
+    const publicPage = await page.context().newPage();
+    await publicPage.goto("/");
+    const publicVideo = publicPage.locator("video");
+    await expect(publicVideo).toHaveAttribute("src", saved[0].url);
+    for (const index of [1, 2, 0]) {
+      await publicVideo.evaluate((video: HTMLVideoElement) => {
+        video.pause();
+        video.dispatchEvent(new Event("ended"));
+      });
+      await expect(publicVideo).toHaveAttribute("src", saved[index].url);
+    }
+    await publicPage.emulateMedia({ reducedMotion: "reduce" });
+    await expect(publicVideo).not.toHaveAttribute("src");
+    await expect(
+      publicPage.locator('img[src*="arena-poster-v2"]'),
+    ).toBeVisible();
+    await publicPage.close();
+    await page
+      .getByRole("button", { name: "Change hero video", exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("list", { name: "Video playback order" })
+        .locator("li[data-video-id]"),
+    ).toHaveCount(3);
+    await page
+      .getByRole("button", { name: "Remove two.webm", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Add WebM video", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("dialog", { name: "Change hero video", exact: true })
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    expect(calls.saves).toHaveLength(1);
+    await page
+      .getByRole("button", { name: "Restore original", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Restore to draft", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect.poll(() => calls.saves.length).toBe(2);
+    expect(calls.saves[1]["hero.background.playlist"]).toBeUndefined();
+    await page.goto("/");
+    await expect(page.locator("video")).toHaveAttribute(
+      "src",
+      /arena-loop\.(webm|mp4)\?v=2/,
+    );
+  });
+}
+
+test("hero video cancel never uploads and unsupported files show an actionable error", async ({
+  page,
+}) => {
+  const calls = await setup(page);
+  await page
+    .getByRole("button", { name: "Change hero video", exact: true })
+    .click();
+  let chooser = page.waitForEvent("filechooser");
+  await page
+    .getByRole("button", { name: "Add WebM video", exact: true })
+    .click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "clip.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("invalid"),
+  });
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "Choose a WebM video",
+  );
+  chooser = page.waitForEvent("filechooser");
+  await page
+    .getByRole("button", { name: "Add WebM video", exact: true })
+    .click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "fake.webm",
+    mimeType: "video/webm",
+    buffer: Buffer.from("invalid"),
+  });
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "not a valid WebM",
+  );
+  await addHeroVideos(page, ["cancel.webm"]);
+  await page
+    .getByRole("button", { name: "Preview landing page", exact: true })
+    .click();
+  await expect(
+    page.frameLocator('iframe[title="Draft homepage"]').locator("video"),
+  ).toHaveAttribute("src", /^blob:/);
+  await page
+    .getByRole("dialog", { name: "Hero video preview", exact: true })
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(calls.videoUploads).toBe(0);
+  expect(calls.saves).toHaveLength(0);
+});
 
 test("restored landing frames keep published Media images and text on desktop and mobile", async ({
   page,
@@ -442,7 +697,7 @@ test("dragging a crop follows the pointer, clamps to its frame and keeps control
   await expect(vertical).toHaveValue("60");
 });
 
-test("copy edits can be undone, Preview uses the unsaved draft and Restore keeps its fixed baseline after publishing", async ({
+test("copy edits can be undone, Preview uses the unsaved draft and Restore resets main defaults after publishing", async ({
   page,
 }) => {
   const calls = await setup(page);
@@ -484,7 +739,9 @@ test("copy edits can be undone, Preview uses the unsaved draft and Restore keeps
     frame.locator('figure[data-sport-id="3"] img').first(),
   ).toHaveAttribute("src", /hero-rally/);
   expect(calls.saves).toHaveLength(0);
-  await frame.getByRole("link", { name: "Book a court", exact: true }).click();
+  await frame
+    .getByRole("link", { name: "Book a court", exact: true })
+    .press("Enter");
   expect(
     page.frames().some((frame) => frame.url().includes("media-preview=true")),
   ).toBe(true);
@@ -507,16 +764,133 @@ test("copy edits can be undone, Preview uses the unsaved draft and Restore keeps
   ).toHaveAttribute("src", /course-badminton/);
   expect(calls.saves).toHaveLength(1);
   await expect(page.locator("#media-hero")).toContainText(
-    "Published introduction",
+    "Explore dedicated spaces for court sports and athletic training.",
   );
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  expect(calls.saves[1]["gallery.sports.3.image"]).toBe(
-    "/sporthub/court-volt/course-badminton.png",
-  );
-  expect(calls.saves[1]["hero.lead"]).toBe("Published introduction");
+  expect(calls.saves[1]["gallery.sports.3.image"]).toBeUndefined();
+  expect(calls.saves[1]["hero.lead"]).toBeUndefined();
 });
 
 for (const width of [1440, 390]) {
+  test(`Restore original resets all main copy and images and publishes the same landing page at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const calls = await setup(page, {
+      values: {
+        "hero.title": "Custom hero",
+        "hero.lead": "Custom introduction",
+        "bookmarks.intro.title": "Custom community",
+        "gallery.title": "Custom gallery",
+        "gallery.sports.3.image": uploadUrl,
+        "bookmarks.1.items.0.image": uploadUrl,
+        "arena.zones.conditioning.label": "Conditioning",
+        "arena.zones.conditioning.title": "Custom zone",
+        "arena.zones.badminton.image": uploadUrl,
+        "booking.title": "Custom booking",
+        "booking.image": "/sporthub/court-volt/course-basketball.png",
+        "faq.questions.0.answer": "Custom answer",
+        "brand.logo.image": uploadUrl,
+        "hero.background.webm": "/sporthub/hero/custom.webm",
+        "hero.background.mp4": "/sporthub/hero/custom.mp4",
+        "hero.background.image": uploadUrl,
+      },
+    });
+    await page
+      .getByRole("button", { name: "Restore original", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toContainText(
+      "all images, titles and content",
+    );
+    await page
+      .getByRole("button", { name: "Restore to draft", exact: true })
+      .click();
+    await expect(page.locator('[data-media-field="hero.title"]')).toHaveText(
+      "Every session\nhas a purpose.",
+    );
+    await expect(
+      page.locator('[data-media-field="bookmarks.intro.title"]'),
+    ).toHaveText("A stronger community");
+    await expect(page.locator('[data-media-field="gallery.title"]')).toHaveText(
+      "Energy across every court",
+    );
+    await expect(
+      page.locator('#media-gallery [data-sport-id="3"] img').first(),
+    ).toHaveAttribute("src", /course-badminton/);
+    await page
+      .getByRole("button", { name: "Show Gym zone", exact: true })
+      .click();
+    await expect(
+      page.locator('[data-media-field="arena.zones.conditioning.title"]'),
+    ).toHaveText("Gym");
+    expect(calls.saves).toHaveLength(0);
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({
+      path: `../.impeccable/review/media-main-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page
+      .getByRole("button", { name: "Save changes", exact: true })
+      .click();
+    await expect(page.locator("[class*=savedFeedback]")).toBeVisible();
+    expect(calls.saves[0]).toEqual({
+      "bookmarks.coachIds": expect.any(String),
+      ...originalHeroBackground,
+    });
+    expect(calls.saves[0]["bookmarks.coachIds"].split(",").sort()).toEqual(
+      coachIds,
+    );
+    await page.reload();
+    await expect(page.locator('[data-media-field="hero.title"]')).toHaveText(
+      "Every session\nhas a purpose.",
+    );
+    await page.goto("/");
+    await expect(page.locator('img[src*="arena-poster-v2"]')).toBeVisible();
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await expect(page.locator("video")).toHaveAttribute(
+      "src",
+      /arena-loop\.(webm|mp4)\?v=2/,
+    );
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(
+      page.getByRole("heading", {
+        name: "Every session has a purpose.",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(
+          '[aria-labelledby="training-gallery-title"] [data-sport-id="3"] img',
+        )
+        .first(),
+    ).toHaveAttribute("src", /course-badminton/);
+    const arena = page.locator('[aria-labelledby="arena-tour-title"]');
+    await arena.getByRole("tab", { name: "Gym", exact: true }).click();
+    await expect(
+      arena
+        .getByRole("tabpanel", { name: "Gym", exact: true })
+        .getByText("Gym", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("#book-court img")).toHaveAttribute(
+      "src",
+      /hero-rally/,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({
+      path: `../.impeccable/review/landing-main-${width}.png`,
+      fullPage: true,
+      animations: "disabled",
+    });
+  });
+
   test(`Media edits titles and content as plain text and publishes the draft at ${width}px`, async ({
     page,
   }, info) => {
@@ -618,15 +992,16 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("logo preserves original upload, previews before publishing and can be replaced", async ({
+test("logo icon preserves original upload and keeps the SportHub wordmark before and after publishing", async ({
   page,
 }) => {
   const calls = await setup(page);
+  const editor = page.getByLabel("Editable homepage preview");
+  const icon = editor.locator('img[alt=""]');
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
   const chooseLogo = async () => {
     const chooser = page.waitForEvent("filechooser");
-    await page
-      .getByRole("button", { name: "Change logo", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Edit logo", exact: true }).click();
     await (await chooser).setFiles(imageFile);
   };
   const upload = page.waitForRequest((request) =>
@@ -636,20 +1011,50 @@ test("logo preserves original upload, previews before publishing and can be repl
   expect((await upload).postDataBuffer()?.toString()).toContain(
     'name="preset"\r\n\r\nlogo',
   );
+  await expect(icon).toBeVisible();
+  await expect(icon.locator("..")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(icon.locator("..")).toHaveCSS("border-radius", "0px");
   await expect(
-    page.getByRole("img", { name: "Homepage logo", exact: true }),
-  ).toBeVisible();
+    editor.getByText("Only the icon changes. The SportHub name stays fixed."),
+  ).toHaveCount(0);
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("dialog", { name: "Frame your image" }),
   ).toHaveCount(0);
   expect(calls.saves).toHaveLength(0);
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(
-    page
-      .frameLocator('iframe[title="Draft homepage"]')
-      .getByRole("banner")
-      .getByRole("img", { name: "SportHub", exact: true }),
-  ).toHaveAttribute("src", /hero-rally/);
+  const header = page
+    .frameLocator('iframe[title="Draft homepage"]')
+    .getByRole("banner")
+    .getByRole("link", { name: "SportHub, homepage", exact: true });
+  await expect(header.locator('img[alt=""]')).toHaveAttribute(
+    "src",
+    /hero-rally/,
+  );
+  await expect(header.getByText("SportHub", { exact: true })).toBeVisible();
+  await expect(header.locator('img[alt=""]').locator("..")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(header.locator('img[alt=""]').locator("..")).toHaveCSS(
+    "border-radius",
+    "0px",
+  );
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    const mark = header.locator('img[alt=""]');
+    const box = await mark.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBe(box!.height);
+    expect(box!.width).toBeLessThanOrEqual(44);
+    await expect(header.getByText("SportHub", { exact: true })).toBeVisible();
+    await page.screenshot({
+      path: `test-results/media-logo-icon-${width}.png`,
+    });
+  }
   await page
     .getByRole("dialog", { name: "Homepage preview" })
     .getByRole("button", { name: "Close", exact: true })
@@ -660,17 +1065,24 @@ test("logo preserves original upload, previews before publishing and can be repl
   ).toBeVisible();
   expect(calls.saves.at(-1)?.["brand.logo.image"]).toBe(uploadUrl);
   await page.reload();
-  await expect(
-    page.getByRole("img", { name: "Homepage logo", exact: true }),
-  ).toBeVisible();
+  await expect(icon).toBeVisible();
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page
+      .getByRole("button", { name: "Edit logo", exact: true })
+      .scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: `test-results/media-logo-pencil-${width}.png`,
+    });
+  }
   calls.uploadError = true;
   await chooseLogo();
   await expect(
     page.getByRole("alert").filter({ hasText: "Upload failed. Try again." }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("img", { name: "Homepage logo", exact: true }),
-  ).toBeVisible();
+  await expect(icon).toBeVisible();
+  await expect(editor.getByText("SportHub", { exact: true })).toBeVisible();
   calls.uploadError = false;
   await chooseLogo();
   await expect.poll(() => calls.uploads).toBe(3);

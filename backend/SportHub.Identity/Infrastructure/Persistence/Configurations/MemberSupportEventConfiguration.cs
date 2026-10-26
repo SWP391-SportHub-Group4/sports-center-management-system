@@ -10,7 +10,7 @@ public sealed class MemberSupportEventConfiguration : IEntityTypeConfiguration<M
     {
         builder.ToTable("member_support_events");
         builder.HasKey(x => x.EventId);
-        builder.Property(x => x.Type).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.Type).HasMaxLength(40).IsRequired();
         builder.Property(x => x.Note).HasMaxLength(1000);
         builder.HasIndex(x => new { x.RequestId, x.CreatedAt });
         builder.HasOne<MemberSupportRequest>()

@@ -44,21 +44,25 @@ public static class ReportTypes
     public const string CourtRentalRevenue = "COURT_RENTAL_REVENUE";
     public const string MembershipPeriod = "MEMBERSHIP_PERIOD";
     public const string ClassEnrollment = "CLASS_ENROLLMENT";
+    public const string CourtBookings = "COURT_BOOKINGS";
+    public const string ClassStatus = "CLASS_STATUS";
 
     public const string MemberSummary = "MEMBER_SUMMARY";
 
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> AllowedColumns =
         new Dictionary<string, IReadOnlyList<string>>
         {
+            [CourtBookings] = ["sportName", "bookings", "bookedHours"],
+            [ClassStatus] = ["name", "sportName", "startDate", "status", "confirmedCount", "capacity", "thresholdStatus"],
             [RevenueDaily] =
             [
                 "date", "collectedAmount", "refundedAmount", "obligationReduction", "netCollected",
-                "legacyCashCollected", "reconciliationCashCollected"
+                "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid"
             ],
-            [RevenueSummary] = ["fromDate", "toDate", "collectedAmount", "refundedAmount", "netCollected", "legacyCashCollected", "reconciliationCashCollected", "pointsRedeemed", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints", "outstandingPointsAsOfUtc"],
+            [RevenueSummary] = ["fromDate", "toDate", "collectedAmount", "refundedAmount", "netCollected", "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid", "bankRefundCount", "pointsRedeemed", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints", "outstandingPointsAsOfUtc"],
             [RevenueDimensions] = ["source", "sportId", "sportName", "memberName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
             [CourtRentalRevenue] = ["source", "sportId", "sportName", "memberName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
-            [MembershipPeriod] = ["fromDate", "toDate", "newMembers", "membersPurchasingMembershipInPeriod", "activeMembersAtPeriodEnd"],
+            [MembershipPeriod] = ["fromDate", "toDate", "newMembers", "membersPurchasingMembershipInPeriod", "activeMembersAtPeriodEnd", "dayPassesSold"],
             [ClassEnrollment] = ["classId", "code", "name", "sportId", "sportName", "status", "capacity", "confirmedCount", "activeHoldCount", "availableSeats", "fillRatio", "breakEvenThreshold", "thresholdStatus", "firstSessionStartUtc"],
             [Revenue] =
             [

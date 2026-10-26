@@ -208,12 +208,13 @@ test("branded Google button keeps the Google credential flow", async ({
 test("password visibility and credential errors remain accessible", async ({
   page,
 }) => {
+  let errorCode = "invalid_credentials";
   await page.route("**/api/auth/login", async (route) => {
     await route.fulfill({
       status: 401,
       contentType: "application/json",
       body: JSON.stringify({
-        code: "invalid_credentials",
+        error: errorCode,
         message: "The email or password is incorrect.",
       }),
     });
@@ -236,6 +237,17 @@ test("password visibility and credential errors remain accessible", async ({
       .filter({ hasText: "The email or password is incorrect." }),
   ).toBeVisible();
   await expect(submit).toBeVisible();
+  for (const code of ["account_banned", "account_deactivated"]) {
+    errorCode = code;
+    await submit.click();
+    await expect(page.locator("#login-error")).toContainText(
+      "This account is deactivated. Contact an administrator for help.",
+    );
+    await expect(page.locator("#login-error")).not.toContainText(
+      /locked|inactive/i,
+    );
+    await expect(page).toHaveURL(/\/login$/);
+  }
 });
 
 test("login validation grows naturally with spacing below each field", async ({

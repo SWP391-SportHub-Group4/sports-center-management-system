@@ -149,9 +149,8 @@ public class GoogleLoginTests(SportHubApiFactory factory)
     }
 
     [Theory]
-    [InlineData(UserStatus.Banned)]
     [InlineData(UserStatus.Deactivated)]
-    public async Task Inactive_or_banned_account_is_not_linked_and_gets_no_token(UserStatus status)
+    public async Task Deactivated_account_is_not_linked_and_gets_no_token(UserStatus status)
     {
         var email = $"g-blocked-{Guid.NewGuid():N}@example.com";
         var user = await factory.SeedUserAsync(email, "CorrectHorse1!", status);
@@ -201,7 +200,9 @@ public class GoogleLoginTests(SportHubApiFactory factory)
         var second = client.PostAsync("api/auth/google", GoogleBody(subject, email));
         await Task.WhenAll(first, second);
 
-        var statuses = new[] { first.Result.StatusCode, second.Result.StatusCode };
+        var firstResponse = await first;
+        var secondResponse = await second;
+        var statuses = new[] { firstResponse.StatusCode, secondResponse.StatusCode };
         Assert.Contains(HttpStatusCode.OK, statuses);
         Assert.All(statuses, s => Assert.True(s is HttpStatusCode.OK or HttpStatusCode.Conflict));
 

@@ -18,6 +18,7 @@ import { todayIso, addDaysIso, formatDate, formatTime } from "@/lib/format";
 import { vietnamLocal } from "@/lib/vietnam-time";
 import { Card, Dialog, Field, Table, AsyncSection } from "@/components/ui";
 import type { CourtScheduleEntryDto, CourseRosterDto } from "@/lib/types";
+import { ReceptionAttendanceCalendar } from "./ReceptionAttendanceCalendar";
 import styles from "./AttendanceBoard.module.css";
 
 type Filter = "ALL" | "PRESENT" | "ABSENT" | "UNMARKED";
@@ -47,6 +48,13 @@ export function AttendanceBoard({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [bulk, setBulk] = useState(false);
   const [confirmBulk, setConfirmBulk] = useState(false);
+  // BR-98: Lễ tân chỉ chỉnh bản ghi Coach đã tạo, khi Member kiến nghị; bắt buộc lý do.
+  const [correction, setCorrection] = useState<{
+    enrollmentId: string;
+    memberName: string;
+    status: "PRESENT" | "ABSENT";
+  } | null>(null);
+  const [reason, setReason] = useState("");
   const writable = user?.role === "Receptionist" && !coachOnly;
 
   const sessions = useApi(
@@ -139,7 +147,15 @@ export function AttendanceBoard({
     setErrors({});
   }
 
-  async function mark(id: string, status: "PRESENT" | "ABSENT") {
+  function chooseSession(nextDate: string, nextSession: string) {
+    if (nextDate !== date) chooseDate(nextDate);
+    setSession(nextSession);
+    setSearch("");
+    setFilter("ALL");
+    setErrors({});
+  }
+
+  async function mark(id: string, status: "PRESENT" | "ABSENT", reason?: string) {
     if (!writable || !sessionId) return false;
     const key = `${sessionId}-${id}`;
     setBusy((previous) => ({ ...previous, [key]: true }));
@@ -147,6 +163,7 @@ export function AttendanceBoard({
     try {
       await api.put(`/api/class-sessions/${sessionId}/attendance/${id}`, {
         status,
+        reason,
       });
       return true;
     } catch (error) {
@@ -162,6 +179,10 @@ export function AttendanceBoard({
 
   return (
     <div className={styles.board}>
+      {!coachOnly && (
+        <ReceptionAttendanceCalendar date={date} disabled={bulk}
+          onChooseDate={chooseDate} onChooseSession={chooseSession} />
+      )}
       <Card>
         <div className={styles.controls}>
           <div className={styles.dateControl}>
@@ -353,11 +374,11 @@ export function AttendanceBoard({
                     </strong>
                   </div>
                 </section>
-                {writable && !inWindow && (
+                {writable && (
                   <p className={styles.windowNotice} role="status">
-                    {upcoming
-                      ? t.frontDesk.attendanceNotOpen
-                      : t.frontDesk.attendanceClosed}
+                    The Coach takes attendance. Reception can only correct a record the
+                    Coach already made, after the Member asks for a correction; a
+                    reason is required and the change is audited.
                   </p>
                 )}
                 <Card bodyless>
@@ -390,20 +411,6 @@ export function AttendanceBoard({
                         ))}
                       </div>
                     </TableFilters>
-                    {writable && (
-                      <button
-                        className="btn btn--secondary"
-                        disabled={
-                          !inWindow ||
-                          bulk ||
-                          !markable.length ||
-                          Object.values(busy).some(Boolean)
-                        }
-                        onClick={() => setConfirmBulk(true)}
-                      >
-                        {l.markAll}
-                      </button>
-                    )}
                   </div>
                   <Table
                     headers={[
@@ -461,12 +468,20 @@ export function AttendanceBoard({
                                       aria-pressed={
                                         entry.attendanceStatus === status
                                       }
-                                      disabled={!inWindow || busy[key] || bulk}
-                                      onClick={async () => {
-                                        if (
-                                          await mark(entry.enrollmentId, status)
-                                        )
-                                          roster.reload();
+                                      disabled={
+                                        busy[key] ||
+                                        bulk ||
+                                        !entry.attendanceStatus ||
+                                        entry.attendanceStatus === "NOT_RECORDED" ||
+                                        entry.attendanceStatus === status
+                                      }
+                                      onClick={() => {
+                                        setReason("");
+                                        setCorrection({
+                                          enrollmentId: entry.enrollmentId,
+                                          memberName: entry.memberName,
+                                          status,
+                                        });
                                       }}
                                     >
                                       {status === "PRESENT"
@@ -502,6 +517,55 @@ export function AttendanceBoard({
                     </p>
                   )}
                 </Card>
+                {correction && (
+                  <Dialog
+                    title="Correct attendance"
+                    onClose={() =>
+                      !busy[`${sessionId}-${correction.enrollmentId}`] &&
+                      setCorrection(null)
+                    }
+                  >
+                    <p>
+                      Change {correction.memberName} to{" "}
+                      {correction.status === "PRESENT" ? l.present : l.absent}? The
+                      reason is saved in the audit log.
+                    </p>
+                    <Field label="Reason (the Member's request)">
+                      <textarea
+                        value={reason}
+                        maxLength={500}
+                        onChange={(event) => setReason(event.target.value)}
+                      />
+                    </Field>
+                    {errors[`${sessionId}-${correction.enrollmentId}`] && (
+                      <p role="alert">
+                        {errors[`${sessionId}-${correction.enrollmentId}`]}
+                      </p>
+                    )}
+                    <button
+                      className="btn"
+                      disabled={
+                        reason.trim().length < 3 ||
+                        busy[`${sessionId}-${correction.enrollmentId}`]
+                      }
+                      onClick={async () => {
+                        if (
+                          await mark(
+                            correction.enrollmentId,
+                            correction.status,
+                            reason.trim(),
+                          )
+                        ) {
+                          setCorrection(null);
+                          setReason("");
+                          roster.reload();
+                        }
+                      }}
+                    >
+                      {l.confirm}
+                    </button>
+                  </Dialog>
+                )}
                 {confirmBulk && (
                   <Dialog
                     title={l.confirm}

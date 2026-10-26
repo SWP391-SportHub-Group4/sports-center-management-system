@@ -21,7 +21,29 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class CourtRentalTests(PaymentApiFactory factory)
 {
     [Fact]
-    public async Task Paid_rental_is_private_and_center_cancellation_credits_points_once()
+    public async Task Disabling_room_rental_preserves_existing_checkout_and_reserved_slot()
+    {
+        var request = await SetupAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var scope = factory.Services.CreateScope();
+        var checkout = await scope.ServiceProvider.GetRequiredService<CheckoutService>()
+            .CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default);
+        var rentalId = checkout.ResourceHoldId!.Value;
+        var statusBefore = await factory.QueryAsync(db => db.Set<CourtRental>().Where(r => r.CourtRentalId == rentalId).Select(r => r.Status).SingleAsync());
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        (await client.PutAsJsonAsync($"/api/rooms/{request.RoomId}/rental-access", new { allowRental = false })).EnsureSuccessStatusCode();
+        await factory.QueryAsync(async db => {
+            Assert.Equal(statusBefore, await db.Set<CourtRental>().Where(r => r.CourtRentalId == rentalId).Select(r => r.Status).SingleAsync());
+            Assert.True(await db.RoomOccupancies.AnyAsync(o => o.SourceId == rentalId && o.IsActive));
+            Assert.True(await db.Invoices.AnyAsync(i => i.InvoiceId == checkout.InvoiceId));
+            return 0;
+        });
+        var rentals = scope.ServiceProvider.GetRequiredService<CourtRentalService>();
+        Assert.Equal("rental_room_incompatible", (await Assert.ThrowsAsync<ConflictException>(() => rentals.QuoteAsync(request))).ErrorCode);
+    }
+
+    [Fact]
+    public async Task Paid_rental_is_private_and_center_cancellation_only_notifies_until_member_chooses_points()
     {
         var request = await SetupAsync();
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -43,6 +65,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Empty(await operations.MineAsync(manager.UserId, request.StartUtc.UtcDateTime, request.EndUtc.UtcDateTime));
         await operations.CancelByCenterAsync(checkout.ResourceHoldId!.Value, manager.UserId, "Center court repair");
         var detail = await operations.GetMineAsync(checkout.ResourceHoldId.Value, request.MemberId);
+        // Cancelling only notifies: nothing is credited yet, but the detail quotes the 100% points offer.
         Assert.Equal(100, detail.RefundPoints);
         Assert.Equal("Center court repair", detail.CancelReason);
         Assert.Equal(checkout.InvoiceId, detail.Rental.InvoiceId);
@@ -52,15 +75,78 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         {
             var rental = await state.Set<CourtRental>().SingleAsync(x => x.CourtRentalId == checkout.ResourceHoldId);
             Assert.Equal(CourtRentalStatus.Cancelled, rental.Status);
+            Assert.Equal(0, await state.PointWallets.Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync());
+            Assert.Equal(0, await state.PointLedgerEntries.CountAsync(x => x.InvoiceItemId == rental.InvoiceItemId
+                && x.ReferenceType == "SystemEvent" && x.EntryType == SportHub.Payment.Wallet.Domain.PointEntryType.Earn));
+            return 0;
+        });
+
+        var refunds = scope.ServiceProvider.GetRequiredService<ICenterCancellationRefundService>();
+        var offer = Assert.Single(await refunds.ListMineAsync(request.MemberId));
+        Assert.Equal("Offer", offer.Status);
+        Assert.Equal("CourtRental", offer.Kind);
+        Assert.Equal(100, offer.RefundPoints);
+        await Assert.ThrowsAsync<ForbiddenException>(() => refunds.ChoosePointsAsync(manager.UserId, offer.InvoiceItemId));
+
+        // Choosing points credits automatically, once; choosing again returns the same credit.
+        var chosen = await refunds.ChoosePointsAsync(request.MemberId, offer.InvoiceItemId);
+        Assert.Equal(100, chosen.PointsCredited);
+        Assert.False(chosen.AlreadyApplied);
+        var again = await refunds.ChoosePointsAsync(request.MemberId, offer.InvoiceItemId);
+        Assert.Equal(100, again.PointsCredited);
+        Assert.True(again.AlreadyApplied);
+        Assert.Equal("PointsCredited", Assert.Single(await refunds.ListMineAsync(request.MemberId)).Status);
+        await factory.QueryAsync(async state =>
+        {
             Assert.Equal(100, await state.PointWallets.Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync());
-            Assert.Equal(1, await state.PointLedgerEntries.CountAsync(x => x.InvoiceItemId == rental.InvoiceItemId
-                && x.EntryType == SportHub.Payment.Wallet.Domain.PointEntryType.Earn));
+            Assert.Equal(1, await state.PointLedgerEntries.CountAsync(x => x.InvoiceItemId == offer.InvoiceItemId
+                && x.ReferenceType == "SystemEvent" && x.EntryType == SportHub.Payment.Wallet.Domain.PointEntryType.Earn));
             return 0;
         });
     }
 
     [Fact]
-    public async Task Incident_preview_quotes_the_refund_points_the_resolve_actually_credits()
+    public async Task Center_cancelled_rental_is_refunded_as_points_automatically_two_days_after_the_notice()
+    {
+        var request = await SetupAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            await scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService>()
+                .EarnAsync(new(request.MemberId, 100, "TestCredit", Guid.NewGuid()));
+            await tx.CommitAsync();
+        }
+        var checkouts = scope.ServiceProvider.GetRequiredService<CheckoutService>();
+        var checkout = await checkouts.CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default);
+        await scope.ServiceProvider.GetRequiredService<SportHub.Payment.Wallet.Application.PointConfirmationService>()
+            .SelectSelfAsync(checkout.InvoiceId, 100, request.MemberId, default);
+        await checkouts.StartPaymentAsync(checkout.InvoiceId, request.MemberId, false, "127.0.0.1", default);
+        var operations = scope.ServiceProvider.GetRequiredService<CourtRentalOperationsService>();
+        await operations.CancelByCenterAsync(checkout.ResourceHoldId!.Value, manager.UserId, "Center court repair");
+        var refunds = scope.ServiceProvider.GetRequiredService<ICenterCancellationRefundService>();
+
+        // Inside the 2 day choice window nothing is credited automatically.
+        await refunds.AutoRefundDueAsync();
+        Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+
+        await factory.QueryAsync(async state =>
+        {
+            var rental = await state.Set<CourtRental>().SingleAsync(x => x.CourtRentalId == checkout.ResourceHoldId);
+            rental.CancelledAtUtc = DateTime.UtcNow.AddDays(-3);
+            await state.SaveChangesAsync();
+            return 0;
+        });
+        await refunds.AutoRefundDueAsync();
+        await refunds.AutoRefundDueAsync();
+        Assert.Equal(100, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Incident_preview_quotes_the_refund_points_the_member_can_choose_after_resolve()
     {
         var request = await SetupAsync();
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -90,8 +176,24 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal(100, affected.ExpectedRefundPoints);
         Assert.Equal(100, preview.ExpectedRefundPointsTotal);
 
-        // The wallet was fully spent on the rental, so the credited points are exactly the quoted refund.
-        await incidents.ResolveAsync(incident, manager.UserId);
+        // Resolving only notifies; the offer equals the quote and the Member credits it by choosing points.
+        await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
+        Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+        var refunds = scope.ServiceProvider.GetRequiredService<ICenterCancellationRefundService>();
+        var offer = Assert.Single(await refunds.ListMineAsync(request.MemberId));
+        Assert.Equal(affected.ExpectedRefundPoints, offer.RefundPoints);
+        // Resolving another overlapping incident must not bypass the Member's choice.
+        var overlap = await Assert.ThrowsAsync<ConflictException>(async () =>
+            await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId));
+        Assert.Equal("incident_overlap", overlap.ErrorCode);
+        Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+        await refunds.AutoRefundDueAsync();
+        Assert.Equal(0, await factory.QueryAsync(state => state.PointWallets
+            .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
+        Assert.Equal(100, (await refunds.ChoosePointsAsync(request.MemberId, offer.InvoiceItemId)).PointsCredited);
+        Assert.True((await refunds.ChoosePointsAsync(request.MemberId, offer.InvoiceItemId)).AlreadyApplied);
         Assert.Equal(100, await factory.QueryAsync(state => state.PointWallets
             .Where(x => x.OwnerUserId == request.MemberId).Select(x => x.AvailablePoints).SingleAsync()));
     }
@@ -99,11 +201,11 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
     /// <summary>Member không có Membership Gym, chuyên môn hay hồ sơ nào: chỉ cần tài khoản hoạt động.</summary>
     private async Task<CourtRentalRequest> SetupAsync(bool active = true)
     {
-        var member = await factory.SeedUserAsync(UserRole.Member, active ? UserStatus.Active : UserStatus.Banned);
+        var member = await factory.SeedUserAsync(UserRole.Member, active ? UserStatus.Active : UserStatus.Deactivated);
         return await factory.QueryAsync(async db =>
         {
             // Sức chứa phòng không còn lọc lượt thuê: phòng 2 chỗ vẫn thuê được.
-            var room = new Room { Name = "Rental test " + Guid.NewGuid(), Capacity = 2, RoomTypeId = 3 };
+            var room = new Room { Name = "Rental test " + Guid.NewGuid(), Capacity = 2, RoomTypeId = 3, AllowRental = true };
             db.Rooms.Add(room);
             await db.SaveChangesAsync();
             db.RoomOpeningHours.AddRange(Enumerable.Range(0, 7).Select(day => new RoomOpeningHour
@@ -113,7 +215,8 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
                     DaysOfWeek = "MON,TUE,WED,THU,FRI,SAT,SUN", StartTimeLocal = new(6, 0),
                     EndTimeLocal = new(22, 0), PricePerHour = 100_000 });
             await db.SaveChangesAsync();
-            var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(2)).AddHours(10);
+            // Cửa sổ thuê là hôm nay + 2 ngày tính từ mốc đổi ngày 06:00; ngày mai luôn nằm trong cửa sổ, kể cả khi test chạy trước 06:00.
+            var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(1)).AddHours(10);
             return new CourtRentalRequest(member.UserId, 3, room.RoomId, start, start.AddHours(1));
         });
     }
@@ -165,6 +268,64 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         });
     }
 
+    private async Task<HttpResponseMessage> PostRentalAsync(HttpClient client, CourtRentalRequest rental, DateTimeOffset start, DateTimeOffset end,
+        Guid? targetMemberId = null)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/court-rental")
+        {
+            Content = JsonContent.Create(new { rental.SportId, rental.RoomId, StartUtc = start, EndUtc = end, TargetMemberId = targetMemberId })
+        };
+        message.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        return await client.SendAsync(message);
+    }
+
+    [Fact]
+    public async Task Rental_is_limited_to_06_00_22_00_for_both_member_and_receptionist()
+    {
+        var rental = await SetupAsync();
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        using var member = factory.CreateApiClient(rental.MemberId, UserRole.Member);
+        using var desk = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        var day = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(rental.StartUtc.UtcDateTime)));
+        // 21:00-23:00 (kết thúc sau 22:00) và 05:00-06:00 (bắt đầu trước 06:00) đều bị từ chối.
+        foreach (var (fromHour, toHour) in new[] { (21, 23), (5, 7) })
+        {
+            var start = new DateTimeOffset(day.AddHours(fromHour));
+            var end = new DateTimeOffset(day.AddHours(toHour));
+            var byMember = await PostRentalAsync(member, rental, start, end);
+            Assert.Equal(HttpStatusCode.Conflict, byMember.StatusCode);
+            Assert.Contains("court_outside_hours", await byMember.Content.ReadAsStringAsync());
+            var byDesk = await PostRentalAsync(desk, rental, start, end, rental.MemberId);
+            Assert.Equal(HttpStatusCode.Conflict, byDesk.StatusCode);
+            Assert.Contains("court_outside_hours", await byDesk.Content.ReadAsStringAsync());
+        }
+        Assert.False(await factory.QueryAsync(db => db.Invoices.AnyAsync(x => x.MemberId == rental.MemberId)));
+    }
+
+    [Fact]
+    public async Task Rental_beyond_today_plus_two_days_is_rejected_for_both_member_and_receptionist()
+    {
+        var rental = await SetupAsync();
+        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        using var member = factory.CreateApiClient(rental.MemberId, UserRole.Member);
+        using var desk = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
+        var farDay = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(3));
+        var start = new DateTimeOffset(farDay.AddHours(10));
+        var end = start.AddHours(1);
+
+        var byMember = await PostRentalAsync(member, rental, start, end);
+        Assert.Equal(HttpStatusCode.Conflict, byMember.StatusCode);
+        Assert.Contains("court_outside_window", await byMember.Content.ReadAsStringAsync());
+        var byDesk = await PostRentalAsync(desk, rental, start, end, rental.MemberId);
+        Assert.Equal(HttpStatusCode.Conflict, byDesk.StatusCode);
+        Assert.Contains("court_outside_window", await byDesk.Content.ReadAsStringAsync());
+
+        var policy = await member.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/court-rentals/policy");
+        Assert.Equal(2, policy.GetProperty("advanceDays").GetInt32());
+        var calendar = await member.GetAsync($"/api/court-rentals/calendar?sportId={rental.SportId}&date={DateOnly.FromDateTime(VietnamTime.ToLocal(farDay.AddHours(10))):yyyy-MM-dd}");
+        Assert.Equal(HttpStatusCode.BadRequest, calendar.StatusCode);
+    }
+
     [Fact]
     public async Task Own_detail_and_invoice_listing_include_pending_checkout_and_enforce_ownership()
     {
@@ -195,7 +356,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
     {
         var request = await SetupAsync(active: false);
         using var scope = factory.Services.CreateScope();
-        await Assert.ThrowsAsync<ForbiddenException>(() => scope.ServiceProvider.GetRequiredService<CheckoutService>()
+        await Assert.ThrowsAsync<ConflictException>(() => scope.ServiceProvider.GetRequiredService<CheckoutService>()
             .CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default));
         Assert.False(await factory.QueryAsync(db => db.Invoices.AnyAsync(x => x.MemberId == request.MemberId)));
     }
@@ -242,7 +403,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal("CheckoutReleased", affected.Outcome);
         Assert.Null(affected.ExpectedRefundPoints);
         Assert.Equal(0, preview.ExpectedRefundPointsTotal);
-        var incidentId = await incidents.ResolveAsync(incident, manager.UserId);
+        var incidentId = await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
         var delivery = await incidents.DeliveryAsync(incidentId);
         Assert.Equal(2, delivery.Total);
         Assert.Equal(2, delivery.Pending);

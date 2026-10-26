@@ -145,7 +145,6 @@ public sealed class GymCheckInContractTests(SchedulingApiFactory factory)
     }
 
     [Theory]
-    [InlineData(UserStatus.Banned)]
     [InlineData(UserStatus.Deactivated)]
     public async Task Locked_member_cannot_check_in_even_with_an_active_package(UserStatus status)
     {

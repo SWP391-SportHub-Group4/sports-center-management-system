@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Membership;
+using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
@@ -9,6 +10,8 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Rules;
+using SportHub.Identity.Domain.Entities;
+using SportHub.Identity.Domain.Enums;
 
 namespace SportHub.Payment.Application.Services;
 
@@ -22,7 +25,8 @@ public sealed class PaymentFulfillmentService(
     IMembershipFulfillment memberships,
     IAuditWriter audit,
     IClock clock,
-    PaymentNoticeService notices)
+    PaymentNoticeService notices,
+    INotificationWriter notifications)
 {
     public async Task CompletePointsAsync(
         Invoice invoice,
@@ -405,6 +409,13 @@ public sealed class PaymentFulfillmentService(
         session.State =
             reason;
 
+        await notifications.ReviseInvoiceCreatedAsync(
+            invoice.MemberId, invoice.InvoiceId,
+            reason == "Cancelled"
+                ? $"Invoice {invoice.InvoiceNumber} was cancelled. No payment is due."
+                : $"Invoice {invoice.InvoiceNumber} expired. No payment is due.",
+            ct);
+
         await db.Set<PaymentAttempt>()
             .Where(
                 x =>
@@ -431,116 +442,63 @@ public sealed class PaymentFulfillmentService(
                 IsSystem: actorId is null));
     }
 
-    public async Task CompensateCashAsync(
+    public async Task MarkUnactivatedAsync(
         Invoice invoice,
+        PaymentAttempt attempt,
         VerifiedGatewayEvent proof,
         CancellationToken ct)
     {
         RequireTransaction();
-
-        if (
-            proof.Amount <= 0 ||
-            proof.Amount % 1000 != 0 ||
-            proof.Amount / 1000 >
-                int.MaxValue)
+        if (proof.Amount <= 0)
+            throw new ConflictException("gateway_capture_invalid", "The verified payment amount is invalid.");
+        if (!await db.Set<Domain.Entities.Payment>().AnyAsync(p =>
+                p.ReferenceCode == proof.ProviderTransactionId && p.Status == PaymentStatus.Success, ct))
         {
-            proof.ProcessingStatus =
-                "ManualCompensationRequired";
-
-            proof.ProcessedAtUtc =
-                clock.UtcNow;
-
-            invoice.ReconciliationRequired =
-                true;
-
-            if (
-                !InvoiceFulfillment
-                    .HasBenefits(
-                        invoice.Status,
-                        invoice.PaidVia))
+            db.Set<Domain.Entities.Payment>().Add(new Domain.Entities.Payment
             {
-                invoice.Status =
-                    InvoiceStatus
-                        .PaidAfterReconciliation;
-
-                invoice.PaidVia =
-                    "VnPayManualCompensation";
-
-                invoice.PaidAtUtc =
-                    clock.UtcNow;
-            }
-
-            audit.Write(
-                new AuditEntry(
-                    invoice.IssuedByUserId,
-                    "MANUAL_GATEWAY_COMPENSATION_REQUIRED",
-                    nameof(Invoice),
-                    invoice.InvoiceId.ToString(),
-                    Reason:
-                        proof.ProviderTransactionId,
-                    IsSystem: true));
-
-            return;
+                PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
+                PaymentAttemptId = attempt.PaymentAttemptId, Amount = proof.Amount,
+                Method = PaymentMethod.VnPay, Status = PaymentStatus.Success,
+                ReferenceCode = proof.ProviderTransactionId,
+                ReceivedByUserId = invoice.IssuedByUserId, PaidAt = proof.ProviderPaidAtUtc
+            });
         }
-
-        await wallets.EarnAsync(
-            new WalletOperation(
-                invoice.MemberId,
-                (int)(
-                    proof.Amount /
-                    1000),
-                "GatewayCompensation",
-                proof.VerifiedGatewayEventId,
-                invoice.IssuedByUserId,
-                "Compensation for a VNPay payment that could not grant the benefit"),
-            ct);
-
-        await notices.QueueAsync(
-            invoice.MemberId,
-            SportHub.BuildingBlocks
-                .Abstractions
-                .Notifications
-                .NotificationEvents
-                .RefundCompleted,
-            proof.VerifiedGatewayEventId,
-            $"Compensated {proof.Amount / 1000:N0} points for the collected payment on invoice {invoice.InvoiceNumber}.",
-            ct);
-
-        proof.ProcessingStatus =
-            "Compensated";
-
-        proof.ProcessedAtUtc =
-            clock.UtcNow;
-
-        invoice.ReconciliationRequired =
-            false;
-
-        if (
-            !InvoiceFulfillment
-                .HasBenefits(
-                    invoice.Status,
-                    invoice.PaidVia))
+        var alreadyFulfilled = InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia);
+        var alreadyResolved = invoice.Status == InvoiceStatus.Compensated
+            || invoice.ResolutionIdempotencyKey is not null;
+        if (!alreadyFulfilled && !alreadyResolved)
         {
-            invoice.Status =
-                InvoiceStatus
-                    .PaidAfterReconciliation;
-
-            invoice.PaidVia =
-                "VnPayCompensated";
-
-            invoice.PaidAtUtc =
-                clock.UtcNow;
+            attempt.Status = PaymentAttemptStatus.Succeeded;
+            attempt.ProviderTransactionId = proof.ProviderTransactionId;
+            attempt.VerifiedResult = "PaidButUnactivated";
+            attempt.VerifiedAtUtc = proof.VerifiedAtUtc;
+            invoice.Status = InvoiceStatus.PaidAfterReconciliation;
+            invoice.PaidVia = "VnPayAwaitingResolution";
+            invoice.PaidAtUtc = proof.ProviderPaidAtUtc;
+            invoice.ReconciliationRequired = true;
         }
+        proof.ProcessingStatus = "Unactivated";
+        proof.ProcessedAtUtc = clock.UtcNow;
 
-        audit.Write(
-            new AuditEntry(
-                invoice.IssuedByUserId,
-                "COMPENSATE_GATEWAY_PAYMENT",
-                nameof(Invoice),
-                invoice.InvoiceId.ToString(),
-                Reason:
-                    proof.ProviderTransactionId,
-                IsSystem: true));
+        await notices.QueueAsync(invoice.MemberId, NotificationEvents.PaymentUnactivated,
+            proof.VerifiedGatewayEventId,
+            alreadyResolved
+                ? $"An additional payment was received for invoice {invoice.InvoiceNumber} after it was resolved. Please request support for this payment."
+                : alreadyFulfilled
+                ? $"An additional payment was received for invoice {invoice.InvoiceNumber}. Open the invoice to choose points or request support."
+                : $"Payment for invoice {invoice.InvoiceNumber} was received, but the service could not be activated. Open the invoice to choose points or request support.", ct);
+        var deskIds = await db.Set<UserAccount>().AsNoTracking()
+            .Where(u => u.Status == UserStatus.Active && u.Role != null
+                && (u.Role.RoleName == UserRole.Receptionist || u.Role.RoleName == UserRole.CenterManager))
+            .Select(u => new { u.UserId, u.Role!.RoleName }).ToListAsync(ct);
+        foreach (var desk in deskIds)
+            notifications.Queue(new NotificationRequest(desk.UserId, NotificationEvents.PaymentUnactivated,
+                desk.RoleName == UserRole.CenterManager
+                    ? $"Invoice {invoice.InvoiceNumber} was paid but the service was not activated. Review the payment and invoice details."
+                    : $"Invoice {invoice.InvoiceNumber} was paid but not activated. Review it at the front desk.",
+                proof.VerifiedGatewayEventId));
+        audit.Write(new AuditEntry(invoice.IssuedByUserId, "PAYMENT_NOT_ACTIVATED", nameof(Invoice),
+            invoice.InvoiceId.ToString(), IsSystem: true));
     }
 
     private void RequireTransaction()

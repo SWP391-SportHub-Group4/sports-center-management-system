@@ -292,10 +292,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     /// <summary>Phần còn thiếu để GroupCourse/CourtRental bán được; Membership có cấu hình riêng ở module khác.</summary>
     private async Task<Dictionary<int, IReadOnlyList<ServiceReadinessResponse>>> ReadinessAsync(List<Sport> sports, CancellationToken ct)
     {
-        var sportIds = sports.Select(s => s.SportId).ToList();
-        var links = await db.Set<SportRoomType>().AsNoTracking().Where(l => sportIds.Contains(l.SportId)).ToListAsync(ct);
-        var rooms = await db.Set<Room>().AsNoTracking().Where(r => r.IsActive && r.RoomTypeId != null
-            && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive)).ToListAsync(ct);
+        var rooms = await db.Set<Room>().AsNoTracking().Where(r => r.IsActive
+            && (r.RoomTypeId == null || db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive))).ToListAsync(ct);
         var hours = await db.Set<RoomOpeningHour>().AsNoTracking().Select(h => h.RoomId).Distinct().ToListAsync(ct);
         var rates = await db.Set<CourtRate>().AsNoTracking().Where(r => r.IsActive).ToListAsync(ct);
 
@@ -303,19 +301,20 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         foreach (var sport in sports)
         {
-            var roomTypeIds = links.Where(l => l.SportId == sport.SportId).Select(l => l.RoomTypeId).ToHashSet();
-            var sportRooms = rooms.Where(r => roomTypeIds.Contains(r.RoomTypeId!.Value) && (r.SportId == null || r.SportId == sport.SportId)).ToList();
+            var sportRooms = rooms.ToList();
             var list = new List<ServiceReadinessResponse>();
 
             foreach (var service in sport.Services.Where(s => s.ServiceType is SportServiceType.GroupCourse or SportServiceType.CourtRental))
             {
+                var serviceRooms = service.ServiceType == SportServiceType.CourtRental
+                    ? sportRooms.Where(r => r.AllowRental).ToList() : sportRooms;
                 var missing = new List<string>();
-                if (sportRooms.Count == 0) missing.Add("room");
-                if (!sportRooms.Any(r => hours.Contains(r.RoomId))) missing.Add("opening_hours");
+                if (serviceRooms.Count == 0) missing.Add("room");
+                if (!serviceRooms.Any(r => hours.Contains(r.RoomId))) missing.Add("opening_hours");
 
                 if (service.ServiceType == SportServiceType.CourtRental
-                    && !rates.Any(r => roomTypeIds.Contains(r.RoomTypeId) && (r.SportId == null || r.SportId == sport.SportId)
-                        && (r.RoomId == null || sportRooms.Any(room => room.RoomId == r.RoomId))))
+                    && !rates.Any(r => (r.SportId == null || r.SportId == sport.SportId)
+                        && serviceRooms.Any(room => room.RoomTypeId == r.RoomTypeId && (r.RoomId == null || room.RoomId == r.RoomId))))
                 {
                     missing.Add("court_rate");
                 }

@@ -160,6 +160,7 @@ export function MemberPicker({
         >
           <div className="row">
             <AvatarImage
+              userId={value.userId}
               name={value.fullName || value.email}
               avatarUrl={value.avatarUrl}
             />
@@ -170,6 +171,7 @@ export function MemberPicker({
               <div className="small muted">
                 {value.email}
                 {value.phone ? ` · ${value.phone}` : ""}
+                {` · ${value.status === "ACTIVE" ? "Active" : "Deactivated"}`}
               </div>
             </div>
           </div>
@@ -269,6 +271,7 @@ export function MemberPicker({
               >
                 <span className="row">
                   <AvatarImage
+                    userId={member.userId}
                     name={member.fullName || member.email}
                     avatarUrl={member.avatarUrl}
                     size={32}
@@ -286,9 +289,7 @@ export function MemberPicker({
               <div className="small muted">
                 {member.email}
                 {member.phone ? ` · ${member.phone}` : ""}
-                {member.status !== "ACTIVE"
-                  ? ` · ${language === "en" ? "Account Locked" : "Tài khoản bị khóa"}`
-                  : ""}
+                {` · ${member.status === "ACTIVE" ? "Active" : "Deactivated"}`}
               </div>
             </button>
           ))}

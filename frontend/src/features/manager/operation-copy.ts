@@ -32,7 +32,7 @@ const copy = {
     rentalPending:
       "Cancellation and release will be requested with the final operation; not completed yet.",
     rentalConfirmed:
-      "Cancellation and refund will be requested with the final operation; the expected points are listed under Members affected.",
+      "The rental will be cancelled and the member notified. The member then chooses 100% as points (listed under Members affected) or sends a refund request.",
     holdWindow: "Hold this window while I fix it",
     holdWindowHint:
       "Nobody can book into this room and time until you resolve the incident, release it, or the hold runs out (2 hours). You can leave and come back.",
@@ -75,12 +75,15 @@ const copy = {
     affectedSessions: "{n} sessions affected",
     member: "Member",
     outcome: "What happens",
-    expectedPoints: "Expected points",
-    expectedTotal: "Expected refund in total",
+    expectedPoints: "Points offered",
+    expectedTotal: "Points offered in total",
     quoteNote:
-      "Quoted by the server now. Final amounts are calculated again when you confirm.",
+      "Quoted by the server now. Final amounts are calculated again when the member chooses.",
     outcomes: {
-      REFUNDED_AS_POINTS: "Rental cancelled, 100% refunded as points",
+      DAY_PASS_SUPPORT:
+        "Day pass remains valid until 22:00; notify and arrange support separately",
+      REFUNDED_AS_POINTS:
+        "Rental cancelled; member chooses 100% as points or a refund request",
       CHECKOUT_RELEASED: "Unpaid checkout released, held points returned",
       AWAITS_SCHEDULE_DECISION:
         "Needs a schedule decision first (reschedule or makeup); no refund yet",
@@ -186,6 +189,7 @@ const copy = {
     quoteNote:
       "Server báo giá ngay lúc này. Số điểm cuối được tính lại khi bạn xác nhận.",
     outcomes: {
+      DAY_PASS_SUPPORT: "Vé giữ hạn 22:00; thông báo và hỗ trợ riêng",
       REFUNDED_AS_POINTS: "Hủy lượt thuê, hoàn 100% bằng điểm",
       CHECKOUT_RELEASED: "Nhả đơn chưa thanh toán, trả lại điểm đang giữ",
       AWAITS_SCHEDULE_DECISION:

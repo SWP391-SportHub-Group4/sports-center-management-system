@@ -7,6 +7,7 @@ namespace SportHub.BuildingBlocks.Abstractions.Payment;
 /// </summary>
 public interface IRefundCreditService
 {
+    Task<RefundItemBalance> GetItemBalanceAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
     Task<RefundCreditResult> CreditAsync(RefundCreditRequest request, CancellationToken cancellationToken = default);
     Task<RefundCreditResult> CreditDifferenceAsync(RefundCreditDifferenceRequest request,
         CancellationToken cancellationToken = default);
@@ -24,8 +25,11 @@ public sealed record RefundCreditRequest(
     string Reason,
     Guid EventId,
     int? ProratedNumerator = null,
-    int? ProratedDenominator = null);
+    int? ProratedDenominator = null,
+    int? ExactPoints = null);
 
 public sealed record RefundCreditResult(int PointsCredited, bool AlreadyApplied);
 
 public sealed record RefundCreditDifferenceRequest(Guid InvoiceItemId, int Points, string Reason, Guid EventId);
+
+public sealed record RefundItemBalance(Guid InvoiceId, bool IsPaid, int RemainingPoints, int RefundedPoints);

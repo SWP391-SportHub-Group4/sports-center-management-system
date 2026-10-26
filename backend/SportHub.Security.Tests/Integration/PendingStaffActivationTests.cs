@@ -64,7 +64,7 @@ public sealed class PendingStaffActivationTests(SportHubApiFactory factory)
         {
             var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
             var staff = await db.UserAccounts.SingleAsync(u => u.UserId == staffId);
-            staff.Status = UserStatus.Banned;
+            staff.Status = UserStatus.Deactivated;
             await db.SaveChangesAsync();
         }
         result = await Json(await admin.GetAsync($"api/users/admin?status=ACTIVATION_REQUIRED&keyword={email}"));

@@ -68,6 +68,12 @@ export function InvoiceDetail({
       ) : (
         d && (
           <>
+            {d.summary.reconciliationRequired && staff && user?.role === "CenterManager" && (
+              <div className={`${styles.notice} ${styles.paymentNotice}`} role="note">
+                <strong>Payment received, service not activated</strong>
+                <p>Review this invoice and its payment history. The payment needs follow-up; the purchased service has not been activated.</p>
+              </div>
+            )}
             <div className={styles.identity}>
               {paid && <button
                 className="btn btn--secondary"
@@ -87,7 +93,9 @@ export function InvoiceDetail({
               <p className={styles.invoiceNumber}>{d.summary.invoiceNumber}</p>
               <div className={styles.statuses}>
                 <StatusChip value={d.summary.status} />
-                <StatusChip value={d.summary.fulfillmentOutcome} />
+                {d.summary.fulfillmentOutcome !== "PENDING" && (
+                  <StatusChip value={d.summary.fulfillmentOutcome} />
+                )}
               </div>
             </div>
             <section className={styles.contextPanel} aria-label="Invoice information">
@@ -186,7 +194,7 @@ export function InvoiceDetail({
                 </div>
               </dl>
             </section>
-            {d.summary.reconciliationRequired && (
+            {d.summary.reconciliationRequired && !(staff && user?.role === "CenterManager") && (
               <p className={styles.notice}>{l.reconciliation}</p>
             )}
             {d.summary.fulfillmentOutcome === "COMPENSATED" && (

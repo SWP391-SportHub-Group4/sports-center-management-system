@@ -237,6 +237,7 @@ export default function AccountPage() {
               <>
                 <header className={styles.profileHero}>
                   <AvatarImage
+                    userId={data.userId}
                     avatarUrl={data.avatarUrl}
                     name={data.fullName || data.email}
                     size={72}
@@ -287,6 +288,8 @@ export default function AccountPage() {
 
                     {(user?.role === "Member" ||
                       user?.role === "Coach" ||
+                      user?.role === "CenterManager" ||
+                      user?.role === "SystemAdministrator" ||
                       user?.role === "Receptionist") && (
                       <AvatarEditor
                         name={data.fullName || data.email}

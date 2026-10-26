@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
@@ -42,6 +44,8 @@ public sealed partial class RoomService
         {
             DayOfWeek = h.DayOfWeek, OpenTimeLocal = SetupTime(h.OpenTimeLocal), CloseTimeLocal = SetupTime(h.CloseTimeLocal)
         }).ToList();
+        var center = await CenterOperatingHours.ReadAsync(settings, ct);
+        foreach (var hour in hours) center.EnsureRange(hour.OpenTimeLocal, hour.CloseTimeLocal);
         if (hours.Any(h => h.DayOfWeek is < 0 or > 6 || h.CloseTimeLocal <= h.OpenTimeLocal
                 || h.OpenTimeLocal.Minute != 0 || h.CloseTimeLocal.Minute != 0
                 || h.CloseTimeLocal - h.OpenTimeLocal < TimeSpan.FromHours(1))
@@ -87,7 +91,8 @@ public sealed partial class RoomService
                 return rate;
             }).ToList();
 
-        var room = new Room { Name = name, Capacity = request.Capacity, SportId = request.SportId, RoomTypeId = request.RoomTypeId, IsActive = true };
+        var room = new Room { Name = name, Capacity = request.Capacity, RoomTypeId = request.RoomTypeId, IsActive = true, AllowRental = true,
+            RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)) };
         db.Set<Room>().Add(room);
         await db.SaveChangesAsync(ct);
         foreach (var h in hours) h.RoomId = room.RoomId;

@@ -4,11 +4,38 @@ export interface Paged<T> {
   pageSize: number;
   totalCount: number;
 }
+export interface SupportRefundItemDto {
+  invoiceItemId: string;
+  description: string;
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+}
+export interface SupportRefundBreakdownDto {
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+  items: SupportRefundItemDto[];
+}
 export interface MemberSupportRequestDto {
   requestId: string;
   memberId: string;
   recordedByUserId: string;
-  category: "GENERAL" | "MEMBERSHIP" | "CLASS" | "PAYMENT" | "PT" | "FACILITY" | "ACCOUNT" | "OTHER";
+  category:
+    | "GENERAL"
+    | "MEMBERSHIP"
+    | "CLASS"
+    | "PAYMENT"
+    | "PT"
+    | "FACILITY"
+    | "ACCOUNT"
+    | "OTHER";
   subject: string;
   description: string;
   status: string;
@@ -20,9 +47,32 @@ export interface MemberSupportRequestDto {
   progressNote: string | null;
   updatedAt: string | null;
   closedAt: string | null;
-  attachments?: { attachmentId: string; fileName: string }[] | null;
+  attachments?:
+    | {
+        attachmentId: string;
+        fileName: string;
+        kind?: "MEMBER_PROOF" | "PAYOUT_PROOF";
+      }[]
+    | null;
   /** COUNTER, PHONE, FANPAGE (recorded by staff) or ONLINE (member self-service). */
   channel?: string;
+  slaDueAtUtc?: string | null;
+  isOverdue?: boolean;
+  remindCount?: number;
+  invoiceId?: string | null;
+  invoiceItemId?: string | null;
+  outcome?: string | null;
+  bankAccountMasked?: string | null;
+  payout?: {
+    payoutId: string;
+    amount: number;
+    invoiceItemId?: string | null;
+    pointsRefunded?: number;
+    recordedAtUtc: string;
+    memberConfirmedAtUtc: string | null;
+    memberConfirmedBy: "MEMBER" | "SYSTEM" | null;
+    proofAttachmentIds: string[];
+  } | null;
 }
 
 export type SportServiceType =
@@ -142,6 +192,8 @@ export interface WalletLedgerDto {
 
 export interface CheckoutDto {
   isDayPass?: boolean;
+  closingSoon?: boolean;
+  closesAtUtc?: string | null;
   beneficiaryUserId: string;
   initiatorUserId: string;
   serverNowUtc: string;
@@ -174,6 +226,8 @@ export interface PaymentAttemptDto {
 }
 
 export interface RoomDto {
+  allowRental?: boolean;
+  rentalBookingOpensAtUtc?: string | null;
   sportId?: number | null;
   roomTypeId: number | null;
   isActive: boolean;
@@ -293,7 +347,7 @@ export interface MemberPackageDto {
   stackingApproved: boolean;
   stackingApprovalReason: string | null;
   invoiceItemId?: string | null;
-  /** Vé Gym 1 ngày: hết hạn đúng 24 giờ sau lúc thanh toán. Null với gói tháng. */
+  /** Gym day pass expires at 22:00 Vietnam time on the purchase day. Null for monthly plans. */
   expiresAtUtc?: string | null;
 }
 
@@ -394,6 +448,9 @@ export interface RevenueReportDto {
   legacyCashCollected: number;
   reconciliationCashCollected: number;
   reconciliationCashCount: number;
+  /** Bank transfers a Manager recorded as paid out; a separate line, never deducted from VNPay cash. */
+  bankRefundPaid?: number;
+  bankRefundCount?: number;
   pointsRedeemed: number;
   pointsRedeemedVnd: number;
   pointsIssued: number;
@@ -556,6 +613,16 @@ export interface WorkoutSuggestionDto {
   generatedAt: string;
 }
 
+export interface SavedWorkoutSuggestionDto {
+  id: string;
+  generatedAt: string;
+  sport: string;
+  goal: string;
+  level: string;
+  items: { exercise: string; sets: number; reps: number; notes?: string | null }[];
+  rationale: string;
+}
+
 export interface SystemSettingDto {
   key: string;
   value: string;
@@ -676,6 +743,13 @@ export interface CourseSessionDto {
   status: string;
   isMakeup: boolean;
   rescheduledFromSessionId: string | null;
+  incidentReport?: {
+    outcome: string;
+    occurredAtUtc: string;
+    recordedAtUtc: string;
+    reason: string;
+    replacementSessionId: string | null;
+  } | null;
 }
 export interface PointConfirmationDto {
   confirmationId: string;
@@ -767,6 +841,7 @@ export interface CourtRentalDetailDto {
 }
 
 export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
+  sessionMinutes?: number | null;
   status: "DRAFT" | CourseDto["status"];
   costAmount: number;
   breakEvenThreshold: number | null;
@@ -841,7 +916,32 @@ export interface RentalAvailabilityDto extends CourtRentalQuoteDto {
   name: string;
   capacity: number;
 }
+export interface IncidentRefundRowDto {
+  sourceId: string;
+  sourceType: string;
+  memberId: string;
+  memberName: string | null;
+  serviceName: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  status: string;
+  isPaid: boolean;
+  maximumRefundPoints: number;
+  refundedPoints: number;
+  suggestedRefundPoints: number;
+}
+export interface IncidentRefundReceiptDto extends Omit<
+  IncidentRefundRowDto,
+  "maximumRefundPoints" | "refundedPoints" | "suggestedRefundPoints"
+> {
+  points: number;
+  suggestedPoints: number;
+  previouslyRefundedPoints: number;
+  adjustmentReason: string | null;
+}
 export interface IncidentPreviewDto {
+  previewToken?: string;
+  refunds?: IncidentRefundRowDto[];
   scope: string;
   roomId: number | null;
   startAtUtc: string;
@@ -859,7 +959,7 @@ export interface IncidentPreviewDto {
     sourceType: string;
     sourceId: string;
     outcome:
-      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION";
+      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION" | "DAY_PASS_SUPPORT";
     expectedRefundPoints: number | null;
   }[];
   expectedRefundPointsTotal?: number;

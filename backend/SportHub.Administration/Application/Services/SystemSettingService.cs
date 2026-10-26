@@ -17,6 +17,12 @@ public sealed class UpdateSystemSettingRequest
     public string Value { get; set; } = string.Empty;
 }
 
+public sealed class UpdateSystemSettingsRequest
+{
+    [Required]
+    public Dictionary<string, string> Values { get; set; } = [];
+}
+
 /// <summary>
 /// Chính sách vận hành được phép cấu hình (BR-39 — chỉ Center Manager).
 /// </summary>
@@ -31,72 +37,87 @@ public sealed class SystemSettingService(
         {
             [SystemSettingKeys.MembershipExpiryNoticeDays] = (1, 90),
             [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (3, 30),
-            [SystemSettingKeys.ClassThresholdResponseHours] = (1, 48),
             [SystemSettingKeys.HoldMinutes] = (CheckoutHoldPolicy.MinMinutes, CheckoutHoldPolicy.MaxMinutes),
             [SystemSettingKeys.PointsConfirmOtpMinutes] = (1, 15),
             [SystemSettingKeys.RentalSlotMinutes] = (30, 60),
             [SystemSettingKeys.RentalMaxHours] = (1, 4),
-            [SystemSettingKeys.RentalAdvanceDays] = (1, 30),
-            [SystemSettingKeys.RentalCancelFreeHours] = (0, 168)
+            [SystemSettingKeys.SupportSlaHours] = (1, 168),
+            [SystemSettingKeys.SupportRemindCooldownHours] = (1, 168),
+            [SystemSettingKeys.SupportPayoutConfirmDays] = (1, 30)
         };
 
+    private static readonly string[] RetiredKeys =
+    [SystemSettingKeys.ClassThresholdResponseHours, SystemSettingKeys.RentalAdvanceDays, SystemSettingKeys.RentalCancelFreeHours];
+
     public async Task<IReadOnlyList<SystemSettingResponse>> GetAllAsync(CancellationToken ct = default)
-        => await db.Set<SystemSetting>()
-            .AsNoTracking()
+        => await db.Set<SystemSetting>().AsNoTracking()
+            .Where(s => !RetiredKeys.Contains(s.Key))
             .OrderBy(s => s.Key)
-            .Select(s => new SystemSettingResponse(s.Key, s.Value, s.Description, s.UpdatedAt))
-            .ToListAsync(ct);
+            .Select(s => new SystemSettingResponse(s.Key, s.Value, s.Description, s.UpdatedAt)).ToListAsync(ct);
 
-    public async Task<SystemSettingResponse> UpdateAsync(
-        string key,
-        string value,
-        Guid actorUserId,
-        CancellationToken ct = default)
+    public async Task<SystemSettingResponse> UpdateAsync(string key, string value, Guid actorUserId, CancellationToken ct = default)
+        => (await UpdateManyAsync(new Dictionary<string, string> { [key] = value }, actorUserId, ct)).Single();
+
+    public async Task<IReadOnlyList<SystemSettingResponse>> UpdateManyAsync(
+        IReadOnlyDictionary<string, string> values, Guid actorUserId, CancellationToken ct = default)
     {
-        var setting = await db.Set<SystemSetting>().SingleOrDefaultAsync(s => s.Key == key, ct)
-            ?? throw new NotFoundException("setting_not_found", "Setting not found.");
-
-        if (IntRanges.TryGetValue(key, out var range))
+        if (values is null || values.Count is < 1 or > 20)
+            throw new BadRequestException("invalid_settings", "Provide between 1 and 20 settings.");
+        var parsed = new Dictionary<string, int>();
+        foreach (var (key, value) in values)
         {
-            if (!int.TryParse(value, out var parsed) || parsed < range.Min || parsed > range.Max)
-            {
-                throw new BadRequestException(
-                    "invalid_setting_value",
-                    $"Setting '{key}' must be an integer between {range.Min} and {range.Max}.");
-            }
-            if (key == SystemSettingKeys.RentalSlotMinutes && parsed is not (30 or 60))
+            if (RetiredKeys.Contains(key))
+                throw new BadRequestException("setting_retired", "This setting is no longer configurable.");
+            var centerTime = key is SystemSettingKeys.CenterOpeningMinutes or SystemSettingKeys.CenterClosingMinutes;
+            if (!centerTime && !IntRanges.ContainsKey(key))
+                throw new BadRequestException("setting_not_editable", "This setting cannot be changed here.");
+            var (min, max) = centerTime ? (0, 1439) : IntRanges[key];
+            if (!int.TryParse(value, out var number) || number < min || number > max)
+                throw new BadRequestException("invalid_setting_value", $"Setting '{key}' must be an integer between {min} and {max}.");
+            if (key == SystemSettingKeys.RentalSlotMinutes && number is not (30 or 60))
                 throw new BadRequestException("invalid_setting_value", "The rental slot must be 30 or 60 minutes.");
-            if (key is SystemSettingKeys.ClassThresholdDaysBeforeStart or SystemSettingKeys.ClassThresholdResponseHours)
-            {
-                var otherKey = key == SystemSettingKeys.ClassThresholdDaysBeforeStart
-                    ? SystemSettingKeys.ClassThresholdResponseHours : SystemSettingKeys.ClassThresholdDaysBeforeStart;
-                var otherValue = await db.Set<SystemSetting>().AsNoTracking()
-                    .Where(x => x.Key == otherKey).Select(x => x.Value).SingleAsync(ct);
-                if (!int.TryParse(otherValue, out var other))
-                    throw new ConflictException("class_threshold_window_setting_invalid", "The related threshold setting is invalid.");
-                var days = key == SystemSettingKeys.ClassThresholdDaysBeforeStart ? parsed : other;
-                var hours = key == SystemSettingKeys.ClassThresholdResponseHours ? parsed : other;
-                if (hours is < 1 or > 48 || days < 3 || days * 24 < hours + 24)
-                    throw new BadRequestException("class_threshold_window_setting_invalid",
-                        "Review at least three days before class and leave the full response window plus 24 hours to finalize it.");
-            }
+            parsed[key] = number;
         }
 
-        var previous = setting.Value;
-        setting.Value = value;
-        setting.UpdatedByUserId = actorUserId;
-        setting.UpdatedAt = clock.UtcNow;
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var keys = values.Keys.ToList();
+        var changesHours = keys.Contains(SystemSettingKeys.CenterOpeningMinutes) || keys.Contains(SystemSettingKeys.CenterClosingMinutes);
+        if (changesHours)
+        {
+            keys.Add(SystemSettingKeys.CenterOpeningMinutes);
+            keys.Add(SystemSettingKeys.CenterClosingMinutes);
+        }
+        var lockKeys = keys.Distinct().Order().ToArray();
+        var rows = await db.Set<SystemSetting>().FromSqlInterpolated(
+            $"SELECT * FROM system_settings WHERE key = ANY({lockKeys}) ORDER BY key FOR UPDATE").ToListAsync(ct);
+        if (rows.Count != lockKeys.Length)
+            throw new NotFoundException("setting_not_found", "One or more settings could not be found.");
+        if (changesHours)
+        {
+            int Read(string key) => parsed.TryGetValue(key, out var number) ? number : int.Parse(rows.Single(s => s.Key == key).Value);
+            if (Read(SystemSettingKeys.CenterOpeningMinutes) >= Read(SystemSettingKeys.CenterClosingMinutes))
+                throw new BadRequestException("invalid_center_hours", "The center opening time must be before its closing time.");
+        }
 
-        audit.Write(new AuditEntry(
-            actorUserId,
-            "UPDATE_SYSTEM_SETTING",
-            nameof(SystemSetting),
-            key,
-            OldValue: $"{{\"value\":\"{previous}\"}}",
-            NewValue: $"{{\"value\":\"{value}\"}}"));
-
+        var now = clock.UtcNow;
+        var changed = new List<SystemSettingResponse>();
+        foreach (var row in rows.Where(s => values.ContainsKey(s.Key)))
+        {
+            var value = parsed[row.Key].ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (row.Value != value)
+            {
+                var previous = row.Value;
+                row.Value = value;
+                row.UpdatedAt = now;
+                row.UpdatedByUserId = actorUserId;
+                audit.Write(new AuditEntry(actorUserId, "UPDATE_SYSTEM_SETTING", nameof(SystemSetting), row.Key,
+                    OldValue: System.Text.Json.JsonSerializer.Serialize(new { value = previous }),
+                    NewValue: System.Text.Json.JsonSerializer.Serialize(new { value })));
+            }
+            changed.Add(new(row.Key, row.Value, row.Description, row.UpdatedAt));
+        }
         await db.SaveChangesAsync(ct);
-
-        return new SystemSettingResponse(setting.Key, setting.Value, setting.Description, setting.UpdatedAt);
+        await tx.CommitAsync(ct);
+        return changed;
     }
 }

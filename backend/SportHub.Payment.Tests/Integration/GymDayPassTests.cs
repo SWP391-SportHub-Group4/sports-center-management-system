@@ -1,30 +1,123 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.BuildingBlocks.Infrastructure.Authentication;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Enums;
+using SportHub.Membership.Domain.Rules;
 using SportHub.Notification.Domain.Enums;
 using SportHub.Payment.Application.DTOs.Checkouts;
+using SportHub.Payment.Application.Services;
+using SportHub.Payment.Domain.Entities;
+using SportHub.Payment.Domain.Enums;
 
 namespace SportHub.Payment.Tests.Integration;
 
 [Collection(nameof(PaymentApiCollection))]
 public sealed class GymDayPassTests(PaymentApiFactory factory)
 {
-    [Fact]
-    public async Task Paid_day_pass_starts_today_and_last_24_hours_even_when_member_has_a_long_membership()
+    [Theory]
+    [InlineData(5, 59, false, false)]
+    [InlineData(6, 0, true, false)]
+    [InlineData(21, 59, true, true)]
+    [InlineData(22, 0, false, false)]
+    public async Task Day_pass_checkout_respects_sale_window_and_closing_notice(
+        int hour, int minute, bool canBuy, bool closingSoon)
     {
+        var now = TodayAtLocalHour(hour).AddMinutes(minute);
+        using var app = AtTime(now);
         var member = await factory.SeedUserAsync(UserRole.Member);
-        var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
+        using var buyer = Client(app, member.UserId, UserRole.Member);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
+        {
+            Content = JsonContent.Create(new { packageId = DayPass.PackageId })
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var response = await buyer.SendAsync(request);
+        if (!canBuy)
+        {
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Contains("day_pass_outside_hours", await response.Content.ReadAsStringAsync());
+            return;
+        }
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        Assert.Equal(closingSoon, checkout.ClosingSoon);
+        Assert.Equal(DayPassClock.ClosesAtUtc(now), checkout.ClosesAtUtc);
+    }
+
+    [Fact]
+    public async Task Day_pass_paid_at_2203_after_2158_checkout_is_unactivated()
+    {
+        var clock = new FixedClock(TodayAtLocalHour(21).AddMinutes(58));
+        using var app = AtTime(clock);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        using var buyer = Client(app, member.UserId, UserRole.Member);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
+        {
+            Content = JsonContent.Create(new { packageId = DayPass.PackageId })
+        };
+        request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var created = await buyer.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var checkout = (await created.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        Assert.True(checkout.ClosingSoon);
+        var attemptResponse = await buyer.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, attemptResponse.StatusCode);
+        var attempt = (await attemptResponse.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+
+        clock.UtcNow = TodayAtLocalHour(22).AddMinutes(3);
+        var proofId = Guid.NewGuid();
+        await factory.QueryAsync(async db =>
+        {
+            db.VerifiedGatewayEvents.Add(new VerifiedGatewayEvent
+            {
+                VerifiedGatewayEventId = proofId, PaymentAttemptId = attempt.PaymentAttemptId,
+                Provider = "VNPay", ProviderTransactionId = Guid.NewGuid().ToString("N"),
+                TransactionReference = attempt.TransactionReference, Amount = attempt.CashAmount,
+                ResponseCode = "00", TransactionStatus = "00", ProviderPaidAtUtc = clock.UtcNow,
+                VerifiedAtUtc = clock.UtcNow, ProcessingStatus = "Pending"
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        using (var scope = app.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<PaymentReconciliationService>()
+                .ProcessAsync(proofId, default);
+
+        await factory.QueryAsync(async db =>
+        {
+            var invoice = await db.Invoices.SingleAsync(i => i.InvoiceId == checkout.InvoiceId);
+            Assert.Equal(InvoiceStatus.PaidAfterReconciliation, invoice.Status);
+            Assert.True(invoice.ReconciliationRequired);
+            Assert.Equal(MemberPackageStatus.Cancelled, await db.MemberPackages
+                .Where(p => p.MemberPackageId == invoice.MemberPackageId)
+                .Select(p => p.Status).SingleAsync());
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Paid_day_pass_expires_at_22_today_even_when_member_has_a_long_membership()
+    {
+        var testNow = TodayAtLocalHour(14);
+        using var app = AtTime(testNow);
+        var member = await factory.SeedUserAsync(UserRole.Member);
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
 
         await factory.QueryAsync(async db =>
@@ -46,7 +139,7 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
             return 0;
         });
 
-        using var buyer = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var buyer = Client(app, member.UserId, UserRole.Member);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
         {
             Content = JsonContent.Create(new { packageId = DayPass.PackageId })
@@ -61,12 +154,26 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         Assert.True(restored!.IsDayPass);
 
 
-        using var staff = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
         var attemptResponse = await buyer.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
         Assert.Equal(HttpStatusCode.OK, attemptResponse.StatusCode);
         var attempt = (await attemptResponse.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
-        Assert.Equal(HttpStatusCode.OK,
-            (await staff.PostAsync($"/api/dev/payments/{attempt.TransactionReference}/simulate", null)).StatusCode);
+        var proofId = Guid.NewGuid();
+        await factory.QueryAsync(async db =>
+        {
+            db.VerifiedGatewayEvents.Add(new VerifiedGatewayEvent
+            {
+                VerifiedGatewayEventId = proofId, PaymentAttemptId = attempt.PaymentAttemptId,
+                Provider = "VNPay", ProviderTransactionId = Guid.NewGuid().ToString("N"),
+                TransactionReference = attempt.TransactionReference, Amount = attempt.CashAmount,
+                ResponseCode = "00", TransactionStatus = "00", ProviderPaidAtUtc = testNow,
+                VerifiedAtUtc = testNow, ProcessingStatus = "Pending"
+            });
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        using (var scope = app.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<PaymentReconciliationService>()
+                .ProcessAsync(proofId, default);
 
         await factory.QueryAsync(async db =>
         {
@@ -74,11 +181,12 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
                 && x.PackageId == DayPass.PackageId);
             Assert.Equal(MemberPackageStatus.Active, pass.Status);
             Assert.Equal(today, pass.StartDate);
-            Assert.Equal(today.AddDays(1), pass.EndDate);
-            // Member receives the 24-hour validity and check-in instructions in app and by email.
+            Assert.Equal(today, pass.EndDate);
+            Assert.Equal(DayPassClock.ClosesAtUtc(testNow), pass.ExpiresAtUtc);
+            // Member receives the 22:00 expiry and check-in instructions in app and by email.
             var notices = await db.Notifications.Where(n => n.UserId == member.UserId && n.SourceEntityId == pass.MemberPackageId).ToListAsync();
             Assert.True(notices.Count >= 2);
-            Assert.Contains(notices, n => n.Message.Contains("valid for 24 hours"));
+            Assert.Contains(notices, n => n.Message.Contains("22:00"));
             return 0;
         });
     }
@@ -214,6 +322,8 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
     [Fact]
     public async Task Day_pass_cannot_be_bought_while_the_whole_gym_is_closed()
     {
+        var testNow = TodayAtLocalHour(14);
+        using var app = AtTime(testNow);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var blockIds = new List<Guid>();
@@ -239,7 +349,7 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
                     var block = new RoomBlock
                     {
                         BlockId = Guid.NewGuid(), RoomId = room.RoomId, Reason = "Day pass closure test",
-                        StartAtUtc = DateTime.UtcNow.AddHours(-1), EndAtUtc = DateTime.UtcNow.AddHours(1),
+                        StartAtUtc = testNow.AddHours(-1), EndAtUtc = testNow.AddHours(1),
                         CreatedByUserId = manager.UserId
                     };
                     db.Set<RoomBlock>().Add(block);
@@ -249,7 +359,7 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
                 return 0;
             });
 
-            using var buyer = factory.CreateApiClient(member.UserId, UserRole.Member);
+            using var buyer = Client(app, member.UserId, UserRole.Member);
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
             {
                 Content = JsonContent.Create(new { packageId = DayPass.PackageId })
@@ -271,6 +381,35 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         }
     }
 
+    private sealed class FixedClock(DateTime now) : IClock
+    {
+        public DateTime UtcNow { get; set; } = now;
+    }
+
+    private static DateTime TodayAtLocalHour(int hour)
+    {
+        var localDate = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow));
+        return VietnamTime.ToUtc(localDate.ToDateTime(new TimeOnly(hour, 0)));
+    }
+
+    private WebApplicationFactory<Program> AtTime(DateTime now)
+        => AtTime(new FixedClock(now));
+
+    private WebApplicationFactory<Program> AtTime(FixedClock clock)
+        => factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IClock>();
+            services.AddSingleton<IClock>(clock);
+        }));
+
+    private HttpClient Client(WebApplicationFactory<Program> app, Guid userId, UserRole role)
+    {
+        var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            JwtService.GenerateAccessToken(userId, role.ToString(), factory.EffectiveJwtOptions, factory.StampOf(userId)));
+        return client;
+    }
+
     [Fact]
     public async Task Day_pass_buyers_are_reported_separately_from_members_with_a_membership()
     {
@@ -286,7 +425,19 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
 
         var before = await Snapshot();
         var member = await factory.SeedUserAsync(UserRole.Member);
-        await SeedActiveDayPassAsync(factory, member.UserId, today);
+        var pass = await SeedActiveDayPassAsync(factory, member.UserId, today);
+        var unpaid = await Snapshot();
+        Assert.Equal(before.Sold, unpaid.Sold);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 50_000m, pass.MemberPackageId);
+        await factory.QueryAsync(async db =>
+        {
+            var row = await db.Invoices.Include(i => i.Items).SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            row.Status = InvoiceStatus.Paid;
+            row.PaidAtUtc = DateTime.UtcNow;
+            row.Items.Single().MemberPackageId = pass.MemberPackageId;
+            await db.SaveChangesAsync();
+            return true;
+        });
         var after = await Snapshot();
 
         Assert.Equal(before.Members, after.Members);

@@ -56,6 +56,33 @@ async function managerFixture(page: Page) {
           daily: [],
         },
       });
+    if (path === "/api/reports/court-bookings")
+      return route.fulfill({
+        json: {
+          fromDate: url.searchParams.get("fromDate"),
+          toDate: url.searchParams.get("toDate"),
+          totalBookings: 0,
+          totalBookedHours: 0,
+          bySport: [
+            { sportId: 3, sportName: "Badminton", bookings: 0, bookedHours: 0 },
+          ],
+        },
+      });
+    if (path === "/api/reports/recorded-attendance")
+      return route.fulfill({
+        json: {
+          fromDate: url.searchParams.get("fromDate"),
+          toDate: url.searchParams.get("toDate"),
+          daily: [
+            {
+              date: url.searchParams.get("toDate"),
+              uniqueMembers: 4,
+              gymCheckIns: 3,
+              classAttendances: 2,
+            },
+          ],
+        },
+      });
     if (path === "/api/reports/revenue-dimensions")
       return route.fulfill({
         json: {
@@ -66,6 +93,17 @@ async function managerFixture(page: Page) {
           rows: [],
         },
       });
+    if (path === "/api/reports/class-status")
+      return route.fulfill({
+        json: { open: 6, completed: 4, unpublished: 2 },
+      });
+    if (path === "/api/reports/membership-summary")
+      return route.fulfill({
+        json: {
+          asOfDate: url.searchParams.get("asOfDate"),
+          membersWithActiveMembership: 7,
+        },
+      });
     if (path === "/api/reports/membership-period")
       return route.fulfill({
         json: {
@@ -73,6 +111,7 @@ async function managerFixture(page: Page) {
           toDate: "2030-10-31",
           newMembers: 2,
           activeMembersAtPeriodEnd: 7,
+          membersPurchasingMembershipInPeriod: 3,
         },
       });
     if (path === "/api/reports/class-enrollment")
@@ -87,6 +126,10 @@ async function managerFixture(page: Page) {
           fillRatio: 0.4,
           classes: [],
         },
+      });
+    if (path === "/api/manager/classes")
+      return route.fulfill({
+        json: { items: [], totalCount: 2, page: 1, pageSize: 1 },
       });
     if (path === "/api/reports/exports")
       return route.fulfill({ json: paged([]) });
@@ -121,24 +164,45 @@ async function managerFixture(page: Page) {
 
 test.beforeEach(async ({ page }) => managerFixture(page));
 
-test("manager overview uses server revenue and point metrics without a profit claim", async ({
+test("manager overview connects collections, class reviews and active Gym members", async ({
   page,
 }) => {
   await page.goto("/manager");
   await expect(
     page.getByRole("heading", { name: "Overview", exact: true }),
   ).toBeVisible();
+  const cash = page.getByRole("region", { name: "Net collected", exact: true });
+  await expect(cash.getByLabel("100,000 ₫").first()).toHaveText(/100K/);
+  await expect(cash.getByText("Cash refunded", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Monthly key figures" }),
-  ).toContainText(/Net revenue \(VND\)\s*100,000/);
-  const points = page.getByRole("region", {
-    name: "Monthly points and current balance",
-  });
-  await expect(points).toContainText(/Points used by members in period\s*200/);
-  await expect(points).toContainText(/Points refunded to members\s*25/);
+    page.getByRole("region", { name: "Active Gym members" }),
+  ).toContainText("7");
+  await expect(page.getByText(/Valid today ·/)).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Classes needing review" }),
+  ).toContainText("2");
+  await expect(
+    page.getByRole("link", { name: "Review classes" }),
+  ).toHaveAttribute(
+    "href",
+    "/manager/classes?status=PUBLISHED&thresholdStatus=AT_RISK",
+  );
+  await expect(
+    page.getByRole("heading", { name: "Class occupancy by sport" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Points ledger" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("New member accounts", { exact: true }),
+  ).toHaveCount(0);
+  const daily = page.getByRole("slider", { name: /Inspect daily collections/ });
+  await daily.focus();
+  await page.keyboard.press("Home");
+  await expect(daily).toHaveAttribute("aria-valuenow", "1");
   await expect(page.getByText(/profit/i)).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Reports", exact: true }),
+    page.getByRole("link", { name: "View reports", exact: true }),
   ).toBeVisible();
 });
 
@@ -148,13 +212,15 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
     page.getByRole("heading", { name: "Reports", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Cash flow for selected dates" }),
-  ).toContainText(/Net revenue \(VND\)\s*100,000/);
-  const points = page.getByRole("region", { name: "Points", exact: true });
-  await expect(points).toContainText(/Points refunded to members\s*25/);
-  await expect(points).toContainText(
-    /Current outstanding points \(available \+ held\)\s*525/,
-  );
+    page.getByRole("heading", { name: "After refunds", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('[title="100,000 ₫"]').first()).toBeVisible();
+  await page.getByText("Points activity", { exact: true }).click();
+  const points = page
+    .locator("details")
+    .filter({ has: page.getByText("Points activity", { exact: true }) });
+  await expect(points).toContainText(/Points refunded\s*25/);
+  await expect(points).toContainText(/Current balance\s*525/);
 });
 
 for (const width of [390, 1440]) {

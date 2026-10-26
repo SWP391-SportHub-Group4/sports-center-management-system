@@ -6,6 +6,8 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Membership;
+using SportHub.Membership.Domain;
+using SportHub.Membership.Domain.Rules;
 
 
 using SportHub.Payment.Application.Commands;
@@ -36,7 +38,17 @@ public sealed class PackagePurchaseService(
             ?? throw new NotFoundException("member_not_found", "Member not found.");
         if (member.Role != "Member") throw new BadRequestException("not_a_member", "Not a member.");
         if (!member.IsActive) throw new ConflictException("member_not_active", "Member not active.");
+        // A front-desk invitation is marked Active before the member sets a password.
+        // A password or linked external login is required before any package purchase.
+        if (!await db.Set<SportHub.Identity.Domain.Entities.UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == request.MemberId
+                && ((u.Credential != null && u.Credential.PasswordHash != null)
+                    || u.ExternalLogins.Any()), ct))
+            throw new ConflictException("member_not_activated", "Member must activate the account before purchasing a package.");
         var catalog = await memberships.QuoteAsync(request.PackageId, ct);
+        if (request.PackageId == DayPass.PackageId && !DayPassClock.IsOpen(clock.UtcNow))
+            throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
+                "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time.");
         if (request.AllowStacking)
         {
             if (!actorIsCenterManager)

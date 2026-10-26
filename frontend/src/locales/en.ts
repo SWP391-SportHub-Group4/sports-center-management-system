@@ -2,7 +2,7 @@ export const en = {
   rentalCourtSetup: {
     title: "Create a rental court",
     intro:
-      "Set up your court, opening hours and rental prices together. Members can book available times as soon as you save.",
+      "Set up your court, opening hours and rental prices together. Member bookings open on the day after this court is created.",
     details: "Court details",
     hours: "Opening hours",
     opens: "Opens",
@@ -11,7 +11,7 @@ export const en = {
       "Vietnam time (UTC+7). Choose whole hours and at least one opening day.",
     applyAll: "Apply hours to all days",
     closed: "Closed",
-    pricing: "Rental pricing",
+    pricing: "Price per hour",
     priceHint:
       "Prices apply only to this court. Use multiples of 2,000 VND per hour to support 30-minute bookings.",
     customPrices: "Use different prices by time of day",
@@ -29,9 +29,9 @@ export const en = {
     fromPrice: "From",
     priceSync: "Prices are also saved to Court Rental Pricing.",
     bookingHint:
-      "Members can book free times within the booking window. Court rental will be enabled for this sport.",
+      "Member bookings open tomorrow, at 00:00 Vietnam time. Court details, hours and prices are saved together.",
     saveHint: "Court details, hours and prices are saved together.",
-    submit: "Create court & open for booking",
+    submit: "Create rental court",
     daysRequired: "Choose at least one opening day.",
     invalidHours:
       "Closing time must be after opening time for every opening day.",
@@ -40,7 +40,7 @@ export const en = {
     noTypes:
       "Add an active room type linked to an active sport before creating a rental court.",
     created:
-      "is open for booking. Opening hours and rental prices have been saved.",
+      "has been created. Member bookings open on the following day (Vietnam time). Opening hours and prices have been saved.",
     viewPrices: "View rental prices",
     create: "Create rental court",
     basicRoom: "Add room only",
@@ -248,6 +248,7 @@ export const en = {
     invalidRange: "Closing time must be later than opening time.",
   },
   courseHistory: {
+    CHANGE_CLASS_LEAD_COACH: "Lead coach changed",
     coachUnavailable: "Coach unavailable",
     actor: "Performed by",
     before: "Before change",
@@ -269,6 +270,39 @@ export const en = {
     UPDATE_CLASS_THRESHOLD_PRICING: "Update price and cost",
   },
   manualNotices: {
+    sentSuccess: "Notice sent successfully.",
+    chooseRecipients: "Choose recipients",
+    recipientHint: "Choose recipients by role or send to the entire system.",
+    sendToAll: "Send to entire system",
+    reviewNotice: "Review notice",
+    sendToRole: "Send to all {role}",
+    selectedRoleAudience: "All active accounts in selected roles",
+    selectedIndividuals: "{n} individually selected",
+    sendToAllHint: "Include every active account across all roles.",
+    allActiveAccounts: "All active accounts",
+    selectedCount: "{n} selected",
+    noSelection: "No recipients selected",
+    moreSelected: "+{n} more",
+    searchName: "Search by name",
+    currentCourse: "Current course",
+    allCourses: "All current courses",
+    specialty: "Specialty",
+    allSpecialties: "All specialties",
+    selectionPersists:
+      "Selections are kept when you search, filter or change pages.",
+    noMatchingAccounts: "No matching accounts found.",
+    selectionLimit:
+      "You have selected 200 recipients. Remove an account to select another.",
+    finishSelection: "Done selecting",
+    removeRecipient: "Remove {name}",
+    filterUnavailable: "Recipient filters could not be loaded.",
+    roles: {
+      SYSTEM_ADMINISTRATOR: "Admin",
+      CENTER_MANAGER: "Manager",
+      RECEPTIONIST: "Receptionist",
+      COACH: "Coach",
+      MEMBER: "Member",
+    },
     history: "Sent notice history",
     compose: "Write a notice",
     views: "Notice views",
@@ -325,9 +359,19 @@ export const en = {
     requests: "Change requests awaiting review",
     refunds: "Refund requests awaiting review",
     schedule: "Operations schedule",
-    facilities: "Court",
+    facilities: "Rooms",
     roomTypes: "Room types",
     contentStep: "Class information",
+    classInputValidation: {
+      codeLength: "Enter a class code with 2-50 characters.",
+      codeTaken: "This class code is already in use. Enter a different code.",
+      codeChecking: "Checking class code…",
+      codeCheckFailed: "Unable to check this code. Try again.",
+      nameRequired: "Enter a class name with 1-150 characters.",
+      price: "Enter tuition of at least 1,000 VND, in multiples of 1,000.",
+      capacity: "Enter a whole number of members, at least 1.",
+      cost: "Enter a class cost of 0 VND or more.",
+    },
     scheduleStep: "Coach, room & schedule",
     pricingStep: "Tuition, cost & capacity",
     reviewStep: "Review generated sessions",
@@ -342,6 +386,8 @@ export const en = {
     capacityExceeded: "Class capacity exceeds the room or sport limit.",
     missingDuration: "This sport has no group-course duration configured.",
     scheduleValidation: {
+      startDateHint:
+        "Choose an opening date within one year from today (Vietnam time).",
       checking: "Checking the schedule…",
       ready: "Schedule ready. You can continue.",
       unavailable: "Update the schedule to continue.",
@@ -353,9 +399,10 @@ export const en = {
         room: "Select a room.",
         date: "Choose a valid start date.",
         pastDate: "Start date is in the past. Choose today or later.",
+        futureDate: "Choose a start date within one year from today.",
         pastTime: "Start time has passed. Choose a future time.",
         count: "Enter 1–100 sessions.",
-        duration: "Set this sport’s session duration first.",
+        duration: "Enter a whole number of minutes between 1 and 720.",
         durationLimit: "Sessions must be 12 hours or shorter.",
         rules: "Add a weekly session.",
         time: "Set a valid weekday and start time.",
@@ -372,6 +419,8 @@ export const en = {
         room_incompatible: "Room does not support this sport.",
         room_capacity_exceeded: "Class exceeds room capacity.",
         outside_opening_hours: "Session is outside room opening hours.",
+        outside_center_hours:
+          "Session is outside the center opening hours configured in Settings.",
         room_busy: "Room is occupied or blocked.",
         room_occupied: "Room is occupied or blocked.",
         room_under_incident_review: "Room is under incident review.",
@@ -410,6 +459,8 @@ export const en = {
       room_capacity_exceeded: "The room cannot accommodate this class.",
       outside_opening_hours:
         "The room is closed during part or all of this session.",
+      outside_center_hours:
+        "The session must be within the center opening hours configured in Settings.",
       room_busy: "The room has an overlapping activity or block.",
       room_under_incident_review:
         "The room is under incident review for this time. Choose another room or time.",
@@ -560,6 +611,48 @@ export const en = {
     unavailable: "No operation details were recorded.",
     unchanged: "No changes in the recorded fields.",
   },
+  leadCoach: {
+    change: "Change Lead Coach",
+    title: "Select New Lead Coach",
+    description:
+      "Choose a coach for this class and all future scheduled sessions. Session times and rooms stay the same.",
+    current: "Current lead coach",
+    eligible: "Eligible coaches",
+    search: "Search coaches by name",
+    available: "Available for all remaining sessions",
+    specialty: "Specialty",
+    sessions: "Future sessions to reassign",
+    noCoaches: "No eligible coaches available",
+    noCoachesHint:
+      "No other active coach with this specialty is free for every remaining session. Review the class schedule before trying again.",
+    noSessions: "No future sessions to reassign",
+    noSessionsHint:
+      "The lead coach cannot be changed when no future scheduled sessions remain.",
+    noMatches: "No coaches match your search. Try another name.",
+    reason: "Reason for change",
+    reasonHint:
+      "Enter 3–500 characters. This reason is recorded with the schedule change.",
+    reasonPlaceholder: "Explain why this class needs a new lead coach",
+    confirm: "Confirm Change",
+    saving: "Changing coach…",
+    cancel: "Cancel",
+    selected: "New lead coach",
+    success:
+      "Lead coach changed. The class and future scheduled sessions have been updated.",
+  },
+  classSessions: {
+    session: "Session #{number}",
+    makeup: "Makeup session",
+    makeupFor: "Makeup for session #{number}",
+    replacement: "Makeup session #{number}",
+    groupingHint:
+      "Makeup sessions appear directly below their original session. All times are shown in Vietnam time (UTC+7).",
+    attendanceHint: "Attendance is recorded separately for each session.",
+    incidentMakeupTitle: "Cancel and create makeup",
+    incidentMakeupHint:
+      "The original session will remain cancelled in the class schedule. Its makeup will appear directly below it, with its own attendance list.",
+    makeupStart: "Makeup start",
+  },
   classWorkspace: {
     cancellationUnavailable: "Cancellation unavailable",
     checkingCancellation: "Checking cancellation eligibility",
@@ -570,7 +663,7 @@ export const en = {
       "Try again to check whether this class can be cancelled.",
     belowThresholdTitle: "Below enrollment threshold",
     cancellationReviewFrom: "Review from",
-    cancelAndRefund: "Cancel class and refund points",
+    cancelAndRefund: "Cancel class and notify members",
     cancellationBeforeDeadline:
       "Enrolled classes can be cancelled from the opening review deadline while still below threshold.",
     cancellationTeachingCompleted:
@@ -621,13 +714,45 @@ export const en = {
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
     openingRulesHint:
-      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation immediately refunds remaining paid balances as points and notifies the Coach and members.",
+      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation notifies the Coach and members; each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
     cancelBelowThresholdHint:
-      "Cancellation immediately refunds remaining paid balances as points and notifies enrolled members and the teaching coach.",
+      "Cancellation notifies enrolled members and the teaching coach. Each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
   },
   managerCatalog: {
+    createRoom: "Create room",
+    createRoomRentalHint:
+      "Turn on to set an hourly price and weekly rental schedule. New rooms are active by default.",
+    rentalSchedule: "Weekly rental schedule",
+    rentalDay: "Day",
+    rentalOpens: "Opens",
+    rentalCloses: "Closes",
+    rentalPriceHint: "Enter a positive hourly price in multiples of 2,000 VND.",
+    rentalDaysRequired: "Select at least one rental day.",
+    rentalHoursInvalid:
+      "Each rental day needs at least one hour, within the center opening hours.",
+    rentalHoursLoading:
+      "Wait for the center opening hours to load, or retry if loading failed.",
+    searchRooms: "Search rooms…",
+    allRoomStatuses: "All statuses",
+    allRentalStatuses: "All rental statuses",
+    manageRooms: "Manage rooms",
+    roomPickerHint: "Choose an active room. Rooms are shared across sports.",
+    independentRoomsHint:
+      "Create shared rooms for classes. Turn on rental access during setup to add hourly pricing and a weekly schedule.",
+    allowRental: "Allow rental",
+    disableRental: "Disable rental",
+    rentalAccess: "Rental access",
+    rentalStatus: "Rental status",
+    rentalEnabled: "Enabled",
+    roomDeactive: "Deactive",
+    rentalAllowed: "Allowed",
+    rentalDisabled: "Disabled",
+    enableRentalFirst:
+      "Select Allow rental to configure rental pricing for this room.",
+    rentalSetupHint:
+      "Set opening hours and rental prices before members can book. Disabling rental only stops new bookings; existing bookings and classes are preserved.",
     viewCourt: "View details",
     landingImage: "Landing page image",
     browseImage: "Browse",
@@ -642,7 +767,42 @@ export const en = {
     imageFileInvalid: "Choose a JPG, PNG or WebP image no larger than 10 MB.",
     imageOpenFailed: "Could not open this image. Choose another file.",
     imageUploadFailed: "Could not save the image. Please try again.",
-    editCourt: "Edit court",
+    editCourt: "Edit room",
+    roomEditDescription:
+      "Update the room details. Rental pricing and schedules are managed separately on the room page.",
+    roomNameRequired: "Enter a room name with 1–100 characters.",
+    roomCapacityRange: "Enter a whole number between 1 and 500.",
+    roomCapacityHint: "Maximum number of people the room can hold.",
+    capacityPeople: "people",
+    capacityPerson: "person",
+    roomActiveHint:
+      "Turn off to stop new class schedules and rental bookings. Existing schedules and bookings are preserved.",
+    roomSaveChanges: "Save changes",
+    roomRentalSettings: "Rental settings",
+    roomRentalDescription:
+      "Choose whether this room can be rented, then manage its rental prices.",
+    roomRentalAccessHint:
+      "Allow rental can be configured even when the room is inactive. Turning it off preserves existing bookings and prices.",
+    roomRentalRequirements:
+      "Members can book only when the room is active, rental is enabled, and hours and prices are configured.",
+    roomUnsavedChanges: "You have unsaved changes to rental access.",
+    roomSaveRentalAccess: "Save rental access",
+    roomSaveRentalFirst:
+      "Save rental access to start adding prices for this room.",
+    roomPriceWindowsHint:
+      "Price windows control when each rental price applies. Room opening hours are managed separately below.",
+    roomOpeningHoursDescription:
+      "Set when the room is open for classes and rentals. Every time range must remain within the center opening hours.",
+    roomBlockedDescription:
+      "Block a time range for maintenance or other unavailable periods. These blocks prevent overlapping reservations.",
+    roomDeleteHint:
+      "Delete a room only when it is no longer needed and has no schedule or booking references. This action cannot be undone.",
+    roomActions: "Room operations",
+    roomNoBlockedTimes: "No blocked times.",
+    viewIncident: "View incident",
+    roomViewSchedule: "View schedule",
+    roomRentalEnabled: "Rental enabled",
+    roomRentalDisabled: "Rental disabled",
     blockTimes: "Blocked times",
     addBlock: "Add block time",
     editBlock: "Edit block time",
@@ -652,6 +812,7 @@ export const en = {
     keepBlock: "Keep block",
     pricePerHour: "Price per hour (VND)",
     noRentalPrice: "Not set",
+    bookingsOpenAt: "Member bookings open {date}",
     createLinkedRoomType: "Create a room type with this sport",
     createLinkedRoomTypeHint:
       "Optional. Create a room or court type and link it to this sport when you save.",
@@ -699,6 +860,8 @@ export const en = {
     invalidReference:
       "The selected reference is no longer valid. Reload the list and check the selection.",
     duplicateName: "This name is already in use. Enter another name.",
+    duplicateSportCode:
+      "This sport code is already in use. Enter another code.",
     forbidden: "You do not have permission to make this change.",
     notFound: "This item no longer exists. Close the form and reload the list.",
   },
@@ -868,8 +1031,8 @@ export const en = {
     targetAccountUnavailable: "Account information unavailable",
     createAction: "Staff account created",
     roleAction: "Role changed",
-    lockAction: "Account locked / deactivated",
-    unlockAction: "Account unlocked",
+    lockAction: "Account deactivated",
+    unlockAction: "Account activated",
     viewDetail: "View details",
     manageAccess: "Manage access",
     manageInvitation: "Manage invitation",
@@ -936,13 +1099,12 @@ export const en = {
       "Could not copy the link. Check browser clipboard access.",
     selfRoleImpact:
       "You are changing your own role. You will be signed out after confirmation.",
-    lockImpact:
-      "The account will be blocked from authenticated requests until it is unlocked.",
-    unlockImpact: "The account will regain access for its current role.",
+    activateImpact:
+      "The account will regain access for its current role. The user must sign in again; old sessions remain invalid.",
     deactivateImpact:
-      "The account will be deactivated and cannot access authenticated features until it is unlocked.",
+      "The account will be deactivated and signed out. Its records are retained. An Administrator can activate it again.",
     guardHint:
-      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be locked or deactivated.",
+      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be deactivated.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -1017,7 +1179,6 @@ export const en = {
     endRelationship: "End relationship",
     activeOnly: "Active only",
     refunds: "Point refund requests",
-    legacy: "Legacy adjustments — read only",
     systemCap: "System-calculated points",
     approvedPoints: "Approved points",
     centerFault: "Center fault (server recalculates the cap)",
@@ -1165,15 +1326,12 @@ export const en = {
     role: "Role",
     specialties: "Specialties",
     changeRole: "Change role",
-    lock: "Lock",
-    unlock: "Unlock",
     deactivate: "Deactivate",
     keyword: "Search name or email",
     accountHint: "Manage staff accounts, roles and account access.",
     search: "Search",
     accountState: "Account status",
     accountActive: "Active",
-    accountLocked: "Locked",
     accountDeactivated: "Deactivated",
     mismatch: "Passwords must match.",
     dateRange: "Choose a valid date range of at most 366 days.",
@@ -1192,7 +1350,66 @@ export const en = {
     courseCount: "Courses in report period",
     quickLinks: "Management shortcuts",
   },
+  settingsPage: {
+    intro: "Manage daily operations. Save changes separately for each section.",
+    updated: "Last updated",
+    discard: "Discard changes",
+    invalidHours: "Opening time must be earlier than closing time.",
+    unavailable: "Some settings are unavailable. Reload the page to try again.",
+    rentalBlock: "Court rentals use {minutes}-minute blocks.",
+    units: { minutes: "minutes", hours: "hours", days: "days" },
+    groups: {
+      hours: {
+        title: "Center hours",
+        description:
+          "Opening and closing times in Vietnam (UTC+7). Applies to classes, courts and incidents.",
+      },
+      classes: {
+        title: "Classes",
+        description:
+          "Choose when to review enrollment against the class opening threshold.",
+      },
+      payment: {
+        title: "Checkout & points",
+        description:
+          "Set checkout hold times and point confirmation security at the counter.",
+      },
+      rental: {
+        title: "Court rentals",
+        description: "Limit how long a court can be rented in one booking.",
+      },
+      membership: {
+        title: "Membership",
+        description: "Let members know before their membership expires.",
+      },
+      support: {
+        title: "Support requests",
+        description:
+          "Set response deadlines, reminder intervals and payout confirmation periods.",
+      },
+    },
+  },
   settingFields: {
+    centerOpeningTime: {
+      label: "Center opening time",
+      hint: "Vietnam time (UTC+7). Classes and court opening hours must start at or after this time.",
+    },
+    centerClosingTime: {
+      label: "Center closing time",
+      hint: "Vietnam time (UTC+7). Classes and court opening hours must end at or before this time.",
+    },
+    supportSlaHours: {
+      label: "Support response deadline (hours)",
+      hint: "Time allowed before a support request is overdue. Existing deadlines are preserved. Choose 1–168 hours.",
+    },
+    supportRemindCooldownHours: {
+      label: "Support reminder interval (hours)",
+      hint: "Minimum interval between reminders for a support request. Choose 1–168 hours.",
+    },
+    supportPayoutConfirmDays: {
+      label: "Payout confirmation period (days)",
+      hint: "Automatically confirm receipt after this period if the member has not responded. Choose 1–30 days.",
+    },
     thresholdDays: {
       label: "Threshold check (days before start)",
       hint: "Evaluate paid enrollments against the break-even threshold before the first session.",
@@ -1218,8 +1435,8 @@ export const en = {
       hint: "Maximum number of days ahead a member can book a court.",
     },
     cancelHours: {
-      label: "Full rental refund cutoff (hours)",
-      hint: "Cancel at least this many hours before the rental to receive a full point refund.",
+      label: "Rental refund cutoff (hours, no longer used)",
+      hint: "No longer used: a Member who cancels a rental is never refunded.",
     },
     maxHours: {
       label: "Maximum rental duration (hours)",
@@ -1268,6 +1485,8 @@ export const en = {
     coach: "Coach",
     capacity: "Capacity",
     duration: "Session duration (minutes)",
+    classDurationHint:
+      "Applies to every session in this class. Enter 1–720 minutes.",
     operation: "Operation type",
     walkIn: "Walk-in",
     oneOnOne: "One-on-one",
@@ -1431,7 +1650,7 @@ export const en = {
     availability: "Check availability and price",
     priceBreakdown: "Price breakdown",
     rentalPolicy:
-      "Refund eligibility and points are calculated by the server. Cancellation is final.",
+      "Cancelling a rental is never refunded, at any time. Cancellation is final.",
     refundPoints: "Refund points",
     cancelRental: "Cancel rental",
     selfOnly: "Only your own rentals, wallet and invoices are shown.",
@@ -1476,7 +1695,7 @@ export const en = {
     NOT_EVALUATED: "Not evaluated",
     BLOCKED: "Blocked",
     ACTIVE: "Active",
-    BANNED: "Locked",
+    BANNED: "Deactivated",
     DEACTIVATED: "Deactivated",
     PENDING_PAYMENT: "Awaiting payment",
     CONFIRMED: "Confirmed",
@@ -1771,7 +1990,7 @@ export const en = {
     viewInvoice: "View invoice",
     nextMembership: "Go to my Gym membership",
     dayPassNotice:
-      "Gym day pass: the pass is valid for 24 hours after payment and is not refundable.",
+      "The gym closes at {time}. This pass is valid only until then and is not refundable.",
     nextCourse: "Go to my courses",
     nextRental: "Go to my rentals",
     nextDashboard: "Back to my overview",
@@ -1814,7 +2033,7 @@ export const en = {
     invoiceOwed: "{amount} due",
     refundEmptyTitle: "No point refund requests are open",
     refundEmptyBody:
-      "Eligible cancellation refunds are credited to your wallet automatically. To request another refund, open a paid invoice and choose an eligible item; a manager will review it.",
+      "Cancelling a membership, class enrollment or rental yourself is not refunded. When the center cancels a class or rental, you choose points or a refund through a Support Request.",
     refundFlow:
       "Manual requests are reviewed by a manager; automatic refunds appear in your wallet",
     tabs: "Billing sections",
@@ -1949,7 +2168,7 @@ export const en = {
       SystemAdministrator: "System Administrator",
     },
     items: {
-      courts: "Courts",
+      courts: "Rooms",
       pointWallets: "Point wallets",
       report: "Report",
       incident: "Incident",
@@ -2215,9 +2434,9 @@ export const en = {
     approvedPts: "Approved: {points} points",
     reviewHelp: "A reason is required and is saved with the decision.",
     centerFaultHelp:
-      "Use only when another problem prevents the center from providing the service. Temporary Gym closures for repairs are compensated by extending the membership, not a refund. State the reason and supporting facts; membership refunds cover only the unused calendar days.",
+      "Use only when another problem prevents the center from providing the service. Temporary Gym closures for repairs are compensated with points gifted by the Manager, not a refund. State the reason and supporting facts; membership refunds cover only the unused calendar days.",
     membershipRefundPolicy:
-      "Standard Gym membership refunds are capped at 50% of the amount paid when at least two thirds of the term remain. Eligibility uses Vietnam calendar dates, including the first and last day, not the number of gym visits. Below that threshold or after expiry, no standard refund applies.",
+      "Cancelling a Gym membership yourself is never refunded, at any time. Refunds only apply when the center cannot provide the service, and only through the Manager.",
     refundPercent: "Lower refund percent (optional)",
     refundPercentHelp:
       "Percent of the remaining paid value, up to {max}%. Leave blank to use the system amount.",
@@ -2373,10 +2592,9 @@ export const en = {
     addToCalendar: "Add to Google Calendar",
     cancelRental: "Cancel rental",
     cancelTitle: "Cancel this court rental?",
-    cancelFree:
-      "You are cancelling {hours}+ hours ahead, so you get a 100% points refund.",
+    cancelFree: "Cancelling a rental is never refunded, at any time.",
     cancelLate:
-      "Play starts in under {hours} hours, so this rental is not refunded.",
+      "You are cancelling this rental and will not get a refund or points, at any time. Nothing is cancelled until you confirm.",
     rentalBooked: "Court booked",
     cancelKeep: "Keep rental",
     cancelConfirm: "Confirm cancellation",
@@ -2806,7 +3024,50 @@ export const en = {
       columnResponseTime: "Response Time",
     },
   },
+  incidentRefunds: {
+    title: "Affected services & refunds",
+    hint: "Review each rental and Gym day pass. Refund points are prefilled with the remaining paid value. Adjusting them requires a reason.",
+    empty: "No rental or Gym day pass is affected by this incident.",
+    member: "Member",
+    service: "Service",
+    schedule: "Service date / time",
+    status: "Status",
+    points: "Refund points",
+    rental: "Court rental",
+    dayPass: "Gym day pass",
+    unknown: "Member name unavailable",
+    fullyRefunded: "Fully refunded",
+    unpaid: "Unpaid",
+    checkedIn: "Check-in recorded",
+    active: "Active",
+    expired: "Expired",
+    cancelled: "Cancelled",
+    inUse: "In use",
+    completed: "Completed",
+    noShow: "No-show",
+    previous: "Already refunded {points} points. Maximum remaining: {max}.",
+    previousOnly: "Previously refunded {points} points.",
+    releaseReceipt: "Booking and any held points released; no refund credit.",
+    summary: "Refund summary",
+    maximum: "Up to {points} points remaining.",
+    released: "Release the booking and any held points; no refund credit.",
+    reason: "Reason for adjustment",
+    reasonHint: "Explain the adjusted amount (3-500 characters).",
+    invalid: "Enter whole points from 0 to the remaining balance.",
+    total: "Total refund",
+    members: "members",
+    services: "services",
+    unit: "points",
+    changed:
+      "Affected services or balances changed. The list was refreshed; review the amounts again.",
+    confirm: "Confirm incident & refunds",
+    receipt: "Refund receipt",
+    review: "Review refunds & incident",
+  },
   incidentHistory: {
+    arrangeMakeup: "Arrange a makeup session",
+    makeupHint:
+      "For a serious incident, replace the missed session in full. Members keep their enrollment and pay no extra fee. The coach and members receive the updated schedule.",
     noImpacts: "No activities are affected during this period.",
     editSession: "Edit affected session",
     removeBlockHint:
@@ -2817,7 +3078,13 @@ export const en = {
     formHint:
       "Choose the affected area and period. Times are shown in Vietnam time (UTC+7).",
     reviewHint:
-      "Check the affected activities before confirming. No rooms are blocked at this step.",
+      "New bookings in this window are automatically blocked while you review. The lock is renewed on review and expires after 2 hours if left unfinished.",
+    outsideHours:
+      "Choose a period on the same day, entirely within the center opening hours.",
+    allowedHours: "Allowed time: {open}–{close} (Vietnam time).",
+    timeErrorTitle: "Check incident time",
+    reviewTimeError:
+      "The incident must start and end on the same day, between the center opening time ({open}) and closing time ({close}).",
     backToImpacts: "Back to affected activities",
     ready: "Ready for final review",
     changesNeeded: "Schedule changes required",

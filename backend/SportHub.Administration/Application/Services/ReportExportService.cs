@@ -153,6 +153,9 @@ public sealed class ReportExportService(
 
         var now = clock.UtcNow;
 
+        if (toDate.DayNumber - fromDate.DayNumber >= 366)
+            throw new BadRequestException("range_too_large", "Use a period of at most 366 days.");
+
         var export = new ReportExport
         {
             ReportExportId = Guid.NewGuid(),
@@ -204,7 +207,9 @@ public sealed class ReportExportService(
         var content = await storage.ReadAsync(export.ReportExportId, export.Format, ct)
             ?? throw new NotFoundException("report_file_missing", "Report file missing.");
 
-        var fileName = $"{export.ReportType.ToLowerInvariant()}-{export.CreatedAt:yyyyMMdd-HHmmss}"
+        var parameters = JsonSerializer.Deserialize<ExportParameters>(export.ParametersJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var fileName = $"{export.ReportType.ToLowerInvariant()}-{parameters?.FromDate}-{parameters?.ToDate}-{export.CreatedAt:HHmmss}"
                        + $".{ReportFormats.Extension(export.Format)}";
 
         return (fileName, content);
@@ -280,8 +285,10 @@ public sealed class ReportExportService(
         {
             var rows = export.ReportType switch
             {
-                ReportTypes.RevenueDaily => await BuildRevenueDailyRowsAsync(fromDate, toDate, columns, ct),
-                ReportTypes.RevenueSummary => await BuildRevenueSummaryRowsAsync(fromDate, toDate, columns, ct),
+                ReportTypes.RevenueDaily => await BuildRevenueDailyRowsAsync(fromDate, toDate, columns, ct, sportId, source, memberId),
+                ReportTypes.RevenueSummary => await BuildRevenueSummaryRowsAsync(fromDate, toDate, columns, ct, sportId, source, memberId),
+                ReportTypes.CourtBookings => await BuildCourtBookingRowsAsync(fromDate, toDate, columns, sportId, memberId, ct),
+                ReportTypes.ClassStatus => await BuildClassStatusRowsAsync(fromDate, toDate, columns, sportId, ct),
                 ReportTypes.RevenueDimensions or ReportTypes.CourtRentalRevenue => await BuildDimensionRowsAsync(fromDate, toDate, columns, export.ReportType == ReportTypes.CourtRentalRevenue, ct, sportId, source, memberId),
                 ReportTypes.MembershipPeriod => await BuildMembershipPeriodRowsAsync(fromDate, toDate, columns, ct),
                 ReportTypes.ClassEnrollment => (await classes.ReadAsync(fromDate, toDate, sportId, ct))
@@ -318,9 +325,9 @@ public sealed class ReportExportService(
     }
 
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildRevenueSummaryRowsAsync(
-        DateOnly from, DateOnly to, IReadOnlyList<string> columns, CancellationToken ct)
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, CancellationToken ct, int? sportId, string? source, Guid? memberId)
     {
-        var report = await revenue.GetAsync(from, to, ct);
+        var report = await revenue.GetAsync(from, to, ct, sportId, source, memberId);
         return [columns.Select(column => column switch
         {
             "fromDate" => report.FromDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
@@ -330,6 +337,8 @@ public sealed class ReportExportService(
             "netCollected" => report.NetRevenue.ToString(CultureInfo.InvariantCulture),
             "legacyCashCollected" => report.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
             "reconciliationCashCollected" => report.ReconciliationCashCollected.ToString(CultureInfo.InvariantCulture),
+            "bankRefundPaid" => report.BankRefundPaid.ToString(CultureInfo.InvariantCulture),
+            "bankRefundCount" => report.BankRefundCount.ToString(CultureInfo.InvariantCulture),
             "pointsRedeemed" => report.PointsRedeemed.ToString(CultureInfo.InvariantCulture),
             "pointsRedeemedVnd" => report.PointsRedeemedVnd.ToString(CultureInfo.InvariantCulture),
             "pointsIssued" => report.PointsIssued.ToString(CultureInfo.InvariantCulture),
@@ -341,9 +350,9 @@ public sealed class ReportExportService(
     }
 
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildRevenueDailyRowsAsync(
-        DateOnly fromDate, DateOnly toDate, IReadOnlyList<string> columns, CancellationToken ct)
+        DateOnly fromDate, DateOnly toDate, IReadOnlyList<string> columns, CancellationToken ct, int? sportId, string? source, Guid? memberId)
     {
-        var report = await revenue.GetAsync(fromDate, toDate, ct);
+        var report = await revenue.GetAsync(fromDate, toDate, ct, sportId, source, memberId);
         return report.Daily.Select(row => (IReadOnlyList<string>)columns.Select(column => column switch
         {
             "date" => row.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
@@ -353,6 +362,7 @@ public sealed class ReportExportService(
             "netCollected" => row.Net.ToString(CultureInfo.InvariantCulture),
             "legacyCashCollected" => row.LegacyCashCollected.ToString(CultureInfo.InvariantCulture),
             "reconciliationCashCollected" => row.ReconciliationCashCollected.ToString(CultureInfo.InvariantCulture),
+            "bankRefundPaid" => row.BankRefundPaid.ToString(CultureInfo.InvariantCulture),
             _ => throw new InvalidOperationException($"Unsupported revenue column: {column}")
         }).ToList()).ToList();
     }
@@ -360,9 +370,8 @@ public sealed class ReportExportService(
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildDimensionRowsAsync(
         DateOnly from, DateOnly to, IReadOnlyList<string> columns, bool rentalsOnly, CancellationToken ct, int? sportId, string? source, Guid? memberId)
     {
-        var report = await revenue.GetAsync(from, to, ct);
-        var rows = SportHub.Payment.Application.Services.RevenueDimensionFilter.Apply(
-            report.BySportAndSource, sportId, source, memberId, rentalsOnly);
+        var report = await revenue.GetAsync(from, to, ct, sportId, rentalsOnly ? "RENTAL" : source, memberId);
+        var rows = report.BySportAndSource;
         var memberNames = new Dictionary<Guid, string>();
         if (columns.Contains("memberName"))
         {
@@ -408,8 +417,33 @@ public sealed class ReportExportService(
             "newMembers" => report.NewMembers.ToString(CultureInfo.InvariantCulture),
             "membersPurchasingMembershipInPeriod" => report.MembersPurchasingMembershipInPeriod.ToString(CultureInfo.InvariantCulture),
             "activeMembersAtPeriodEnd" => report.ActiveMembersAtPeriodEnd.ToString(CultureInfo.InvariantCulture),
+            "dayPassesSold" => report.DayPassesSold.ToString(CultureInfo.InvariantCulture),
             _ => throw new InvalidOperationException($"Unsupported membership column: {column}")
         }).ToList()];
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildCourtBookingRowsAsync(
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, int? sportId, Guid? memberId, CancellationToken ct)
+    {
+        var report = await SportHub.Scheduling.Api.CourtBookingReportReader.ReadAsync(db, from, to, sportId, memberId, ct);
+        return report.BySport.Select(r => (IReadOnlyList<string>)columns.Select(c => c switch
+        {
+            "sportName" => r.SportName, "bookings" => r.Bookings.ToString(CultureInfo.InvariantCulture),
+            "bookedHours" => r.BookedHours.ToString(CultureInfo.InvariantCulture), _ => throw new InvalidOperationException(c)
+        }).ToList()).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildClassStatusRowsAsync(
+        DateOnly from, DateOnly to, IReadOnlyList<string> columns, int? sportId, CancellationToken ct)
+    {
+        var report = await SportHub.Scheduling.Api.ClassStatusReportReader.ReadAsync(db, from, to, sportId, ct);
+        return report.Classes.Select(r => (IReadOnlyList<string>)columns.Select(c => c switch
+        {
+            "name" => r.Name, "sportName" => r.SportName, "startDate" => r.StartDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            "status" => r.Status, "confirmedCount" => r.ConfirmedCount.ToString(CultureInfo.InvariantCulture),
+            "capacity" => r.Capacity.ToString(CultureInfo.InvariantCulture), "thresholdStatus" => r.ThresholdStatus,
+            _ => throw new InvalidOperationException(c)
+        }).ToList()).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildRevenueRowsAsync(
@@ -600,6 +634,16 @@ public sealed class ReportExportService(
             ? $"Period {fromDate:dd/MM/yyyy} – {toDate:dd/MM/yyyy} · "
               + $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy}"
             : $"Exported at {VietnamTime.ToLocal(clock.UtcNow):HH:mm dd/MM/yyyy}";
+        var parameters = JsonSerializer.Deserialize<ExportParameters>(export.ParametersJson,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        if (parameters is not null)
+        {
+            var filters = new List<string>();
+            if (parameters.SportId.HasValue) filters.Add($"Sport ID: {parameters.SportId}");
+            if (!string.IsNullOrWhiteSpace(parameters.Source)) filters.Add($"Source: {parameters.Source}");
+            if (parameters.MemberId.HasValue) filters.Add($"Member ID: {parameters.MemberId}");
+            if (filters.Count > 0) subtitle += " · " + string.Join(" · ", filters);
+        }
 
         return pdf.Render(new ReportTable(
             ReportColumnLabels.ReportTitle(export.ReportType),

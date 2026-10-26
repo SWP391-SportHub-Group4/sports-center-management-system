@@ -14,6 +14,12 @@ public static class CourseRules
 {
     public const int MaxNumSessions = 100;
 
+    public static void ValidateStartDateWithinYear(DateOnly startDate, DateOnly today)
+    {
+        if (startDate > today.AddYears(1))
+            throw new BadRequestException("start_date_too_far", "Choose a start date within one year from today.");
+    }
+
     /// <summary>BR-113: giá dương và bội số 1.000 VND.</summary>
     public static void ValidatePrice(decimal price)
     {
@@ -68,6 +74,12 @@ public static class CourseRules
         }
 
         return (int)decimal.Ceiling(cost / price);
+    }
+
+    public static void ValidateSessionMinutes(int sessionMinutes)
+    {
+        if (sessionMinutes is < 1 or > 720)
+            throw new BadRequestException("invalid_session_minutes", "Session duration must be a whole number between 1 and 720 minutes.");
     }
 
     /// <summary>

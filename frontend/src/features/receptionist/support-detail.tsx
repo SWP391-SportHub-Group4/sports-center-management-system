@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { AvatarImage } from "@/components/AvatarImage";
+import { SupportStatus } from "@/components/support-status";
 import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
+import { useManagerRequestRead } from "@/lib/manager-request-reads";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type {
   MemberPackageDto,
@@ -16,10 +18,12 @@ import { useApi } from "@/lib/useApi";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportAttachments } from "./support-attachments";
+import { SupportPayout } from "./support-payout";
 import {
   ROLE_LABELS,
   ROLE_RANK,
-  STATUS_LABELS,
+  CHANNEL_LABELS,
+  supportReference,
   assigneesByRole,
   eventText,
   roleKey,
@@ -44,7 +48,7 @@ const MODE_COPY: Record<
   progress: {
     field: "Progress note",
     placeholder: "What has been checked, and what happens next?",
-    submit: "Update",
+    submit: "Update progress",
   },
   done: {
     field: "Resolution note",
@@ -67,24 +71,35 @@ export function SupportDetail({
 }: {
   request: MemberSupportRequestDto;
   assignees: SupportAssignee[];
-  workspace: "manager" | "receptionist";
+  workspace: "manager" | "receptionist" | "coach" | "admin";
   onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const isManager = workspace === "manager";
+  const isReceiver = workspace === "coach" || workspace === "admin";
+  const readRef = useRef<HTMLDivElement>(null);
+  useManagerRequestRead("support", request.requestId, isManager, readRef);
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
   const myRank = ROLE_RANK[roleKey(user?.role)];
 
   const member = useApi(
     (signal) =>
-      api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
-    [request.memberId],
+      isReceiver
+        ? Promise.resolve(null)
+        : api.get<UserAdminDto>(`/api/users/${request.memberId}`, { signal }),
+    [request.memberId, isReceiver],
   );
   const packages = useApi(
     (signal) =>
-      api.get<MemberPackageDto[]>(`/api/members/${request.memberId}/packages`, {
-        signal,
-      }),
-    [request.memberId],
+      isReceiver
+        ? Promise.resolve([] as MemberPackageDto[])
+        : api.get<MemberPackageDto[]>(
+            `/api/members/${request.memberId}/packages`,
+            {
+              signal,
+            },
+          ),
+    [request.memberId, isReceiver],
   );
   const events = useApi(
     (signal) =>
@@ -115,7 +130,8 @@ export function SupportDetail({
       )
     : null;
   const availableRoles = (Object.keys(ROLE_LABELS) as RoleKey[]).filter(
-    (role) => assigneesByRole(assignees, role).length > 0,
+    (role) => (request.category !== "PAYMENT" || role === "manager") &&
+      assigneesByRole(assignees, role).length > 0,
   );
   const [targetRole, setTargetRole] = useState<RoleKey | "">("");
   const [targetUser, setTargetUser] = useState("");
@@ -176,14 +192,33 @@ export function SupportDetail({
     }
   }
 
-  const copy = MODE_COPY[mode];
+  const payoutReview =
+    isManager &&
+    request.category === "PAYMENT" &&
+    !!request.payout &&
+    (events.data ?? []).some(
+      (event) => event.type === "MEMBER_REPORTED_NOT_RECEIVED",
+    );
+  const copy =
+    payoutReview && mode !== "progress"
+      ? {
+          field:
+            mode === "done"
+              ? "Payout review outcome"
+              : "Reason for declining the payout claim",
+          placeholder:
+            "Describe the transfer checks, contact with the member, and your decision.",
+          submit: MODE_COPY[mode].submit,
+        }
+      : MODE_COPY[mode];
   const noteReady = note.trim().length >= 3;
   const unassigned = !request.assignedToUserId;
-  const actionBlock = unassigned
-    ? "Assign this request to someone before updating it."
-    : !noteReady
-      ? "Write at least 3 characters."
-      : null;
+  const actionBlock =
+    unassigned && !(payoutReview && mode !== "progress")
+      ? "Assign this request to someone before updating it."
+      : !noteReady
+        ? "Write at least 3 characters."
+        : null;
 
   const timeline: SupportEventDto[] =
     events.data && events.data.length > 0
@@ -201,22 +236,36 @@ export function SupportDetail({
         ];
 
   return (
-    <div className={styles.detail}>
+    <div className={styles.detail} ref={readRef}>
       <header className={styles.detailHead}>
         <div className={styles.detailHeadMeta}>
-          <span className={styles.badge}>
-            <span className={styles.dot} data-status={request.status} />
-            {STATUS_LABELS[request.status] ?? request.status}
-          </span>
+          <SupportStatus status={request.status} />
           <time className={styles.createdAt} dateTime={request.createdAt}>
             Created {formatDateTime(request.createdAt)}
           </time>
         </div>
-        <h3>{request.subject}</h3>
+        <h3>
+          {request.subject?.trim() || supportCategoryLabel(request.category)}
+        </h3>
+        {isManager && (
+          <p className={styles.muted}>
+            Reference: <strong>{supportReference(request.requestId)}</strong>
+          </p>
+        )}
+        {request.slaDueAtUtc && (
+          <p className={request.isOverdue ? styles.overdueBadge : styles.muted}>
+            {request.isOverdue ? "Overdue since" : "Response due"}{" "}
+            {formatDateTime(request.slaDueAtUtc)}
+            {request.remindCount
+              ? ` · ${request.remindCount} member reminder(s)`
+              : ""}
+          </p>
+        )}
       </header>
 
       <div className={styles.banner}>
         <AvatarImage
+          userId={request.memberId}
           name={request.memberName || request.memberEmail || "Member"}
           avatarUrl={member.data?.avatarUrl}
           size={44}
@@ -228,19 +277,23 @@ export function SupportDetail({
               .filter(Boolean)
               .join(" · ")}
           </span>
-          <span className={styles.muted}>
-            Plan: {planText}
-            {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
-              ? ` · until ${formatDate(plan.endDate)}`
-              : ""}
-          </span>
+          {!isReceiver && (
+            <span className={styles.muted}>
+              Plan: {planText}
+              {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
+                ? ` · until ${formatDate(plan.endDate)}`
+                : ""}
+            </span>
+          )}
         </div>
-        <Link
-          className={styles.bannerLink}
-          href={`/${workspace}/members/${request.memberId}`}
-        >
-          View profile
-        </Link>
+        {!isReceiver && (
+          <Link
+            className={styles.bannerLink}
+            href={`/${workspace}/members/${request.memberId}`}
+          >
+            View profile
+          </Link>
+        )}
       </div>
 
       <section className={styles.section} aria-label="Request message">
@@ -259,8 +312,27 @@ export function SupportDetail({
           </div>
           <div>
             <dt>Subject</dt>
-            <dd>{request.subject}</dd>
+            <dd>
+              {request.subject?.trim() ||
+                supportCategoryLabel(request.category)}
+            </dd>
           </div>
+          {isManager && (
+            <>
+              <div>
+                <dt>Email</dt>
+                <dd>
+                  {request.memberEmail || member.data?.email || "Not available"}
+                </dd>
+              </div>
+              <div>
+                <dt>Submitted via</dt>
+                <dd>
+                  {CHANNEL_LABELS[request.channel ?? ""] ?? "Not available"}
+                </dd>
+              </div>
+            </>
+          )}
           <div>
             <dt>Details</dt>
             <dd className={styles.message}>
@@ -268,121 +340,200 @@ export function SupportDetail({
             </dd>
           </div>
         </dl>
-        <SupportAttachments attachments={request.attachments} />
+        {isManager ? (
+          <div className={styles.section}>
+            <h4>Attached images</h4>
+            {request.attachments?.some(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            ) ? (
+              <SupportAttachments
+                attachments={request.attachments.filter(
+                  (attachment) => attachment.kind !== "PAYOUT_PROOF",
+                )}
+              />
+            ) : (
+              <p className={styles.muted}>No images attached.</p>
+            )}
+          </div>
+        ) : (
+          <SupportAttachments
+            attachments={request.attachments?.filter(
+              (attachment) => attachment.kind !== "PAYOUT_PROOF",
+            )}
+          />
+        )}
       </section>
 
-      {closed ? (
-        <section className={styles.section} aria-label="Final note">
-          <h4>
-            {request.status === "REJECTED" ? "Rejection reason" : "Resolution"}
-          </h4>
+      {isManager && request.category === "PAYMENT" && (
+        <SupportPayout
+          request={request}
+          events={events.data ?? []}
+          onChanged={() => {
+            events.reload();
+            onChanged();
+          }}
+        />
+      )}
+
+      {isManager && (
+        <section
+          className={styles.section}
+          aria-label="Reply visible to member"
+        >
+          <h4>Reply</h4>
+          <p className={styles.helper}>
+            This is the latest reply shown in the member’s My requests history.
+          </p>
           <p className={styles.message}>
-            {request.progressNote ?? "No final note."}
+            {request.progressNote || "No reply yet."}
           </p>
         </section>
+      )}
+
+      {closed ? (
+        isManager ? null : (
+          <section className={styles.section} aria-label="Final note">
+            <h4>
+              {request.status === "REJECTED"
+                ? "Rejection reason"
+                : "Resolution"}
+            </h4>
+            <p className={styles.message}>
+              {request.progressNote ?? "No final note."}
+            </p>
+          </section>
+        )
       ) : (
         <>
-          <section className={styles.box} aria-label="Routing and escalation">
-            <h4 className={styles.muted} style={{ margin: 0 }}>
-              Assignment · currently{" "}
-              <strong>
-                {request.assignedToName ??
-                  (request.assignedToUserId ? "former staff" : "unassigned")}
-                {currentRole ? ` (${ROLE_LABELS[currentRole]})` : ""}
-              </strong>
-            </h4>
-            <div className={styles.grid2}>
-              <label className={styles.field}>
-                Department
-                <select
-                  value={targetRole}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setTargetRole(e.target.value as RoleKey | "");
-                    setTargetUser("");
-                  }}
-                >
-                  <option value="">Select a department</option>
-                  {availableRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={styles.field}>
-                Staff member
-                <select
-                  value={targetUser}
-                  disabled={busy || !targetRole}
-                  onChange={(e) => setTargetUser(e.target.value)}
-                >
-                  <option value="">Select a staff member</option>
-                  {staff.map((x) => (
-                    <option key={x.userId} value={x.userId}>
-                      {x.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {escalating && (
-              <label className={styles.field}>
-                Transfer note (required)
-                <textarea
-                  value={transferNote}
-                  maxLength={1000}
-                  disabled={busy}
-                  placeholder={`Why are you escalating this to the ${ROLE_LABELS[targetRole as RoleKey]}?`}
-                  onChange={(e) => setTransferNote(e.target.value)}
-                />
-              </label>
-            )}
-            <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn"
-                disabled={busy || transferBlock !== null}
-                onClick={() =>
-                  run(
-                    "assign",
-                    {
-                      assigneeUserId: targetUser,
-                      note: transferNote.trim(),
-                    },
-                    "Request transferred.",
-                  )
-                }
-              >
-                Transfer request
-              </button>
-              {user && request.assignedToUserId !== user.userId && (
+          {!isReceiver && (
+            <section className={styles.box} aria-label="Routing and escalation">
+              <h4 className={styles.muted} style={{ margin: 0 }}>
+                Assignment · currently{" "}
+                <strong>
+                  {request.assignedToName ??
+                    (request.assignedToUserId ? "former staff" : "unassigned")}
+                  {currentRole ? ` (${ROLE_LABELS[currentRole]})` : ""}
+                </strong>
+              </h4>
+              <div className={styles.grid2}>
+                <label className={styles.field}>
+                  Department
+                  <select
+                    value={targetRole}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setTargetRole(e.target.value as RoleKey | "");
+                      setTargetUser("");
+                    }}
+                  >
+                    <option value="">Select a department</option>
+                    {availableRoles.map((role) => (
+                      <option key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  Staff member
+                  <select
+                    value={targetUser}
+                    disabled={busy || !targetRole}
+                    onChange={(e) => setTargetUser(e.target.value)}
+                  >
+                    <option value="">Select a staff member</option>
+                    {staff.map((x) => (
+                      <option key={x.userId} value={x.userId}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {escalating && (
+                <label className={styles.field}>
+                  Transfer note (required)
+                  <textarea
+                    value={transferNote}
+                    maxLength={1000}
+                    disabled={busy}
+                    placeholder={`Why are you escalating this to the ${ROLE_LABELS[targetRole as RoleKey]}?`}
+                    onChange={(e) => setTransferNote(e.target.value)}
+                  />
+                </label>
+              )}
+              <div className={styles.actions}>
                 <button
                   type="button"
-                  className="btn btn--secondary"
-                  disabled={busy}
+                  className="btn"
+                  disabled={busy || transferBlock !== null}
                   onClick={() =>
                     run(
                       "assign",
-                      { assigneeUserId: user.userId },
-                      "You are now handling this request.",
+                      {
+                        assigneeUserId: targetUser,
+                        note: transferNote.trim(),
+                      },
+                      "Request transferred.",
                     )
                   }
                 >
-                  Assign to me
+                  Transfer request
                 </button>
+                {user && request.category !== "PAYMENT" && request.assignedToUserId !== user.userId && (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        "assign",
+                        { assigneeUserId: user.userId },
+                        "You are now handling this request.",
+                      )
+                    }
+                  >
+                    Assign to me
+                  </button>
+                )}
+              </div>
+              {transferBlock && (
+                <p className={`${styles.helper} ${styles.helperWarn}`}>
+                  {transferBlock}
+                </p>
               )}
-            </div>
-            {transferBlock && (
-              <p className={`${styles.helper} ${styles.helperWarn}`}>
-                {transferBlock}
-              </p>
-            )}
-          </section>
+            </section>
+          )}
 
           <section className={styles.section} aria-label="Handle request">
+            {payoutReview && (
+              <div className={styles.reviewNotice}>
+                <h4>Review the reported payout</h4>
+                <p>
+                  Check the original transfer and contact the member before
+                  choosing Done or Reject. Your outcome will be visible to the
+                  member.
+                </p>
+                <p>
+                  Closing this review keeps the original payout and does not
+                  confirm receipt or record another payment.
+                </p>
+                {unassigned && (
+                  <p>
+                    You can finish the review directly. You will be recorded as
+                    the handler.
+                  </p>
+                )}
+              </div>
+            )}
             <div className={styles.tabs} role="tablist" aria-label="Action">
-              {TABS.map((tab) => (
+              {TABS.filter(
+                (tab) =>
+                  (!isReceiver || tab.mode !== "reject") &&
+                  (tab.mode !== "done" ||
+                    request.category !== "PAYMENT" ||
+                    !!request.payout),
+              ).map((tab) => (
                 <button
                   key={tab.mode}
                   type="button"
@@ -395,13 +546,16 @@ export function SupportDetail({
                     setConfirming(false);
                   }}
                 >
-                  {tab.label}
+                  {isReceiver && tab.mode === "progress"
+                    ? "In progress"
+                    : tab.label}
                 </button>
               ))}
             </div>
             <label className={styles.field}>
               {copy.field}
               <textarea
+                aria-label={copy.field}
                 value={note}
                 maxLength={1000}
                 disabled={busy}
@@ -412,6 +566,18 @@ export function SupportDetail({
                 }}
               />
             </label>
+            {mode === "progress" && (
+              <p className={styles.helper}>
+                Update the request as often as needed. Each saved note is kept
+                in the activity history.
+              </p>
+            )}
+            {isManager && (
+              <p className={styles.helper}>
+                The member will see this text as their latest reply. It replaces
+                the previous reply in My requests.
+              </p>
+            )}
             <div className={styles.actions}>
               {mode !== "progress" && confirming ? (
                 <>
@@ -423,9 +589,11 @@ export function SupportDetail({
                       run(
                         mode,
                         { reason: note.trim() },
-                        mode === "done"
-                          ? "Request marked as done."
-                          : "Request rejected.",
+                        payoutReview
+                          ? "Payout review finalized. The original payout is unchanged."
+                          : mode === "done"
+                            ? "Request marked as done."
+                            : "Request rejected.",
                       )
                     }
                   >
@@ -486,7 +654,7 @@ export function SupportDetail({
               <span className={styles.muted}>
                 {formatDateTime(event.createdAt)}
                 {event.actorRole
-                  ? ` · ${ROLE_LABELS[roleKey(event.actorRole)]}`
+                  ? ` · ${event.actorRole.toUpperCase() === "MEMBER" ? "Member" : ROLE_LABELS[roleKey(event.actorRole)]}`
                   : ""}
               </span>
               {event.note && <p className={styles.eventNote}>{event.note}</p>}

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Drawer, Tabs } from "@/components/primitives";
 import { AvatarImage } from "@/components/AvatarImage";
+import { sortTeachingSessions } from "@/lib/teaching-order";
 import { Calendar } from "@/components/scheduling/Calendar";
 import { AsyncSection, Feedback } from "@/components/ui";
 import { CourseSticker } from "@/features/courses";
@@ -355,7 +356,11 @@ function Students({
                 className={styles.student}
                 onClick={() => onSelect(m)}
               >
-                <AvatarImage name={m.memberName} size={40} />
+                <AvatarImage
+                  userId={m.memberId}
+                  name={m.memberName}
+                  size={40}
+                />
                 <span>
                   <strong>{m.memberName}</strong>
                   <small>
@@ -507,11 +512,7 @@ export function TeachingDetail({
       return {
         members,
         records,
-        sessions: [...sessions].sort(
-          (a, b) =>
-            a.sessionNo - b.sessionNo ||
-            a.startAtUtc.localeCompare(b.startAtUtc),
-        ),
+        sessions: sortTeachingSessions(sessions, Date.now()),
         roster,
       };
     },

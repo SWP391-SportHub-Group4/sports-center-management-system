@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 
 namespace SportHub.Payment.Application.Services;
 
-public sealed class CheckoutExpiryService(ISportHubDbContext db, PaymentFulfillmentService fulfillment, IClock clock)
+public sealed class CheckoutExpiryService(ISportHubDbContext db, PaymentFulfillmentService fulfillment,
+    PaymentReconciliationService reconciliation, IClock clock, ILogger<CheckoutExpiryService> logger)
 {
+    private const int GatewayGraceMinutes = 15;
+
     public async Task<int> ExpireDueAsync(CancellationToken ct)
     {
         var ids = await db.Set<Invoice>().AsNoTracking()
@@ -22,6 +26,27 @@ public sealed class CheckoutExpiryService(ISportHubDbContext db, PaymentFulfillm
         var count = 0;
         foreach (var id in ids)
         {
+            // Ask VNPay before releasing a seat or court. A verified capture is processed first.
+            var attemptId = await db.Set<PaymentAttempt>().AsNoTracking()
+                .Where(a => a.InvoiceId == id && a.Status == PaymentAttemptStatus.Pending
+                    && !db.Set<VerifiedGatewayEvent>().Any(e => e.PaymentAttemptId == a.PaymentAttemptId))
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => (Guid?)a.PaymentAttemptId).FirstOrDefaultAsync(ct);
+            if (attemptId is Guid pendingAttempt)
+            {
+                try { await reconciliation.ReconcileAttemptAsync(pendingAttempt, ct); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "VNPay QueryDR failed before expiry for invoice {InvoiceId}", id);
+                    // Keep the hold briefly so a transient gateway error does not release a paid seat,
+                    // but never forever: a payment that lands later is still handled by reconciliation.
+                    var heldSince = await db.Set<Invoice>().AsNoTracking().Where(x => x.InvoiceId == id)
+                        .Select(x => x.HoldExpiresAtUtc).SingleOrDefaultAsync(ct);
+                    if (heldSince is null || clock.UtcNow < heldSince.Value.AddMinutes(GatewayGraceMinutes))
+                        continue;
+                }
+            }
             await using var tx = await db.Database.BeginTransactionAsync(ct);
             var invoice = await db.Set<Invoice>().FromSqlInterpolated(
                 $"SELECT * FROM invoices WHERE invoice_id = {id} FOR UPDATE SKIP LOCKED")

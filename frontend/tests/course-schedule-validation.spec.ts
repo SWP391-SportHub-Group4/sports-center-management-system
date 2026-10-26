@@ -20,6 +20,12 @@ const cases: Array<
     ReturnType<typeof scheduleInputIssue>,
   ]
 > = [
+  [
+    "opening date beyond one year",
+    { startDate: "2031-10-04" },
+    90,
+    "futureDate",
+  ],
   ["coach required", { coachId: null }, 90, "coach"],
   ["room required", { defaultRoomId: 0 }, 90, "room"],
   ["date required", { startDate: "" }, 90, "date"],
@@ -41,6 +47,8 @@ const cases: Array<
   ["over 100 sessions", { numSessions: 101 }, 90, "count"],
   ["fractional session count", { numSessions: 1.5 }, 90, "count"],
   ["missing duration", {}, 0, "duration"],
+  ["fractional duration", {}, 90.5, "duration"],
+  ["negative duration", {}, -1, "duration"],
   ["duration over API limit", {}, 721, "durationLimit"],
   ["no weekly rule", { scheduleRules: [] }, 90, "rules"],
   [

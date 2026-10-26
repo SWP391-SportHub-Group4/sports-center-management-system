@@ -607,7 +607,7 @@ function GymTier({
       </p>
       <p className={styles.meta}>
         {dayPass ? (
-          tx("Có hiệu lực 24 giờ", "Valid for 24 hours")
+          "Valid until 22:00 Vietnam time on the purchase day"
         ) : (
           <>
             {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
@@ -803,7 +803,6 @@ function CourtOffer({
     )
     .map((r) => r.pricePerHour);
   const from = prices.length ? Math.min(...prices) : null;
-  const to = prices.length ? Math.max(...prices) : null;
   const name = sportLabel(sport.name, vi);
   return (
     <article
@@ -831,12 +830,7 @@ function CourtOffer({
         )}
       </p>
       <p className={styles.meta}>
-        {to !== null && to !== from
-          ? tx(
-              `Tới ${formatMoney(to)}/giờ tùy khung giờ`,
-              `Up to ${formatMoney(to)}/h by time slot`,
-            )
-          : tx("Đặt 1–4 giờ mỗi lần", "Book 1–4 hours at a time")}
+        {tx("Đặt 1–4 giờ mỗi lần", "Book 1–4 hours at a time")}
       </p>
       {onBook ? (
         <button

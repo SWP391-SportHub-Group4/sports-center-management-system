@@ -26,6 +26,18 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
         builder.HasData(
             new SystemSetting
             {
+                Key = SystemSettingKeys.CenterOpeningMinutes, Value = "360",
+                Description = "Center opening time in minutes after midnight, Vietnam time.",
+                UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.CenterClosingMinutes, Value = "1320",
+                Description = "Center closing time in minutes after midnight, Vietnam time.",
+                UpdatedAt = new DateTime(2026, 10, 25, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
                 Key = SystemSettingKeys.PackageExpiringReminderDays,
                 Value = "10",
                 Description = "BR-33 — Days before membership expiration to remind members.",
@@ -86,6 +98,24 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
                 Value = "24",
                 Description = "BR-129 — Minimum hours before a rental for free cancellation.",
                 UpdatedAt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.SupportSlaHours, Value = "48",
+                Description = "Hours allowed for a support request response.",
+                UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.SupportRemindCooldownHours, Value = "48",
+                Description = "Minimum hours between member support reminders.",
+                UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
+                Key = SystemSettingKeys.SupportPayoutConfirmDays, Value = "3",
+                Description = "Days before an unconfirmed support payout is confirmed automatically.",
+                UpdatedAt = new DateTime(2026, 10, 24, 0, 0, 0, DateTimeKind.Utc)
             });
     }
 }

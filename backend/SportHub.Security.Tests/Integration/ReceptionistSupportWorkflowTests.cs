@@ -21,7 +21,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     public async Task Only_manager_can_list_and_assign_active_administrators(UserRole actorRole)
     {
         var marker = Guid.NewGuid().ToString("N");
-        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", null);
+        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", "Str0ngPassw0rd!");
         var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager);
         var admin = await factory.SeedUserAsync($"support-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
         var inactive = await factory.SeedUserAsync($"support-inactive-admin-{marker}@example.com", null,
@@ -66,14 +66,14 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     public async Task Admin_receives_assignment_in_bell_and_inbox_without_duplicate_notifications_on_retry()
     {
         var marker = Guid.NewGuid().ToString("N");
-        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", null, fullName: "Member needing help");
+        var member = await factory.SeedUserAsync($"support-member-{marker}@example.com", "Str0ngPassw0rd!", fullName: "Member needing help");
         var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager, fullName: "Assigning Manager");
         var admin = await factory.SeedUserAsync($"support-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
         var otherAdmin = await factory.SeedUserAsync($"support-other-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
         var created = await client.PostAsJsonAsync("/api/member-support-requests", new {
-            memberId = member.UserId, category = "PAYMENT", subject = $"Payment assistance {marker}", description = "Please investigate this member payment." });
+            memberId = member.UserId, category = "ACCOUNT", subject = $"Account assistance {marker}", description = "Please investigate this member account." });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
         var assignment = new { assigneeUserId = admin.UserId, note = "Escalating for administrator review" };
@@ -94,8 +94,8 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         var message = notice.GetProperty("message").GetString()!;
         Assert.Contains("Assigning Manager", message);
         Assert.Contains("Member needing help", message);
-        Assert.Contains($"Payment assistance {marker}", message);
-        Assert.Contains("Please investigate this member payment.", message);
+        Assert.Contains($"Account assistance {marker}", message);
+        Assert.Contains("Please investigate this member account.", message);
         var notificationId = notice.GetProperty("notificationId").GetGuid();
         Assert.Equal(HttpStatusCode.OK, (await recipient.GetAsync($"/api/notifications/{notificationId}")).StatusCode);
         (await recipient.PostAsync($"/api/notifications/{notificationId}/read", null)).EnsureSuccessStatusCode();
@@ -119,10 +119,10 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     [InlineData(UserRole.CenterManager)]
     public async Task Desk_assigns_updates_and_completes_a_member_request(UserRole actorRole)
     {
-        var member = await factory.SeedUserAsync($"support-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
+        var member = await factory.SeedUserAsync($"support-member-{Guid.NewGuid():N}@example.com", "Str0ngPassw0rd!", role: UserRole.Member);
         var desk = await factory.SeedUserAsync($"support-desk-{Guid.NewGuid():N}@example.com", null, role: actorRole);
         var handler = await factory.SeedUserAsync($"support-handler-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
-        var coach = await factory.SeedUserAsync($"support-coach-{Guid.NewGuid():N}@example.com", null, role: UserRole.Coach);
+        var coach = await factory.SeedUserAsync($"support-coach-{Guid.NewGuid():N}@example.com", null, UserStatus.Deactivated, UserRole.Coach);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(desk.UserId, actorRole));
         var created = await client.PostAsJsonAsync("/api/member-support-requests",
@@ -167,9 +167,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
 
     [Theory]
     [InlineData(UserRole.Member)]
-    [InlineData(UserRole.Coach)]
-    [InlineData(UserRole.SystemAdministrator)]
-    public async Task Non_front_desk_cannot_read_or_mutate_requests(UserRole role)
+    public async Task Member_cannot_read_or_mutate_staff_support_requests(UserRole role)
     {
         var user = await factory.SeedUserAsync($"support-denied-{Guid.NewGuid():N}@example.com", null, role: role);
         using var client = factory.CreateApiClient();
@@ -181,12 +179,64 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
                 new { assigneeUserId = user.UserId, note = "Test update", reason = "Test final note" })).StatusCode);
     }
 
+    [Fact]
+    public async Task Admin_can_handle_only_assigned_requests_and_loses_access_after_reassignment()
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var manager = await factory.SeedUserAsync($"support-owner-manager-{marker}@example.com", null, role: UserRole.CenterManager);
+        var member = await factory.SeedUserAsync($"support-owner-member-{marker}@example.com", "Str0ngPassw0rd!");
+        var admin = await factory.SeedUserAsync($"support-owner-admin-{marker}@example.com", null, role: UserRole.SystemAdministrator);
+        var other = await factory.SeedUserAsync($"support-owner-other-{marker}@example.com", null, role: UserRole.SystemAdministrator);
+        using var client = factory.CreateApiClient();
+        void As(Guid userId, UserRole role) => client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(userId, role));
+        As(manager.UserId, UserRole.CenterManager);
+        var created = await client.PostAsJsonAsync("/api/member-support-requests", new {
+            memberId = member.UserId, category = "ACCOUNT", description = "Help with account access",
+            assigneeUserId = admin.UserId, handoverNote = "Administrator review required" });
+        created.EnsureSuccessStatusCode();
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+        var path = $"/api/member-support-requests/{id}";
+        As(other.UserId, UserRole.SystemAdministrator);
+        Assert.Empty((await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue")).GetProperty("items").EnumerateArray());
+        Assert.Equal(0, (await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/stats")).GetProperty("notStarted").GetInt32());
+        foreach (var suffix in new[] { "", "/events" })
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path + suffix)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/progress", new { note = "Unauthorized progress" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/done", new { reason = "Unauthorized completion" })).StatusCode);
+        As(admin.UserId, UserRole.SystemAdministrator);
+        var queue = await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue?status=NOT_STARTED");
+        Assert.Equal(id, Assert.Single(queue.GetProperty("items").EnumerateArray()).GetProperty("requestId").GetGuid());
+        Assert.Equal(1, (await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/stats")).GetProperty("notStarted").GetInt32());
+        (await client.GetAsync(path + "/events")).EnsureSuccessStatusCode();
+        var notice = Assert.Single((await client.GetFromJsonAsync<JsonElement>("/api/notifications")).EnumerateArray());
+        Assert.Equal($"/admin/support?request={id}", notice.GetProperty("actionUrl").GetString());
+        foreach (var route in new[] { "assignees", $"?memberId={member.UserId}" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/member-support-requests/{route}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/member-support-requests", new {
+            memberId = member.UserId, category = "ACCOUNT", description = "Not allowed to create" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path + "/assign", new { assigneeUserId = other.UserId })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path + "/reject", new { reason = "Not permitted" })).StatusCode);
+        (await client.PostAsJsonAsync(path + "/progress", new { note = "Investigating the account" })).EnsureSuccessStatusCode();
+        Assert.Equal("IN_PROGRESS", (await client.GetFromJsonAsync<JsonElement>(path)).GetProperty("status").GetString());
+        As(manager.UserId, UserRole.CenterManager);
+        (await client.PostAsJsonAsync(path + "/assign", new { assigneeUserId = other.UserId, note = "Transfer to another administrator" })).EnsureSuccessStatusCode();
+        As(admin.UserId, UserRole.SystemAdministrator);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(path + "/done", new { reason = "Former owner completion" })).StatusCode);
+        As(other.UserId, UserRole.SystemAdministrator);
+        (await client.PostAsJsonAsync(path + "/done", new { reason = "Account access restored" })).EnsureSuccessStatusCode();
+        var completed = await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/queue?status=DONE");
+        Assert.Equal(id, Assert.Single(completed.GetProperty("items").EnumerateArray()).GetProperty("requestId").GetGuid());
+        Assert.Equal(1, (await client.GetFromJsonAsync<JsonElement>("/api/member-support-requests/stats")).GetProperty("done").GetInt32());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(path + "/progress", new { note = "Cannot reopen" })).StatusCode);
+    }
+
     [Theory]
     [InlineData(UserRole.Receptionist)]
     [InlineData(UserRole.CenterManager)]
     public async Task Desk_rejects_request_and_blocks_further_changes(UserRole actorRole)
     {
-        var member = await factory.SeedUserAsync($"support-reject-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
+        var member = await factory.SeedUserAsync($"support-reject-member-{Guid.NewGuid():N}@example.com", "Str0ngPassw0rd!", role: UserRole.Member);
         var desk = await factory.SeedUserAsync($"support-reject-desk-{Guid.NewGuid():N}@example.com", null, role: actorRole);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(desk.UserId, actorRole));
@@ -227,10 +277,10 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     public async Task Manager_filters_pages_and_sees_inactive_assignee_name()
     {
         var marker = Guid.NewGuid().ToString("N");
-        var member = await factory.SeedUserAsync($"support-find-{marker}@example.com", null, fullName: $"Support member {marker}");
+        var member = await factory.SeedUserAsync($"support-find-{marker}@example.com", "Str0ngPassw0rd!", fullName: $"Support member {marker}");
         var manager = await factory.SeedUserAsync($"support-manager-{marker}@example.com", null, role: UserRole.CenterManager);
         var handler = await factory.SeedUserAsync($"support-handler-{marker}@example.com", null, role: UserRole.Receptionist, fullName: "Support handler");
-        var inactive = await factory.SeedUserAsync($"support-banned-{marker}@example.com", null, UserStatus.Banned, UserRole.Receptionist);
+        var inactive = await factory.SeedUserAsync($"support-banned-{marker}@example.com", null, UserStatus.Deactivated, UserRole.Receptionist);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));
         var ids = new List<Guid>();
@@ -271,7 +321,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
     [Fact]
     public async Task Concurrent_done_and_progress_keep_final_note_and_single_completion_audit()
     {
-        var member = await factory.SeedUserAsync($"support-race-member-{Guid.NewGuid():N}@example.com", null);
+        var member = await factory.SeedUserAsync($"support-race-member-{Guid.NewGuid():N}@example.com", "Str0ngPassw0rd!");
         var manager = await factory.SeedUserAsync($"support-race-manager-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", factory.IssueToken(manager.UserId, UserRole.CenterManager));

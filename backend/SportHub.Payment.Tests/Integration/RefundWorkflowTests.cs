@@ -117,15 +117,16 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, createdResponse.StatusCode);
         var requested = (await createdResponse.Content.ReadFromJsonAsync<RefundResponse>())!;
         Assert.Equal("REQUESTED", requested.Status);
-        Assert.Equal(500, requested.SystemCalculatedPoints);
+        // Member tự hủy/tự yêu cầu theo quy tắc thường không có điểm hoàn; chỉ lỗi trung tâm mới hoàn phần chưa dùng.
+        Assert.Equal(0, requested.SystemCalculatedPoints);
         Assert.Equal(fixture.InvoiceItemId, requested.InvoiceItemId);
 
         var approvedResponse = await managerClient.PostAsJsonAsync($"/api/refunds/{requested.AdjustmentId}/approve",
-            new { reason = "Đủ điều kiện hoàn 50%" });
+            new { reason = "Lỗi phía trung tâm: hoàn phần chưa sử dụng", centerFault = true });
         Assert.Equal(HttpStatusCode.OK, approvedResponse.StatusCode);
         var approved = (await approvedResponse.Content.ReadFromJsonAsync<RefundResponse>())!;
         Assert.Equal("COMPLETED", approved.Status);
-        Assert.Equal(500, approved.ApprovedPoints);
+        Assert.Equal(890, approved.ApprovedPoints);
         Assert.NotNull(approved.PointLedgerEntryId);
         Assert.Null(approved.RefundMethod);
 
@@ -139,7 +140,7 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
             Adjustment = await db.PaymentAdjustments.SingleAsync(x => x.AdjustmentId == requested.AdjustmentId)
         });
         Assert.Equal(MemberPackageStatus.Cancelled, state.PackageStatus);
-        Assert.Equal(500, state.Wallet.AvailablePoints);
+        Assert.Equal(890, state.Wallet.AvailablePoints);
         Assert.Equal(1, state.Ledger);
         Assert.Equal(state.Ledger == 1 ? approved.PointLedgerEntryId : null, state.Adjustment.PointLedgerEntryId);
 
@@ -180,8 +181,8 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
 
     [Theory]
     [InlineData(25, 250)]
-    [InlineData(50, 500)]
-    public async Task Manager_can_approve_at_or_below_the_quoted_limit(int percent, int expectedPoints)
+    [InlineData(89, 890)]
+    public async Task Manager_can_approve_center_fault_refund_at_or_below_the_quoted_limit(int percent, int expectedPoints)
     {
         var fixture = await SeedPaidMembershipAsync();
         using var member = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
@@ -193,15 +194,16 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         var quoteUrl = $"/api/refunds/{request.AdjustmentId}/approval-quote";
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync(quoteUrl)).StatusCode);
         var quote = await manager.GetFromJsonAsync<JsonElement>(quoteUrl);
-        Assert.Equal(500, quote.GetProperty("systemCalculatedPoints").GetInt32());
+        // Không có lỗi trung tâm thì không có điểm hoàn.
+        Assert.Equal(0, quote.GetProperty("systemCalculatedPoints").GetInt32());
         Assert.Equal(1_000_000m, quote.GetProperty("remainingPaidVnd").GetDecimal());
-        Assert.Equal(50, quote.GetProperty("maxPercent").GetInt32());
+        Assert.Equal(0, quote.GetProperty("maxPercent").GetInt32());
         var centerQuote = await manager.GetFromJsonAsync<JsonElement>(quoteUrl + "?centerFault=true");
         Assert.True(centerQuote.GetProperty("centerFault").GetBoolean());
         Assert.Equal(890, centerQuote.GetProperty("systemCalculatedPoints").GetInt32());
         Assert.Equal(89, centerQuote.GetProperty("maxPercent").GetInt32());
         var approved = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
-            new { reason = "Approve within the calculated limit", percent });
+            new { reason = "Approve within the calculated limit", percent, centerFault = true });
         approved.EnsureSuccessStatusCode();
         Assert.Equal(expectedPoints, (await approved.Content.ReadFromJsonAsync<RefundResponse>())!.ApprovedPoints);
         Assert.Equal(expectedPoints, await factory.QueryAsync(db => db.Set<PointWallet>()
@@ -209,15 +211,16 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
     }
 
     [Theory]
-    [InlineData(30, 30, 500)]
-    [InlineData(30, 0, 500)]
-    [InlineData(31, 30, 0)]
-    [InlineData(31, 0, 0)]
-    [InlineData(90, 30, 0)]
-    [InlineData(-10, 30, 500)]
-    public async Task Membership_standard_refund_uses_inclusive_term_not_gym_visits(
-        int elapsedDays, int remainingSessions, int expectedPoints)
+    [InlineData(30, 30)]
+    [InlineData(30, 0)]
+    [InlineData(31, 30)]
+    [InlineData(31, 0)]
+    [InlineData(90, 30)]
+    [InlineData(-10, 30)]
+    public async Task Membership_standard_refund_is_always_zero_whatever_the_term_or_visits(
+        int elapsedDays, int remainingSessions)
     {
+        const int expectedPoints = 0;
         var fixture = await SeedPaidMembershipAsync();
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
         var start = today.AddDays(-elapsedDays);
@@ -229,13 +232,6 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         using var manager = factory.CreateApiClient(fixture.ManagerId, UserRole.CenterManager);
         var quote = await member.GetFromJsonAsync<JsonElement>($"/api/refunds/quote/{fixture.InvoiceItemId}");
         Assert.Equal(expectedPoints, quote.GetProperty("systemCalculatedPoints").GetInt32());
-        if (expectedPoints == 0)
-        {
-            var cancellation = await member.PostAsJsonAsync("/api/refunds/membership-cancellations",
-                new { invoiceItemId = fixture.InvoiceItemId });
-            Assert.Equal(HttpStatusCode.Conflict, cancellation.StatusCode);
-            Assert.Contains("refund_points_zero", await cancellation.Content.ReadAsStringAsync());
-        }
         var created = await member.PostAsJsonAsync("/api/refunds",
             new { invoiceItemId = fixture.InvoiceItemId, reason = "Review the membership term" });
         created.EnsureSuccessStatusCode();
@@ -245,12 +241,11 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         Assert.Equal(expectedPoints, reviewQuote.GetProperty("systemCalculatedPoints").GetInt32());
         var approved = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
             new { reason = "Apply the standard term policy", percent = 50 });
-        Assert.Equal(expectedPoints > 0 ? HttpStatusCode.OK : HttpStatusCode.Conflict, approved.StatusCode);
-        if (expectedPoints == 0)
-            Assert.Contains("refund_exceeds_system_limit", await approved.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Conflict, approved.StatusCode);
+        Assert.Contains("refund_exceeds_system_limit", await approved.Content.ReadAsStringAsync());
         Assert.Equal(expectedPoints, await factory.QueryAsync(db => db.Set<PointWallet>()
             .Where(x => x.OwnerUserId == fixture.MemberId).SumAsync(x => x.AvailablePoints)));
-        Assert.Equal(expectedPoints > 0 ? MemberPackageStatus.Cancelled : MemberPackageStatus.Active,
+        Assert.Equal(MemberPackageStatus.Active,
             await factory.QueryAsync(db => db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
                 .Select(x => x.Status).SingleAsync()));
     }
@@ -286,8 +281,8 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
     }
 
     [Theory]
-    [InlineData(16, 500)] // 23:00 yesterday in Vietnam: exactly 60/90 remain.
-    [InlineData(18, 0)] // 01:00 today in Vietnam: only 59/90 remain.
+    [InlineData(16, 666)] // 23:00 yesterday in Vietnam (center fault): 60/90 days remain.
+    [InlineData(18, 655)] // 01:00 today in Vietnam (center fault): 59/90 days remain.
     public async Task Approval_uses_the_request_Vietnam_date_even_when_reviewed_later(int utcHour, int expectedPoints)
     {
         var fixture = await SeedPaidMembershipAsync();
@@ -304,11 +299,11 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         var requestedAt = today.AddDays(-1).ToDateTime(new TimeOnly(utcHour, 0), DateTimeKind.Utc);
         await factory.QueryAsync(db => db.PaymentAdjustments.Where(x => x.AdjustmentId == request.AdjustmentId)
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.CreatedAt, requestedAt)));
-        var quote = await manager.GetFromJsonAsync<JsonElement>($"/api/refunds/{request.AdjustmentId}/approval-quote");
+        var quote = await manager.GetFromJsonAsync<JsonElement>($"/api/refunds/{request.AdjustmentId}/approval-quote?centerFault=true");
         Assert.Equal(expectedPoints, quote.GetProperty("systemCalculatedPoints").GetInt32());
         var approved = await manager.PostAsJsonAsync($"/api/refunds/{request.AdjustmentId}/approve",
-            new { reason = "Use the Vietnam date of the submitted request" });
-        Assert.Equal(expectedPoints > 0 ? HttpStatusCode.OK : HttpStatusCode.Conflict, approved.StatusCode);
+            new { reason = "Use the Vietnam date of the submitted request", centerFault = true });
+        Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
         Assert.Equal(expectedPoints, await factory.QueryAsync(db => db.Set<PointWallet>()
             .Where(x => x.OwnerUserId == fixture.MemberId).SumAsync(x => x.AvailablePoints)));
     }
@@ -360,7 +355,7 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Member_cancelling_membership_with_two_thirds_left_gets_half_back_and_is_blocked_by_a_queued_renewal()
+    public async Task Member_cancelling_membership_gets_no_refund_and_is_blocked_by_a_queued_renewal()
     {
         var fixture = await SeedPaidMembershipAsync();
         using var memberClient = factory.CreateApiClient(fixture.MemberId, UserRole.Member);
@@ -392,15 +387,18 @@ public sealed class RefundWorkflowTests(PaymentApiFactory factory)
         var done = await memberClient.PostAsJsonAsync("/api/refunds/membership-cancellations",
             new { invoiceItemId = fixture.InvoiceItemId });
         Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        Assert.Equal(0, (await done.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("refundedPoints").GetInt32());
         var state = await factory.QueryAsync(async db => new
         {
             Status = await db.MemberPackages.Where(x => x.MemberPackageId == fixture.MemberPackageId)
                 .Select(x => x.Status).SingleAsync(),
             Points = await db.Set<PointWallet>().Where(x => x.OwnerUserId == fixture.MemberId)
-                .Select(x => x.AvailablePoints).SingleAsync()
+                .SumAsync(x => x.AvailablePoints),
+            Adjustments = await db.PaymentAdjustments.CountAsync(x => x.InvoiceItemId == fixture.InvoiceItemId)
         });
         Assert.Equal(MemberPackageStatus.Cancelled, state.Status);
-        Assert.Equal(500, state.Points);
+        Assert.Equal(0, state.Points); // Không hoàn điểm khi Member tự hủy.
+        Assert.Equal(0, state.Adjustments);
         Assert.Equal(HttpStatusCode.Conflict, (await memberClient.PostAsJsonAsync(
             "/api/refunds/membership-cancellations", new { invoiceItemId = fixture.InvoiceItemId })).StatusCode);
     }

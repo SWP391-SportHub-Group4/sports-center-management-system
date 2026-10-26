@@ -6,7 +6,7 @@ import { AsyncSection, Field } from "@/components/ui";
 import { reportsApi } from "./api";
 import { PointsReport } from "./points-report";
 
-export function PointSummary() {
+export function PointSummary({ revision = 0 }: { revision?: number } = {}) {
   const [from, setFrom] = useState(() => `${todayIso().slice(0, 7)}-01`);
   const [to, setTo] = useState(todayIso);
   const valid = !!from && !!to && from <= to;
@@ -16,7 +16,7 @@ export function PointSummary() {
         { fromDate: from, toDate: to, sportId: "", source: "", memberId: "" },
         signal,
       ),
-    [from, to],
+    [from, to, revision],
   );
   return (
     <section className="stack" aria-label="Points activity">

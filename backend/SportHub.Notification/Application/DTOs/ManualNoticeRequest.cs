@@ -4,8 +4,13 @@ namespace SportHub.Notification.Application.DTOs;
 
 public sealed class ManualNoticeRequest
 {
-    [Required, MinLength(1), MaxLength(200)]
+    [Required, MaxLength(200)]
     public IReadOnlyList<Guid> RecipientUserIds { get; set; } = [];
+
+    public bool SendToAll { get; set; }
+
+    [Required, MaxLength(5)]
+    public IReadOnlyList<string> SendToRoles { get; set; } = [];
 
     [Required, MinLength(3), MaxLength(150)]
     public string Subject { get; set; } = string.Empty;

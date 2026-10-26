@@ -66,7 +66,7 @@ public sealed class CoachAdminService(
                 u.Email,
                 u.Profile != null ? u.Profile.FullName : string.Empty,
                 u.Profile != null ? u.Profile.Phone : null,
-                u.Status.ToString(),
+                u.Status == UserStatus.Active ? nameof(UserStatus.Active) : nameof(UserStatus.Deactivated),
                 u.CoachProfile != null ? u.CoachProfile.Bio : null,
                 new List<int>(),
                 u.CreatedAt) {
@@ -98,7 +98,7 @@ public sealed class CoachAdminService(
                           u.Email,
                           u.Profile != null ? u.Profile.FullName : string.Empty,
                           u.Profile != null ? u.Profile.Phone : null,
-                          u.Status.ToString(),
+                          u.Status == UserStatus.Active ? nameof(UserStatus.Active) : nameof(UserStatus.Deactivated),
                           u.CoachProfile != null ? u.CoachProfile.Bio : null,
                           new List<int>(),
                           u.CreatedAt) {

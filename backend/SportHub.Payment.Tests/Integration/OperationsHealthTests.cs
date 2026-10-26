@@ -60,7 +60,8 @@ public sealed class OperationsHealthTests(PaymentApiFactory factory)
         var outbox = json.GetProperty("outbox");
         Assert.True(json.TryGetProperty("jobs", out _));
         Assert.True(json.TryGetProperty("payments", out var payments));
-        Assert.True(payments.TryGetProperty("manualCompensationRequired", out _));
+        Assert.True(payments.TryGetProperty("paidNotActivated", out _));
+        Assert.True(json.GetProperty("support").TryGetProperty("overdueRequests", out _));
         return (json.GetProperty("status").GetString()!, outbox.GetProperty("failedNeedingAttention").GetInt32(),
             outbox.GetProperty("stuckSending").GetInt32());
     }

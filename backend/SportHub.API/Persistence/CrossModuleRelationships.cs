@@ -13,6 +13,18 @@ public static class CrossModuleRelationships
 {
     public static void Configure(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<SportHub.Payment.Wallet.Domain.PointGift>().HasOne<IncidentNotice>().WithMany()
+            .HasForeignKey(x => x.IncidentId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MemberSupportRequest>().HasOne<Invoice>().WithMany()
+            .HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MemberSupportRequest>().HasOne<InvoiceItem>().WithMany()
+            .HasForeignKey(x => x.InvoiceItemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MemberSupportPayout>().HasOne<InvoiceItem>().WithMany()
+            .HasForeignKey(x => x.InvoiceItemId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MemberSupportPayout>().HasOne<Invoice>().WithMany()
+            .HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<MemberSupportAttachment>().HasOne<MemberSupportPayout>().WithMany()
+            .HasForeignKey(x => x.PayoutId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<Class>().WithMany().HasForeignKey(x => x.ClassId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<CourtRental>().WithMany().HasForeignKey(x => x.CourtRentalId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<InvoiceItem>().HasOne<SportHub.Membership.Domain.Entities.MemberPackage>().WithMany()

@@ -218,6 +218,7 @@ export function SessionEditor({
   beforeSave,
   showWeeklySchedule = false,
   incidentFence,
+  initialMode = "reschedule",
 }: {
   session: CourseSessionDto;
   sportId: number;
@@ -230,6 +231,7 @@ export function SessionEditor({
   showReviewActions?: boolean;
   showWeeklySchedule?: boolean;
   incidentFence?: () => Promise<string>;
+  initialMode?: "reschedule" | "cancel";
   beforeSave?: () => Promise<void>;
   onOutcome?: (
     status: "pending" | "succeeded" | "failed" | "unknown",
@@ -239,9 +241,12 @@ export function SessionEditor({
   const { t } = useLanguage();
   const l = t.operations;
   const mutation = useMutation();
-  const [requestedMode, setMode] = useState("reschedule");
-  const mode =
-    confirmedCount > 0 && !incidentFence ? "reschedule" : requestedMode;
+  const [requestedMode, setMode] = useState<string>(initialMode);
+  const mode = incidentFence
+    ? "cancel"
+    : confirmedCount > 0
+      ? "reschedule"
+      : requestedMode;
   const [start, setStart] = useState(vietnamLocal(session.startAtUtc));
   const [roomId, setRoom] = useState(String(session.roomId));
   const [coachId, setCoach] = useState(session.coachId);
@@ -272,7 +277,13 @@ export function SessionEditor({
             hidden={review}
             className={embedded ? styles.fields : undefined}
           >
-            {(confirmedCount === 0 || incidentFence) && (
+            {incidentFence && (
+              <div className={styles.incidentMakeup}>
+                <strong>{t.classSessions.incidentMakeupTitle}</strong>
+                <p>{t.classSessions.incidentMakeupHint}</p>
+              </div>
+            )}
+            {confirmedCount === 0 && !incidentFence && (
               <Field label={l.edit}>
                 <select value={mode} onChange={(e) => setMode(e.target.value)}>
                   <option value="reschedule">{l.reschedule}</option>
@@ -280,7 +291,9 @@ export function SessionEditor({
                 </select>
               </Field>
             )}
-            <Field label={l.start}>
+            <Field
+              label={incidentFence ? t.classSessions.makeupStart : l.start}
+            >
               <input
                 required
                 type="datetime-local"

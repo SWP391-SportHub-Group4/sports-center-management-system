@@ -569,10 +569,10 @@ function GymCard({
       title={pkg.packageName}
       subtitle={tx(
         dayPass
-          ? "Vé Gym 1 ngày · hiệu lực 24 giờ"
+          ? "Gym day pass · valid until 22:00"
           : `Gym Membership · ${months} tháng`,
         dayPass
-          ? "Gym day pass · valid 24 hours"
+          ? "Gym day pass · valid until 22:00"
           : `Gym membership · ${months} ${months === 1 ? "month" : "months"}`,
       )}
       metric={
@@ -611,7 +611,10 @@ function GymCard({
                   }
                 />
                 <p className={styles.fine}>
-                  {tx("Hết hạn", "Expires")} <b>{formatDate(endDate)}</b>
+                  {tx("Hết hạn", "Expires")}{" "}
+                  <b>{dayPass && pkg.expiresAtUtc
+                    ? formatDateTime(pkg.expiresAtUtc)
+                    : formatDate(endDate)}</b>
                 </p>
               </>
             )}

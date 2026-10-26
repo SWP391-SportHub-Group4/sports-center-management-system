@@ -11,6 +11,7 @@ public class ClassConfiguration : IEntityTypeConfiguration<Class>
         {
             t.HasCheckConstraint("ck_classes_capacity", "capacity > 0");
             t.HasCheckConstraint("ck_classes_num_sessions", "num_sessions > 0");
+            t.HasCheckConstraint("ck_classes_session_minutes", "session_minutes IS NULL OR session_minutes BETWEEN 1 AND 720");
             // Chốt chặn overbooking ở DB (BR-51/115): 0 <= confirmed <= reserved <= capacity.
             t.HasCheckConstraint("ck_classes_counts", "confirmed_count >= 0 AND confirmed_count <= reserved_count AND reserved_count <= capacity");
             t.HasCheckConstraint("ck_classes_price", "price > 0 AND price % 1000 = 0");

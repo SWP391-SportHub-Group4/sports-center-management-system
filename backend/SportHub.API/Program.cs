@@ -74,9 +74,9 @@ var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordi
 if (seedCommands.Length > 0)
 {
     var cmd = seedCommands[0];
-    if (seedCommands.Length != 1 || cmd is not ("--seed-validation=true" or "--seed-validation" or "--seed-gym-six-months=true" or "--seed-gym-six-months" or "--seed-br141=true" or "--seed-br141" or "--seed-started-class=true" or "--seed-started-class"))
+    if (seedCommands.Length != 1 || cmd is not ("--seed-validation=true" or "--seed-validation" or "--seed-gym-six-months=true" or "--seed-gym-six-months" or "--seed-br141=true" or "--seed-br141" or "--seed-started-class=true" or "--seed-started-class" or "--seed-support=true" or "--seed-support" or "--seed-scenarios=true" or "--seed-scenarios"))
     {
-        Console.Error.WriteLine("Use --seed-validation=true, --seed-gym-six-months=true or --seed-br141=true for explicit local setup.");
+        Console.Error.WriteLine("Use --seed-validation=true, --seed-gym-six-months=true or --seed-br141=true or --seed-support=true or --seed-scenarios=true for explicit local setup.");
         Environment.ExitCode = 1;
         return;
     }
@@ -212,11 +212,22 @@ builder.Services.AddScoped<IUserAccountRepository, UserAccountRepository>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<SupportReminderService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ISupportInvoiceGuard, SportHub.Payment.Application.Services.SupportInvoiceGuard>();
 builder.Services.AddScoped<AvatarService>();
+builder.Services.AddHttpClient<AvatarAuditImageService>(client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddScoped<CoachCredentialService>();
+builder.Services.AddSingleton<CoachCredentialPdfCache>();
+builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(120));
+builder.Services.AddHostedService<CoachCredentialCleanupJob>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(60));
+builder.Services.AddHttpClient<IMediaVideoStorage, CloudinaryMediaVideoStorage>(client =>
+    client.Timeout = TimeSpan.FromSeconds(120));
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<EmailOtpFlow>();
 builder.Services.AddScoped<CoachSpecialtyService>();
@@ -278,6 +289,7 @@ builder.Services.AddScoped<IMembershipPackageService, MembershipPackageService>(
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipFulfillment, MembershipFulfillment>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipAccessReader, MembershipAccessReader>();
 builder.Services.AddScoped<IMemberPackageService, MemberPackageService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IIncidentDayPassService, IncidentDayPassService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipClosureExtension, MembershipClosureExtension>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.IGymClosureReader, SportHub.Scheduling.Rental.Application.GymClosureReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IMembershipRefundFulfillment, MembershipRefundFulfillment>();
@@ -309,6 +321,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICour
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ClassTeachingService>();
 builder.Services.AddScoped<ClassSessionReminderService>();
+builder.Services.AddScoped<CoachAttendanceReminderService>();
 builder.Services.AddScoped<ClassSessionChangeRequestService>();
 builder.Services.AddScoped<CourseCancellationService>();
 builder.Services.AddScoped<SportHub.Scheduling.Threshold.Application.IClassThresholdService,
@@ -335,6 +348,10 @@ builder.Services.AddScoped<IPackageActivationService, PackageActivationService>(
 builder.Services.AddScoped<IPaymentAdjustmentService, PaymentAdjustmentService>();
 builder.Services.AddScoped<IPointRefundService, PointRefundService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IRefundCreditService, RefundCreditService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICenterCancellationReader,
+    SportHub.Scheduling.Application.Services.CenterCancellationReader>();
+builder.Services.AddScoped<SportHub.Payment.Application.Services.ICenterCancellationRefundService,
+    SportHub.Payment.Application.Services.CenterCancellationRefundService>();
 builder.Services.AddScoped<IInvoiceReceiptService, InvoiceReceiptService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
 builder.Services.AddScoped<SportHub.Payment.Application.Services.ReportReconciliationService>();
@@ -342,6 +359,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IReven
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.WalletQueryService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointAdjustmentService>();
+builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointGiftLimitService>();
 builder.Services.AddScoped<SportHub.Payment.Wallet.Application.PointConfirmationService>();
 var vnPaySection = builder.Configuration.GetSection(VnPayOptions.SectionName);
 if (!builder.Environment.IsDevelopment())
@@ -365,6 +383,7 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.ICheckou
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IInvoiceDraftWriter, InvoiceDraftWriter>();
 builder.Services.AddScoped<PaymentFulfillmentService>();
 builder.Services.AddScoped<PaymentReconciliationService>();
+builder.Services.AddScoped<UnactivatedPaymentResolutionService>();
 builder.Services.AddScoped<CheckoutExpiryService>();
 
 // Training — một instance phục vụ cả interface nghiệp vụ lẫn seam ICoachRelationshipRegistrar
@@ -428,17 +447,20 @@ builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();
 builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddScoped<MemberCourseNotificationService>();
 builder.Services.AddHostedService<MemberCourseNotificationsJob>();
-builder.Services.AddScoped<CoachAttendanceReminderService>();
 builder.Services.AddHostedService<CoachAttendanceReminderJob>();
 builder.Services.AddHostedService<StaffInvitationExpiryJob>();
 builder.Services.AddHostedService<MemberInvitationExpiryJob>();
 builder.Services.AddHostedService<ClassStatusJob>();
 builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
 builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
+builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
 builder.Services.AddHostedService<RentalStatusJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
+builder.Services.AddHostedService<SupportSlaReminderJob>();
+builder.Services.AddScoped<SupportPayoutMaintenance>();
+builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
 builder.Services.AddHostedService<PointHoldExpiryJob>();
 builder.Services.AddHostedService<NotificationDispatchJob>();
 builder.Services.AddHostedService<AvatarDeletionJob>();
@@ -465,6 +487,8 @@ builder.Services.AddScoped<SystemValidationSeeder>();
 builder.Services.AddScoped<InitialAdminBootstrapper>();
 builder.Services.AddScoped<Br141Seeder>();
 builder.Services.AddScoped<StartedClassSeeder>();
+builder.Services.AddScoped<SupportScenarioSeeder>();
+builder.Services.AddScoped<SystemScenarioSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
@@ -506,7 +530,9 @@ if (seedCommands.Length > 0)
     try {
         var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
         var cmd = seedCommands[0];
-        if (cmd is "--seed-br141=true" or "--seed-br141") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
+        if (cmd is "--seed-scenarios=true" or "--seed-scenarios") await scope.ServiceProvider.GetRequiredService<SystemScenarioSeeder>().SeedAsync();
+        else if (cmd is "--seed-support=true" or "--seed-support") await scope.ServiceProvider.GetRequiredService<SupportScenarioSeeder>().SeedAsync();
+        else if (cmd is "--seed-br141=true" or "--seed-br141") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
         else if (cmd is "--seed-started-class=true" or "--seed-started-class") await scope.ServiceProvider.GetRequiredService<StartedClassSeeder>().SeedAsync();
         else if (cmd is "--seed-gym-six-months=true" or "--seed-gym-six-months") await seeder.SeedGymSixMonthsAsync();
         else await seeder.SeedAsync();

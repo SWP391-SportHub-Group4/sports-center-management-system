@@ -1,35 +1,21 @@
-import baseline from "./media-restore-baseline.json";
 import {
   FEATURED_COACH_IDS,
-  featuredCoachIds,
   suggestHomepageCoaches,
   type HomepageCoach,
 } from "@/components/homepage/homepage-showcase";
+import { originalHeroBackground } from "@/components/homepage/hero-background";
 
-/** A fixed restore point, independent of subsequent Media publishes. Catalog names stay live. */
+/**
+ * Restore the built-in landing page from main (9c695b74), with the Gym label.
+ * An absent override uses the same original copy/image in Media and the public
+ * page, including each language's own copy. Never reuse a published Media draft
+ * as the original. Sports and coach profiles remain owned by their catalogs.
+ */
 export function restoreMediaBaseline(
-  current: Record<string, string>,
   coaches: HomepageCoach[],
 ): Record<string, string> {
-  const available = new Set(coaches.map((coach) => coach.userId));
-  const preferred = featuredCoachIds(baseline.values) ?? [];
-  const ids = [
-    ...new Set([
-      ...preferred,
-      ...(featuredCoachIds(current) ?? []),
-      ...suggestHomepageCoaches(coaches).map((coach) => coach.userId),
-    ]),
-  ]
-    .filter((id) => available.has(id))
-    .slice(0, 3);
-  // Locked copy is preserved; reset every image and legacy coach crop to the saved restore point.
-  const copy = Object.fromEntries(
-    Object.entries(current).filter(
-      ([key]) =>
-        !/\.(image|src)$/.test(key) &&
-        key !== FEATURED_COACH_IDS &&
-        !key.startsWith("bookmarks.coachFrame."),
-    ),
-  );
-  return { ...copy, ...baseline.values, [FEATURED_COACH_IDS]: ids.join(",") };
+  const ids = suggestHomepageCoaches(coaches).map((coach) => coach.userId);
+  // The publishing API requires three eligible coach IDs; everything else
+  // falls back to the original shared defaults rather than a database snapshot.
+  return { [FEATURED_COACH_IDS]: ids.join(","), ...originalHeroBackground };
 }

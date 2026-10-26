@@ -4,25 +4,65 @@ import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { AsyncSection, Field } from "@/components/ui";
+import { useOperatingHoursPopup } from "@/components/OperatingHoursPopup";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import type { OpeningHourDto } from "@/lib/types";
 import { catalogApi } from "./api";
 import styles from "./manager-catalog.module.css";
-export function OpeningHoursEditor({ roomId }: { roomId: number }) {
+import {
+  loadCenterHours,
+  centerHoursHint,
+  centerHoursError,
+} from "@/lib/center-hours";
+export function OpeningHoursEditor({
+  roomId,
+  showHeading = true,
+  showInstructions = true,
+  showTimezone = true,
+}: {
+  roomId: number;
+  showHeading?: boolean;
+  showInstructions?: boolean;
+  showTimezone?: boolean;
+}) {
   const { t } = useLanguage();
   const l = t.operations;
-  const state = useApi((s) => catalogApi.hours(roomId, s), [roomId]);
+  const notice = useOperatingHoursPopup();
+  const state = useApi(
+    async (signal) => {
+      const [hours, center] = await Promise.all([
+        catalogApi.hours(roomId, signal),
+        loadCenterHours(signal),
+      ]);
+      return { hours, center };
+    },
+    [roomId],
+  );
   const mutation = useMutation();
   const [draft, setDraft] = useState<OpeningHourDto[] | null>(null);
   return (
     <AsyncSection state={state}>
       {(data) => {
-        const hours = draft ?? data;
+        const hours = draft ?? data.hours;
+        const center = data.center;
+        const invalid = hours.some(
+          (h) =>
+            h.closeTimeLocal <= h.openTimeLocal ||
+            h.openTimeLocal < center.opens ||
+            h.closeTimeLocal > center.closes,
+        );
         return (
           <form
             className="stack"
+            onChangeCapture={(event) =>
+              notice.checkTime(event, centerHoursError(center))
+            }
+            onInvalidCapture={(event) =>
+              notice.checkTime(event, centerHoursError(center))
+            }
             onSubmit={async (e) => {
               e.preventDefault();
+              if (invalid) return;
               if (
                 await mutation.run(() =>
                   api.put(`/api/manager/rooms/${roomId}/opening-hours`, {
@@ -35,8 +75,10 @@ export function OpeningHoursEditor({ roomId }: { roomId: number }) {
               }
             }}
           >
-            <h3>{l.openingHours}</h3>
-            <p className={styles.hoursHint}>{t.facilityHours.hint}</p>
+            {notice.popup}
+            {showHeading && <h3>{l.openingHours}</h3>}
+            {showInstructions && <p className={styles.hoursHint}>{t.facilityHours.hint}</p>}
+            <p className={styles.hoursHint}>{showTimezone ? centerHoursHint(center) : centerHoursHint(center).replace(" (Vietnam time)", "")}</p>
             <fieldset disabled={mutation.busy} className={styles.formFields}>
               <div className={styles.hoursList}>
                 {l.weekdays.map((name, dayOfWeek) => {
@@ -60,8 +102,8 @@ export function OpeningHoursEditor({ roomId }: { roomId: number }) {
                                     ...hours,
                                     {
                                       dayOfWeek,
-                                      openTimeLocal: "06:00",
-                                      closeTimeLocal: "22:00",
+                                      openTimeLocal: center.opens,
+                                      closeTimeLocal: center.closes,
                                     },
                                   ]
                                 : hours.filter(
@@ -77,6 +119,8 @@ export function OpeningHoursEditor({ roomId }: { roomId: number }) {
                           <Field label={t.facilityHours.openTime}>
                             <input
                               type="time"
+                              min={center.opens}
+                              max={center.closes}
                               required
                               value={row.openTimeLocal}
                               onChange={(e) =>
@@ -93,6 +137,8 @@ export function OpeningHoursEditor({ roomId }: { roomId: number }) {
                           <Field label={t.facilityHours.closeTime}>
                             <input
                               type="time"
+                              min={center.opens}
+                              max={center.closes}
                               required
                               value={row.closeTimeLocal}
                               onChange={(e) =>
@@ -121,13 +167,7 @@ export function OpeningHoursEditor({ roomId }: { roomId: number }) {
               </div>
             </fieldset>
             <div className="btn-row">
-              <button
-                className="btn"
-                disabled={
-                  mutation.busy ||
-                  hours.some((h) => h.closeTimeLocal <= h.openTimeLocal)
-                }
-              >
+              <button className="btn" disabled={mutation.busy || invalid}>
                 {l.save}
               </button>
             </div>

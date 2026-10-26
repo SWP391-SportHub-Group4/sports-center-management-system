@@ -35,6 +35,9 @@ public class Class
 
     public int NumSessions { get; set; }
 
+    /// <summary>Class-specific duration; null preserves the sport default for legacy drafts.</summary>
+    public int? SessionMinutes { get; set; }
+
     public int Capacity { get; set; }
 
     /// <summary>Giá cả khóa (VND, dương, bội số 1.000).</summary>

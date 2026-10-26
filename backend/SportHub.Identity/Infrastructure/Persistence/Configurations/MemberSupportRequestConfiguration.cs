@@ -32,6 +32,13 @@ public sealed class MemberSupportRequestConfiguration
 
         builder.Property(x => x.ProgressNote).HasMaxLength(1000);
         builder.Property(x => x.Channel).HasMaxLength(20).HasDefaultValue("COUNTER").IsRequired();
+        builder.Property(x => x.SlaDueAtUtc).IsRequired();
+        builder.HasIndex(x => x.InvoiceId)
+            .IsUnique()
+            .HasFilter("invoice_id IS NOT NULL AND invoice_item_id IS NULL AND status NOT IN ('CLOSED', 'DONE', 'REJECTED')");
+        builder.HasIndex(x => x.InvoiceItemId).IsUnique()
+            .HasFilter("invoice_item_id IS NOT NULL AND status NOT IN ('CLOSED', 'DONE', 'REJECTED')");
+        builder.HasIndex(x => new { x.Status, x.SlaDueAtUtc });
         builder.HasIndex(x => new { x.Status, x.UpdatedAt });
         builder.HasOne<UserAccount>().WithMany().HasForeignKey(x => x.AssignedToUserId)
             .OnDelete(DeleteBehavior.Restrict);

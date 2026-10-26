@@ -21,6 +21,18 @@
 .form {
   min-width: 0;
 }
+.incidentMakeup {
+  grid-column: 1 / -1;
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+.incidentMakeup p {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  max-width: 75ch;
+}
 .editorLayout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

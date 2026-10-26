@@ -5,6 +5,18 @@ namespace SportHub.Scheduling.Tests.Unit;
 
 public sealed class CourseScheduleRulesTests
 {
+    [Theory]
+    [InlineData(2026, 10, 25)]
+    [InlineData(2028, 2, 29)]
+    public void Opening_date_allows_calendar_year_boundary_and_rejects_next_day(int year, int month, int day)
+    {
+        var today = new DateOnly(year, month, day);
+        CourseRules.ValidateStartDateWithinYear(today.AddYears(1), today);
+        var error = Assert.Throws<BadRequestException>(() =>
+            CourseRules.ValidateStartDateWithinYear(today.AddYears(1).AddDays(1), today));
+        Assert.Equal("start_date_too_far", error.ErrorCode);
+    }
+
     [Fact]
     public void Generates_exact_count_in_time_order_using_Vietnam_timezone_and_sport_duration()
     {

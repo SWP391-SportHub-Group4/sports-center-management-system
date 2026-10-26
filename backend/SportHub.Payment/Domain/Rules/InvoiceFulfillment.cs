@@ -10,6 +10,7 @@ public static class InvoiceFulfillment
     public static string Outcome(InvoiceStatus status, string? paidVia, bool reconciliationRequired)
         => HasBenefits(status, paidVia) ? "Fulfilled"
             : reconciliationRequired ? "ReconciliationRequired"
-            : status == InvoiceStatus.PaidAfterReconciliation && paidVia == "VnPayCompensated" ? "Compensated"
+            : status == InvoiceStatus.Compensated
+                || status == InvoiceStatus.PaidAfterReconciliation && paidVia == "VnPayCompensated" ? "Compensated"
             : "Pending";
 }

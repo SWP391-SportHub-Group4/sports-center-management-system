@@ -18,6 +18,26 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             && x.ReferenceType == "SystemEvent" && x.EntryType == PointEntryType.Earn)
             .SumAsync(x => (int?)x.Points, cancellationToken) ?? 0;
 
+    public async Task<RefundItemBalance> GetItemBalanceAsync(Guid invoiceItemId, CancellationToken ct = default)
+    {
+        var item = await db.Set<InvoiceItem>().AsNoTracking().SingleOrDefaultAsync(x => x.ItemId == invoiceItemId, ct)
+            ?? throw new NotFoundException("invoice_item_not_found", "Invoice item not found.");
+        var invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync(x => x.InvoiceId == item.InvoiceId, ct);
+        var paid = InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia);
+        var ledger = await db.Set<PointLedgerEntry>().Where(x => x.InvoiceItemId == invoiceItemId
+            && x.EntryType == PointEntryType.Earn && (x.ReferenceType == "SystemEvent" || x.ReferenceType == "ClassTransferDifference"))
+            .SumAsync(x => (int?)x.Points, ct) ?? 0;
+        var adjusted = await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == invoiceItemId
+            && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Completed)
+            .SumAsync(x => (int?)x.ApprovedPoints, ct) ?? 0;
+        var cashRefund = await db.Set<PaymentAdjustment>().Where(x => x.InvoiceItemId == invoiceItemId
+            && x.Type == PaymentAdjustmentType.Refund && x.Status == PaymentAdjustmentStatus.Completed && x.ApprovedPoints == 0)
+            .SumAsync(x => (decimal?)x.Amount, ct) ?? 0m;
+        var refunded = checked(ledger + adjusted + (int)decimal.Floor(cashRefund / RefundCalculator.VndPerPoint));
+        var remaining = paid ? await RemainingPaidValueVndAsync(invoice, item, ct) : 0m;
+        return new(item.InvoiceId, paid || refunded > 0, checked((int)decimal.Floor(remaining / RefundCalculator.VndPerPoint)), refunded);
+    }
+
     public async Task<RefundCreditResult> CreditAsync(RefundCreditRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -50,7 +70,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             cancellationToken);
         if (prior is not null)
         {
-            if (prior.Note != request.Reason.Trim())
+            if ((request.ExactPoints.HasValue && request.ExactPoints != prior.Points) || prior.Note != request.Reason.Trim())
                 throw new ConflictException("refund_event_reference_conflict", "Refund event reference conflict.");
             return new RefundCreditResult(prior.Points, true);
         }
@@ -59,9 +79,11 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
 
         var value = await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
-        var points = request.ProratedNumerator is int numerator && request.ProratedDenominator is int total
+        if (request.ExactPoints is int exact && (exact < 0 || exact * (decimal)RefundCalculator.VndPerPoint > value))
+            throw new ConflictException("refund_exceeds_remaining_value", "Refund points exceed the remaining paid value. Refresh the preview.");
+        var points = request.ExactPoints ?? (request.ProratedNumerator is int numerator && request.ProratedDenominator is int total
             ? checked((int)decimal.Floor(value * numerator / total / RefundCalculator.VndPerPoint))
-            : RefundCalculator.PointsForRatio(value, request.RefundRatioPercent);
+            : RefundCalculator.PointsForRatio(value, request.RefundRatioPercent));
         if (points == 0) return new RefundCreditResult(0, false);
         var result = await wallets.EarnAsync(new WalletOperation(invoice.MemberId, points,
             "SystemEvent", request.EventId, null, request.Reason.Trim(), item.ItemId), cancellationToken);
@@ -172,7 +194,10 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         var transferPoints = await db.Set<PointLedgerEntry>().Where(x => x.InvoiceItemId == item.ItemId
                 && x.ReferenceType == "ClassTransferDifference" && x.EntryType == PointEntryType.Earn)
             .SumAsync(x => (int?)x.Points, ct) ?? 0;
-        return Math.Max(0m, paidShare + paidTransferDifferences - (requestedPoints + systemPoints)
+        var bankPaid = await db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>()
+            .Where(p => p.InvoiceId == invoice.InvoiceId && (p.InvoiceItemId == item.ItemId || p.InvoiceItemId == null))
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+        return Math.Max(0m, paidShare + paidTransferDifferences - bankPaid - (requestedPoints + systemPoints)
             * (decimal)RefundCalculator.VndPerPoint - oldCash
             - transferPoints * (decimal)RefundCalculator.VndPerPoint);
     }

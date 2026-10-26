@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare, Plus, Search, UserRound } from "lucide-react";
+import { BellRing, MessageSquare, Plus, Search, UserRound } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
+import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDateTime } from "@/lib/format";
+import {
+  SupportStatus,
+  SUPPORT_STATUS_FILTERS,
+} from "@/components/support-status";
 import {
   SUPPORT_CATEGORIES,
   supportCategoryLabel,
@@ -14,7 +19,7 @@ import type { MemberSupportRequestDto, Paged } from "@/lib/types";
 import type { SupportAssignee } from "./support-request-actions";
 import { SupportCreateDialog } from "./support-create-dialog";
 import { SupportDetail } from "./support-detail";
-import { STATUS_LABELS } from "./support-shared";
+import { supportReference } from "./support-shared";
 import styles from "./support-center.module.css";
 
 const PAGE_SIZE = 20;
@@ -23,25 +28,28 @@ const emptyFilters = {
   category: "",
   search: "",
   assignedToUserId: "",
+  overdue: "",
 };
 
 type SupportStats = {
+  notStarted: number;
   open: number;
   assigned: number;
   inProgress: number;
   done: number;
   rejected: number;
+  overdue: number;
 };
 const summaryCards: {
   key: keyof SupportStats;
   label: string;
   status: string;
 }[] = [
-  { key: "open", label: "New", status: "OPEN" },
+  { key: "open", label: "Received", status: "OPEN" },
   { key: "assigned", label: "Assigned", status: "ASSIGNED" },
   { key: "inProgress", label: "In progress", status: "IN_PROGRESS" },
-  { key: "done", label: "Done", status: "DONE" },
-  { key: "rejected", label: "Rejected", status: "REJECTED" },
+  { key: "done", label: "Done", status: "FINISHED" },
+  { key: "rejected", label: "Reject", status: "REJECTED" },
 ];
 
 /** Support requests workspace for the front desk and managers: filterable list plus a detail panel. */
@@ -49,10 +57,20 @@ export function SupportQueue({
   workspace = "receptionist",
   onChanged,
 }: {
-  workspace?: "manager" | "receptionist";
+  workspace?: "manager" | "receptionist" | "coach" | "admin";
   onChanged?: () => void;
 }) {
   const { user } = useAuth();
+  const isManager = workspace === "manager";
+  const isReceiver = workspace === "coach" || workspace === "admin";
+  const cards = isReceiver
+    ? [
+        { key: "notStarted" as const, label: "Not started", status: "NOT_STARTED" },
+        { key: "inProgress" as const, label: "In progress", status: "IN_PROGRESS" },
+        { key: "done" as const, label: "Done", status: "FINISHED" },
+      ]
+    : summaryCards;
+
   const stats = useApi(
     (signal) =>
       api.get<SupportStats>("/api/member-support-requests/stats", { signal }),
@@ -60,10 +78,12 @@ export function SupportQueue({
   );
   const assignees = useApi(
     (signal) =>
-      api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
-        signal,
-      }),
-    [],
+      isReceiver
+        ? Promise.resolve([] as SupportAssignee[])
+        : api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
+            signal,
+          }),
+    [isReceiver],
   );
   const [filters, setFilters] = useState(emptyFilters);
   const [search, setSearch] = useState("");
@@ -72,12 +92,22 @@ export function SupportQueue({
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
   const detailRef = useRef<HTMLDivElement>(null);
+  const openedLink = useRef<string | null>(null);
+  const { values: link, setValues: setLink } = useUrlQuery(
+    { request: "", overdue: "" },
+    { overdue: choiceQuery(["", "1"], "") },
+  );
 
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("request");
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (id) setPicked(id);
-  }, []);
+    setPicked(link.request || null);
+    setFilters({
+      ...emptyFilters,
+      overdue: link.overdue === "1" ? "true" : "",
+    });
+    setPage(1);
+    setSearch("");
+  }, [link.request, link.overdue]);
 
   // Typing in the search box filters after a short pause.
   useEffect(() => {
@@ -94,7 +124,15 @@ export function SupportQueue({
     (signal) =>
       api.get<Paged<MemberSupportRequestDto>>(
         "/api/member-support-requests/queue",
-        { signal, query: { ...filters, page, pageSize: PAGE_SIZE } },
+        {
+          signal,
+          query: {
+            ...filters,
+            overdue: filters.overdue || undefined,
+            page,
+            pageSize: PAGE_SIZE,
+          },
+        },
       ),
     [filters, page],
   );
@@ -119,14 +157,37 @@ export function SupportQueue({
     [missing, picked],
   );
   const selected = missing
-    ? (linked.data ?? null)
+    ? linked.data?.requestId === picked
+      ? linked.data
+      : null
     : (items.find((x) => x.requestId === picked) ?? items[0] ?? null);
+  const openedFromLink = isManager && !!link.request && picked === link.request;
+  useEffect(() => {
+    if (!link.request) openedLink.current = null;
+    if (
+      !openedFromLink ||
+      selected?.requestId !== link.request ||
+      openedLink.current === link.request
+    )
+      return;
+    const frame = window.requestAnimationFrame(() => {
+      openedLink.current = link.request;
+      detailRef.current?.focus({ preventScroll: true });
+      if (window.matchMedia("(max-width: 1100px)").matches)
+        detailRef.current?.scrollIntoView({
+          block: "start",
+          behavior: "instant",
+        });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [openedFromLink, selected?.requestId, link.request]);
 
   const filtered = !!(
     filters.search ||
     filters.status ||
     filters.category ||
-    filters.assignedToUserId
+    filters.assignedToUserId ||
+    filters.overdue
   );
 
   function patch(next: Partial<typeof filters>) {
@@ -145,24 +206,26 @@ export function SupportQueue({
     onChanged?.();
     queue.reload();
     stats.reload();
+    linked.reload();
   }
 
   return (
     <section className={styles.page} aria-label="Support requests">
-      <div className={styles.head}>
-        <h2>Support requests</h2>
-        <button
-          type="button"
-          className={`btn ${styles.primary}`}
-          onClick={() => setCreating(true)}
-        >
-          <Plus size={18} aria-hidden="true" />
-          Record a request for member
-        </button>
-      </div>
+      {!isReceiver && (
+        <div className={styles.head}>
+          <button
+            type="button"
+            className={`btn ${styles.primary}`}
+            onClick={() => setCreating(true)}
+          >
+            <Plus size={18} aria-hidden="true" />
+            Record a request for member
+          </button>
+        </div>
+      )}
 
       <div className={styles.stats} role="group" aria-label="Filter by status">
-        {summaryCards.map((item) => (
+        {cards.map((item) => (
           <button
             key={item.key}
             type="button"
@@ -171,6 +234,7 @@ export function SupportQueue({
             onClick={() =>
               patch({
                 status: filters.status === item.status ? "" : item.status,
+                overdue: "",
               })
             }
           >
@@ -183,6 +247,25 @@ export function SupportQueue({
             </strong>
           </button>
         ))}
+        <button
+          type="button"
+          className={styles.stat}
+          aria-pressed={filters.overdue === "true"}
+          onClick={() =>
+            patch({
+              overdue: filters.overdue === "true" ? "" : "true",
+              status: "",
+            })
+          }
+        >
+          <span className={styles.statLabel}>
+            <span className={styles.dot} data-status="OVERDUE" />
+            Overdue
+          </span>
+          <strong className={styles.statValue}>
+            {stats.data ? stats.data.overdue : "—"}
+          </strong>
+        </button>
       </div>
 
       <div className={styles.filters}>
@@ -194,32 +277,36 @@ export function SupportQueue({
               type="search"
               value={search}
               maxLength={200}
-              placeholder="Search name, email, subject…"
+              placeholder={
+                isManager
+                  ? "Search name, email, message…"
+                  : "Search name, email, subject…"
+              }
               onChange={(e) => setSearch(e.target.value)}
             />
           </span>
         </label>
         <label>
-          Status
-          <select
-            value={filters.status}
-            onChange={(e) => patch({ status: e.target.value })}
-          >
-            <option value="">All statuses</option>
-            {summaryCards.map((c) => (
-              <option key={c.status} value={c.status}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            Status
+            <select
+              value={filters.status}
+              onChange={(e) => patch({ status: e.target.value })}
+            >
+              <option value="">All statuses</option>
+              {SUPPORT_STATUS_FILTERS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
         <label>
-          Request type
+          {isManager ? "Topic" : "Request type"}
           <select
             value={filters.category}
             onChange={(e) => patch({ category: e.target.value })}
           >
-            <option value="">All types</option>
+            <option value="">{isManager ? "All topics" : "All types"}</option>
             {SUPPORT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -227,23 +314,25 @@ export function SupportQueue({
             ))}
           </select>
         </label>
-        <label>
-          Assigned staff
-          <select
-            value={filters.assignedToUserId}
-            onChange={(e) => patch({ assignedToUserId: e.target.value })}
-          >
-            <option value="">All staff</option>
-            {user && <option value={user.userId}>Assigned to me</option>}
-            {assignees.data
-              ?.filter((x) => x.userId !== user?.userId)
-              .map((x) => (
-                <option key={x.userId} value={x.userId}>
-                  {x.name}
-                </option>
-              ))}
-          </select>
-        </label>
+        {!isReceiver && (
+          <label>
+            Assigned staff
+            <select
+              value={filters.assignedToUserId}
+              onChange={(e) => patch({ assignedToUserId: e.target.value })}
+            >
+              <option value="">All staff</option>
+              {user && <option value={user.userId}>Assigned to me</option>}
+              {assignees.data
+                ?.filter((x) => x.userId !== user?.userId)
+                .map((x) => (
+                  <option key={x.userId} value={x.userId}>
+                    {x.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
         {filtered && (
           <button
             type="button"
@@ -321,8 +410,6 @@ export function SupportQueue({
           {items.length > 0 && (
             <ul className={styles.list} aria-busy={queue.loading}>
               {items.map((request) => {
-                const status =
-                  request.status === "CLOSED" ? "DONE" : request.status;
                 return (
                   <li key={request.requestId}>
                     <button
@@ -343,18 +430,30 @@ export function SupportQueue({
                     >
                       <span className={styles.rowTop}>
                         <span className={styles.rowBadges}>
-                          <span className={styles.badge}>
-                            <span className={styles.dot} data-status={status} />
-                            {STATUS_LABELS[status] ?? status}
-                          </span>
+                          <SupportStatus status={request.status} />
+                          {request.isOverdue && (
+                            <span className={styles.overdueBadge}>Overdue</span>
+                          )}
                         </span>
                         <span className={styles.rowDate}>
                           {formatDateTime(request.createdAt)}
                         </span>
                       </span>
                       <span className={styles.rowSubject}>
-                        {request.subject}
+                        {isManager
+                          ? supportCategoryLabel(request.category)
+                          : request.subject}
                       </span>
+                      {isManager && (
+                        <>
+                          <span className={styles.rowMember}>
+                            Ref {supportReference(request.requestId)}
+                          </span>
+                          <span className={styles.rowPreview}>
+                            {request.description}
+                          </span>
+                        </>
+                      )}
                       <span className={styles.rowMember}>
                         {request.memberName || request.memberEmail || "Member"}
                       </span>
@@ -410,15 +509,90 @@ export function SupportQueue({
           )}
         </div>
 
-        <div className={styles.detailCard} ref={detailRef} aria-live="polite">
+        <div
+          className={styles.detailCard}
+          ref={detailRef}
+          tabIndex={-1}
+          role="region"
+          aria-label="Support request details"
+          aria-live="polite"
+        >
           {selected ? (
-            <SupportDetail
-              key={selected.requestId}
-              request={selected}
-              assignees={assignees.data ?? []}
-              workspace={workspace}
-              onChanged={refresh}
-            />
+            <>
+              {openedFromLink && (
+                <section
+                  className={styles.linkedRequest}
+                  aria-label="Linked support request"
+                >
+                  <BellRing size={20} aria-hidden="true" />
+                  <div>
+                    <h3>Request {supportReference(selected.requestId)}</h3>
+                    <p>
+                      {["DONE", "REJECTED", "CLOSED"].includes(selected.status)
+                        ? "This request has already been finalized. Review the current outcome and reply below."
+                        : link.overdue === "1" && !selected.isOverdue
+                          ? "This request is no longer overdue. Its latest status and updates are shown below."
+                          : selected.isOverdue
+                            ? "This request is overdue. Review the latest reply and activity before taking action."
+                            : "You are viewing the linked request. Check its latest status, reply and payout details below."}
+                    </p>
+                    {missing && (
+                      <p>
+                        This request is outside the current list. It is
+                        displayed here so you can review it.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.queueLink}
+                      onClick={() => {
+                        setLink({ request: "", overdue: "" });
+                        clearFilters();
+                      }}
+                    >
+                      View all support requests
+                    </button>
+                  </div>
+                </section>
+              )}
+              <SupportDetail
+                key={selected.requestId}
+                request={selected}
+                assignees={assignees.data ?? []}
+                workspace={workspace}
+                onChanged={refresh}
+              />
+            </>
+          ) : missing && linked.error ? (
+            <div className={styles.state} role="alert">
+              <MessageSquare size={26} aria-hidden="true" />
+              <h3>This request couldn’t open</h3>
+              <p>
+                It may have been removed, or you may no longer have access. Try
+                again or return to the queue.
+              </p>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={linked.reload}
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                className={styles.queueLink}
+                onClick={() => {
+                  setLink({ request: "", overdue: "" });
+                  clearFilters();
+                }}
+              >
+                View all support requests
+              </button>
+            </div>
+          ) : missing && linked.loading ? (
+            <div className={styles.state} role="status">
+              Opening the linked request…
+            </div>
           ) : (
             <div className={styles.state}>
               <MessageSquare size={26} aria-hidden="true" />
@@ -429,8 +603,9 @@ export function SupportQueue({
         </div>
       </div>
 
-      {creating && (
+      {creating && !isReceiver && (
         <SupportCreateDialog
+          workspace={workspace === "manager" ? "manager" : "receptionist"}
           assignees={assignees.data ?? []}
           onClose={() => setCreating(false)}
           onCreated={(message) => {

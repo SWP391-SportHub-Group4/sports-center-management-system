@@ -47,6 +47,7 @@ export function useCatalogFilters() {
   const values = {
     q: params.get("q") ?? "",
     status: params.get("status") ?? "",
+    rentalStatus: params.get("rentalStatus") ?? "",
     roomType: params.get("roomType") ?? "",
     service: params.get("service") ?? "",
   };
@@ -122,6 +123,7 @@ export function CatalogTable<Row>({
   actions,
   filters,
   visibleRowActions,
+  className,
 }: {
   state: AsyncState<Row[]>;
   rows: Row[];
@@ -131,6 +133,7 @@ export function CatalogTable<Row>({
   actions: (row: Row) => ReactNode;
   filters: ReturnType<typeof useCatalogFilters>;
   visibleRowActions?: number;
+  className?: string;
 }) {
   const { t } = useLanguage();
   if (state.error)
@@ -157,7 +160,7 @@ export function CatalogTable<Row>({
     Math.max(1, Math.ceil(rows.length / pageSize)),
   );
   return (
-    <div className={styles.catalogTable}>
+    <div className={`${styles.catalogTable} ${className ?? ""}`}>
       <Table
         caption={caption}
         columns={columns}

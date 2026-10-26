@@ -96,3 +96,25 @@
     animation: none;
   }
 }
+.credentialsLink {
+  display: inline-flex;
+  color: var(--color-primary-soft-text);
+  font-size: 13px;
+  font-weight: 650;
+  margin-top: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.identity {
+  color: inherit;
+  text-decoration: none;
+}
+.identity:hover h3 {
+  color: var(--color-primary);
+}
+.identity:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--radius-xs);
+}

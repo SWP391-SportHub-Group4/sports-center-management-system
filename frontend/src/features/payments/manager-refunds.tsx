@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useManagerRequestRead } from "@/lib/manager-request-reads";
 import { AsyncSection, Field, Pager, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
@@ -29,6 +30,8 @@ function RefundCard({
   reload: () => void;
 }) {
   const { t } = useLanguage();
+  const cardRef = useRef<HTMLElement>(null);
+  useManagerRequestRead("refunds", r.adjustmentId, true, cardRef);
   const l = t.staffWork;
   const f = t.finOps;
   const { user } = useAuth();
@@ -37,7 +40,9 @@ function RefundCard({
   const [percent, setPercent] = useState("");
   const mutation = useMutation();
   const canReview =
-    r.status === "REQUESTED" && r.requestedByUserId !== user?.userId;
+    !!r.invoiceItemId &&
+    r.status === "REQUESTED" &&
+    r.requestedByUserId !== user?.userId;
   const quote = useApi(
     (signal) =>
       canReview
@@ -98,7 +103,7 @@ function RefundCard({
   }
 
   return (
-    <article className={styles.card}>
+    <article className={styles.card} ref={cardRef}>
       <div className={styles.cardHead}>
         <strong>{r.invoiceNumber}</strong>
         <StatusChip value={r.status} />
@@ -141,7 +146,7 @@ function RefundCard({
           {l.ledger}: {r.pointLedgerEntryId}
         </p>
       )}
-      {r.status === "REQUESTED" && !canReview && (
+      {r.status === "REQUESTED" && r.requestedByUserId === user?.userId && (
         <p className={styles.muted}>{l.refundSelf}</p>
       )}
       {canReview && (
@@ -232,24 +237,20 @@ function RefundCard({
   );
 }
 
-/** Hàng đợi hoàn điểm (Q20): mặc định chờ duyệt; lịch sử cũ chỉ đọc. Hoàn chỉ bằng điểm. */
+/** Hàng đợi hoàn điểm (Q20): mặc định chờ duyệt. Hoàn chỉ bằng điểm. */
 export function ManagerRefunds({ onChanged }: { onChanged?: () => void } = {}) {
   const { t } = useLanguage();
   const l = t.staffWork;
   const f = t.finOps;
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<(typeof VIEWS)[number]>("REQUESTED");
-  const [legacy, setLegacy] = useState(false);
   const state = useApi(
     (signal) =>
-      api.get<Paged<PaymentAdjustmentDto>>(
-        legacy ? "/api/payment-adjustments" : "/api/refunds",
-        {
-          signal,
-          query: { page, pageSize: 20, status },
-        },
-      ),
-    [page, status, legacy],
+      api.get<Paged<PaymentAdjustmentDto>>("/api/refunds", {
+        signal,
+        query: { page, pageSize: 20, status },
+      }),
+    [page, status],
   );
   const labels: Record<(typeof VIEWS)[number], string> = {
     REQUESTED: f.refundWaiting,
@@ -275,46 +276,22 @@ export function ManagerRefunds({ onChanged }: { onChanged?: () => void } = {}) {
           </button>
         ))}
       </div>
-      <label className={styles.check}>
-        <input
-          type="checkbox"
-          checked={legacy}
-          onChange={(e) => {
-            setLegacy(e.target.checked);
-            setPage(1);
-          }}
-        />
-        {l.legacy}
-      </label>
       <AsyncSection state={state}>
         {(data) => {
           const rows = pagedItems(data);
           return (
             <>
               {!rows.length && <p className={styles.muted}>{f.emptyRefunds}</p>}
-              {rows.map((r) =>
-                legacy || !r.invoiceItemId ? (
-                  <article key={r.adjustmentId} className={styles.card}>
-                    <div className={styles.cardHead}>
-                      <strong>{r.invoiceNumber}</strong>
-                      <StatusChip value={r.status} />
-                    </div>
-                    <p>{r.reason}</p>
-                    <p className={styles.muted}>
-                      {l.legacy} · {formatMoney(r.amount)}
-                    </p>
-                  </article>
-                ) : (
-                  <RefundCard
-                    key={`${r.adjustmentId}-${r.status}`}
-                    r={r}
-                    reload={() => {
-                      state.reload();
-                      onChanged?.();
-                    }}
-                  />
-                ),
-              )}
+              {rows.map((r) => (
+                <RefundCard
+                  key={`${r.adjustmentId}-${r.status}`}
+                  r={r}
+                  reload={() => {
+                    state.reload();
+                    onChanged?.();
+                  }}
+                />
+              ))}
               <Pager
                 page={data.page}
                 pageSize={data.pageSize}

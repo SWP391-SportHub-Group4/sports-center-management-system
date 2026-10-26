@@ -3,11 +3,14 @@ import { LockedCoachAssignments } from "./locked-coach-assignments";
 import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton";
 import { PersonProfileHeader } from "@/components/PersonProfileHeader";
 import profileStyles from "@/components/PersonProfile.module.css";
+import overviewStyles from "./coach-overview.module.css";
 import { ChevronRight } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import type { Paged, ManagerCourseDto } from "@/lib/types";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CoachCredentialsShowcase } from "@/components/coach-credentials/coach-credentials";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
@@ -17,14 +20,22 @@ import { catalogApi } from "@/features/catalog";
 import { CoachEditor } from "./coach-editor";
 import { ManagerSchedule } from "@/features/manager";
 import type { CoachAdminDto } from "@/lib/types";
-export function CoachDetail({ userId }: { userId: string }) {
+export function CoachDetail({
+  userId,
+  certificatePage = false,
+}: {
+  userId: string;
+  certificatePage?: boolean;
+}) {
   const { t } = useLanguage();
   const m = t.managerOperations;
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { values, setValues } = useUrlQuery(
     { tab: "overview" },
     { tab: choiceQuery(["overview", "classes", "schedule"], "overview") },
   );
+  const activeTab = certificatePage ? "certificates" : values.tab;
   const state = useApi(
     (signal) =>
       api.get<CoachAdminDto>(`/api/manager/coaches/${userId}`, { signal }),
@@ -48,6 +59,7 @@ export function CoachDetail({ userId }: { userId: string }) {
         {(coach) => (
           <>
             <PersonProfileHeader
+              userId={coach.userId}
               name={coach.fullName}
               avatarUrl={coach.avatarUrl}
               status={<StatusChip value={coach.status} />}
@@ -74,33 +86,76 @@ export function CoachDetail({ userId }: { userId: string }) {
                 </>
               }
             />
-            <div className={profileStyles.tabs}>
+            <div
+              className={`${profileStyles.tabs} ${overviewStyles.coachTabs}`}
+            >
               <Tabs
-                value={values.tab}
-                onChange={(tab) => setValues({ tab })}
+                value={activeTab}
+                onChange={(tab) => {
+                  if (tab === "certificates")
+                    router.push(`/manager/coaches/${userId}/certificates`);
+                  else if (certificatePage)
+                    router.push(`/manager/coaches/${userId}?tab=${tab}`);
+                  else setValues({ tab });
+                }}
                 ariaLabel={m.coachDetail}
                 tabs={[
                   { id: "overview", label: m.overviewTab },
                   { id: "classes", label: "Assigned classes" },
                   { id: "schedule", label: m.assignedSchedule },
+                  { id: "certificates", label: "Certificate" },
                 ]}
               >
-                {values.tab === "overview" && (
-                  <section
-                    className={`${profileStyles.surface} ${profileStyles.overview}`}
-                  >
-                    <h2>{m.coachDetail}</h2>
-                    <p className={profileStyles.bio}>{coach.bio || "—"}</p>
-                    <CoachSpecialties coach={coach} />
+                {activeTab === "overview" && (
+                  <div className={overviewStyles.overview}>
                     {coach.status !== "ACTIVE" && (
                       <LockedCoachAssignments
                         coachId={userId}
+                        coachName={coach.fullName}
                         onChanged={classes.reload}
                       />
                     )}
-                  </section>
+                    <section
+                      className={`${profileStyles.surface} ${overviewStyles.profile}`}
+                      aria-labelledby="coach-profile-title"
+                    >
+                      <div className={overviewStyles.biography}>
+                        <h2 id="coach-profile-title">About this coach</h2>
+                        <p className={overviewStyles.bio}>
+                          {coach.bio || "No biography has been added."}
+                        </p>
+                        {coach.philosophy && (
+                          <div className={overviewStyles.philosophy}>
+                            <h3>Coaching approach</h3>
+                            <p>{coach.philosophy}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className={overviewStyles.details}>
+                        <h3>Coaching details</h3>
+                        <dl>
+                          {coach.title && (
+                            <div>
+                              <dt>Professional title</dt>
+                              <dd>{coach.title}</dd>
+                            </div>
+                          )}
+                          {coach.yearsExperience != null && (
+                            <div>
+                              <dt>Experience</dt>
+                              <dd>
+                                {coach.yearsExperience}{" "}
+                                {coach.yearsExperience === 1 ? "year" : "years"}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
+                        <CoachSpecialties coach={coach} />
+                      </div>
+                    </section>
+                  </div>
                 )}
-                {values.tab === "classes" && (
+                {activeTab === "classes" && (
                   <AsyncSection state={classes}>
                     {(data) => (
                       <div
@@ -126,8 +181,17 @@ export function CoachDetail({ userId }: { userId: string }) {
                     )}
                   </AsyncSection>
                 )}
-                {values.tab === "schedule" && (
+                {activeTab === "schedule" && (
                   <ManagerSchedule coachId={coach.userId} />
+                )}
+                {activeTab === "certificates" && (
+                  <div className={profileStyles.surface}>
+                    <CoachCredentialsShowcase
+                      key={userId}
+                      coachId={userId}
+                      kind="CERTIFICATE"
+                    />
+                  </div>
                 )}
               </Tabs>
             </div>
@@ -153,16 +217,21 @@ function CoachSpecialties({ coach }: { coach: CoachAdminDto }) {
   return (
     <AsyncSection state={state}>
       {(sports) => (
-        <p className={profileStyles.specialties}>
-          <strong>{t.operations.specialties}:</strong>{" "}
-          {coach.sportIds
-            .map(
-              (id) =>
-                sports.find((s) => s.sportId === id)?.name ??
-                t.managerAudit.nameUnavailable,
-            )
-            .join(", ")}
-        </p>
+        <div className={overviewStyles.specialties}>
+          <span>{t.operations.specialties}</span>
+          {coach.sportIds.length ? (
+            <ul>
+              {coach.sportIds.map((id) => (
+                <li key={id}>
+                  {sports.find((s) => s.sportId === id)?.name ??
+                    t.managerAudit.nameUnavailable}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No specialties assigned.</p>
+          )}
+        </div>
       )}
     </AsyncSection>
   );

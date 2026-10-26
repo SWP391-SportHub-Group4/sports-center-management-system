@@ -1,5 +1,6 @@
 "use client";
 
+import { aiPlainText } from "@/lib/ai-plain-text";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Drawer } from "@/components/primitives";
@@ -40,7 +41,13 @@ export function CoachAiAssistant() {
       }, { signal: abort.signal });
       if (!abort.signal.aborted) {
         previous.current = response.interactionId;
-        setMessages((prev) => [...prev, { role: "assistant", content: response.answer }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: aiPlainText(response.answer),
+          },
+        ]);
       }
     } catch {
       if (!abort.signal.aborted) setError("The assistant is unavailable. Please retry.");
@@ -69,12 +76,21 @@ export function CoachAiAssistant() {
           <button type="submit" className="btn" disabled={loading || !draft.trim()}>Send</button>
         </div>
       </form>}>
-      {messages.length === 0 && <div>
+      {messages.length === 0 && (<div className={styles.chatSuggestions}>
         {SUGGESTIONS.map((s) => <button className="btn btn--ghost" style={{display:"block",marginBottom:8}}
           key={s} type="button" onClick={() => void send(s)}>{s}</button>)}
-      </div>}
-      <div aria-live="polite" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>
-        {messages.map((m, i) => <p key={i}><strong>{m.role === "user" ? "You" : "Assistant"}:</strong> {m.content}</p>)}
+      </div>)}
+      <div aria-live="polite" className={styles.chatMessages}>
+        {messages.map((m, i) => (
+          <p key={i}>
+            <strong>
+              {m.role === "user" ? "You" : "Assistant"}:
+            </strong>{" "}
+            {m.role === "assistant"
+              ? aiPlainText(m.content)
+              : m.content}
+          </p>
+        ))}
       </div>
       {loading && <p role="status">Thinking…</p>}
       {error && <p role="alert">{error}</p>}

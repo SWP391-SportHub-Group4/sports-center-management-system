@@ -2,7 +2,8 @@
 import { PointSummary } from "@/features/reports";
 import styles from "./manager-wallet.module.css";
 import { pagedItems } from "@/lib/paged";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { PointGifts } from "./point-gifts";
 import {
   AsyncSection,
   Card,
@@ -44,6 +45,7 @@ export function ManagerWallet() {
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
   const [owner, setOwner] = useState<UserAdminDto | null>(null);
+  const [revision, setRevision] = useState(0);
   const users = useApi(
     (signal) =>
       api.get<Paged<UserAdminDto>>("/api/users", {
@@ -54,7 +56,10 @@ export function ManagerWallet() {
   );
   return (
     <>
-      <PointSummary />
+      <PointSummary revision={revision} />
+      <Suspense>
+        <PointGifts onGifted={() => setRevision((value) => value + 1)} />
+      </Suspense>
       <Card title={l.owner}>
         <div className={styles.search}>
           <Field label={l.keyword}>
@@ -104,7 +109,7 @@ export function ManagerWallet() {
           className={styles.dialog}
           onClose={() => setOwner(null)}
         >
-          <OwnerWallet key={owner.userId} owner={owner} />
+          <OwnerWallet key={`${owner.userId}:${revision}`} owner={owner} />
         </Dialog>
       )}
     </>

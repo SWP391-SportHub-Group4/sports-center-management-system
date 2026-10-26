@@ -9,6 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { AvatarImage } from "./AvatarImage";
@@ -22,6 +23,7 @@ type Coach = {
   bio?: string | null;
   yearsExperience?: number | null;
   philosophy?: string | null;
+  credentialCount?: number;
 };
 
 const subscribeToClient = () => () => {};
@@ -49,7 +51,7 @@ export function CoachProfilePreview({
     serverSnapshot,
   );
   const panel = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLAnchorElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<CSSProperties>({});
@@ -65,6 +67,10 @@ export function CoachProfilePreview({
     [open, coachId],
   );
   const coach = details.data;
+  const origin = mounted
+    ? window.location.pathname + window.location.search + window.location.hash
+    : "/member/services";
+  const profileHref = `/coaches/${coachId}?returnTo=${encodeURIComponent(origin)}`;
   function clearTimer() {
     if (timer.current) clearTimeout(timer.current);
   }
@@ -115,15 +121,20 @@ export function CoachProfilePreview({
 
   return (
     <>
-      <button
+      <Link
         ref={trigger}
-        type="button"
-        className={className ? `${styles.trigger} ${className}` : styles.trigger}
-        popoverTarget={id}
+        href={profileHref}
+        className={
+          className ? `${styles.trigger} ${className}` : styles.trigger
+        }
         aria-expanded={open}
         aria-controls={id}
-        aria-label={`Preview coach profile: ${name}`}
-        onClick={locate}
+        aria-label={`View coach profile: ${name}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          clearTimer();
+          panel.current?.hidePopover();
+        }}
         onPointerEnter={(event) => {
           if (event.pointerType === "touch") return;
           clearTimer();
@@ -140,7 +151,7 @@ export function CoachProfilePreview({
         }}
       >
         {children ?? name}
-      </button>
+      </Link>
       {mounted &&
         createPortal(
           <div
@@ -167,8 +178,13 @@ export function CoachProfilePreview({
                 hideLater();
             }}
           >
-            <div className={styles.identity}>
+            <Link
+              href={profileHref}
+              className={styles.identity}
+              aria-label={`View coach profile: ${name}`}
+            >
               <AvatarImage
+                userId={coachId}
                 name={coach?.fullName || name}
                 avatarUrl={coach?.avatarUrl}
                 size={64}
@@ -178,7 +194,7 @@ export function CoachProfilePreview({
                 <h3>{coach?.fullName || name}</h3>
                 {sport && <p className={styles.sport}>{sport}</p>}
               </div>
-            </div>
+            </Link>
             {details.loading ? (
               <p className={styles.note} role="status">
                 Loading coach profile…
@@ -204,6 +220,14 @@ export function CoachProfilePreview({
                 </p>
                 {coach.philosophy && (
                   <p className={styles.philosophy}>{coach.philosophy}</p>
+                )}
+                {!!coach.credentialCount && (
+                  <Link
+                    className={styles.credentialsLink}
+                    href={`${profileHref}&tab=certificates#credentials`}
+                  >
+                    View certificates & awards ({coach.credentialCount})
+                  </Link>
                 )}
               </>
             ) : (

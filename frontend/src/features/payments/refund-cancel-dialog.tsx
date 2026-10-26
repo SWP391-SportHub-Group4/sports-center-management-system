@@ -1,32 +1,30 @@
 "use client";
 
-import { useState } from "react";
 import { Dialog } from "@/components/ui";
-import { api, ApiError } from "@/lib/apiClient";
-import { formatDate, formatPoints } from "@/lib/format";
+import { api } from "@/lib/apiClient";
+import { formatDate } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
-import { useAction, useApi, useNow } from "@/lib/useApi";
+import { useAction } from "@/lib/useApi";
+import { useState } from "react";
 import styles from "./refund-cancel-dialog.module.css";
-
-/** Mốc hoàn đủ khớp backend: từ 5 ngày trở lên trước buổi đầu hoàn 100%, muộn hơn nhưng chưa khai giảng hoàn 50%. */
-const FULL_REFUND_MS = 5 * 86_400_000;
 
 export interface RefundCancelTarget {
   kind: "class" | "gym";
   name: string;
   /** Mã dòng hóa đơn của quyền lợi cần hủy. */
   itemId: string | null;
-  /** Lớp: giờ buổi đầu, để chọn mốc 100% hoặc 50%. */
+  /** Lớp: giờ buổi đầu, chỉ để hiển thị. */
   firstSessionStartUtc?: string | null;
-  /** Lớp: đã bắt đầu thì không hoàn tự động, chỉ gửi đơn cho Manager. */
+  /** Giữ để tương thích: lớp đã bắt đầu vẫn hủy được và vẫn không hoàn (BR-122). */
   started?: boolean;
   /** Gym: ngày hết hạn của gói, chỉ để hiển thị. */
   endDate?: string | null;
 }
 
 /**
- * Hủy quyền lợi đã mua và hoàn điểm theo quy tắc. Dùng cho Member tự hủy và cho Lễ tân hủy thay
- * (onBehalf). Hoàn chỉ bằng điểm, không hoàn tiền mặt.
+ * Hủy quyền lợi đã mua. Member tự hủy (hoặc Lễ tân/Manager hủy thay theo yêu cầu của Member) thì KHÔNG được hoàn
+ * ở mọi thời điểm (BR-91, BR-122). Dialog luôn báo trước, chỉ hủy khi người dùng xác nhận. Mọi yêu cầu hoàn khác
+ * chỉ đi qua Support Request.
  */
 export function RefundCancelDialog({
   target,
@@ -39,30 +37,12 @@ export function RefundCancelDialog({
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
-  const { language, t } = useLanguage();
+  const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
-  const now = useNow();
   const action = useAction();
-  const [reason, setReason] = useState("");
   const [result, setResult] = useState<string | null>(null);
-  const { kind, itemId, started = false } = target;
-  const quote = useApi(
-    (signal) =>
-      itemId && !started
-        ? api.get<{ systemCalculatedPoints: number }>(
-            `/api/refunds/quote/${itemId}`,
-            { signal },
-          )
-        : Promise.resolve(null),
-    [itemId, started],
-  );
-  const points = quote.data?.systemCalculatedPoints;
-  const untilStart = target.firstSessionStartUtc
-    ? new Date(target.firstSessionStartUtc).getTime() - now
-    : 0;
-  const percent = untilStart >= FULL_REFUND_MS ? 100 : 50;
-  const noRefund = kind === "gym" && points === 0;
+  const { kind, itemId } = target;
   const endpoint =
     kind === "gym"
       ? "/api/refunds/membership-cancellations"
@@ -71,45 +51,23 @@ export function RefundCancelDialog({
   async function cancel() {
     if (!itemId) return;
     const done = await action.run(() =>
-      api.post<{ approvedPoints?: number }>(endpoint, {
+      api.post<{ invoiceItemId: string; refundedPoints: number }>(endpoint, {
         invoiceItemId: itemId,
       }),
     );
     if (!done) return;
-    const returned = formatPoints(done.approvedPoints ?? points ?? 0);
     const message = onBehalf
       ? tx(
-          `Đã hủy thay hội viên. ${returned} điểm đã được hoàn vào ví của họ.`,
-          `Cancelled for the member. ${returned} points went back to their wallet.`,
+          "Đã hủy thay hội viên. Không hoàn tiền hay điểm.",
+          "Cancelled for the member. No refund was issued.",
         )
-      : tx(
-          `Đã hủy. ${returned} điểm đã được hoàn vào ví.`,
-          `Cancelled. ${returned} points were returned to your wallet.`,
-        );
+      : tx("Đã hủy. Không hoàn tiền hay điểm.", "Cancelled. No refund was issued.");
     setResult(message);
     onDone(message);
   }
 
-  async function request() {
-    if (!itemId) return;
-    const done = await action.run(() =>
-      api.post("/api/refunds", {
-        invoiceItemId: itemId,
-        reason: reason.trim(),
-      }),
-    );
-    if (!done) return;
-    const message = tx(
-      "Đã gửi đơn. Manager sẽ xem xét và quyết định mức hoàn.",
-      "Request sent. A manager will review it and decide the refund.",
-    );
-    setResult(message);
-    onDone(message);
-  }
-
-  const title = started
-    ? tx("Gửi đơn hoàn điểm", "Request a refund")
-    : kind === "gym"
+  const title =
+    kind === "gym"
       ? tx("Hủy gói Gym", "Cancel Gym membership")
       : tx("Hủy ghi danh lớp", "Cancel class enrollment");
 
@@ -125,42 +83,6 @@ export function RefundCancelDialog({
             <button type="button" className="btn" onClick={onClose}>
               {tx("Đóng", "Close")}
             </button>
-          </>
-        ) : started ? (
-          <>
-            <p>
-              {tx(
-                "Lớp đã bắt đầu nên không hoàn tự động. Nếu có lý do chính đáng (ví dụ chất lượng giảng dạy), hãy gửi đơn để Manager quyết định mức hoàn.",
-                "The class has started, so no automatic refund applies. If you have a valid reason, such as teaching quality, send a request and a manager will decide.",
-              )}
-            </p>
-            <label className={styles.field}>
-              <span>{tx("Lý do", "Reason")}</span>
-              <textarea
-                rows={4}
-                maxLength={500}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </label>
-            {action.error && <p role="alert">{action.error}</p>}
-            <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn"
-                disabled={action.busy || reason.trim().length < 3}
-                onClick={request}
-              >
-                {tx("Gửi đơn", "Send request")}
-              </button>
-              <button
-                type="button"
-                className="btn btn--quiet"
-                onClick={onClose}
-              >
-                {tx("Đóng", "Close")}
-              </button>
-            </div>
           </>
         ) : (
           <>
@@ -180,61 +102,32 @@ export function RefundCancelDialog({
                 </dd>
               </div>
               <div>
-                <dt>{tx("Mức hoàn", "Refund rate")}</dt>
-                <dd>
-                  {quote.loading || quote.error || points === undefined
-                    ? "—"
-                    : kind === "gym"
-                      ? noRefund
-                        ? "0%"
-                        : "50%"
-                      : `${percent}%`}
-                </dd>
-              </div>
-              <div>
-                <dt>{tx("Điểm được hoàn", "Points returned")}</dt>
-                <dd>{points === undefined ? "—" : formatPoints(points)}</dd>
+                <dt>{tx("Hoàn tiền / điểm", "Refund")}</dt>
+                <dd>{tx("Không hoàn", "No refund")}</dd>
               </div>
             </dl>
-            <p className={styles.hint}>
-              {kind === "gym"
-                ? t.finOps.membershipRefundPolicy
-                : percent === 100
-                  ? tx(
-                      "Hủy từ 5 ngày trở lên trước buổi đầu được hoàn 100%.",
-                      "Cancelling 5 or more days before the first session returns 100%.",
-                    )
-                  : tx(
-                      "Còn dưới 5 ngày tới buổi đầu nên chỉ hoàn 50%. Điểm hoàn vào ví, không hoàn tiền mặt.",
-                      "Fewer than 5 days remain, so only 50% is returned. Refunds go to the wallet as points, never cash.",
-                    )}
+            <p className={styles.hint} role="alert">
+              {tx(
+                "Bạn đang hủy và sẽ không được hoàn tiền hay điểm, ở bất kỳ thời điểm nào. Chỉ khi bạn xác nhận thì việc hủy mới được thực hiện. Nếu cần hỗ trợ thêm, hãy gửi Support Request.",
+                "You are cancelling and will not get a refund or points, at any time. Nothing is cancelled until you confirm. If you need further help, send a Support Request.",
+              )}
             </p>
-            {quote.error && (
-              <p className="alert alert--error" role="alert">
-                {quote.error instanceof ApiError &&
-                quote.error.code === "refund_entitlement_not_found"
-                  ? tx(
-                      "Không tìm thấy quyền ghi danh hợp lệ để tính hoàn điểm. Chưa hủy lớp. Hãy tải lại hồ sơ hội viên; nếu vẫn gặp lỗi, nhờ Manager kiểm tra dữ liệu lớp và hóa đơn.",
-                      "The class enrollment or its sessions could not be matched to this invoice. Nothing was cancelled. Refresh the member profile; if this persists, ask a manager to check the class and invoice data.",
-                    )
-                  : quote.error.message}
-              </p>
-            )}
             {action.error && <p role="alert">{action.error}</p>}
             <div className={styles.actions}>
               <button
                 type="button"
                 className="btn btn--danger"
-                disabled={
-                  action.busy ||
-                  quote.loading ||
-                  !!quote.error ||
-                  !quote.data ||
-                  noRefund
-                }
+                disabled={action.busy || !itemId}
                 onClick={cancel}
               >
                 {tx("Xác nhận hủy", "Confirm cancellation")}
+              </button>
+              <button
+                type="button"
+                className="btn btn--quiet"
+                onClick={onClose}
+              >
+                {tx("Giữ lại", "Keep it")}
               </button>
             </div>
           </>

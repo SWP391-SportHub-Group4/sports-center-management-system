@@ -1,34 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { ApiError, api } from "@/lib/apiClient";
+import { useState } from "react";
+import { api } from "@/lib/apiClient";
 import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
-import {
-  SUPPORT_CATEGORIES,
-  supportCategoryLabel,
-  type SupportCategory,
-} from "@/lib/support-categories";
+import { supportCategoryLabel } from "@/lib/support-categories";
 import { useApi } from "@/lib/useApi";
-import type { MemberSupportRequestDto } from "@/lib/types";
-import { STATUS_LABELS } from "./support-shared";
+import type { UserAdminDto, MemberSupportRequestDto } from "@/lib/types";
+import { SupportStatus } from "@/components/support-status";
+import { useDeskMember } from "./desk-context";
+import { SupportCreateDialog } from "./support-create-dialog";
+import type { SupportAssignee } from "./support-request-actions";
 import styles from "./support.module.css";
 
 const RECENT_LIMIT = 3;
-const DESK_RESOLUTION = "Resolved at the desk.";
 
-/**
- * Quick support logging at the desk. "Create & close now" resolves a simple inquiry on the spot;
- * "Send to support queue" hands the ticket to the Support requests page. Ticket handling itself
- * (assignment, progress, done/reject) lives only on that page.
- */
 export function MemberSupportRequests({ memberId }: { memberId: string }) {
   const { user } = useAuth();
-  const base =
-    user?.role === "CenterManager"
-      ? "/manager/requests?type=support"
-      : "/receptionist/support?";
+  const { member } = useDeskMember();
+  const memberDetails = useApi(
+    (signal) =>
+      member?.userId === memberId
+        ? Promise.resolve(member)
+        : api.get<UserAdminDto>(`/api/users/${memberId}`, { signal }),
+    [memberId, member],
+  );
+  const selectedMember =
+    member?.userId === memberId
+      ? member
+      : memberDetails.data?.userId === memberId
+        ? memberDetails.data
+        : null;
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState("");
   const requests = useApi(
     (signal) =>
       api.get<MemberSupportRequestDto[]>("/api/member-support-requests", {
@@ -37,144 +42,78 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
       }),
     [memberId],
   );
-
-  // Reloading must not blank the list.
-  const [shown, setShown] = useState<MemberSupportRequestDto[] | null>(null);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (requests.data) setShown(requests.data);
-  }, [requests.data]);
-
-  const [category, setCategory] = useState<SupportCategory>("PAYMENT");
-  const [subject, setSubject] = useState("");
-  const [description, setDescription] = useState("");
-  const [busy, setBusy] = useState<"close" | "queue" | null>(null);
-  const submitting = useRef(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const ready = subject.trim().length >= 3 && description.trim().length >= 3;
+  const assignees = useApi(
+    (signal) =>
+      api.get<SupportAssignee[]>("/api/member-support-requests/assignees", {
+        signal,
+      }),
+    [],
+  );
+  const shown = requests.data;
   const recent = [...(shown ?? [])]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, RECENT_LIMIT);
-
-  async function submit(kind: "close" | "queue") {
-    if (submitting.current) return;
-    if (!ready) {
-      setError("Subject and description need at least 3 characters.");
-      return;
-    }
-    submitting.current = true;
-    setBusy(kind);
-    setError(null);
-    setSuccess(null);
-    try {
-      await api.post("/api/member-support-requests", {
-        memberId,
-        category,
-        subject: subject.trim(),
-        description: description.trim(),
-        ...(kind === "close" ? { resolveNote: DESK_RESOLUTION } : {}),
-      });
-      setSubject("");
-      setDescription("");
-      setSuccess(
-        kind === "close"
-          ? "Request created and closed."
-          : "Request sent to the support queue.",
-      );
-      requests.reload();
-    } catch (e) {
-      setError(
-        e instanceof ApiError || e instanceof Error
-          ? e.message
-          : "Could not create the request.",
-      );
-    } finally {
-      submitting.current = false;
-      setBusy(null);
-    }
-  }
+  const base =
+    user?.role === "CenterManager"
+      ? "/manager/requests?type=support"
+      : "/receptionist/support";
 
   return (
     <section className={styles.panel} aria-label="Member support">
       <div className={styles.head}>
         <h3>Member support</h3>
-        <p>Log a request the selected member raised at the desk.</p>
+        <p>
+          Use the same request form as Support requests, prefilled with the
+          selected member.
+        </p>
       </div>
-
       <div className={styles.form}>
-        <fieldset className={styles.chips}>
-          <legend>Request type</legend>
-          {SUPPORT_CATEGORIES.map((chip) => (
+        <button
+          type="button"
+          className="btn"
+          disabled={
+            !selectedMember || selectedMember.activationPending === true
+          }
+          onClick={() => {
+            if (selectedMember && !selectedMember.activationPending)
+              setCreating(true);
+          }}
+        >
+          Record a request for member
+        </button>
+        {notice && <p role="status">{notice}</p>}
+        {memberDetails.error && (
+          <div role="alert">
+            {memberDetails.error.message}
             <button
-              key={chip.value}
               type="button"
-              className={styles.chip}
-              aria-pressed={category === chip.value}
-              disabled={busy !== null}
-              onClick={() => setCategory(chip.value)}
+              className="btn btn--secondary"
+              onClick={memberDetails.reload}
             >
-              {chip.label}
+              Retry member
             </button>
-          ))}
-        </fieldset>
-
-        <label className={styles.field}>
-          Subject
-          <input
-            value={subject}
-            maxLength={200}
-            disabled={busy !== null}
-            placeholder="Short summary"
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        </label>
-
-        <label className={styles.field}>
-          Description
-          <textarea
-            rows={3}
-            maxLength={2000}
-            value={description}
-            disabled={busy !== null}
-            placeholder="What does the member need?"
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <span className={styles.counter}>{description.length}/2000</span>
-        </label>
-
-        <div className={styles.submitRow}>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            disabled={busy !== null || !ready}
-            onClick={() => void submit("queue")}
-          >
-            {busy === "queue" ? "Sending…" : "Send to support queue"}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            disabled={busy !== null || !ready}
-            onClick={() => void submit("close")}
-          >
-            {busy === "close" ? "Saving…" : "Create & close now"}
-          </button>
-        </div>
-
-        {error && (
-          <p className={`${styles.feedback} ${styles.feedbackError}`} role="alert">
-            {error}
-          </p>
+          </div>
         )}
-        {success && (
-          <p className={styles.feedback} role="status">
-            {success}
-          </p>
+        {assignees.error && (
+          <p role="alert">Unable to load staff: {assignees.error.message}</p>
         )}
       </div>
-
+      {creating && selectedMember && !selectedMember.activationPending && (
+        <SupportCreateDialog
+          assignees={assignees.data ?? []}
+          key={memberId}
+          workspace={
+            user?.role === "CenterManager" ? "manager" : "receptionist"
+          }
+          initialMember={selectedMember}
+          onClose={() => setCreating(false)}
+          onCreated={(message) => {
+            setCreating(false);
+            setNotice(message);
+            requests.reload();
+          }}
+        />
+      )}
       <div className={styles.recent}>
         <div className={styles.recentHead}>
           <h4>Recent requests</h4>
@@ -203,19 +142,13 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
         ) : (
           <ul className={styles.requests}>
             {recent.map((request) => {
-              const status =
-                request.status === "CLOSED" ? "DONE" : request.status;
-              const open = !["DONE", "REJECTED"].includes(status);
               return (
                 <li key={request.requestId} className={styles.request}>
                   <div className={styles.badges}>
                     <span className={styles.pill}>
                       {supportCategoryLabel(request.category)}
                     </span>
-                    <span className={styles.pill}>
-                      <span className={styles.dot} data-status={status} />
-                      {STATUS_LABELS[status] ?? status}
-                    </span>
+                    <SupportStatus status={request.status} />
                     <span className={styles.badgeDate}>
                       {formatDateTime(request.createdAt)}
                     </span>
@@ -225,12 +158,12 @@ export function MemberSupportRequests({ memberId }: { memberId: string }) {
                   </strong>
                   <p className={styles.meta}>
                     {request.assignedToUserId
-                      ? `${open ? "Handled by" : "Closed by"}: ${request.assignedToName ?? "Former staff member"}`
+                      ? `Handled by: ${request.assignedToName ?? "Former staff member"}`
                       : "Waiting in the queue"}
                   </p>
                   <Link
                     className={styles.viewLink}
-                    href={`${base}${base.endsWith("?") ? "" : "&"}request=${request.requestId}`}
+                    href={`${base}${base.includes("?") ? "&" : "?"}request=${request.requestId}`}
                   >
                     View details &amp; handle →
                   </Link>

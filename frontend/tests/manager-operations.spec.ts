@@ -5,6 +5,7 @@ import { vi } from "../src/locales/vi";
 import { previewSessions } from "../src/features/courses/preview";
 import { fillIncidentDateTime } from "./helpers/incident";
 import { todayIso } from "../src/lib/format";
+import { chooseNoticeRecipient } from "./helpers/notice-recipients";
 
 const managerId = "11111111-1111-4111-8111-111111111111";
 const coachId = "22222222-2222-4222-8222-222222222222";
@@ -326,29 +327,51 @@ async function fillDraft(page: Page, proceed = true) {
     .click();
 }
 
-test("M05 locked coach details reassign the main class and refresh affected assignments", async ({
+test("M05 deactivated coach details reassign the main class and refresh affected assignments", async ({
   page,
 }) => {
   let assigned = false;
   let writes = 0;
+  await page.route("**/api/manager/classes/1/lead-coach/candidates", (route) =>
+    route.fulfill({
+      json: {
+        version: 1,
+        currentCoachId: memberId,
+        remainingSessionCount: 2,
+        coaches: [{ coachId, fullName: "Coach Linh" }],
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/1/lead-coach", async (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      coachId,
+      expectedVersion: 1,
+      reason: "Replacement audit",
+    });
+    assigned = true;
+    writes++;
+    return route.fulfill({ status: 204 });
+  });
+  await page.route("**/api/manager/classes/1", (route) =>
+    route.fulfill({
+      json: {
+        ...course,
+        coachId: memberId,
+        coachName: "Deactivated coach",
+        status: "PUBLISHED",
+      },
+    }),
+  );
   await page.route("**/api/manager/coach-coverage**", async (route) => {
-    if (route.request().method() === "POST") {
-      expect(route.request().postDataJSON()).toEqual({
-        replacementCoachId: coachId,
-        reason: "Replacement audit",
-      });
-      assigned = true;
-      writes++;
-      return route.fulfill({ status: 204 });
-    }
+    expect(route.request().method()).toBe("GET");
     return route.fulfill({
       json: assigned
         ? []
         : [
             {
               coachId: memberId,
-              coachName: "Locked coach",
-              coachEmail: "locked@example.com",
+              coachName: "Deactivated coach",
+              coachEmail: "deactivated@example.com",
               affectedClasses: 1,
               futureSessions: 1,
               activeRelationships: 1,
@@ -359,18 +382,20 @@ test("M05 locked coach details reassign the main class and refresh affected assi
     });
   });
   await page.route(`**/api/manager/coaches/${memberId}`, (route) =>
-    route.fulfill({ json: { ...coach, userId: memberId, status: "LOCKED" } }),
+    route.fulfill({
+      json: { ...coach, userId: memberId, status: "DEACTIVATED" },
+    }),
   );
   await page.goto(`/manager/coaches/${memberId}`);
   await page
-    .getByRole("button", { name: "Change main coach", exact: true })
+    .getByRole("button", { name: "Change Lead Coach", exact: true })
     .click();
+  await page.getByRole("radio").check();
   await page
-    .getByLabel(en.operations.coach, { exact: true })
-    .selectOption(coachId);
-  await page.getByLabel("Reason", { exact: true }).fill("Replacement audit");
+    .getByRole("textbox", { name: "Reason for change" })
+    .fill("Replacement audit");
   await page
-    .getByRole("button", { name: "Confirm main coach", exact: true })
+    .getByRole("button", { name: "Confirm Change", exact: true })
     .click();
   await expect(
     page.getByText("No assignments need a replacement."),
@@ -1686,7 +1711,7 @@ test("incident timeout blocks blind resolve retries", async ({ page }) => {
   ).toBeDisabled();
   expect(resolves).toBe(1);
 });
-test("notice supports rental members and sends once after review", async ({
+test("notice supports member recipients and sends once after review", async ({
   page,
 }) => {
   await page.route("**/api/manager/court-schedule?**", (route) =>
@@ -1702,10 +1727,11 @@ test("notice supports rental members and sends once after review", async ({
     return route.fulfill({ json: { noticeId } });
   });
   await page.goto("/manager/notices");
-  await page
-    .getByLabel(en.operations.recipients, { exact: true })
-    .selectOption("MEMBER");
-  await page.getByRole("checkbox", { name: "Member An", exact: true }).check();
+  await chooseNoticeRecipient(page, "Member", {
+    userId: memberId,
+    name: "Member An",
+    email: "member@example.com",
+  });
   await page
     .getByLabel(en.operations.subject, { exact: true })
     .fill("Court update");
@@ -1780,7 +1806,7 @@ test("manual scheduling preserves the class draft without AI actions or writes",
   expect(writes).toBe(0);
 });
 
-test("notice audience changes clear selection and invalidate review", async ({
+test("notice audience additions keep earlier selections and invalidate review", async ({
   page,
 }) => {
   let writes = 0;
@@ -1789,7 +1815,11 @@ test("notice audience changes clear selection and invalidate review", async ({
       writes++;
   });
   await page.goto("/manager/notices");
-  await page.getByRole("checkbox", { name: "Coach Linh", exact: true }).check();
+  await chooseNoticeRecipient(page, "Coach", {
+    userId: coachId,
+    name: "Coach Linh",
+    email: "coach@example.com",
+  });
   await page
     .getByLabel(en.operations.subject, { exact: true })
     .fill("Schedule update");
@@ -1805,18 +1835,23 @@ test("notice audience changes clear selection and invalidate review", async ({
     ),
   ).toBeVisible();
   await expect(page.getByText(/G07|Waiting for API/i)).toHaveCount(0);
-  await page
-    .getByLabel(en.operations.recipients, { exact: true })
-    .selectOption("MEMBER");
+  await chooseNoticeRecipient(page, "Member", {
+    userId: memberId,
+    name: "Member An",
+    email: "member@example.com",
+  });
   await expect(
-    page.getByRole("checkbox", { name: "Member An", exact: true }),
-  ).not.toBeChecked();
+    page.getByRole("article", { name: "Coach recipients" }),
+  ).toContainText("1 selected");
+  await expect(
+    page.getByRole("article", { name: "Member recipients" }),
+  ).toContainText("1 selected");
   await expect(
     page.getByRole("button", { name: en.operations.send, exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: en.operations.review, exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   expect(writes).toBe(0);
 });
 
@@ -1835,7 +1870,11 @@ test("notice locks its reviewed audience while sending and keeps one request", a
     await route.fulfill({ json: { noticeId } });
   });
   await page.goto("/manager/notices");
-  await page.getByRole("checkbox", { name: "Coach Linh", exact: true }).check();
+  await chooseNoticeRecipient(page, "Coach", {
+    userId: coachId,
+    name: "Coach Linh",
+    email: "coach@example.com",
+  });
   await page
     .getByLabel(en.operations.subject, { exact: true })
     .fill("Coach timetable");
@@ -1849,10 +1888,13 @@ test("notice locks its reviewed audience while sending and keeps one request", a
     .getByRole("button", { name: en.operations.send, exact: true })
     .click();
   await expect(
-    page.getByLabel(en.operations.recipients, { exact: true }),
+    page.getByRole("button", {
+      name: "Choose recipients: Member",
+      exact: true,
+    }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("checkbox", { name: "Coach Linh", exact: true }),
+    page.getByRole("button", { name: "Choose recipients: Coach", exact: true }),
   ).toBeDisabled();
   finish();
   await expect(page).toHaveURL(/noticeId=/);
@@ -1872,7 +1914,7 @@ test("notice recovery failure never unlocks a new send", async ({ page }) => {
     page.getByLabel(en.operations.subject, { exact: true }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("checkbox", { name: "Coach Linh", exact: true }),
+    page.getByRole("button", { name: "Choose recipients: Coach", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Start a new notice", exact: true }),
@@ -2882,11 +2924,11 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
   });
   await page.goto("/manager/classes/1?tab=threshold");
   await page
-    .getByText("Cancel class and refund points", { exact: true })
+    .getByText("Cancel class and notify members", { exact: true })
     .click();
   const form = page.locator("details").filter({
     has: page.locator("summary", {
-      hasText: "Cancel class and refund points",
+      hasText: "Cancel class and notify members",
     }),
   });
   await form
@@ -2898,7 +2940,7 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
       exact: true,
     })
     .click();
-  await expect(form.getByText(/immediately refunds/)).toBeVisible();
+  await expect(form.getByText(/then chooses to receive/)).toBeVisible();
   expect(cancels).toBe(0);
   await page.screenshot({
     path: "../.impeccable/review/operations-threshold-desktop.png",
@@ -2916,7 +2958,7 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
     .click();
   await expect.poll(() => cancels).toBe(1);
   await expect(
-    page.getByText("Cancel class and refund points", { exact: true }),
+    page.getByText("Cancel class and notify members", { exact: true }),
   ).toHaveCount(0);
 });
 

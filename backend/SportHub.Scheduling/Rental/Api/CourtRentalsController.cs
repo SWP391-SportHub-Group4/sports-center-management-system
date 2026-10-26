@@ -45,6 +45,12 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
         CancellationToken ct)
         => Ok(await operations.MineAsync(memberId, fromUtc, toUtc, ct));
 
+    [Authorize(Policy = SportHubPolicies.CenterManager)]
+    [HttpGet("api/manager/members/{memberId:guid}/court-rentals")]
+    public async Task<IActionResult> MemberRentalHistory(Guid memberId, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await operations.MemberHistoryAsync(memberId, page, pageSize, ct));
+
     [Authorize(Policy = SportHubPolicies.CourtRental)]
     [HttpGet("api/court-rentals/availability")]
     public async Task<IActionResult> Availability([FromQuery] int sportId, [FromQuery] DateTime startUtc,
@@ -77,11 +83,21 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
         return NoContent();
     }
 
-    [Authorize(Policy = SportHubPolicies.FrontDesk)]
+    /// <summary>BR-159: chỉ Lễ tân đánh dấu Checked-in cho lượt thuê sân.</summary>
+    [Authorize(Roles = SportHubRoleNames.Receptionist)]
     [HttpPost("api/court-rentals/{rentalId:guid}/check-in")]
     public async Task<IActionResult> CheckIn(Guid rentalId, CancellationToken ct)
     {
         await rentals.CheckInAsync(rentalId, ct);
+        return NoContent();
+    }
+
+    /// <summary>BR-159: Lễ tân đánh dấu No-show; hết giờ mà chưa đánh dấu thì hệ thống tự ghi No-show.</summary>
+    [Authorize(Roles = SportHubRoleNames.Receptionist)]
+    [HttpPost("api/court-rentals/{rentalId:guid}/no-show")]
+    public async Task<IActionResult> NoShow(Guid rentalId, CancellationToken ct)
+    {
+        await rentals.MarkNoShowAsync(rentalId, ct);
         return NoContent();
     }
 

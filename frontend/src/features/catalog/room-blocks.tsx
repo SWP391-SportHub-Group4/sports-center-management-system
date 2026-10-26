@@ -15,7 +15,13 @@ import styles from "./room-blocks.module.css";
 
 const empty = { start: "", end: "", reason: "" };
 
-export function RoomBlocks({ roomId }: { roomId: number }) {
+export function RoomBlocks({
+  roomId,
+  showHeading = true,
+}: {
+  roomId: number;
+  showHeading?: boolean;
+}) {
   const { t } = useLanguage();
   const l = t.operations;
   const c = t.managerCatalog;
@@ -44,15 +50,12 @@ export function RoomBlocks({ roomId }: { roomId: number }) {
       <AsyncSection state={state}>
         {(rows) => (
           <>
-            <div className={styles.heading}>
-              <h3>{editor?.blockId ? c.editBlock : c.blockTimes}</h3>
-              {rows.length > 0 && !editor && (
-                <button type="button" className="btn" onClick={() => open()}>
-                  {c.addBlock}
-                </button>
-              )}
-            </div>
-            {editor || rows.length === 0 ? (
+            {(showHeading || editor?.blockId) && (
+              <div className={styles.heading}>
+                <h3>{editor?.blockId ? c.editBlock : c.blockTimes}</h3>
+              </div>
+            )}
+            {editor ? (
               <form
                 className={styles.form}
                 onSubmit={async (event) => {
@@ -145,7 +148,7 @@ export function RoomBlocks({ roomId }: { roomId: number }) {
                           ? c.saveBlock
                           : c.addBlock}
                     </button>
-                    {rows.length > 0 && (
+                    {editor && (
                       <button
                         type="button"
                         className="btn btn--secondary"
@@ -161,6 +164,8 @@ export function RoomBlocks({ roomId }: { roomId: number }) {
                   </div>
                 </fieldset>
               </form>
+            ) : rows.length === 0 ? (
+              <p className={styles.empty}>{c.roomNoBlockedTimes}</p>
             ) : (
               <ul className={styles.list}>
                 {rows.map((block) => (
@@ -190,9 +195,9 @@ export function RoomBlocks({ roomId }: { roomId: number }) {
                       {block.incidentId ? (
                         <Link
                           className="btn btn--secondary btn--sm"
-                          href={`/manager/incidents?roomId=${roomId}&incidentId=${block.incidentId}`}
+                          href={`/manager/incidents/${encodeURIComponent(block.incidentId)}`}
                         >
-                          {l.incidents}
+                          {c.viewIncident}
                         </Link>
                       ) : (
                         <>

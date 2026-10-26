@@ -41,7 +41,6 @@ public class AccountStatusJwtTests(SportHubApiFactory factory)
     }
 
     [Theory]
-    [InlineData(UserStatus.Banned)]
     [InlineData(UserStatus.Deactivated)]
     public async Task Same_token_is_rejected_after_status_change_is_committed(UserStatus status)
     {
@@ -85,7 +84,7 @@ public class AccountStatusJwtTests(SportHubApiFactory factory)
         var user = await factory.SeedUserAsync($"unblock-{Guid.NewGuid():N}@example.com", "CorrectHorse1");
         var token = factory.IssueToken(user.UserId, UserRole.Member);
 
-        await factory.SetStatusAsync(user.UserId, UserStatus.Banned);
+        await factory.SetStatusAsync(user.UserId, UserStatus.Deactivated);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Client().SendAsync(Protected(token))).StatusCode);
 
         await factory.SetStatusAsync(user.UserId, UserStatus.Active);
@@ -106,7 +105,7 @@ public class AccountStatusJwtTests(SportHubApiFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, (await Client().SendAsync(Protected(token))).StatusCode);
 
-        await factory.SetStatusAsync(user.UserId, UserStatus.Banned);
+        await factory.SetStatusAsync(user.UserId, UserStatus.Deactivated);
 
         var response = await Client().SendAsync(Protected(token));
 
@@ -218,7 +217,7 @@ public class AccountStatusJwtTests(SportHubApiFactory factory)
     {
         var user = await factory.SeedUserAsync($"pub-{Guid.NewGuid():N}@example.com", "CorrectHorse1");
         var token = factory.IssueToken(user.UserId, UserRole.Member);
-        await factory.SetStatusAsync(user.UserId, UserStatus.Banned);
+        await factory.SetStatusAsync(user.UserId, UserStatus.Deactivated);
 
         var client = Client();
 
