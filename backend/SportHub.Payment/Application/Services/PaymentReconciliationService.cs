@@ -50,7 +50,23 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             .ExecuteUpdateAsync(x => x.SetProperty(a => a.Status, PaymentAttemptStatus.Failed)
                 .SetProperty(a => a.VerifiedResult, "Cancelled")
                 .SetProperty(a => a.VerifiedAtUtc, now), ct);
-        return changed == 1;
+        if (changed == 1) return true;
+
+        // Idempotent browser refresh: accept only the SAME signed cancellation,
+        // and only when the original invoice has already been voided.
+        return await (
+            from attempt in db.Set<SportHub.Payment.Domain.Entities.PaymentAttempt>().AsNoTracking()
+            join invoice in db.Set<SportHub.Payment.Domain.Entities.Invoice>().AsNoTracking()
+                on attempt.InvoiceId equals invoice.InvoiceId
+            where attempt.VnpTxnRef == reference
+                && attempt.InvoiceId == invoiceId
+                && attempt.Status == SportHub.Payment.Domain.Enums.PaymentAttemptStatus.Failed
+                && attempt.VerifiedResult == "Cancelled"
+                && invoice.Status == SportHub.Payment.Domain.Enums.InvoiceStatus.Void
+                && !db.Set<SportHub.Payment.Domain.Entities.VerifiedGatewayEvent>()
+                    .Any(e => e.PaymentAttemptId == attempt.PaymentAttemptId)
+            select attempt.PaymentAttemptId
+        ).AnyAsync(ct);
 
     }
 

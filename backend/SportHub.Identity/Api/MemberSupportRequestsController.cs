@@ -237,10 +237,6 @@ public sealed class MemberSupportRequestsController(
                     || u.ExternalLogins.Any()), ct))
             throw new ConflictException("member_not_activated", "Member must activate the account before a support request can be created.");
 
-        // Front-desk registration creates an Active user before email activation.
-        // Require either a local password or a completed external login.
-        if (member.Credential?.PasswordHash is null && member.ExternalLogins.Count == 0)
-            throw new ConflictException("member_activation_pending", "Member must activate the account before support requests can be created.");
 
         var description = request.Description.Trim();
         var category = request.Category.Trim().ToUpperInvariant();

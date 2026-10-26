@@ -19,7 +19,7 @@ public sealed class CoachSupportWorkflowTests(SportHubApiFactory factory)
     public async Task Status_filters_and_totals_preserve_outcomes_and_assigned_only_visibility(UserRole role)
     {
         var marker = Guid.NewGuid().ToString("N");
-        var member = await factory.SeedUserAsync($"support-status-member-{marker}@example.com", null);
+        var member = await factory.SeedUserAsync($"support-status-member-{marker}@example.com", "Str0ngPassw0rd!");
         var owner = await factory.SeedUserAsync($"support-status-owner-{marker}@example.com", null, role: role);
         var other = await factory.SeedUserAsync($"support-status-other-{marker}@example.com", null, role: UserRole.Coach);
         var statuses = new[] { "OPEN", "ASSIGNED", "IN_PROGRESS", "DONE", "REJECTED", "CLOSED" };
@@ -78,7 +78,7 @@ public sealed class CoachSupportWorkflowTests(SportHubApiFactory factory)
     {
         var marker = Guid.NewGuid().ToString("N");
         var manager = await factory.SeedUserAsync($"manager-{marker}@example.com", null, role: UserRole.CenterManager);
-        var member = await factory.SeedUserAsync($"member-{marker}@example.com", null);
+        var member = await factory.SeedUserAsync($"member-{marker}@example.com", "Str0ngPassw0rd!");
         var coach = await factory.SeedUserAsync($"coach-{marker}@example.com", null, role: UserRole.Coach);
         var other = await factory.SeedUserAsync($"other-coach-{marker}@example.com", null, role: UserRole.Coach);
         var desk = await factory.SeedUserAsync($"desk-{marker}@example.com", null, role: UserRole.Receptionist);

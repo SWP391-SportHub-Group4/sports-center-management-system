@@ -356,7 +356,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
     {
         var request = await SetupAsync(active: false);
         using var scope = factory.Services.CreateScope();
-        await Assert.ThrowsAsync<ForbiddenException>(() => scope.ServiceProvider.GetRequiredService<CheckoutService>()
+        await Assert.ThrowsAsync<ConflictException>(() => scope.ServiceProvider.GetRequiredService<CheckoutService>()
             .CreateCourtRentalAsync(request, Guid.NewGuid().ToString(), request.MemberId, default));
         Assert.False(await factory.QueryAsync(db => db.Invoices.AnyAsync(x => x.MemberId == request.MemberId)));
     }
