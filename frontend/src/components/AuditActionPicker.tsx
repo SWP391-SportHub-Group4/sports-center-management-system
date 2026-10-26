@@ -49,13 +49,31 @@ export function AuditActionPicker({
   const keywords = searching
     ? value.toLowerCase().replaceAll("_", " ").split(/\s+/).filter(Boolean)
     : [];
-  const available = Array.isArray(actions.data) ? [...actions.data] : [];
+  const retiredActions = new Set([
+    "LOCK_USER_ACCOUNT",
+    "LOCK_USER",
+    "UNLOCK_USER_ACCOUNT",
+    "UNLOCK_USER",
+  ]);
+  const rawAvailable = Array.isArray(actions.data) ? [...actions.data] : [];
+  const filtered = rawAvailable.filter(
+    (action) => !retiredActions.has(action) || action === value,
+  );
   if (humanReadable)
-    available.sort(
+    filtered.sort(
       (a, b) =>
         auditActionLabel(a).localeCompare(auditActionLabel(b)) ||
         a.localeCompare(b),
     );
+  const seenLabels = new Set<string>();
+  const available: string[] = [];
+  for (const action of filtered) {
+    const label = humanReadable ? auditActionLabel(action) : action;
+    if (!seenLabels.has(label)) {
+      seenLabels.add(label);
+      available.push(action);
+    }
+  }
   const matches = available.filter((action) => {
     const text =
       `${action.replaceAll("_", " ")}${humanReadable ? ` ${auditActionLabel(action)}` : ""}`.toLowerCase();
