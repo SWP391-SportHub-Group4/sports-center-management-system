@@ -22,7 +22,8 @@ public sealed record BusyIntervalResponse(string Resource, [property: SportHub.B
 /// Gợi ý phòng/coach còn trống. Đọc cùng bảng occupancy mà <see cref="OccupancyService"/> ghi nên hai bên không lệch nhau.
 /// Chỉ là gợi ý: POST đặt lịch vẫn chịu exclusion constraint của DB. Mọi truy vấn có giới hạn khoảng thời gian.
 /// </summary>
-public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyReader coaches, IUserAccessReader users)
+public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyReader coaches, IUserAccessReader users,
+    SportHub.BuildingBlocks.Abstractions.Configuration.ISystemSettingProvider settings)
 {
     public static readonly TimeSpan MaxSlotLength = TimeSpan.FromHours(12);
     public static readonly TimeSpan MaxBusyRange = TimeSpan.FromDays(31);
@@ -43,6 +44,8 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
         var start = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
         var end = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
         var reasons = new List<string>();
+        var center = await SportHub.BuildingBlocks.Abstractions.Configuration.CenterOperatingHours.ReadAsync(settings, ct);
+        if (!center.Covers(VietnamTime.ToLocal(start), VietnamTime.ToLocal(end))) reasons.Add("outside_center_hours");
         var active = await db.Set<Sport>().AsNoTracking().Where(s => s.SportId == sportId)
             .Select(s => (bool?)s.IsActive).SingleOrDefaultAsync(ct);
         if (active is null) throw new NotFoundException("sport_not_found", "Sport not found.");
@@ -54,9 +57,6 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
             if (!room.IsActive) reasons.Add("room_inactive");
             if (room.RoomTypeId != null && !await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == room.RoomTypeId && t.IsActive, ct))
                 reasons.Add("room_type_inactive");
-            if (!await db.Set<SportRoomType>().AsNoTracking().AnyAsync(
-                    l => l.RoomTypeId == room.RoomTypeId && l.SportId == sportId, ct))
-                reasons.Add("room_incompatible");
             if (room.Capacity < capacity) reasons.Add("room_capacity_exceeded");
             var localStart = VietnamTime.ToLocal(start);
             var localEnd = VietnamTime.ToLocal(end);
@@ -99,14 +99,15 @@ public sealed class AvailabilityService(ISportHubDbContext db, ICoachSpecialtyRe
         ValidateSlot(startUtc, endUtc);
         await EnsureSportActiveAsync(sportId, ct);
 
+        if (!(await SportHub.BuildingBlocks.Abstractions.Configuration.CenterOperatingHours.ReadAsync(settings, ct))
+            .Covers(VietnamTime.ToLocal(startUtc), VietnamTime.ToLocal(endUtc))) return [];
+
         var start = DateTime.SpecifyKind(startUtc, DateTimeKind.Utc);
         var end = DateTime.SpecifyKind(endUtc, DateTimeKind.Utc);
 
-        var rooms = await (from room in db.Set<Room>().AsNoTracking()
-                           join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
-                           where room.IsActive && link.SportId == sportId
-                               && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
-                           select room).ToListAsync(ct);
+        var rooms = await db.Set<Room>().AsNoTracking().Where(room => room.IsActive
+            && (room.RoomTypeId == null || db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)))
+            .ToListAsync(ct);
 
         if (rooms.Count == 0)
         {

@@ -9,6 +9,7 @@ export default function Page() {
   return (
     <AppShell
       title={t.managerCatalog.editCourt}
+      hidePageHeader
       allow={["CenterManager"]}
       operationalLayout
     >

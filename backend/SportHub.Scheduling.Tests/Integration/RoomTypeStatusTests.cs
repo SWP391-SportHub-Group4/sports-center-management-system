@@ -39,8 +39,8 @@ public sealed class RoomTypeStatusTests(SchedulingApiFactory factory)
         var stop = await manager.PostAsJsonAsync($"api/manager/room-types/{typeId}/discontinue", new { reason = "Retire this type" });
         stop.EnsureSuccessStatusCode();
         Assert.False((await stop.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("isActive").GetBoolean());
-        Assert.False((await factory.QueryAsync(db => new SportCatalogReader(db).GetRoomAsync(course.RoomId)))!.IsActive);
-        Assert.False(await factory.QueryAsync(db => new SportCatalogReader(db).IsRoomCompatibleAsync(course.RoomId, 3)));
+        Assert.False((await factory.QueryAsync(db => new SportCatalogReader(db, new SportHub.Administration.Infrastructure.SystemSettingProvider(db)).GetRoomAsync(course.RoomId)))!.IsActive);
+        Assert.False(await factory.QueryAsync(db => new SportCatalogReader(db, new SportHub.Administration.Infrastructure.SystemSettingProvider(db)).IsRoomCompatibleAsync(course.RoomId, 3)));
         var slot = DateTime.UtcNow.Date.AddDays(1).AddHours(3);
         var free = await manager.GetFromJsonAsync<JsonElement>($"api/availability/rooms?sportId=3&startUtc={slot:O}&endUtc={slot.AddHours(1):O}");
         Assert.DoesNotContain(free.EnumerateArray(), x => x.GetProperty("roomId").GetInt32() == course.RoomId);
@@ -73,8 +73,8 @@ public sealed class RoomTypeStatusTests(SchedulingApiFactory factory)
         var after = await CourseTestData.SessionsAsync(factory, course.Id);
         Assert.Equal(before.Select(s => (s.SessionId, s.StartAtUtc, s.EndAtUtc)), after.Select(s => (s.SessionId, s.StartAtUtc, s.EndAtUtc)));
         (await manager.PostAsJsonAsync($"api/manager/room-types/{typeId}/reactivate", new { reason = "Reopen this type" })).EnsureSuccessStatusCode();
-        Assert.True((await factory.QueryAsync(db => new SportCatalogReader(db).GetRoomAsync(course.RoomId)))!.IsActive);
-        Assert.False((await factory.QueryAsync(db => new SportCatalogReader(db).GetRoomAsync(stoppedRoomId)))!.IsActive);
+        Assert.True((await factory.QueryAsync(db => new SportCatalogReader(db, new SportHub.Administration.Infrastructure.SystemSettingProvider(db)).GetRoomAsync(course.RoomId)))!.IsActive);
+        Assert.False((await factory.QueryAsync(db => new SportCatalogReader(db, new SportHub.Administration.Infrastructure.SystemSettingProvider(db)).GetRoomAsync(stoppedRoomId)))!.IsActive);
         Assert.False(await factory.QueryAsync(db => db.Rooms.Where(r => r.RoomId == stoppedRoomId).Select(r => r.IsActive).SingleAsync()));
     }
 

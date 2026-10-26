@@ -90,12 +90,12 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         Assert.Equal(4, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == f.Member && receipt.Refunds!.Select(r => r.NotificationSourceId).Contains(n.SourceEntityId!.Value))));
         var overlap = await Preview(f.Window);
         Assert.All(overlap.Refunds, row => Assert.Equal(0, row.MaximumRefundPoints));
-        await Resolve(Confirm(f.Window, overlap), f.Manager);
+        Assert.Equal("incident_overlap", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(Confirm(f.Window, overlap), f.Manager))).ErrorCode);
         Assert.Equal(250, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
     }
 
     [Fact]
-    public async Task Partial_refund_needs_reason_and_overlap_only_refunds_remaining_balance()
+    public async Task Partial_refund_needs_reason_and_overlapping_incidents_cannot_credit_more()
     {
         var f = await SeedAsync(); var preview = await Preview(f.Window);
         var request = Confirm(f.Window, preview);
@@ -103,12 +103,12 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         Assert.Equal("incident_refund_reason_required", (await Assert.ThrowsAsync<BadRequestException>(() => Resolve(request, f.Manager))).ErrorCode);
         request = request with { Refunds = request.Refunds!.Select(r => r.SourceId == f.Rental ? r with { AdjustmentReason = "Member used part of the booked time" } : r).ToList() };
         await Resolve(request, f.Manager);
-        Assert.Equal("incident_refund_preview_changed", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(Confirm(f.Window, preview), f.Manager))).ErrorCode);
+        Assert.Equal("incident_overlap", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(Confirm(f.Window, preview), f.Manager))).ErrorCode);
         var second = await Preview(f.Window);
         Assert.Equal(150, second.Refunds.Single(r => r.SourceId == f.Rental).MaximumRefundPoints);
         Assert.Equal(50, second.Refunds.Single(r => r.SourceId == f.Rental).RefundedPoints);
-        await Resolve(Confirm(f.Window, second), f.Manager);
-        Assert.Equal(250, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
+        Assert.Equal("incident_overlap", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(Confirm(f.Window, second), f.Manager))).ErrorCode);
+        Assert.Equal(100, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
     }
 
     [Fact]

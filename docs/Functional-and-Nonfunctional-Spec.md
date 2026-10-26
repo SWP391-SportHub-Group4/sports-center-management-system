@@ -2,6 +2,12 @@
 
 > Cập nhật: 18/10/2026. Đây là **một file tổng hợp hành vi đang triển khai** để trình bày/kiểm thử, không thay thế [nguồn quy tắc nghiệp vụ](00-Source-of-Truth.md). Số liệu bên dưới lấy từ code tại nhánh đang làm; khi code và yêu cầu khác nhau, phần **Gap/giới hạn** nêu rõ. Không xem giá trị seed là giá trị chắc chắn của mọi database đang chạy.
 
+## Cập nhật luồng phòng — 26/10/2026
+
+**Form Create room:** nhập tên và Capacity (sức chứa một phòng). Allow rental mặc định tắt; bật lên mới hiện giá theo giờ và lịch từng thứ. Save luôn tạo phòng Active; khi cho thuê, API lưu phòng/giờ/giá cùng transaction. Form tạo mới không có nút availability/Active.
+
+Manager tạo và đặt tên phòng tại `/manager/facilities`, không phải chọn môn. Form lớp chọn phòng đang hoạt động từ dropdown dùng chung. Nút **Allow rental** bật riêng quyền cho thuê phòng hiện có; giá thuê/giờ mở cửa được cấu hình tại trang chi tiết. **Disable rental** không đổi lớp hoặc booking đã bán. Xem [luồng, API, migration và tiêu chí nghiệm thu](Independent-Rooms-Workflow.md); phần này thay thế các mô tả cũ về tương thích phòng–môn.
+
 ## 1. Phạm vi, vai trò và kiến trúc
 
 SportHub là web quản lý trung tâm Gym, cầu lông và bóng rổ. Frontend dùng Next.js; backend là ASP.NET Core .NET 10 dạng modular monolith; dữ liệu chính ở PostgreSQL. Các module backend gồm Identity, Administration, Scheduling, Membership, Payment, Training, Notification, Audit và AI. API là nguồn quyết định giá, quyền truy cập, thời hạn và trạng thái nghiệp vụ; giao diện chỉ trình bày và gửi thao tác. [Kiến trúc repo](../README.md), [thiết kế chi tiết](Center-Management-System-Design-v3.md).

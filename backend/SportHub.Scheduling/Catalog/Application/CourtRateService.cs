@@ -116,7 +116,9 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
 
         if (request.SportId is int sportId)
         {
-            var linked = await db.Set<SportRoomType>().AnyAsync(l => l.RoomTypeId == request.RoomTypeId && l.SportId == sportId, ct);
+            var linked = request.RoomId is not null
+                ? await db.Set<Sport>().AnyAsync(s => s.SportId == sportId && s.IsActive, ct)
+                : await db.Set<SportRoomType>().AnyAsync(l => l.RoomTypeId == request.RoomTypeId && l.SportId == sportId, ct);
             if (!linked)
             {
                 throw new BadRequestException("sport_not_compatible", "Sport not compatible.");

@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
+using SportHub.Scheduling.Application.Services;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Scheduling.Rental.Application;
@@ -16,8 +18,18 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
 {
     private sealed record Fixture(CourseData Course, ClassSession Session, Guid Member, IncidentRequest Incident, Guid FenceId);
-    private Task<T> Run<T>(Func<IClassSessionService, Task<T>> run) => CourseTestData.RunAsync<IClassSessionService, T>(factory, run);
-    private Task<T> Incidents<T>(Func<IncidentService, Task<T>> run) => CourseTestData.RunAsync<IncidentService, T>(factory, run);
+    // Keep ongoing-session fixtures inside operating hours regardless of when the suite runs.
+    private readonly IClock clock = new TestClock(VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(new SystemClock())).AddHours(12));
+    private async Task<T> Run<T>(Func<IClassSessionService, Task<T>> run)
+    {
+        using var scope = factory.Services.CreateScope();
+        return await run(ActivatorUtilities.CreateInstance<ClassSessionService>(scope.ServiceProvider, clock));
+    }
+    private async Task<T> Incidents<T>(Func<IncidentService, Task<T>> run)
+    {
+        using var scope = factory.Services.CreateScope();
+        return await run(ActivatorUtilities.CreateInstance<IncidentService>(scope.ServiceProvider, clock));
+    }
 
     private async Task<DateTime> ManualReplacementStart(Fixture f)
     {
@@ -40,7 +52,7 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
             {
                 var isFirst = old.SessionId == first.SessionId;
                 if (!isFirst && !completedClass) continue;
-                var start = ongoing && isFirst ? DateTime.UtcNow.AddMinutes(-30) : past.AddDays(old.SessionNo);
+                var start = ongoing && isFirst ? clock.UtcNow.AddMinutes(-30) : past.AddDays(old.SessionNo);
                 var duration = old.EndAtUtc - old.StartAtUtc;
                 old.StartAtUtc = start; old.EndAtUtc = start + duration;
                 old.Status = ongoing && isFirst ? ClassSessionStatus.Scheduled : ClassSessionStatus.Completed;

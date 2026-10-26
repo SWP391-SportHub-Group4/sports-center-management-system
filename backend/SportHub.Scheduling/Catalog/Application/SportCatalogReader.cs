@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Scheduling.Catalog.Domain;
 
 namespace SportHub.Scheduling.Catalog.Application;
 
 /// <summary>Bản cài đặt <see cref="ISportCatalogReader"/>: chỉ đọc, dùng chung DbContext của caller.</summary>
-public sealed class SportCatalogReader(ISportHubDbContext db) : ISportCatalogReader
+public sealed class SportCatalogReader(ISportHubDbContext db, ISystemSettingProvider settings) : ISportCatalogReader
 {
     public async Task<SportInfo?> GetSportAsync(int sportId, CancellationToken cancellationToken = default)
     {
@@ -60,19 +61,15 @@ public sealed class SportCatalogReader(ISportHubDbContext db) : ISportCatalogRea
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<bool> IsRoomCompatibleAsync(int roomId, int sportId, CancellationToken cancellationToken = default)
-        => await (from room in db.Set<Room>().AsNoTracking()
-                  join link in db.Set<SportRoomType>().AsNoTracking() on room.RoomTypeId equals link.RoomTypeId
-                  join sport in db.Set<Sport>().AsNoTracking() on link.SportId equals sport.SportId
-                  where room.RoomId == roomId && room.IsActive && sport.SportId == sportId && sport.IsActive
-                      && (room.SportId == null || room.SportId == sportId)
-                      && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && (room.SportId != null || t.IsActive))
-                  select 1)
-            .AnyAsync(cancellationToken);
+        => await db.Set<Room>().AsNoTracking().AnyAsync(room => room.RoomId == roomId && room.IsActive
+            && (room.RoomTypeId == null || db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive))
+            && db.Set<Sport>().Any(s => s.SportId == sportId && s.IsActive), cancellationToken);
 
     public async Task<bool> IsRoomOpenAsync(int roomId, DateTimeOffset startUtc, DateTimeOffset endUtc, CancellationToken cancellationToken = default)
     {
         var start = VietnamTime.ToLocal(startUtc.UtcDateTime);
         var end = VietnamTime.ToLocal(endUtc.UtcDateTime);
+        if (!(await CenterOperatingHours.ReadAsync(settings, cancellationToken)).Covers(start, end)) return false;
 
         if (start.Date != end.Date)
         {

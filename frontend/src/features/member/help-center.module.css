@@ -54,7 +54,7 @@
   font-weight: var(--weight-regular);
 }
 .field textarea {
-  width: min(100%, 240px);
+  width: 100%;
   min-height: 140px;
   border-color: var(--border-control);
   resize: vertical;

@@ -32,7 +32,7 @@ public sealed class CourseValidator(
         return sport;
     }
 
-    /// <summary>Phòng phải tồn tại, đang hoạt động và có loại phòng chơi được môn này (BR-108).</summary>
+    /// <summary>Any active room can host a class, regardless of legacy sport metadata.</summary>
     public async Task<RoomInfo> RequireRoomForSportAsync(int roomId, int sportId, CancellationToken ct)
     {
         var room = await catalog.GetRoomAsync(roomId, ct)

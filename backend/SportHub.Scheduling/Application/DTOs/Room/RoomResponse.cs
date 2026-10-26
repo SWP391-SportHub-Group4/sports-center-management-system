@@ -8,4 +8,5 @@ public sealed record RoomResponse(
     int? RoomTypeId,
     bool IsActive,
     int? SportId = null,
-    DateTime? RentalBookingOpensAtUtc = null);
+    DateTime? RentalBookingOpensAtUtc = null,
+    bool AllowRental = false);

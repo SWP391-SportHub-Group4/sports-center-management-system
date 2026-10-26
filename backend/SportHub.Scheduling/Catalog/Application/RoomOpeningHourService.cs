@@ -4,6 +4,7 @@ using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.Scheduling.Catalog.Domain;
 
 namespace SportHub.Scheduling.Catalog.Application;
@@ -12,7 +13,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// Giờ mở cửa theo thứ của phòng (BR-109), giờ địa phương Asia/Ho_Chi_Minh. Mỗi phòng tối đa một khoảng mỗi ngày;
 /// ngày không có dòng = đóng cửa. Đổi giờ mở cửa không sửa lịch đã đặt.
 /// </summary>
-public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter audit)
+public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter audit, ISystemSettingProvider settings)
 {
     private const string TimeFormat = "HH:mm";
 
@@ -31,7 +32,9 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
     {
         await EnsureRoomAsync(roomId, ct);
 
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var parsed = new List<RoomOpeningHour>();
+        var center = await CenterOperatingHours.ReadAsync(settings, ct);
 
         foreach (var input in request.Hours)
         {
@@ -42,6 +45,7 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
             {
                 throw new BadRequestException("invalid_opening_hours", "Invalid opening hours.");
             }
+            center.EnsureRange(open, close);
 
             parsed.Add(new RoomOpeningHour { RoomId = roomId, DayOfWeek = input.DayOfWeek, OpenTimeLocal = open, CloseTimeLocal = close });
         }
@@ -52,8 +56,6 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
         }
 
         var current = await db.Set<RoomOpeningHour>().Where(h => h.RoomId == roomId).ToListAsync(ct);
-
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
 
         db.Set<RoomOpeningHour>().RemoveRange(current);
         await db.SaveChangesAsync(ct);
@@ -74,6 +76,8 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
     {
         var start = VietnamTime.ToLocal(startUtc);
         var end = VietnamTime.ToLocal(endUtc);
+        var center = await CenterOperatingHours.ReadAsync(settings, ct);
+        if (!center.Covers(start, end)) return false;
 
         if (start.Date != end.Date)
         {

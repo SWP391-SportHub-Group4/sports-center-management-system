@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
@@ -21,7 +22,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
     INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension, IIncidentDayPassService dayPasses,
-    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions)
+    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions, ISystemSettingProvider settings)
 {
     public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
         CancellationToken ct = default)
@@ -71,6 +72,18 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var receiptJson = await db.Set<IncidentNotice>().Where(i => i.IncidentId == incidentId).Select(i => i.RefundsJson).SingleAsync(ct);
         ids.AddRange((System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(receiptJson) ?? []).Select(r => r.NotificationSourceId));
         return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
+    }
+
+    /// <summary>Review locks new bookings atomically before returning the affected activities.</summary>
+    public async Task<IncidentPreviewResponse> ReviewAsync(IncidentRequest request, Guid managerId, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
+        var shape = await ValidateAsync(request, ct);
+        await OpenFenceCoreAsync(shape, request, managerId, ct);
+        var preview = await PreviewAsync(request, ct);
+        await tx.CommitAsync(ct);
+        return preview;
     }
 
     public async Task<IncidentPreviewResponse> PreviewAsync(IncidentRequest request, CancellationToken ct = default)
@@ -171,6 +184,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             initialRows.Where(r => r.InvoiceId != Guid.Empty).Select(r => r.InvoiceId).Distinct().ToList(), ct);
         // Payment locks precede the shared calendar lock, matching checkout and other system refunds.
         await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
+        await EnsureNoIncidentOverlapAsync(shape, managerId, ct);
         var impacts = await FindImpactsAsync(shape, ct);
         EnsureResolvable(impacts);
         var rows = await RefundRowsAsync(shape, ct);
@@ -281,9 +295,21 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
     /// </summary>
     public async Task<IncidentFenceResponse> OpenFenceAsync(IncidentRequest request, Guid managerId, CancellationToken ct = default)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
         var shape = await ValidateAsync(request, ct);
+        var fence = await OpenFenceCoreAsync(shape, request, managerId, ct);
+        var response = await ToFenceResponseAsync(fence, ct);
+        await tx.CommitAsync(ct);
+        return response;
+    }
+
+    private async Task<IncidentFence> OpenFenceCoreAsync(IncidentShape shape, IncidentRequest request, Guid managerId, CancellationToken ct)
+    {
+        await EnsureNoIncidentOverlapAsync(shape, managerId, ct);
         var now = clock.UtcNow;
         var fence = await db.Set<IncidentFence>().FirstOrDefaultAsync(f => f.Status == IncidentFenceStatus.Open
+            && f.CreatedByUserId == managerId
             && f.Scope == shape.Scope && f.RoomId == shape.RoomId
             && f.StartAtUtc == shape.StartUtc && f.EndAtUtc == shape.EndUtc, ct);
         if (fence is null)
@@ -296,13 +322,30 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             };
             db.Set<IncidentFence>().Add(fence);
         }
+        fence.Reason = request.Reason.Trim();
         fence.ExpiresAtUtc = now + FenceLifetime;
         audit.Write(new AuditEntry(managerId, "OPEN_INCIDENT_FENCE", nameof(IncidentFence), fence.FenceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new
                 { scope = shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc, fence.ExpiresAtUtc }),
             Reason: fence.Reason));
         await db.SaveChangesAsync(ct);
-        return await ToFenceResponseAsync(fence, ct);
+        return fence;
+    }
+
+    private async Task EnsureNoIncidentOverlapAsync(IncidentShape shape, Guid managerId, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        var noticeOverlap = await db.Set<IncidentNotice>().AsNoTracking().AnyAsync(i =>
+            i.StartAtUtc < shape.EndUtc && i.EndAtUtc > shape.StartUtc
+            && (shape.Scope == IncidentScope.Center || i.Scope == IncidentScope.Center || i.RoomId == shape.RoomId), ct);
+        var fenceOverlap = await db.Set<IncidentFence>().AsNoTracking().AnyAsync(f =>
+            f.Status == IncidentFenceStatus.Open && f.ExpiresAtUtc > now
+            && f.StartAtUtc < shape.EndUtc && f.EndAtUtc > shape.StartUtc
+            && (shape.Scope == IncidentScope.Center || f.Scope == IncidentScope.Center || f.RoomId == shape.RoomId)
+            && !(f.CreatedByUserId == managerId && f.Scope == shape.Scope && f.RoomId == shape.RoomId
+                && f.StartAtUtc == shape.StartUtc && f.EndAtUtc == shape.EndUtc), ct);
+        if (noticeOverlap || fenceOverlap)
+            throw new ConflictException("incident_overlap", "Another incident already covers this room and time. Choose a different room or time.");
     }
 
     /// <summary>Incidents still being handled, with what is left to do, so abandoned work can be picked up again.</summary>
@@ -317,15 +360,23 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
 
     public async Task<IncidentFenceResponse> ExtendFenceAsync(Guid fenceId, Guid managerId, CancellationToken ct = default)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
         var fence = await db.Set<IncidentFence>().SingleOrDefaultAsync(f => f.FenceId == fenceId, ct)
             ?? throw new NotFoundException("incident_fence_not_found", "Incident fence not found.");
         if (fence.Status != IncidentFenceStatus.Open)
             throw new ConflictException("incident_fence_closed", "This incident is no longer being handled.");
+        if (fence.CreatedByUserId != managerId)
+            throw new ConflictException("incident_fence_owner", "This incident is being reviewed by another manager.");
+        var shape = await ValidateAsync(new(fence.Scope.ToString(), fence.RoomId, fence.StartAtUtc, fence.EndAtUtc, fence.Reason), ct);
+        await EnsureNoIncidentOverlapAsync(shape, managerId, ct);
         fence.ExpiresAtUtc = clock.UtcNow + FenceLifetime;
         audit.Write(new AuditEntry(managerId, "EXTEND_INCIDENT_FENCE", nameof(IncidentFence), fenceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { fence.ExpiresAtUtc })));
         await db.SaveChangesAsync(ct);
-        return await ToFenceResponseAsync(fence, ct);
+        var response = await ToFenceResponseAsync(fence, ct);
+        await tx.CommitAsync(ct);
+        return response;
     }
 
     /// <summary>Give the window back without resolving (the incident was a false alarm or is handled elsewhere).</summary>
@@ -502,6 +553,10 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var end = DateTime.SpecifyKind(request.EndAtUtc, DateTimeKind.Utc);
         if (end <= start || end - start > TimeSpan.FromDays(31))
             throw new BadRequestException("invalid_incident_range", "Invalid incident range.");
+        var center = await CenterOperatingHours.ReadAsync(settings, ct);
+        if (!center.Covers(VietnamTime.ToLocal(start), VietnamTime.ToLocal(end)))
+            throw new BadRequestException("outside_center_hours",
+                $"The entire incident must be on the same day within the center opening hours ({center.Opens}–{center.Closes}, Vietnam time).");
         List<int> roomIds;
         int? roomId = request.RoomId;
         if (scope == IncidentScope.Room)

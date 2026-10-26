@@ -74,6 +74,7 @@ export function HelpRequestForm({
   const [consent, setConsent] = useState(false);
   const [invoiceId, setInvoiceId] = useState(initialInvoiceId ?? "");
   const [invoiceInput, setInvoiceInput] = useState("");
+  const [invoiceTouched, setInvoiceTouched] = useState(false);
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoiceKeyword, setInvoiceKeyword] = useState("");
   const [invoicePage, setInvoicePage] = useState(1);
@@ -227,6 +228,24 @@ export function HelpRequestForm({
   );
 
   const paymentReady = invoiceId !== "" && files.length >= 1;
+  const invoiceSearchReady =
+    invoiceSearch.trim() === invoiceKeyword && !invoiceLoading;
+  const invoiceValidationMessage =
+    invoiceTouched && !invoiceId
+      ? !invoiceInput.trim()
+        ? invoiceOpen
+          ? null
+          : "Select an invoice."
+        : !invoiceSearchReady
+          ? null
+          : invoiceError
+            ? "Could not check this invoice. Open the list and retry."
+            : invoiceTotal === 0
+              ? "Invoice not found in your account. Check the invoice number."
+              : invoiceOpen
+                ? null
+                : "Choose an invoice from the list to continue."
+      : null;
   const ready =
     category !== "" &&
     message.trim().length >= 3 &&
@@ -291,6 +310,7 @@ export function HelpRequestForm({
       setConsent(false);
       setInvoiceId("");
       setInvoiceInput("");
+      setInvoiceTouched(false);
       onSent();
     } catch (e) {
       setError(friendlyError(e));
@@ -384,13 +404,21 @@ export function HelpRequestForm({
                         : undefined
                     }
                     aria-required="true"
+                    aria-invalid={!!invoiceValidationMessage}
+                    aria-describedby={
+                      invoiceValidationMessage
+                        ? invoiceListId + "-error"
+                        : undefined
+                    }
                     autoComplete="off"
                     value={invoiceInput}
                     placeholder="Select an invoice or type its number"
                     onFocus={() => setInvoiceOpen(true)}
                     onClick={() => setInvoiceOpen(true)}
+                    onBlur={() => setInvoiceTouched(true)}
                     onChange={(event) => {
                       const value = event.target.value;
+                      setInvoiceTouched(true);
                       setInvoiceInput(value);
                       setInvoiceSearch(value);
                       setInvoiceId("");
@@ -501,6 +529,15 @@ export function HelpRequestForm({
                     </div>
                   )}
                 </div>
+                {invoiceValidationMessage && (
+                  <span
+                    id={invoiceListId + "-error"}
+                    className={styles.fieldError}
+                    role="alert"
+                  >
+                    {invoiceValidationMessage}
+                  </span>
+                )}
               </div>
               {breakdown.data && (
                 <dl className={styles.hint} aria-label="Invoice breakdown">

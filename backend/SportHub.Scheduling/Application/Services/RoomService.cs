@@ -15,8 +15,26 @@ namespace SportHub.Scheduling.Application.Services;
 /// Danh mục phòng tập — BR-39 (chỉ Center Manager cấu hình), BR-57 (Name unique toàn trung tâm), BR-108 (loại phòng).
 /// Phòng ngừng hoạt động (IsActive=false) chặn booking mới nhưng giữ nguyên lịch đã có.
 /// </summary>
-public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit, IClock clock) : IRoomService
+public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit, IClock clock,
+    SportHub.BuildingBlocks.Abstractions.Configuration.ISystemSettingProvider settings) : IRoomService
 {
+    public async Task<RoomResponse> SetRentalAccessAsync(int roomId, bool allowRental, Guid actorUserId, CancellationToken ct = default)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var room = await db.Set<Room>().FromSqlInterpolated($"SELECT * FROM rooms WHERE room_id = {roomId} FOR UPDATE")
+            .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("room_not_found", "Room not found.");
+        var before = Describe(room);
+        if (allowRental && !room.AllowRental && room.RentalBookingOpensAtUtc is null)
+            room.RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1));
+        if (allowRental) room.RoomTypeId ??= await ResolveSharedRoomTypeAsync(ct);
+        room.AllowRental = allowRental;
+        audit.Write(new AuditEntry(actorUserId, allowRental ? "ALLOW_ROOM_RENTAL" : "DISABLE_ROOM_RENTAL",
+            nameof(Room), roomId.ToString(), OldValue: before, NewValue: Describe(room)));
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return await GetOneAsync(roomId, ct);
+    }
+
     public async Task<IReadOnlyList<RoomResponse>> GetAllAsync(CancellationToken ct = default)
         => await db.Set<Room>()
             .AsNoTracking()
@@ -27,7 +45,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
                 r.Capacity,
                 db.Set<Class>().Count(c => c.DefaultRoomId == r.RoomId && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)),
                 r.RoomTypeId,
-                r.IsActive, r.SportId, r.RentalBookingOpensAtUtc))
+                r.IsActive, r.SportId, r.RentalBookingOpensAtUtc, r.AllowRental))
             .ToListAsync(ct);
 
     public async Task<RoomResponse> CreateAsync(SaveRoomRequest request, Guid actorUserId, CancellationToken ct = default)
@@ -42,6 +60,8 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
         }
 
         await EnsureRoomTypeAsync(request.RoomTypeId, ct);
+        if (name.Length == 0) throw new BadRequestException("invalid_room_name", "Enter a room name.");
+        var openingHours = await CreationOpeningHoursAsync(request, ct);
 
         var room = new Room
         {
@@ -49,19 +69,36 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
             Capacity = request.Capacity,
             RoomTypeId = request.RoomTypeId,
             IsActive = request.IsActive ?? true,
-            RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1))
+            AllowRental = request.AllowRental ?? false,
+            RentalBookingOpensAtUtc = request.AllowRental == true
+                ? VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)) : null
         };
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        if (request.SportId is int sportId)
-        { room.SportId = sportId; room.RoomTypeId = await ResolveSportRoomTypeAsync(sportId, ct); }
+        room.RoomTypeId ??= await ResolveSharedRoomTypeAsync(ct);
         db.Set<Room>().Add(room);
+        await db.SaveChangesAsync(ct);
+        foreach (var hour in openingHours) hour.RoomId = room.RoomId;
+        db.Set<RoomOpeningHour>().AddRange(openingHours);
+        var rentalRates = AddCreationRentalRates(room, request, openingHours);
         await db.SaveChangesAsync(ct);
 
         audit.Write(new AuditEntry(
             actorUserId, "CREATE_ROOM", nameof(Room), room.RoomId.ToString(),
             NewValue: Describe(room)));
+        if (room.AllowRental)
+        {
+            audit.Write(new AuditEntry(actorUserId, "SET_ROOM_OPENING_HOURS", nameof(Room), room.RoomId.ToString(),
+                NewValue: System.Text.Json.JsonSerializer.Serialize(new { name = room.Name, hours = request.RentalSetup!.Hours })));
+            foreach (var rate in rentalRates)
+                audit.Write(new AuditEntry(actorUserId, "CREATE_COURT_RATE", nameof(CourtRate), rate.RateId.ToString(),
+                    NewValue: System.Text.Json.JsonSerializer.Serialize(new {
+                        roomId = room.RoomId, roomName = room.Name, roomTypeId = room.RoomTypeId, sportId = (int?)null,
+                        days = rate.DaysOfWeek, startTimeLocal = rate.StartTimeLocal.ToString("HH:mm"),
+                        endTimeLocal = rate.EndTimeLocal.ToString("HH:mm"), price = rate.PricePerHour, active = true
+                    })));
+        }
 
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -75,10 +112,14 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
         Guid actorUserId,
         CancellationToken ct = default)
     {
+        if (request.RentalSetup is not null)
+            throw new BadRequestException("rental_setup_creation_only", "Use rental pricing and opening hours to update an existing room.");
         var room = await db.Set<Room>().SingleOrDefaultAsync(r => r.RoomId == roomId, ct)
             ?? throw new NotFoundException("room_not_found", "Room not found.");
 
         var name = request.Name.Trim();
+
+        if (name.Length == 0) throw new BadRequestException("invalid_room_name", "Enter a room name.");
 
         if (await db.Set<Room>().AnyAsync(r => r.Name == name && r.RoomId != roomId, ct))
         {
@@ -94,16 +135,6 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
 
         var before = Describe(room);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        if (request.SportId is int sportId && sportId != room.SportId)
-        {
-            if (await db.Set<ClassSession>().AnyAsync(s => s.RoomId == roomId, ct)
-                || await db.Set<CourtRate>().AnyAsync(r => r.RoomId == roomId, ct)
-                || await db.Set<Class>().AnyAsync(c => c.DefaultRoomId == roomId, ct)
-                || await db.Set<RoomOccupancy>().AnyAsync(o => o.RoomId == roomId, ct))
-                throw new ConflictException("room_sport_in_use", "This room already has a schedule or prices. Keep its sport and create another room instead.");
-            room.RoomTypeId = await ResolveSportRoomTypeAsync(sportId, ct);
-            room.SportId = sportId;
-        }
         room.Name = name;
 
         // Tăng Capacity ở đây KHÔNG nới trần của các buổi đã tạo: BaselineCapacity của mỗi
@@ -118,6 +149,14 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
         if (request.IsActive is bool active)
         {
             room.IsActive = active;
+        }
+
+        if (request.AllowRental is bool allowRental)
+        {
+            if (allowRental && !room.AllowRental && room.RentalBookingOpensAtUtc is null)
+                room.RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1));
+            room.AllowRental = allowRental;
+            if (allowRental) room.RoomTypeId ??= await ResolveSharedRoomTypeAsync(ct);
         }
 
         audit.Write(new AuditEntry(
@@ -174,7 +213,21 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
     }
 
     private static string Describe(Room room)
-        => System.Text.Json.JsonSerializer.Serialize(new { name = room.Name, capacity = room.Capacity, roomTypeId = room.RoomTypeId, sportId = room.SportId, isActive = room.IsActive });
+        => System.Text.Json.JsonSerializer.Serialize(new { name = room.Name, capacity = room.Capacity, roomTypeId = room.RoomTypeId, sportId = room.SportId, isActive = room.IsActive, allowRental = room.AllowRental });
+
+    private async Task<int> ResolveSharedRoomTypeAsync(CancellationToken ct)
+    {
+        // Internal pricing category, never a sport restriction on a physical room.
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(877459021)", ct);
+        var type = await db.Set<RoomType>().SingleOrDefaultAsync(t => t.Name == "Multipurpose rooms", ct);
+        if (type is null)
+        {
+            type = new RoomType { Name = "Multipurpose rooms", IsActive = true };
+            db.Set<RoomType>().Add(type);
+            await db.SaveChangesAsync(ct);
+        }
+        return type.RoomTypeId;
+    }
 
     private async Task<RoomResponse> GetOneAsync(int roomId, CancellationToken ct)
         => await db.Set<Room>()
@@ -182,7 +235,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
                .Where(r => r.RoomId == roomId)
                .Select(r => new RoomResponse(
                    r.RoomId, r.Name, r.Capacity, db.Set<Class>().Count(c => c.DefaultRoomId == r.RoomId && (c.Status == ClassStatus.Published || c.Status == ClassStatus.InProgress)),
-                   r.RoomTypeId, r.IsActive, r.SportId, r.RentalBookingOpensAtUtc))
+                   r.RoomTypeId, r.IsActive, r.SportId, r.RentalBookingOpensAtUtc, r.AllowRental))
                .SingleOrDefaultAsync(ct)
            ?? throw new NotFoundException("room_not_found", "Room not found.");
 }
