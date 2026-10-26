@@ -591,6 +591,16 @@ export interface WorkoutSuggestionDto {
   generatedAt: string;
 }
 
+export interface SavedWorkoutSuggestionDto {
+  id: string;
+  generatedAt: string;
+  sport: string;
+  goal: string;
+  level: string;
+  items: { exercise: string; sets: number; reps: number; notes?: string | null }[];
+  rationale: string;
+}
+
 export interface SystemSettingDto {
   key: string;
   value: string;
