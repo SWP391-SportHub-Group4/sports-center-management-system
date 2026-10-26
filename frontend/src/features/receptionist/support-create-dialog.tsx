@@ -165,6 +165,7 @@ export function SupportCreateDialog({
   const escalating = !!target && ROLE_RANK[roleKey(target.role)] > myRank;
   const baseReady =
     !!member &&
+    !member.activationPending &&
     (category !== "PAYMENT" || invoiceId !== "") &&
     category !== "" &&
     (isManager || subject.trim().length >= 3) &&
@@ -180,12 +181,14 @@ export function SupportCreateDialog({
       : null;
 
   async function submit(handover: boolean) {
-    if (!isManager && category === "PAYMENT") {
-      setError("Payment requests must be submitted by the member in their own app, with invoice and supporting evidence.");
+    if (member?.activationPending) {
+      setError("Activate the member account before creating a support request.");
       return;
     }
-    if (category === "PAYMENT" && (!handover || roleKey(target?.role) !== "manager")) {
-      setError("Payment requests must be assigned to Center Manager, not Receptionist.");
+    if (category === "PAYMENT" &&
+        ((handover && roleKey(target?.role) !== "manager") ||
+         (!handover && !isManager))) {
+      setError("Payment requests must be handled by Center Manager, not Receptionist.");
       return;
     }
     if (lock.current || !baseReady || !member || (handover && handoverBlock))
@@ -243,7 +246,12 @@ export function SupportCreateDialog({
             autoFocus
             placeholder="Search by name, phone or email…"
           />
-          {member && <MemberPlanLine memberId={member.userId} />}
+          {member?.activationPending && (
+            <p role="alert" className={styles.helper}>
+              Member account is pending activation. Support requests are unavailable.
+            </p>
+          )}
+          {member && !member.activationPending && <MemberPlanLine memberId={member.userId} />}
         </div>
 
         <label className={styles.field}>
