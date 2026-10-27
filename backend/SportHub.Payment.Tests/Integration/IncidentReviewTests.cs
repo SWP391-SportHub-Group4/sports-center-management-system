@@ -115,7 +115,7 @@ public sealed class IncidentReviewTests(PaymentApiFactory factory)
     {
         var room = await Room(); var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var request = Request(room, At(sh, sm), At(eh, em).AddDays(days));
+        var request = Request(room, At(sh, sm).AddDays(400), At(eh, em).AddDays(400 + days));
         var response = await client.PostAsJsonAsync("/api/manager/incidents/preview", request);
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         var preview = await response.Content.ReadFromJsonAsync<JsonElement>();
