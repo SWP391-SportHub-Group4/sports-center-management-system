@@ -27,6 +27,10 @@ export type SaveRate = Omit<CourtRateDto, "rateId" | "daysOfWeek"> & {
   daysOfWeek: string[];
 };
 export const catalogApi = {
+  sportDeactivationImpact: (id: number, signal?: AbortSignal) =>
+    api.get<
+      { classId: number; code: string; name: string; confirmedCount: number }[]
+    >(`/api/manager/sports/${id}/deactivation-impact`, { signal }),
   setRoomRental: (roomId: number, allowRental: boolean) =>
     api.put<RoomDto>(`/api/rooms/${roomId}/rental-access`, { allowRental }),
   deleteRoom: (id: number) => api.del(`/api/rooms/${id}`),
@@ -40,7 +44,7 @@ export const catalogApi = {
     return result;
   },
   setSportActive: async (row: SportDto) => {
-    const result = await api.post(
+    const result = await api.post<SportDto>(
       `/api/manager/sports/${row.sportId}/${row.isActive ? "deactivate" : "activate"}`,
     );
     notifySportCatalogChanged();

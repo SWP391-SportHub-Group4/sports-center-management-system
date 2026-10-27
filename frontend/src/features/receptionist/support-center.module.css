@@ -524,12 +524,11 @@
   font-weight: var(--weight-semibold);
   line-height: 1.4;
 }
-.refundServiceValue {
-  padding: 0 var(--space-3);
+.paymentMethodTitle {
+  margin: 0 0 var(--space-3);
   font-size: 13px;
-}
-.refundServiceValue dt {
-  color: var(--text-muted);
+  font-weight: var(--weight-semibold);
+  color: var(--text-body);
 }
 .refundBankShare {
   padding: var(--space-4) var(--space-3);

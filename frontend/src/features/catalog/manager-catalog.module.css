@@ -1,3 +1,18 @@
+.deactivationConfirm {
+  --color-primary: #facc15;
+  --color-primary-hover: #eab308;
+  --color-primary-active: #ca8a04;
+  --color-on-primary: #000;
+}
+
+.deactivationCancel {
+  --color-primary: #fef9c3;
+  --color-primary-hover: #fef08a;
+  --color-primary-active: #fde047;
+  --color-on-primary: #000;
+  border: none;
+}
+
 .sportCode {
   display: block;
   width: max-content;
@@ -386,4 +401,26 @@
   font-size: var(--text-xs);
   line-height: 1.5;
   white-space: normal;
+}
+.affectedClasses {
+  max-height: min(20rem, 40dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.affectedClasses::-webkit-scrollbar {
+  display: none;
+}
+.affectedClasses ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.affectedClasses li {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
 }

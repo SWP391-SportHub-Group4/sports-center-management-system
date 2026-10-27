@@ -101,7 +101,7 @@ for (const [start, end] of [
   ["2030-10-04T19:00", "2030-10-04T20:01"],
   ["2030-10-04T19:00", "2030-10-05T09:00"],
 ]) {
-  test(`blocks incident outside operating hours: ${start} to ${end}`, async ({
+  test(`allows incident outside operating hours: ${start} to ${end}`, async ({
     page,
   }) => {
     const writes = await setup(page);
@@ -114,36 +114,25 @@ for (const [start, end] of [
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.getByRole("button", { name: "Review", exact: true }).click();
     await expect(
-      page
-        .getByRole("dialog", { name: "Check incident time" })
-        .getByRole("alert")
-        .filter({
-          hasText: /opening time \(08:00\) and closing time \(20:00\)/,
-        })
-        .first(),
+      page.getByRole("dialog", { name: "Affected activities", exact: true }),
     ).toBeVisible();
-    expect(writes).toHaveLength(0);
+    expect(writes).toEqual(["/api/manager/incidents/preview"]);
   });
 }
 
-test("invalid time text shows a popup only after Review and dates show configured hours", async ({
+test("invalid time text shows a popup only after Review without opening-hour restrictions", async ({
   page,
 }) => {
   const writes = await setup(page);
   await fillIncidentDateTime(page, "Start", "2030-10-04Ta");
   await fillIncidentDateTime(page, "End", "2030-10-04Ta");
-  await expect(
-    page.getByText("Allowed time: 08:00–20:00 (Vietnam time).", {
-      exact: true,
-    }),
-  ).toHaveCount(2);
+  await expect(page.getByText(/Allowed time:/)).toHaveCount(0);
   await expect(page.locator(".field__error")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: "Review", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Check incident time" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("alert")).toContainText("08:00");
-  await expect(dialog.getByRole("alert")).toContainText("20:00");
+  await expect(dialog.getByRole("alert")).toContainText("00:00 to 23:59");
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Review", exact: true }),

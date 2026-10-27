@@ -22,6 +22,7 @@ import {
 import { useLanguage } from "@/lib/language";
 import { hasService } from "@/lib/sports";
 import { useApi } from "@/lib/useApi";
+import { useRentalPolicy } from "@/features/rentals";
 import type {
   CourseDto,
   CourseEnrollmentDto,
@@ -77,6 +78,7 @@ export function ExplorePackages({
   onBookCourt?: (sportId: number) => void;
 }) {
   const { language, t } = useLanguage();
+  const rentalPolicy = useRentalPolicy();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const [query, setQuery] = useState("");
@@ -434,6 +436,7 @@ export function ExplorePackages({
                 sport={s}
                 rates={rates.data ?? []}
                 roomTypes={roomTypes.data ?? []}
+                maxRentalHours={rentalPolicy.data?.maxHours ?? null}
                 index={order++}
                 onBook={onBookCourt}
               />
@@ -779,12 +782,14 @@ function CourtOffer({
   roomTypes,
   index,
   onBook,
+  maxRentalHours,
 }: {
   sport: SportDto;
   rates: CourtRateDto[];
   roomTypes: RoomTypeDto[];
   index: number;
   onBook?: (sportId: number) => void;
+  maxRentalHours: number | null;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -830,7 +835,12 @@ function CourtOffer({
         )}
       </p>
       <p className={styles.meta}>
-        {tx("Đặt 1–4 giờ mỗi lần", "Book 1–4 hours at a time")}
+        {maxRentalHours === null
+          ? tx("Xem thời lượng khi đặt sân", "See rental duration when booking")
+          : tx(
+              `Đặt 1–${maxRentalHours} giờ mỗi lần`,
+              `Book 1–${maxRentalHours} hours at a time`,
+            )}
       </p>
       {onBook ? (
         <button

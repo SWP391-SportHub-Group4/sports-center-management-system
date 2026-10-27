@@ -16,8 +16,13 @@ async function install(
   role: "manager" | "member" = "manager",
   legacy = false,
   supportsEnteredPoints = true,
+  cashOnly = false,
 ) {
-  const state = { fail: false, amount: 80000, posts: [] as string[] };
+  const state = {
+    fail: false,
+    amount: cashOnly ? 100000 : 80000,
+    posts: [] as string[],
+  };
   await page.addInitScript(() => {
     localStorage.setItem("sporthub.accessToken", "item-refund-test");
     localStorage.setItem("sporthub_lang", "en");
@@ -47,11 +52,14 @@ async function install(
       invoiceItemId: id,
       description: `Service ${index ? "B" : "A"}`,
       totalVnd: 100000,
-      vnpayVnd: 80000,
-      pointsApplied: 20,
-      pointsVnd: 20000,
+      vnpayVnd: cashOnly ? 100000 : 80000,
+      pointsApplied: cashOnly ? 0 : 20,
+      pointsVnd: cashOnly ? 0 : 20000,
       refundableVnpayVnd: index ? 80000 : state.amount,
-      refundablePoints: 20,
+      refundablePoints: cashOnly ? 0 : 20,
+      ...(cashOnly
+        ? { refundableValueVnd: 100000, maxRefundablePoints: 100 }
+        : {}),
     }));
     if (path === "/api/users/me")
       return json({
@@ -207,6 +215,55 @@ test("legacy multi-service request requires an explicit service selection", asyn
     .selectOption(itemB);
   await expect(amount).toHaveValue("80000");
 });
+
+for (const [cash, points] of [
+  [100000, 0],
+  [0, 100],
+  [40000, 60],
+]) {
+  test(`cash-paid invoice can refund ${cash} VND and ${points} points`, async ({
+    page,
+  }) => {
+    const state = await install(page, "manager", false, true, true);
+    await page.goto("/manager/requests?type=support");
+    const payout = page.getByRole("region", { name: "Payment payout" });
+    const cashInput = payout.getByRole("spinbutton", {
+      name: "Cash amount transferred (VND)",
+    });
+    const pointsInput = payout.getByRole("spinbutton", {
+      name: "Point amount transferred",
+    });
+    await expect(pointsInput).toHaveValue("0");
+    await cashInput.fill(String(cash));
+    await pointsInput.fill(String(points + 1));
+    await expect(
+      payout.getByText(`Maximum ${points} points.`, { exact: true }),
+    ).toBeVisible();
+    await expect(
+      payout.getByRole("button", { name: "Record payout", exact: true }),
+    ).toBeDisabled();
+    await pointsInput.fill(String(points));
+    if (cash > 0) {
+      await payout.getByLabel("Transfer proof", { exact: true }).setInputFiles({
+        name: "refund.png",
+        mimeType: "image/png",
+        buffer: png,
+      });
+    }
+    await payout
+      .getByLabel("Note about the call and refund (required)")
+      .fill("Agreed cash and point refund with member.");
+    await payout.getByRole("checkbox").check();
+    await payout
+      .getByRole("button", { name: "Record payout", exact: true })
+      .click();
+    await expect.poll(() => state.posts.length).toBe(1);
+    expect(state.posts[0]).toContain(`name="Amount"\r\n\r\n${cash}\r\n`);
+    expect(state.posts[0]).toContain(
+      `name="PointsRefunded"\r\n\r\n${points}\r\n`,
+    );
+  });
+}
 
 test("manager submits 10 points when the service allows a maximum of 20", async ({
   page,

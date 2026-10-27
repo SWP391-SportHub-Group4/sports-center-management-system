@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
-using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
@@ -22,7 +21,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
     INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension, IIncidentDayPassService dayPasses,
-    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions, ISystemSettingProvider settings)
+    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions)
 {
     public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
         CancellationToken ct = default)
@@ -416,7 +415,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
                 : x.Name ?? string.Empty,
             x.SessionNo ?? 0,
             x.step.BeforeStartUtc, x.step.AfterStartUtc, x.step.State.ToString(), x.step.UndoNote,
-            x.step.State == IncidentFenceStepState.Applied && x.step.BeforeStartUtc > now)).ToList();
+            x.step.Kind != IncidentFenceStepKind.ReviewedCompleted
+                && x.step.State == IncidentFenceStepState.Applied && x.step.BeforeStartUtc > now)).ToList();
     }
 
     /// <summary>
@@ -438,7 +438,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         await db.SaveChangesAsync(ct);
 
         var applied = await db.Set<IncidentFenceStep>().AsNoTracking()
-            .Where(s => s.FenceId == fenceId && s.State == IncidentFenceStepState.Applied)
+            .Where(s => s.FenceId == fenceId && s.State == IncidentFenceStepState.Applied
+                && s.Kind != IncidentFenceStepKind.ReviewedCompleted)
             .OrderByDescending(s => s.CreatedAtUtc).Select(s => s.StepId).ToListAsync(ct);
         var undone = 0;
         foreach (var stepId in applied)
@@ -456,7 +457,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        var left = (await ListFenceStepsAsync(fenceId, ct)).Where(s => s.State != nameof(IncidentFenceStepState.Undone)).ToList();
+        var left = (await ListFenceStepsAsync(fenceId, ct)).Where(s => s.Kind != nameof(IncidentFenceStepKind.ReviewedCompleted)
+            && s.State != nameof(IncidentFenceStepState.Undone)).ToList();
         return new IncidentAbandonResult(fenceId, undone, left);
     }
 
@@ -522,7 +524,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             fence.EndAtUtc, fence.Reason, fence.CreatedAtUtc, fence.ExpiresAtUtc, expired, impacts.Count,
             members.Select(x => x.MemberId).Distinct().Count(), !needsManual,
             await db.Set<IncidentFenceStep>().AsNoTracking().CountAsync(s => s.FenceId == fence.FenceId
-                && s.State == IncidentFenceStepState.Applied, ct));
+                && s.State == IncidentFenceStepState.Applied && s.Kind != IncidentFenceStepKind.ReviewedCompleted, ct));
     }
 
     /// <summary>Gym đóng cửa khi mọi phòng Gym đang hoạt động nằm trong phạm vi sự cố (phòng Gym = phòng có loại phòng thuộc môn Gym).</summary>
@@ -552,10 +554,6 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var end = DateTime.SpecifyKind(request.EndAtUtc, DateTimeKind.Utc);
         if (end <= start || end - start > TimeSpan.FromDays(31))
             throw new BadRequestException("invalid_incident_range", "Invalid incident range.");
-        var center = await CenterOperatingHours.ReadAsync(settings, ct);
-        if (!center.Covers(VietnamTime.ToLocal(start), VietnamTime.ToLocal(end)))
-            throw new BadRequestException("outside_center_hours",
-                $"The entire incident must be on the same day within the center opening hours ({center.Opens}–{center.Closes}, Vietnam time).");
         List<int> roomIds;
         int? roomId = request.RoomId;
         if (scope == IncidentScope.Room)

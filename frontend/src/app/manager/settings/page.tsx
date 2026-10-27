@@ -2,6 +2,11 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { OperationsPage } from "@/features/operations/ui";
+import { api, ApiError } from "@/lib/apiClient";
+import { useApi } from "@/lib/useApi";
+import { AsyncSection } from "@/components/ui";
+import type { SystemSettingDto } from "@/lib/types";
+import { minutesToTime, timeToMinutes } from "@/lib/center-hours";
 
 export interface SystemSettings {
   centerOpeningTime: string;
@@ -16,18 +21,39 @@ export interface SystemSettings {
   payoutConfirmationPeriodDays: number;
 }
 
-const defaultSettings: SystemSettings = {
-  centerOpeningTime: "06:00",
-  centerClosingTime: "22:00",
-  thresholdCheckDays: 3,
-  checkoutHoldMinutes: 15,
-  counterPointOtpValidityMinutes: 5,
-  maximumRentalDurationHours: 4,
-  membershipExpiryNoticeDays: 10,
-  supportResponseDeadlineHours: 48,
-  supportReminderIntervalHours: 48,
-  payoutConfirmationPeriodDays: 3,
+const settingKeys: Record<keyof SystemSettings, string> = {
+  centerOpeningTime: "center.opening_minutes",
+  centerClosingTime: "center.closing_minutes",
+  thresholdCheckDays: "class.threshold_days_before_start",
+  checkoutHoldMinutes: "hold.minutes",
+  counterPointOtpValidityMinutes: "points.confirm_otp_minutes",
+  maximumRentalDurationHours: "rental.max_hours",
+  membershipExpiryNoticeDays: "membership.expiry_notice_days",
+  supportResponseDeadlineHours: "support.sla_hours",
+  supportReminderIntervalHours: "support.remind_cooldown_hours",
+  payoutConfirmationPeriodDays: "support.payout_confirm_days",
 };
+
+function readSettings(rows: SystemSettingDto[]): SystemSettings {
+  return Object.fromEntries(
+    Object.entries(settingKeys).map(([name, key]) => {
+      const row = rows.find((item) => item.key === key);
+      const number = Number(row?.value);
+      if (!row || !row.value.trim() || !Number.isSafeInteger(number))
+        throw new ApiError(
+          0,
+          "invalid_settings",
+          "Operating settings are unavailable. Please retry loading them.",
+        );
+      return [
+        name,
+        name === "centerOpeningTime" || name === "centerClosingTime"
+          ? minutesToTime(number)
+          : number,
+      ];
+    }),
+  ) as unknown as SystemSettings;
+}
 
 type SettingField = {
   name: keyof SystemSettings;
@@ -87,9 +113,10 @@ const sections: SectionDefinition[] = [
         label: "Threshold check",
         type: "number",
         unit: "days",
-        min: 1,
+        min: 3,
+        max: 30,
         helper:
-          "Evaluate paid enrollments against the break-even threshold before the first session.",
+          "Evaluate paid enrollments against the break-even threshold before the first session. Used when publishing a class; existing review deadlines are preserved.",
       },
     ],
   },
@@ -115,6 +142,7 @@ const sections: SectionDefinition[] = [
         type: "number",
         unit: "minutes",
         min: 1,
+        max: 15,
         helper:
           "Time allowed to verify the member's email OTP when using points at the counter.",
       },
@@ -131,6 +159,7 @@ const sections: SectionDefinition[] = [
         type: "number",
         unit: "hours",
         min: 1,
+        max: 4,
         helper:
           "Maximum duration of a single court rental. Court rentals use 60-minute blocks.",
       },
@@ -147,6 +176,7 @@ const sections: SectionDefinition[] = [
         type: "number",
         unit: "days",
         min: 1,
+        max: 90,
         helper:
           "Notify members this many days before their membership expires.",
       },
@@ -192,8 +222,6 @@ const sections: SectionDefinition[] = [
   },
 ];
 
-// Fixed mock metadata avoids server/client timestamp differences on first render.
-const initialUpdatedAt = "2026-10-26T02:00:00.000Z";
 function formatUpdatedAt(value: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -290,8 +318,12 @@ function SettingSection({
       await onSave(section.name, data);
       setDraft({});
       setMessage("Changes saved.");
-    } catch {
-      setError("Unable to save changes. Please try again.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Unable to save changes. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -365,33 +397,60 @@ function SettingSection({
 }
 
 export default function Page() {
-  const [settings, setSettings] = useState<SystemSettings>(defaultSettings);
-  const [updatedAt, setUpdatedAt] = useState<Record<SectionName, string>>(
-    () =>
-      Object.fromEntries(
-        sections.map((section) => [section.name, initialUpdatedAt]),
-      ) as Record<SectionName, string>,
+  const state = useApi(async (signal) => {
+    const rows = await api.get<SystemSettingDto[]>("/api/system-settings", {
+      signal,
+    });
+    readSettings(rows);
+    return rows;
+  }, []);
+  return (
+    <OperationsPage title="settings">
+      <AsyncSection state={state}>
+        {(rows) => <SettingsForm rows={rows} />}
+      </AsyncSection>
+    </OperationsPage>
   );
+}
+
+function SettingsForm({ rows }: { rows: SystemSettingDto[] }) {
+  const [saved, setSaved] = useState(rows);
+  const settings = readSettings(saved);
 
   async function handleSaveSection(
     sectionName: SectionName,
     data: SectionData,
   ) {
-    await new Promise<void>((resolve) => setTimeout(resolve, 500));
-    // Merge only this section so concurrent saves preserve other sections.
     const section = sections.find((item) => item.name === sectionName)!;
-    const sectionData = Object.fromEntries(
-      section.fields.map(({ name }) => [name, data[name]]),
+    const values = Object.fromEntries(
+      section.fields.map(({ name, type }) => [
+        settingKeys[name],
+        String(
+          type === "time" ? timeToMinutes(String(data[name])) : data[name],
+        ),
+      ]),
     );
-    setSettings((previous) => ({ ...previous, ...sectionData }));
-    setUpdatedAt((previous) => ({
-      ...previous,
-      [sectionName]: new Date().toISOString(),
-    }));
+    const updated = await api.put<SystemSettingDto[]>("/api/system-settings", {
+      values,
+    });
+    if (
+      section.fields.some(
+        ({ name }) => !updated.some((row) => row.key === settingKeys[name]),
+      )
+    )
+      throw new Error(
+        "The save response was incomplete. Reload settings to verify the result.",
+      );
+    // Merge server-confirmed values only for this section, preserving concurrent saves.
+    setSaved((previous) =>
+      previous.map(
+        (row) => updated.find((item) => item.key === row.key) ?? row,
+      ),
+    );
   }
 
   return (
-    <OperationsPage title="settings">
+    <>
       <div className="operating-settings-page">
         <p className="operating-settings-intro">
           Manage daily operations. Save changes separately for each section.
@@ -402,7 +461,15 @@ export default function Page() {
               key={section.name}
               section={section}
               settings={settings}
-              updatedAt={updatedAt[section.name]}
+              updatedAt={saved
+                .filter((row) =>
+                  section.fields.some(
+                    ({ name }) => settingKeys[name] === row.key,
+                  ),
+                )
+                .map((row) => row.updatedAt)
+                .sort()
+                .at(-1)!}
               onSave={handleSaveSection}
             />
           ))}
@@ -543,6 +610,6 @@ export default function Page() {
           }
         }
       `}</style>
-    </OperationsPage>
+    </>
   );
 }

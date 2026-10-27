@@ -17,7 +17,6 @@ public sealed record SupportRemindResult(Guid RequestId, int RemindCount, DateTi
 public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
     ISystemSettingProvider settings, INotificationWriter notifications, IAuditWriter audit)
 {
-    public const int InactivityHours = 48;
     private const string MemberEvent = "REMINDED_BY_MEMBER";
     private const string StaffEvent = "REMINDED_BY_STAFF";
     private const string SlaEvent = "SLA_REMINDER_SENT";
@@ -92,7 +91,7 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
             .Where(r => r.SlaDueAtUtc <= now && r.Status != "DONE" && r.Status != "REJECTED"
                 && r.Status != "CLOSED")
             .OrderBy(r => r.SlaDueAtUtc).Select(r => r.RequestId).ToListAsync(ct);
-        var cooldownHours = InactivityHours;
+        var cooldownHours = await settings.GetIntAsync(SystemSettingKeys.SupportRemindCooldownHours, ct);
         var sent = 0;
         foreach (var requestId in ids)
         {
@@ -105,7 +104,7 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
                 await tx.CommitAsync(ct);
                 continue;
             }
-            foreach (var recipientId in await RecipientsAsync(request, ct, managersOnly: true))
+            foreach (var recipientId in await RecipientsAsync(request, ct))
             {
                 if (await RecentlyRemindedAsync(requestId, recipientId, now, cooldownHours, ct)) continue;
                 var eventId = Guid.NewGuid();
@@ -126,16 +125,17 @@ public sealed class SupportReminderService(ISportHubDbContext db, IClock clock,
     }
 
     /// <summary>The assignee, else every manager and receptionist. Payment requests are handled by managers only.</summary>
-    private async Task<List<Guid>> RecipientsAsync(MemberSupportRequest request, CancellationToken ct, bool managersOnly = false)
+    private async Task<List<Guid>> RecipientsAsync(MemberSupportRequest request, CancellationToken ct)
     {
-        managersOnly |= request.Category == "PAYMENT";
-        if (request.AssignedToUserId is Guid assignee && (!managersOnly || await db.Set<UserAccount>()
-            .AnyAsync(u => u.UserId == assignee && u.Status == UserStatus.Active && u.Role != null
-                && u.Role.RoleName == UserRole.CenterManager, ct)))
-            return await db.Set<UserAccount>().AsNoTracking()
+        var managersOnly = request.Category == "PAYMENT";
+        if (request.AssignedToUserId is Guid assignee)
+        {
+            var assigned = await db.Set<UserAccount>().AsNoTracking()
                 .Where(u => u.UserId == assignee && u.Status == UserStatus.Active
                     && (!managersOnly || (u.Role != null && u.Role.RoleName == UserRole.CenterManager)))
                 .Select(u => u.UserId).ToListAsync(ct);
+            if (assigned.Count > 0) return assigned;
+        }
         return await db.Set<UserAccount>().AsNoTracking()
             .Where(u => u.Status == UserStatus.Active && u.Role != null
                 && (u.Role.RoleName == UserRole.CenterManager

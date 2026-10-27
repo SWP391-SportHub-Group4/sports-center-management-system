@@ -9,7 +9,8 @@ using SportHub.Payment.Wallet.Domain;
 namespace SportHub.Payment.Application.Services;
 
 public sealed record SupportRefundItem(Guid InvoiceItemId, string Description, decimal TotalVnd,
-    decimal VnpayVnd, int PointsApplied, decimal PointsVnd, decimal RefundableVnpayVnd, int RefundablePoints);
+    decimal VnpayVnd, int PointsApplied, decimal PointsVnd, decimal RefundableVnpayVnd, int RefundablePoints,
+    decimal RefundableValueVnd, int MaxRefundablePoints);
 
 /// <summary>One refund scope and one calculation for the member form and the manager's locked payout.</summary>
 public static class SupportRefundCalculator
@@ -78,7 +79,13 @@ public static class SupportRefundCalculator
             var ratio = paidValue > 0 ? remainingBeforeSupport / paidValue : 0m;
             var refundBank = Math.Min(bankRemaining, Math.Max(0m, decimal.Floor(bank * ratio) - returnedBank));
             var refundPoints = Math.Max(0, (int)decimal.Floor(points * ratio) - supportPoints);
-            result.Add(new(item.ItemId, item.Description, item.LineAmount, bank, points, points * 1000m, refundBank, refundPoints));
+            // Cash may be returned as wallet points. Count both forms against the same remaining value,
+            // including earlier conversions, so a later request cannot refund the converted cash again.
+            var remainingValue = Math.Max(0m, remainingBeforeSupport - returnedBank - supportPoints * 1000m);
+            refundBank = Math.Min(refundBank, remainingValue);
+            refundPoints = Math.Min(refundPoints, (int)decimal.Floor(remainingValue / 1000m));
+            result.Add(new(item.ItemId, item.Description, item.LineAmount, bank, points, points * 1000m,
+                refundBank, refundPoints, remainingValue, (int)decimal.Floor(remainingValue / 1000m)));
         }
         return result;
     }

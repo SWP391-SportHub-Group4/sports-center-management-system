@@ -77,7 +77,7 @@ function UnactivatedChoice({
         </li>
         <li>
           <strong>Send a support request.</strong> Ask for a bank refund and our
-          manager reviews it. We reply within 48 hours.
+          manager reviews it. Your request will show its response deadline.
         </li>
       </ul>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>

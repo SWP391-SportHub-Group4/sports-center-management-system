@@ -125,6 +125,15 @@ async function setup(
           sportIds: [],
         },
       });
+    if (path.endsWith("/deactivation-impact"))
+      return route.fulfill({
+        json: Array.from({ length: 24 }, (_, i) => ({
+          classId: i + 1,
+          code: "CLASS-" + (i + 1),
+          name: "Affected class " + (i + 1),
+          confirmedCount: 3,
+        })),
+      });
     if (path === "/api/sports" || path === "/api/manager/sports")
       return route.fulfill({ json: data.sports });
     if (path === "/api/membership-packages")
@@ -523,9 +532,9 @@ for (const [status, code] of [
   });
 }
 
-test("filters and aliases survive reload and sport status saves once", async ({
+test("filters survive reload and sport deactivation confirms affected enrolled classes once", async ({
   page,
-}) => {
+}, testInfo) => {
   const fixture = await setup(page, { slow: true });
   await page.goto("/manager/sports?q=Basket&status=active&keep=bookmark");
   await expect(row(page, "Basketball")).toBeVisible();
@@ -537,18 +546,73 @@ test("filters and aliases survive reload and sport status saves once", async ({
   await row(page, "Basketball")
     .getByRole("button", { name: "Edit", exact: true })
     .click();
-  await dialog(page).getByRole("switch").uncheck();
-  await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+  await dialog(page).getByRole("switch").click();
+  const confirmation = page.getByRole("dialog", {
+    name: "Are you sure you want to deactivate Basketball?",
+    exact: true,
+  });
+  await expect(
+    confirmation.getByText("Affected classes (24)", { exact: true }),
+  ).toBeVisible();
+  const list = confirmation.getByRole("region", {
+    name: "Affected classes",
+    exact: true,
+  });
+  expect(await list.evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe(
+    "none",
+  );
+  expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+    true,
+  );
+  await confirmation.screenshot({ path: testInfo.outputPath("sport-deactivation.png") });
+  await list.hover();
+  await page.mouse.wheel(0, 1500);
+  await expect
+    .poll(() => list.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(0);
+  await confirmation.getByRole("button", { name: "No", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Edit sport", exact: true })
+      .getByRole("switch"),
+  ).toBeChecked();
+  expect(fixture.writes).toHaveLength(0);
+  await dialog(page).getByRole("switch").click();
+  await confirmation.getByRole("button", { name: "Yes", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0]).toMatchObject({
-    path: "/api/manager/sports/41",
-    body: { isActive: false },
+    path: "/api/manager/sports/41/deactivate",
+    method: "POST",
   });
   await expect(
     page.getByText("No matching items", { exact: true }),
   ).toBeVisible();
   expect(page.url()).toContain("keep=bookmark");
+});
+
+test("sport deactivation on mobile retries impact and submit errors and supports no affected classes", async ({ page }) => {
+  const fixture = await setup(page, { fail: 503 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  let failImpact = true;
+  await page.route("**/api/manager/sports/41/deactivation-impact", route =>
+    route.fulfill(failImpact ? { status: 503, json: { error: "unavailable" } } : { json: [] }));
+  await page.goto("/manager/sports");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await dialog(page).getByRole("switch").click();
+  const confirmation = page.getByRole("dialog", { name: "Are you sure you want to deactivate Basketball?", exact: true });
+  await expect(confirmation.getByRole("button", { name: "Yes", exact: true })).toBeDisabled();
+  await expect(confirmation.getByRole("alert")).toContainText("Could not load affected classes.");
+  failImpact = false;
+  await confirmation.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(confirmation.getByText("No classes will be affected.", { exact: true })).toBeVisible();
+  await confirmation.getByRole("button", { name: "Yes", exact: true }).click();
+  await expect(confirmation.getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Edit sport", exact: true }).getByRole("switch")).toBeChecked();
+  fixture.recover();
+  await confirmation.getByRole("button", { name: "Yes", exact: true }).click();
+  await expect(dialog(page)).toHaveCount(0);
+  expect(fixture.data.sports[0].isActive).toBe(false);
 });
 
 test("Gym native price validation prevents zero, negative and non-multiple prices", async ({
