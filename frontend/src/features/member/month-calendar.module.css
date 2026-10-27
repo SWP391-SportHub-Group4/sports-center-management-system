@@ -57,9 +57,9 @@
   font-weight: var(--weight-bold);
 }
 .grid {
-  --empty-week-height: 52px;
-  --scheduled-week-height: 170px;
-  align-content: start;
+  min-height: calc(var(--week-count) * 170px);
+  height: max(calc(var(--week-count) * 170px), calc(100dvh - 310px));
+  grid-template-rows: repeat(var(--week-count), minmax(0, 1fr));
 }
 .day {
   min-width: 0;
@@ -244,8 +244,10 @@
 }
 @media (max-width: 720px) {
   .grid {
-    --empty-week-height: 44px;
-    --scheduled-week-height: 76px;
+    min-height: 0;
+    height: auto;
+    grid-auto-rows: auto;
+    grid-template-rows: repeat(var(--week-count), minmax(76px, auto));
   }
   .weekdays span {
     padding: var(--space-2) 0;
@@ -281,9 +283,6 @@
     color: var(--text-muted);
     font-size: 10px;
     cursor: pointer;
-  }
-  .day[data-empty-week="true"] .mobileEvents {
-    display: none;
   }
   .dots {
     display: flex;

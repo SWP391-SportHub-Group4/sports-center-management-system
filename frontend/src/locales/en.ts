@@ -2589,6 +2589,7 @@ export const en = {
     retry: "Try again",
     loading: "Loading your calendar",
     todayTag: "Today",
+    addToCalendar: "Add to Google Calendar",
     cancelRental: "Cancel rental",
     cancelTitle: "Cancel this court rental?",
     cancelFree: "Cancelling a rental is never refunded, at any time.",
@@ -2740,6 +2741,7 @@ export const en = {
     enrolledBadge: "Enrolled",
     fullBadge: "Full",
     spotsLeft: "{count} spots left",
+    calendarSync: "Add to Calendar",
     cancelBooking: "Cancel",
     confirmBookingTitle: "Confirm Class Enrollment",
     confirmBookingDesc: "You are registering for:",
@@ -2752,6 +2754,7 @@ export const en = {
     processing: "Processing...",
     bookingSuccessMessage:
       "Successfully booked! We look forward to seeing you in class.",
+    downloadIcs: "Download Calendar Event (.ics)",
     cancelConfirmTitle: "Cancel Class Enrollment",
     cancelConfirmDesc: "Are you sure you want to cancel your enrollment in:",
     cancelRefundNotice: "Session Refund Status:",
