@@ -39,6 +39,72 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
     private static async Task<JsonElement> Json(HttpResponseMessage response)
         => JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Sport_deactivation_cancels_enrolled_classes_and_releases_sessions(bool useUpdate, bool inProgress)
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var draft = await CourseTestData.CreateAsync(factory, publish: false);
+        var completed = await CourseTestData.CreateAsync(factory, publish: false);
+        var unrelated = await CourseTestData.CreateAsync(factory, publish: false);
+        var member = await BuyAsync(course.Id);
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var name = "Sport cancellation " + Guid.NewGuid().ToString("N");
+        var created = await manager.PostAsJsonAsync("api/manager/sports", new
+        {
+            code = "off_" + Guid.NewGuid().ToString("N")[..16], name,
+            services = Array.Empty<object>()
+        });
+        created.EnsureSuccessStatusCode();
+        var sportId = (await Json(created)).GetProperty("sportId").GetInt32();
+        await factory.QueryAsync(async db =>
+        {
+            await db.Classes.Where(c => c.ClassId == course.Id || c.ClassId == draft.Id || c.ClassId == completed.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.SportId, sportId));
+            await db.Classes.Where(c => c.ClassId == completed.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.Status, ClassStatus.Completed));
+            return 0;
+        });
+        var preview = await Json(await manager.GetAsync($"api/manager/sports/{sportId}/deactivation-impact"));
+        Assert.Equal(2, preview.GetArrayLength());
+        Assert.Contains(preview.EnumerateArray(), c => c.GetProperty("classId").GetInt32() == course.Id
+            && c.GetProperty("confirmedCount").GetInt32() == 1);
+        var sessions = await CourseTestData.SessionsAsync(factory, course.Id);
+        if (inProgress)
+            await factory.QueryAsync(async db =>
+            {
+                await db.Classes.Where(c => c.ClassId == course.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.Status, ClassStatus.InProgress));
+                await db.ClassSessions.Where(s => s.SessionId == sessions[0].SessionId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassSessionStatus.Completed));
+                return 0;
+            });
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var response = useUpdate
+                ? await manager.PutAsJsonAsync($"api/manager/sports/{sportId}", new { name, isActive = false, services = Array.Empty<object>() })
+                : await manager.PostAsync($"api/manager/sports/{sportId}/deactivate", null);
+            Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        }
+        Assert.False(await factory.QueryAsync(db => db.Sports.Where(s => s.SportId == sportId).Select(s => s.IsActive).SingleAsync()));
+        foreach (var id in new[] { course.Id, draft.Id })
+        {
+            Assert.Equal(ClassStatus.Cancelled, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == id).Select(c => c.Status).SingleAsync()));
+            Assert.False(await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == id).Select(c => c.EnrollmentOpen).SingleAsync()));
+        }
+        Assert.Equal(EnrollmentStatus.CancelledByCenter, await factory.QueryAsync(db => db.Enrollments.Where(e => e.ClassId == course.Id && e.MemberId == member).Select(e => e.Status).SingleAsync()));
+        Assert.Equal(0, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.ReservedCount).SingleAsync()));
+        Assert.All((await CourseTestData.SessionsAsync(factory, course.Id)).Where(s => !inProgress || s.SessionId != sessions[0].SessionId),
+            s => Assert.Equal(ClassSessionStatus.Cancelled, s.Status));
+        foreach (var session in sessions.Where(s => !inProgress || s.SessionId != sessions[0].SessionId))
+            Assert.False(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == session.SessionId && o.IsActive)));
+        Assert.Equal(ClassStatus.Completed, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == completed.Id).Select(c => c.Status).SingleAsync()));
+        Assert.Equal(ClassStatus.Draft, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == unrelated.Id).Select(c => c.Status).SingleAsync()));
+        Assert.Equal(0, (await Json(await manager.GetAsync($"api/manager/sports/{sportId}/deactivation-impact"))).GetArrayLength());
+    }
+
     [Fact]
     public async Task Paid_enrollment_blocks_course_and_makeup_cancellation_without_side_effects()
     {

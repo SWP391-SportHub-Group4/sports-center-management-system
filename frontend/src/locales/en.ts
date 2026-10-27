@@ -3076,7 +3076,7 @@ export const en = {
       "Review affected activities, arrange any schedule changes, then confirm the closure.",
     formTitle: "Incident details",
     formHint:
-      "Choose the affected area and period. Times are shown in Vietnam time (UTC+7).",
+      "Choose the affected area and period, including outside opening hours or overnight (up to 31 days). Times are shown in Vietnam time (UTC+7).",
     reviewHint:
       "New bookings in this window are automatically blocked while you review. The lock is renewed on review and expires after 2 hours if left unfinished.",
     outsideHours:

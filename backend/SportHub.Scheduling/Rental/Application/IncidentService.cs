@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
-using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
@@ -22,7 +21,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
     INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension, IIncidentDayPassService dayPasses,
-    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions, ISystemSettingProvider settings)
+    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions)
 {
     public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
         CancellationToken ct = default)
@@ -552,10 +551,6 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var end = DateTime.SpecifyKind(request.EndAtUtc, DateTimeKind.Utc);
         if (end <= start || end - start > TimeSpan.FromDays(31))
             throw new BadRequestException("invalid_incident_range", "Invalid incident range.");
-        var center = await CenterOperatingHours.ReadAsync(settings, ct);
-        if (!center.Covers(VietnamTime.ToLocal(start), VietnamTime.ToLocal(end)))
-            throw new BadRequestException("outside_center_hours",
-                $"The entire incident must be on the same day within the center opening hours ({center.Opens}–{center.Closes}, Vietnam time).");
         List<int> roomIds;
         int? roomId = request.RoomId;
         if (scope == IncidentScope.Room)

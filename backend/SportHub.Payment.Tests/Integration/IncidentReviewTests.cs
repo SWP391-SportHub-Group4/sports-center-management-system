@@ -104,29 +104,51 @@ public sealed class IncidentReviewTests(PaymentApiFactory factory)
     }
 
     [Theory]
-    [InlineData(5, 59, 7, 0, false)]
-    [InlineData(21, 0, 22, 1, false)]
-    [InlineData(6, 0, 22, 0, true)]
-    public async Task Review_enforces_entire_range_and_exact_opening_boundaries(int sh, int sm, int eh, int em, bool valid)
+    [InlineData(5, 59, 7, 0, 0)]
+    [InlineData(21, 0, 22, 1, 0)]
+    [InlineData(6, 0, 22, 0, 0)]
+    [InlineData(0, 0, 5, 0, 0)]
+    [InlineData(23, 0, 23, 59, 0)]
+    [InlineData(21, 0, 7, 0, 1)]
+    [InlineData(0, 0, 0, 0, 31)]
+    public async Task Incident_allows_outside_hours_overnight_and_up_to_31_days(int sh, int sm, int eh, int em, int days)
     {
         var room = await Room(); var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var request = Request(room, At(sh, sm), At(eh, em));
+        var request = Request(room, At(sh, sm), At(eh, em).AddDays(days));
         var response = await client.PostAsJsonAsync("/api/manager/incidents/preview", request);
-        if (valid) response.EnsureSuccessStatusCode();
-        else
-        {
-            await Error(response, HttpStatusCode.BadRequest, "outside_center_hours");
-            await Error(await client.PostAsJsonAsync("/api/manager/incidents/resolve", request), HttpStatusCode.BadRequest, "outside_center_hours");
-            Assert.False(await factory.QueryAsync(db => db.Set<IncidentFence>().AnyAsync(f => f.RoomId == room)));
-        }
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var preview = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var resolved = await client.PostAsJsonAsync("/api/manager/incidents/resolve", request with {
+            PreviewToken = preview.GetProperty("previewToken").GetString(), OperationId = Guid.NewGuid(), Refunds = [] });
+        Assert.True(resolved.IsSuccessStatusCode, await resolved.Content.ReadAsStringAsync());
     }
 
     [Fact]
-    public async Task Incident_cannot_span_closed_overnight_hours()
+    public async Task Center_incident_can_span_closed_overnight_hours()
     {
         var room = await Room(); var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        await Error(await client.PostAsJsonAsync("/api/manager/incidents/preview", Request(room, At(21), At(7).AddDays(1))), HttpStatusCode.BadRequest, "outside_center_hours");
+        var request = Request(room, At(23).AddDays(200), At(5).AddDays(201)) with { Scope = "CENTER", RoomId = null };
+        var response = await client.PostAsJsonAsync("/api/manager/incidents/preview", request);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var preview = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var resolved = await client.PostAsJsonAsync("/api/manager/incidents/resolve", request with {
+            PreviewToken = preview.GetProperty("previewToken").GetString(), OperationId = Guid.NewGuid(), Refunds = [] });
+        Assert.True(resolved.IsSuccessStatusCode, await resolved.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(0, -1)]
+    [InlineData(31, 1)]
+    public async Task Incident_rejects_empty_reversed_or_longer_than_31_day_ranges(int days, int minutes)
+    {
+        var room = await Room(); var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var request = Request(room, At(0), At(0).AddDays(days).AddMinutes(minutes));
+        await Error(await client.PostAsJsonAsync("/api/manager/incidents/preview", request), HttpStatusCode.BadRequest, "invalid_incident_range");
+        await Error(await client.PostAsJsonAsync("/api/manager/incidents/resolve", request), HttpStatusCode.BadRequest, "invalid_incident_range");
+        Assert.False(await factory.QueryAsync(db => db.Set<IncidentFence>().AnyAsync(f => f.RoomId == room)));
     }
 }
