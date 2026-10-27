@@ -98,19 +98,33 @@ public sealed class RuleBasedAiRecommendationService(ISportHubDbContext db, IClo
         var exercises = new List<WorkoutSuggestedExercise>(
             BaseByLevel.TryGetValue(level, out var baseSet) ? baseSet : BaseByLevel["Beginner"]);
 
-        if (sport != "Gym")
+        if (!sport.Equals("Gym", StringComparison.OrdinalIgnoreCase))
         {
             var sets = level.Equals("Advanced", StringComparison.OrdinalIgnoreCase) ? 4
                 : level.Equals("Intermediate", StringComparison.OrdinalIgnoreCase) ? 3 : 2;
-            exercises = sport == "Badminton"
+            exercises = sport.Equals("Pickleball", StringComparison.OrdinalIgnoreCase)
+                ? [new("Pickleball dynamic warm-up", 1, 1, "Move lightly and warm up for 8 minutes."),
+                   new("Ready-position and split-step", sets, 10, "Practice balanced stance and quick recovery."),
+                   new("Dink control at kitchen line", sets, 12, "Practice controlled soft shots on both sides."),
+                   new("Third-shot drop", sets, 10, "Hit controlled drops from the baseline."),
+                   new("Serve and return placement", sets, 10, "Alternate deuce and ad courts; prioritize accuracy."),
+                   new("Lateral court movement", sets, 8, "Return to ready position after each direction."),
+                   new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")]
+                : sport.Equals("Badminton", StringComparison.OrdinalIgnoreCase)
                 ? [new("Badminton warm-up", 1, 1, "Move lightly and warm up joints for 8 minutes."),
                    new("Six-corner footwork", sets, 6, "Move to a corner and return to court center per rep."),
                    new("Short serve", sets, 10), new("Deep clear", sets, 10),
                    new("Net drop", sets, 10), new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")]
-                : [new("Basketball warm-up", 1, 1, "Move lightly and warm up joints for 8 minutes."),
+                : sport.Equals("Basketball", StringComparison.OrdinalIgnoreCase)
+                ? [new("Basketball warm-up", 1, 1, "Move lightly and warm up joints for 8 minutes."),
                    new("Crossover dribble", sets, 10, "Alternate sides."),
                    new("Chest pass", sets, 12), new("Layup", sets, 8, "Perform on each side."),
-                   new("Close-range shot", sets, 10), new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")];
+                   new("Close-range shot", sets, 10), new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")]
+                : [new($"{sport} warm-up", 1, 1, "Warm up for 8 minutes."),
+                   new("Movement and coordination", sets, 10, "Practice sport-appropriate movement with a coach."),
+                   new("Balance and stability", sets, 10, "Work at a comfortable intensity."),
+                   new("Basic skill repetitions", sets, 10, "Coach should select drills appropriate to this sport."),
+                   new("Cool-down stretch", 1, 1, "Continue for 5 minutes.")];
         }
 
         // Thời lượng mỗi buổi ngắn: giữ khởi động và các bài đầu của bộ nền; bài theo mục tiêu thêm sau đó.

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useApi } from "@/lib/useApi";
 import { useRouter } from "next/navigation";
 import {
   Activity,
@@ -18,22 +19,24 @@ import {
   Target,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/apiClient";
-import type { WorkoutSuggestionDto } from "@/lib/types";
+import type { WorkoutSuggestionDto, SportDto } from "@/lib/types";
 import styles from "./workout-suggestions.module.css";
 
-type Sport = "Gym" | "Badminton" | "Basketball";
-const sports: Sport[] = ["Gym", "Badminton", "Basketball"];
 const AI_SUGGESTION_PLAN_KEY = "sporthub:member:ai-workout-draft:v1";
 
 export default function MemberWorkoutSuggestionsPage() {
   const router = useRouter();
-  const [sport, setSport] = useState<Sport>("Gym");
+  const [sport, setSport] = useState("Gym");
+  const catalog = useApi((signal) => api.get<SportDto[]>("/api/sports", { signal }), []);
+  const sports = catalog.data ?? [];
+  const sportOptions = Array.from(new Set(["Gym", ...sports.map((item) => item.name)])).filter(Boolean);
   const [result, setResult] = useState<WorkoutSuggestionDto | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function generate() {
     if (busy) return;
+    if (catalog.loading) return;
     setBusy(true);
     setError("");
     try {
@@ -123,12 +126,12 @@ export default function MemberWorkoutSuggestionsPage() {
               value={sport}
               disabled={busy}
               onChange={(event) => {
-                setSport(event.target.value as Sport);
+                setSport(event.target.value);
                 setResult(null);
                 setError("");
               }}
             >
-              {sports.map((item) => <option key={item} value={item}>{item}</option>)}
+              {sportOptions.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           </div>
           <button className={styles.generateButton} type="button" onClick={() => void generate()} disabled={busy} aria-busy={busy}>
