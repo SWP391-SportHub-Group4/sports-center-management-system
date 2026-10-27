@@ -7,6 +7,7 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Membership.Domain.Entities;
 using SportHub.Membership.Domain.Rules;
 using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Training.Domain.Entities;
 using System.Diagnostics;
@@ -64,8 +65,18 @@ public sealed class WorkoutRecommendationService(
         Guid coachId,
         CancellationToken ct = default, string sport = "Gym")
     {
-        if (sport is not ("Gym" or "Badminton" or "Basketball"))
-            throw new BadRequestException("suggestion_sport_invalid", "Choose Gym, Badminton or Basketball.");
+        sport = sport?.Trim() ?? "";
+        if (sport.Length == 0 || sport.Length > 100)
+            throw new BadRequestException("suggestion_sport_invalid", "Choose an active sport.");
+
+        // The Manager-owned Sport Catalog is the source of truth, not a hard-coded list.
+        var catalogName = await db.Set<Sport>().AsNoTracking()
+            .Where(s => s.IsActive && s.Name.ToLower() == sport.ToLower())
+            .Select(s => s.Name)
+            .FirstOrDefaultAsync(ct);
+        if (catalogName is null && !sport.Equals("Gym", StringComparison.OrdinalIgnoreCase))
+            throw new BadRequestException("suggestion_sport_invalid", "Choose an active sport.");
+        sport = catalogName ?? "Gym";
 
         // BR-26 đầu vào (1) và (2). Thiếu hồ sơ thì TỪ CHỐI chứ không đoán mặc định:
         // gợi ý dựa trên mục tiêu bịa ra còn tệ hơn là không có gợi ý.
