@@ -13,6 +13,8 @@ export interface SupportRefundItemDto {
   pointsVnd: number;
   refundableVnpayVnd: number;
   refundablePoints: number;
+  refundableValueVnd?: number;
+  maxRefundablePoints?: number;
 }
 export interface SupportRefundBreakdownDto {
   totalVnd: number;

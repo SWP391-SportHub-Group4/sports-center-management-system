@@ -96,6 +96,22 @@ export function SupportPayout({
     activeDraft?.points ?? (item ? String(item.refundablePoints) : "");
   const cashAmount = Number(cash);
   const pointAmount = Number(points);
+  const refundableValue = item?.refundableValueVnd;
+  const maxPoints = item
+    ? Math.max(
+        0,
+        Math.min(
+          item.maxRefundablePoints ?? item.refundablePoints,
+          refundableValue === undefined
+            ? item.refundablePoints
+            : Math.floor(
+                (refundableValue -
+                  (Number.isSafeInteger(cashAmount) ? cashAmount : 0)) /
+                  1000,
+              ),
+        ),
+      )
+    : 0;
   const cashError = !item
     ? null
     : !/^(0|[1-9]\d*)$/.test(cash) || !Number.isSafeInteger(cashAmount)
@@ -111,8 +127,8 @@ export function SupportPayout({
     ? null
     : !/^(0|[1-9]\d*)$/.test(points) || !Number.isSafeInteger(pointAmount)
       ? "Enter whole points."
-      : pointAmount > item.refundablePoints
-        ? `Maximum ${formatPoints(item.refundablePoints)} points.`
+      : pointAmount > maxPoints
+        ? `Maximum ${formatPoints(maxPoints)} points.`
         : cashAmount === 0 && pointAmount === 0 && !cashError
           ? "Enter cash or points to refund."
           : fieldServerError?.field === "points"
@@ -245,7 +261,7 @@ export function SupportPayout({
           message:
             field === "cash"
               ? "Check the remaining VNPay amount and use multiples of 1,000 VND."
-              : "Check the remaining whole points for this service.",
+              : "Check the remaining refund value: cash plus points at 1 point = 1,000 VND.",
         });
         setTransferConfirmed(false);
         quote.reload();
@@ -305,8 +321,9 @@ export function SupportPayout({
               <div className={styles.box}>
                 <p className={styles.helper}>
                   Review the selected service, then enter the cash and points to
-                  refund. Neither value can exceed the remaining amount paid
-                  through that method.
+                  refund. Cash can be refunded as wallet points at 1 point =
+                  1,000 VND. The combined refund cannot exceed the remaining
+                  refundable service value.
                 </p>
                 {quote.loading && (
                   <p role="status">Loading refund breakdown…</p>
@@ -362,44 +379,49 @@ export function SupportPayout({
                   </label>
                 )}
                 {item && (
-                  <dl
-                    className={styles.refundSummary}
-                    aria-label="Refund breakdown"
-                  >
-                    <div className={styles.refundServiceValue}>
-                      <dt>Service value</dt>
-                      <dd>{formatMoney(item.totalVnd)}</dd>
-                    </div>
-                    <div className={styles.refundBankShare}>
-                      <dt>
-                        <span className={styles.refundMethodLabel}>
-                          <Banknote size={18} aria-hidden="true" />
-                          Bank transfer (VNPay)
-                        </span>
-                        <span className={styles.refundMethodHint}>
-                          Maximum cash refund for this service
-                        </span>
-                      </dt>
-                      <dd>{formatMoney(item.refundableVnpayVnd)}</dd>
-                    </div>
-                    <div className={styles.refundPointsShare}>
-                      <dt>
-                        <span className={styles.refundMethodLabel}>
-                          <Coins size={18} aria-hidden="true" />
-                          Wallet points
-                        </span>
-                        <span className={styles.refundMethodHint}>
-                          {item.refundablePoints > 0
-                            ? "Maximum points that can be returned to the wallet"
-                            : "No wallet points to return"}
-                        </span>
-                      </dt>
-                      <dd>
-                        {formatPoints(item.refundablePoints)}
-                        <span className={styles.refundPointsUnit}>points</span>
-                      </dd>
-                    </div>
-                  </dl>
+                  <div>
+                    <h5 className={styles.paymentMethodTitle}>
+                      Payment method
+                    </h5>
+                    <dl
+                      className={styles.refundSummary}
+                      aria-label="Payment method"
+                    >
+                      {item.vnpayVnd > 0 && (
+                        <div className={styles.refundBankShare}>
+                          <dt>
+                            <span className={styles.refundMethodLabel}>
+                              <Banknote size={18} aria-hidden="true" />
+                              Bank transfer (VNPay)
+                            </span>
+                            <span className={styles.refundMethodHint}>
+                              Amount paid by the member
+                            </span>
+                          </dt>
+                          <dd>{formatMoney(item.vnpayVnd)}</dd>
+                        </div>
+                      )}
+                      {item.pointsApplied > 0 && (
+                        <div className={styles.refundPointsShare}>
+                          <dt>
+                            <span className={styles.refundMethodLabel}>
+                              <Coins size={18} aria-hidden="true" />
+                              Wallet points
+                            </span>
+                            <span className={styles.refundMethodHint}>
+                              Points used by the member (1 point = 1,000 VND)
+                            </span>
+                          </dt>
+                          <dd>
+                            {formatPoints(item.pointsApplied)}
+                            <span className={styles.refundPointsUnit}>
+                              points
+                            </span>
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
                 )}
                 <label className={styles.field}>
                   Cash amount transferred (VND)
