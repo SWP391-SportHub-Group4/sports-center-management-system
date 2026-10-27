@@ -46,6 +46,13 @@ export function MemberMonthCalendar<T extends MonthEvent>({
   );
   const [showAgenda, setShowAgenda] = useState(false);
   const selectedEvents = columns.find(([day]) => day === chosenDay)?.[1] ?? [];
+  const weeksWithEvents = Array.from(
+    { length: Math.ceil(columns.length / 7) },
+    (_, index) =>
+      columns
+        .slice(index * 7, index * 7 + 7)
+        .some(([, events]) => events.length > 0),
+  );
   function chooseDay(day: string) {
     setChosenDay(day);
     setShowAgenda(true);
@@ -90,15 +97,24 @@ export function MemberMonthCalendar<T extends MonthEvent>({
           className={styles.grid}
           role="group"
           aria-label={vi ? "Lịch tháng" : "Month calendar"}
-          style={{ "--week-count": columns.length / 7 } as React.CSSProperties}
+          style={{
+            gridTemplateRows: weeksWithEvents
+              .map((hasEvents) =>
+                hasEvents
+                  ? "minmax(var(--scheduled-week-height), auto)"
+                  : "minmax(var(--empty-week-height), auto)",
+              )
+              .join(" "),
+          }}
         >
-          {columns.map(([day, events]) => (
+          {columns.map(([day, events], index) => (
             <section
               key={day}
               className={styles.day}
               data-today={day === today ? "true" : undefined}
               data-outside={!day.startsWith(month)}
               data-selected={day === chosenDay}
+              data-empty-week={!weeksWithEvents[Math.floor(index / 7)]}
               aria-label={formatDate(day)}
             >
               <button
