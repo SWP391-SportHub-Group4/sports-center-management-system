@@ -102,6 +102,7 @@ Trạng thái giữ `OPEN, ASSIGNED, IN_PROGRESS, CLOSED` (kết quả `DONE` ho
 - Ghi audit `SUPPORT_PAYOUT_RECORDED` với mã request, hóa đơn, số tiền chuyển khoản, số điểm hoàn lại, người ghi. Không có dữ liệu ngân hàng nào trong audit hay log ứng dụng.
 - Gửi **thông báo trong ứng dụng và email** cho Member. Email chứa liên kết vào chi tiết request (cần đăng nhập), không đính kèm ảnh.
 - Số tiền vào **báo cáo doanh thu** và **dashboard tổng quan** của Manager như dòng riêng `bankRefundPaid` (kèm `bankRefundCount`). Không trừ vào doanh thu VNPay thực thu theo cách làm đảo số, không cộng với hoàn điểm, và không trừ hai lần cho cùng một invoice.
+- `bankRefundCount` chỉ đếm payout có `Amount > 0`; payout chỉ hoàn điểm không tăng số lần chuyển khoản. Payout kết hợp tiền và điểm chỉ tính một lần chuyển khoản, phần điểm vẫn được báo cáo riêng.
 
 ### 5.5 Phía Member
 

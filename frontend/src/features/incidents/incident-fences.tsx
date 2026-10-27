@@ -280,14 +280,18 @@ function StepList({
               : `${step.className} · #${step.sessionNo}`}
           </strong>{" "}
           {c.abandonKinds[step.kind] ?? step.kind}:{" "}
-          {step.kind === "REMOVE_ROOM_BLOCK"
-            ? formatDateTime(step.beforeStartUtc)
-            : c.abandonMoved
-                .replace("{from}", formatDateTime(step.beforeStartUtc))
-                .replace("{to}", formatDateTime(step.afterStartUtc))}
-          {!step.canUndo && step.state === "APPLIED" && (
-            <p className="small muted">{c.abandonPast}</p>
-          )}
+          {step.kind === "REVIEWED_COMPLETED"
+            ? c.abandonReviewed
+            : step.kind === "REMOVE_ROOM_BLOCK"
+              ? formatDateTime(step.beforeStartUtc)
+              : c.abandonMoved
+                  .replace("{from}", formatDateTime(step.beforeStartUtc))
+                  .replace("{to}", formatDateTime(step.afterStartUtc))}
+          {step.kind !== "REVIEWED_COMPLETED" &&
+            !step.canUndo &&
+            step.state === "APPLIED" && (
+              <p className="small muted">{c.abandonPast}</p>
+            )}
           {showNote && step.undoNote && (
             <p className="small muted">{step.undoNote}</p>
           )}

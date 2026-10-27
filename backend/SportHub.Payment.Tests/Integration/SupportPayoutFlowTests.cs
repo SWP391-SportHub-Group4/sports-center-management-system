@@ -521,6 +521,12 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         Assert.Equal(remaining, breakdown.GetProperty("items")[0].GetProperty("refundableValueVnd").GetDecimal());
         using var duplicate = Payout(cash, points);
         Assert.Equal(HttpStatusCode.Conflict, (await mgr.PostAsync(endpoint + "/payout", duplicate)).StatusCode);
+        var today = SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.TodayLocal(new SportHub.BuildingBlocks.SharedKernel.Time.SystemClock());
+        var report = await mgr.GetFromJsonAsync<JsonElement>($"/api/reports/revenue?fromDate={today:yyyy-MM-dd}&toDate={today:yyyy-MM-dd}&memberId={member.UserId}");
+        Assert.Equal(cash, report.GetProperty("bankRefundPaid").GetDecimal());
+        // Every recorded payout counts once, including point-only and mixed refunds.
+        Assert.Equal(1, report.GetProperty("bankRefundCount").GetInt32());
+        Assert.Equal(points, report.GetProperty("pointsRefunded").GetInt64());
     }
 
     [Fact]
