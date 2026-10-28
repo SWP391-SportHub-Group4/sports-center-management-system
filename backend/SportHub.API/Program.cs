@@ -103,7 +103,7 @@ builder.Services.AddScoped<ISportHubDbContext>(sp => sp.GetRequiredService<Sport
 
 builder.Services.AddSportHubCors(builder.Configuration);
 
-builder.Services.AddSportHubJwtBearer(builder.Configuration);
+builder.Services.AddSportHubJwtBearer();
 // BR-6: chặn token của tài khoản bị khoá/xoá ngay tại bước xác thực request.
 // Phải gọi SAU AddSportHubJwtBearer — PostConfigure bổ sung OnTokenValidated vào Events đã có.
 builder.Services.AddAccountStatusJwtValidation();

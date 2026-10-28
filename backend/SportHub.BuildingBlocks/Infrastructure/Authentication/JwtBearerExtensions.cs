@@ -1,10 +1,10 @@
-using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace SportHub.BuildingBlocks.Infrastructure.Authentication;
@@ -17,30 +17,14 @@ namespace SportHub.BuildingBlocks.Infrastructure.Authentication;
 public static class JwtBearerExtensions
 {
     public static IServiceCollection AddSportHubJwtBearer(
-        this IServiceCollection services,
-        IConfiguration configuration)
+        this IServiceCollection services)
     {
         services
             .AddOptions<JwtOptions>()
-            .Bind(configuration.GetSection(nameof(JwtOptions)))
+            .Configure<IConfiguration>((options, configuration) =>
+                configuration.GetSection(nameof(JwtOptions)).Bind(options))
             .ValidateDataAnnotations()
             .ValidateOnStart();
-
-        var jwtOptions = configuration.GetSection(nameof(JwtOptions)).Get<JwtOptions>()
-            ?? throw new InvalidOperationException($"Configuration section '{nameof(JwtOptions)}' is missing.");
-
-        var validationResults = new List<ValidationResult>();
-        if (!Validator.TryValidateObject(jwtOptions, new ValidationContext(jwtOptions), validationResults, true))
-        {
-            var errors = string.Join(" | ", validationResults.Select(r => r.ErrorMessage));
-            throw new InvalidOperationException(
-                $"Invalid JwtOptions configuration: {errors}. " +
-                "Dev: set trong appsettings.Development.json. " +
-                "In production, set JwtOptions__SecretKey through an environment variable (at least 32 characters), " +
-                "and do not leave the default value in appsettings.json.");
-        }
-
-        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));
 
         services
             .AddAuthentication(options =>
@@ -48,8 +32,13 @@ public static class JwtBearerExtensions
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-            .AddJwtBearer(options =>
+            .AddJwtBearer();
+
+        // Resolve the final host configuration after test or deployment overrides have been applied.
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((options, jwtOptions) =>
             {
+                var jwt = jwtOptions.Value;
                 options.MapInboundClaims = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -57,9 +46,9 @@ public static class JwtBearerExtensions
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtOptions.Issuer,
-                    ValidAudience = jwtOptions.Audience,
-                    IssuerSigningKey = signingKey,
+                    ValidIssuer = jwt.Issuer,
+                    ValidAudience = jwt.Audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
                     ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
                     ClockSkew = TimeSpan.FromMinutes(1),
                     NameClaimType = ClaimTypes.NameIdentifier,
