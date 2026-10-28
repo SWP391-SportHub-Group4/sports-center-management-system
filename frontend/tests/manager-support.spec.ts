@@ -218,6 +218,11 @@ test("manager filters on the server, pages, retries and sees empty results", asy
   await page.goto("/manager/support");
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect.poll(() => queries.at(-1)?.searchParams.get("page")).toBe("2");
+  await expect(page.getByLabel("Search", { exact: true })).toHaveAttribute(
+    "placeholder",
+    "Search name, email, subject…",
+  );
+  await expect(page.getByText("Ref 22222222", { exact: true })).toHaveCount(0);
   await page.getByLabel("Search", { exact: true }).fill(" Member An ");
   await page
     .getByRole("combobox", { name: "Status", exact: true })
@@ -225,22 +230,22 @@ test("manager filters on the server, pages, retries and sees empty results", asy
   await page
     .getByRole("combobox", { name: "Assigned staff", exact: true })
     .selectOption(staff);
-  await page.getByRole("button", { name: "Apply filters" }).click();
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("search"))
     .toBe("Member An");
+  expect(queries.at(-1)?.searchParams.has("referenceCode")).toBe(false);
   expect(queries.at(-1)?.searchParams.get("status")).toBe("ASSIGNED");
   expect(queries.at(-1)?.searchParams.get("assignedToUserId")).toBe(staff);
   expect(queries.at(-1)?.searchParams.get("page")).toBe("1");
   state.error = true;
   await page
-    .getByRole("button", { name: "Apply filters", exact: true })
-    .click();
+    .getByRole("combobox", { name: "Status", exact: true })
+    .selectOption("OPEN");
   await expect(page.getByText("Support unavailable")).toBeVisible();
   state.error = false;
   state.empty = true;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
-  await expect(page.getByText(/No requests match these filters/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No requests found" })).toBeVisible();
 });
 
 test("assigned-to-me filter toggles the server query and resets pagination", async ({
