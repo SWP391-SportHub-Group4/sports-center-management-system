@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
@@ -15,6 +17,42 @@ namespace SportHub.Payment.Tests.Integration;
 [Collection(nameof(PaymentApiCollection))]
 public sealed class OutboxDispatchTests(PaymentApiFactory factory)
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Crypto_failures_identify_decryption_or_sender_stage_without_logging_private_content(bool wrongKey)
+    {
+        var source = Guid.NewGuid();
+        var recipient = $"{source:N}@example.test";
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        var writerKeys = new EphemeralDataProtectionProvider();
+        var readerKeys = wrongKey ? new EphemeralDataProtectionProvider() : writerKeys;
+        new NotificationWriter(db, writerKeys).QueueEmail(new(null, recipient,
+            NotificationEvents.ManualNotice, source, "Diagnostics", "<p>secret-token-123</p>"));
+        await db.SaveChangesAsync();
+        var id = await db.Notifications.Where(x => x.SourceEntityId == source).Select(x => x.NotificationId).SingleAsync();
+        var sender = new CryptoFailingSender();
+        var logger = new CaptureLogger();
+        var dispatcher = new EmailDispatchService(db, sender, readerKeys,
+            new MutableClock(DateTime.UtcNow.AddHours(1)), logger);
+        for (var batch = 0; batch < 20; batch++)
+        {
+            await dispatcher.DispatchBatchAsync();
+            db.ChangeTracker.Clear();
+            if (await db.Notifications.AnyAsync(x => x.NotificationId == id && x.Status == NotificationStatus.Failed)) break;
+        }
+        var row = await db.Notifications.AsNoTracking().SingleAsync(x => x.NotificationId == id);
+        Assert.Equal(NotificationStatus.Failed, row.Status);
+        Assert.Equal(nameof(CryptographicException), row.LastError);
+        var entry = Assert.Single(logger.Entries.Where(message => message.Contains(id.ToString())));
+        Assert.Contains(wrongKey ? "stage decrypt" : "stage send", entry);
+        Assert.Contains("error CryptographicException", entry);
+        Assert.DoesNotContain("secret-token-123", string.Join("\n", logger.Entries));
+        Assert.DoesNotContain("private-provider-message", string.Join("\n", logger.Entries));
+        Assert.Equal(!wrongKey, sender.Attempted.Contains(recipient));
+    }
+
     [Fact]
     public async Task Failure_preserves_encrypted_payload_and_retry_delivers_once_then_clears_it()
     {
@@ -74,6 +112,23 @@ public sealed class OutboxDispatchTests(PaymentApiFactory factory)
     }
 
     private sealed class MutableClock(DateTime now) : IClock { public DateTime UtcNow { get; set; } = now; }
+    private sealed class CaptureLogger : ILogger<EmailDispatchService>
+    {
+        public List<string> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel level, EventId eventId, TState state, Exception? error, Func<TState, Exception?, string> formatter)
+            => Entries.Add(formatter(state, error));
+    }
+    private sealed class CryptoFailingSender : IEmailSender
+    {
+        public List<string> Attempted { get; } = [];
+        public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default)
+        {
+            Attempted.Add(to);
+            throw new CryptographicException("private-provider-message");
+        }
+    }
     private sealed class ControlledSender : IEmailSender
     {
         public bool Fail { get; set; } = true;

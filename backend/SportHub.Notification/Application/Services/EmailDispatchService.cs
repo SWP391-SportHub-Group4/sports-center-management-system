@@ -97,6 +97,7 @@ public sealed class EmailDispatchService(
 
         foreach (var row in claimed)
         {
+            var stage = "validate";
             try
             {
                 if (
@@ -110,10 +111,12 @@ public sealed class EmailDispatchService(
                             "Email outbox payload is incomplete.");
                 }
 
+                stage = "decrypt";
                 var json =
                     _protector.Unprotect(
                         row.ProtectedEmailPayload);
 
+                stage = "deserialize";
                 var payload =
                     JsonSerializer
                         .Deserialize<EmailPayload>(json)
@@ -121,6 +124,7 @@ public sealed class EmailDispatchService(
                         InvalidOperationException(
                             "Email outbox payload cannot be read.");
 
+                stage = "attachments";
                 var attachments =
                     (payload.Attachments ??
                      Array.Empty<EmailAttachmentPayload>())
@@ -133,10 +137,12 @@ public sealed class EmailDispatchService(
                                     x.Base64Content)))
                     .ToArray();
 
+                stage = "render";
                 var body =
                     EmailTemplateRenderer.Render(
                         payload);
 
+                stage = "send";
                 if (attachments.Length > 0)
                 {
                     await sender.SendAsync(
@@ -155,6 +161,7 @@ public sealed class EmailDispatchService(
                         ct);
                 }
 
+                stage = "record-delivery";
                 await db
                     .Set<Domain.Entities.Notification>()
                     .Where(
@@ -227,13 +234,33 @@ public sealed class EmailDispatchService(
                         CancellationToken.None);
 
                 logger.LogWarning(
-                    "Email outbox dispatch failed for notification {NotificationId}; attempt {Attempt}.",
+                    "Email outbox dispatch failed for notification {NotificationId}; attempt {Attempt}; stage {Stage}; error {ErrorType}; reason {Reason}; sender {Sender}; instance {Instance}.",
                     row.NotificationId,
-                    row.RetryCount);
+                    row.RetryCount,
+                    stage,
+                    error,
+                    FailureReason(stage, ex),
+                    sender.GetType().Name,
+                    Environment.MachineName);
             }
         }
 
         return claimed.Count;
+    }
+
+    // Only fixed diagnostic codes are logged; provider messages can contain secrets or email content.
+    private static string FailureReason(string stage, Exception error)
+    {
+        if (stage == "decrypt")
+        {
+            if (error.Message.Contains("key ring", StringComparison.OrdinalIgnoreCase) &&
+                error.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+                return "key_not_found";
+            return "payload_unprotect_failed";
+        }
+        if (stage == "send" && error is HttpRequestException { StatusCode: { } status })
+            return $"http_{(int)status}";
+        return "operation_failed";
     }
 
     private static bool IsRetryDue(
