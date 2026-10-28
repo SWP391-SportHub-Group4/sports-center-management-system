@@ -1,5 +1,7 @@
 # Kế hoạch dữ liệu demo SportHub — 27/10/2026
 
+> Tài liệu này là kế hoạch **Railway trước seed**, không phải danh sách tài khoản hay kịch bản demo local hiện tại. Khi trình bày bằng DB local, dùng duy nhất [bản chốt account và 6 flow](LOCAL-DEMO-SCRIPT-6-FLOWS.md).
+
 Tài liệu bàn giao cho người chuẩn bị DB Railway sau khi reset. Mục tiêu là có dữ liệu nhất quán để trình diễn 6 flow, 5 role đăng nhập và Guest. Đây là **đặc tả dữ liệu cần tạo**, không xác nhận rằng DB đã được seed. Mọi ngày/giờ dưới đây theo giờ Việt Nam.
 
 ## 1. Nguyên tắc và thứ tự

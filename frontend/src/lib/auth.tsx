@@ -56,6 +56,13 @@ export interface RegisterInput {
 }
 
 const USER_STORAGE_KEY = "sporthub.user";
+/** Dấu hiệu phiên cho src/proxy.ts (chặn sớm ở server); không chứa token. */
+const SESSION_HINT_COOKIE = "sporthub.session";
+
+function setSessionHint(active: boolean) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${SESSION_HINT_COOKIE}=${active ? "1" : ""}; Path=/; SameSite=Lax${secure}${active ? "" : "; Max-Age=0"}`;
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -73,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Unable to read/ghi storage thì still must xoá phiên in bộ nhớ.
     }
+    setSessionHint(false);
     setUser(null);
   }, []);
 
@@ -86,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       /* No persisted session. */
     }
     if (token) {
+      setSessionHint(true);
       api
         .get<WireSessionUser>("/api/users/me", { signal: controller.signal })
         .then((me) => {
@@ -137,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Phiên still used in tab current, only là not sống qua times load again.
     }
+    setSessionHint(true);
     const next = adaptSessionUser(response.user);
     setUser(next);
 
