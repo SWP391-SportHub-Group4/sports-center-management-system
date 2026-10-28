@@ -23,7 +23,6 @@ import {
   ROLE_LABELS,
   ROLE_RANK,
   CHANNEL_LABELS,
-  supportReference,
   assigneesByRole,
   eventText,
   roleKey,
@@ -251,11 +250,6 @@ export function SupportDetail({
         <h3>
           {request.subject?.trim() || supportCategoryLabel(request.category)}
         </h3>
-        {isManager && (
-          <p className={styles.muted}>
-            Reference: <strong>{supportReference(request.requestId)}</strong>
-          </p>
-        )}
         {request.slaDueAtUtc && (
           <p className={request.isOverdue ? styles.overdueBadge : styles.muted}>
             {request.isOverdue ? "Overdue since" : "Response due"}{" "}

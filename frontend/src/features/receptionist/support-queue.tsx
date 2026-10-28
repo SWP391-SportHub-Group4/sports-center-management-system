@@ -277,11 +277,7 @@ export function SupportQueue({
               type="search"
               value={search}
               maxLength={200}
-              placeholder={
-                isManager
-                  ? "Search name, email, message…"
-                  : "Search name, email, subject…"
-              }
+              placeholder="Search name, email, subject…"
               onChange={(e) => setSearch(e.target.value)}
             />
           </span>
@@ -446,9 +442,6 @@ export function SupportQueue({
                       </span>
                       {isManager && (
                         <>
-                          <span className={styles.rowMember}>
-                            Ref {supportReference(request.requestId)}
-                          </span>
                           <span className={styles.rowPreview}>
                             {request.description}
                           </span>
@@ -526,7 +519,7 @@ export function SupportQueue({
                 >
                   <BellRing size={20} aria-hidden="true" />
                   <div>
-                    <h3>Request {supportReference(selected.requestId)}</h3>
+                    <h3>{isManager ? "Support request" : `Request ${supportReference(selected.requestId)}`}</h3>
                     <p>
                       {["DONE", "REJECTED", "CLOSED"].includes(selected.status)
                         ? "This request has already been finalized. Review the current outcome and reply below."

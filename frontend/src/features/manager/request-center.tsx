@@ -8,11 +8,10 @@ import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import type { UserAdminDto } from "@/lib/types";
 import { MemberPicker } from "@/components/MemberPicker";
 import { ManagerClassChangeRequests } from "./class-change-requests";
-import { ManagerRefunds } from "@/features/payments";
 import { SupportQueue, MemberSupportRequests } from "@/features/receptionist";
 import styles from "./request-center.module.css";
 
-const types = ["coach", "refunds", "support"];
+const types = ["coach", "support"];
 export function RequestCenter() {
   const { values, setValues } = useUrlQuery(
     { type: "coach", record: "" },
@@ -51,15 +50,13 @@ export function RequestCenter() {
         ariaLabel="Request type"
         tabs={[
           { id: "coach", label: label("coach", "Coach absence") },
-          { id: "refunds", label: label("refunds", "Refunds") },
-          { id: "support", label: label("support", "Member support") },
+          { id: "support", label: label("support", "Support request") },
         ]}
       >
         <div className={styles.body}>
           {values.type === "coach" && (
             <ManagerClassChangeRequests onChanged={refresh} />
           )}
-          {values.type === "refunds" && <ManagerRefunds onChanged={refresh} />}
           {values.type === "support" && (
             <>
               {recording && (
