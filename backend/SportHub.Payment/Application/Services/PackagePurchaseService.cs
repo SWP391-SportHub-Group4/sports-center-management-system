@@ -1,3 +1,4 @@
+using SportHub.Membership.Application.Services;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
@@ -46,7 +47,7 @@ public sealed class PackagePurchaseService(
                     || u.ExternalLogins.Any()), ct))
             throw new ConflictException("member_not_activated", "Member must activate the account before purchasing a package.");
         var catalog = await memberships.QuoteAsync(request.PackageId, ct);
-        if (request.PackageId == DayPass.PackageId && !DayPassClock.IsOpen(clock.UtcNow))
+        if (request.PackageId == DayPass.PackageId && !DayPassClock.IsOpen(clock.UtcNow, await CenterOperatingHours.ReadAsync(settings, ct)))
             throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
                 "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time.");
         if (request.AllowStacking)
@@ -68,6 +69,7 @@ public sealed class PackagePurchaseService(
         var holdMinutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await DayPassHoursLock.AcquireAsync(db, ct: ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {request.MemberId} FOR UPDATE", ct);
         var lockedMember = await users.GetAsync(request.MemberId, ct);
@@ -115,6 +117,12 @@ public sealed class PackagePurchaseService(
         }
         var memberPackageId = await memberships.PrepareAsync(request.MemberId, request.PackageId,
             actorUserId, request.AllowStacking, request.StackingApprovalReason, ct);
+        var expiry = now.AddMinutes(holdMinutes);
+        if (request.PackageId == DayPass.PackageId)
+        {
+            var closes = DayPassClock.ClosesAtUtc(now, await CenterOperatingHours.ReadAsync(settings, ct));
+            if (expiry > closes) expiry = closes;
+        }
         var invoice = new Invoice
         {
             InvoiceId = Guid.NewGuid(),
@@ -125,7 +133,7 @@ public sealed class PackagePurchaseService(
             TotalAmount = catalog.Price,
             CheckoutCycleId = Guid.NewGuid(),
             CheckoutRevision = 1,
-            HoldExpiresAtUtc = now.AddMinutes(holdMinutes),
+            HoldExpiresAtUtc = expiry,
             CashAmount = catalog.Price,
             Status = InvoiceStatus.Issued,
             IssuedAt = now

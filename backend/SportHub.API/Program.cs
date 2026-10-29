@@ -367,6 +367,9 @@ builder.Services.AddScoped<PaymentFulfillmentService>();
 builder.Services.AddScoped<PaymentReconciliationService>();
 builder.Services.AddScoped<UnactivatedPaymentResolutionService>();
 builder.Services.AddScoped<CheckoutExpiryService>();
+builder.Services.AddScoped<DayPassHoursService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Membership.IDayPassHoursUpdater>(
+    sp => sp.GetRequiredService<DayPassHoursService>());
 
 // Training — một instance phục vụ cả interface nghiệp vụ lẫn seam ICoachRelationshipRegistrar
 // mà Scheduling dùng, để quan hệ ClassBased nằm cùng change tracker với đăng ký sinh ra nó.
@@ -439,6 +442,7 @@ builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
 builder.Services.AddHostedService<RentalStatusJob>();
 builder.Services.AddHostedService<SeatHoldExpiryJob>();
 builder.Services.AddHostedService<CheckoutExpiryJob>();
+builder.Services.AddHostedService<DayPassClosingJob>();
 builder.Services.AddHostedService<PaymentReconciliationJob>();
 builder.Services.AddHostedService<SupportSlaReminderJob>();
 builder.Services.AddScoped<SupportPayoutMaintenance>();
