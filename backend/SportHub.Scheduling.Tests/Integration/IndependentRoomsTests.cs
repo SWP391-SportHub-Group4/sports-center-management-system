@@ -16,6 +16,36 @@ namespace SportHub.Scheduling.Tests.Integration;
 [Collection(nameof(SchedulingApiCollection))]
 public sealed class IndependentRoomsTests(SchedulingApiFactory factory)
 {
+    [Theory]
+    [InlineData("05:00", "09:00", "MON", false)]
+    [InlineData("07:00", "09:00", "MON", false)]
+    [InlineData("19:00", "21:00", "MON", false)]
+    [InlineData("08:00", "10:00", "TUE", false)]
+    [InlineData("08:00", "20:00", "MON", true)]
+    public async Task Rental_price_window_respects_rental_and_room_hours(string start, string end, string day, bool allowed)
+    {
+        var actor = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var manager = factory.CreateApiClient(actor.UserId, UserRole.CenterManager);
+        var created = await manager.PostAsJsonAsync("api/rooms", new {
+            name = $"Price window {Guid.NewGuid():N}", capacity = 12, allowRental = true,
+            rentalSetup = new { pricePerHour = 100000, hours = new[] { new { dayOfWeek = 1, openTimeLocal = "08:00", closeTimeLocal = "20:00" } } }
+        });
+        created.EnsureSuccessStatusCode();
+        var room = (await created.Content.ReadFromJsonAsync<RoomResponse>())!;
+        // Keep the existing price inactive so the assertion isolates window validation, not overlap checks.
+        await factory.QueryAsync(async db => {
+            await db.CourtRates.Where(rate => rate.RoomId == room.RoomId).ExecuteUpdateAsync(update => update.SetProperty(rate => rate.IsActive, false));
+            return 0;
+        });
+        var response = await manager.PostAsJsonAsync("api/manager/court-rates", new {
+            roomId = room.RoomId, roomTypeId = room.RoomTypeId, sportId = (int?)null,
+            daysOfWeek = new[] { day }, startTimeLocal = start, endTimeLocal = end, pricePerHour = 120000, isActive = true
+        });
+        if (allowed) response.EnsureSuccessStatusCode();
+        else Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(allowed ? 2 : 1, await factory.QueryAsync(db => db.CourtRates.CountAsync(rate => rate.RoomId == room.RoomId)));
+    }
+
     [Fact]
     public async Task Inactive_room_can_configure_rental_access_but_cannot_accept_bookings()
     {

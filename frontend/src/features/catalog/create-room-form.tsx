@@ -31,7 +31,7 @@ export function CreateRoomForm({
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState(12);
   const [allowRental, setAllowRental] = useState(false);
-  const [price, setPrice] = useState("100000");
+  const [price, setPrice] = useState("");
   const [days, setDays] = useState(
     weekOrder.map((dayOfWeek) => ({
       dayOfWeek,
@@ -50,10 +50,14 @@ export function CreateRoomForm({
     onBusyChange?.(mutation.busy);
   }, [mutation.busy, onBusyChange]);
   const opens = center.data
-    ? minutesToTime(Math.ceil(center.data.openingMinute / 60) * 60)
+    ? minutesToTime(
+        Math.ceil(Math.max(6 * 60, center.data.openingMinute) / 60) * 60,
+      )
     : "";
   const closes = center.data
-    ? minutesToTime(Math.floor(center.data.closingMinute / 60) * 60)
+    ? minutesToTime(
+        Math.floor(Math.min(22 * 60, center.data.closingMinute) / 60) * 60,
+      )
     : "";
   const hours = days
     .filter((day) => day.enabled)

@@ -84,21 +84,21 @@ export function CourseEditor({
 
     startDate: course?.startDate ?? todayIso(),
 
-    numSessions: course?.numSessions ?? 12,
+    numSessions: course?.numSessions ?? ("" as number | ""),
 
     sessionMinutes: course?.sessionMinutes ?? (null as number | null),
 
-    capacity: course?.capacity && course.capacity > 0 ? course.capacity : 12,
+    capacity: course?.capacity ?? ("" as number | ""),
 
-    price: course?.price ?? 300000,
+    price: course?.price ?? ("" as number | ""),
 
-    costAmount: course?.costAmount ?? 0,
+    costAmount: course?.costAmount ?? ("" as number | ""),
 
     scheduleRules: course?.scheduleRules ?? [
       {
         dayOfWeek: new Date(`${todayIso()}T12:00:00Z`).getUTCDay(),
 
-        startTimeLocal: "18:00",
+        startTimeLocal: "",
       },
     ],
   });
@@ -154,8 +154,10 @@ export function CourseEditor({
             (key) =>
               typeof (draft as Record<string, unknown>)[key] === "string",
           ) &&
-          ["numSessions", "capacity", "price", "costAmount"].every((key) =>
-            Number.isFinite((draft as Record<string, unknown>)[key]),
+          ["numSessions", "capacity", "price", "costAmount"].every(
+            (key) =>
+              (draft as Record<string, unknown>)[key] === "" ||
+              Number.isFinite((draft as Record<string, unknown>)[key]),
           ) &&
           Array.isArray((draft as typeof form).scheduleRules) &&
           (draft as typeof form).scheduleRules.every(
@@ -267,16 +269,18 @@ export function CourseEditor({
     });
 
   const threshold =
-    form.price > 0 ? Math.ceil(form.costAmount / form.price) : 0;
+    Number(form.price) > 0
+      ? Math.ceil(Number(form.costAmount) / Number(form.price))
+      : 0;
   const memberCount = (count: number) =>
     count === 1
       ? l.classSingleMember
       : l.classMemberCount.replace("{count}", String(count));
 
   const capacityInvalid =
-    (!!room && form.capacity > room.capacity) ||
+    (!!room && Number(form.capacity) > room.capacity) ||
     (!!service?.defaultMaxCapacity &&
-      form.capacity > service.defaultMaxCapacity);
+      Number(form.capacity) > service.defaultMaxCapacity);
 
   /*
    * Current form converted into
@@ -284,6 +288,10 @@ export function CourseEditor({
    */
   const schedule = {
     ...form,
+    numSessions: Number(form.numSessions),
+    capacity: Number(form.capacity),
+    price: Number(form.price),
+    costAmount: Number(form.costAmount),
 
     sessionMinutes: minutes,
 
@@ -316,6 +324,8 @@ export function CourseEditor({
     !catalog.loading &&
     !catalog.error &&
     !inputIssue &&
+    Number(form.capacity) >= 1 &&
+    !capacityInvalid &&
     !outsideCenter;
   const availability = useApi(
     async (signal) => {
@@ -411,14 +421,15 @@ export function CourseEditor({
     !!form.sportId &&
     durationValid &&
     !!form.defaultRoomId &&
-    form.price >= 1000 &&
-    form.price % 1000 === 0 &&
-    form.costAmount >= 0 &&
-    Number.isInteger(form.capacity) &&
-    form.capacity >= 1 &&
+    Number(form.price) >= 1000 &&
+    Number(form.price) % 1000 === 0 &&
+    form.costAmount !== "" &&
+    Number(form.costAmount) >= 0 &&
+    Number.isInteger(Number(form.capacity)) &&
+    Number(form.capacity) >= 1 &&
     !capacityInvalid &&
     !outsideCenter &&
-    threshold <= form.capacity &&
+    threshold <= Number(form.capacity) &&
     slots.length === form.numSessions;
 
   function next() {
@@ -706,6 +717,38 @@ export function CourseEditor({
                   }
                 />
 
+                <Field label={l.capacity} required>
+                  <input
+                    required
+                    type="number"
+                    min={1}
+                    step={1}
+                    max={
+                      room
+                        ? Math.min(
+                            room.capacity,
+                            service?.defaultMaxCapacity ?? room.capacity,
+                          )
+                        : undefined
+                    }
+                    value={form.capacity}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        capacity:
+                          event.target.value === ""
+                            ? ""
+                            : Number(event.target.value),
+                      })
+                    }
+                  />
+                </Field>
+                {room && (
+                  <p>
+                    {l.capacity}: {room.capacity} ({room.name})
+                  </p>
+                )}
+                {capacityInvalid && <p role="alert">{m.capacityExceeded}</p>}
                 <Field
                   label={l.startDate}
                   hint={t.managerOperations.scheduleValidation.startDateHint}
@@ -738,7 +781,10 @@ export function CourseEditor({
                       setForm({
                         ...form,
 
-                        numSessions: Number(event.target.value),
+                        numSessions:
+                          event.target.value === ""
+                            ? ""
+                            : Number(event.target.value),
                       })
                     }
                   />
@@ -823,8 +869,6 @@ export function CourseEditor({
               <div className="form-grid">
                 {(
                   [
-                    ["capacity", l.capacity, 1, 1],
-
                     ["price", t.classWorkspace.price, 1000, 1000],
 
                     ["costAmount", t.classWorkspace.cost, 0, 1],
@@ -835,19 +879,15 @@ export function CourseEditor({
                     label={label}
                     error={
                       key === "price" &&
-                      (!Number.isFinite(form.price) ||
-                        form.price < 1000 ||
-                        form.price % 1000 !== 0)
+                      (!Number.isFinite(Number(form.price)) ||
+                        Number(form.price) < 1000 ||
+                        Number(form.price) % 1000 !== 0)
                         ? inputCopy.price
-                        : key === "capacity" &&
-                            (!Number.isInteger(form.capacity) ||
-                              form.capacity < 1)
-                          ? inputCopy.capacity
-                          : key === "costAmount" &&
-                              (!Number.isFinite(form.costAmount) ||
-                                form.costAmount < 0)
-                            ? inputCopy.cost
-                            : undefined
+                        : key === "costAmount" &&
+                            (!Number.isFinite(Number(form.costAmount)) ||
+                              Number(form.costAmount) < 0)
+                          ? inputCopy.cost
+                          : undefined
                     }
                   >
                     <input
@@ -860,7 +900,10 @@ export function CourseEditor({
                         setForm({
                           ...form,
 
-                          [key]: Number(event.target.value),
+                          [key]:
+                            event.target.value === ""
+                              ? ""
+                              : Number(event.target.value),
                         })
                       }
                     />
@@ -871,11 +914,15 @@ export function CourseEditor({
               <div>
                 <p>
                   {l.classMinimumEnrollment}:{" "}
-                  <strong>{memberCount(threshold)}</strong>
+                  <strong>
+                    {form.costAmount === "" || form.price === ""
+                      ? "\u2014"
+                      : memberCount(threshold)}
+                  </strong>
                 </p>
               </div>
 
-              {threshold > form.capacity && (
+              {threshold > Number(form.capacity) && (
                 <p role="alert">{m.thresholdExceeded}</p>
               )}
 
@@ -901,7 +948,7 @@ export function CourseEditor({
                 <div>
                   <dt>{t.classWorkspace.price}</dt>
 
-                  <dd>{formatMoney(form.price)}</dd>
+                  <dd>{formatMoney(Number(form.price))}</dd>
                 </div>
 
                 <div>
@@ -912,7 +959,7 @@ export function CourseEditor({
                 <div>
                   <dt>{t.classWorkspace.cost}</dt>
 
-                  <dd>{formatMoney(form.costAmount)}</dd>
+                  <dd>{formatMoney(Number(form.costAmount))}</dd>
                 </div>
 
                 <div>

@@ -1,7 +1,12 @@
 "use client";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import {
+  loadCenterHours,
+  minutesToTime,
+  timeToMinutes,
+} from "@/lib/center-hours";
 import { useLanguage } from "@/lib/language";
 import { useApi, useAction } from "@/lib/useApi";
 import { formatMoney } from "@/lib/format";
@@ -34,11 +39,12 @@ type RateForm = {
   daysOfWeek: string[];
   startTimeLocal: string;
   endTimeLocal: string;
-  pricePerHour: number;
+  pricePerHour: number | "";
   isActive: boolean;
 };
 export function CourtRateEditor({ roomId }: { roomId?: number }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
   const formId = useId();
   const rates = useApi((s) => catalogApi.rates(s), []);
   const rooms = useApi((s) => catalogApi.rooms(s), []);
@@ -49,6 +55,96 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
     id: number | null;
     form: RateForm;
   } | null>(null);
+  const [timesEdited, setTimesEdited] = useState(false);
+  const center = useApi((signal) => loadCenterHours(signal), []);
+  const selectedRoomId = Number(editor?.form.roomId) || null;
+  const openingHours = useApi(
+    async (signal) => ({
+      roomId: selectedRoomId,
+      hours: selectedRoomId
+        ? await catalogApi.hours(selectedRoomId, signal)
+        : [],
+    }),
+    [selectedRoomId],
+  );
+  const selectedDays = editor?.form.daysOfWeek ?? [];
+  const applicableHours = selectedDays.map((day) =>
+    openingHours.data?.hours.find(
+      (hour) => hour.dayOfWeek === (days.indexOf(day) + 1) % 7,
+    ),
+  );
+  const hoursMissing =
+    !!selectedRoomId && applicableHours.some((hour) => !hour);
+  const opening = Math.max(
+    6 * 60,
+    center.data?.openingMinute ?? 6 * 60,
+    ...applicableHours.flatMap((hour) =>
+      hour ? [timeToMinutes(hour.openTimeLocal.slice(0, 5))] : [],
+    ),
+  );
+  const closing = Math.min(
+    22 * 60,
+    center.data?.closingMinute ?? 22 * 60,
+    ...applicableHours.flatMap((hour) =>
+      hour ? [timeToMinutes(hour.closeTimeLocal.slice(0, 5))] : [],
+    ),
+  );
+  const hoursReady =
+    !!center.data &&
+    !center.loading &&
+    !center.error &&
+    openingHours.data?.roomId === selectedRoomId &&
+    !openingHours.loading &&
+    !openingHours.error &&
+    !hoursMissing &&
+    opening < closing;
+  const hoursMessage =
+    openingHours.error || center.error
+      ? vi
+        ? "Không tải được giờ hoạt động. Hãy thử lại."
+        : "Opening hours could not be loaded. Please retry."
+      : !center.loading && !openingHours.loading && !hoursReady
+        ? vi
+          ? "Hãy cấu hình giờ hoạt động cho các ngày đã chọn tại phòng và Settings. Các ngày cần có khung giờ thuê chung hợp lệ."
+          : "Configure opening hours for the selected days in the room and Settings. The selected days need a common rental window."
+        : hoursReady
+          ? `${vi ? "Khung giờ giá thuê hợp lệ" : "Allowed rental price window"}: ${minutesToTime(opening)}–${minutesToTime(closing)}`
+          : "";
+  const validWindow =
+    !!editor &&
+    hoursReady &&
+    !!editor.form.startTimeLocal &&
+    !!editor.form.endTimeLocal &&
+    timeToMinutes(editor.form.startTimeLocal) >= opening &&
+    timeToMinutes(editor.form.endTimeLocal) <= closing &&
+    editor.form.endTimeLocal > editor.form.startTimeLocal;
+  const validPrice =
+    !!editor &&
+    editor.form.pricePerHour !== "" &&
+    Number.isFinite(editor.form.pricePerHour) &&
+    editor.form.pricePerHour >= 2000 &&
+    editor.form.pricePerHour % 2000 === 0;
+  const creating = editor?.id === null;
+  useEffect(() => {
+    if (!hoursReady) return;
+    // Initialize a new draft only after its configured hours have loaded.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditor((current) =>
+      current?.id === null &&
+      !timesEdited &&
+      (current.form.startTimeLocal !== minutesToTime(opening) ||
+        current.form.endTimeLocal !== minutesToTime(closing))
+        ? {
+            ...current,
+            form: {
+              ...current.form,
+              startTimeLocal: minutesToTime(opening),
+              endTimeLocal: minutesToTime(closing),
+            },
+          }
+        : current,
+    );
+  }, [hoursReady, opening, closing, creating, timesEdited]);
   const court = rooms.data?.find((r) => r.roomId === roomId);
   const sportOf = (
     id: number | null | undefined,
@@ -72,6 +168,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
   );
   function edit(rate?: CourtRateDto) {
     action.reset();
+    setTimesEdited(false);
     setEditor({
       id: rate?.rateId ?? null,
       form: {
@@ -79,15 +176,18 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
         roomId: String(rate ? (rate.roomId ?? "") : (roomId ?? "")),
         roomTypeId: rate?.roomTypeId ?? court?.roomTypeId ?? 0,
         daysOfWeek: rate?.daysOfWeek.split(",") ?? ["MON"],
-        startTimeLocal: rate?.startTimeLocal.slice(0, 5) ?? "06:00",
-        endTimeLocal: rate?.endTimeLocal.slice(0, 5) ?? "22:00",
-        pricePerHour: rate?.pricePerHour ?? 100000,
+        startTimeLocal: rate?.startTimeLocal.slice(0, 5) ?? "",
+        endTimeLocal: rate?.endTimeLocal.slice(0, 5) ?? "",
+        pricePerHour: rate?.pricePerHour ?? "",
         isActive: rate?.isActive ?? true,
       },
     });
   }
-  const update = (patch: Partial<RateForm>) =>
+  const update = (patch: Partial<RateForm>) => {
+    if ("startTimeLocal" in patch || "endTimeLocal" in patch)
+      setTimesEdited(true);
     setEditor((e) => (e ? { ...e, form: { ...e.form, ...patch } } : e));
+  };
   return (
     <section className="stack" aria-label="Rental pricing">
       <div className="row">
@@ -200,6 +300,8 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                 className="btn"
                 disabled={
                   action.busy ||
+                  !validWindow ||
+                  !validPrice ||
                   (!editor.id && !editor.form.sportId) ||
                   editor.form.endTimeLocal <= editor.form.startTimeLocal ||
                   !editor.form.roomTypeId ||
@@ -221,10 +323,10 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
               e.preventDefault();
               void action.run(async () => {
                 const f = editor.form;
-                if (!f.daysOfWeek.length || f.endTimeLocal <= f.startTimeLocal)
-                  return;
+                if (!validWindow || !validPrice || !f.daysOfWeek.length) return;
                 const body: SaveRate = {
                   ...f,
+                  pricePerHour: Number(f.pricePerHour),
                   sportId: f.sportId ? Number(f.sportId) : null,
                   roomId: f.roomId ? Number(f.roomId) : null,
                 };
@@ -305,6 +407,8 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                 <Field label="Start" required>
                   <input
                     type="time"
+                    min={minutesToTime(opening)}
+                    max={minutesToTime(closing)}
                     required
                     value={editor.form.startTimeLocal}
                     onChange={(e) => update({ startTimeLocal: e.target.value })}
@@ -313,6 +417,8 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                 <Field label="End" required>
                   <input
                     type="time"
+                    min={minutesToTime(opening)}
+                    max={minutesToTime(closing)}
                     required
                     value={editor.form.endTimeLocal}
                     onChange={(e) => update({ endTimeLocal: e.target.value })}
@@ -328,7 +434,10 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                     step={2000}
                     value={editor.form.pricePerHour}
                     onChange={(e) =>
-                      update({ pricePerHour: Number(e.target.value) })
+                      update({
+                        pricePerHour:
+                          e.target.value === "" ? "" : Number(e.target.value),
+                      })
                     }
                   />
                 </Field>
@@ -369,6 +478,29 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                   </p>
                 )}
               </fieldset>
+              {hoursMessage && <p role="status">{hoursMessage}</p>}
+              {(center.error || openingHours.error) && (
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => {
+                    center.reload();
+                    openingHours.reload();
+                  }}
+                >
+                  {t.common.retry}
+                </button>
+              )}
+              {hoursReady &&
+                editor.form.startTimeLocal &&
+                editor.form.endTimeLocal &&
+                !validWindow && (
+                  <p role="alert">
+                    {vi
+                      ? "Khung giá phải nằm hoàn toàn trong giờ thuê hợp lệ."
+                      : "The price window must be entirely within the allowed rental hours."}
+                  </p>
+                )}
               {editor.form.endTimeLocal <= editor.form.startTimeLocal && (
                 <p className={styles.error} role="alert">
                   End time must be after start time.

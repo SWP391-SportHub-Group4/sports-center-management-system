@@ -56,6 +56,7 @@ test("rental toggle reveals price and editable weekly hours in the same form", a
 }) => {
   const { writes, dialog } = await setup(page);
   await dialog.getByRole("switch").check();
+  await expect(dialog.getByLabel(/^Price per hour/)).toHaveValue("");
   await expect(
     dialog.getByRole("region", { name: "Weekly rental schedule" }),
   ).toBeVisible();
@@ -132,6 +133,7 @@ test("rental schedule requires a selected day and valid opening range", async ({
   const { dialog } = await setup(page);
   await dialog.getByRole("switch").check();
   await expect(dialog.getByRole("checkbox")).toHaveCount(7);
+  await dialog.getByLabel(/^Price per hour/).fill("120000");
   for (const checkbox of await dialog.getByRole("checkbox").all())
     await checkbox.uncheck();
   await expect(dialog.getByRole("alert")).toHaveText(
