@@ -1,18 +1,10 @@
 # Local demo seed — 27/10/2026
 
+> Đây là nhật ký seed/backup kỹ thuật. **Bảng tài khoản hiện tại và 6 flow để trình bày** chỉ xem tại [bản chốt demo local](LOCAL-DEMO-SCRIPT-6-FLOWS.md).
+
 Seeder đã được chạy trên PostgreSQL **local** `sporthub` ở `localhost:5435`, không chạy trên Railway. Lệnh `--seed-local-demo=true` chỉ được chấp nhận trong `Development` với DB host local và phải có đủ migration. Nó có thể chạy lại mà không tạo trùng các record gắn prefix `LOCAL-DEMO-20261028`.
 
-## Tài khoản local trước seed (được giữ nguyên)
-
-| Role | Email |
-|---|---|
-| SystemAdministrator | `admin@sporthub.vn` |
-| CenterManager | `manager@sporthub.vn`, `nnkhoa1999@gmail.com` |
-| Receptionist | `avatarstar1133@gmail.com`, `letan@sporthub.vn` |
-| Coach | `coach.caulong@sporthub.vn`, `coach.caulong2@sporthub.vn`, `coach.bongro@sporthub.vn`, `coach.bongro2@sporthub.vn` |
-| Member | `an.member@sporthub.vn`, `docuachung403@gmail.com`, `hoanai3126@gmail.com`, `holethiena@gmail.com`, `holethienan2006@gmail.com`, `holethienan3010@gmail.com`, `nhatkhanhle11906@gmail.com` |
-
-`holethienan3010@gmail.com` đang là **Member** ở local; không chuyển thành Admin. Seeder không đổi role/mật khẩu của 16 tài khoản trên.
+Seeder không đổi role/mật khẩu các tài khoản có sẵn. `holethienan2006@gmail.com` đã được dọn riêng để demo đăng nhập Google; danh sách account hiện tại nằm ở bản chốt trên.
 
 ## Dữ liệu seeder bổ sung
 
@@ -53,5 +45,17 @@ Theo xác nhận của người dùng, đã chạy `scripts/cleanup-local-legacy
 Script này là thao tác dọn **local demo** đã được xác nhận, không chạy trên Railway hoặc DB có giao dịch thật. Bản backup trước seed là điểm phục hồi nếu cần. Sau khi cập nhật mã backend, chạy `docker compose up -d --build backend` để phiên bản container cũng áp dụng guard khi khởi động.
 
 Các lớp lịch sử khác như `P2-*` và `CAULONG-STARTED-01` vẫn được giữ vì có thể dùng để trình diễn luồng và kết quả Coach; chúng không thuộc bốn lớp BR141 được xác nhận xóa. Lớp lịch sử InProgress có thể vẫn hiện trên public UI. Bốn lớp mới còn chỗ và tài khoản local có thể mua live.
+
+## Bổ sung staff giả cho demo phân quyền (27/10/2026)
+
+Lệnh riêng `--seed-local-demo-staff=true` đã chạy trên DB local `sporthub` sau khi sao lưu `output/sporthub-before-extra-staff-20261027.dump`. Bốn staff mới ban đầu lấy mật khẩu từ `Seed__Password` trong `.env`, khác mật khẩu Member Demo nên đăng nhập theo script bị 401. Ngày 27/10 đã chạy lại lệnh với biến `LocalDemoStaffSeed__Password` để đồng bộ **chỉ bốn staff Demo** sang mật khẩu ghi trong bảng tài khoản của script demo. Seeder chỉ đổi hash khi mật khẩu khác và làm mất hiệu lực phiên đăng nhập cũ; không đổi role, trạng thái hay tài khoản ngoài bốn email đó. Đã thử đăng nhập API local cho cả bốn staff và bốn Member Demo: đều HTTP 200, CORS từ `http://localhost:3000` hợp lệ.
+
+Sau bước seed staff, DB có **24 tài khoản** (20 trước đó + 4 staff trên; sau khi giải phóng email Google còn 23). Nếu cần đồng bộ lại mật khẩu staff trên DB local, đặt `ASPNETCORE_ENVIRONMENT=Development` và `LocalDemoStaffSeed__Password` bằng mật khẩu trong bảng tài khoản, rồi chạy `dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release --no-launch-profile -- --seed-local-demo-staff=true`. Không chạy trên Railway. Nếu không đặt biến riêng, seeder chỉ tạo staff còn thiếu từ `Seed__Password` và giữ nguyên mật khẩu staff đã tồn tại. Chức năng staff dùng **Deactivate/Activate**, không xóa.
+
+## Giải phóng email cho demo Google Login (27/10/2026)
+
+Theo yêu cầu, đã xóa **chỉ trong DB local** tài khoản Member `holethienan2006@gmail.com` (tên cũ: Nhật Khanh) bằng [script dọn dữ liệu riêng](../scripts/remove-local-google-demo-member.sql). Trước khi xóa đã sao lưu `output/sporthub-before-member-email-removal-20261027.dump`. Script xóa Google link cũ, 1 invoice và chuỗi payment/checkout, 1 enrollment/seat hold và điều chỉnh lại bộ đếm lớp `DEMO-SMALL-01`, 2 support request, ví điểm rỗng, 10 notification và OTP cũ trong một transaction. DB hiện có **23 tài khoản**; truy vấn email và OTP đều trả 0, lớp `DEMO-SMALL-01` có `confirmed_count=0`, `reserved_count=0`.
+
+Email này hiện dành cho **Google Sign-In tạo Member mới live**, sau đó **Forgot password** để nhận link trên Gmail thật. Backend local có Google Client ID và SMTP; frontend có Google Client ID. Tên hiển thị sau đăng nhập mới lấy từ Google, không còn là tên Nhật Khanh trong fixture cũ. Đừng seed lại tài khoản này trước demo; nếu cần quay lại trạng thái trước xóa, dùng bản sao lưu thay vì chạy lại script.
 
 Màn tạo lớp live còn dùng các phòng/sân Active hiện có; tránh khung giờ bị chiếm bởi 4 lớp mới. Giao dịch thanh toán live phải chạy VNPay sandbox và chờ IPN/QueryDR xác minh, không chỉ dùng fixture. Member thật sẽ đăng ký ngày demo theo yêu cầu, không được seed sẵn.

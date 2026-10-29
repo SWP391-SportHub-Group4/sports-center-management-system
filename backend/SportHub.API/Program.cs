@@ -74,7 +74,7 @@ var seedCommands = args.Where(a => a.StartsWith("--seed-", StringComparison.Ordi
 if (seedCommands.Length > 0)
 {
     var cmd = seedCommands[0];
-    if (seedCommands.Length != 1 || cmd is not ("--seed-validation=true" or "--seed-validation" or "--seed-gym-six-months=true" or "--seed-gym-six-months" or "--seed-br141=true" or "--seed-br141" or "--seed-started-class=true" or "--seed-started-class" or "--seed-support=true" or "--seed-support" or "--seed-scenarios=true" or "--seed-scenarios" or "--seed-local-demo=true"))
+    if (seedCommands.Length != 1 || cmd is not ("--seed-validation=true" or "--seed-validation" or "--seed-gym-six-months=true" or "--seed-gym-six-months" or "--seed-br141=true" or "--seed-br141" or "--seed-started-class=true" or "--seed-started-class" or "--seed-support=true" or "--seed-support" or "--seed-scenarios=true" or "--seed-scenarios" or "--seed-local-demo=true" or "--seed-local-demo-staff=true"))
     {
         Console.Error.WriteLine("Use --seed-validation=true, --seed-gym-six-months=true or --seed-br141=true or --seed-support=true or --seed-scenarios=true for explicit local setup.");
         Environment.ExitCode = 1;
@@ -103,7 +103,7 @@ builder.Services.AddScoped<ISportHubDbContext>(sp => sp.GetRequiredService<Sport
 
 builder.Services.AddSportHubCors(builder.Configuration);
 
-builder.Services.AddSportHubJwtBearer(builder.Configuration);
+builder.Services.AddSportHubJwtBearer();
 // BR-6: chặn token của tài khoản bị khoá/xoá ngay tại bước xác thực request.
 // Phải gọi SAU AddSportHubJwtBearer — PostConfigure bổ sung OnTokenValidated vào Events đã có.
 builder.Services.AddAccountStatusJwtValidation();
@@ -472,6 +472,7 @@ builder.Services.AddScoped<StartedClassSeeder>();
 builder.Services.AddScoped<SupportScenarioSeeder>();
 builder.Services.AddScoped<SystemScenarioSeeder>();
 builder.Services.AddScoped<LocalDemoSeeder>();
+builder.Services.AddScoped<LocalDemoStaffSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
@@ -524,7 +525,8 @@ if (seedCommands.Length > 0)
     try {
         var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
         var cmd = seedCommands[0];
-        if (cmd is "--seed-local-demo=true") await scope.ServiceProvider.GetRequiredService<LocalDemoSeeder>().SeedAsync();
+        if (cmd is "--seed-local-demo-staff=true") await scope.ServiceProvider.GetRequiredService<LocalDemoStaffSeeder>().SeedAsync();
+        else if (cmd is "--seed-local-demo=true") await scope.ServiceProvider.GetRequiredService<LocalDemoSeeder>().SeedAsync();
         else if (cmd is "--seed-scenarios=true" or "--seed-scenarios") await scope.ServiceProvider.GetRequiredService<SystemScenarioSeeder>().SeedAsync();
         else if (cmd is "--seed-support=true" or "--seed-support") await scope.ServiceProvider.GetRequiredService<SupportScenarioSeeder>().SeedAsync();
         else if (cmd is "--seed-br141=true" or "--seed-br141") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();

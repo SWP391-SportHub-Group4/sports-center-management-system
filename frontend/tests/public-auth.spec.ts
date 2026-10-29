@@ -471,6 +471,7 @@ for (const width of [1440, 1280, 390]) {
 }
 
 test("protected role page sends guests to login", async ({ page }) => {
+  await page.context().clearCookies();
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/login\?next=%2Fadmin$/);
 });
