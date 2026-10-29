@@ -1,6 +1,6 @@
 namespace SportHub.Scheduling.Rental.Domain;
 
-public enum IncidentFenceStepKind { Reschedule = 0, CancelWithMakeup = 1, RemoveRoomBlock = 2, ReviewedCompleted = 2 }
+public enum IncidentFenceStepKind { Reschedule = 0, CancelWithMakeup = 1, RemoveRoomBlock = 2, ReviewedCompleted = 3 }
 
 public enum IncidentFenceStepState { Applied = 0, Undone = 1, UndoFailed = 2 }
 

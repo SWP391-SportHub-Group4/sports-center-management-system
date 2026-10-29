@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const requestId = "abcdef12-2222-4222-8222-222222222222";
 const memberId = "11111111-1111-4111-8111-111111111111";
 const managerId = "33333333-3333-4333-8333-333333333333";
+const adminId = "44444444-4444-4444-8444-444444444444";
 const message =
   "The basketball court light is broken.\nPlease check before the next class.";
 
@@ -11,6 +12,7 @@ async function install(page: Page, deepLink = false) {
     role: "CENTER_MANAGER",
     status: "ASSIGNED",
     reply: "We are checking the court.",
+    assignedToUserId: managerId,
   };
   const writes: Record<string, unknown>[] = [];
   const member = {
@@ -42,8 +44,9 @@ async function install(page: Page, deepLink = false) {
       createdAt: "2026-10-23T02:00:00Z",
       updatedAt: "2026-10-23T03:00:00Z",
       closedAt: null,
-      assignedToUserId: managerId,
-      assignedToName: "Manager",
+      assignedToUserId: state.assignedToUserId,
+      assignedToName:
+        state.assignedToUserId === adminId ? "Administrator" : "Manager",
       channel: "ONLINE",
       attachments: [{ attachmentId: "image-1", fileName: "court-light.png" }],
     };
@@ -75,6 +78,7 @@ async function install(page: Page, deepLink = false) {
     if (path === "/api/member-support-requests/assignees")
       return json([
         { userId: managerId, name: "Manager", role: "CenterManager" },
+        { userId: adminId, name: "Administrator", role: "SystemAdministrator" },
       ]);
     if (path === "/api/member-support-requests/queue")
       return json({
@@ -90,6 +94,8 @@ async function install(page: Page, deepLink = false) {
     ) {
       const body = route.request().postDataJSON();
       writes.push(body);
+      if (path.endsWith("/assign"))
+        state.assignedToUserId = body.assigneeUserId;
       if (path.endsWith("/progress")) {
         state.reply = body.note;
         state.status = "IN_PROGRESS";
@@ -119,6 +125,50 @@ async function install(page: Page, deepLink = false) {
   });
   return { state, writes };
 }
+
+test("successful transfer shows completion instead of the reset staff prompt", async ({
+  page,
+}) => {
+  const { state, writes } = await install(page);
+  await page.goto("/manager/requests?type=support");
+  const routing = page.getByRole("region", { name: "Routing and escalation" });
+  await routing
+    .getByRole("combobox", { name: "Department", exact: true })
+    .selectOption({ label: "Administrator" });
+  await routing
+    .getByRole("combobox", { name: "Staff member", exact: true })
+    .selectOption(adminId);
+  await routing
+    .getByLabel("Transfer note (required)")
+    .fill("Administrator review required.");
+  await routing
+    .getByRole("button", { name: "Transfer request", exact: true })
+    .click();
+  await expect(routing.getByRole("status")).toHaveText("Transfer completed");
+  await expect(
+    routing.getByText("Choose a staff member.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    routing.getByText("Administrator (Administrator)", { exact: true }),
+  ).toBeVisible();
+  expect(state.assignedToUserId).toBe(adminId);
+  expect(writes.at(-1)).toEqual({
+    assigneeUserId: adminId,
+    note: "Administrator review required.",
+  });
+  await expect(
+    routing.getByRole("combobox", { name: "Staff member", exact: true }),
+  ).toHaveValue("");
+  await routing
+    .getByRole("combobox", { name: "Department", exact: true })
+    .selectOption({ label: "Manager" });
+  await expect(
+    routing.getByText("Transfer completed", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    routing.getByText("Choose a staff member.", { exact: true }),
+  ).toBeVisible();
+});
 
 test("manager shows the member topic, message, images and public reply on desktop and mobile", async ({
   page,

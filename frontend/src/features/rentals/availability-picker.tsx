@@ -12,6 +12,7 @@ import { MutationFeedback, useMutation } from "@/features/operations";
 import type { RentalAvailabilityDto, SportDto } from "@/lib/types";
 import { RentalPriceBreakdown } from "./rental-price-breakdown";
 import { rentalApi } from "./api";
+import { useRentalPolicy } from "./use-rental-policy";
 import styles from "./availability-picker.module.css";
 
 /** Đặt sân theo giờ: mọi Member đang hoạt động, không cần Membership, hồ sơ hay số người. */
@@ -22,7 +23,7 @@ export function AvailabilityPicker({
   const { t } = useLanguage();
   const l = t.operations;
   const { refreshUser } = useAuth();
-  const policy = useApi((s) => rentalApi.policy(s), []);
+  const policy = useRentalPolicy();
   const serverDate = policy.data
     ? new Date(new Date(policy.data.serverNowUtc).getTime() + 7 * 3600000)
         .toISOString()
@@ -58,7 +59,7 @@ export function AvailabilityPicker({
     setSnapshot(null);
     mutation.reset();
   }
-  const maxHours = policy.data?.maxHours ?? 4;
+  const maxHours = policy.data?.maxHours ?? 0;
   return (
     <div className={compact ? styles.compact : undefined}>
       <AsyncSection state={policy}>
@@ -72,6 +73,7 @@ export function AvailabilityPicker({
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!policy.data || hours > policy.data.maxHours) return;
           const expectedRevision = revision.current;
           const startUtc = vietnamUtc(`${date}T${time}`);
           const endUtc = new Date(
@@ -166,7 +168,9 @@ export function AvailabilityPicker({
         </div>
         <button
           className="btn"
-          disabled={mutation.busy || !sportId || !policy.data}
+          disabled={
+            mutation.busy || !sportId || !policy.data || hours > maxHours
+          }
         >
           {l.availability}
         </button>

@@ -15,6 +15,23 @@ async function setup(page: Page) {
       updatedAt: "2026-10-25T00:00:00Z",
     },
   ];
+  settings.push(
+    ...Object.entries({
+      "class.threshold_days_before_start": "3",
+      "hold.minutes": "15",
+      "points.confirm_otp_minutes": "5",
+      "rental.max_hours": "4",
+      "membership.expiry_notice_days": "10",
+      "support.sla_hours": "48",
+      "support.remind_cooldown_hours": "48",
+      "support.payout_confirm_days": "3",
+    }).map(([key, value]) => ({
+      key,
+      value,
+      description: key,
+      updatedAt: "2026-10-25T00:00:00Z",
+    })),
+  );
   const writes: { path: string; body: unknown }[] = [];
   await page.addInitScript(() => {
     localStorage.setItem("sporthub.accessToken", "center-hours-manager");
@@ -32,7 +49,18 @@ async function setup(page: Page) {
         sportIds: [],
       });
     if (path.endsWith("unread-count")) return json({ count: 0 });
-    if (path === "/api/system-settings") return json(settings);
+    if (path === "/api/system-settings") {
+      if (request.method() === "PUT") {
+        const body = request.postDataJSON();
+        writes.push({ path, body });
+        const updated = settings.filter((s) => s.key in body.values);
+        updated.forEach((s) => {
+          s.value = body.values[s.key];
+        });
+        return json(updated);
+      }
+      return json(settings);
+    }
     if (
       path.startsWith("/api/system-settings/") &&
       request.method() === "PUT"
@@ -77,23 +105,30 @@ test("settings display editable center times and validate their order", async ({
 }) => {
   const writes = await setup(page);
   await page.goto("/manager/settings");
-  const opening = page
-    .getByRole("row")
-    .filter({ hasText: "Center opening time" });
-  const closing = page
-    .getByRole("row")
-    .filter({ hasText: "Center closing time" });
+  const opening = page.getByRole("region", {
+    name: "Center hours",
+    exact: true,
+  });
+  const closing = opening;
   await expect(opening.getByLabel("Center opening time")).toHaveValue("08:00");
   await expect(closing.getByLabel("Center closing time")).toHaveValue("20:00");
   await closing.getByLabel("Center closing time").fill("07:00");
   await expect(
-    closing.getByRole("button", { name: "Save", exact: true }),
+    closing.getByRole("button", { name: "Save Center hours", exact: true }),
   ).toBeDisabled();
   await closing.getByLabel("Center closing time").fill("21:00");
-  await closing.getByRole("button", { name: "Save", exact: true }).click();
+  await closing
+    .getByRole("button", { name: "Save Center hours", exact: true })
+    .click();
+  await expect(closing.getByRole("status")).toHaveText("Changes saved.");
   expect(writes).toContainEqual({
-    path: "/api/system-settings/center.closing_minutes",
-    body: { value: "1260" },
+    path: "/api/system-settings",
+    body: {
+      values: {
+        "center.opening_minutes": "480",
+        "center.closing_minutes": "1260",
+      },
+    },
   });
 });
 

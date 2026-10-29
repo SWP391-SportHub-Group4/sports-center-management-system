@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100";
-const serverPort = new URL(baseURL).port || "3100";
+const baseUrl = new URL(baseURL);
+const serverPort = baseUrl.port || "3100";
 
 export default defineConfig({
   testDir: "./tests",
@@ -12,6 +13,23 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     baseURL,
+    // Fixture tokens live in localStorage. The server proxy needs this session
+    // hint on the first navigation, before the browser can run addInitScript.
+    storageState: {
+      cookies: [
+        {
+          name: "sporthub.session",
+          value: "1",
+          domain: baseUrl.hostname,
+          path: "/",
+          expires: -1,
+          httpOnly: false,
+          secure: baseUrl.protocol === "https:",
+          sameSite: "Lax",
+        },
+      ],
+      origins: [],
+    },
     ...(process.env.PLAYWRIGHT_CHANNEL
       ? { channel: process.env.PLAYWRIGHT_CHANNEL }
       : {}),

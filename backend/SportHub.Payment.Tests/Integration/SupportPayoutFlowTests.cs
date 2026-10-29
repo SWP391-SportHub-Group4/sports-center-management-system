@@ -443,7 +443,7 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
             ("80500", "0", HttpStatusCode.BadRequest),
             ("80000", "20.5", HttpStatusCode.BadRequest),
             ("90000", "0", HttpStatusCode.Conflict),
-            ("0", "21", HttpStatusCode.Conflict),
+            ("80000", "21", HttpStatusCode.Conflict),
             ("0", "0", HttpStatusCode.BadRequest)
         })
         {
@@ -466,6 +466,67 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         var breakdown = await owner.GetFromJsonAsync<JsonElement>($"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
         Assert.Equal(80_000m - cash, breakdown.GetProperty("refundableVnpayVnd").GetDecimal());
         Assert.Equal(20 - points, breakdown.GetProperty("refundablePoints").GetInt32());
+    }
+
+    [Theory]
+    [InlineData(100_000, 0)]
+    [InlineData(0, 100)]
+    [InlineData(40_000, 60)]
+    [InlineData(0, 30)]
+    public async Task Cash_paid_invoice_can_refund_cash_points_or_both_without_refunding_converted_value_again(int cash, int points)
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 100_000m);
+        await factory.QueryAsync(async db =>
+        {
+            var row = await db.Set<Invoice>().SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            row.Status = InvoiceStatus.Paid;
+            row.CashAmount = 100_000m;
+            db.Set<SportHub.Payment.Domain.Entities.Payment>().Add(new() {
+                PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, Amount = 100_000m,
+                Method = PaymentMethod.VnPay, Status = PaymentStatus.Success,
+                ReceivedByUserId = member.UserId, PaidAt = DateTime.UtcNow });
+            await db.SaveChangesAsync(); return 0;
+        });
+        using var owner = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var mgr = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        using var request = Form(invoice.InvoiceId);
+        var created = await owner.PostAsync("/api/support/requests", request);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var requestId = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
+        var endpoint = $"/api/member-support-requests/{requestId}";
+        var quote = (await mgr.GetFromJsonAsync<JsonElement>(endpoint + "/payout-quote")).GetProperty("items")[0];
+        Assert.Equal(0, quote.GetProperty("refundablePoints").GetInt32());
+        Assert.Equal(100, quote.GetProperty("maxRefundablePoints").GetInt32());
+        MultipartFormDataContent Payout(int amount, int pointCount)
+        {
+            var form = new MultipartFormDataContent();
+            form.Add(new StringContent(amount.ToString()), "Amount");
+            form.Add(new StringContent(pointCount.ToString()), "PointsRefunded");
+            form.Add(new StringContent("Called member and agreed refund in cash and points"), "Note");
+            if (amount > 0) AddPng(form);
+            return form;
+        }
+        using (var excessive = Payout(40_000, 61))
+            Assert.Equal(HttpStatusCode.Conflict, (await mgr.PostAsync(endpoint + "/payout", excessive)).StatusCode);
+        using var payout = Payout(cash, points);
+        var recorded = await mgr.PostAsync(endpoint + "/payout", payout);
+        Assert.Equal(HttpStatusCode.OK, recorded.StatusCode);
+        Assert.Equal(points, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == member.UserId)
+            .Select(w => w.AvailablePoints).SingleOrDefaultAsync()));
+        var breakdown = await owner.GetFromJsonAsync<JsonElement>($"/api/members/me/invoices/{invoice.InvoiceId}/refund-breakdown");
+        var remaining = 100_000m - cash - points * 1000m;
+        Assert.Equal(remaining, breakdown.GetProperty("refundableVnpayVnd").GetDecimal());
+        Assert.Equal(remaining, breakdown.GetProperty("items")[0].GetProperty("refundableValueVnd").GetDecimal());
+        using var duplicate = Payout(cash, points);
+        Assert.Equal(HttpStatusCode.Conflict, (await mgr.PostAsync(endpoint + "/payout", duplicate)).StatusCode);
+        var today = SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.TodayLocal(new SportHub.BuildingBlocks.SharedKernel.Time.SystemClock());
+        var report = await mgr.GetFromJsonAsync<JsonElement>($"/api/reports/revenue?fromDate={today:yyyy-MM-dd}&toDate={today:yyyy-MM-dd}&memberId={member.UserId}");
+        Assert.Equal(cash, report.GetProperty("bankRefundPaid").GetDecimal());
+        // Every recorded payout counts once, including point-only and mixed refunds.
+        Assert.Equal(1, report.GetProperty("bankRefundCount").GetInt32());
+        Assert.Equal(points, report.GetProperty("pointsRefunded").GetInt64());
     }
 
     [Fact]

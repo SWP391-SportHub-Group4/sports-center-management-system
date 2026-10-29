@@ -139,6 +139,43 @@ test("any active member prices a 2-hour rental from the server and sends no owne
   expect(requests[0].body).toMatchObject({ sportId: 3, roomId: 7 });
 });
 
+test("rental selection follows the server limit and refreshes it on focus", async ({
+  page,
+}) => {
+  await setup(page);
+  let maxHours = 1;
+  await page.route("**/api/court-rentals/policy", (route) =>
+    route.fulfill({
+      json: {
+        slotMinutes: 60,
+        maxHours,
+        advanceDays: 2,
+        cancelFreeHours: 24,
+        serverNowUtc: "2030-10-02T00:00:00Z",
+      },
+    }),
+  );
+  await page.goto("/member/courts/book");
+  await page
+    .getByRole("group", { name: "Sport" })
+    .getByRole("button", { name: "Badminton" })
+    .click();
+  await page.getByRole("button", { name: "03/10/2030" }).click();
+  await page.getByRole("button", { name: /10:00.*11:00.*Available/ }).click();
+  await expect(
+    page.getByText("1/1 hours selected", { exact: true }),
+  ).toBeVisible();
+  maxHours = 2;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(
+    page.getByText("1/2 hours selected", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /11:00.*12:00.*Available/ }).click();
+  await expect(
+    page.getByText("2/2 hours selected", { exact: true }),
+  ).toBeVisible();
+});
+
 test("legacy portal bookmarks land on the member routes", async ({ page }) => {
   await setup(page);
   await page.goto("/external-coach/book");

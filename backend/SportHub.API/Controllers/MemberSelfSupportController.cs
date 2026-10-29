@@ -133,7 +133,7 @@ public sealed class MemberSelfSupportController(
             Status = "OPEN",
             Channel = "ONLINE",
             CreatedAt = now,
-            SlaDueAtUtc = now.AddHours(SportHub.Identity.Application.Services.SupportReminderService.InactivityHours)
+            SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct))
         };
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (category == "PAYMENT")

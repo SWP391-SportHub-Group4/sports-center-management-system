@@ -26,6 +26,7 @@ import {
 } from "@/lib/format";
 import type { CheckoutDto, SportDto } from "@/lib/types";
 import { rentalApi, type CourtCalendarSlot } from "./api";
+import { useRentalPolicy } from "./use-rental-policy";
 import styles from "./court-booking-calendar.module.css";
 
 function shiftMonth(month: string, amount: number) {
@@ -34,8 +35,6 @@ function shiftMonth(month: string, amount: number) {
     .toISOString()
     .slice(0, 7);
 }
-/** Số giờ liên tiếp tối đa cho một lượt thuê. */
-const MAX_PICK_HOURS = 4;
 type Picked = {
   roomId: number;
   roomName: string;
@@ -70,7 +69,7 @@ export function CourtBookingCalendar({
   const [monthPick, setMonth] = useState<string | null>(null);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [paid, setPaid] = useState<CheckoutDto | null>(null);
-  const policy = useApi((signal) => rentalApi.policy(signal), []);
+  const policy = useRentalPolicy();
   const sports = useApi(
     (signal) =>
       api.get<SportDto[]>("/api/sports", {
@@ -84,10 +83,7 @@ export function CourtBookingCalendar({
     (s) => s.isActive && hasService(s, "COURT_RENTAL"),
   );
   const sport = choices.find((s) => s.sportId === sportId);
-  const maxPick = Math.min(
-    MAX_PICK_HOURS,
-    policy.data?.maxHours ?? MAX_PICK_HOURS,
-  );
+  const maxPick = policy.data?.maxHours ?? 0;
   const selected: Selection | null =
     picked && sport
       ? {
@@ -135,7 +131,7 @@ export function CourtBookingCalendar({
       sport && policy.data
         ? rentalApi.calendar(sport.sportId, date, 1, signal, memberId)
         : Promise.resolve(null),
-    [sport?.sportId, date, !!policy.data, memberId],
+    [sport?.sportId, date, policy.data, memberId],
   );
   const reload = day.reload;
   const onPaid = useCallback(
@@ -150,7 +146,7 @@ export function CourtBookingCalendar({
     setPicked(null);
     setPaid(null);
   }
-  /** Chọn các khung 1 giờ liền kề trong cùng một sân (tối đa ${MAX_PICK_HOURS} giờ); bấm lại ô ở rìa để bỏ. */
+  /** Pick adjacent hourly slots within the current server limit; click an edge again to remove it. */
   function toggleSlot(
     room: { roomId: number; name: string },
     slot: CourtCalendarSlot,
@@ -249,7 +245,14 @@ export function CourtBookingCalendar({
             <button
               type="button"
               className="btn"
-              disabled={checkout.busyId !== null}
+              disabled={
+                checkout.busyId !== null ||
+                !policy.data ||
+                !!policy.error ||
+                (Date.parse(selected.endUtc) - Date.parse(selected.startUtc)) /
+                  3600000 >
+                  maxPick
+              }
               onClick={() =>
                 void checkout.start(
                   `${selected.sportId}-${selected.roomId}-${selected.startUtc}-${selected.endUtc}`,

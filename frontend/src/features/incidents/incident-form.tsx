@@ -13,8 +13,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
-import { AsyncSection, Card, Field, Dialog } from "@/components/ui";
-import { loadCenterHours, timeToMinutes } from "@/lib/center-hours";
+import { Card, Field, Dialog } from "@/components/ui";
 import { RoomSelector, catalogApi } from "@/features/catalog";
 import { useApi } from "@/lib/useApi";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -40,7 +39,6 @@ export function IncidentForm() {
   const params = useSearchParams();
   const mutation = useMutation();
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
-  const center = useApi(loadCenterHours, []);
   const revision = useRef(0);
   const resolvePending = useRef(false);
   const operationId = useRef("");
@@ -84,16 +82,9 @@ export function IncidentForm() {
       ? t.incidentHistory.invalidRange
       : endMs - startMs > 31 * 86400000
         ? t.incidentHistory.rangeTooLong
-        : center.data &&
-            (start.slice(0, 10) !== end.slice(0, 10) ||
-              timeToMinutes(start.slice(11)) < center.data.openingMinute ||
-              timeToMinutes(end.slice(11)) > center.data.closingMinute)
-          ? t.incidentHistory.outsideHours
-          : null;
+        : null;
   const validDraft =
     hasValidDates &&
-    !!center.data &&
-    !center.error &&
     !rangeError &&
     reason.trim().length >= 3 &&
     reason.trim().length <= 500 &&
@@ -132,16 +123,9 @@ export function IncidentForm() {
     setFinalReview(false);
   }
   async function preview(final = false) {
-    if (center.data && (!hasValidDates || rangeError)) {
-      const hours = t.incidentHistory.reviewTimeError
-        .replace("{open}", center.data.opens)
-        .replace("{close}", center.data.closes);
+    if (!hasValidDates || rangeError) {
       setTimeError(
-        !hasValidDates
-          ? `${t.incidentHistory.invalidTime} ${hours}`
-          : rangeError === t.incidentHistory.outsideHours
-            ? hours
-            : `${rangeError} ${hours}`,
+        !hasValidDates ? t.incidentHistory.invalidTime : rangeError!,
       );
       return;
     }
@@ -197,7 +181,6 @@ export function IncidentForm() {
         title={incidentId ? l.resolved : t.incidentHistory.formTitle}
         hint={!incidentId ? t.incidentHistory.formHint : undefined}
       >
-        <AsyncSection state={center}>{() => null}</AsyncSection>
         {!incidentId && (
           <form
             ref={formRef}
@@ -243,8 +226,6 @@ export function IncidentForm() {
               <div className={formStyles.formGrid}>
                 <IncidentDateTime
                   label={l.start}
-                  minTime={center.data?.opens}
-                  maxTime={center.data?.closes}
                   value={start}
                   onChange={(value) => {
                     setStart(value);
@@ -253,8 +234,6 @@ export function IncidentForm() {
                 />
                 <IncidentDateTime
                   label={l.end}
-                  minTime={center.data?.opens}
-                  maxTime={center.data?.closes}
                   value={end}
                   minDate={start.split("T")[0]}
                   onChange={(value) => {
@@ -280,10 +259,7 @@ export function IncidentForm() {
                   ref={reviewButtonRef}
                   className="btn"
                   disabled={
-                    mutation.busy ||
-                    !center.data ||
-                    !!center.error ||
-                    (scope === "ROOM" && Number(roomId) <= 0)
+                    mutation.busy || (scope === "ROOM" && Number(roomId) <= 0)
                   }
                 >
                   {l.review}

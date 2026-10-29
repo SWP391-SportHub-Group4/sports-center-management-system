@@ -100,9 +100,10 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
         if (body.Amount > itemQuote.RefundableVnpayVnd)
             throw new ConflictException(PaymentSupportErrorCodes.PayoutAmountExceedsPaid,
                 "Payout exceeds the remaining VNPay payment for this service.");
-        if (body.PointsRefunded > itemQuote.RefundablePoints)
+        if (body.PointsRefunded > itemQuote.MaxRefundablePoints
+            || body.Amount + body.PointsRefunded * 1000m > itemQuote.RefundableValueVnd)
             throw new ConflictException("payout_points_exceeds_paid",
-                "Points exceed the remaining points paid for this service.");
+                "Cash plus points (1 point = 1,000 VND) exceeds the remaining refundable value for this service.");
         var pointsToRefund = body.PointsRefunded;
         request.InvoiceItemId = itemId;
         if (pointsToRefund > 0)

@@ -2589,7 +2589,6 @@ export const en = {
     retry: "Try again",
     loading: "Loading your calendar",
     todayTag: "Today",
-    addToCalendar: "Add to Google Calendar",
     cancelRental: "Cancel rental",
     cancelTitle: "Cancel this court rental?",
     cancelFree: "Cancelling a rental is never refunded, at any time.",
@@ -2741,7 +2740,6 @@ export const en = {
     enrolledBadge: "Enrolled",
     fullBadge: "Full",
     spotsLeft: "{count} spots left",
-    calendarSync: "Add to Calendar",
     cancelBooking: "Cancel",
     confirmBookingTitle: "Confirm Class Enrollment",
     confirmBookingDesc: "You are registering for:",
@@ -2754,7 +2752,6 @@ export const en = {
     processing: "Processing...",
     bookingSuccessMessage:
       "Successfully booked! We look forward to seeing you in class.",
-    downloadIcs: "Download Calendar Event (.ics)",
     cancelConfirmTitle: "Cancel Class Enrollment",
     cancelConfirmDesc: "Are you sure you want to cancel your enrollment in:",
     cancelRefundNotice: "Session Refund Status:",
@@ -3076,7 +3073,7 @@ export const en = {
       "Review affected activities, arrange any schedule changes, then confirm the closure.",
     formTitle: "Incident details",
     formHint:
-      "Choose the affected area and period. Times are shown in Vietnam time (UTC+7).",
+      "Choose the affected area and period, including outside opening hours or overnight (up to 31 days). Times are shown in Vietnam time (UTC+7).",
     reviewHint:
       "New bookings in this window are automatically blocked while you review. The lock is renewed on review and expires after 2 hours if left unfinished.",
     outsideHours:

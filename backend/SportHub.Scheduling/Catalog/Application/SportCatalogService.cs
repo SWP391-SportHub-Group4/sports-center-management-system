@@ -14,7 +14,8 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// chỉ chặn giao dịch mới, không đụng thứ đã bán. <c>code</c> không đổi được sau khi tạo.
 /// Membership chỉ bật được ở môn tham chiếu Gym (<see cref="SportCodes.Gym"/>), kiểm ở backend.
 /// </summary>
-public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit)
+public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit,
+    SportHub.Scheduling.Application.Services.CourseCancellationService cancellations)
 {
     public async Task<IReadOnlyList<SportGalleryResponse>> ListGalleryAsync(CancellationToken ct = default)
         => await db.Set<Sport>().AsNoTracking()
@@ -106,7 +107,11 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
     {
         if (request.CreateRoomType)
             throw new BadRequestException("room_type_creation_only", "Create a linked room type when creating a new sport, or use Room types to manage existing sports.");
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var ordered = await LockAndListSportsAsync(ct);
         var sport = await FindAsync(sportId, ct);
+        var activityChanged = request.IsActive.HasValue && sport.IsActive != request.IsActive.Value;
+        var deactivating = activityChanged && request.IsActive == false;
 
         if (!string.IsNullOrWhiteSpace(request.Code)
             && !string.Equals(request.Code.Trim(), sport.Code, StringComparison.OrdinalIgnoreCase))
@@ -151,7 +156,15 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
             OldValue: before,
             NewValue: Describe(sport)));
 
+        if (activityChanged)
+        {
+            ordered.Remove(sport);
+            ordered.Add(sport);
+            AssignSortOrders(ordered);
+        }
         await db.SaveChangesAsync(ct);
+        if (deactivating) await CancelSportClassesAsync(sportId, actorUserId, ct);
+        await tx.CommitAsync(ct);
         return ToResponse(sport, publicView: false, null);
     }
 
@@ -200,9 +213,26 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
                 OldValue: before,
                 NewValue: System.Text.Json.JsonSerializer.Serialize(new { name = sport.Name, code = sport.Code, isActive = active, sortOrder = sport.SortOrder })));
             await db.SaveChangesAsync(ct);
+            if (!active) await CancelSportClassesAsync(sportId, actorUserId, ct);
         }
         await tx.CommitAsync(ct);
         return ToResponse(sport, publicView: false, null);
+    }
+
+    public async Task<IReadOnlyList<SportAffectedClassResponse>> DeactivationImpactAsync(int sportId, CancellationToken ct)
+    {
+        await FindAsync(sportId, ct);
+        return await AffectedClasses(sportId).AsNoTracking().OrderBy(c => c.StartDate).ThenBy(c => c.ClassId)
+            .Select(c => new SportAffectedClassResponse(c.ClassId, c.Code, c.Name, c.ConfirmedCount)).ToListAsync(ct);
+    }
+
+    private IQueryable<Class> AffectedClasses(int sportId) => db.Set<Class>().Where(c => c.SportId == sportId
+        && c.Status != ClassStatus.Completed && c.Status != ClassStatus.Cancelled);
+
+    private async Task CancelSportClassesAsync(int sportId, Guid actorId, CancellationToken ct)
+    {
+        var ids = await AffectedClasses(sportId).OrderBy(c => c.ClassId).Select(c => c.ClassId).ToListAsync(ct);
+        foreach (var id in ids) await cancellations.CancelForSportDeactivationAsync(id, actorId, ct);
     }
 
     private static string Describe(Sport sport) => System.Text.Json.JsonSerializer.Serialize(new
@@ -346,3 +376,5 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
             .ToList(),
         publicView ? null : readiness);
 }
+
+public sealed record SportAffectedClassResponse(int ClassId, string Code, string Name, int ConfirmedCount);

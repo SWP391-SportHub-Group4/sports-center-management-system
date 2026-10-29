@@ -113,6 +113,54 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         Assert.Equal(3, (await CourseTestData.SessionsAsync(factory, f.Course.Id)).Count);
         Assert.True((await Incidents(s => s.PreviewAsync(f.Incident))).CanResolve);
         Assert.True(await factory.QueryAsync(db => db.Attendances.AnyAsync(a => a.SessionId == f.Session.SessionId)));
+        var step = Assert.Single(await Incidents(s => s.ListFenceStepsAsync(f.FenceId)));
+        Assert.Equal("ReviewedCompleted", step.Kind);
+        Assert.False(step.CanUndo);
+        var abandoned = await Incidents(s => s.AbandonFenceAsync(f.FenceId, f.Course.ManagerId));
+        Assert.Equal(0, abandoned.Undone);
+        Assert.Empty(abandoned.NotUndone);
+        Assert.Equal(ClassSessionStatus.Completed, await factory.QueryAsync(db => db.ClassSessions
+            .Where(s => s.SessionId == f.Session.SessionId).Select(s => s.Status).SingleAsync()));
+        Assert.Equal(IncidentFenceStepState.Applied, await factory.QueryAsync(db => db.Set<IncidentFenceStep>()
+            .Where(s => s.StepId == step.StepId).Select(s => s.State).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Migration_distinguishes_legacy_completed_reviews_from_removed_room_blocks()
+    {
+        var f = await Setup();
+        var reviewId = Guid.NewGuid();
+        var blockStepId = Guid.NewGuid();
+        await factory.QueryAsync(async db =>
+        {
+            foreach (var isBlock in new[] { false, true })
+                db.Set<IncidentFenceStep>().Add(new() {
+                    StepId = isBlock ? blockStepId : reviewId, FenceId = f.FenceId,
+                    Kind = (IncidentFenceStepKind)2, SessionId = isBlock ? null : f.Session.SessionId,
+                    RoomBlockId = isBlock ? Guid.NewGuid() : null,
+                    BeforeStartUtc = f.Session.StartAtUtc, BeforeEndUtc = f.Session.EndAtUtc,
+                    BeforeRoomId = f.Session.RoomId, BeforeCoachId = f.Session.CoachId,
+                    AfterStartUtc = f.Session.StartAtUtc, AfterRoomId = f.Session.RoomId, AfterCoachId = f.Session.CoachId,
+                    ActorUserId = f.Course.ManagerId, CreatedAtUtc = clock.UtcNow,
+                    State = isBlock ? IncidentFenceStepState.Applied : IncidentFenceStepState.UndoFailed,
+                    UndoNote = isBlock ? null : "The block time has already passed." });
+            await db.SaveChangesAsync();
+            foreach (var operation in new SportHub.API.Migrations.DistinguishCompletedIncidentSteps().UpOperations
+                .OfType<Microsoft.EntityFrameworkCore.Migrations.Operations.SqlOperation>())
+                await db.Database.ExecuteSqlRawAsync(operation.Sql);
+            var review = await db.Set<IncidentFenceStep>().AsNoTracking().SingleAsync(s => s.StepId == reviewId);
+            var block = await db.Set<IncidentFenceStep>().AsNoTracking().SingleAsync(s => s.StepId == blockStepId);
+            Assert.Equal(IncidentFenceStepKind.ReviewedCompleted, review.Kind);
+            Assert.Equal(IncidentFenceStepKind.RemoveRoomBlock, block.Kind);
+            Assert.Equal(IncidentFenceStepState.UndoFailed, review.State);
+            Assert.Equal("The block time has already passed.", review.UndoNote);
+            Assert.NotNull(block.RoomBlockId);
+            Assert.Null(block.SessionId);
+            return 0;
+        });
+        var history = await Incidents(s => s.ListFenceStepsAsync(f.FenceId));
+        Assert.Equal("ReviewedCompleted", history.Single(s => s.StepId == reviewId).Kind);
+        Assert.Equal("RemoveRoomBlock", history.Single(s => s.StepId == blockStepId).Kind);
     }
 
     [Fact]

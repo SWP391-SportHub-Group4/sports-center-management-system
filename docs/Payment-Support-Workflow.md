@@ -23,7 +23,7 @@ Quyết định ngày 24/10/2026, xác nhận sau buổi họp nhóm. Văn bản
 - `vnp_ExpireDate` gửi sang VNPay bằng đúng thời hạn checkout (đã có trong `VnPayGateway`). VNPay từ chối thanh toán sau thời điểm này nên chỉ giao dịch bấm trong những giây cuối còn khả năng đến muộn.
 - Khi checkout vừa hết hạn, job đối soát gọi QueryDR trước khi nhả chỗ để biết sớm tiền đã trừ chưa. Không nhả chỗ khi còn gateway event chưa xử lý.
 
-**Khi tiền về muộn (BR-88):**
+**Khi tiền về muộn (BR-80):**
 
 | Tình huống | Kết quả |
 |---|---|
@@ -38,7 +38,7 @@ Khóa trạng thái: một khoản chỉ được xử lý một lần. Sau khi 
 
 Đây là trường hợp ngoại lệ hiếm. Nhóm không cần tối ưu thêm ngoài các bước giảm tần suất ở trên.
 
-**Quy đổi điểm:** điểm là số nguyên, 1 điểm = 1.000 VND. Mọi giá bán trong catalog bắt buộc là **bội số của 1.000đ** (BR-113, backend đã kiểm tra khi lưu giá), nên số tiền thu từ VNPay luôn chia hết cho 1.000 và không phát sinh tiền lẻ khi quy ra điểm. Không có làm tròn.
+**Quy đổi điểm:** điểm là số nguyên, 1 điểm = 1.000 VND. Mọi giá bán trong catalog bắt buộc là **bội số của 1.000đ** (BR-33, backend đã kiểm tra khi lưu giá), nên số tiền thu từ VNPay luôn chia hết cho 1.000 và không phát sinh tiền lẻ khi quy ra điểm. Không có làm tròn.
 
 ## 3. Nguyên tắc hoàn tiền
 
@@ -49,7 +49,7 @@ Khóa trạng thái: một khoản chỉ được xử lý một lần. Sau khi 
 - Với **hủy do trung tâm**, mỗi mục (ghi danh lớp hoặc lượt thuê sân) chỉ chọn **một** cách: điểm tự động hoặc yêu cầu hoàn tiền cho Manager; cách còn lại bị từ chối. Member tự hủy ghi danh thì không hoàn.
 - **Hoàn theo phương thức thanh toán gốc (quyết định 25/10/2026, mục 5.7):** Member trả bằng phương thức nào, bao nhiêu thì được hoàn đúng giá trị vào phương thức đó: phần VNPay hoàn về ngân hàng qua Manager, phần điểm hoàn lại thành điểm. Lựa chọn "nhận điểm" của hủy do trung tâm là ngoại lệ do Member tự chọn: toàn bộ giá trị còn lại đổi thành điểm.
 - Hệ thống **không gọi** ngân hàng hoặc VNPay Refund API. Chuyển khoản là thao tác ngoài hệ thống của Manager, hệ thống chỉ ghi nhận chứng từ.
-- Sửa BR-134/135: "hoàn chỉ bằng điểm, không chuyển khoản" thành "hoàn điểm cho sự cố phía trung tâm; hoàn chuyển khoản chỉ qua Support Request do Manager ghi nhận".
+- Sửa BR-83/135: "hoàn chỉ bằng điểm, không chuyển khoản" thành "hoàn điểm cho sự cố phía trung tâm; hoàn chuyển khoản chỉ qua Support Request do Manager ghi nhận".
 
 ## 4. Support Request: SLA, nhắc và hạng mục
 
@@ -102,6 +102,7 @@ Trạng thái giữ `OPEN, ASSIGNED, IN_PROGRESS, CLOSED` (kết quả `DONE` ho
 - Ghi audit `SUPPORT_PAYOUT_RECORDED` với mã request, hóa đơn, số tiền chuyển khoản, số điểm hoàn lại, người ghi. Không có dữ liệu ngân hàng nào trong audit hay log ứng dụng.
 - Gửi **thông báo trong ứng dụng và email** cho Member. Email chứa liên kết vào chi tiết request (cần đăng nhập), không đính kèm ảnh.
 - Số tiền vào **báo cáo doanh thu** và **dashboard tổng quan** của Manager như dòng riêng `bankRefundPaid` (kèm `bankRefundCount`). Không trừ vào doanh thu VNPay thực thu theo cách làm đảo số, không cộng với hoàn điểm, và không trừ hai lần cho cùng một invoice.
+- `bankRefundCount` chỉ đếm payout có `Amount > 0`; payout chỉ hoàn điểm không tăng số lần chuyển khoản. Payout kết hợp tiền và điểm chỉ tính một lần chuyển khoản, phần điểm vẫn được báo cáo riêng.
 
 ### 5.5 Phía Member
 
@@ -214,7 +215,7 @@ Job `SupportSlaReminderJob` chạy mỗi 15 phút (dedupe theo `request_id + rec
 10. (25/10/2026) Khi Gym đóng vì sự cố: không bán thêm Gym day pass (409 `gym_closed_today`); không check-in kể cả người đã mua vé (409 `gym_closed`); vé đã mua vẫn hết hạn 22:00 cùng ngày, không gia hạn và không hoàn điểm qua luồng hoàn hiện có. Manager có thể gửi thông báo email cho Member đã mua day pass vào ngày sự cố, rồi tặng điểm nếu Member đồng ý; nếu không thì Member gửi Support Request.
 11. (25/10/2026) Thuê sân của Member: chỉ thuê trong khung 06:00 đến trước 22:00 giờ Việt Nam, từ 22:00 đến 06:00 sáng hôm sau không thuê được; chỉ hiển thị và đặt trong 3 ngày lịch (hôm nay và 2 ngày kế tiếp), cửa sổ chuyển ngày lúc 06:00 (ví dụ từ 06:00 ngày 26 mở 26, 27, 28; từ 06:00 ngày 27 mở 27, 28, 29). Áp dụng cho cả Member tự thuê và Lễ tân đặt hộ Member; Lịch sân mà Manager và Lễ tân xem không bị giới hạn bởi cửa sổ này.
 12. (25/10/2026) Điểm danh lớp nhóm do **Coach** phụ trách lớp ghi (Present/Absent). Khi Coach ghi sai và Member kiến nghị, **Lễ tân** được chỉnh sửa bản ghi (bắt buộc lý do, ghi nhận Member đã kiến nghị, có audit); Lễ tân không điểm danh thay Coach.
-13. (25/10/2026) Lượt thuê sân `Confirmed` do **Lễ tân** đánh dấu **Checked-in** hoặc **No-show**; hết giờ kết thúc của lượt mà chưa đánh dấu thì hệ thống tự động ghi **No-show** (người ghi là System). No-show không hoàn tiền hay điểm (như Member tự hủy, BR-129), không đổi Invoice; sửa trạng thái đã ghi cần lý do và audit.
+13. (25/10/2026) Lượt thuê sân `Confirmed` do **Lễ tân** đánh dấu **Checked-in** hoặc **No-show**; hết giờ kết thúc của lượt mà chưa đánh dấu thì hệ thống tự động ghi **No-show** (người ghi là System). No-show không hoàn tiền hay điểm (như Member tự hủy, BR-65), không đổi Invoice; sửa trạng thái đã ghi cần lý do và audit.
 
 14. (25/10/2026) Hoàn song song theo tỷ lệ thanh toán gốc (mục 5.7): phần VNPay hoàn qua Manager chuyển khoản, phần điểm tự cộng lại vào ví trong cùng giao dịch ghi payout; hóa đơn 100% điểm không gửi được request ngân hàng; tách theo từng dòng hóa đơn; 1 điểm = 1.000đ.
 

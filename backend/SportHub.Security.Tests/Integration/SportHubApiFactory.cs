@@ -63,10 +63,8 @@ public sealed class SportHubApiFactory : WebApplicationFactory<Program>, IAsyncL
 
     /// <summary>
     /// JwtOptions THUC SU dang duoc JwtBearer handler dung de validate token.
-    /// Khong tu dung hang so cua test: AddSportHubJwtBearer doc configuration NGAY tai luc
-    /// dang ky service (truoc khi ConfigureAppConfiguration cua host test kip ap dung), nen
-    /// khoa ky that co the den tu appsettings chu khong phai override cua test. Doc nguoc
-    /// lai tu TokenValidationParameters la cach duy nhat chac chan khop.
+    /// Read the effective bearer options to ensure generated test tokens use the
+    /// same key as the host after all configuration providers have been applied.
     /// </summary>
     public JwtOptions EffectiveJwtOptions
     {

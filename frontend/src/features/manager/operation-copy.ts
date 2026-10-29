@@ -64,6 +64,7 @@ const copy = {
     abandonDone: "{n} changes undone.",
     abandonLeft: "These were left as they are:",
     abandonMoved: "{from} to {to}",
+    abandonReviewed: "Recorded only; no schedule change to undo.",
     abandonKinds: {
       RESCHEDULE: "Session moved",
       CANCEL_WITH_MAKEUP: "Session cancelled for a makeup",
@@ -173,6 +174,8 @@ const copy = {
     abandonDone: "Đã hoàn tác {n} thay đổi.",
     abandonLeft: "Các thay đổi sau được giữ nguyên:",
     abandonMoved: "{from} sang {to}",
+    abandonReviewed:
+      "Chỉ ghi nhận buổi đã học đầy đủ, không có thay đổi lịch cần hoàn tác.",
     abandonKinds: {
       RESCHEDULE: "Buổi bị dời",
       CANCEL_WITH_MAKEUP: "Buổi bị hủy để học bù",

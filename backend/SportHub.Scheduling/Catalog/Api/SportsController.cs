@@ -41,6 +41,11 @@ public class SportsController(SportCatalogService sports) : ControllerBase
         => Ok(await sports.UpdateAsync(sportId, request, User.RequireUserId(), ct));
 
     [Authorize(Policy = SportHubPolicies.CatalogManage)]
+    [HttpGet("api/manager/sports/{sportId:int}/deactivation-impact")]
+    public async Task<IActionResult> DeactivationImpact(int sportId, CancellationToken ct)
+        => Ok(await sports.DeactivationImpactAsync(sportId, ct));
+
+    [Authorize(Policy = SportHubPolicies.CatalogManage)]
     [HttpPost("api/manager/sports/{sportId:int}/deactivate")]
     public async Task<IActionResult> Deactivate(int sportId, CancellationToken ct)
         => Ok(await sports.DeactivateAsync(sportId, User.RequireUserId(), ct));

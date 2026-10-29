@@ -23,7 +23,6 @@ import {
   ROLE_LABELS,
   ROLE_RANK,
   CHANNEL_LABELS,
-  supportReference,
   assigneesByRole,
   eventText,
   roleKey,
@@ -130,7 +129,8 @@ export function SupportDetail({
       )
     : null;
   const availableRoles = (Object.keys(ROLE_LABELS) as RoleKey[]).filter(
-    (role) => (request.category !== "PAYMENT" || role === "manager") &&
+    (role) =>
+      (request.category !== "PAYMENT" || role === "manager") &&
       assigneesByRole(assignees, role).length > 0,
   );
   const [targetRole, setTargetRole] = useState<RoleKey | "">("");
@@ -156,6 +156,7 @@ export function SupportDetail({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [routingFeedback, setRoutingFeedback] = useState<Feedback>(null);
   const lock = useRef(false);
 
   async function run(
@@ -167,12 +168,14 @@ export function SupportDetail({
     lock.current = true;
     setBusy(true);
     setFeedback(null);
+    const report = kind === "assign" ? setRoutingFeedback : setFeedback;
+    setRoutingFeedback(null);
     try {
       await api.post(
         `/api/member-support-requests/${request.requestId}/${kind}`,
         body,
       );
-      setFeedback({ tone: "ok", text: success });
+      report({ tone: "ok", text: success });
       setNote("");
       setConfirming(false);
       if (kind === "assign") {
@@ -182,7 +185,7 @@ export function SupportDetail({
       events.reload();
       onChanged();
     } catch (e) {
-      setFeedback({
+      report({
         tone: "error",
         text: e instanceof Error ? e.message : "Could not update this request.",
       });
@@ -247,11 +250,6 @@ export function SupportDetail({
         <h3>
           {request.subject?.trim() || supportCategoryLabel(request.category)}
         </h3>
-        {isManager && (
-          <p className={styles.muted}>
-            Reference: <strong>{supportReference(request.requestId)}</strong>
-          </p>
-        )}
         {request.slaDueAtUtc && (
           <p className={request.isOverdue ? styles.overdueBadge : styles.muted}>
             {request.isOverdue ? "Overdue since" : "Response due"}{" "}
@@ -424,6 +422,7 @@ export function SupportDetail({
                     onChange={(e) => {
                       setTargetRole(e.target.value as RoleKey | "");
                       setTargetUser("");
+                      setRoutingFeedback(null);
                     }}
                   >
                     <option value="">Select a department</option>
@@ -439,7 +438,10 @@ export function SupportDetail({
                   <select
                     value={targetUser}
                     disabled={busy || !targetRole}
-                    onChange={(e) => setTargetUser(e.target.value)}
+                    onChange={(e) => {
+                      setTargetUser(e.target.value);
+                      setRoutingFeedback(null);
+                    }}
                   >
                     <option value="">Select a staff member</option>
                     {staff.map((x) => (
@@ -458,7 +460,10 @@ export function SupportDetail({
                     maxLength={1000}
                     disabled={busy}
                     placeholder={`Why are you escalating this to the ${ROLE_LABELS[targetRole as RoleKey]}?`}
-                    onChange={(e) => setTransferNote(e.target.value)}
+                    onChange={(e) => {
+                      setTransferNote(e.target.value);
+                      setRoutingFeedback(null);
+                    }}
                   />
                 </label>
               )}
@@ -474,33 +479,44 @@ export function SupportDetail({
                         assigneeUserId: targetUser,
                         note: transferNote.trim(),
                       },
-                      "Request transferred.",
+                      "Transfer completed",
                     )
                   }
                 >
                   Transfer request
                 </button>
-                {user && request.category !== "PAYMENT" && request.assignedToUserId !== user.userId && (
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      run(
-                        "assign",
-                        { assigneeUserId: user.userId },
-                        "You are now handling this request.",
-                      )
-                    }
-                  >
-                    Assign to me
-                  </button>
-                )}
+                {user &&
+                  request.category !== "PAYMENT" &&
+                  request.assignedToUserId !== user.userId && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={busy}
+                      onClick={() =>
+                        run(
+                          "assign",
+                          { assigneeUserId: user.userId },
+                          "You are now handling this request.",
+                        )
+                      }
+                    >
+                      Assign to me
+                    </button>
+                  )}
               </div>
-              {transferBlock && (
-                <p className={`${styles.helper} ${styles.helperWarn}`}>
-                  {transferBlock}
+              {routingFeedback ? (
+                <p
+                  className={`${styles.feedback} ${routingFeedback.tone === "error" ? styles.feedbackError : ""}`}
+                  role={routingFeedback.tone === "error" ? "alert" : "status"}
+                >
+                  {routingFeedback.text}
                 </p>
+              ) : (
+                transferBlock && (
+                  <p className={`${styles.helper} ${styles.helperWarn}`}>
+                    {transferBlock}
+                  </p>
+                )
               )}
             </section>
           )}

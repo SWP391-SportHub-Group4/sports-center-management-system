@@ -101,6 +101,7 @@ public sealed class MemberSupportRequestsController(
     IClock clock,
     IAuditWriter audit,
     INotificationWriter notifications,
+    ISystemSettingProvider settings,
     SupportReminderService reminders,
     ISupportInvoiceGuard invoiceGuard) : ControllerBase
 {
@@ -312,7 +313,7 @@ public sealed class MemberSupportRequestsController(
             Status = "OPEN",
             Channel = channel,
             CreatedAt = now,
-            SlaDueAtUtc = now.AddHours(SupportReminderService.InactivityHours),
+            SlaDueAtUtc = now.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct)),
             InvoiceId = category == "PAYMENT" ? request.InvoiceId : null,
             InvoiceItemId = category == "PAYMENT" ? request.InvoiceItemId : null
         };
@@ -527,7 +528,7 @@ public sealed class MemberSupportRequestsController(
         row.Status = "IN_PROGRESS";
         row.ProgressNote = note;
         row.UpdatedAt = clock.UtcNow;
-        row.SlaDueAtUtc = clock.UtcNow.AddHours(SupportReminderService.InactivityHours);
+        row.SlaDueAtUtc = clock.UtcNow.AddHours(await settings.GetIntAsync(SystemSettingKeys.SupportSlaHours, ct));
         AddEvent(requestId, "PROGRESS", note);
         audit.Write(new AuditEntry(User.RequireUserId(), "UPDATE_SUPPORT_PROGRESS", nameof(MemberSupportRequest),
             requestId.ToString(), NewValue: JsonSerializer.Serialize(note)));
