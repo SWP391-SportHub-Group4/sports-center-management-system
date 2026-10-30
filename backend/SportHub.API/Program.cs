@@ -298,6 +298,7 @@ builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.CourtRateServ
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalOperationsService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.IncidentService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IIncidentPointGiftService, SportHub.API.Services.IncidentPointGiftService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICourtRentalFulfillment>(
     sp => sp.GetRequiredService<SportHub.Scheduling.Rental.Application.CourtRentalService>());
 builder.Services.AddScoped<IClassService, ClassService>();

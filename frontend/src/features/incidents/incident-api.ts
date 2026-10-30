@@ -6,6 +6,7 @@ import type {
 } from "@/lib/types";
 
 export interface IncidentRequest {
+  resolutions?: IncidentResolutionSelection[];
   previewToken?: string;
   operationId?: string;
   refunds?: { sourceId: string; points: number; adjustmentReason?: string }[];
@@ -14,6 +15,30 @@ export interface IncidentRequest {
   startAtUtc: string;
   endAtUtc: string;
   reason: string;
+}
+
+export interface IncidentResolutionSelection {
+  sourceId: string;
+  action:
+    | "RESCHEDULE"
+    | "CANCEL_WITH_MAKEUP"
+    | "SESSION_OUTCOME"
+    | "REMOVE_ROOM_BLOCK";
+  reason?: string;
+  startAtUtc?: string;
+  roomId?: number;
+  coachId?: string;
+  outcome?: string;
+  occurredAtUtc?: string;
+  label?: string;
+}
+
+export interface IncidentDraftReference {
+  fenceId?: string;
+  scope: string;
+  roomId: number | null;
+  startAtUtc: string;
+  endAtUtc: string;
 }
 
 export interface IncidentDelivery {
@@ -127,8 +152,16 @@ export const incidentApi = {
     }),
   get: (id: string, signal?: AbortSignal) =>
     api.get<IncidentDetails>(`/api/manager/incidents/${id}`, { signal }),
-  preview: (request: IncidentRequest) =>
-    api.post<IncidentPreviewDto>("/api/manager/incidents/preview", request),
+  preview: (request: IncidentRequest, signal?: AbortSignal) =>
+    api.post<IncidentPreviewDto>("/api/manager/incidents/preview", request, {
+      signal,
+    }),
+  discardDrafts: (references: IncidentDraftReference[], keepalive = false) =>
+    api.post<IncidentAbandonResult[]>(
+      "/api/manager/incidents/drafts/discard",
+      references,
+      { keepalive },
+    ),
   resolve: (request: IncidentRequest) =>
     api.post<{ incidentId: string }>("/api/manager/incidents/resolve", request),
   notifications: (id: string, signal?: AbortSignal) =>

@@ -10,7 +10,10 @@ import { useApi } from "@/lib/useApi";
 import { formatDateTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import type { CourseSessionDto } from "@/lib/types";
-import { incidentApi, type IncidentRequest } from "./incident-api";
+import {
+  type IncidentRequest,
+  type IncidentResolutionSelection,
+} from "./incident-api";
 import type { StepStatus } from "./incident-progress";
 
 export function IncidentSessionEditor({
@@ -19,6 +22,7 @@ export function IncidentSessionEditor({
   incident,
   onSaved,
   onOutcome,
+  onStage,
 }: {
   session: CourseSessionDto;
   confirmedCount: number;
@@ -26,8 +30,9 @@ export function IncidentSessionEditor({
   incident: IncidentRequest;
   onSaved: () => void;
   onOutcome: (status: StepStatus, message?: string) => void;
+  onStage: (plan: IncidentResolutionSelection) => void;
 }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const vi = language === "vi";
   const mutation = useMutation();
   const [openedAt] = useState(Date.now);
@@ -214,32 +219,26 @@ export function IncidentSessionEditor({
                 !valid ||
                 (!full && (options.loading || !!options.error))
               }
-              onClick={async () => {
-                onOutcome("pending");
-                const ok = await mutation.run(async () => {
-                  const fence = await incidentApi.openFence(incident);
-                  await api.post(
-                    `/api/class-sessions/${session.sessionId}/incident`,
-                    {
-                      fenceId: fence.fenceId,
-                      outcome,
-                      occurredAtUtc: vietnamUtc(occurred),
-                      reason: reason.trim(),
-                      makeup: full
-                        ? null
-                        : {
-                            startAtUtc: vietnamUtc(start),
-                            roomId: Number(room),
-                            coachId: coach,
-                          },
-                    },
-                  );
-                }, "");
-                onOutcome(ok ? "succeeded" : "failed");
-                if (ok) onSaved();
+              onClick={() => {
+                onStage({
+                  sourceId: session.sessionId,
+                  action: "SESSION_OUTCOME",
+                  outcome,
+                  occurredAtUtc: vietnamUtc(occurred),
+                  reason: reason.trim(),
+                  ...(full
+                    ? {}
+                    : {
+                        startAtUtc: vietnamUtc(start),
+                        roomId: Number(room),
+                        coachId: coach,
+                      }),
+                  label: session.className + " · " + session.sessionNo,
+                });
+                onSaved();
               }}
             >
-              {vi ? "Xác nhận xử lý" : "Confirm outcome"}
+              {t.incidentPlans.usePlan}
             </button>
           </div>
         </section>

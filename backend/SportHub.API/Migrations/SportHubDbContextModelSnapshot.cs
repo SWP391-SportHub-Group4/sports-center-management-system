@@ -3546,6 +3546,15 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("enrollment_id");
 
+                    b.Property<decimal?>("CenterCancellationPaidBalanceVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("center_cancellation_paid_balance_vnd");
+
+                    b.Property<int?>("CenterCancellationRefundPoints")
+                        .HasColumnType("integer")
+                        .HasColumnName("center_cancellation_refund_points");
+
                     b.Property<int>("ClassId")
                         .HasColumnType("integer")
                         .HasColumnName("class_id");

@@ -4,6 +4,13 @@ namespace SportHub.Payment.Tests.Unit;
 
 public sealed class PointRefundCalculatorTests
 {
+    [Theory]
+    [InlineData(3000, 1, 3, 1000)]
+    [InlineData(3000, 2, 3, 2000)]
+    [InlineData(100000, 2, 3, 66666)]
+    public void Session_proration_rounds_only_after_multiplication(int paid, int remaining, int total, int expected)
+        => Assert.Equal(expected, new SportHub.BuildingBlocks.Abstractions.Payment.RefundFraction(remaining, total).Apply(paid));
+
     // Member tự hủy Gym: không hoàn ở mọi thời điểm, dù còn bao nhiêu ngày (BR-91).
     [Theory]
     [InlineData("2026-01-01", "2026-12-31", "2026-05-02")]

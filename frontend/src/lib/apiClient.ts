@@ -55,6 +55,7 @@ export class ApiError extends Error {
 type Json = Record<string, unknown>;
 
 export interface RequestOptions {
+  keepalive?: boolean;
   /** Bỏ Authorization header — dùng cho login/register/google. */
   anonymous?: boolean;
   /** Huỷ request khi component unmount hoặc khi người dùng đổi bộ lọc. */
@@ -161,6 +162,7 @@ async function request<T>(
             : JSON.stringify(body),
       signal: options.signal,
       cache: "no-store",
+      keepalive: options.keepalive,
     });
   } catch (error) {
     // AbortError là chủ ý của caller, không phải sự cố mạng — ném nguyên để useApi bỏ qua.

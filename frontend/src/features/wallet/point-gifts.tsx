@@ -350,7 +350,7 @@ function GiftComposer({
             <Link href={`/manager/incidents/${incidentId}`}>
               {vi
                 ? "Đang hỗ trợ sự cố Gym — xem chi tiết"
-                : "Supporting a Gym incident — view details"}
+                : "Supporting a Gym incident: view details"}
             </Link>{" "}
             ·{" "}
             <Link href="/manager/points">

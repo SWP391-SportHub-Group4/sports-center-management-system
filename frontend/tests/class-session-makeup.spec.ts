@@ -224,7 +224,7 @@ test("replacement chains and unavailable original sessions remain visible withou
   ).toContainText("Makeup session");
 });
 
-test("future incidents directly create makeup without a resolution selector or a reschedule request", async ({
+test("future incidents stage makeup and save it only with final incident confirmation", async ({
   page,
 }) => {
   await fixture(page, [original, makeup, next]);
@@ -272,7 +272,14 @@ test("future incidents directly create makeup without a resolution selector or a
             ? []
             : { fenceId: "incident-fence" },
       });
-    if (path === "/api/manager/incidents/preview")
+    if (path === "/api/manager/incidents/resolve") {
+      writes.push({ path, body: route.request().postDataJSON() });
+      return route.fulfill({
+        json: { incidentId: "55555555-5555-4555-8555-555555555555" },
+      });
+    }
+    if (path === "/api/manager/incidents/preview") {
+      handled = (route.request().postDataJSON().resolutions?.length ?? 0) > 0;
       return route.fulfill({
         json: {
           canResolve: handled,
@@ -290,6 +297,7 @@ test("future incidents directly create makeup without a resolution selector or a
               ],
         },
       });
+    }
     if (
       route.request().method() === "POST" &&
       path.startsWith("/api/class-sessions/")
@@ -344,18 +352,26 @@ test("future incidents directly create makeup without a resolution selector or a
     .getByRole("button", { name: en.operations.confirm, exact: true })
     .click();
   await expect(dialog).toHaveCount(0);
-  expect(writes).toEqual([
+  expect(writes).toHaveLength(0);
+  await page
+    .getByRole("button", { name: en.managerOperations.recheck, exact: true })
+    .click();
+  await page
+    .getByRole("button", {
+      name: en.managerOperations.finalResolve,
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].path).toBe("/api/manager/incidents/resolve");
+  expect(writes[0].body.resolutions).toMatchObject([
     {
-      path: "/api/class-sessions/original/incident-makeup",
-      body: {
-        reason: "Lighting failure on Court A",
-        makeup: {
-          startAtUtc: "2032-12-02T11:00:00.000Z",
-          roomId: 1,
-          coachId: "coach-a",
-        },
-        fenceId: "incident-fence",
-      },
+      sourceId: "original",
+      action: "CANCEL_WITH_MAKEUP",
+      reason: "Lighting failure on Court A",
+      startAtUtc: "2032-12-02T11:00:00.000Z",
+      roomId: 1,
+      coachId: "coach-a",
     },
   ]);
 });
