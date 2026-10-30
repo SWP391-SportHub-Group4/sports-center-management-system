@@ -18,6 +18,53 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class PaymentReturnVerificationTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Development_return_requires_valid_signed_fields_before_confirming_payment()
+    {
+        var buyer = await factory.SeedUserAsync(UserRole.Member);
+        var packageId = await factory.QueryAsync(async db =>
+        {
+            var package = new MembershipPackage
+            {
+                Name = "Signed VNPay return " + Guid.NewGuid().ToString("N"),
+                Price = 100_000m, DurationDays = 30, IsActive = true
+            };
+            db.MembershipPackages.Add(package);
+            await db.SaveChangesAsync();
+            return package.PackageId;
+        });
+        using var client = factory.CreateApiClient(buyer.UserId, UserRole.Member);
+        using var create = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
+        {
+            Content = JsonContent.Create(new { packageId })
+        };
+        create.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+        var created = await client.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var checkout = (await created.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+        var started = await client.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+        var attempt = (await started.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+
+        var gateway = (MockPaymentGateway)factory.Services.GetRequiredService<IPaymentGateway>();
+        var signed = gateway.BuildCallback(attempt.TransactionReference, attempt.CashAmount, true);
+        var tampered = new Dictionary<string, string>(signed) { ["vnp_Amount"] = "20000000" };
+        var rejected = await client.PostAsJsonAsync("/api/checkouts/verify-reference",
+            new { reference = attempt.TransactionReference, fields = tampered });
+        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
+        Assert.Equal(0, await factory.QueryAsync(db =>
+            db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId)));
+
+        var verified = await client.PostAsJsonAsync("/api/checkouts/verify-reference",
+            new { reference = attempt.TransactionReference, fields = signed });
+        Assert.Equal(HttpStatusCode.OK, verified.StatusCode);
+        Assert.Equal(1, await factory.QueryAsync(db =>
+            db.Payments.CountAsync(x => x.InvoiceId == checkout.InvoiceId)));
+        Assert.Equal(PaymentAttemptStatus.Succeeded, await factory.QueryAsync(db =>
+            db.PaymentAttempts.Where(x => x.PaymentAttemptId == attempt.PaymentAttemptId)
+                .Select(x => x.Status).SingleAsync()));
+    }
+
+    [Fact]
     public async Task Incomplete_query_stays_pending_and_later_success_repairs_legacy_failed_event()
     {
         var buyer = await factory.SeedUserAsync(UserRole.Member);
