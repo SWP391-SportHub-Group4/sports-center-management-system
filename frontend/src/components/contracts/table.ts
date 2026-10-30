@@ -76,6 +76,7 @@ export interface FilterField {
 }
 
 export interface FilterBarProps {
+  className?: string;
   /** Render fields directly when the caller already provides an expander. */
   inline?: boolean;
   presets?: ReactNode;

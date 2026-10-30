@@ -11,6 +11,7 @@ import styles from "./FilterBar.module.css";
 
 /** Controlled fields; the owning page decides when to apply values to the URL/API. */
 export function FilterBar({
+  className = "",
   inline = false,
   presets,
   fields,
@@ -35,16 +36,22 @@ export function FilterBar({
           : !!values[field.id],
     ).length;
   return (
-    <div className={styles.wrapper}>
+    <div className={`${styles.wrapper} ${className}`}>
       <TableFilters activeCount={count} inline={inline}>
         {presets}
-        <div className={styles.root} role="group" aria-label={t.common.filter}>
-          <div className={styles.fields}>
+        <div
+          className={styles.root}
+          data-filter-controls
+          role="group"
+          aria-label={t.common.filter}
+        >
+          <div className={styles.fields} data-filter-fields>
             {fields.map((field) => (
               <div
                 key={field.id}
                 className={styles.field}
                 data-kind={field.kind}
+                data-filter-field={field.id}
               >
                 {field.kind === "toggle" ? (
                   <label className={styles.toggle}>
@@ -123,7 +130,7 @@ export function FilterBar({
               </div>
             ))}
           </div>
-          <div className={styles.actions}>
+          <div className={styles.actions} data-filter-reset>
             {onReset && (
               <button
                 type="button"
@@ -157,7 +164,9 @@ export function FilterBar({
         </div>
       </TableFilters>
       {!inline && actions && (
-        <div className={styles.outerActions}>{actions}</div>
+        <div className={styles.outerActions} data-filter-actions>
+          {actions}
+        </div>
       )}
     </div>
   );
