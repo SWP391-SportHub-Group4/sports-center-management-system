@@ -3,6 +3,7 @@
 import { api } from "@/lib/apiClient";
 import { formatDateTime, formatPoints } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
+import { notifyWalletChanged } from "@/features/wallet/wallet-events";
 import styles from "./member-finance.module.css";
 
 export interface CenterCancellationOfferDto {
@@ -95,15 +96,13 @@ export function CenterCancellationOffers() {
                   className="btn btn--secondary"
                   disabled={action.busy}
                   onClick={() =>
-                    void action
-                      .run(
-                        () =>
-                          api.post(
-                            `/api/refunds/center-cancellations/${offer.invoiceItemId}/points`,
-                          ),
-                        "Points credited to your wallet.",
-                      )
-                      .then(() => state.reload())
+                    void action.run(async () => {
+                      await api.post(
+                        `/api/refunds/center-cancellations/${offer.invoiceItemId}/points`,
+                      );
+                      notifyWalletChanged();
+                      state.reload();
+                    }, "Points credited to your wallet.")
                   }
                 >
                   Receive {formatPoints(offer.refundPoints)} now
