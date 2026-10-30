@@ -16,7 +16,7 @@ public sealed class IncidentConfirmationTests(SchedulingApiFactory factory)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Session_and_block_plans_are_read_only_until_confirmation_and_roll_back_on_failure(bool invalidGift)
+    public async Task Session_and_block_plans_are_read_only_until_confirmation_and_rejected_gifts_leave_them_unchanged(bool withDayPassGift)
     {
         var course = await CourseTestData.CreateAsync(factory);
         var member = await factory.SeedUserAsync(UserRole.Member);
@@ -48,13 +48,13 @@ public sealed class IncidentConfirmationTests(SchedulingApiFactory factory)
         Assert.False(await factory.QueryAsync(db => db.Set<IncidentFence>().AnyAsync(f => f.RoomId == course.RoomId)));
         Assert.False(await factory.QueryAsync(db => db.Set<IncidentNotice>().AnyAsync(f => f.RoomId == course.RoomId)));
         var confirmation = request with { OperationId = Guid.NewGuid(), PreviewToken = preview.PreviewToken, Refunds = [],
-            DayPassGifts = invalidGift ? [new(Guid.NewGuid(), 5)] : [] };
-        if (invalidGift)
+            DayPassGifts = withDayPassGift ? [new(Guid.NewGuid(), 5)] : [] };
+        if (withDayPassGift)
         {
             var error = await Assert.ThrowsAsync<BadRequestException>(() =>
                 CourseTestData.RunAsync<IncidentService, Guid>(factory, s => s.ResolveAsync(confirmation, course.ManagerId)));
-            Assert.Equal("incident_gift_invalid", error.ErrorCode);
-            // Even though the class and block were changed earlier in the transaction, neither change commits.
+            Assert.Equal("incident_day_pass_compensation_disabled", error.ErrorCode);
+            // Day-pass gifts are rejected before applying the class and block plans.
             Assert.Equal(ClassSessionStatus.Scheduled, (await CourseTestData.SessionsAsync(factory, course.Id))[0].Status);
             Assert.Equal(3, (await CourseTestData.SessionsAsync(factory, course.Id)).Count);
             Assert.True(await factory.QueryAsync(db => db.RoomBlocks.AnyAsync(b => b.BlockId == block.BlockId)));

@@ -45,6 +45,17 @@ public sealed class CounterPointOtpTests(PaymentApiFactory factory)
             row.CheckoutRevision = 1;
             row.HoldExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
             row.CashAmount = row.TotalAmount;
+            db.CheckoutSessions.Add(new CheckoutSession
+            {
+                CheckoutSessionId = row.CheckoutCycleId.Value,
+                InvoiceId = row.InvoiceId,
+                Revision = row.CheckoutRevision,
+                IdempotencyKey = Guid.NewGuid().ToString("N"),
+                Kind = "GymPackage",
+                State = "Active",
+                CreatedAtUtc = DateTime.UtcNow,
+                ExpiresAtUtc = row.HoldExpiresAtUtc.Value
+            });
             await db.SaveChangesAsync();
             return 0;
         });
@@ -76,7 +87,10 @@ public sealed class CounterPointOtpTests(PaymentApiFactory factory)
         Assert.DoesNotContain("codeHash", body);
         Assert.DoesNotContain("codeSalt", body);
         Assert.DoesNotContain(factory.CapturedEmail.CodeFor(context.Email), body);
-        Assert.Equal(HttpStatusCode.Conflict, (await counter.PostAsync($"/api/checkouts/{context.InvoiceId}/attempts", null)).StatusCode);
+        var payment = await counter.PostAsync($"/api/checkouts/{context.InvoiceId}/attempts", null);
+        Assert.Equal(HttpStatusCode.Conflict, payment.StatusCode);
+        using var error = System.Text.Json.JsonDocument.Parse(await payment.Content.ReadAsStringAsync());
+        Assert.Equal("point_confirmation_pending", error.RootElement.GetProperty("error").GetString());
         using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync($"/api/invoices/{context.InvoiceId}/point-confirmations/current")).StatusCode);
     }
@@ -186,20 +200,8 @@ public sealed class CounterPointOtpTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.OK, (await VerifyAsync(counter, confirmationId,
             factory.CapturedEmail.CodeFor(context.Email))).StatusCode);
 
-        var cycleId = await factory.QueryAsync(async db =>
-        {
-            var invoice = await db.Invoices.SingleAsync(x => x.InvoiceId == context.InvoiceId);
-            var id = invoice.CheckoutCycleId!.Value;
-            db.CheckoutSessions.Add(new CheckoutSession
-            {
-                CheckoutSessionId = id, InvoiceId = invoice.InvoiceId,
-                Revision = invoice.CheckoutRevision, Kind = "GymPackage", State = "Active",
-                IdempotencyKey = Guid.NewGuid().ToString("N"),
-                CreatedAtUtc = DateTime.UtcNow, ExpiresAtUtc = invoice.HoldExpiresAtUtc!.Value
-            });
-            await db.SaveChangesAsync();
-            return id;
-        });
+        var cycleId = await factory.QueryAsync(db => db.Invoices
+            .Where(x => x.InvoiceId == context.InvoiceId).Select(x => x.CheckoutCycleId!.Value).SingleAsync());
 
         using var member = factory.CreateApiClient(context.MemberId, UserRole.Member);
         Assert.Equal(HttpStatusCode.NoContent,

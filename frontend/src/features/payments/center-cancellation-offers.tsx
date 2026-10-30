@@ -3,7 +3,7 @@
 import { api } from "@/lib/apiClient";
 import { formatDateTime, formatPoints } from "@/lib/format";
 import { useAction, useApi } from "@/lib/useApi";
-import { notifyWalletChanged } from "@/features/wallet/wallet-events";
+import { notifyWalletChanged } from "@/features/wallet";
 import styles from "./member-finance.module.css";
 
 export interface CenterCancellationOfferDto {

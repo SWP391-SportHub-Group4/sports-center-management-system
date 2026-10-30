@@ -11,7 +11,7 @@ import {
 } from "./incident-day-pass-members";
 import { createPortal } from "react-dom";
 import styles from "./incidents.module.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
@@ -42,7 +42,31 @@ import {
   type IncidentStep,
   type StepStatus,
 } from "./incident-progress";
+
+// Navigation timing stays fixed for this document. The server snapshot keeps
+// hydration consistent before the client initializes a fresh form on reload.
+const subscribeToNavigation = () => () => {};
+const isReload = () =>
+  (
+    performance.getEntriesByType("navigation")[0] as
+      PerformanceNavigationTiming | undefined
+  )?.type === "reload";
+
 export function IncidentForm() {
+  const resetOnReload = useSyncExternalStore(
+    subscribeToNavigation,
+    isReload,
+    () => false,
+  );
+  return (
+    <IncidentFormContent
+      key={String(resetOnReload)}
+      resetOnReload={resetOnReload}
+    />
+  );
+}
+
+function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   const { t } = useLanguage();
   const l = t.operations;
   const c = useOperationsCopy();
@@ -67,14 +91,22 @@ export function IncidentForm() {
   const [timeError, setTimeError] = useState("");
   const [steps, setSteps] = useState<IncidentStep[]>([]);
   const [scope, setScope] = useState(
-    params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
+    !resetOnReload && params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
   );
   const [roomId, setRoom] = useState(
-    /^\d+$/.test(params.get("roomId") ?? "") ? params.get("roomId")! : "",
+    !resetOnReload && /^\d+$/.test(params.get("roomId") ?? "")
+      ? params.get("roomId")!
+      : "",
   );
-  const [start, setStart] = useState(params.get("start") ?? "");
-  const [end, setEnd] = useState(params.get("end") ?? "");
-  const [reason, setReason] = useState(params.get("reason") ?? "");
+  const [start, setStart] = useState(
+    resetOnReload ? "" : (params.get("start") ?? ""),
+  );
+  const [end, setEnd] = useState(
+    resetOnReload ? "" : (params.get("end") ?? ""),
+  );
+  const [reason, setReason] = useState(
+    resetOnReload ? "" : (params.get("reason") ?? ""),
+  );
   const [review, setReview] = useState<{
     body: IncidentRequest;
     preview: IncidentPreviewDto;
@@ -82,23 +114,14 @@ export function IncidentForm() {
   const [incidentId, setIncidentId] = useState("");
   const [historyKey, setHistoryKey] = useState("");
   const [finalReview, setFinalReview] = useState(false);
-  const [uncertain, setUncertain] = useState(
+  const [confirmationUncertain, setUncertain] = useState(
     params.get("incidentUncertain") === "1",
   );
   const [resolving, setResolving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const uncertain = confirmationUncertain || drafts.uncertain;
   useEffect(() => {
-    if (drafts.uncertain) setUncertain(true);
-  }, [drafts.uncertain]);
-  useEffect(() => {
-    const navigation = performance.getEntriesByType("navigation")[0] as
-      PerformanceNavigationTiming | undefined;
-    if (navigation?.type === "reload" && !incidentId) {
-      setScope("ROOM");
-      setRoom("");
-      setStart("");
-      setEnd("");
-      setReason("");
+    if (resetOnReload) {
       const query = new URLSearchParams(window.location.search);
       for (const key of [
         "incidentId",

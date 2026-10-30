@@ -21,7 +21,6 @@ export function IncidentSessionEditor({
   sportId,
   incident,
   onSaved,
-  onOutcome,
   onStage,
 }: {
   session: CourseSessionDto;

@@ -10,10 +10,14 @@ type Marker = { references: IncidentDraftReference[]; confirming: boolean };
 export function useIncidentDraftCleanup(userId?: string) {
   const key = userId ? `sporthub.incident-cleanup.v1:${userId}` : "";
   const marker = useRef<Marker>({ references: [], confirming: false });
-  const [readyFor, setReadyFor] = useState("");
-  const [error, setError] = useState(false);
-  const [uncertain, setUncertain] = useState(false);
   const [retryVersion, setRetryVersion] = useState(0);
+  const [result, setResult] = useState({
+    key: "",
+    version: 0,
+    ready: false,
+    error: false,
+    uncertain: false,
+  });
   const persist = () => {
     if (marker.current.references.length || marker.current.confirming)
       sessionStorage.setItem(key, JSON.stringify(marker.current));
@@ -23,56 +27,62 @@ export function useIncidentDraftCleanup(userId?: string) {
   useEffect(() => {
     if (!key) return;
     let disposed = false;
-    setReadyFor("");
-    setError(false);
-    void (async () => {
+    async function cleanup() {
+      let saved: Marker = { references: [], confirming: false };
       try {
-        let saved: Marker = { references: [], confirming: false };
-        try {
-          saved = JSON.parse(sessionStorage.getItem(key) ?? "null") ?? saved;
-        } catch {
-          /* Ignore malformed markers. */
-        }
-        if (!Array.isArray(saved.references)) saved.references = [];
-        marker.current = saved;
-        const legacyKey = `sporthub.incident-draft.v1:${userId}`;
-        try {
-          const legacy = JSON.parse(localStorage.getItem(legacyKey) ?? "null");
-          if (legacy) {
-            marker.current.confirming ||= legacy.uncertain === true;
-            if (legacy.scope && legacy.start && legacy.end)
-              marker.current.references.push({
-                fenceId: legacy.fenceId || undefined,
-                scope: legacy.scope,
-                roomId: legacy.scope === "ROOM" ? Number(legacy.roomId) : null,
-                startAtUtc: vietnamUtc(legacy.start),
-                endAtUtc: vietnamUtc(legacy.end),
-              });
-          }
-        } catch {
-          /* A corrupt old draft is removed below. */
-        }
-        const oldKeys = Object.keys(localStorage).filter((k) =>
-          k.startsWith("sporthub.incident-draft."),
-        );
-        for (const oldKey of oldKeys) localStorage.removeItem(oldKey);
-        persist();
-        setUncertain(marker.current.confirming === true);
-        if (marker.current.references.length) {
-          const result = await incidentApi.discardDrafts(
-            marker.current.references,
-          );
-          if (disposed) return;
-          if (result.some((r) => r.notUndone.length > 0))
-            throw new Error("Some schedule changes could not be undone.");
-          marker.current.references = [];
-          persist();
-        }
-        if (!disposed) setReadyFor(key);
+        saved = JSON.parse(sessionStorage.getItem(key) ?? "null") ?? saved;
       } catch {
-        if (!disposed) setError(true);
+        /* Ignore malformed markers. */
       }
-    })();
+      if (!Array.isArray(saved.references)) saved.references = [];
+      marker.current = saved;
+      const legacyKey = `sporthub.incident-draft.v1:${userId}`;
+      try {
+        const legacy = JSON.parse(localStorage.getItem(legacyKey) ?? "null");
+        if (legacy) {
+          marker.current.confirming ||= legacy.uncertain === true;
+          if (legacy.scope && legacy.start && legacy.end)
+            marker.current.references.push({
+              fenceId: legacy.fenceId || undefined,
+              scope: legacy.scope,
+              roomId: legacy.scope === "ROOM" ? Number(legacy.roomId) : null,
+              startAtUtc: vietnamUtc(legacy.start),
+              endAtUtc: vietnamUtc(legacy.end),
+            });
+        }
+      } catch {
+        /* A corrupt old draft is removed below. */
+      }
+      const oldKeys = Object.keys(localStorage).filter((k) =>
+        k.startsWith("sporthub.incident-draft."),
+      );
+      for (const oldKey of oldKeys) localStorage.removeItem(oldKey);
+      persist();
+      if (marker.current.references.length) {
+        const result = await incidentApi.discardDrafts(
+          marker.current.references,
+        );
+        if (disposed) return;
+        if (result.some((r) => r.notUndone.length > 0))
+          throw new Error("Some schedule changes could not be undone.");
+        marker.current.references = [];
+        persist();
+      }
+    }
+    const complete = (error: boolean) => {
+      if (!disposed)
+        setResult({
+          key,
+          version: retryVersion,
+          ready: !error,
+          error,
+          uncertain: marker.current.confirming === true,
+        });
+    };
+    void cleanup().then(
+      () => complete(false),
+      () => complete(true),
+    );
     return () => {
       disposed = true;
     };
@@ -94,16 +104,26 @@ export function useIncidentDraftCleanup(userId?: string) {
   }, [key]);
 
   return {
-    ready: !!key && readyFor === key,
-    error,
-    uncertain,
+    ready:
+      !!key &&
+      result.key === key &&
+      result.version === retryVersion &&
+      result.ready,
+    error:
+      result.key === key && result.version === retryVersion && result.error,
+    uncertain: result.key === key && result.uncertain,
     retry: () => setRetryVersion((v) => v + 1),
     markConfirming(value: boolean) {
       marker.current.confirming = value;
       try {
         persist();
       } catch {
-        setError(true);
+        setResult((previous) => ({
+          ...previous,
+          key,
+          version: retryVersion,
+          error: true,
+        }));
       }
     },
   };
