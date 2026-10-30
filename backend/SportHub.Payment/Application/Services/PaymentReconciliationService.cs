@@ -24,7 +24,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
 
     public async Task<string> ReceiveCallbackAsync(IReadOnlyDictionary<string, string> fields, CancellationToken ct)
     {
-        // The return URL does not invoke this method. Only IPN or independently signed QueryDR may write.
+        // IPN and the Development return fallback both use this signed callback path.
         var result = gateway.VerifyCallback(fields);
         // 01 means the gateway has not finished the transaction. It is not a failed payment.
         // Keep the attempt queryable so a later IPN or QueryDR can confirm it.

@@ -106,14 +106,14 @@ export function PaymentReturn({
             );
           }
         }
-        // The URL identifies the attempt only. Confirmation comes from the backend's signed QueryDR.
+        // Send the return fields so Development can verify VNPay's signature when IPN is unreachable.
         if (
           reference &&
           ["AWAITING_PAYMENT", "VOID"].includes(derivePhase(current))
         ) {
           const verified = await api.post<CheckoutDto>(
             "/api/checkouts/verify-reference",
-            { reference },
+            { reference, fields: Object.fromEntries(query.entries()) },
             { signal: controller.signal },
           );
           if (!controller.signal.aborted) setCheckout(verified);
