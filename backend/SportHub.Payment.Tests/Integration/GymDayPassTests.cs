@@ -58,7 +58,7 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResponse>())!;
         Assert.Equal(closingSoon, checkout.ClosingSoon);
-        Assert.Equal(DayPassClock.ClosesAtUtc(now), checkout.ClosesAtUtc);
+        Assert.Equal(DayPassClock.ClosesAtUtc(new(360, 1320), now), checkout.ClosesAtUtc);
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
             Assert.Equal(MemberPackageStatus.Active, pass.Status);
             Assert.Equal(today, pass.StartDate);
             Assert.Equal(today, pass.EndDate);
-            Assert.Equal(DayPassClock.ClosesAtUtc(testNow), pass.ExpiresAtUtc);
+            Assert.Equal(DayPassClock.ClosesAtUtc(new(360, 1320), testNow), pass.ExpiresAtUtc);
             // Member receives the 22:00 expiry and check-in instructions in app and by email.
             var notices = await db.Notifications.Where(n => n.UserId == member.UserId && n.SourceEntityId == pass.MemberPackageId).ToListAsync();
             Assert.True(notices.Count >= 2);

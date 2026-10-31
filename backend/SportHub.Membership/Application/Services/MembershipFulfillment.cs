@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -14,7 +15,8 @@ using SportHub.Membership.Domain.Rules;
 namespace SportHub.Membership.Application.Services;
 
 public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter audit,
-    INotificationWriter notifications, IClock clock, IGymClosureReader gymClosure) : IMembershipFulfillment
+    INotificationWriter notifications, IClock clock, IGymClosureReader gymClosure,
+    ISystemSettingProvider settings) : IMembershipFulfillment
 {
     public async Task<MembershipPurchaseQuote> QuoteAsync(int packageId, CancellationToken ct = default)
     {
@@ -39,9 +41,13 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
     {
         RequireTransaction();
         var quote = await QuoteAsync(packageId, ct);
-        if (packageId == DayPass.PackageId && !DayPassClock.IsOpen(clock.UtcNow))
-            throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
-                "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time.");
+        if (packageId == DayPass.PackageId)
+        {
+            var center = await CenterOperatingHours.ReadAsync(settings, ct);
+            if (!DayPassClock.IsOpen(center, clock.UtcNow))
+                throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
+                    $"Gym day passes can be purchased only from {center.Opens} until {center.Closes} Vietnam time.");
+        }
         // Gói đang Active không chặn mua: đó là gia hạn sớm (BR-65). Chỉ chặn khi còn một lần mua cùng gói chưa thanh toán.
         if (!allowStacking && await db.Set<MemberPackage>().AnyAsync(x => x.MemberId == memberId
             && x.PackageId == packageId && x.Status == MemberPackageStatus.PendingPayment, ct))
@@ -100,13 +106,14 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         entity.EndDate = end;
         if (entity.PackageId == DayPass.PackageId)
         {
+            var center = await CenterOperatingHours.ReadAsync(settings, ct);
             await gymClosure.LockForActivationAsync(ct);
             if (await gymClosure.IsGymClosedAtAsync(clock.UtcNow, ct))
                 throw new ConflictException("gym_closed_today", "The Gym is closed due to an incident; this day pass cannot be activated.");
-            if (!DayPassClock.IsOpen(clock.UtcNow) || purchaseDay != today)
+            if (!DayPassClock.IsOpen(center, clock.UtcNow) || purchaseDay != today)
                 throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
-                    "This Gym day pass cannot be activated after 22:00 Vietnam time.");
-            entity.ExpiresAtUtc = DayPassClock.ClosesAtUtc(clock.UtcNow);
+                    $"This Gym day pass cannot be activated after {center.Closes} Vietnam time.");
+            entity.ExpiresAtUtc = DayPassClock.ClosesAtUtc(center, clock.UtcNow);
             entity.EndDate = today;
             end = entity.EndDate;
         }

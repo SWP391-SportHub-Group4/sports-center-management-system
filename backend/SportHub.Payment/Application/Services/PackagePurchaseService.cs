@@ -46,9 +46,13 @@ public sealed class PackagePurchaseService(
                     || u.ExternalLogins.Any()), ct))
             throw new ConflictException("member_not_activated", "Member must activate the account before purchasing a package.");
         var catalog = await memberships.QuoteAsync(request.PackageId, ct);
-        if (request.PackageId == DayPass.PackageId && !DayPassClock.IsOpen(clock.UtcNow))
-            throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
-                "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time.");
+        if (request.PackageId == DayPass.PackageId)
+        {
+            var center = await CenterOperatingHours.ReadAsync(settings, ct);
+            if (!DayPassClock.IsOpen(center, clock.UtcNow))
+                throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
+                    $"Gym day passes can be purchased only from {center.Opens} until {center.Closes} Vietnam time.");
+        }
         if (request.AllowStacking)
         {
             if (!actorIsCenterManager)

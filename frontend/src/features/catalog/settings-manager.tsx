@@ -22,7 +22,7 @@ type SettingField = {
   copy: keyof Translations["settingFields"];
   min: number;
   max: number;
-  unit?: "minutes" | "hours" | "days";
+  unit?: "seconds" | "minutes" | "hours" | "days";
 };
 const groups = [
   {
@@ -30,6 +30,18 @@ const groups = [
     fields: [
       { key: centerOpeningKey, copy: "centerOpeningTime", min: 0, max: 1439 },
       { key: centerClosingKey, copy: "centerClosingTime", min: 0, max: 1439 },
+    ],
+  },
+  {
+    id: "gym",
+    fields: [
+      {
+        key: "gym.checkin_cooldown_seconds",
+        copy: "gymCheckInCooldownSeconds",
+        min: 1,
+        max: 300,
+        unit: "seconds",
+      },
     ],
   },
   {

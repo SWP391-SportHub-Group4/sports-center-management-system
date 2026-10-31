@@ -678,6 +678,7 @@ export interface GymCheckInDto {
   memberId: string;
   checkedInByUserId: string;
   checkInTime: string;
+  cooldownSeconds: number;
 }
 
 export interface CourseMemberSessionDto {

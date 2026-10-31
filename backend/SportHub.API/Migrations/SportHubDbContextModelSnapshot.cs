@@ -252,6 +252,13 @@ namespace SportHub.API.Migrations
                         },
                         new
                         {
+                            Key = "gym.checkin_cooldown_seconds",
+                            Description = "Minimum seconds between two Gym check-ins of the same member.",
+                            UpdatedAt = new DateTime(2026, 10, 29, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Value = "10"
+                        },
+                        new
+                        {
                             Key = "membership.expiry_notice_days",
                             Description = "BR-33 — Days before membership expiration to remind members.",
                             UpdatedAt = new DateTime(2026, 9, 21, 0, 0, 0, 0, DateTimeKind.Utc),

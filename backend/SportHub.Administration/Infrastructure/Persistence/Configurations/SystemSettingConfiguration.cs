@@ -38,6 +38,12 @@ public class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting
             },
             new SystemSetting
             {
+                Key = SystemSettingKeys.GymCheckInCooldownSeconds, Value = "10",
+                Description = "Minimum seconds between two Gym check-ins of the same member.",
+                UpdatedAt = new DateTime(2026, 10, 29, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new SystemSetting
+            {
                 Key = SystemSettingKeys.PackageExpiringReminderDays,
                 Value = "10",
                 Description = "BR-33 — Days before membership expiration to remind members.",

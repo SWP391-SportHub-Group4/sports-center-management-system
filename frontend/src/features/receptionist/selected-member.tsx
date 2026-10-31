@@ -147,7 +147,10 @@ export function SelectedMemberPanel({
   const latestCheckIn = pagedItems(visits.data)[0];
   const cooldownUntil = Math.max(
     localCooldown.memberId === memberId ? localCooldown.until : 0,
-    latestCheckIn ? Date.parse(latestCheckIn.checkInTime) + 10_000 : 0,
+    latestCheckIn
+      ? Date.parse(latestCheckIn.checkInTime) +
+          latestCheckIn.cooldownSeconds * 1000
+      : 0,
   );
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const ready = !packages.loading && !visits.loading;
@@ -171,9 +174,13 @@ export function SelectedMemberPanel({
     )
       return;
 
+    let cooldownMs = 0;
     const ok = await mutation.run(async () => {
       try {
-        await api.post("/api/gym-checkins", { targetMemberId: memberId });
+        const created = await api.post<GymCheckInDto>("/api/gym-checkins", {
+          targetMemberId: memberId,
+        });
+        cooldownMs = created.cooldownSeconds * 1000;
       } catch (error) {
         if (
           error instanceof ApiError &&
@@ -184,8 +191,8 @@ export function SelectedMemberPanel({
             error.status,
             error.code,
             vi
-              ? "Vui lòng chờ 10 giây trước khi check-in lại hội viên này."
-              : "Wait 10 seconds before checking in this member again.",
+              ? "Vui lòng chờ một lúc trước khi check-in lại hội viên này."
+              : "Wait a moment before checking in this member again.",
             error.details,
           );
         }
@@ -194,7 +201,7 @@ export function SelectedMemberPanel({
     });
 
     if (ok) {
-      setLocalCooldown({ memberId, until: Date.now() + 10_000 });
+      setLocalCooldown({ memberId, until: Date.now() + cooldownMs });
       visits.reload();
     }
   }

@@ -16,6 +16,7 @@ namespace SportHub.Payment.Application.Services;
 public sealed class PaymentReconciliationService(ISportHubDbContext db, IPaymentGateway gateway,
     PaymentFulfillmentService fulfillment, IClassEnrollmentFulfillment classes,
     ICourtRentalFulfillment rentals, IClock clock,
+    SportHub.BuildingBlocks.Abstractions.Configuration.ISystemSettingProvider settings,
     Microsoft.Extensions.Logging.ILogger<PaymentReconciliationService> logger)
 {
     // VNPay rejects duplicate QueryDR calls for the same reference within five minutes.
@@ -223,8 +224,9 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                 {
                     await MarkUnactivatedAsync(invoice, session, attempt, proof, ct);
                 }
-                else if (isDayPass && !DayPassClock.CanActivate(invoice.IssuedAt,
-                    proof.ProviderPaidAtUtc, clock.UtcNow))
+                else if (isDayPass && !DayPassClock.CanActivate(
+                    await SportHub.BuildingBlocks.Abstractions.Configuration.CenterOperatingHours.ReadAsync(settings, ct),
+                    invoice.IssuedAt, proof.ProviderPaidAtUtc, clock.UtcNow))
                     await MarkUnactivatedAsync(invoice, session, attempt, proof, ct);
                 else if (session is null || invoice.Status != InvoiceStatus.Issued
                     || session.State != "Active" || session.ExpiresAtUtc <= clock.UtcNow
@@ -319,7 +321,9 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             return null;
         if (package.PackageId == DayPass.PackageId)
         {
-            if (!DayPassClock.CanActivate(invoice.IssuedAt, proof.ProviderPaidAtUtc, clock.UtcNow)
+            if (!DayPassClock.CanActivate(
+                    await SportHub.BuildingBlocks.Abstractions.Configuration.CenterOperatingHours.ReadAsync(settings, ct),
+                    invoice.IssuedAt, proof.ProviderPaidAtUtc, clock.UtcNow)
                 || await db.Set<MemberPackage>().AnyAsync(x => x.MemberId == invoice.MemberId
                     && x.PackageId == DayPass.PackageId && x.MemberPackageId != packageId
                     && x.Status == MemberPackageStatus.Active && x.ExpiresAtUtc > clock.UtcNow, ct))

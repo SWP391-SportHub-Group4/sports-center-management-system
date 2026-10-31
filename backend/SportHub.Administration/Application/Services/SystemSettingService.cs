@@ -36,6 +36,7 @@ public sealed class SystemSettingService(
         new Dictionary<string, (int, int)>
         {
             [SystemSettingKeys.MembershipExpiryNoticeDays] = (1, 90),
+            [SystemSettingKeys.GymCheckInCooldownSeconds] = (1, 300),
             [SystemSettingKeys.ClassThresholdDaysBeforeStart] = (3, 30),
             [SystemSettingKeys.HoldMinutes] = (CheckoutHoldPolicy.MinMinutes, CheckoutHoldPolicy.MaxMinutes),
             [SystemSettingKeys.PointsConfirmOtpMinutes] = (1, 15),

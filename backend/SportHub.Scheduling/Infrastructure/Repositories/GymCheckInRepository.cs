@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.Identity.Domain.Entities;
@@ -10,7 +11,8 @@ using SportHub.Scheduling.Domain.Exceptions;
 
 namespace SportHub.Scheduling.Infrastructure.Repositories;
 
-public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReader gymClosure) : IGymCheckInRepository
+public sealed class GymCheckInRepository(
+    ISportHubDbContext db, IGymClosureReader gymClosure, ISystemSettingProvider settings) : IGymCheckInRepository
 {
     // Đọc member_packages bằng SQL thô vì cần mệnh đề khóa FOR SHARE — LINQ không diễn đạt được.
     // Cột alias "Value": SqlQueryRaw<int> yêu cầu đúng tên đó cho kiểu vô hướng.
@@ -60,12 +62,13 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT pg_advisory_xact_lock(hashtextextended({$"gym-checkin:{checkIn.MemberId:D}"}, 0))", cancellationToken);
         checkIn.CheckInTime = DateTime.UtcNow;
+        var cooldownSeconds = await settings.GetIntAsync(SystemSettingKeys.GymCheckInCooldownSeconds, cancellationToken);
         if (await db.Set<GymCheckIn>().AnyAsync(
-                x => x.MemberId == checkIn.MemberId && x.CheckInTime > checkIn.CheckInTime.AddSeconds(-10),
+                x => x.MemberId == checkIn.MemberId && x.CheckInTime > checkIn.CheckInTime.AddSeconds(-cooldownSeconds),
                 cancellationToken))
         {
             throw new ConflictException("gym_checkin_cooldown",
-                "Wait 10 seconds before checking in this member again.");
+                $"Wait {cooldownSeconds} seconds before checking in this member again.");
         }
 
         // BR-64: phải có >= 1 MemberPackage Active TẠI THỜI ĐIỂM check-in.

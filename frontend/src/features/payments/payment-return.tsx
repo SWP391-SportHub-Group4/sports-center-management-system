@@ -113,7 +113,7 @@ export function PaymentReturn({
         ) {
           const verified = await api.post<CheckoutDto>(
             "/api/checkouts/verify-reference",
-            { reference },
+            { reference, fields: Object.fromEntries(query.entries()) },
             { signal: controller.signal },
           );
           if (!controller.signal.aborted) setCheckout(verified);
