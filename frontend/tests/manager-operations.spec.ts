@@ -426,6 +426,7 @@ test("M05 empty course cancellation previews before confirming and cannot repeat
       json: {
         canCancel: true,
         previewToken: "audit-preview",
+        members: [],
         totalSessions: 2,
         sessionsNotProvided: 2,
         confirmedCount: 0,
@@ -438,6 +439,7 @@ test("M05 empty course cancellation previews before confirming and cannot repeat
     expect(route.request().postDataJSON()).toEqual({
       reason: "Cancellation audit",
       previewToken: "audit-preview",
+      refunds: [],
     });
     cancelled = true;
     writes++;
@@ -2774,6 +2776,13 @@ test("at-risk class cancellation remains available with enrolled students and re
         canCancel: true,
         refundsImmediately: true,
         previewToken: "threshold-preview",
+        members: [
+          {
+            enrollmentId: "e-1",
+            memberName: "Member Linh",
+            refundPoints: 1200,
+          },
+        ],
         confirmedCount: 4,
         activeHoldCount: 0,
         totalSessions: 2,
@@ -2786,6 +2795,7 @@ test("at-risk class cancellation remains available with enrolled students and re
     expect(route.request().postDataJSON()).toEqual({
       reason: "Below enrollment threshold",
       previewToken: "threshold-preview",
+      refunds: [{ enrollmentId: "e-1", points: 1200 }],
     });
     cancelled = true;
     writes++;
@@ -2815,6 +2825,9 @@ test("at-risk class cancellation remains available with enrolled students and re
     en.classWorkspace.cancelBelowThresholdHint,
   );
   await expect(dialog).not.toContainText("Course interests");
+  await dialog
+    .getByRole("textbox", { name: /Refund points — Member Linh/ })
+    .fill("1200");
   await expect(
     dialog.getByRole("button", { name: "Confirm", exact: true }),
   ).toBeEnabled();
@@ -2905,6 +2918,13 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
         canCancel: true,
         refundsImmediately: true,
         previewToken: "current-roster",
+        members: [
+          {
+            enrollmentId: "e-1",
+            memberName: "Member Linh",
+            refundPoints: 1200,
+          },
+        ],
         totalSessions: 2,
         sessionsNotProvided: 2,
         confirmedCount: 4,
@@ -2940,7 +2960,12 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
       exact: true,
     })
     .click();
-  await expect(form.getByText(/then chooses to receive/)).toBeVisible();
+  await expect(
+    form.getByText(en.classWorkspace.cancelBelowThresholdHint),
+  ).toBeVisible();
+  await form
+    .getByRole("textbox", { name: /Refund points — Member Linh/ })
+    .fill("1200");
   expect(cancels).toBe(0);
   await page.screenshot({
     path: "../.impeccable/review/operations-threshold-desktop.png",

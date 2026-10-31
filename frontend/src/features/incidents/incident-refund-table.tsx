@@ -70,7 +70,6 @@ export function IncidentRefundTable({
     >
       <div className={styles.heading}>
         <h3>{readOnly ? c.summary : c.title}</h3>
-        {!readOnly && <p>{c.hint}</p>}
       </div>
       {!rows.length ? (
         <p className={styles.empty}>{c.empty}</p>

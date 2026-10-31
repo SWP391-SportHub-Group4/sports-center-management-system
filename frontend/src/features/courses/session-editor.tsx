@@ -219,6 +219,7 @@ export function SessionEditor({
   showWeeklySchedule = false,
   incidentFence,
   initialMode = "reschedule",
+  onStageIncident,
 }: {
   session: CourseSessionDto;
   sportId: number;
@@ -231,6 +232,9 @@ export function SessionEditor({
   showReviewActions?: boolean;
   showWeeklySchedule?: boolean;
   incidentFence?: () => Promise<string>;
+  onStageIncident?: (
+    plan: import("@/features/incidents/incident-api").IncidentResolutionSelection,
+  ) => void;
   initialMode?: "reschedule" | "cancel";
   beforeSave?: () => Promise<void>;
   onOutcome?: (
@@ -242,7 +246,8 @@ export function SessionEditor({
   const l = t.operations;
   const mutation = useMutation();
   const [requestedMode, setMode] = useState<string>(initialMode);
-  const mode = incidentFence
+  const incidentMode = !!incidentFence || !!onStageIncident;
+  const mode = incidentMode
     ? "cancel"
     : confirmedCount > 0
       ? "reschedule"
@@ -277,13 +282,13 @@ export function SessionEditor({
             hidden={review}
             className={embedded ? styles.fields : undefined}
           >
-            {incidentFence && (
+            {incidentMode && (
               <div className={styles.incidentMakeup}>
                 <strong>{t.classSessions.incidentMakeupTitle}</strong>
                 <p>{t.classSessions.incidentMakeupHint}</p>
               </div>
             )}
-            {confirmedCount === 0 && !incidentFence && (
+            {confirmedCount === 0 && !incidentMode && (
               <Field label={l.edit}>
                 <select value={mode} onChange={(e) => setMode(e.target.value)}>
                   <option value="reschedule">{l.reschedule}</option>
@@ -291,9 +296,7 @@ export function SessionEditor({
                 </select>
               </Field>
             )}
-            <Field
-              label={incidentFence ? t.classSessions.makeupStart : l.start}
-            >
+            <Field label={incidentMode ? t.classSessions.makeupStart : l.start}>
               <input
                 required
                 type="datetime-local"
@@ -354,6 +357,18 @@ export function SessionEditor({
                 roomId: Number(roomId),
                 coachId,
               };
+              if (onStageIncident) {
+                onStageIncident({
+                  sourceId: session.sessionId,
+                  action:
+                    mode === "reschedule" ? "RESCHEDULE" : "CANCEL_WITH_MAKEUP",
+                  ...schedule,
+                  reason,
+                  label: `${session.className} · ${session.sessionNo}`,
+                });
+                onSaved();
+                return true;
+              }
               onOutcome?.("pending");
               const success = await mutation.run(async () => {
                 try {

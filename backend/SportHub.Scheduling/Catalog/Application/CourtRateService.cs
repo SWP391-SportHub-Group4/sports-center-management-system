@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Scheduling.Catalog.Domain;
@@ -13,7 +14,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// lấn trên cùng loại sân, cùng ngày, cùng phạm vi môn — nếu không sẽ không xác định được giá của một khối giờ.
 /// Đổi giá không sửa hóa đơn/lượt thuê đã tạo (snapshot ở lúc đặt).
 /// </summary>
-public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
+public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit, ISystemSettingProvider settings)
 {
     private const string TimeFormat = "HH:mm";
     private static readonly string[] AllDays = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
@@ -104,6 +105,11 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
             throw new BadRequestException("invalid_rate_window", "Invalid rate window.");
         }
 
+        // BR-62 limits rental hours; room and center hours may narrow this window further.
+        if (start < new TimeOnly(6, 0) || end > new TimeOnly(22, 0))
+            throw new BadRequestException("rental_outside_hours", "Rental prices must be within 06:00–22:00 Vietnam time.");
+        (await CenterOperatingHours.ReadAsync(settings, ct)).EnsureRange(start, end);
+
         if (request.PricePerHour <= 0 || request.PricePerHour % 1000 != 0)
         {
             throw new BadRequestException("invalid_price", "Invalid price.");
@@ -128,6 +134,20 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit)
         if (request.RoomId is int roomId && !await db.Set<Room>().AnyAsync(
                 r => r.RoomId == roomId && r.RoomTypeId == request.RoomTypeId, ct))
             throw new BadRequestException("rental_room_incompatible", "Choose a court belonging to this room type.");
+
+        if (request.RoomId is int pricedRoomId)
+        {
+            var hours = await db.Set<RoomOpeningHour>().AsNoTracking()
+                .Where(hour => hour.RoomId == pricedRoomId).ToListAsync(ct);
+            foreach (var day in days)
+            {
+                var dayNumber = (Array.IndexOf(AllDays, day) + 1) % 7;
+                var hour = hours.SingleOrDefault(hour => hour.DayOfWeek == dayNumber);
+                if (hour is null || start < hour.OpenTimeLocal || end > hour.CloseTimeLocal)
+                    throw new BadRequestException("rate_outside_opening_hours",
+                        "Configure room opening hours first. The price window must be within the room opening hours on every selected day.");
+            }
+        }
 
         if (request.IsActive)
         {

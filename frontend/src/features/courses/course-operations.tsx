@@ -231,6 +231,11 @@ export interface CancellationPreview {
   confirmedCount: number;
   activeHoldCount: number;
   refundPoints: number;
+  members: {
+    enrollmentId: string;
+    memberName: string;
+    refundPoints: number;
+  }[];
 }
 export function CourseCancellation({
   classId,
@@ -248,6 +253,27 @@ export function CourseCancellation({
   const l = t.operations;
   const [reason, setReason] = useState(initialReason);
   const [review, setReview] = useState<CancellationPreview | null>(null);
+  const [refunds, setRefunds] = useState<Record<string, string>>({});
+  const c = t.classCancellationRefund;
+  const validPoints = (value: string | undefined, maximum: number) =>
+    value !== undefined &&
+    /^\d+$/.test(value) &&
+    Number.isSafeInteger(Number(value)) &&
+    Number(value) <= maximum;
+  const validRefunds =
+    !!review &&
+    review.members.every((m) =>
+      validPoints(refunds[m.enrollmentId], m.refundPoints),
+    );
+  const refundTotal =
+    review?.members.reduce(
+      (sum, m) =>
+        sum +
+        (validPoints(refunds[m.enrollmentId], m.refundPoints)
+          ? Number(refunds[m.enrollmentId])
+          : 0),
+      0,
+    ) ?? 0;
   const revision = useRef(0);
   const mutation = useMutation();
   return (
@@ -260,7 +286,10 @@ export function CourseCancellation({
             const result = await api.get<CancellationPreview>(
               `/api/manager/classes/${classId}/cancellation-preview`,
             );
-            if (revision.current === expected) setReview(result);
+            if (revision.current === expected) {
+              setReview(result);
+              setRefunds({});
+            }
           }, "");
         }}
       >
@@ -302,9 +331,58 @@ export function CourseCancellation({
               </dd>
             </div>
           </dl>
+          {review.members.length > 0 && (
+            <section
+              className={managementStyles.cancellationRefundInputs}
+              aria-label={c.title}
+            >
+              <h3>{c.title}</h3>
+              <p>{c.hint}</p>
+              {review.members.map((member) => {
+                const value = refunds[member.enrollmentId];
+                const invalid =
+                  value !== undefined &&
+                  !validPoints(value, member.refundPoints);
+                return (
+                  <Field
+                    key={member.enrollmentId}
+                    label={`${c.points} — ${member.memberName}`}
+                    hint={c.maximum.replace(
+                      "{points}",
+                      String(member.refundPoints),
+                    )}
+                    error={
+                      invalid
+                        ? c.invalid.replace(
+                            "{points}",
+                            String(member.refundPoints),
+                          )
+                        : undefined
+                    }
+                    required
+                    reserveErrorSpace
+                  >
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={value ?? ""}
+                      disabled={mutation.busy}
+                      onChange={(e) =>
+                        setRefunds((previous) => ({
+                          ...previous,
+                          [member.enrollmentId]: e.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                );
+              })}
+            </section>
+          )}
           <div className={managementStyles.cancellationRefund}>
-            <span>{l.refundTotal}</span>
-            <strong>{review.refundPoints}</strong>
+            <span>{c.total}</span>
+            <strong>{validRefunds ? refundTotal : "—"}</strong>
           </div>
           {review.refundsImmediately && (
             <p>{t.classWorkspace.cancelBelowThresholdHint}</p>
@@ -319,13 +397,20 @@ export function CourseCancellation({
           <button
             className="btn btn--danger"
             disabled={
-              mutation.busy || !review.canCancel || reason.trim().length < 3
+              mutation.busy ||
+              !review.canCancel ||
+              !validRefunds ||
+              reason.trim().length < 3
             }
             onClick={async () => {
               const ok = await mutation.run(() =>
                 api.post(`/api/manager/classes/${classId}/cancel`, {
                   reason,
                   previewToken: review.previewToken,
+                  refunds: review.members.map((m) => ({
+                    enrollmentId: m.enrollmentId,
+                    points: Number(refunds[m.enrollmentId]),
+                  })),
                 }),
               );
               setReview(null);

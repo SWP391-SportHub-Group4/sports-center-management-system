@@ -39,6 +39,13 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
     private static async Task<JsonElement> Json(HttpResponseMessage response)
         => JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
+    private static object[] RefundDecisions(JsonElement preview, int? points = null)
+        => preview.GetProperty("members").EnumerateArray().Select(m => (object)new
+        {
+            enrollmentId = m.GetProperty("enrollmentId").GetGuid(),
+            points = points ?? m.GetProperty("refundPoints").GetInt32()
+        }).ToArray();
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
@@ -105,41 +112,191 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         Assert.Equal(0, (await Json(await manager.GetAsync($"api/manager/sports/{sportId}/deactivation-impact"))).GetArrayLength());
     }
 
-    [Fact]
-    public async Task Paid_enrollment_blocks_course_and_makeup_cancellation_without_side_effects()
+    [Theory]
+    [InlineData(0, 100, false, 0, false)]
+    [InlineData(1, 66, false, 0, false)]
+    [InlineData(2, 33, false, 0, false)]
+    [InlineData(1, 66, true, 0, false)]
+    [InlineData(1, 56, false, 10, false)]
+    [InlineData(1, 66, false, 0, true)]
+    [InlineData(2, 100, false, 0, false)]
+    public async Task Manager_cancels_enrolled_class_with_explicit_refund_points(int completed, int expectedPoints,
+        bool makeupProvided, int refundedBeforeCancellation, bool autoRefund)
     {
         var course = await CourseTestData.CreateAsync(factory);
         var member = await BuyAsync(course.Id);
         var sessions = await CourseTestData.SessionsAsync(factory, course.Id);
         using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
-        var ledgerBefore = await factory.QueryAsync(db => db.PointLedgerEntries.CountAsync());
-        var noticesBefore = await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == member));
-        var auditBefore = await factory.QueryAsync(db => db.AuditLogs.CountAsync());
-        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
-        Assert.False(preview.GetProperty("canCancel").GetBoolean());
-        Assert.Equal(1, preview.GetProperty("confirmedCount").GetInt32());
-        Assert.Equal(0, preview.GetProperty("refundPoints").GetInt32());
-        var cancel = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new
+        await factory.QueryAsync(async db =>
         {
-            reason = "Coach cannot teach", previewToken = preview.GetProperty("previewToken").GetString()
+            await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.ThresholdStatus, ThresholdStatus.Met)
+                .SetProperty(c => c.Status, completed > 0 ? ClassStatus.InProgress : ClassStatus.Published));
+            var completedIds = sessions.Take(completed).Select(s => s.SessionId).ToList();
+            await db.ClassSessions.Where(s => completedIds.Contains(s.SessionId))
+                .ExecuteUpdateAsync(s => s.SetProperty(s => s.Status, ClassSessionStatus.Completed));
+            if (makeupProvided)
+            {
+                var original = await db.ClassSessions.SingleAsync(s => s.SessionId == sessions[0].SessionId);
+                original.Status = ClassSessionStatus.Cancelled;
+                db.ClassSessions.Add(new SportHub.Scheduling.Domain.Entities.ClassSession
+                {
+                    SessionId = Guid.NewGuid(), ClassId = course.Id, SessionNo = 4,
+                    RoomId = original.RoomId, CoachId = original.CoachId,
+                    StartAtUtc = original.StartAtUtc.AddDays(1), EndAtUtc = original.EndAtUtc.AddDays(1),
+                    Status = ClassSessionStatus.Completed, IsMakeup = true, RescheduledFromSessionId = original.SessionId
+                });
+                await db.SaveChangesAsync();
+            }
+            return 0;
         });
-        Assert.Equal(HttpStatusCode.Conflict, cancel.StatusCode);
-        Assert.Equal("class_has_enrollments", (await Json(cancel)).GetProperty("error").GetString());
-        var makeup = await manager.PostAsJsonAsync($"api/class-sessions/{sessions[0].SessionId}/cancel", new
+        if (refundedBeforeCancellation > 0)
+        {
+            using var earlier = factory.Services.CreateScope();
+            var state = earlier.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            var itemId = await state.Enrollments.Where(e => e.ClassId == course.Id && e.MemberId == member)
+                .Select(e => e.InvoiceItemId!.Value).SingleAsync();
+            await using var tx = await state.Database.BeginTransactionAsync();
+            await earlier.ServiceProvider.GetRequiredService<IPointWalletService>().EarnAsync(new(member,
+                refundedBeforeCancellation, "SystemEvent", Guid.NewGuid(), null, "Earlier refund", itemId));
+            await tx.CommitAsync();
+        }
+        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+        Assert.True(preview.GetProperty("canCancel").GetBoolean());
+        Assert.Equal(1, preview.GetProperty("confirmedCount").GetInt32());
+        Assert.Equal(100 - refundedBeforeCancellation, preview.GetProperty("refundPoints").GetInt32());
+        // Cancelling an individual session still cannot bypass the enrolled-class guard.
+        var makeup = await manager.PostAsJsonAsync($"api/class-sessions/{sessions[^1].SessionId}/cancel", new
         {
             reason = "Try another cancellation path", makeup = new { startAtUtc = sessions[^1].StartAtUtc.AddDays(7) }
         });
         Assert.Equal(HttpStatusCode.Conflict, makeup.StatusCode);
         Assert.Equal("class_has_enrollments", (await Json(makeup)).GetProperty("error").GetString());
-        Assert.Equal(ClassStatus.Published, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
-        Assert.Equal(EnrollmentStatus.Confirmed, await factory.QueryAsync(db => db.Enrollments.Where(e => e.ClassId == course.Id && e.MemberId == member).Select(e => e.Status).SingleAsync()));
-        Assert.All(await CourseTestData.SessionsAsync(factory, course.Id), session => Assert.Equal(ClassSessionStatus.Scheduled, session.Status));
-        Assert.Equal(sessions.Count, (await CourseTestData.SessionsAsync(factory, course.Id)).Count);
+        var cancel = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new
+        {
+            reason = "Coach cannot teach", previewToken = preview.GetProperty("previewToken").GetString(),
+            refunds = RefundDecisions(preview, expectedPoints)
+        });
+        Assert.True(cancel.IsSuccessStatusCode, await cancel.Content.ReadAsStringAsync());
+        Assert.Equal(ClassStatus.Cancelled, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
+        Assert.Equal(EnrollmentStatus.CancelledByCenter, await factory.QueryAsync(db => db.Enrollments.Where(e => e.ClassId == course.Id && e.MemberId == member).Select(e => e.Status).SingleAsync()));
+        var after = await CourseTestData.SessionsAsync(factory, course.Id);
+        Assert.Equal(completed, after.Count(s => s.Status == ClassSessionStatus.Completed));
+        Assert.Equal(3 - completed + (makeupProvided ? 1 : 0), after.Count(s => s.Status == ClassSessionStatus.Cancelled));
+        foreach (var session in sessions.Skip(completed))
+            Assert.False(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == session.SessionId && o.IsActive)));
+        using var scope = factory.Services.CreateScope();
+        var refunds = scope.ServiceProvider.GetRequiredService<ICenterCancellationRefundService>();
+        var offer = Assert.Single(await refunds.ListMineAsync(member));
+        Assert.Equal(expectedPoints, offer.RefundPoints);
+        // The Support Request payout uses the same cap as the wallet choice.
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        var invoice = await db.Invoices.SingleAsync(i => i.InvoiceId == offer.InvoiceId);
+        var payoutQuote = Assert.Single(await SupportRefundCalculator.ItemsAsync(db, invoice,
+            scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Scheduling.ICenterCancellationReader>(), default));
+        Assert.Equal(expectedPoints, payoutQuote.MaxRefundablePoints);
+        if (autoRefund)
+        {
+            var job = new CenterCancellationRefundService(db,
+                scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Scheduling.ICenterCancellationReader>(),
+                scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Payment.IRefundCreditService>(),
+                new TestClock(offer.CancelledAtUtc.AddDays(3)),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<CenterCancellationRefundService>.Instance);
+            await job.AutoRefundDueAsync();
+        }
+        Assert.Equal(expectedPoints, (await refunds.ChoosePointsAsync(member, offer.InvoiceItemId)).PointsCredited);
+        Assert.True((await refunds.ChoosePointsAsync(member, offer.InvoiceItemId)).AlreadyApplied);
+        Assert.Equal(0, (await SupportRefundCalculator.ItemsAsync(db, invoice,
+            scope.ServiceProvider.GetRequiredService<SportHub.BuildingBlocks.Abstractions.Scheduling.ICenterCancellationReader>(), default))[0].MaxRefundablePoints);
+    }
+
+    [Theory]
+    [InlineData(ClassStatus.Completed)]
+    [InlineData(ClassStatus.Cancelled)]
+    public async Task Closed_class_cannot_offer_another_cancellation(ClassStatus status)
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        await factory.QueryAsync(async db =>
+        {
+            await db.Classes.Where(c => c.ClassId == course.Id).ExecuteUpdateAsync(s => s.SetProperty(c => c.Status, status));
+            return 0;
+        });
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+        Assert.False(preview.GetProperty("canCancel").GetBoolean());
+        Assert.Equal("class_closed", preview.GetProperty("blockedReason").GetString());
+    }
+
+    [Theory]
+    [InlineData("negative")]
+    [InlineData("over")]
+    [InlineData("fraction")]
+    [InlineData("text")]
+    [InlineData("null")]
+    [InlineData("missing_points")]
+    [InlineData("missing_member")]
+    [InlineData("duplicate_member")]
+    [InlineData("wrong_member")]
+    public async Task Invalid_manual_refunds_do_not_cancel_or_credit_anything(string scenario)
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        await BuyAsync(course.Id);
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+        var id = preview.GetProperty("members")[0].GetProperty("enrollmentId").GetGuid();
+        object? points = scenario switch
+        {
+            "negative" => -1, "over" => 101, "fraction" => 1.5m, "text" => "abc", "null" => null, _ => 25
+        };
+        var row = new Dictionary<string, object?> { ["enrollmentId"] = scenario == "wrong_member" ? Guid.NewGuid() : id,
+            ["points"] = points };
+        if (scenario == "missing_points") row.Remove("points");
+        var decisions = new List<Dictionary<string, object?>> { row };
+        if (scenario == "missing_member") decisions.Clear();
+        if (scenario == "duplicate_member") decisions.Add(row);
+        var ledgerBefore = await factory.QueryAsync(db => db.PointLedgerEntries.CountAsync());
+        var response = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new
+        {
+            reason = "Reject invalid refund", previewToken = preview.GetProperty("previewToken").GetString(), refunds = decisions
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(ClassStatus.Published, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id)
+            .Select(c => c.Status).SingleAsync()));
+        Assert.Equal(EnrollmentStatus.Confirmed, await factory.QueryAsync(db => db.Enrollments.Where(e => e.EnrollmentId == id)
+            .Select(e => e.Status).SingleAsync()));
         Assert.Equal(ledgerBefore, await factory.QueryAsync(db => db.PointLedgerEntries.CountAsync()));
-        Assert.Equal(noticesBefore, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.UserId == member)));
-        Assert.Equal(auditBefore, await factory.QueryAsync(db => db.AuditLogs.CountAsync()));
-        foreach (var session in sessions)
-            Assert.True(await factory.QueryAsync(db => db.RoomOccupancies.AnyAsync(o => o.SourceId == session.SessionId && o.IsActive)));
+        Assert.All(await CourseTestData.SessionsAsync(factory, course.Id), s => Assert.Equal(ClassSessionStatus.Scheduled, s.Status));
+    }
+
+    [Fact]
+    public async Task Manager_records_different_refunds_per_member_including_zero()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var first = await BuyAsync(course.Id);
+        var second = await BuyAsync(course.Id);
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
+        var decisions = preview.GetProperty("members").EnumerateArray().Select(m => new
+        {
+            enrollmentId = m.GetProperty("enrollmentId").GetGuid(),
+            points = m.GetProperty("memberId").GetGuid() == first ? 37 : 0
+        }).ToArray();
+        var response = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new
+        {
+            reason = "Custom refunds per member", previewToken = preview.GetProperty("previewToken").GetString(), refunds = decisions
+        });
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        using var scope = factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<ICenterCancellationRefundService>();
+        var offer = Assert.Single(await service.ListMineAsync(first));
+        Assert.Equal(37, offer.RefundPoints);
+        Assert.Empty(await service.ListMineAsync(second));
+        Assert.Equal(37, (await service.ChoosePointsAsync(first, offer.InvoiceItemId)).PointsCredited);
+        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        Assert.False(db.Database.HasPendingModelChanges());
+        var stored = await db.Enrollments.AsNoTracking().Where(e => e.ClassId == course.Id).ToListAsync();
+        Assert.Equal(37, stored.Single(e => e.MemberId == first).CenterCancellationRefundPoints);
+        Assert.Equal(0, stored.Single(e => e.MemberId == second).CenterCancellationRefundPoints);
     }
 
     [Fact]
@@ -155,7 +312,7 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
             reason = "Using a stale preview", previewToken = preview.GetProperty("previewToken").GetString()
         });
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal("class_has_enrollments", (await Json(response)).GetProperty("error").GetString());
+        Assert.Equal("class_cancellation_changed", (await Json(response)).GetProperty("error").GetString());
     }
 
     [Fact]
@@ -206,7 +363,8 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         Assert.True(preview.GetProperty("canCancel").GetBoolean());
         Assert.True(preview.GetProperty("refundsImmediately").GetBoolean());
         Assert.Equal(200, preview.GetProperty("refundPoints").GetInt32());
-        var request = new { reason = "Minimum enrollment was not reached", previewToken = preview.GetProperty("previewToken").GetString() };
+        var request = new { reason = "Minimum enrollment was not reached", previewToken = preview.GetProperty("previewToken").GetString(),
+            refunds = RefundDecisions(preview) };
         for (var attempt = 0; attempt < 2; attempt++) {
             var response = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", request);
             Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
@@ -290,7 +448,7 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
                 reason = "Stale threshold preview", previewToken = preview.GetProperty("previewToken").GetString()
             });
             Assert.Equal(HttpStatusCode.Conflict, cancelled.StatusCode);
-            Assert.Equal("class_has_enrollments", (await Json(cancelled)).GetProperty("error").GetString());
+            Assert.Equal("class_cancellation_changed", (await Json(cancelled)).GetProperty("error").GetString());
             Assert.Equal(ClassStatus.Published, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
             Assert.False(await factory.QueryAsync(db => db.ThresholdResponses.AnyAsync(r => r.ClassId == course.Id)));
         }
@@ -322,13 +480,14 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         });
         using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
         var preview = await Json(await manager.GetAsync($"api/manager/classes/{course.Id}/cancellation-preview"));
-        Assert.Equal(deadlineReached, preview.GetProperty("canCancel").GetBoolean());
-        Assert.Equal(deadlineReached, preview.GetProperty("refundsImmediately").GetBoolean());
+        Assert.True(preview.GetProperty("canCancel").GetBoolean());
+        Assert.True(preview.GetProperty("refundsImmediately").GetBoolean());
         var response = await manager.PostAsJsonAsync($"api/manager/classes/{course.Id}/cancel", new {
-            reason = "Opening enrollment remains below threshold", previewToken = preview.GetProperty("previewToken").GetString()
+            reason = "Opening enrollment remains below threshold", previewToken = preview.GetProperty("previewToken").GetString(),
+            refunds = RefundDecisions(preview)
         });
-        Assert.Equal(deadlineReached ? HttpStatusCode.OK : HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal(deadlineReached ? ClassStatus.Cancelled : ClassStatus.Published,
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(ClassStatus.Cancelled,
             await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
         // Cancelling only notifies; points are credited when the Member chooses them.
         Assert.Equal(0,

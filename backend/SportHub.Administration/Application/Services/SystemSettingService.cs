@@ -1,6 +1,8 @@
+using SportHub.Membership.Application.Services;
 using Microsoft.EntityFrameworkCore;
 using SportHub.Administration.Application.Interfaces;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Membership;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -29,7 +31,7 @@ public sealed class UpdateSystemSettingsRequest
 public sealed class SystemSettingService(
     ISportHubDbContext db,
     IAuditWriter audit,
-    IClock clock) : ISystemSettingService
+    IClock clock, IDayPassHoursUpdater dayPassHours) : ISystemSettingService
 {
     // Cận trên/dưới là phòng vệ kỹ thuật, không phải số từ BR.
     private static readonly IReadOnlyDictionary<string, (int Min, int Max)> IntRanges =
@@ -82,6 +84,7 @@ public sealed class SystemSettingService(
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var keys = values.Keys.ToList();
         var changesHours = keys.Contains(SystemSettingKeys.CenterOpeningMinutes) || keys.Contains(SystemSettingKeys.CenterClosingMinutes);
+        if (changesHours) await DayPassHoursLock.AcquireAsync(db, updatingHours: true, ct: ct);
         if (changesHours)
         {
             keys.Add(SystemSettingKeys.CenterOpeningMinutes);
@@ -100,6 +103,10 @@ public sealed class SystemSettingService(
         }
 
         var now = clock.UtcNow;
+        if (changesHours)
+            await dayPassHours.ApplyAsync(
+                int.Parse(rows.Single(s => s.Key == SystemSettingKeys.CenterOpeningMinutes).Value),
+                int.Parse(rows.Single(s => s.Key == SystemSettingKeys.CenterClosingMinutes).Value), ct);
         var changed = new List<SystemSettingResponse>();
         foreach (var row in rows.Where(s => values.ContainsKey(s.Key)))
         {
@@ -117,6 +124,10 @@ public sealed class SystemSettingService(
             changed.Add(new(row.Key, row.Value, row.Description, row.UpdatedAt));
         }
         await db.SaveChangesAsync(ct);
+        if (changesHours)
+            await dayPassHours.ApplyAsync(
+                int.Parse(rows.Single(s => s.Key == SystemSettingKeys.CenterOpeningMinutes).Value),
+                int.Parse(rows.Single(s => s.Key == SystemSettingKeys.CenterClosingMinutes).Value), ct);
         await tx.CommitAsync(ct);
         return changed;
     }

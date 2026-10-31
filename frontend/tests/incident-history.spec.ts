@@ -12,7 +12,7 @@ const incidents = Array.from({ length: 21 }, (_, index) => ({
   createdAtUtc: "2026-10-12T12:00:00Z",
 }));
 
-test("incident history scrolls, pages and opens details without entering an ID", async ({
+test("incident history scrolls, pages and opens incident details", async ({
   page,
 }) => {
   await page.addInitScript(() =>
