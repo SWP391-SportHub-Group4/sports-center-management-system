@@ -10,6 +10,7 @@ using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Email;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -36,7 +37,7 @@ public sealed class RecordSupportPayout
 [Route("api/member-support-requests")]
 public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
     IAuditWriter audit, INotificationWriter notifications,
-    IConfiguration configuration, IPointWalletService wallets) : ControllerBase
+    IConfiguration configuration, IPointWalletService wallets, ICenterCancellationReader cancellations) : ControllerBase
 {
     [HttpGet("{requestId:guid}/payout-quote")]
     public async Task<IActionResult> Quote(Guid requestId, CancellationToken ct)
@@ -47,7 +48,7 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
             throw new ConflictException("payout_request_invalid", "Payout requires a payment request.");
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync(i => i.InvoiceId == request.InvoiceId, ct);
         return Ok(new { request.InvoiceItemId, supportsEnteredPoints = true,
-            items = await SupportRefundCalculator.ItemsAsync(db, invoice, ct) });
+            items = await SupportRefundCalculator.ItemsAsync(db, invoice, cancellations, ct) });
     }
 
     [HttpPost("{requestId:guid}/payout")]
@@ -96,7 +97,7 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
         if (request.InvoiceItemId != null && body.InvoiceItemId != null && request.InvoiceItemId != body.InvoiceItemId)
             throw new ConflictException("payout_item_mismatch", "Refund the service linked to this request.");
         var itemId = await SupportRefundCalculator.ResolveItemAsync(db, invoiceId, request.InvoiceItemId ?? body.InvoiceItemId, ct);
-        var itemQuote = (await SupportRefundCalculator.ItemsAsync(db, invoice, ct)).Single(i => i.InvoiceItemId == itemId);
+        var itemQuote = (await SupportRefundCalculator.ItemsAsync(db, invoice, cancellations, ct)).Single(i => i.InvoiceItemId == itemId);
         if (body.Amount > itemQuote.RefundableVnpayVnd)
             throw new ConflictException(PaymentSupportErrorCodes.PayoutAmountExceedsPaid,
                 "Payout exceeds the remaining VNPay payment for this service.");
@@ -165,7 +166,7 @@ public sealed class SupportPayoutController(ISportHubDbContext db, IClock clock,
 
 [ApiController]
 [Authorize]
-public sealed class InvoiceRefundBreakdownController(ISportHubDbContext db) : ControllerBase
+public sealed class InvoiceRefundBreakdownController(ISportHubDbContext db, ICenterCancellationReader cancellations) : ControllerBase
 {
     [HttpGet("api/members/me/invoices/{invoiceId:guid}/refund-breakdown")]
     [Authorize(Policy = SportHubPolicies.Member)]
@@ -180,7 +181,7 @@ public sealed class InvoiceRefundBreakdownController(ISportHubDbContext db) : Co
         var invoice = await db.Set<Invoice>().AsNoTracking()
             .SingleOrDefaultAsync(i => i.InvoiceId == invoiceId && (memberId == null || i.MemberId == memberId), ct)
             ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
-        var items = await SupportRefundCalculator.ItemsAsync(db, invoice, ct);
+        var items = await SupportRefundCalculator.ItemsAsync(db, invoice, cancellations, ct);
         return Ok(new { totalVnd = invoice.TotalAmount, vnpayVnd = items.Sum(i => i.VnpayVnd),
             pointsApplied = invoice.PointsApplied, pointsVnd = invoice.PointsApplied * 1000m,
             refundableVnpayVnd = items.Sum(i => i.RefundableVnpayVnd), refundablePoints = items.Sum(i => i.RefundablePoints), items });

@@ -23,10 +23,7 @@ export function IncidentDetailsView({ id }: { id: string }) {
     <AsyncSection state={state}>
       {(incident) => (
         <>
-          <IncidentDayPassSupport
-            incident={incident}
-            onChanged={state.reload}
-          />
+          <IncidentDayPassSupport incident={incident} />
           <Card title={incident.reason}>
             <dl className={styles.details}>
               <div>

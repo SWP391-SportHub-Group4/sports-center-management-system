@@ -24,6 +24,10 @@ public class Enrollment
 
     public DateTime? EndedAt { get; set; }
 
+    /// <summary>Manager's refund decision and remaining paid balance when the center cancels the class.</summary>
+    public int? CenterCancellationRefundPoints { get; set; }
+    public decimal? CenterCancellationPaidBalanceVnd { get; set; }
+
     /// <summary>Ghi danh này là kết quả chuyển lớp từ ghi danh nguồn (BR-120).</summary>
     public Guid? SourceEnrollmentId { get; set; }
 

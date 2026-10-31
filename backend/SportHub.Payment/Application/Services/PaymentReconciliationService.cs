@@ -1,3 +1,5 @@
+using SportHub.Membership.Application.Services;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -15,7 +17,7 @@ namespace SportHub.Payment.Application.Services;
 
 public sealed class PaymentReconciliationService(ISportHubDbContext db, IPaymentGateway gateway,
     PaymentFulfillmentService fulfillment, IClassEnrollmentFulfillment classes,
-    ICourtRentalFulfillment rentals, IClock clock,
+    ICourtRentalFulfillment rentals, IClock clock, ISystemSettingProvider settings,
     Microsoft.Extensions.Logging.ILogger<PaymentReconciliationService> logger)
 {
     // VNPay rejects duplicate QueryDR calls for the same reference within five minutes.
@@ -192,6 +194,7 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await DayPassHoursLock.AcquireAsync(db, ct: ct);
             var invoice = await db.Set<Invoice>().FromSqlInterpolated(
                 $"SELECT * FROM invoices WHERE invoice_id = {invoiceId} FOR UPDATE").SingleAsync(ct);
             var proof = await db.Set<VerifiedGatewayEvent>().FromSqlInterpolated(
@@ -223,8 +226,8 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
                 {
                     await MarkUnactivatedAsync(invoice, session, attempt, proof, ct);
                 }
-                else if (isDayPass && !DayPassClock.CanActivate(invoice.IssuedAt,
-                    proof.ProviderPaidAtUtc, clock.UtcNow))
+                else if (isDayPass && (session?.State == DayPassHoursService.ClosedState || !DayPassClock.CanActivate(invoice.IssuedAt,
+                    proof.ProviderPaidAtUtc, clock.UtcNow, await CenterOperatingHours.ReadAsync(settings, ct))))
                     await MarkUnactivatedAsync(invoice, session, attempt, proof, ct);
                 else if (session is null || invoice.Status != InvoiceStatus.Issued
                     || session.State != "Active" || session.ExpiresAtUtc <= clock.UtcNow
@@ -319,7 +322,8 @@ public sealed class PaymentReconciliationService(ISportHubDbContext db, IPayment
             return null;
         if (package.PackageId == DayPass.PackageId)
         {
-            if (!DayPassClock.CanActivate(invoice.IssuedAt, proof.ProviderPaidAtUtc, clock.UtcNow)
+            if (oldSession.State == DayPassHoursService.ClosedState || !DayPassClock.CanActivate(invoice.IssuedAt, proof.ProviderPaidAtUtc, clock.UtcNow,
+                    await CenterOperatingHours.ReadAsync(settings, ct))
                 || await db.Set<MemberPackage>().AnyAsync(x => x.MemberId == invoice.MemberId
                     && x.PackageId == DayPass.PackageId && x.MemberPackageId != packageId
                     && x.Status == MemberPackageStatus.Active && x.ExpiresAtUtc > clock.UtcNow, ct))

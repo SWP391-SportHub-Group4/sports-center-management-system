@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Coins, Plus } from "lucide-react";
 import { buttonClass } from "@/components/primitives";
@@ -9,6 +9,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
 import { walletApi } from "./api";
+import { useWalletRefresh } from "./wallet-events";
 import styles from "./member-wallet.module.css";
 
 const PAGE_SIZE = 20;
@@ -24,6 +25,14 @@ export function MemberWallet() {
   const ledger = useApi(
     (signal) => walletApi.ledger(page, signal, entryType),
     [page, entryType],
+  );
+  const reloadBalance = balance.reload;
+  const reloadLedger = ledger.reload;
+  useWalletRefresh(
+    useCallback(() => {
+      reloadBalance();
+      reloadLedger();
+    }, [reloadBalance, reloadLedger]),
   );
   const events: Record<string, string> = {
     HOLD: w.hold,

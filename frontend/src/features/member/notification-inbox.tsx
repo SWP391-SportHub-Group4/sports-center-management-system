@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { NotificationBody, gymClosureDetails } from "./notification-body";
 import {
   useCallback,
   useEffect,
@@ -535,7 +536,11 @@ export function NotificationInbox() {
                       )}
                     </span>
                   </div>
-                  <h2 id={readerTitleId}>{presentation.title}</h2>
+                  <h2 id={readerTitleId}>
+                    {gymClosureDetails(selected)
+                      ? "Gym closure affecting your day pass"
+                      : presentation.title}
+                  </h2>
                   <div className={styles.sender}>
                     <span className={styles.senderIcon}>
                       <MailOpen size={19} aria-hidden="true" />
@@ -566,7 +571,7 @@ export function NotificationInbox() {
                         </button>
                       </div>
                     )}
-                  <div className={styles.body}>{selected.message}</div>
+                  <NotificationBody item={selected} />
                   <footer className={styles.readerFooter}>
                     {destination ? (
                       <>
@@ -575,7 +580,9 @@ export function NotificationInbox() {
                             ? destination.includes("request=")
                               ? "Review the request’s current status, latest reply and activity."
                               : "This older notice has no request link. Open the queue to find the request."
-                            : selected.sourceEventType === "PAYMENT_UNACTIVATED" && user?.role === "CenterManager"
+                            : selected.sourceEventType ===
+                                  "PAYMENT_UNACTIVATED" &&
+                                user?.role === "CenterManager"
                               ? "Open the invoice to review the payment, purchased service and current status."
                               : "Continue to the related information."}
                         </p>

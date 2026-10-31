@@ -17,6 +17,7 @@ import { NotificationBell } from "./NotificationBell";
 import { MemberCodeButton } from "./MemberCodeCard";
 import { AssistantButton } from "@/features/member/assistant";
 import { walletApi } from "@/features/wallet/api";
+import { useWalletRefresh } from "@/features/wallet/wallet-events";
 import { useApi } from "@/lib/useApi";
 import { formatPoints } from "@/lib/format";
 import {
@@ -51,6 +52,7 @@ const MemberFrameContext = createContext(false);
 function MemberWalletHeader() {
   const { language } = useLanguage();
   const wallet = useApi((signal) => walletApi.balance(signal), []);
+  useWalletRefresh(wallet.reload);
   return (
     <Link
       href="/member/finance?tab=wallet"

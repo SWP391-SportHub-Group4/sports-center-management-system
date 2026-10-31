@@ -21,7 +21,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
     ICourtRentalFulfillment rentals, ICheckoutLifecycleService checkouts, IRefundCreditService refunds,
     INotificationWriter notifications, IUserAccessReader users, IAuditWriter audit, IClock clock,
     INotificationDeliveryReader delivery, IMembershipClosureExtension membershipExtension, IIncidentDayPassService dayPasses,
-    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions)
+    SportHub.Scheduling.Application.Interfaces.IClassSessionService sessions,
+    SportHub.BuildingBlocks.Abstractions.Configuration.ISystemSettingProvider settings)
 {
     public async Task<PagedResult<IncidentDetailsResponse>> ListAsync(int page = 1, int pageSize = 20,
         CancellationToken ct = default)
@@ -75,27 +76,25 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
     }
 
-    /// <summary>Review locks new bookings atomically before returning the affected activities.</summary>
+    /// <summary>Review is read-only. No incident or temporary hold exists until confirmation.</summary>
     public async Task<IncidentPreviewResponse> ReviewAsync(IncidentRequest request, Guid managerId, CancellationToken ct = default)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
         var shape = await ValidateAsync(request, ct);
-        await OpenFenceCoreAsync(shape, request, managerId, ct);
-        var preview = await PreviewAsync(request, ct);
-        await tx.CommitAsync(ct);
-        return preview;
+        await EnsureNoIncidentOverlapAsync(shape, managerId, ct, includeFences: false);
+        return await PreviewAsync(request, ct);
     }
 
     public async Task<IncidentPreviewResponse> PreviewAsync(IncidentRequest request, CancellationToken ct = default)
     {
         var shape = await ValidateAsync(request, ct);
         var impacts = await FindImpactsAsync(shape, ct);
-        var needsManual = impacts.Any(x => x.SourceType is nameof(OccupancySourceType.ClassSession)
-            or nameof(OccupancySourceType.RoomBlock));
+        var plans = ValidateResolutionPlans(request, impacts);
+        var needsManual = impacts.Any(x => (x.SourceType is nameof(OccupancySourceType.ClassSession)
+            or nameof(OccupancySourceType.RoomBlock)) && !plans.Any(p => p.SourceId == x.SourceId));
         var gymClosed = await ClosesGymAsync(shape, ct);
         var members = await AffectedMembersAsync(impacts, ct);
         var refundRows = await RefundRowsAsync(shape, ct);
+        var passMembers = await DayPassMembersAsync(shape, ct);
         var startLocal = DateOnly.FromDateTime(VietnamTime.ToLocal(shape.StartUtc));
         return new IncidentPreviewResponse(shape.Scope.ToString(), shape.RoomId, shape.StartUtc, shape.EndUtc,
             impacts, !needsManual, needsManual
@@ -103,11 +102,11 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
                 : null)
         {
             Refunds = refundRows,
-            PreviewToken = PreviewFingerprint(shape, refundRows, impacts),
+            PreviewToken = PreviewFingerprint(shape, refundRows, impacts, passMembers, plans),
             ClosesGym = gymClosed,
             SuggestedMembershipExtensionDays = 0,
             AffectedMemberCount = gymClosed ? await membershipExtension.CountAffectedMembersAsync(startLocal, ct) : 0,
-            Members = members.Concat((await DayPassMembersAsync(shape, ct)).Select(p => new IncidentAffectedMember(p.MemberId, p.MemberName, "GymDayPass", p.PassId, "DayPassSupport", null))).ToList(),
+            Members = members.Concat(passMembers.Select(p => new IncidentAffectedMember(p.MemberId, p.MemberName, "GymDayPass", p.PassId, "DayPassSupport", null))).ToList(),
             ExpectedRefundPointsTotal = refundRows.Sum(x => x.SuggestedRefundPoints)
         };
     }
@@ -180,6 +179,9 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             return previous.IncidentId;
         }
 
+        if (request.DayPassGifts?.Count > 0)
+            throw new BadRequestException("incident_day_pass_compensation_disabled", "Incidents only notify affected Gym day-pass holders; points compensation is not supported.");
+
         var initialRows = await RefundRowsAsync(shape, ct);
         await refunds.LockBatchAsync(initialRows.Where(r => r.InvoiceItemId.HasValue).Select(r => r.InvoiceItemId!.Value).ToList(),
             initialRows.Where(r => r.InvoiceId != Guid.Empty).Select(r => r.InvoiceId).Distinct().ToList(), ct);
@@ -187,12 +189,15 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
         await EnsureNoIncidentOverlapAsync(shape, managerId, ct);
         var impacts = await FindImpactsAsync(shape, ct);
-        EnsureResolvable(impacts);
+        var plans = ValidateResolutionPlans(request, impacts);
         var rows = await RefundRowsAsync(shape, ct);
+        var passMembers = await DayPassMembersAsync(shape, ct);
         if (rows.Any(r => !initialRows.Any(i => i.SourceId == r.SourceId && i.InvoiceItemId == r.InvoiceItemId))
-            || (rows.Count > 0 && (request.OperationId is null || request.PreviewToken != PreviewFingerprint(shape, rows, impacts)))
-            || (request.PreviewToken is not null && request.PreviewToken != PreviewFingerprint(shape, rows, impacts)))
+            || ((rows.Count > 0 || plans.Count > 0 || passMembers.Count > 0) && (request.OperationId is null || request.PreviewToken != PreviewFingerprint(shape, rows, impacts, passMembers, plans)))
+            || (request.PreviewToken is not null && request.PreviewToken != PreviewFingerprint(shape, rows, impacts, passMembers, plans)))
             throw new ConflictException("incident_refund_preview_changed", "Affected services or refund balances changed. Refresh and review the preview.");
+        await ApplyResolutionPlansAsync(shape, request, plans, managerId, ct);
+        EnsureResolvable(await FindImpactsAsync(shape, ct));
         var selections = rows.Count == 0 && request.Refunds is null ? [] : Selections(rows, request);
         // Active rental cancellations offer the Member a choice. Keep reviewed historical
         // rental compensation, and do not credit a pending choice on a later incident.
@@ -210,8 +215,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             RequestFingerprint = requestFingerprint,
             RefundsJson = System.Text.Json.JsonSerializer.Serialize(selections),
             ClosesGym = await ClosesGymAsync(shape, ct),
-            DayPassMembersJson = System.Text.Json.JsonSerializer.Serialize(await DayPassMembersAsync(shape, ct)),
-            ResolutionSummary = $"Reviewed {rows.Count} rental services; refunded {creditedPoints} points and offered a refund choice for {choiceRows.Count} rentals. Affected services were cancelled and incident rooms blocked."
+            DayPassMembersJson = System.Text.Json.JsonSerializer.Serialize(passMembers),
+            ResolutionSummary = $"Applied {plans.Count} schedule plans. Reviewed {rows.Count} rental services; refunded {creditedPoints} points and offered a refund choice for {choiceRows.Count} rentals. Listed {passMembers.Select(p => p.MemberId).Distinct().Count()} affected Gym day-pass holders for automatic notification. Affected rentals were cancelled and incident rooms blocked."
         };
         db.Set<IncidentNotice>().Add(notice);
         await db.SaveChangesAsync(ct);
@@ -277,9 +282,10 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             fence.Status = IncidentFenceStatus.Resolved; fence.ClosedAtUtc = clock.UtcNow; fence.ResolvedIncidentId = incidentId;
         }
         audit.Write(new AuditEntry(managerId, "RESOLVE_CENTER_INCIDENT", nameof(IncidentNotice), incidentId.ToString(),
-            NewValue: System.Text.Json.JsonSerializer.Serialize(new { Refunds = selections, TotalPoints = creditedPoints,
+            NewValue: System.Text.Json.JsonSerializer.Serialize(new { Resolutions = plans, Refunds = selections, TotalPoints = creditedPoints,
                 RefundChoices = choiceRows.Select(r => r.SourceId).ToArray() }), Reason: request.Reason.Trim()));
         await db.SaveChangesAsync(ct);
+        if (passMembers.Count > 0) await SendDayPassNoticeAsync(incidentId, managerId, ct);
         await tx.CommitAsync(ct);
         return incidentId;
     }
@@ -330,13 +336,13 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         return fence;
     }
 
-    private async Task EnsureNoIncidentOverlapAsync(IncidentShape shape, Guid managerId, CancellationToken ct)
+    private async Task EnsureNoIncidentOverlapAsync(IncidentShape shape, Guid managerId, CancellationToken ct, bool includeFences = true)
     {
         var now = clock.UtcNow;
         var noticeOverlap = await db.Set<IncidentNotice>().AsNoTracking().AnyAsync(i =>
             i.StartAtUtc < shape.EndUtc && i.EndAtUtc > shape.StartUtc
             && (shape.Scope == IncidentScope.Center || i.Scope == IncidentScope.Center || i.RoomId == shape.RoomId), ct);
-        var fenceOverlap = await db.Set<IncidentFence>().AsNoTracking().AnyAsync(f =>
+        var fenceOverlap = includeFences && await db.Set<IncidentFence>().AsNoTracking().AnyAsync(f =>
             f.Status == IncidentFenceStatus.Open && f.ExpiresAtUtc > now
             && f.StartAtUtc < shape.EndUtc && f.EndAtUtc > shape.StartUtc
             && (shape.Scope == IncidentScope.Center || f.Scope == IncidentScope.Center || f.RoomId == shape.RoomId)
@@ -426,7 +432,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
     /// </summary>
     public async Task<IncidentAbandonResult> AbandonFenceAsync(Guid fenceId, Guid managerId, CancellationToken ct = default)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
         var fence = await db.Set<IncidentFence>().SingleOrDefaultAsync(f => f.FenceId == fenceId, ct)
             ?? throw new NotFoundException("incident_fence_not_found", "Incident fence not found.");
         if (fence.Status != IncidentFenceStatus.Open)
@@ -455,11 +462,29 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         audit.Write(new AuditEntry(managerId, "ABANDON_INCIDENT_FENCE", nameof(IncidentFence), fenceId.ToString(),
             NewValue: System.Text.Json.JsonSerializer.Serialize(new { steps = applied.Count, undone })));
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
 
         var left = (await ListFenceStepsAsync(fenceId, ct)).Where(s => s.Kind != nameof(IncidentFenceStepKind.ReviewedCompleted)
             && s.State != nameof(IncidentFenceStepState.Undone)).ToList();
         return new IncidentAbandonResult(fenceId, undone, left);
+    }
+
+    /// <summary>Discard only the caller's unconfirmed reviews. Confirmed incidents are never changed.</summary>
+    public async Task<IReadOnlyList<IncidentAbandonResult>> DiscardDraftsAsync(IReadOnlyList<IncidentDraftReference> references,
+        Guid managerId, CancellationToken ct = default)
+    {
+        if (references.Count == 0) return [];
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await CourseScheduleLock.AcquireAsync(db, changingSchedule: true, ct);
+        var candidates = await db.Set<IncidentFence>().Where(f => f.CreatedByUserId == managerId
+            && f.Status == IncidentFenceStatus.Open && f.ResolvedIncidentId == null).ToListAsync(ct);
+        var matches = candidates.Where(f => references.Any(r => r.FenceId == f.FenceId
+            || string.Equals(r.Scope, f.Scope.ToString(), StringComparison.OrdinalIgnoreCase)
+                && r.RoomId == f.RoomId && r.StartAtUtc == f.StartAtUtc && r.EndAtUtc == f.EndAtUtc)).ToList();
+        var results = new List<IncidentAbandonResult>();
+        foreach (var fence in matches) results.Add(await AbandonFenceAsync(fence.FenceId, managerId, ct));
+        await tx.CommitAsync(ct);
+        return results;
     }
 
     /// <summary>Recreate a manual room block removed during the incident, under its original id, if its window is still free.</summary>
@@ -604,7 +629,10 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
 
 public sealed record IncidentRequest([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, string Reason,
     int? MembershipExtensionDays = null,
-    string? PreviewToken = null, Guid? OperationId = null, IReadOnlyList<IncidentRefundSelection>? Refunds = null);
+    string? PreviewToken = null, Guid? OperationId = null, IReadOnlyList<IncidentRefundSelection>? Refunds = null,
+    IReadOnlyList<SportHub.BuildingBlocks.Abstractions.Wallet.IncidentPointGift>? DayPassGifts = null,
+    IReadOnlyList<IncidentResolutionSelection>? Resolutions = null);
+public sealed record IncidentDraftReference(string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc, Guid? FenceId = null);
 public sealed record IncidentDetailsResponse(Guid IncidentId,
     [property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, string? RoomName,
     DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc,
@@ -645,6 +673,8 @@ public sealed record IncidentResolutionOption(string Action, string Method, stri
 public sealed record IncidentPreviewResponse([property: SportHub.BuildingBlocks.Api.WireEnum] string Scope, int? RoomId, DateTime StartAtUtc, DateTime EndAtUtc,
     IReadOnlyList<IncidentImpact> Impacts, bool CanResolve, string? BlockReason)
 {
+    public Guid? FenceId { get; init; }
+    public DateTime? FenceExpiresAtUtc { get; init; }
     public IReadOnlyList<IncidentRefundRow> Refunds { get; init; } = [];
     public string PreviewToken { get; init; } = string.Empty;
     public bool ClosesGym { get; init; }

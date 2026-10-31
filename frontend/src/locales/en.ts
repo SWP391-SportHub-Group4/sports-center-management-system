@@ -714,11 +714,19 @@ export const en = {
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
     openingRulesHint:
-      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. Cancellation notifies the Coach and members; each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
+      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. When cancelling, the Manager enters refund points for each member. The Coach and members are notified; each member chooses the approved points or a refund request for the Manager. Without a choice within 2 days, the approved points are credited automatically.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
     cancelBelowThresholdHint:
-      "Cancellation notifies enrolled members and the teaching coach. Each member then chooses to receive the remaining paid balance as points (credited automatically, or automatically after 2 days) or to send a refund request for the Manager.",
+      "The Manager enters refund points for each member. Cancellation notifies members and the teaching coach. Each member chooses the approved points or a refund request for the Manager; without a choice within 2 days, the approved points are credited automatically.",
+  },
+  classCancellationRefund: {
+    title: "Refund points by member",
+    hint: "Enter points for every member. Enter 0 if no refund is approved. The maximum is the remaining paid value, with 1 point = 1,000 VND.",
+    points: "Refund points",
+    maximum: "Maximum: {points} points.",
+    invalid: "Enter a whole number from 0 to {points} points.",
+    total: "Total approved refund points",
   },
   managerCatalog: {
     createRoom: "Create room",
@@ -3021,10 +3029,34 @@ export const en = {
       columnResponseTime: "Response Time",
     },
   },
+  incidentPlans: {
+    title: "Changes to apply on confirmation",
+    hint: "These selections are kept only on this page. Schedule changes, refunds and compensation are saved only when you confirm the incident.",
+    selected: "Selected for final confirmation",
+    remove: "Remove selection",
+    usePlan: "Use this plan",
+    actions: {
+      RESCHEDULE: "Reschedule session",
+      CANCEL_WITH_MAKEUP: "Cancel and create makeup",
+      SESSION_OUTCOME: "Record session outcome",
+      REMOVE_ROOM_BLOCK: "Remove existing room block",
+    },
+  },
+  incidentDraft: {
+    cleanupError:
+      "The unfinished incident could not be fully discarded. Retry to release its temporary hold. Any schedule changes that could not be undone must be reviewed before continuing.",
+  },
+  incidentDayPassMembers: {
+    detailsTitle: "Affected Gym day-pass members",
+    empty: "No Gym day-pass members are affected by this incident.",
+    title: "Affected Gym day-pass holders",
+    review: "Review incident",
+    confirm: "Confirm incident",
+  },
   incidentRefunds: {
     title: "Affected services & refunds",
-    hint: "Review each rental and Gym day pass. Refund points are prefilled with the remaining paid value. Adjusting them requires a reason.",
-    empty: "No rental or Gym day pass is affected by this incident.",
+    hint: "Review each rental. Refund points are prefilled with the remaining paid value. Adjusting them requires a reason.",
+    empty: "No court rental is affected by this incident.",
     member: "Member",
     service: "Service",
     schedule: "Service date / time",
@@ -3062,20 +3094,23 @@ export const en = {
     review: "Review refunds & incident",
   },
   incidentHistory: {
+    successTitle: "Incident created successfully",
+    successMessage:
+      "The incident has been saved. Notifications to affected members are queued for automatic delivery.",
     arrangeMakeup: "Arrange a makeup session",
     makeupHint:
       "For a serious incident, replace the missed session in full. Members keep their enrollment and pay no extra fee. The coach and members receive the updated schedule.",
     noImpacts: "No activities are affected during this period.",
     editSession: "Edit affected session",
     removeBlockHint:
-      "Remove this existing room block, then review the incident impacts again before confirming the closure.",
+      "Select removal of this room block. It will be removed only when you confirm the incident.",
     intro:
       "Review affected activities, arrange any schedule changes, then confirm the closure.",
     formTitle: "Incident details",
     formHint:
       "Choose the affected area and period, including outside opening hours or overnight (up to 31 days). Times are shown in Vietnam time (UTC+7).",
     reviewHint:
-      "New bookings in this window are automatically blocked while you review. The lock is renewed on review and expires after 2 hours if left unfinished.",
+      "Review does not save an incident or block new bookings. Changes and compensation are saved only after final confirmation; availability is checked again at that time.",
     outsideHours:
       "Choose a period on the same day, entirely within the center opening hours.",
     allowedHours: "Allowed time: {open}–{close} (Vietnam time).",

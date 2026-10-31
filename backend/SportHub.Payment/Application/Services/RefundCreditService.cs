@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Payment;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -11,7 +12,8 @@ using SportHub.Payment.Wallet.Domain;
 namespace SportHub.Payment.Application.Services;
 
 /// <summary>Idempotent system-event refund credit. The entitlement-owning caller cancels its benefit in this transaction.</summary>
-public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletService wallets, PaymentNoticeService notices) : IRefundCreditService
+public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletService wallets, PaymentNoticeService notices,
+    ICenterCancellationReader cancellations) : IRefundCreditService
 {
     public async Task<int> GetSystemRefundPointsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default)
         => await db.Set<PointLedgerEntry>().AsNoTracking().Where(x => x.InvoiceItemId == invoiceItemId
@@ -126,7 +128,8 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         return new RefundCreditResult(request.Points, result.AlreadyApplied);
     }
 
-    public async Task<decimal> GetRemainingItemValueVndAsync(Guid invoiceItemId, CancellationToken cancellationToken = default)
+    public async Task<decimal> GetRemainingItemValueVndAsync(Guid invoiceItemId, CancellationToken cancellationToken = default,
+        RefundFraction? proration = null)
     {
         var item = await db.Set<InvoiceItem>().AsNoTracking()
             .SingleOrDefaultAsync(x => x.ItemId == invoiceItemId, cancellationToken)
@@ -135,7 +138,7 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
             .SingleAsync(x => x.InvoiceId == item.InvoiceId, cancellationToken);
         if (!SportHub.Payment.Domain.Rules.InvoiceFulfillment.HasBenefits(invoice.Status, invoice.PaidVia))
             throw new ConflictException("refund_invoice_not_paid", "Refund invoice not paid.");
-        return await RemainingPaidValueVndAsync(invoice, item, cancellationToken);
+        return await RemainingPaidValueVndAsync(invoice, item, cancellationToken, proration);
     }
 
     public async Task LockPaidItemAsync(Guid invoiceItemId, CancellationToken cancellationToken = default)
@@ -166,7 +169,8 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         }
     }
 
-    private async Task<decimal> RemainingPaidValueVndAsync(Invoice invoice, InvoiceItem item, CancellationToken ct)
+    private async Task<decimal> RemainingPaidValueVndAsync(Invoice invoice, InvoiceItem item, CancellationToken ct,
+        RefundFraction? proration = null)
     {
         var totalItemValue = await db.Set<InvoiceItem>().Where(x => x.InvoiceId == invoice.InvoiceId)
             .SumAsync(x => (decimal?)x.LineAmount, ct) ?? 0m;
@@ -197,7 +201,10 @@ public sealed class RefundCreditService(ISportHubDbContext db, IPointWalletServi
         var bankPaid = await db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>()
             .Where(p => p.InvoiceId == invoice.InvoiceId && (p.InvoiceItemId == item.ItemId || p.InvoiceItemId == null))
             .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
-        return Math.Max(0m, paidShare + paidTransferDifferences - bankPaid - (requestedPoints + systemPoints)
+        var cancellation = await cancellations.GetAsync(item.ItemId, ct);
+        var refundable = (proration ?? cancellation?.Proration)?.Apply(paidShare + paidTransferDifferences)
+            ?? paidShare + paidTransferDifferences;
+        return Math.Max(0m, refundable - (cancellation?.NonRefundableValueVnd ?? 0m) - bankPaid - (requestedPoints + systemPoints)
             * (decimal)RefundCalculator.VndPerPoint - oldCash
             - transferPoints * (decimal)RefundCalculator.VndPerPoint);
     }

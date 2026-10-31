@@ -243,6 +243,15 @@
   font-size: var(--text-xl);
   font-variant-numeric: tabular-nums;
 }
+.cancellationRefundInputs {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.cancellationRefundInputs h3 {
+  margin: 0;
+  font-size: var(--text-base);
+}
 .cancellationReview p {
   margin: 0;
   color: var(--text-muted);

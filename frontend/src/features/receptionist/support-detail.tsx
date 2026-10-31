@@ -123,6 +123,9 @@ export function SupportDetail({
       : "No active plan";
 
   // ---- routing ----
+  const transferAssignees = assignees.filter(
+    (staff) => !!user && staff.userId !== user.userId,
+  );
   const currentRole = request.assignedToUserId
     ? roleKey(
         assignees.find((x) => x.userId === request.assignedToUserId)?.role,
@@ -131,18 +134,20 @@ export function SupportDetail({
   const availableRoles = (Object.keys(ROLE_LABELS) as RoleKey[]).filter(
     (role) =>
       (request.category !== "PAYMENT" || role === "manager") &&
-      assigneesByRole(assignees, role).length > 0,
+      assigneesByRole(transferAssignees, role).length > 0,
   );
   const [targetRole, setTargetRole] = useState<RoleKey | "">("");
   const [targetUser, setTargetUser] = useState("");
   const [transferNote, setTransferNote] = useState("");
-  const staff = targetRole ? assigneesByRole(assignees, targetRole) : [];
+  const staff = targetRole
+    ? assigneesByRole(transferAssignees, targetRole)
+    : [];
   const escalating = !!targetRole && ROLE_RANK[targetRole] > myRank;
   const sameAssignee = targetUser === request.assignedToUserId;
   const noteMissing = escalating && transferNote.trim().length < 3;
   const transferBlock = !targetRole
     ? "Choose a department first."
-    : !targetUser
+    : !targetUser || !staff.some((person) => person.userId === targetUser)
       ? "Choose a staff member."
       : sameAssignee
         ? "This request is already assigned to that person."

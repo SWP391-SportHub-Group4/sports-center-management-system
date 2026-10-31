@@ -169,6 +169,8 @@ export function notificationPresentation(item: NotificationDto): {
 
 /** Only map known source identities. PaymentReceived also has legacy package IDs. */
 export function memberNotificationHref(item: NotificationDto): string | null {
+  if (item.sourceEventType === "CLASS_CANCELLED")
+    return "/member/finance?tab=refunds";
   if (item.actionUrl !== undefined)
     return item.actionUrl?.startsWith("/member/") ? item.actionUrl : null;
   if (item.sourceEventType === "CLASS_THRESHOLD_AT_RISK" && item.sourceEntityId)
@@ -182,9 +184,7 @@ export function memberNotificationHref(item: NotificationDto): string | null {
   if (item.sourceEventType === "MANAGER_POINTS_GIFTED")
     return "/member/finance?tab=wallet";
   if (
-    ["SCHEDULE_CHANGED", "CLASS_CANCELLED", "INCIDENT_RESOLUTION"].includes(
-      item.sourceEventType,
-    )
+    ["SCHEDULE_CHANGED", "INCIDENT_RESOLUTION"].includes(item.sourceEventType)
   )
     return "/member/schedule";
   if (item.sourceEventType === "CLASS_PUBLISHED") return "/member/services";
@@ -228,9 +228,10 @@ export function notificationActionLabel(
         ? "Review class"
         : "Review class decision";
     case "CLASS_CANCELLED":
-      return item.actionUrl?.includes("responseId=")
-        ? "Choose refund or wait"
-        : "View class";
+      return item.actionUrl?.startsWith("/coach/") ||
+        item.actionUrl?.startsWith("/manager/")
+        ? "View class"
+        : "Choose a refund option";
     case "SCHEDULE_CHANGED":
       return vi ? "Xem lịch và xử lý thay đổi" : "Review schedule change";
     case "REFUND_COMPLETED":
