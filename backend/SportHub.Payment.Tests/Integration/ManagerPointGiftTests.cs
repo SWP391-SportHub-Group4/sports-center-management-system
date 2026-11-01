@@ -46,31 +46,30 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Gift_limit_matches_overview_net_collected_and_changes_with_real_payments()
+    public async Task Gift_limit_is_fixed_and_enforced_independently_of_payments()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var invoiceId = await PurchaseMembership(member.UserId);
+        await factory.QueryAsync(async db => {
+            await db.Payments.Where(p => p.InvoiceId == invoiceId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.PaidAt, DateTime.UtcNow.AddMonths(-1)));
+            return 0;
+        });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var limit = (await client.GetFromJsonAsync<PointGiftLimit>("/api/manager/point-gifts/limits"))!;
-        var report = await client.GetFromJsonAsync<JsonElement>($"/api/reports/revenue?fromDate={limit.FromDate:yyyy-MM-dd}&toDate={limit.ToDate:yyyy-MM-dd}");
-        Assert.Equal(report.GetProperty("netRevenue").GetDecimal(), limit.NetCollectedVnd);
-        Assert.Equal((int)decimal.Floor(Math.Max(0m, limit.NetCollectedVnd) / PointWalletService.VndPerPoint), limit.MaxPoints);
-        var request = new SendPointGifts { BatchId = Guid.NewGuid(), Reason = "Gift above current Net collected",
-            Recipients = [new(member.UserId, limit.MaxPoints + 1)] };
+        Assert.Equal(10_000, limit.MaxPoints);
+        var request = new SendPointGifts { BatchId = Guid.NewGuid(), Reason = "Member appreciation",
+            Recipients = [new(member.UserId, 10_001)] };
         var denied = await client.PostAsJsonAsync("/api/manager/point-gifts", request);
         Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
         Assert.Contains("point_gift_limit_exceeded", await denied.Content.ReadAsStringAsync());
         Assert.False(await factory.QueryAsync(db => db.Set<PointGift>().AnyAsync(g => g.BatchId == request.BatchId)));
-        await factory.QueryAsync(async db => {
-            await db.Payments.Where(p => p.InvoiceId == invoiceId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Amount, p => p.Amount + PointWalletService.VndPerPoint));
-            return 0;
-        });
-        var updated = (await client.GetFromJsonAsync<PointGiftLimit>("/api/manager/point-gifts/limits"))!;
-        Assert.Equal(limit.NetCollectedVnd + PointWalletService.VndPerPoint, updated.NetCollectedVnd);
-        Assert.Equal(limit.MaxPoints + 1, updated.MaxPoints);
+        request.Recipients = [new(member.UserId, 10_000)];
         var accepted = await client.PostAsJsonAsync("/api/manager/point-gifts", request);
         Assert.True(accepted.IsSuccessStatusCode, await accepted.Content.ReadAsStringAsync());
+        Assert.Equal(10_000, await factory.QueryAsync(db => db.Set<PointGift>()
+            .Where(g => g.BatchId == request.BatchId).Select(g => g.Points).SingleAsync()));
     }
 
     [Fact]

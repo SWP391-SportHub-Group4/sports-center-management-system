@@ -24,7 +24,7 @@ const statuses = [
   "COMPLETED",
   "CANCELLED",
 ];
-const thresholds = ["NOT_EVALUATED", "MET", "AT_RISK", "WAIVED_BY_MANAGER"];
+const thresholds = ["NOT_EVALUATED", "MET", "WAIVED_BY_MANAGER", "AT_RISK"];
 const defaults = {
   sportId: "",
   status: "",
