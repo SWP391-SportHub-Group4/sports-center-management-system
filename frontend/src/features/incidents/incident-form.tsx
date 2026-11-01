@@ -5,13 +5,18 @@ import {
   refundEdit,
   type RefundEdits,
 } from "./incident-refund-table";
-import { DeliveryStatus } from "./delivery-status";
+import {
+  IncidentDayPassMembers,
+  dayPassRecipients,
+} from "./incident-day-pass-members";
 import { createPortal } from "react-dom";
 import styles from "./incidents.module.css";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ApiError } from "@/lib/apiClient";
+import { useAuth } from "@/lib/auth";
+import { useIncidentDraftCleanup } from "./incident-draft-cleanup";
 import { useLanguage } from "@/lib/language";
 import { Card, Field, Dialog } from "@/components/ui";
 import { RoomSelector, catalogApi } from "@/features/catalog";
@@ -25,18 +30,55 @@ import type { IncidentPreviewDto } from "@/lib/types";
 import { IncidentImpactReview } from "./incident-impact-review";
 import { validReceiptId } from "@/features/manager";
 import { IncidentHistory } from "./incident-history";
-import { incidentApi, type IncidentRequest } from "./incident-api";
+import {
+  incidentApi,
+  type IncidentRequest,
+  type IncidentResolutionSelection,
+} from "./incident-api";
+import { IncidentPlanSummary } from "./incident-plan-summary";
 import { useOperationsCopy } from "@/features/manager";
 import {
   IncidentProgress,
   type IncidentStep,
   type StepStatus,
 } from "./incident-progress";
+
+// Navigation timing stays fixed for this document. The server snapshot keeps
+// hydration consistent before the client initializes a fresh form on reload.
+const subscribeToNavigation = () => () => {};
+const isReload = () =>
+  (
+    performance.getEntriesByType("navigation")[0] as
+      PerformanceNavigationTiming | undefined
+  )?.type === "reload";
+
 export function IncidentForm() {
+  const resetOnReload = useSyncExternalStore(
+    subscribeToNavigation,
+    isReload,
+    () => false,
+  );
+  return (
+    <IncidentFormContent
+      key={String(resetOnReload)}
+      resetOnReload={resetOnReload}
+    />
+  );
+}
+
+function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   const { t } = useLanguage();
   const l = t.operations;
   const c = useOperationsCopy();
   const params = useSearchParams();
+  const { user } = useAuth();
+  const drafts = useIncidentDraftCleanup(user?.userId);
+  const previousPreviewToken = useRef("");
+  const resolutionPlans = useRef<IncidentResolutionSelection[]>([]);
+  const [resolutions, setResolutions] = useState<IncidentResolutionSelection[]>(
+    [],
+  );
+  const previewRequest = useRef<AbortController | null>(null);
   const mutation = useMutation();
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const revision = useRef(0);
@@ -49,29 +91,60 @@ export function IncidentForm() {
   const [timeError, setTimeError] = useState("");
   const [steps, setSteps] = useState<IncidentStep[]>([]);
   const [scope, setScope] = useState(
-    params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
+    !resetOnReload && params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
   );
   const [roomId, setRoom] = useState(
-    /^\d+$/.test(params.get("roomId") ?? "") ? params.get("roomId")! : "",
+    !resetOnReload && /^\d+$/.test(params.get("roomId") ?? "")
+      ? params.get("roomId")!
+      : "",
   );
-  const [start, setStart] = useState(params.get("start") ?? "");
-  const [end, setEnd] = useState(params.get("end") ?? "");
-  const [reason, setReason] = useState(params.get("reason") ?? "");
+  const [start, setStart] = useState(
+    resetOnReload ? "" : (params.get("start") ?? ""),
+  );
+  const [end, setEnd] = useState(
+    resetOnReload ? "" : (params.get("end") ?? ""),
+  );
+  const [reason, setReason] = useState(
+    resetOnReload ? "" : (params.get("reason") ?? ""),
+  );
   const [review, setReview] = useState<{
     body: IncidentRequest;
     preview: IncidentPreviewDto;
   } | null>(null);
-  const [incidentId, setIncidentId] = useState(
-    validReceiptId(params.get("incidentId") ?? "")
-      ? params.get("incidentId")!
-      : "",
-  );
+  const [incidentId, setIncidentId] = useState("");
+  const [historyKey, setHistoryKey] = useState("");
   const [finalReview, setFinalReview] = useState(false);
-  const [uncertain, setUncertain] = useState(
+  const [confirmationUncertain, setUncertain] = useState(
     params.get("incidentUncertain") === "1",
   );
   const [resolving, setResolving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const uncertain = confirmationUncertain || drafts.uncertain;
+  useEffect(() => {
+    if (resetOnReload) {
+      const query = new URLSearchParams(window.location.search);
+      for (const key of [
+        "incidentId",
+        "scope",
+        "roomId",
+        "start",
+        "end",
+        "reason",
+        "fenceId",
+      ])
+        query.delete(key);
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (query.size ? "?" + query.toString() : ""),
+      );
+    }
+    const abort = () => previewRequest.current?.abort();
+    window.addEventListener("pagehide", abort);
+    return () => window.removeEventListener("pagehide", abort);
+    // Browser reload discards unfinished form values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const hasValidDates =
     validIncidentDateTime(start) && validIncidentDateTime(end);
   const startMs = hasValidDates ? Date.parse(vietnamUtc(start)) : 0;
@@ -115,12 +188,43 @@ export function IncidentForm() {
   function clear() {
     revision.current++;
     operationId.current = "";
+    previousPreviewToken.current = "";
+    resolutionPlans.current = [];
+    setResolutions([]);
     setRefundEdits({});
     setPreviewChanged(false);
     setReview(null);
     setIncidentId("");
     mutation.reset();
     setFinalReview(false);
+  }
+  function finish() {
+    clear();
+    setSteps([]);
+    setScope("ROOM");
+    setRoom("");
+    setStart("");
+    setEnd("");
+    setReason("");
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+  function stageResolution(plan: IncidentResolutionSelection) {
+    revision.current++;
+    resolutionPlans.current = [
+      ...resolutionPlans.current.filter((p) => p.sourceId !== plan.sourceId),
+      plan,
+    ];
+    setResolutions(resolutionPlans.current);
+    setFinalReview(false);
+  }
+  function removeResolution(sourceId: string) {
+    revision.current++;
+    resolutionPlans.current = resolutionPlans.current.filter(
+      (p) => p.sourceId !== sourceId,
+    );
+    setResolutions(resolutionPlans.current);
+    setFinalReview(false);
+    void preview();
   }
   async function preview(final = false) {
     if (!hasValidDates || rangeError) {
@@ -132,7 +236,8 @@ export function IncidentForm() {
     if (!formRef.current?.reportValidity()) return;
     if (!validDraft || (final && !refundValid)) return;
     if (!operationId.current) operationId.current = crypto.randomUUID();
-    const priorToken = review?.preview.previewToken;
+    const priorToken =
+      review?.preview.previewToken || previousPreviewToken.current;
     const expectedRevision = revision.current;
     const body = {
       scope,
@@ -140,13 +245,17 @@ export function IncidentForm() {
       startAtUtc: vietnamUtc(start),
       endAtUtc: vietnamUtc(end),
       reason: reason.trim(),
+      resolutions: resolutionPlans.current,
     };
     setReview(null);
     setFinalReview(false);
     await mutation.run(async () => {
-      const data = await incidentApi.preview(body);
+      const controller = new AbortController();
+      previewRequest.current = controller;
+      const data = await incidentApi.preview(body, controller.signal);
       if (revision.current === expectedRevision) {
         const changed = !!priorToken && priorToken !== data.previewToken;
+        previousPreviewToken.current = data.previewToken ?? "";
         if (changed || !priorToken) setRefundEdits({});
         setPreviewChanged(changed);
         setReview({ body, preview: data });
@@ -176,7 +285,35 @@ export function IncidentForm() {
           </Dialog>,
           document.body,
         )}
+      {incidentId &&
+        createPortal(
+          <Dialog
+            title={t.incidentHistory.successTitle}
+            showCloseButton={false}
+            onClose={finish}
+            footer={
+              <button type="button" className="btn" onClick={finish}>
+                {t.common.close}
+              </button>
+            }
+          >
+            <p role="status">{t.incidentHistory.successMessage}</p>
+          </Dialog>,
+          document.body,
+        )}
       <p className={styles.intro}>{t.incidentHistory.intro}</p>
+      {drafts.error && (
+        <div className="alert alert--warning" role="alert">
+          <p>{t.incidentDraft.cleanupError}</p>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={drafts.retry}
+          >
+            {t.common.retry}
+          </button>
+        </div>
+      )}
       <Card
         title={incidentId ? l.resolved : t.incidentHistory.formTitle}
         hint={!incidentId ? t.incidentHistory.formHint : undefined}
@@ -194,6 +331,7 @@ export function IncidentForm() {
               className={formStyles.formFields}
               disabled={
                 mutation.busy ||
+                !drafts.ready ||
                 resolving ||
                 editing ||
                 uncertain ||
@@ -269,47 +407,9 @@ export function IncidentForm() {
           </form>
         )}
         <MutationFeedback mutation={mutation} />
-        {incidentId && (
-          <div className={styles.result}>
-            <p role="status">{t.managerOperations.resolvedHint}</p>
-            <div className={styles.actions}>
-              <Link
-                className="btn btn--secondary"
-                href={`/manager/incidents/${incidentId}`}
-              >
-                {l.details}
-              </Link>
-              <button
-                className="btn btn--ghost"
-                onClick={() => {
-                  clear();
-                  setSteps([]);
-                  setReason("");
-                  mutation.reset();
-                  window.history.replaceState(
-                    null,
-                    "",
-                    window.location.pathname,
-                  );
-                }}
-              >
-                {l.create}
-              </button>
-            </div>
-          </div>
-        )}
       </Card>
-      {incidentId && <DeliveryStatus incidentId={incidentId} />}
-      {incidentId && refundRows.length > 0 && (
-        <Card>
-          <IncidentRefundTable rows={refundRows} edits={refundEdits} readOnly />
-          <Link
-            className="btn btn--secondary"
-            href={`/manager/incidents/${incidentId}`}
-          >
-            {t.incidentRefunds.receipt}
-          </Link>
-        </Card>
+      {!review && !incidentId && (
+        <IncidentPlanSummary plans={resolutions} onRemove={removeResolution} />
       )}
       {review &&
         !finalReview &&
@@ -353,7 +453,9 @@ export function IncidentForm() {
                 >
                   {refundRows.length
                     ? t.incidentRefunds.review
-                    : t.managerOperations.recheck}
+                    : dayPassRecipients(review.preview).length
+                      ? t.incidentDayPassMembers.review
+                      : t.managerOperations.recheck}
                 </button>
               </div>
             }
@@ -379,6 +481,9 @@ export function IncidentForm() {
                       ),
                     }}
                     incidentRequest={review.body}
+                    resolutions={resolutions}
+                    onStage={stageResolution}
+                    onRemovePlan={removeResolution}
                     onRefresh={() => preview()}
                     onResult={(type, id, status, message) => {
                       record(type, id, status, message);
@@ -400,6 +505,11 @@ export function IncidentForm() {
                   edits={refundEdits}
                   onChange={setRefundEdits}
                   disabled={mutation.busy || resolving || editing}
+                />
+                <IncidentDayPassMembers preview={review.preview} />
+                <IncidentPlanSummary
+                  plans={resolutions}
+                  onRemove={removeResolution}
                 />
               </div>
               <MutationFeedback mutation={mutation} />
@@ -444,6 +554,7 @@ export function IncidentForm() {
                   onClick={async () => {
                     if (resolvePending.current || !refundValid) return;
                     resolvePending.current = true;
+                    drafts.markConfirming(true);
                     setResolving(true);
                     record("FINAL", "—", "pending");
                     let unknown = false;
@@ -474,17 +585,17 @@ export function IncidentForm() {
                           throw error;
                         });
                       setIncidentId(response.incidentId);
+                      setHistoryKey(response.incidentId);
+                      setReview(null);
+                      drafts.markConfirming(false);
+                      previousPreviewToken.current = "";
                       setFinalReview(false);
                       record("FINAL", response.incidentId, "succeeded");
-                      window.history.replaceState(
-                        null,
-                        "",
-                        `?incidentId=${response.incidentId}`,
-                      );
-                    }, l.resolved);
+                    }, "");
                     resolvePending.current = false;
                     setResolving(false);
                     if (!ok) {
+                      if (!unknown) drafts.markConfirming(false);
                       record("FINAL", "—", unknown ? "unknown" : "failed");
                       setReview(null);
                       setFinalReview(false);
@@ -501,7 +612,9 @@ export function IncidentForm() {
                 >
                   {refundRows.length
                     ? t.incidentRefunds.confirm
-                    : t.managerOperations.finalResolve}
+                    : dayPassRecipients(review.preview).length
+                      ? t.incidentDayPassMembers.confirm
+                      : t.managerOperations.finalResolve}
                 </button>
               </>
             }
@@ -534,11 +647,13 @@ export function IncidentForm() {
                 <dd>{review.body.reason}</dd>
               </div>
             </dl>
+            <IncidentPlanSummary plans={review.body.resolutions ?? []} />
             <IncidentRefundTable
               rows={refundRows}
               edits={refundEdits}
               readOnly
             />
+            <IncidentDayPassMembers preview={review.preview} />
           </Dialog>,
           document.body,
         )}
@@ -554,7 +669,7 @@ export function IncidentForm() {
         </div>
       )}
       {!!steps.length && <IncidentProgress steps={steps} />}
-      <IncidentHistory key={incidentId} refreshKey={incidentId} />
+      <IncidentHistory key={historyKey} refreshKey={historyKey} />
     </div>
   );
 }

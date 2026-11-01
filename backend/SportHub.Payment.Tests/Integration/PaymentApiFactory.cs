@@ -131,7 +131,8 @@ public sealed class PaymentApiFactory : WebApplicationFactory<Program>, IAsyncLi
             // Dispatch behavior is tested explicitly, without the hosted timer.
             foreach (var dispatcher in services.Where(descriptor =>
                          descriptor.ServiceType == typeof(IHostedService)
-                         && descriptor.ImplementationType == typeof(NotificationDispatchJob)).ToArray())
+                         && (descriptor.ImplementationType == typeof(NotificationDispatchJob)
+                             || descriptor.ImplementationType == typeof(DayPassClosingJob))).ToArray())
             {
                 services.Remove(dispatcher);
             }

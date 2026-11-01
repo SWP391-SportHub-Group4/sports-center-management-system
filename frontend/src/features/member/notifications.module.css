@@ -454,6 +454,56 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.closureBody {
+  white-space: normal;
+  line-height: 1.65;
+}
+.closureBody > p {
+  margin: 0;
+}
+.closureBody > .closureTimezone {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.closureDetails {
+  display: grid;
+  gap: var(--space-4);
+  margin: var(--space-5) 0;
+  padding-block: var(--space-5);
+  border-block: 1px solid var(--border-subtle);
+}
+.closureDetails > div {
+  display: grid;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+}
+.closureDetails dt {
+  color: var(--text-muted);
+}
+.closureDetails dd {
+  margin: 0;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+.closureDetails dd span {
+  display: block;
+}
+.closureGuidance {
+  display: grid;
+  gap: var(--space-3);
+}
+.closureGuidance h3,
+.closureGuidance p {
+  margin: 0;
+  font-size: inherit;
+}
+@media (max-width: 640px) {
+  .closureDetails > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+}
 .readerMeta,
 .sender,
 .readerFooter,

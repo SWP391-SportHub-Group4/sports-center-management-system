@@ -16,7 +16,10 @@
 .heading p,
 .empty {
   color: var(--text-muted);
-  max-width: 72ch;
+  max-width: none;
+  text-wrap: pretty;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 .root table {
   width: 100%;

@@ -1,16 +1,20 @@
+using SportHub.Membership.Application.Services;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Membership.Domain.Enums;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
+using SportHub.Membership.Domain;
+using SportHub.Membership.Domain.Rules;
 using SportHub.Scheduling.Application.Interfaces;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Scheduling.Domain.Exceptions;
 
 namespace SportHub.Scheduling.Infrastructure.Repositories;
 
-public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReader gymClosure) : IGymCheckInRepository
+public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReader gymClosure, ISystemSettingProvider settings) : IGymCheckInRepository
 {
     // Đọc member_packages bằng SQL thô vì cần mệnh đề khóa FOR SHARE — LINQ không diễn đạt được.
     // Cột alias "Value": SqlQueryRaw<int> yêu cầu đúng tên đó cho kiểu vô hướng.
@@ -20,6 +24,7 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
         WHERE member_id = {0} AND status = {1}
           AND start_date <= {2} AND end_date >= {2}
           AND (expires_at_utc IS NULL OR expires_at_utc > {3})
+          AND (package_id <> {4} OR {5})
         LIMIT 1
         FOR SHARE
         """;
@@ -27,6 +32,7 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
     public async Task CreateGuardedAsync(GymCheckIn checkIn, CancellationToken cancellationToken = default)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await DayPassHoursLock.AcquireAsync(db, ct: cancellationToken);
 
         // Serialize check-in against account lock/deactivation. SetStatusAsync updates this row,
         // so FOR SHARE makes the access decision and check-in atomic with respect to that change.
@@ -82,7 +88,8 @@ public sealed class GymCheckInRepository(ISportHubDbContext db, IGymClosureReade
         // RemainingSessions vì Membership không có hạn mức buổi.
         var todayLocal = DateOnly.FromDateTime(SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(checkIn.CheckInTime));
         var activePackages = await db.Database
-            .SqlQueryRaw<int>(LockActivePackageSql, checkIn.MemberId, (int)MemberPackageStatus.Active, todayLocal, checkIn.CheckInTime)
+            .SqlQueryRaw<int>(LockActivePackageSql, checkIn.MemberId, (int)MemberPackageStatus.Active, todayLocal, checkIn.CheckInTime,
+                DayPass.PackageId, DayPassClock.IsOpen(checkIn.CheckInTime, await CenterOperatingHours.ReadAsync(settings, cancellationToken)))
             .ToListAsync(cancellationToken);
 
         if (activePackages.Count == 0)

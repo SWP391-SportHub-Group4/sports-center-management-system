@@ -221,12 +221,6 @@ function AuditFilterForm({
       ],
     },
     {
-      id: "targetId",
-      label: "Record ID",
-      kind: "search",
-      placeholder: "Optional exact ID",
-    },
-    {
       id: "actorRole",
       label: "Role at event time",
       kind: "select",
@@ -332,6 +326,7 @@ function AuditFilterForm({
         </div>
       )}
       <FilterBar
+        className={!administrator ? styles.managerFilterBar : undefined}
         inline={administrator}
         resetStyle={administrator ? "icon" : "text"}
         fields={

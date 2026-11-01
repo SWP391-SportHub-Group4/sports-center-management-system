@@ -44,7 +44,7 @@ export function CourseCancellationAction({
     : failed
       ? copy.cancellationCheckFailed
       : refund
-        ? copy.belowThresholdTitle
+        ? copy.cancelClass
         : allowed
           ? copy.cancelClass
           : copy.cancellationUnavailable;

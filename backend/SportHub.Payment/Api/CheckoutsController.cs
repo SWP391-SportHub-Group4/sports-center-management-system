@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -14,7 +15,8 @@ namespace SportHub.Payment.Api;
 
 [ApiController, Authorize, Route("api/checkouts")]
 public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurchaseService packages,
-    PaymentReconciliationService reconciliation, ISportHubDbContext db) : ControllerBase
+    PaymentReconciliationService reconciliation, ISportHubDbContext db,
+    IHostEnvironment environment) : ControllerBase
 {
     [HttpPost("wallet-top-up")]
     [Authorize(Roles = SportHubRoleNames.Member + "," + SportHubRoleNames.Receptionist)]
@@ -102,8 +104,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     {
         RequireBuyer();
         var actorId = User.RequireUserId();
-        // Ownership is checked before calling VNPay. The browser's return parameters are never
-        // accepted as proof of payment; only a signed QueryDR response can change the invoice.
+        // Check ownership before using return parameters or querying VNPay.
         var checkout = await checkouts.FindByReferenceAsync(request.Reference, actorId, ct);
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
             .SingleAsync(x => x.VnpTxnRef == request.Reference && x.InvoiceId == checkout.InvoiceId, ct);
@@ -111,6 +112,24 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         // Query the expired attempt too so the existing late-payment pipeline can resolve it.
         if (attempt.Status is PaymentAttemptStatus.Pending or PaymentAttemptStatus.Expired)
         {
+            // Development only: localhost cannot receive the IPN and the sandbox QueryDR is unreliable,
+            // so accept the return parameters when they carry a valid VNPay signature for this reference.
+            // VerifyCallback checks the signature and merchant; reconciliation checks the amount
+            // and processes the signed result through the same path as an IPN.
+            var returned = request.Fields;
+            if (environment.IsDevelopment() && returned is { Count: > 0 }
+                && returned.GetValueOrDefault("vnp_TxnRef") == request.Reference)
+            {
+                try
+                {
+                    await reconciliation.ReceiveCallbackAsync(returned, ct);
+                    return Ok(await checkouts.GetAsync(checkout.InvoiceId, actorId, IsStaff(), ct));
+                }
+                catch (Exception ex) when (ex is BadRequestException or ConflictException)
+                {
+                    // Fall through to the signed QueryDR below.
+                }
+            }
             if (!await reconciliation.ReconcileAttemptAsync(attempt.PaymentAttemptId, ct))
                 throw new ConflictException("payment_verification_pending",
                     "VNPay has not returned a verified payment result yet.");
@@ -233,6 +252,6 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
 public sealed record CourtRentalCheckoutRequest(int SportId, int RoomId,
     DateTimeOffset StartUtc, DateTimeOffset EndUtc, Guid? TargetMemberId = null);
 
-public sealed record VerifyPaymentReferenceRequest(string Reference);
+public sealed record VerifyPaymentReferenceRequest(string Reference, Dictionary<string, string>? Fields = null);
 public sealed record CancelPaymentReferenceRequest(Dictionary<string, string>? Fields);
 public sealed record WalletTopUpCheckoutRequest(int Points, Guid? TargetMemberId = null);

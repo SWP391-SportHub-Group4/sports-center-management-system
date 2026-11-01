@@ -13,6 +13,8 @@ const FOCUSABLE =
  *  - khóa cuộn trang nền khi còn lớp phủ.
  */
 const stack: symbol[] = [];
+const scrollLocks = new Set<symbol>();
+let previousBodyOverflow = "";
 
 export function useModalBehavior(
   ref: RefObject<HTMLElement | null>,
@@ -33,8 +35,14 @@ export function useModalBehavior(
 
     node?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
 
-    const previousOverflow = document.body.style.overflow;
-    if (modal) document.body.style.overflow = "hidden";
+    if (modal) {
+      // Save the original value once, even when overlays close out of order.
+      if (scrollLocks.size === 0) {
+        previousBodyOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+      }
+      scrollLocks.add(token);
+    }
 
     function onKeyDown(event: KeyboardEvent) {
       if (stack[stack.length - 1] !== token) return;
@@ -72,7 +80,12 @@ export function useModalBehavior(
       document.removeEventListener("keydown", onKeyDown);
       const index = stack.indexOf(token);
       if (index >= 0) stack.splice(index, 1);
-      if (modal) document.body.style.overflow = previousOverflow;
+      if (modal) {
+        scrollLocks.delete(token);
+        if (scrollLocks.size === 0) {
+          document.body.style.overflow = previousBodyOverflow;
+        }
+      }
       if (modal || node?.contains(document.activeElement)) previous?.focus();
     };
   }, [ref, modal]);

@@ -91,6 +91,56 @@ public sealed class IncidentFenceTests(PaymentApiFactory factory)
         Assert.Equal(first.FenceId, second.FenceId);
         Assert.Equal(1, await factory.QueryAsync(db => db.Set<IncidentFence>()
             .CountAsync(f => f.RoomId == request.RoomId && f.Status == IncidentFenceStatus.Open)));
+        var review = await incidents.ReviewAsync(WindowAround(request), manager.UserId);
+        Assert.Null(review.FenceId);
+        Assert.Null(review.FenceExpiresAtUtc);
+        var resumed = await incidents.ReviewAsync(WindowAround(request), manager.UserId);
+        Assert.Equal(review.FenceId, resumed.FenceId);
+        Assert.Equal(review.PreviewToken, resumed.PreviewToken);
+    }
+
+    [Fact]
+    public async Task Discarding_drafts_is_idempotent_and_preserves_confirmed_incidents_and_other_managers()
+    {
+        var rental = await SetupAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var other = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var scope = factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<IncidentService>();
+        var request = WindowAround(rental);
+        var own = await service.OpenFenceAsync(request, manager.UserId);
+        var otherRequest = WindowAround(Shifted(rental, TimeSpan.FromHours(3)));
+        var theirs = await service.OpenFenceAsync(otherRequest, other.UserId);
+        var resolvedRequest = WindowAround(Shifted(rental, TimeSpan.FromHours(6)));
+        var resolvedFence = await service.OpenFenceAsync(resolvedRequest, manager.UserId);
+        var incidentId = await service.ResolveAsync(await IncidentTestRequests.ReviewAsync(service, resolvedRequest), manager.UserId);
+        IncidentDraftReference Ref(IncidentRequest r, Guid? id = null) => new(r.Scope, r.RoomId, r.StartAtUtc, r.EndAtUtc, id);
+        var references = new[] { Ref(request, own.FenceId), Ref(otherRequest, theirs.FenceId), Ref(resolvedRequest, resolvedFence.FenceId) };
+        var result = Assert.Single(await service.DiscardDraftsAsync(references, manager.UserId));
+        Assert.Equal(own.FenceId, result.FenceId);
+        Assert.Empty(await service.DiscardDraftsAsync(references, manager.UserId));
+        Assert.True(await factory.QueryAsync(db => db.Set<IncidentNotice>().AnyAsync(i => i.IncidentId == incidentId)));
+        Assert.Equal(IncidentFenceStatus.Resolved, await factory.QueryAsync(db => db.Set<IncidentFence>()
+            .Where(f => f.FenceId == resolvedFence.FenceId).Select(f => f.Status).SingleAsync()));
+        Assert.Equal(IncidentFenceStatus.Open, await factory.QueryAsync(db => db.Set<IncidentFence>()
+            .Where(f => f.FenceId == theirs.FenceId).Select(f => f.Status).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Read_only_review_does_not_need_cleanup_when_its_response_is_lost()
+    {
+        var rental = await SetupAsync();
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var scope = factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<IncidentService>();
+        var request = WindowAround(rental);
+        var review = await service.ReviewAsync(request, manager.UserId);
+        var result = await service.DiscardDraftsAsync([
+            new(request.Scope, request.RoomId, request.StartAtUtc, request.EndAtUtc)
+        ], manager.UserId);
+        Assert.Empty(result);
+        Assert.Null(review.FenceId);
+        Assert.False(await factory.QueryAsync(db => db.Set<IncidentFence>().AnyAsync(f => f.RoomId == request.RoomId)));
     }
 
     [Fact]

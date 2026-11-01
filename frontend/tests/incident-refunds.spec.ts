@@ -58,18 +58,34 @@ const rows = [
   endAtUtc: "2026-10-25T03:00:00Z",
 }));
 
-async function setup(page: Page) {
+async function setup(
+  page: Page,
+  dayPassOnly = false,
+  openReview = true,
+  withBlock = false,
+) {
   const writes: Record<string, unknown>[] = [];
+  const discards: Record<string, unknown>[][] = [];
+  const intermediateWrites: string[] = [];
+  let cleanupFails = false;
   let version = 1;
+  let expired = false;
+  let actorId = "manager";
   await page.addInitScript(() =>
     localStorage.setItem("sporthub.accessToken", "incident-refund-fixture"),
   );
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (
+      route.request().method() !== "GET" &&
+      (path === "/api/manager/incidents/fences" ||
+        path.startsWith("/api/manager/room-blocks/"))
+    )
+      intermediateWrites.push(path);
     if (path === "/api/users/me")
       return route.fulfill({
         json: {
-          userId: "manager",
+          userId: actorId,
           role: "CENTER_MANAGER",
           fullName: "Manager",
           email: "manager@example.com",
@@ -78,6 +94,18 @@ async function setup(page: Page) {
       });
     if (path.endsWith("unread-count"))
       return route.fulfill({ json: { count: 0 } });
+    if (path === "/api/manager/incidents/drafts/discard") {
+      discards.push(route.request().postDataJSON());
+      return route.fulfill(
+        cleanupFails
+          ? { status: 503, json: { error: "cleanup_failed" } }
+          : { json: [] },
+      );
+    }
+    if (path.endsWith("/notifications"))
+      return route.fulfill({
+        json: { total: 0, pending: 0, sending: 0, sent: 0, failed: 0, read: 0 },
+      });
     if (path === "/api/system-settings")
       return route.fulfill({
         json: [
@@ -104,13 +132,62 @@ async function setup(page: Page) {
           roomId: null,
           startAtUtc: "2026-10-25T01:00:00Z",
           endAtUtc: "2026-10-25T04:00:00Z",
-          canResolve: true,
+          canResolve:
+            !withBlock ||
+            route
+              .request()
+              .postDataJSON()
+              .resolutions?.some(
+                (p: { action: string }) => p.action === "REMOVE_ROOM_BLOCK",
+              ),
           blockReason: null,
-          impacts: [],
-          members: [],
-          refunds: rows,
-          previewToken: "preview-" + version,
+          impacts: withBlock
+            ? [
+                {
+                  sourceId: "77777777-7777-4777-8777-777777777777",
+                  sourceType: "ROOM_BLOCK",
+                  startAtUtc: "2026-10-25T01:00:00Z",
+                  endAtUtc: "2026-10-25T02:00:00Z",
+                  resolutionOptions: [{ action: "RemoveExistingBlock" }],
+                },
+              ]
+            : [],
+          members: dayPassOnly
+            ? ["a", "b"].map((memberId, index) => ({
+                memberId,
+                memberName: ["Linh Nguyen", "Minh Tran"][index],
+                sourceType: "GYM_DAY_PASS",
+                sourceId: rows[index].sourceId,
+                outcome: "DAY_PASS_SUPPORT",
+                expectedRefundPoints: null,
+              }))
+            : [],
+          closesGym: dayPassOnly,
+          refunds: dayPassOnly ? [] : rows,
+          previewToken:
+            "preview-" +
+            version +
+            (withBlock
+              ? ":" + (route.request().postDataJSON().resolutions?.length ?? 0)
+              : ""),
         },
+      });
+    if (path === "/api/manager/incidents/fences")
+      return route.fulfill({
+        json: [
+          {
+            fenceId: "66666666-6666-4666-8666-666666666666",
+            scope: "CENTER",
+            roomId: null,
+            startAtUtc: "2026-10-25T01:00:00Z",
+            endAtUtc: "2026-10-25T04:00:00Z",
+            reason: "Power failure across the center",
+            isExpired: expired,
+            expiresAtUtc: expired
+              ? "2020-01-01T00:00:00Z"
+              : "2099-10-25T05:00:00Z",
+          },
+        ],
       });
     if (path === "/api/manager/incidents/resolve") {
       writes.push(route.request().postDataJSON());
@@ -127,16 +204,344 @@ async function setup(page: Page) {
   await page.goto(
     "/manager/incidents?scope=CENTER&start=2026-10-25T08:00&end=2026-10-25T11:00&reason=Power%20failure%20across%20the%20center",
   );
-  await page
-    .getByRole("button", { name: en.operations.review, exact: true })
-    .click();
+  if (openReview)
+    await page
+      .getByRole("button", { name: en.operations.review, exact: true })
+      .click();
   return {
     writes,
+    intermediateWrites,
+    discards,
+    failCleanup: (value: boolean) => {
+      cleanupFails = value;
+    },
     changed: () => {
       version++;
     },
+    expire: () => {
+      expired = true;
+    },
+    changeUser: () => {
+      actorId = "another-manager";
+    },
   };
 }
+
+test("review and refresh never save a draft or create a hold before confirmation", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true);
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage).some((k) =>
+        k.startsWith("sporthub.incident-draft."),
+      ),
+    ),
+  ).toBe(false);
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("sporthub.incident-cleanup.v1:manager"),
+    ),
+  ).toBeNull();
+  expect(fixture.intermediateWrites).toHaveLength(0);
+  await page.reload();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(fixture.discards).toHaveLength(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        sessionStorage.getItem("sporthub.incident-cleanup.v1:manager"),
+      ),
+    )
+    .toBeNull();
+  expect(fixture.writes).toHaveLength(0);
+  expect(page.url()).not.toContain("reason=");
+});
+
+test("refresh clears a form that was never reviewed without creating a server hold", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true, false);
+  await page
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Unsaved form");
+  await page.reload();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("");
+  expect(fixture.discards).toHaveLength(0);
+  expect(fixture.writes).toHaveLength(0);
+});
+
+test("room-block changes are selected locally and submitted only with final incident confirmation", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true, true, true);
+  const impact = page.getByRole("dialog", {
+    name: en.operations.impact,
+    exact: true,
+  });
+  await impact
+    .getByRole("button", { name: en.operations.remove, exact: true })
+    .click();
+  const remove = page.getByRole("dialog", {
+    name: en.operations.remove,
+    exact: true,
+  });
+  await remove
+    .getByRole("button", { name: en.incidentPlans.usePlan, exact: true })
+    .click();
+  await expect(
+    impact.getByText(en.incidentPlans.selected, { exact: true }),
+  ).toBeVisible();
+  expect(fixture.intermediateWrites).toHaveLength(0);
+  expect(fixture.writes).toHaveLength(0);
+  await impact
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.review,
+      exact: true,
+    })
+    .click();
+  const final = page.getByRole("dialog", {
+    name: en.managerOperations.resolveReview,
+    exact: true,
+  });
+  await expect(
+    final.getByRole("region", { name: en.incidentPlans.title, exact: true }),
+  ).toBeVisible();
+  expect(fixture.writes).toHaveLength(0);
+  await final
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.confirm,
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  expect(fixture.writes[0].resolutions).toMatchObject([
+    {
+      sourceId: "77777777-7777-4777-8777-777777777777",
+      action: "REMOVE_ROOM_BLOCK",
+    },
+  ]);
+  expect(fixture.intermediateWrites).toHaveLength(0);
+});
+
+test("refresh discards selected schedule changes without applying them", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true, true, true);
+  await page
+    .getByRole("dialog", { name: en.operations.impact, exact: true })
+    .getByRole("button", { name: en.operations.remove, exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: en.operations.remove, exact: true })
+    .getByRole("button", { name: en.incidentPlans.usePlan, exact: true })
+    .click();
+  await expect(
+    page.getByText(en.incidentPlans.selected, { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(fixture.writes).toHaveLength(0);
+  expect(fixture.intermediateWrites).toHaveLength(0);
+  expect(fixture.discards).toHaveLength(0);
+});
+
+test("old saved drafts are purged and cleanup failure can be retried", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true);
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "sporthub.incident-draft.v1:manager",
+      JSON.stringify({
+        scope: "CENTER",
+        roomId: "",
+        start: "2026-10-25T08:00",
+        end: "2026-10-25T11:00",
+        fenceId: "66666666-6666-4666-8666-666666666666",
+      }),
+    );
+    localStorage.setItem(
+      "sporthub.incident-draft.v1:old-account",
+      "old personal draft",
+    );
+  });
+  fixture.failCleanup(true);
+  await page.reload();
+  await expect(
+    page.getByText(en.incidentDraft.cleanupError, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toBeDisabled();
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage).some((k) =>
+        k.startsWith("sporthub.incident-draft."),
+      ),
+    ),
+  ).toBe(false);
+  fixture.failCleanup(false);
+  await page
+    .getByRole("button", { name: en.common.retry, exact: true })
+    .click();
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toBeEnabled();
+  await expect(
+    page.getByText(en.incidentDraft.cleanupError, { exact: true }),
+  ).toHaveCount(0);
+});
+
+test("successful confirmation shows a popup without a detail redirect and refresh does not repeat it", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true);
+  await page
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.review,
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.confirm,
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  await expect(
+    page.getByRole("dialog", {
+      name: en.incidentHistory.successTitle,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page).not.toHaveURL(/incidentId=/);
+  await page.reload();
+  await expect(page).not.toHaveURL(/incidentId=/);
+  await expect(
+    page.getByRole("button", { name: en.operations.review, exact: true }),
+  ).toBeVisible();
+  expect(fixture.writes).toHaveLength(1);
+  expect(fixture.discards).toHaveLength(0);
+});
+
+test("Gym incident only lists affected day-pass holders with avatars and no points controls", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true);
+  const dialog = page.getByRole("dialog", {
+    name: en.operations.impact,
+    exact: true,
+  });
+  const members = dialog.getByRole("region", {
+    name: en.incidentDayPassMembers.title,
+    exact: true,
+  });
+  await expect(members).toContainText("Linh Nguyen");
+  await expect(members).toContainText("Minh Tran");
+  await expect(members.getByRole("listitem")).toHaveCount(2);
+  await expect(
+    members.getByRole("listitem").nth(0).locator("img"),
+  ).toBeVisible();
+  await expect(
+    members.getByRole("listitem").nth(1).locator("img"),
+  ).toBeVisible();
+  await expect(members.getByRole("textbox")).toHaveCount(0);
+  await expect(
+    dialog.getByText("Total compensation points", { exact: true }),
+  ).toHaveCount(0);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 950 });
+    await members.scrollIntoViewIfNeeded();
+    await members.screenshot({
+      path: test.info().outputPath(`affected-day-pass-${width}.png`),
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await dialog
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.review,
+      exact: true,
+    })
+    .click();
+  const confirm = page.getByRole("dialog", {
+    name: en.managerOperations.resolveReview,
+    exact: true,
+  });
+  await expect(
+    confirm
+      .getByRole("region", {
+        name: en.incidentDayPassMembers.title,
+        exact: true,
+      })
+      .getByRole("listitem"),
+  ).toHaveCount(2);
+  await expect(
+    confirm.getByText("Total compensation points", { exact: true }),
+  ).toHaveCount(0);
+  await confirm
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.confirm,
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  expect(fixture.writes[0].dayPassGifts).toBeUndefined();
+});
+
+test("Gym incident can be confirmed without granting any points", async ({
+  page,
+}) => {
+  const fixture = await setup(page, true);
+  await page
+    .getByRole("dialog", { name: en.operations.impact, exact: true })
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.review,
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("dialog", {
+      name: en.managerOperations.resolveReview,
+      exact: true,
+    })
+    .getByRole("button", {
+      name: en.incidentDayPassMembers.confirm,
+      exact: true,
+    })
+    .click();
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  expect(fixture.writes[0].dayPassGifts).toBeUndefined();
+  const success = page.getByRole("dialog", {
+    name: en.incidentHistory.successTitle,
+    exact: true,
+  });
+  await expect(success).toBeVisible();
+  await success.screenshot({ path: "../.tmp/incident-created-success.png" });
+  await success
+    .getByRole("button", { name: en.common.close, exact: true })
+    .last()
+    .click();
+  await expect(success).toHaveCount(0);
+  await expect(page).toHaveURL(/\/manager\/incidents$/);
+  await expect(
+    page.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("");
+  expect(fixture.writes).toHaveLength(1);
+});
 
 test("refund preview uses one editable points column, requires reasons and confirms exact amounts", async ({
   page,

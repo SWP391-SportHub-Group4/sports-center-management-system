@@ -19,10 +19,10 @@ import {
   matchesCatalog,
   useCatalogFilters,
 } from "./manager-shared";
-const empty: SavePackage = {
+const empty: Omit<SavePackage, "price"> & { price: number | "" } = {
   isActive: true,
   name: "",
-  price: 100000,
+  price: "",
   durationDays: 30,
   description: "",
   sessionLimit: null,
@@ -129,6 +129,7 @@ export function MembershipManager() {
               await mutation.run(() =>
                 catalogApi.savePackage(editor.id, {
                   ...form,
+                  price: Number(form.price),
                   name: form.name.trim(),
                 }),
               )
@@ -163,7 +164,10 @@ export function MembershipManager() {
                 step={1000}
                 value={form.price}
                 onChange={(e) =>
-                  setForm({ ...form, price: Number(e.target.value) })
+                  setForm({
+                    ...form,
+                    price: e.target.value === "" ? "" : Number(e.target.value),
+                  })
                 }
               />
             </Field>

@@ -9,6 +9,7 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
     {
         builder.ToTable("enrollments");
         builder.HasKey(e => e.EnrollmentId);
+        builder.Property(e => e.CenterCancellationPaidBalanceVnd).HasPrecision(18, 2);
 
         builder.HasOne(e => e.Class).WithMany().HasForeignKey(e => e.ClassId).OnDelete(DeleteBehavior.Restrict);
 

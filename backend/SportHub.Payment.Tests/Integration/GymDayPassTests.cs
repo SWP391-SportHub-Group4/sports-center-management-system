@@ -381,6 +381,327 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         }
     }
 
+    [Theory]
+    [InlineData(7, 59, false, false)]
+    [InlineData(8, 0, true, false)]
+    [InlineData(19, 59, true, false)]
+    [InlineData(20, 0, false, false)]
+    [InlineData(7, 59, false, true)]
+    [InlineData(8, 0, true, true)]
+    [InlineData(19, 59, true, true)]
+    [InlineData(20, 0, false, true)]
+    public async Task Day_pass_sales_follow_Manager_settings(int hour, int minute, bool allowed, bool atCounter)
+    {
+        using var app = AtTime(TodayAtLocalHour(hour).AddMinutes(minute));
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var management = Client(app, manager.UserId, UserRole.CenterManager);
+        var original = await management.GetFromJsonAsync<List<HourSetting>>("/api/system-settings");
+        try
+        {
+            await SaveHoursAsync(management, 8 * 60, 20 * 60);
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            var actor = atCounter ? await factory.SeedUserAsync(UserRole.Receptionist) : member;
+            using var buyer = Client(app, actor.UserId, atCounter ? UserRole.Receptionist : UserRole.Member);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership") {
+                Content = JsonContent.Create(new { packageId = DayPass.PackageId, targetMemberId = member.UserId }) };
+            request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+            var response = await buyer.SendAsync(request);
+            Assert.Equal(allowed ? HttpStatusCode.Created : HttpStatusCode.Conflict, response.StatusCode);
+            if (allowed)
+            {
+                var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+                Assert.True(checkout.ExpiresAtUtc <= TodayAtLocalHour(20));
+            }
+        }
+        finally { await RestoreHoursAsync(management, original!); }
+    }
+
+    [Fact]
+    public async Task Settings_update_reactivates_paid_day_passes_for_today()
+    {
+        var clock = new FixedClock(TodayAtLocalHour(18));
+        using var app = AtTime(clock);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var management = Client(app, manager.UserId, UserRole.CenterManager);
+        var original = await management.GetFromJsonAsync<List<HourSetting>>("/api/system-settings");
+        try
+        {
+            await SaveHoursAsync(management, 8 * 60, 20 * 60);
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            var expiredMember = await factory.SeedUserAsync(UserRole.Member);
+            var today = DateOnly.FromDateTime(VietnamTime.ToLocal(clock.UtcNow));
+            var live = await SeedPaidDayPassAsync(member.UserId, today);
+            var expired = await SeedPaidDayPassAsync(expiredMember.UserId, today);
+            await factory.QueryAsync(async db => {
+                await db.MemberPackages.Where(p => p.MemberPackageId == live.MemberPackageId)
+                    .ExecuteUpdateAsync(u => u.SetProperty(p => p.ExpiresAtUtc, TodayAtLocalHour(20)));
+                await db.MemberPackages.Where(p => p.MemberPackageId == expired.MemberPackageId)
+                    .ExecuteUpdateAsync(u => u.SetProperty(p => p.ExpiresAtUtc, TodayAtLocalHour(17))
+                        .SetProperty(p => p.Status, MemberPackageStatus.Expired));
+                return 0;
+            });
+            await SaveHoursAsync(management, 8 * 60, 21 * 60);
+            Assert.Equal(TodayAtLocalHour(21), await PassExpiryAsync(live.MemberPackageId));
+            Assert.Equal(TodayAtLocalHour(21), await PassExpiryAsync(expired.MemberPackageId));
+            Assert.Equal(MemberPackageStatus.Active, await PassStatusAsync(expired.MemberPackageId));
+            await SaveHoursAsync(management, 19 * 60, 21 * 60);
+            Assert.Equal(MemberPackageStatus.Active, await PassStatusAsync(live.MemberPackageId));
+            using (var accessScope = app.Services.CreateScope())
+                Assert.Null(await accessScope.ServiceProvider.GetRequiredService<IMembershipAccessReader>()
+                    .GetActiveAsync(member.UserId, new DateTimeOffset(clock.UtcNow)));
+            using (var accessScope = app.Services.CreateScope())
+                Assert.NotNull(await accessScope.ServiceProvider.GetRequiredService<IMembershipAccessReader>()
+                    .GetActiveAsync(member.UserId, new DateTimeOffset(TodayAtLocalHour(19))));
+            await SaveHoursAsync(management, 8 * 60, 21 * 60);
+            Assert.Equal(MemberPackageStatus.Active, await PassStatusAsync(live.MemberPackageId));
+            await SaveHoursAsync(management, 8 * 60, 19 * 60);
+            Assert.Equal(TodayAtLocalHour(19), await PassExpiryAsync(live.MemberPackageId));
+            // Move closing into the past, then extend it: today's paid pass becomes usable again.
+            await SaveHoursAsync(management, 8 * 60, 17 * 60 + 30);
+            Assert.Equal(MemberPackageStatus.Expired, await PassStatusAsync(live.MemberPackageId));
+            await SaveHoursAsync(management, 8 * 60, 22 * 60);
+            Assert.Equal(TodayAtLocalHour(22), await PassExpiryAsync(live.MemberPackageId));
+            Assert.Equal(MemberPackageStatus.Active, await PassStatusAsync(live.MemberPackageId));
+            using var scope = app.Services.CreateScope();
+            Assert.NotNull(await scope.ServiceProvider.GetRequiredService<IMembershipAccessReader>()
+                .GetActiveAsync(member.UserId, new DateTimeOffset(clock.UtcNow)));
+        }
+        finally { await RestoreHoursAsync(management, original!); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Closing_cancels_pending_checkout_and_late_payment_cannot_revive_it(bool changeSettings)
+    {
+        var clock = new FixedClock(TodayAtLocalHour(19).AddMinutes(58));
+        using var app = AtTime(clock);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var management = Client(app, manager.UserId, UserRole.CenterManager);
+        var original = await management.GetFromJsonAsync<List<HourSetting>>("/api/system-settings");
+        try
+        {
+            await SaveHoursAsync(management, 8 * 60, 20 * 60);
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            using var buyer = Client(app, member.UserId, UserRole.Member);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership") {
+                Content = JsonContent.Create(new { packageId = DayPass.PackageId }) };
+            request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+            var response = await buyer.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+            var attemptResponse = await buyer.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+            attemptResponse.EnsureSuccessStatusCode();
+            var attempt = (await attemptResponse.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+            if (changeSettings) await SaveHoursAsync(management, 8 * 60, 19 * 60 + 57);
+            else
+            {
+                clock.UtcNow = TodayAtLocalHour(20);
+                using var scope = app.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<DayPassHoursService>().CloseDueAsync();
+            }
+            var closed = (await buyer.GetFromJsonAsync<CheckoutResponse>($"/api/checkouts/{checkout.InvoiceId}"))!;
+            Assert.Equal("EXPIRED", closed.State.ToUpperInvariant());
+            Assert.Equal("VOID", closed.InvoiceStatus.ToUpperInvariant());
+            await factory.QueryAsync(async db => {
+                Assert.True(await db.Notifications.AnyAsync(n => n.UserId == member.UserId
+                    && n.SourceEntityId == checkout.InvoiceId && n.Message.Contains("expired")));
+                return 0;
+            });
+            // Extending hours must not reopen the same order, even with a successful late payment.
+            await SaveHoursAsync(management, 8 * 60, 22 * 60);
+            var proofId = Guid.NewGuid();
+            await factory.QueryAsync(async db => {
+                db.VerifiedGatewayEvents.Add(new VerifiedGatewayEvent {
+                    VerifiedGatewayEventId = proofId, PaymentAttemptId = attempt.PaymentAttemptId,
+                    Provider = "VNPay", ProviderTransactionId = Guid.NewGuid().ToString("N"),
+                    TransactionReference = attempt.TransactionReference, Amount = attempt.CashAmount,
+                    ResponseCode = "00", TransactionStatus = "00", ProviderPaidAtUtc = clock.UtcNow,
+                    VerifiedAtUtc = clock.UtcNow, ProcessingStatus = "Pending" });
+                await db.SaveChangesAsync();
+                return 0;
+            });
+            using (var scope = app.Services.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<PaymentReconciliationService>().ProcessAsync(proofId, default);
+            await factory.QueryAsync(async db => {
+                var invoice = await db.Invoices.SingleAsync(i => i.InvoiceId == checkout.InvoiceId);
+                Assert.True(invoice.ReconciliationRequired);
+                Assert.Equal(InvoiceStatus.PaidAfterReconciliation, invoice.Status);
+                Assert.Equal(MemberPackageStatus.Cancelled, (await db.MemberPackages.SingleAsync(p => p.MemberPackageId == invoice.MemberPackageId)).Status);
+                Assert.Equal(attempt.CashAmount, await db.Payments.Where(p => p.InvoiceId == invoice.InvoiceId && p.Status == PaymentStatus.Success).SumAsync(p => p.Amount));
+                return 0;
+            });
+        }
+        finally { await RestoreHoursAsync(management, original!); }
+    }
+
+    [Fact]
+    public async Task Pass_can_be_paid_and_activated_after_22_when_settings_allow_it()
+    {
+        var clock = new FixedClock(TodayAtLocalHour(22).AddMinutes(15));
+        using var app = AtTime(clock);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var management = Client(app, manager.UserId, UserRole.CenterManager);
+        var original = await management.GetFromJsonAsync<List<HourSetting>>("/api/system-settings");
+        try
+        {
+            await SaveHoursAsync(management, 5 * 60 + 30, 23 * 60 + 30);
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            using var buyer = Client(app, member.UserId, UserRole.Member);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership") {
+                Content = JsonContent.Create(new { packageId = DayPass.PackageId }) };
+            request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+            var response = await buyer.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResponse>())!;
+            var attempted = await buyer.PostAsync($"/api/checkouts/{checkout.InvoiceId}/attempts", null);
+            attempted.EnsureSuccessStatusCode();
+            var attempt = (await attempted.Content.ReadFromJsonAsync<PaymentAttemptResponse>())!;
+            var proofId = Guid.NewGuid();
+            await factory.QueryAsync(async db => {
+                db.VerifiedGatewayEvents.Add(new VerifiedGatewayEvent {
+                    VerifiedGatewayEventId = proofId, PaymentAttemptId = attempt.PaymentAttemptId,
+                    Provider = "VNPay", ProviderTransactionId = Guid.NewGuid().ToString("N"),
+                    TransactionReference = attempt.TransactionReference, Amount = attempt.CashAmount,
+                    ResponseCode = "00", TransactionStatus = "00", ProviderPaidAtUtc = clock.UtcNow,
+                    VerifiedAtUtc = clock.UtcNow, ProcessingStatus = "Pending" });
+                await db.SaveChangesAsync();
+                return 0;
+            });
+            using (var scope = app.Services.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<PaymentReconciliationService>().ProcessAsync(proofId, default);
+            await factory.QueryAsync(async db => {
+                var invoice = await db.Invoices.SingleAsync(i => i.InvoiceId == checkout.InvoiceId);
+                var pass = await db.MemberPackages.SingleAsync(p => p.MemberPackageId == invoice.MemberPackageId);
+                Assert.Equal(InvoiceStatus.Paid, invoice.Status);
+                Assert.False(invoice.ReconciliationRequired);
+                Assert.Equal(MemberPackageStatus.Active, pass.Status);
+                Assert.Equal(TodayAtLocalHour(23).AddMinutes(30), pass.ExpiresAtUtc);
+                return 0;
+            });
+        }
+        finally { await RestoreHoursAsync(management, original!); }
+    }
+
+    [Fact]
+    public async Task Extending_closing_at_2030_restores_a_paid_pass_that_expired_at_2000()
+    {
+        var clock = new FixedClock(TodayAtLocalHour(20).AddMinutes(30));
+        using var app = AtTime(clock);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var management = Client(app, manager.UserId, UserRole.CenterManager);
+        var original = await management.GetFromJsonAsync<List<HourSetting>>("/api/system-settings");
+        try
+        {
+            await SaveHoursAsync(management, 8 * 60, 20 * 60);
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            var today = DateOnly.FromDateTime(VietnamTime.ToLocal(clock.UtcNow));
+            var pass = await SeedPaidDayPassAsync(member.UserId, today);
+            await factory.QueryAsync(async db => {
+                await db.MemberPackages.Where(p => p.MemberPackageId == pass.MemberPackageId)
+                    .ExecuteUpdateAsync(u => u.SetProperty(p => p.ExpiresAtUtc, TodayAtLocalHour(20))
+                        .SetProperty(p => p.Status, MemberPackageStatus.Expired));
+                return 0;
+            });
+            await SaveHoursAsync(management, 8 * 60, 22 * 60);
+            Assert.Equal(MemberPackageStatus.Active, await PassStatusAsync(pass.MemberPackageId));
+            Assert.Equal(TodayAtLocalHour(22), await PassExpiryAsync(pass.MemberPackageId));
+            using var scope = app.Services.CreateScope();
+            Assert.NotNull(await scope.ServiceProvider.GetRequiredService<IMembershipAccessReader>()
+                .GetActiveAsync(member.UserId, new DateTimeOffset(clock.UtcNow)));
+        }
+        finally { await RestoreHoursAsync(management, original!); }
+    }
+
+    [Theory]
+    [InlineData("previous-day")]
+    [InlineData("cancelled")]
+    [InlineData("unpaid")]
+    [InlineData("refunded")]
+    [InlineData("compensated")]
+    [InlineData("awaiting-resolution")]
+    public async Task Settings_never_restore_ineligible_day_passes(string scenario)
+    {
+        var clock = new FixedClock(TodayAtLocalHour(20).AddMinutes(30));
+        using var app = AtTime(clock);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        using var management = Client(app, manager.UserId, UserRole.CenterManager);
+        var original = await management.GetFromJsonAsync<List<HourSetting>>("/api/system-settings");
+        try
+        {
+            await SaveHoursAsync(management, 8 * 60, 20 * 60);
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            var today = DateOnly.FromDateTime(VietnamTime.ToLocal(clock.UtcNow));
+            var date = scenario == "previous-day" ? today.AddDays(-1) : today;
+            var pass = await SeedPaidDayPassAsync(member.UserId, date);
+            var oldExpiry = VietnamTime.ToUtc(date.ToDateTime(new TimeOnly(20, 0)));
+            var expectedStatus = scenario == "cancelled" ? MemberPackageStatus.Cancelled : MemberPackageStatus.Expired;
+            await factory.QueryAsync(async db => {
+                var row = await db.MemberPackages.SingleAsync(p => p.MemberPackageId == pass.MemberPackageId);
+                row.ExpiresAtUtc = oldExpiry;
+                row.Status = expectedStatus;
+                var invoice = await db.Invoices.SingleAsync(i => i.MemberPackageId == pass.MemberPackageId);
+                if (scenario == "unpaid") invoice.Status = InvoiceStatus.Issued;
+                if (scenario == "compensated") invoice.Status = InvoiceStatus.Compensated;
+                if (scenario == "awaiting-resolution") {
+                    invoice.Status = InvoiceStatus.PaidAfterReconciliation;
+                    invoice.PaidVia = "VnPayAwaitingResolution";
+                    invoice.ReconciliationRequired = true;
+                }
+                if (scenario == "refunded") db.PaymentAdjustments.Add(new PaymentAdjustment {
+                    AdjustmentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
+                    InvoiceItemId = row.InvoiceItemId, Type = PaymentAdjustmentType.Refund,
+                    Status = PaymentAdjustmentStatus.Completed, Amount = invoice.TotalAmount,
+                    RequestedAmount = invoice.TotalAmount, Reason = "Refunded day pass",
+                    RequestedByUserId = manager.UserId, ApprovedByUserId = manager.UserId,
+                    CompletedByUserId = manager.UserId, CreatedAt = clock.UtcNow,
+                    CompletedAtUtc = clock.UtcNow, RefundMethod = PaymentMethod.VnPay });
+                await db.SaveChangesAsync();
+                return 0;
+            });
+            await SaveHoursAsync(management, 8 * 60, 22 * 60);
+            Assert.Equal(expectedStatus, await PassStatusAsync(pass.MemberPackageId));
+            Assert.Equal(oldExpiry, await PassExpiryAsync(pass.MemberPackageId));
+            using var scope = app.Services.CreateScope();
+            Assert.Null(await scope.ServiceProvider.GetRequiredService<IMembershipAccessReader>()
+                .GetActiveAsync(member.UserId, new DateTimeOffset(clock.UtcNow)));
+        }
+        finally { await RestoreHoursAsync(management, original!); }
+    }
+
+    private async Task<MemberPackage> SeedPaidDayPassAsync(Guid memberId, DateOnly date)
+    {
+        var pass = await SeedActiveDayPassAsync(factory, memberId, date);
+        var invoice = await factory.SeedInvoiceAsync(memberId, memberId, DayPass.PriceVnd, pass.MemberPackageId);
+        await factory.QueryAsync(async db => {
+            var row = await db.Invoices.Include(i => i.Items).SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            row.Status = InvoiceStatus.Paid;
+            row.PaidVia = "VnPay";
+            row.PaidAtUtc = VietnamTime.ToUtc(date.ToDateTime(new TimeOnly(10, 0)));
+            var item = row.Items.Single();
+            item.MemberPackageId = pass.MemberPackageId;
+            (await db.MemberPackages.SingleAsync(p => p.MemberPackageId == pass.MemberPackageId)).InvoiceItemId = item.ItemId;
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        return pass;
+    }
+    private Task<MemberPackageStatus> PassStatusAsync(Guid id)
+        => factory.QueryAsync(db => db.MemberPackages.Where(p => p.MemberPackageId == id).Select(p => p.Status).SingleAsync());
+
+    private sealed record HourSetting(string Key, string Value);
+    private static async Task SaveHoursAsync(HttpClient manager, int opens, int closes)
+    {
+        var response = await manager.PutAsJsonAsync("/api/system-settings", new { values = new Dictionary<string, string> {
+            ["center.opening_minutes"] = opens.ToString(), ["center.closing_minutes"] = closes.ToString() } });
+        response.EnsureSuccessStatusCode();
+    }
+    private static Task RestoreHoursAsync(HttpClient manager, List<HourSetting> original)
+        => SaveHoursAsync(manager, int.Parse(original.Single(x => x.Key == "center.opening_minutes").Value),
+            int.Parse(original.Single(x => x.Key == "center.closing_minutes").Value));
+    private Task<DateTime?> PassExpiryAsync(Guid id)
+        => factory.QueryAsync(db => db.MemberPackages.Where(p => p.MemberPackageId == id).Select(p => p.ExpiresAtUtc).SingleAsync());
+
     private sealed class FixedClock(DateTime now) : IClock
     {
         public DateTime UtcNow { get; set; } = now;

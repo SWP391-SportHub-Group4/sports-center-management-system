@@ -25,18 +25,24 @@ public sealed class IncidentsController(IncidentService incidents) : ControllerB
     public async Task<IActionResult> Preview([FromBody] IncidentRequest request, CancellationToken ct)
         => Ok(await incidents.ReviewAsync(request, User.RequireUserId(), ct));
 
+    [HttpPost("drafts/discard")]
+    public async Task<IActionResult> DiscardDrafts([FromBody] IReadOnlyList<IncidentDraftReference> references, CancellationToken ct)
+        => Ok(await incidents.DiscardDraftsAsync(references, User.RequireUserId(), ct));
+
     /// <summary>Start handling: holds the window so no one books into it while schedule work is done.</summary>
     [HttpPost("fences")]
-    public async Task<IActionResult> OpenFence([FromBody] IncidentRequest request, CancellationToken ct)
-        => Ok(await incidents.OpenFenceAsync(request, User.RequireUserId(), ct));
+    public IActionResult OpenFence([FromBody] IncidentRequest request, CancellationToken ct)
+        => throw new SportHub.BuildingBlocks.SharedKernel.Errors.ConflictException("incident_drafts_disabled",
+            "Incident reviews are read-only. Confirm the incident to save changes.");
 
     [HttpGet("fences")]
     public async Task<IActionResult> OpenFences(CancellationToken ct)
         => Ok(await incidents.ListOpenFencesAsync(ct));
 
     [HttpPost("fences/{fenceId:guid}/extend")]
-    public async Task<IActionResult> ExtendFence(Guid fenceId, CancellationToken ct)
-        => Ok(await incidents.ExtendFenceAsync(fenceId, User.RequireUserId(), ct));
+    public IActionResult ExtendFence(Guid fenceId, CancellationToken ct)
+        => throw new SportHub.BuildingBlocks.SharedKernel.Errors.ConflictException("incident_drafts_disabled",
+            "Incident reviews no longer create or renew temporary holds.");
 
     [HttpGet("fences/{fenceId:guid}/steps")]
     public async Task<IActionResult> FenceSteps(Guid fenceId, CancellationToken ct)

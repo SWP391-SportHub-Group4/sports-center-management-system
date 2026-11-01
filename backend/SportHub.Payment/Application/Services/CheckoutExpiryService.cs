@@ -1,3 +1,5 @@
+using SportHub.Membership.Application.Services;
+using SportHub.BuildingBlocks.Abstractions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -48,6 +50,7 @@ public sealed class CheckoutExpiryService(ISportHubDbContext db, PaymentFulfillm
                 }
             }
             await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await DayPassHoursLock.AcquireAsync(db, ct: ct);
             var invoice = await db.Set<Invoice>().FromSqlInterpolated(
                 $"SELECT * FROM invoices WHERE invoice_id = {id} FOR UPDATE SKIP LOCKED")
                 .SingleOrDefaultAsync(ct);

@@ -306,67 +306,50 @@ test("Day-pass agreement is required and retry reuses the same batch", async ({
   expect(posts[0].recipients[0].memberAgreed).toBe(true);
 });
 
-test("Incident shows unchanged day passes and sends a notice separately from gifts", async ({
+test("incident details list affected day-pass members without support actions", async ({
   page,
 }) => {
   await fixture(page);
-  let notified = false;
-  await page.route(`**/api/manager/incidents/${incident}*`, async (route) =>
+  await page.route(`**/api/manager/incidents/${incident}`, (route) =>
     route.fulfill({
       json: {
         incidentId: incident,
         scope: "CENTER",
-        roomId: null,
         reason: "Gym repairs",
         resolutionSummary: "Gym temporarily closed.",
         startAtUtc: "2026-10-26T01:00:00Z",
         endAtUtc: "2026-10-26T05:00:00Z",
         createdAtUtc: "2026-10-26T00:00:00Z",
         closesGym: true,
-        dayPassNoticeSentAtUtc: notified ? "2026-10-26T01:00:00Z" : null,
+        dayPassNoticeSentAtUtc: "2026-10-26T01:00:00Z",
         dayPassMembers: [
           {
             passId: member,
             memberId: member,
             memberName: "Alex Nguyen",
             useDate: "2026-10-26",
-            expiresAtUtc: "2026-10-26T15:00:00Z",
+            expiresAtUtc: "2026-10-26T13:30:00Z",
           },
         ],
         refunds: [],
       },
     }),
   );
-  await page.route(
-    `**/api/manager/incidents/${incident}/day-pass-notice`,
-    async (route) => {
-      notified = true;
-      return route.fulfill({ status: 204 });
-    },
-  );
-  await page.goto(`/manager/incidents/${incident}`);
+  const response = await page.goto(`/manager/incidents/${incident}`);
+  expect(response?.status()).toBe(200);
   await expect(
-    page.getByRole("heading", { name: "Day-pass support" }),
+    page.getByRole("heading", { name: "Gym repairs", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Alex Nguyen")).toBeVisible();
-  await expect(
-    page.getByText(/Passes keep their original 22:00 expiry/),
-  ).toBeVisible();
-  await page.screenshot({
-    path: "../.tmp/day-pass-support-desktop.png",
-    fullPage: true,
+  await expect(page.getByText("Alex Nguyen", { exact: true })).toBeVisible();
+  const affected = page.getByRole("region", {
+    name: "Affected Gym day-pass members",
+    exact: true,
   });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({
-    path: "../.tmp/day-pass-support-mobile.png",
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Notify day-pass holders" }).click();
-  await expect(page.getByRole("status")).toContainText("Notice sent at");
+  await expect(affected.getByRole("listitem")).toHaveCount(1);
+  await expect(affected.getByRole("link")).toHaveCount(0);
+  await expect(affected.getByRole("status")).toHaveCount(0);
+  await expect(affected.getByText(/Record the member/)).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Notify day-pass holders" }),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Gift points / View gift history" }),
-  ).toHaveAttribute("href", `/manager/points?incidentId=${incident}`);
 });

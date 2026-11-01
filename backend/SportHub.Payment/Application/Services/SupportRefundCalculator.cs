@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Payment.Domain.Entities;
@@ -24,7 +25,8 @@ public static class SupportRefundCalculator
         throw new BadRequestException("payment_request_item_required", "Choose the service on this invoice that needs a refund.");
     }
 
-    public static async Task<IReadOnlyList<SupportRefundItem>> ItemsAsync(ISportHubDbContext db, Invoice invoice, CancellationToken ct)
+    public static async Task<IReadOnlyList<SupportRefundItem>> ItemsAsync(ISportHubDbContext db, Invoice invoice,
+        ICenterCancellationReader cancellations, CancellationToken ct)
     {
         var items = await db.Set<InvoiceItem>().AsNoTracking().Where(i => i.InvoiceId == invoice.InvoiceId)
             .OrderBy(i => i.ItemId).ToListAsync(ct);
@@ -75,7 +77,10 @@ public static class SupportRefundCalculator
             var returnedBank = payouts.Where(p => p.InvoiceItemId == item.ItemId || (items.Count == 1 && p.InvoiceItemId == null)).Sum(p => p.Amount);
             // Existing point-only refunds reduce the remaining paid value proportionally across the original methods.
             var paidValue = bank + points * 1000m;
-            var remainingBeforeSupport = Math.Max(0m, Math.Min(item.LineAmount, paidValue) - otherRefunds);
+            var cancellation = await cancellations.GetAsync(item.ItemId, ct);
+            var refundableValue = cancellation?.Proration?.Apply(Math.Min(item.LineAmount, paidValue))
+                ?? Math.Min(item.LineAmount, paidValue);
+            var remainingBeforeSupport = Math.Max(0m, refundableValue - otherRefunds - (cancellation?.NonRefundableValueVnd ?? 0m));
             var ratio = paidValue > 0 ? remainingBeforeSupport / paidValue : 0m;
             var refundBank = Math.Min(bankRemaining, Math.Max(0m, decimal.Floor(bank * ratio) - returnedBank));
             var refundPoints = Math.Max(0, (int)decimal.Floor(points * ratio) - supportPoints);

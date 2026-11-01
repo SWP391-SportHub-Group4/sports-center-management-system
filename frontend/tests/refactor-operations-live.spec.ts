@@ -33,7 +33,7 @@ async function browserAuth(page: Page, token: string) {
   }, token);
 }
 
-test("enrolled class blocks Manager cancellation without changing enrollment or wallet", async ({
+test("paid enrolled class can be cancelled with reviewed refunds without duplicate credits", async ({
   page,
   request,
 }) => {
@@ -88,7 +88,7 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
     data: {
       code: `P2-cancel-${Date.now()}`,
 
-      name: "P2 live enrolled cancellation guard",
+      name: "P2 live enrolled cancellation refund",
 
       sportId: sport.sportId,
 
@@ -220,16 +220,11 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
 
   await page.goto(`/manager/classes/${course.classId}?tab=management`);
   await expect(
-    page.getByText(en.classWorkspace.cancellationThresholdMet, {
-      exact: true,
-    }),
-  ).toBeVisible();
-  await expect(
     page.getByRole("button", {
-      name: en.classWorkspace.cancelClass,
+      name: en.classWorkspace.cancelAndRefund,
       exact: true,
     }),
-  ).toHaveCount(0);
+  ).toBeEnabled();
   await expect(
     page.getByRole("button", {
       name: en.managerOperations.closeEnrollment,
@@ -248,26 +243,31 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
     confirmedCount: number;
     refundPoints: number;
     previewToken: string;
+    members: { enrollmentId: string; refundPoints: number }[];
   }>(classPath + "/cancellation-preview", headers);
   expect(preview).toMatchObject({
-    canCancel: false,
+    canCancel: true,
     confirmedCount: 1,
-    refundPoints: 0,
+    refundPoints: 100,
   });
-  // Direct requests and retries cannot bypass the UI restriction or issue a refund.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const cancelled = await request.post(base + classPath + "/cancel", {
-      headers,
-      data: {
-        reason: "Attempt to cancel an enrolled class",
-        previewToken: preview.previewToken,
-      },
-    });
-    expect(cancelled.status(), await cancelled.text()).toBe(409);
-    expect(await cancelled.json()).toMatchObject({
-      error: "class_has_enrollments",
-    });
-  }
+  expect(preview.members).toEqual([
+    expect.objectContaining({
+      enrollmentId: enrollmentBefore!.enrollmentId,
+      refundPoints: 100,
+    }),
+  ]);
+  // Paid enrollments require an explicit refund decision before cancellation.
+  const missingRefunds = await request.post(base + classPath + "/cancel", {
+    headers,
+    data: {
+      reason: "Cancel the paid enrolled class",
+      previewToken: preview.previewToken,
+    },
+  });
+  expect(missingRefunds.status(), await missingRefunds.text()).toBe(400);
+  expect(await missingRefunds.json()).toMatchObject({
+    error: "class_refund_members_invalid",
+  });
   const first = sessionsBefore[0];
   const makeup = await request.post(
     `${base}/api/class-sessions/${first.sessionId}/cancel`,
@@ -288,9 +288,7 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
   expect(makeup.status(), await makeup.text()).toBe(409);
   expect(await makeup.json()).toMatchObject({ error: "class_has_enrollments" });
 
-  await page
-    .getByRole("button", { name: en.classWorkspace.viewSchedule, exact: true })
-    .click();
+  await page.goto(`/manager/classes/${course.classId}?tab=sessions`);
   await page
     .getByRole("button", { name: en.operations.edit, exact: true })
     .first()
@@ -343,14 +341,102 @@ test("enrolled class blocks Manager cancellation without changing enrollment or 
   });
 
   await page.goto(`/manager/classes/${course.classId}?tab=management`);
+  await page
+    .getByRole("button", {
+      name: en.classWorkspace.cancelAndRefund,
+      exact: true,
+    })
+    .click();
+  const cancellation = page.getByRole("dialog", {
+    name: en.classWorkspace.cancelClass,
+    exact: true,
+  });
+  const reason = "Cancel the paid enrolled class";
+  await cancellation
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill(reason);
+  await cancellation
+    .getByRole("button", {
+      name: en.operations.cancellationPreview,
+      exact: true,
+    })
+    .click();
+  const confirm = cancellation.getByRole("button", {
+    name: en.operations.confirm,
+    exact: true,
+  });
   await expect(
-    page.getByText(en.classWorkspace.cancellationThresholdMet, {
+    cancellation.getByRole("region", {
+      name: en.classCancellationRefund.title,
       exact: true,
     }),
   ).toBeVisible();
+  await expect(confirm).toBeDisabled();
+  await cancellation
+    .getByRole("textbox", {
+      name: new RegExp(en.classCancellationRefund.points),
+    })
+    .fill("100");
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await expect(cancellation).toHaveCount(0);
+
+  // A successful retry must not repeat the cancellation or credit the wallet.
+  const retry = await request.post(base + classPath + "/cancel", {
+    headers,
+    data: {
+      reason,
+      previewToken: preview.previewToken,
+      refunds: preview.members.map((m) => ({
+        enrollmentId: m.enrollmentId,
+        points: m.refundPoints,
+      })),
+    },
+  });
+  expect(retry.ok(), await retry.text()).toBeTruthy();
+  expect(await readJson<ManagerCourseDto>(classPath, headers)).toMatchObject({
+    status: "CANCELLED",
+    confirmedCount: 0,
+    reservedCount: 0,
+  });
+  const cancelledSessions = await readJson<CourseSessionDto[]>(
+    sessionsPath,
+    headers,
+  );
+  expect(cancelledSessions).toHaveLength(sessionsBefore.length);
+  expect(cancelledSessions.map((s) => s.sessionId).sort()).toEqual(
+    sessionsBefore.map((s) => s.sessionId).sort(),
+  );
+  for (const session of cancelledSessions)
+    expect(session.status).toBe("CANCELLED");
+  const cancelledEnrollments = await readJson<{ items: CourseEnrollmentDto[] }>(
+    enrollmentPath,
+    memberHeaders,
+  );
+  expect(
+    cancelledEnrollments.items.find((e) => e.classId === course.classId),
+  ).toMatchObject({
+    enrollmentId: enrollmentBefore!.enrollmentId,
+    status: "CANCELLED_BY_CENTER",
+    endedAt: expect.any(String),
+  });
+  // Points remain unchanged until the member chooses the offered refund.
+  expect(await readJson("/api/wallet/me", memberHeaders)).toEqual(
+    walletAfterPayment,
+  );
+  expect(
+    await readJson("/api/wallet/me/ledger?pageSize=100", memberHeaders),
+  ).toEqual(ledgerBefore);
+  const offers = await readJson<
+    { invoiceItemId: string; refundPoints: number; status: string }[]
+  >("/api/refunds/center-cancellations/mine", memberHeaders);
+  expect(
+    offers.filter((o) => o.invoiceItemId === enrollmentBefore!.invoiceItemId),
+  ).toEqual([expect.objectContaining({ refundPoints: 100, status: "Offer" })]);
+  await page.reload();
   await expect(
     page.getByRole("button", {
-      name: en.classWorkspace.cancelClass,
+      name: en.classWorkspace.cancelAndRefund,
       exact: true,
     }),
   ).toHaveCount(0);
