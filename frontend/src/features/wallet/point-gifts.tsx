@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
+import { GiftClassFilter } from "./gift-class-filter";
 import styles from "./point-gifts.module.css";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -28,6 +30,10 @@ type Recipient = {
   alreadyGifted: boolean;
 };
 type Selected = Recipient & { points: string; memberAgreed: boolean };
+type GiftFilters = {
+  sports: { sportId: number; name: string }[];
+  classes: { classId: number; sportId: number; name: string; code: string }[];
+};
 type GiftLimit = {
   fromDate: string;
   toDate: string;
@@ -156,7 +162,10 @@ function GiftComposer({
   const { user } = useAuth();
   const vi = language === "vi";
   const [keyword, setKeyword] = useState("");
-  const [packageId, setPackageId] = useState("");
+  const [sportId, setSportId] = useState("");
+  const [classId, setClassId] = useState("");
+  const [allSelected, setAllSelected] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Record<string, Selected>>({});
   const [points, setPoints] = useState("1");
@@ -197,12 +206,9 @@ function GiftComposer({
     !limits.loading &&
     !!limits.data &&
     Number(value) <= limits.data.maxPoints;
-  const packages = useApi(
+  const filters = useApi(
     (signal) =>
-      api.get<{ packageId: number; name: string }[]>(
-        "/api/manager/point-gifts/filters",
-        { signal },
-      ),
+      api.get<GiftFilters>("/api/manager/point-gifts/filters", { signal }),
     [],
   );
   const recipients = useApi(
@@ -212,18 +218,18 @@ function GiftComposer({
         query: {
           incidentId,
           keyword,
-          packageId: packageId || undefined,
+          sportId: sportId || undefined,
+          classId: classId || undefined,
           page,
           pageSize: 20,
         },
       }),
-    [incidentId, keyword, packageId, page, revision],
+    [incidentId, keyword, sportId, classId, page, revision],
   );
   const rows = Object.values(selected);
   const valid =
     withinLimit(points) &&
     rows.length > 0 &&
-    rows.length <= 100 &&
     reason.trim().length >= 3 &&
     reason.trim().length <= 1000 &&
     rows.every(
@@ -232,13 +238,67 @@ function GiftComposer({
   function filter(set: (s: string) => void, value: string) {
     set(value);
     setPage(1);
+    setAllSelected(false);
+    setSelected({});
   }
   function remove(id: string) {
+    setAllSelected(false);
     setSelected((current) => {
       const next = { ...current };
       delete next[id];
       return next;
     });
+  }
+  async function selectAll(checked: boolean) {
+    if (!checked) {
+      setAllSelected(false);
+      setSelected({});
+      return;
+    }
+    setSelectingAll(true);
+    setError("");
+    try {
+      const next: Record<string, Selected> = {};
+      let currentPage = 1;
+      let totalPages = 1;
+      do {
+        const result = await api.get<Paged<Recipient>>(
+          "/api/manager/point-gifts/recipients",
+          {
+            query: {
+              incidentId,
+              keyword,
+              sportId: sportId || undefined,
+              classId: classId || undefined,
+              page: currentPage,
+              pageSize: 100,
+            },
+          },
+        );
+        for (const recipient of result.items) {
+          if (!recipient.alreadyGifted)
+            next[recipient.memberId] = selected[recipient.memberId] ?? {
+              ...recipient,
+              points,
+              memberAgreed: false,
+            };
+        }
+        totalPages = Math.ceil(result.totalCount / result.pageSize);
+        currentPage++;
+      } while (currentPage <= totalPages);
+      setSelected(next);
+      setAllSelected(Object.keys(next).length > 0);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : vi
+            ? "Không tải được toàn bộ người nhận. Vui lòng thử lại."
+            : "Could not load all recipients. Please retry.",
+      );
+    } finally {
+      setSelectingAll(false);
+    }
   }
   async function send() {
     if (!review || lock.current) return;
@@ -272,6 +332,7 @@ function GiftComposer({
       setPending(null);
       setReview(null);
       setSelected({});
+      setAllSelected(false);
       setReason("");
       setRevision((r) => r + 1);
       onGifted?.();
@@ -359,33 +420,87 @@ function GiftComposer({
         )}
         {success && <p role="status">{success}</p>}
         {error && !review && <p role="alert">{error}</p>}
-        <fieldset className={styles.form} disabled={!!review}>
-          <div className="form-grid">
+        <fieldset className={styles.form} disabled={!!review || selectingAll}>
+          <div className={styles.filters}>
             <Field label={vi ? "Tên hoặc email" : "Name or email"}>
               <input
                 value={keyword}
                 onChange={(e) => filter(setKeyword, e.target.value)}
               />
             </Field>
-            <Field label={vi ? "Gói Membership" : "Membership plan"}>
+            <Field label={vi ? "Môn thể thao" : "Sport"}>
               <select
-                value={packageId}
-                onChange={(e) => filter(setPackageId, e.target.value)}
+                value={sportId}
+                disabled={filters.loading || !!filters.error}
+                onChange={(e) => {
+                  filter(setSportId, e.target.value);
+                  setClassId("");
+                }}
               >
-                <option value="">{vi ? "Tất cả gói" : "All plans"}</option>
-                {packages.data?.map((p) => (
-                  <option key={p.packageId} value={p.packageId}>
+                <option value="">{vi ? "Tất cả môn" : "All sports"}</option>
+                {filters.data?.sports.map((p) => (
+                  <option key={p.sportId} value={p.sportId}>
                     {p.name}
                   </option>
                 ))}
               </select>
             </Field>
+            <GiftClassFilter
+              value={classId}
+              onChange={(value) => filter(setClassId, value)}
+              classes={(filters.data?.classes ?? []).filter(
+                (item) => !sportId || item.sportId === Number(sportId),
+              )}
+              disabled={
+                filters.loading || !!filters.error || !!review || selectingAll
+              }
+              vi={vi}
+            />
           </div>
-          <p>
+          {filters.error && (
+            <p role="alert">
+              {vi ? "Không tải được bộ lọc." : "Could not load filters."}{" "}
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={filters.reload}
+              >
+                {vi ? "Thử lại" : "Retry"}
+              </button>
+            </p>
+          )}
+          <p className="small muted">
             {vi
-              ? "Chọn từng người nhận; tối đa 100 người mỗi lần."
-              : "Select individual recipients; up to 100 per gift."}
+              ? "Dành cho hội viên có giao dịch mua thành công trên web. Đổi bộ lọc sẽ xóa lựa chọn hiện tại."
+              : "Members with a successful purchase on the website. Changing filters clears the current selection."}
           </p>
+          <ActivitySwitch
+            checked={allSelected}
+            onChange={(checked) => void selectAll(checked)}
+            disabled={
+              selectingAll ||
+              recipients.loading ||
+              !!recipients.error ||
+              !recipients.data?.totalCount
+            }
+            label={vi ? "Chọn tất cả người nhận" : "Select all recipients"}
+            hint={
+              selectingAll
+                ? vi
+                  ? "Đang tải toàn bộ người nhận…"
+                  : "Loading all recipients…"
+                : vi
+                  ? "Chọn mọi hội viên khớp bộ lọc trên tất cả các trang."
+                  : "Select every matching member across all pages."
+            }
+          />
+          <span className="small muted" role="status">
+            {selectingAll
+              ? vi
+                ? "Đang chọn…"
+                : "Selecting…"
+              : `${rows.length} ${vi ? "người đã chọn" : "recipients selected"}`}
+          </span>
           <AsyncSection state={recipients}>
             {(data) => (
               <>
@@ -422,10 +537,7 @@ function GiftComposer({
                               type="checkbox"
                               aria-label={`${vi ? "Chọn" : "Select"} ${r.name}`}
                               checked={!!selected[r.memberId]}
-                              disabled={
-                                r.alreadyGifted ||
-                                (!selected[r.memberId] && rows.length >= 100)
-                              }
+                              disabled={r.alreadyGifted}
                               onChange={(e) =>
                                 e.target.checked
                                   ? setSelected((current) => ({

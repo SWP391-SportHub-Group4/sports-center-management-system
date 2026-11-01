@@ -33,7 +33,29 @@ async function fixture(page: Page, dayPass = false, failOnce = false) {
         },
       });
     if (path === "/api/manager/point-gifts/filters")
-      return route.fulfill({ json: [{ packageId: 1, name: "Gym monthly" }] });
+      return route.fulfill({
+        json: {
+          sports: [
+            { sportId: 1, name: "Gym" },
+            { sportId: 2, name: "Badminton" },
+            { sportId: 3, name: "Basketball" },
+          ],
+          classes: [
+            {
+              classId: 10,
+              sportId: 2,
+              name: "Cầu lông cơ bản",
+              code: "BAD-01",
+            },
+            {
+              classId: 20,
+              sportId: 3,
+              name: "Basketball beginners",
+              code: "BAS-01",
+            },
+          ],
+        },
+      });
     if (path === "/api/manager/point-gifts/limits")
       return route.fulfill({
         json: {
@@ -102,6 +124,100 @@ async function fixture(page: Page, dayPass = false, failOnce = false) {
 }
 
 for (const width of [1440, 390]) {
+  test(`Gift filters search classes and select all pages at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await fixture(page);
+    const requested: URL[] = [];
+    await page.route("**/api/manager/point-gifts/recipients?**", (route) => {
+      const url = new URL(route.request().url());
+      requested.push(url);
+      const pageSize = Number(url.searchParams.get("pageSize"));
+      const pageNumber = Number(url.searchParams.get("page"));
+      const start = (pageNumber - 1) * pageSize;
+      return route.fulfill({
+        json: {
+          page: pageNumber,
+          pageSize,
+          totalCount: 102,
+          items: Array.from(
+            { length: Math.min(pageSize, 102 - start) },
+            (_, i) => ({
+              memberId: `member-${start + i}`,
+              name: `Member ${start + i}`,
+              email: `member${start + i}@example.com`,
+              requiresAgreement: false,
+              alreadyGifted: start + i === 101,
+            }),
+          ),
+        },
+      });
+    });
+    await page.goto("/manager/points");
+    const course = page.getByRole("button", { name: "Class", exact: true });
+    await course.click();
+    await expect(
+      page.getByRole("button", { name: "Basketball beginners BAS-01" }),
+    ).toBeVisible();
+    await page
+      .getByRole("searchbox", { name: "Search classes" })
+      .fill("cau long");
+    await expect(
+      page.getByRole("button", { name: "Cầu lông cơ bản BAD-01" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Basketball beginners BAS-01" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Cầu lông cơ bản BAD-01" }).click();
+    await expect
+      .poll(() => requested.at(-1)?.searchParams.get("classId"))
+      .toBe("10");
+    await page.getByLabel("Sport", { exact: true }).selectOption("3");
+    await expect
+      .poll(() => requested.at(-1)?.searchParams.has("classId"))
+      .toBe(false);
+    await course.click();
+    await expect(
+      page.getByRole("button", { name: "Cầu lông cơ bản BAD-01" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Basketball beginners BAS-01" }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: `../.tmp/gift-filters-${width}.png`,
+      fullPage: true,
+    });
+    await page.keyboard.press("Escape");
+    const toggle = page.getByRole("switch", { name: /Select all recipients/ });
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await expect(
+      page.getByRole("heading", { name: "Selected recipients (101)" }),
+    ).toBeVisible();
+    expect(
+      requested.some(
+        (url) =>
+          url.searchParams.get("page") === "2" &&
+          url.searchParams.get("pageSize") === "100",
+      ),
+    ).toBeTruthy();
+    await page
+      .getByLabel("Gift reason (required)")
+      .fill("All matching paying members");
+    await expect(
+      page.getByRole("button", { name: "Review gift", exact: true }),
+    ).toBeEnabled();
+    await toggle.uncheck();
+    await expect(
+      page.getByRole("heading", { name: "Selected recipients (0)" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+  });
   test(`Manager reviews and gifts immediately at ${width}px`, async ({
     page,
   }) => {
