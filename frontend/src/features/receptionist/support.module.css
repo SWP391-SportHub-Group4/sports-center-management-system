@@ -284,6 +284,34 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
+.attachmentButton {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: zoom-in;
+}
+.attachmentButton:hover {
+  opacity: 0.85;
+}
+.attachmentButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.attachmentDialog {
+  width: min(960px, 100%);
+  min-width: 0;
+}
+.attachmentDialog :global(.dialog__head) h2 {
+  overflow-wrap: anywhere;
+}
+.attachmentPreview {
+  display: block;
+  width: 100%;
+  max-height: 70dvh;
+  object-fit: contain;
+}
 .badges {
   display: flex;
   flex-wrap: wrap;
