@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { auditEventModel } from "../src/features/administration/audit-event-model";
+import { en } from "../src/locales/en";
+import type { AuditLogDto } from "../src/lib/types";
 
 const uuid = "db3d195a-043e-4585-afd7-e2f256816950";
 const base = {
@@ -102,9 +105,7 @@ for (const manager of [false, true]) {
     await expect(
       table.getByRole("button", { name: /View details:/ }),
     ).toHaveCount(1);
-    await expect(table.locator('[data-label="Target"]')).toHaveText(
-      "Sport",
-    );
+    await expect(table.locator('[data-label="Target"]')).toHaveText("Sport");
     await expect(table).not.toContainText(/Current name|None|SECRET|db3d195a/);
     await expect(table).not.toContainText("Test sport");
     await expect(table.locator("thead th").last()).toHaveText("");
@@ -118,8 +119,12 @@ for (const manager of [false, true]) {
     await expect(
       values.getByRole("columnheader", { name: "Value", exact: true }),
     ).toBeVisible();
-    await expect(values).toContainText("90");
-    await expect(values).toContainText("12");
+    if (manager) {
+      await expect(values.locator("tbody th")).toHaveText(["Code", "Name"]);
+    } else {
+      await expect(values).toContainText("90");
+      await expect(values).toContainText("12");
+    }
     await expect(dialog).not.toContainText(/SECRET|db3d195a|Current name/);
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
@@ -254,9 +259,10 @@ test("compact summaries and popup fit desktop and mobile", async ({ page }) => {
       .getByRole("button", { name: /View details:/ })
       .first()
       .click();
-    await expect(page.getByRole("dialog").getByRole("table")).toContainText(
-      "90",
-    );
+    await expect(page.getByRole("dialog").locator("tbody th")).toHaveText([
+      "Code",
+      "Name",
+    ]);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -283,4 +289,167 @@ test("compact summaries and popup fit desktop and mobile", async ({ page }) => {
     });
     await page.keyboard.press("Escape");
   }
+});
+
+test("Manager detail fields follow the requested action-specific rules", () => {
+  const model = (
+    action: string,
+    target: string,
+    before: unknown,
+    after: unknown,
+    extra = {},
+  ) =>
+    auditEventModel(
+      event("policy", target, action, before, after, extra) as AuditLogDto,
+      en,
+      [],
+      true,
+    );
+  const keys = (m: ReturnType<typeof model>) => m.fields.map((f) => f.key);
+  expect(
+    keys(
+      model("FRONT_DESK_CREATE_MEMBER", "UserAccount", null, {
+        email: "member@example.com",
+        role: "Member",
+      }),
+    ),
+  ).toEqual(["email"]);
+  const specialties = model(
+    "UPDATE_COACH_SPECIALTIES",
+    "UserAccount",
+    { sportIds: [1, 2], fullName: "Before" },
+    { sportIds: [2, 3], fullName: "After", phone: "123" },
+    {
+      referenceNames: {
+        "Sport:1": "Gym",
+        "Sport:2": "Badminton",
+        "Sport:3": "Basketball",
+      },
+    },
+  );
+  expect(keys(specialties)).toEqual(["sportIds"]);
+  expect(specialties.comparison).toBe(false);
+  expect(specialties.fields[0].value).toBe("Basketball");
+  const sportBefore = {
+    code: "badminton",
+    name: "Badminton",
+    isActive: false,
+    sortOrder: 1,
+  };
+  const sportAfter = { ...sportBefore, isActive: true, sortOrder: 2 };
+  for (const action of ["CREATE_SPORT", "ACTIVATE_SPORT", "DEACTIVATE_SPORT"]) {
+    const m = model(
+      action,
+      "Sport",
+      action === "CREATE_SPORT" ? null : sportBefore,
+      sportAfter,
+    );
+    expect(keys(m)).toEqual(["code", "name"]);
+    expect(m.fields.map((f) => f.value)).toEqual(["badminton", "Badminton"]);
+  }
+  expect(
+    keys(
+      model("UPDATE_SPORT", "Sport", sportBefore, {
+        ...sportBefore,
+        description: "Updated description",
+      }),
+    ),
+  ).toEqual(["description"]);
+  for (const action of ["ENABLE_SPORT_SERVICE", "DISABLE_SPORT_SERVICE"]) {
+    const m = model(
+      action,
+      "SportServiceOffering",
+      { sportId: 2, enabled: false },
+      { sportId: 2, enabled: true, serviceType: "GroupCourse" },
+      { referenceNames: { "Sport:2": "Badminton" } },
+    );
+    expect(keys(m)).toEqual(["sportId"]);
+    expect(m.fields[0].value).toBe("Badminton");
+  }
+  const room = {
+    name: "Court A",
+    capacity: 10,
+    roomTypeId: 3,
+    sportId: 2,
+    isActive: true,
+  };
+  for (const action of ["CREATE_ROOM", "UPDATE_ROOM", "DELETE_ROOM"]) {
+    const m = model(
+      action,
+      "Room",
+      action === "CREATE_ROOM" ? null : room,
+      action === "DELETE_ROOM" ? null : { ...room, capacity: 12 },
+    );
+    expect(keys(m)).not.toContain("roomTypeId");
+    expect(keys(m)).not.toContain("sportId");
+    expect(keys(m)).toContain("capacity");
+  }
+  const rate = {
+    roomId: 4,
+    roomTypeId: 3,
+    roomTypeName: "Indoor",
+    sportId: 2,
+    sportName: "Badminton",
+    days: "MON",
+    startTimeLocal: "08:00",
+    endTimeLocal: "12:00",
+    price: 100000,
+    active: true,
+  };
+  for (const action of ["CREATE_COURT_RATE", "DELETE_COURT_RATE"]) {
+    const m = model(
+      action,
+      "CourtRate",
+      action === "DELETE_COURT_RATE" ? rate : null,
+      action === "CREATE_COURT_RATE" ? rate : null,
+    );
+    expect(keys(m)).toEqual([
+      "roomId",
+      "days",
+      "timeWindow",
+      "price",
+      "active",
+    ]);
+    expect(m.fields.find((f) => f.key === "timeWindow")?.value).toContain(
+      "08:00",
+    );
+    expect(m.fields.find((f) => f.key === "timeWindow")?.value).toContain(
+      "12:00",
+    );
+  }
+  const changedRate = model("UPDATE_COURT_RATE", "CourtRate", rate, {
+    ...rate,
+    startTimeLocal: "09:00",
+    price: 150000,
+  });
+  expect(keys(changedRate)).toEqual(["timeWindow", "price"]);
+  expect(changedRate.fields[0].before).toContain("08:00");
+  expect(changedRate.fields[0].after).toContain("09:00");
+  const published = model(
+    "PUBLISH_CLASS",
+    "Class",
+    { status: "Draft" },
+    { status: "Published", sessions: 10, breakEvenThreshold: 4 },
+    { currentTargetLabel: "Badminton basics" },
+  );
+  expect(published.fields).toEqual([]);
+  expect(published.subject).toBe("Badminton basics");
+  expect(published.hideEmptyDetails).toBe(true);
+  const cancelled = model("CANCEL_CLASS", "Class", null, {
+    confirmedCount: 8,
+    activeHoldCount: 2,
+    refundPoints: 100,
+    sessionsNotProvided: 3,
+  });
+  expect(keys(cancelled)).toEqual(["confirmedCount", "refundPoints"]);
+  expect(cancelled.fields[0].label).toBe("Number of enrolled students");
+  const waived = model(
+    "WAIVE_CLASS_THRESHOLD",
+    "Class",
+    { thresholdStatus: "AtRisk" },
+    { thresholdStatus: "WaivedByManager" },
+    { currentTargetLabel: "Badminton basics" },
+  );
+  expect(waived.subject).toBe("Badminton basics");
+  expect(keys(waived)).toEqual(["thresholdStatus"]);
 });

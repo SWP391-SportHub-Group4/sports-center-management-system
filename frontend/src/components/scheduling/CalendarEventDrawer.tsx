@@ -135,14 +135,16 @@ export function CalendarEventDrawer({
         </div>
 
         <div className={styles.summaryRow}>
-          <dt>{l.coach}</dt>
+          <dt>{entry.sourceType === "COURT_RENTAL" ? "Renter" : l.coach}</dt>
 
           <dd
             style={{
               margin: 0,
             }}
           >
-            {entry.coachName || "—"}
+            {(entry.sourceType === "COURT_RENTAL"
+              ? entry.memberName
+              : entry.coachName) || "—"}
           </dd>
         </div>
 

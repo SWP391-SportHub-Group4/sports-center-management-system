@@ -95,7 +95,6 @@ const scalarFields = new Set([
   "source",
   "reportType",
   "totalAmount",
-  "allowStacking",
   "reason",
   "reviewNote",
   "totalQuota",

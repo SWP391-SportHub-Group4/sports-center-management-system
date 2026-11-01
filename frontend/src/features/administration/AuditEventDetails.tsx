@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Dialog } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
+import { useAuth } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import type { AuditLogDto, RoomTypeDto } from "@/lib/types";
 import { auditEventModel } from "./audit-event-model";
@@ -19,8 +20,14 @@ export function AuditEventDetails({
   roomTypes?: RoomTypeDto[];
 }) {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const model = auditEventModel(row, t, roomTypes);
+  const model = auditEventModel(
+    row,
+    t,
+    roomTypes,
+    user?.role === "CenterManager",
+  );
   return (
     <div className={styles.root}>
       <button
@@ -122,7 +129,7 @@ export function AuditEventDetails({
                     </tbody>
                   </table>
                 </div>
-              ) : !isAvatarAuditEvent(row) ? (
+              ) : !isAvatarAuditEvent(row) && !model.hideEmptyDetails ? (
                 <p className="small muted">
                   {row.oldValue || row.newValue
                     ? "No displayable field changes recorded."

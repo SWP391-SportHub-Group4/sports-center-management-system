@@ -45,11 +45,60 @@ export function auditEventModel(
   row: AuditLogDto,
   t: Translations,
   roomTypes: RoomTypeDto[] = [],
+  managerDetails = false,
 ) {
   const l = t.managerAudit;
   const before = managerAuditSnapshot(row.oldValue, row);
   const after = managerAuditSnapshot(row.newValue, row);
-  const comparison = row.oldValue !== null && row.newValue !== null;
+  const detailFields: Record<string, string[]> = {
+    FRONT_DESK_CREATE_MEMBER: ["email"],
+    UPDATE_COACH_SPECIALTIES: ["sportIds"],
+    CREATE_SPORT: ["code", "name"],
+    ACTIVATE_SPORT: ["code", "name"],
+    DEACTIVATE_SPORT: ["code", "name"],
+    ENABLE_SPORT_SERVICE: ["sportId"],
+    DISABLE_SPORT_SERVICE: ["sportId"],
+    CREATE_ROOM: ["name", "capacity", "isActive"],
+    UPDATE_ROOM: ["name", "capacity", "isActive"],
+    DELETE_ROOM: ["name", "capacity", "isActive"],
+    CREATE_COURT_RATE: ["roomId", "days", "timeWindow", "price", "active"],
+    UPDATE_COURT_RATE: ["roomId", "days", "timeWindow", "price", "active"],
+    DELETE_COURT_RATE: ["roomId", "days", "timeWindow", "price", "active"],
+    PUBLISH_CLASS: [],
+  };
+  const singleValue =
+    managerDetails &&
+    [
+      "FRONT_DESK_CREATE_MEMBER",
+      "UPDATE_COACH_SPECIALTIES",
+      "CREATE_SPORT",
+      "ACTIVATE_SPORT",
+      "DEACTIVATE_SPORT",
+      "ENABLE_SPORT_SERVICE",
+      "DISABLE_SPORT_SERVICE",
+    ].includes(row.action);
+  const comparison =
+    row.oldValue !== null && row.newValue !== null && !singleValue;
+  if (managerDetails && row.action === "UPDATE_COACH_SPECIALTIES") {
+    const previous = Array.isArray(before.sportIds) ? before.sportIds : [];
+    after.sportIds = (
+      Array.isArray(after.sportIds) ? after.sportIds : []
+    ).filter((sport) => !previous.some((old) => String(old) === String(sport)));
+  }
+  if (
+    managerDetails &&
+    ["CREATE_COURT_RATE", "UPDATE_COURT_RATE", "DELETE_COURT_RATE"].includes(
+      row.action,
+    )
+  ) {
+    for (const snapshot of [before, after]) {
+      if (
+        snapshot.startTimeLocal !== undefined ||
+        snapshot.endTimeLocal !== undefined
+      )
+        snapshot.timeWindow = `${snapshot.startTimeLocal ?? "Not recorded"} – ${snapshot.endTimeLocal ?? "Not recorded"}`;
+    }
+  }
   const code = (item: string) =>
     l.codes[item as keyof typeof l.codes] ??
     t.wireStatus[item as keyof typeof t.wireStatus] ??
@@ -75,6 +124,10 @@ export function auditEventModel(
       days: "Applicable days",
       startTimeLocal: "Start time",
       endTimeLocal: "End time",
+      timeWindow: "Time range",
+      ...(managerDetails && row.action === "CANCEL_CLASS"
+        ? { confirmedCount: "Number of enrolled students" }
+        : {}),
       sessionId: "Session",
       entitlementId: "Entitlement",
       ledgerEntryId: "Ledger entry",
@@ -214,9 +267,21 @@ export function auditEventModel(
       ) &&
       key !== "reason" &&
       key !== "reviewNote" &&
+      !(
+        managerDetails &&
+        row.action === "CANCEL_CLASS" &&
+        ["activeHoldCount", "sessionsNotProvided"].includes(key)
+      ) &&
+      (!managerDetails ||
+        !detailFields[row.action] ||
+        detailFields[row.action].includes(key)) &&
       (!comparison ||
         JSON.stringify(before[key]) !== JSON.stringify(after[key])),
   );
+  if (managerDetails && detailFields[row.action]) {
+    const order = detailFields[row.action];
+    keys.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }
   const fields = keys.map((key) => {
     const item = row.newValue !== null ? after[key] : before[key];
     return {
@@ -307,5 +372,6 @@ export function auditEventModel(
     action: auditActionLabel(row.action, row.newValue),
     type: auditRecordType(row, t),
     deletion: /^DELETE_|^REMOVE_/.test(row.action),
+    hideEmptyDetails: managerDetails && row.action === "PUBLISH_CLASS",
   };
 }
