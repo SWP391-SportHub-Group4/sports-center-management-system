@@ -234,7 +234,21 @@ public sealed class ClassService(
         }
 
         var total = await query.CountAsync(ct);
-        var rows = await Rows(query.OrderByDescending(c => c.CreatedAt).ThenBy(c => c.ClassId)
+        var ordered = coachId.HasValue
+            ? query.OrderBy(c => c.Status == ClassStatus.InProgress ? 0
+                    : c.Status == ClassStatus.Published ? 1
+                    : c.Status == ClassStatus.Completed ? 2
+                    : c.Status == ClassStatus.Cancelled ? 3 : 4)
+                .ThenByDescending(c => c.CreatedAt).ThenBy(c => c.ClassId)
+            : query.OrderBy(c => c.Status == ClassStatus.Draft ? 0
+                    : c.Status == ClassStatus.Published ? 1
+                    : c.Status == ClassStatus.InProgress ? 2
+                    : c.Status == ClassStatus.Completed ? 3 : 4)
+                .ThenBy(c => c.ThresholdStatus == ThresholdStatus.NotEvaluated ? 0
+                    : c.ThresholdStatus == ThresholdStatus.Met ? 1
+                    : c.ThresholdStatus == ThresholdStatus.WaivedByManager ? 2 : 3)
+                .ThenByDescending(c => c.CreatedAt).ThenBy(c => c.ClassId);
+        var rows = await Rows(ordered
             .Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync(ct);
 
         return new PagedResult<ClassManagerResponse>

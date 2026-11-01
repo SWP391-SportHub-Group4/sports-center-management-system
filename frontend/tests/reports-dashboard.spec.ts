@@ -294,36 +294,24 @@ test("comparison errors retain the primary data and current Gym count has no com
     page.getByRole("heading", { name: "New member accounts" }),
   ).toHaveCount(0);
 });
-test("export uses the selected comparison range and applied filters", async ({
-  page,
-}) => {
+test("Export navigates to the dedicated export page", async ({ page }) => {
   await fixture(page);
-  let body: Record<string, unknown> = {};
-  await page.route("**/api/reports/exports", (route) => {
-    body = route.request().postDataJSON();
-    return route.fulfill({
-      json: { reportExportId: "sample", status: "COMPLETED" },
-    });
-  });
-  await page.route("**/api/reports/exports/sample/download", (route) =>
+  await page.route("**/api/reports/exports**", (route) =>
     route.fulfill({
-      contentType: "text/csv",
-      body: "collectedAmount,refundedAmount,netCollected\n100,20,80",
+      json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
     }),
   );
   await page.goto("/manager/reports");
-  await page.getByLabel("Compare with").selectOption("previous");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
-  await page.getByRole("button", { name: "Export", exact: true }).click();
-  await page.getByLabel("Export period").selectOption("comparison");
-  await page.getByRole("button", { name: "Download", exact: true }).click();
-  await expect(page.getByText("Export downloaded.")).toBeVisible();
-  expect(body).toMatchObject({
-    fromDate: "2026-09-01",
-    toDate: "2026-09-23",
-    reportType: "REVENUE_SUMMARY",
-    format: "Csv",
-  });
+  const link = page.getByRole("link", { name: "Export", exact: true });
+  await expect(link).toHaveAttribute("href", "/manager/reports/exports");
+  await link.click();
+  await expect(page).toHaveURL(/\/manager\/reports\/exports$/);
+  await expect(
+    page.getByRole("heading", { name: "Report exports", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Export period", { exact: true })).toHaveCount(
+    0,
+  );
 });
 for (const [width, height] of [
   [1440, 900],

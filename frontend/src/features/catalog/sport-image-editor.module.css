@@ -6,9 +6,6 @@
   min-width: 0;
 }
 .header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   background: var(--bg-surface);
   padding-block: var(--space-2);
   display: flex;

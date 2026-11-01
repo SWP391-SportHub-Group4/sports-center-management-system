@@ -39,9 +39,8 @@ async function fixture(page: Page, dayPass = false, failOnce = false) {
         json: {
           fromDate: "2026-10-01",
           toDate: "2026-10-26",
-          netCollectedVnd: 25000,
           vndPerPoint: 1000,
-          maxPoints: 25,
+          maxPoints: 10000,
         },
       });
     if (path === "/api/manager/point-gifts/recipients")
@@ -207,22 +206,8 @@ test("Gift form validates typed points immediately and reviews in a popup", asyn
   await expect(amount).toHaveValue("25");
 });
 
-test("Gift amount reports the live Net collected limit immediately", async ({
-  page,
-}) => {
+test("Gift amount enforces the fixed 10000 point limit", async ({ page }) => {
   await fixture(page);
-  let netCollectedVnd = 25000;
-  await page.route("**/api/manager/point-gifts/limits", (route) =>
-    route.fulfill({
-      json: {
-        fromDate: "2026-10-01",
-        toDate: "2026-10-26",
-        netCollectedVnd,
-        vndPerPoint: 1000,
-        maxPoints: Math.floor(netCollectedVnd / 1000),
-      },
-    }),
-  );
   await page.goto("/manager/points");
   await page.getByRole("checkbox", { name: "Select Alex Nguyen" }).check();
   await page.getByLabel("Gift reason (required)").fill("Member appreciation");
@@ -230,48 +215,18 @@ test("Gift amount reports the live Net collected limit immediately", async ({
     name: "Common points amount",
     exact: true,
   });
-  await amount.fill("26");
+  await amount.fill("10001");
   await expect(amount).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByRole("alert").first()).toContainText(
-    "Cannot exceed 25 points",
+    "Cannot exceed 10,000 points",
   );
   await expect(
     page.getByRole("button", { name: "Review gift", exact: true }),
   ).toBeDisabled();
-  await amount.fill("25");
+  await amount.fill("10000");
   await expect(
     page.getByRole("button", { name: "Review gift", exact: true }),
   ).toBeEnabled();
-  netCollectedVnd = 10000;
-  await Promise.all([
-    page.waitForResponse((r) =>
-      r.url().endsWith("/api/manager/point-gifts/limits"),
-    ),
-    page.evaluate(() => window.dispatchEvent(new Event("focus"))),
-  ]);
-  await expect(page.getByRole("alert").first()).toContainText(
-    "Cannot exceed 10 points",
-  );
-  await expect(
-    page.getByRole("button", { name: "Review gift", exact: true }),
-  ).toBeDisabled();
-  await amount.fill("10");
-  await expect(
-    page.getByRole("button", { name: "Review gift", exact: true }),
-  ).toBeEnabled();
-  netCollectedVnd = 0;
-  await Promise.all([
-    page.waitForResponse((r) =>
-      r.url().endsWith("/api/manager/point-gifts/limits"),
-    ),
-    page.evaluate(() => window.dispatchEvent(new Event("focus"))),
-  ]);
-  await expect(page.getByRole("alert").first()).toContainText(
-    "Cannot exceed 0 points",
-  );
-  await expect(
-    page.getByRole("button", { name: "Review gift", exact: true }),
-  ).toBeDisabled();
 });
 
 test("Day-pass agreement is required and retry reuses the same batch", async ({

@@ -165,7 +165,10 @@ export function CoachDetail({
                           {data.items.map((c) => (
                             <li key={c.classId}>
                               <Link href={`/manager/classes/${c.classId}`}>
-                                <span>{c.name}</span>
+                                <span className={profileStyles.className}>
+                                  {c.name}
+                                </span>
+                                <StatusChip value={c.status} />
                                 <ChevronRight size={18} aria-hidden="true" />
                               </Link>
                             </li>

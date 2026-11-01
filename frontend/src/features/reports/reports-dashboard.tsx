@@ -5,15 +5,14 @@ import { Download, SlidersHorizontal } from "lucide-react";
 import { Tabs } from "@/components/primitives";
 import { Field } from "@/components/ui";
 import { MemberPicker } from "@/components/MemberPicker";
-import { api, downloadFile } from "@/lib/apiClient";
+import { api } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { vietnamLocal } from "@/lib/vietnam-time";
-import type { SportDto, UserAdminDto, ReportExportDto } from "@/lib/types";
+import type { SportDto, UserAdminDto } from "@/lib/types";
 import type { ReportFilters } from "./api";
 import {
   monthPeriod,
-  reportPeriods,
   validPeriod,
   type PeriodSelection,
 } from "./report-periods";
@@ -23,7 +22,6 @@ import {
   MembersView,
   RevenueView,
   ReportState,
-  rangeText,
   type DashboardTab,
 } from "./report-dashboard-views";
 import s from "./reports-dashboard.module.css";
@@ -52,177 +50,6 @@ const initialDimensions = () =>
     DashboardTab,
     Dimensions
   >;
-const exportChoices = {
-  revenue: [
-    {
-      type: "REVENUE_SUMMARY",
-      label: "Summary",
-      columns: ["collectedAmount", "refundedAmount", "netCollected"],
-    },
-    {
-      type: "REVENUE_DAILY",
-      label: "Daily collections",
-      columns: ["date", "collectedAmount", "refundedAmount", "netCollected"],
-    },
-    {
-      type: "REVENUE_DIMENSIONS",
-      label: "Collection details",
-      columns: [
-        "source",
-        "sportName",
-        "memberName",
-        "collectedAmount",
-        "pointsRedeemed",
-      ],
-    },
-  ],
-  rentals: [
-    {
-      type: "COURT_BOOKINGS",
-      label: "Bookings by sport",
-      columns: ["sportName", "bookings", "bookedHours"],
-    },
-    {
-      type: "COURT_RENTAL_REVENUE",
-      label: "Collection details",
-      columns: [
-        "source",
-        "sportName",
-        "memberName",
-        "collectedAmount",
-        "pointsRedeemed",
-      ],
-    },
-  ],
-  classes: [
-    {
-      type: "CLASS_STATUS",
-      label: "Classes",
-      columns: [
-        "name",
-        "sportName",
-        "startDate",
-        "status",
-        "confirmedCount",
-        "capacity",
-        "thresholdStatus",
-      ],
-    },
-  ],
-  members: [
-    {
-      type: "MEMBERSHIP_PERIOD",
-      label: "Membership purchases",
-      columns: ["membersPurchasingMembershipInPeriod", "dayPassesSold"],
-    },
-  ],
-};
-function ExportPanel({
-  tab,
-  selection,
-  filters,
-  today,
-}: {
-  tab: DashboardTab;
-  selection: PeriodSelection;
-  filters: ReportFilters;
-  today: string;
-}) {
-  const [period, setPeriod] = useState("primary"),
-    [dataset, setDataset] = useState(0),
-    [format, setFormat] = useState("Csv");
-  const [busy, setBusy] = useState(false),
-    [message, setMessage] = useState("");
-  const choice = exportChoices[tab][dataset] ?? exportChoices[tab][0];
-  const periods = reportPeriods(
-    selection,
-    today,
-    !["COURT_BOOKINGS", "CLASS_STATUS"].includes(choice.type),
-  );
-  const selected =
-    period === "comparison" ? periods.comparison : periods.primary;
-  return (
-    <div className={s.exportPanel}>
-      <div className={s.filterRow}>
-        <Field label="Export period">
-          <select value={period} onChange={(e) => setPeriod(e.target.value)}>
-            <option value="primary">Selected period</option>
-            {selection.compare !== "off" && (
-              <option value="comparison">Comparison period</option>
-            )}
-          </select>
-        </Field>
-        <Field label="Content">
-          <select
-            value={dataset}
-            onChange={(e) => setDataset(Number(e.target.value))}
-          >
-            {exportChoices[tab].map((v, i) => (
-              <option key={v.type} value={i}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Format">
-          <select value={format} onChange={(e) => setFormat(e.target.value)}>
-            <option value="Csv">CSV</option>
-            <option value="Pdf">PDF</option>
-          </select>
-        </Field>
-        <button
-          className="btn"
-          disabled={busy || !selected}
-          onClick={async () => {
-            if (!selected) return;
-            setBusy(true);
-            setMessage("");
-            try {
-              const result = await api.post<ReportExportDto>(
-                "/api/reports/exports",
-                {
-                  reportType: choice.type,
-                  ...selected,
-                  columns: choice.columns,
-                  format,
-                  sportId: filters.sportId ? Number(filters.sportId) : null,
-                  source: tab === "rentals" ? "RENTAL" : filters.source || null,
-                  memberId: filters.memberId || null,
-                },
-              );
-              if (result.status.toUpperCase() !== "COMPLETED")
-                throw new Error(
-                  result.failureReason ||
-                    "Export could not be completed. Please try again.",
-                );
-              await downloadFile(
-                `/api/reports/exports/${result.reportExportId}/download`,
-                `${choice.type.toLowerCase()}-${selected.fromDate}-${selected.toDate}.${format.toLowerCase()}`,
-              );
-              setMessage("Export downloaded.");
-            } catch (e) {
-              setMessage(
-                e instanceof Error
-                  ? e.message
-                  : "Export unavailable. Please try again.",
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? "Preparing…" : "Download"}
-        </button>
-      </div>
-      <p className={s.note}>
-        {rangeText(selected)} · Uses applied filters. Each period is a separate
-        file.
-      </p>
-      {message && <p role="status">{message}</p>}
-      <Link href="/manager/reports/exports">Export history</Link>
-    </div>
-  );
-}
 export function ReportsDashboard() {
   const now = useNow(),
     today = vietnamLocal(new Date(now).toISOString()).slice(0, 10);
@@ -241,8 +68,7 @@ export function ReportsDashboard() {
     [applied, setApplied] = useState(initial);
   const [dimensions, setDimensions] = useState(initialDimensions),
     [appliedDimensions, setAppliedDimensions] = useState(initialDimensions);
-  const [error, setError] = useState(""),
-    [exportOpen, setExportOpen] = useState(false);
+  const [error, setError] = useState("");
   const sports = useApi(
     (signal) => api.get<SportDto[]>("/api/manager/sports", { signal }),
     [],
@@ -286,15 +112,10 @@ export function ReportsDashboard() {
   return (
     <div className={s.page}>
       <header className={s.header}>
-        <button
-          className="btn btn--ghost"
-          aria-expanded={exportOpen}
-          aria-controls="report-export"
-          onClick={() => setExportOpen(!exportOpen)}
-        >
-          <Download size={16} />
+        <Link className="btn btn--ghost" href="/manager/reports/exports">
+          <Download size={16} aria-hidden="true" />
           Export
-        </button>
+        </Link>
       </header>
       <form
         className={s.filters}
@@ -474,17 +295,6 @@ export function ReportsDashboard() {
         </div>
         {error && <p role="alert">{error}</p>}
       </form>
-      {exportOpen && (
-        <div id="report-export">
-          <ExportPanel
-            key={tab}
-            tab={tab}
-            selection={applied}
-            filters={filters}
-            today={today}
-          />
-        </div>
-      )}
       <Tabs
         animatedIndicator
         value={tab}
