@@ -31,7 +31,6 @@ type Selected = Recipient & { points: string; memberAgreed: boolean };
 type GiftLimit = {
   fromDate: string;
   toDate: string;
-  netCollectedVnd: number;
   vndPerPoint: number;
   maxPoints: number;
 };
@@ -333,8 +332,8 @@ function GiftComposer({
     if (!validPoints(value)) return invalidPoints;
     if (limits.data && Number(value) > limits.data.maxPoints)
       return vi
-        ? `Không được vượt ${formatPoints(limits.data.maxPoints)} điểm, theo Net collected ${formatMoney(limits.data.netCollectedVnd)} của tháng này.`
-        : `Cannot exceed ${formatPoints(limits.data.maxPoints)} points, based on this month's Net collected of ${formatMoney(limits.data.netCollectedVnd)}.`;
+        ? `Tối đa ${formatPoints(limits.data.maxPoints)} điểm mỗi người trong mỗi lần tặng.`
+        : `Cannot exceed ${formatPoints(limits.data.maxPoints)} points per recipient per submission.`;
     return undefined;
   }
   return (
@@ -467,8 +466,8 @@ function GiftComposer({
               {limits.loading && (
                 <p role="status">
                   {vi
-                    ? "Đang tải giới hạn theo Net collected…"
-                    : "Loading the Net collected limit…"}
+                    ? "Đang tải giới hạn tặng điểm…"
+                    : "Loading the gift limit…"}
                 </p>
               )}
               {limits.error && (
@@ -491,8 +490,8 @@ function GiftComposer({
                 <p className="small muted">
                   {vi ? "Giới hạn mỗi người" : "Maximum per recipient"}:{" "}
                   {formatPoints(limits.data.maxPoints)} {vi ? "điểm" : "points"}{" "}
-                  · Net collected: {formatMoney(limits.data.netCollectedVnd)} ·
-                  1 {vi ? "điểm" : "point"} ={" "}
+                  · {vi ? "Mỗi lần tặng" : "Per submission"} · 1{" "}
+                  {vi ? "điểm" : "point"} ={" "}
                   {formatMoney(limits.data.vndPerPoint)}
                 </p>
               )}

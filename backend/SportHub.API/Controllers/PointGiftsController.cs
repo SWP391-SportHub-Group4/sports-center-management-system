@@ -140,7 +140,7 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
         var limit = await giftLimits.GetAsync(ct);
         if (body.Recipients.Any(r => r.Points > limit.MaxPoints))
             throw new BadRequestException("point_gift_limit_exceeded",
-                $"Each gift cannot exceed {limit.MaxPoints:N0} points, based on this month's Net collected ({limit.NetCollectedVnd:N0} VND).");
+                $"Each gift cannot exceed {limit.MaxPoints:N0} points per recipient per submission.");
         foreach (var item in body.Recipients.OrderBy(r => r.MemberId))
         {
             var giftId = Guid.NewGuid();
