@@ -483,7 +483,11 @@ function CheckoutFlow({
     return present(
       <Card title={review ? review.title : l.buy}>
         <div aria-live="polite">
-          {errorMessage && <p role="alert">{errorMessage}</p>}
+          {errorMessage && (
+            <p role="alert" className={styles.alert}>
+              {errorMessage}
+            </p>
+          )}
           {dayPassNotice}
           {review && review.items.length > 0 && (
             <dl className={styles.review}>

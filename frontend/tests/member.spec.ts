@@ -504,6 +504,7 @@ test.beforeEach(async ({ page }) => {
         memberId: "member-1",
         goal: "Run 10km",
         experienceLevel: "Beginner",
+        bmi: 22.9,
         notes: null,
         updatedAt: "2026-10-01T00:00:00Z",
       };
