@@ -117,3 +117,18 @@
 **Lưu ý khi trình bày:** chức năng tài khoản staff là **Deactivate/Activate**, không xóa. UI ẩn Deactivate trên chính Admin; backend cũng chặn vô hiệu hóa Admin hoạt động cuối cùng. Với UI hiện tại không thể bấm riêng để gây lỗi “Admin cuối cùng” vì người còn lại cũng chính là người đang thao tác. Dừng trước **Confirm** khi mở hồ sơ Admin Demo 02 để giữ dữ liệu. Nếu cần mua lớp/thuê sân live, chọn slot trống và chờ VNPay sandbox xác minh rồi mới chỉ quyền lợi; các fixture `LOCAL_DEMO` không phải giao dịch VNPay thật.
 
 **Mở hệ thống:** nếu các container đã dừng sau khi khởi động lại máy, từ gốc repo chạy `docker compose up -d postgres ai-service backend frontend`, đợi backend sẵn sàng rồi mở `http://localhost:3000`. Sau lệnh `docker compose up -d --build backend frontend`, nếu trang đang mở báo “We could not reach SportHub”, đợi container khởi động xong và tải lại trang trước khi bấm **Sign In**. Đã thử đăng nhập `manager.demo@sporthub.vn` bằng trình duyệt local: API trả HTTP 200 và chuyển đến `/manager`. Không chạy lại seed hoặc reset để chỉ demo. Lịch sử seed/backup nằm ở [Local-Demo-Seed-2026-10-27.md](Local-Demo-Seed-2026-10-27.md); tài liệu đó không phải kịch bản trình bày.
+
+---
+
+## Bổ sung demo AI Member/Coach — 02/11/2026
+
+**Flow 5, Coach:** đăng nhập Coach → **Classes** → lớp được phân công → **Plans** → **Personal plan** → chọn học viên trong **For** → **AI lesson suggestions** → nhập Training goal/Experience → **Generate suggestion** → xem/sửa → **Save to SportHub**. Cần kiểm thử lại label chính xác và trạng thái UI trên nhánh vừa merge.
+
+**Kiểm thử validation:** `tập kỹ thuật` phải được coi là mục tiêu chung chung nhưng liên quan (nếu vượt qua ngưỡng độ dài); `dwadawdawdawdawdawd` phải bị từ chối; mục tiêu liên quan môn/trình độ được tạo gợi ý; với mục tiêu ngoài phạm vi hoặc phi thực tế phải giải thích và không tạo.
+
+**Flow 6, Coach:** thử hỏi “Nút tạo Personal plan ở đâu?” và “Nút quản lý tài khoản nằm ở đâu?”; cần trả lời theo Coach workspace hoặc `/account`, không từ chối vì là câu hỏi navigation.
+
+**Flow 6, Member:** hỏi “Xem hóa đơn ở đâu?”, “Xem bài tập AI đã lưu ở đâu?” và “Quản lý tài khoản như thế nào?”; chỉ hướng dẫn chức năng Member. Các câu hỏi về thao tác của Manager/Receptionist/Admin không được hướng dẫn như thể Member có quyền.
+
+**Kiểm tra đa ngôn ngữ:** thử có dấu, không dấu, tiếng Anh và pha trộn. Phải giữ nhãn nút tiếng Anh như frontend. Nếu catalog chưa kiểm chứng được button cụ thể, bot phải nói rõ giới hạn; không bịa route.
+

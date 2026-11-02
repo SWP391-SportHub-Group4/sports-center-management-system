@@ -135,3 +135,14 @@ Danh sách tập trung ở **mục 13 của [thiết kế hệ thống](Center-M
 
 Manager chọn độc lập tiền VNPay chuyển khoản và điểm trả về ví cho từng dòng hóa đơn. Có thể chỉ hoàn một loại; mỗi giá trị không vượt phần còn được hoàn của loại đó. Tiền là bội số 1.000đ, điểm là số nguyên. Chi tiết trong [Payment-Support-Workflow.md](Payment-Support-Workflow.md#cập-nhật-26102026-manager-chọn-riêng-tiền-và-điểm-hoàn).
 
+---
+
+## AI Flow 5/6 — cập nhật đối chiếu sau các bản vá 02/11/2026
+
+- **Phạm vi chatbot trên giao diện:** chỉ Member và Coach. Center Manager, Receptionist và System Administrator không có chatbot giao diện trong phạm vi này. Không suy ra quyền chatbot từ sự tồn tại của API backend.
+- **Flow 5 — Coach:** gợi ý AI phục vụ Session Plan và Personal Plan (theo bản vá triển khai); Coach phải chọn Member thuộc phạm vi được phân công cho Personal Plan. AI trả về bản nháp, Coach xem/sửa trước khi lưu; không tự động ghi plan.
+- **Training Goal:** tách kiểm tra cơ bản (độ dài/ký tự) và phân loại ngữ nghĩa; `VALID` tạo gợi ý, `VAGUE` được cụ thể hóa bằng môn/trình độ/ngữ cảnh rồi tạo, `INVALID` được giải thích và không tạo. Tránh coi mục tiêu chung chung như “tập kỹ thuật” là sai. Các câu dưới ngưỡng độ dài hiện hành vẫn bị từ chối trước bước ngữ nghĩa; đây là giới hạn cần đánh giá bằng kiểm thử tiếng Việt.
+- **Flow 6 — chatbot:** trả lời câu hỏi navigation theo Member/Coach bằng dữ liệu navigation được kiểm chứng từ frontend, đồng thời có thể cung cấp thông tin nghiệp vụ theo quyền; không biến endpoint backend thành button giả. Tiếng Việt/tiếng Anh đều là input hợp lệ; giữ nguyên nhãn button tiếng Anh như giao diện.
+- **Published AI prompts:** code mới trong `AiChatService` dùng `ISystemPromptReader.GetPublishedAsync(role, ...)` để đọc phiên bản prompt hiện hành. `promptVersion` tham gia scope fingerprint nhằm ngăn dùng lại continuation khi prompt đổi. Không thay bằng prompt hard-code khi resolve merge conflict.
+- **Trạng thái nghiệm thu:** các bản vá đã được chuẩn bị nhưng không có bằng chứng E2E bao phủ đầy đủ cho bản hợp nhất cuối sau rebase. Build và kiểm thử theo `docs/AI-Member-Coach-Implementation-Verification.md` trước khi tuyên bố hoàn thiện.
+
