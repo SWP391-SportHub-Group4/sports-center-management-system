@@ -1112,7 +1112,7 @@ export const en = {
     deactivateImpact:
       "The account will be deactivated and signed out. Its records are retained. An Administrator can activate it again.",
     guardHint:
-      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be deactivated.",
+      "You can't change your own access, Administrator roles, or deactivate the last active Administrator.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -2478,8 +2478,8 @@ export const en = {
     refundClose: "Close",
   },
   assistant: {
-    open: "Ask SportHub",
-    title: "SportHub assistant",
+    open: "Ask Wolf",
+    title: "Wolf",
     intro:
       "Ask about your schedule, membership, classes or payments. It only reads your SportHub information and cannot book, pay or change anything.",
     suggestionsLabel: "Try asking",
@@ -2494,7 +2494,7 @@ export const en = {
     stop: "Stop",
     thinking: "Thinking…",
     you: "You",
-    assistantName: "SportHub assistant",
+    assistantName: "Wolf",
     retry: "Try again",
     newChat: "New conversation",
     tooLong: "Keep your question under 2000 characters.",

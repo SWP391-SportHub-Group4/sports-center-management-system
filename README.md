@@ -236,3 +236,13 @@ Backend đọc chuỗi kết nối local từ `.env` ở gốc dự án và mặ
 Xem chi tiết thiết kế: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md)
 
 ---
+
+---
+
+## AI Coach/Member — cập nhật triển khai 02/11/2026
+
+- Chatbox ở UI hiện chỉ nằm trong phạm vi **Member** và **Coach**; không suy ra chatbot cho ba role còn lại từ sự tồn tại của các service backend.
+- Coach AI suggestion hỗ trợ bản nháp kế hoạch theo buổi và Personal Plan theo học viên được phân công, với bước validation Goal và Coach review trước Save (theo bản vá mới; cần kiểm chứng runtime sau merge).
+- Hướng dẫn nút/page từ AI cần đối chiếu Navigation Knowledge của Member/Coach với frontend thật; contract API không tự cho biết vị trí button.
+- System prompt có thể được xuất bản qua `ISystemPromptReader`, và phiên bản prompt được gắn với continuation scope. Xem [`docs/AI-Member-Coach-Implementation-Verification.md`](docs/AI-Member-Coach-Implementation-Verification.md).
+

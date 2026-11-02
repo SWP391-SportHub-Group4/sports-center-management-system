@@ -55,6 +55,23 @@ public sealed class SportHubAiContextBuilder(
         }
 
 
+        // Staff roles have UI navigation access, but must never receive Member-scoped data.
+        var accountRole = await db.Set<Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking().Where(u => u.UserId == userId)
+            .Select(u => u.Role == null ? (UserRole?)null : u.Role.RoleName)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (accountRole is UserRole.CenterManager or UserRole.Receptionist or UserRole.SystemAdministrator)
+        {
+            var roleName = accountRole.Value.ToString();
+            return JsonSerializer.Serialize(new {
+                role = roleName, generatedAtUtc = now,
+                accessScope = new { role = roleName, userId },
+                note = "Navigation knowledge only; no business records loaded for staff."
+            });
+        }
+        if (accountRole != UserRole.Member)
+            throw new SportHub.BuildingBlocks.SharedKernel.Errors.ForbiddenException("ai_chat_role_forbidden", "This account cannot use the assistant.");
+
         var member = await db.Set<Identity.Domain.Entities.UserAccount>()
             .AsNoTracking()
             .Where(u => u.UserId == userId)

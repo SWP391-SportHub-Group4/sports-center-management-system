@@ -9,6 +9,7 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { formatTime } from "@/lib/format";
 import styles from "./assistant.module.css";
+import chatStyles from "@/components/ai/chat-messages.module.css";
 
 interface ChatReply {
   interactionId: string;
@@ -92,7 +93,8 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
     } catch (cause) {
       if (controller.signal.aborted) return;
       setError(
-        cause instanceof ApiError && (cause.status === 502 || cause.status === 503)
+        cause instanceof ApiError &&
+          (cause.status === 502 || cause.status === 503)
           ? l.unavailable
           : l.failed,
       );
@@ -176,7 +178,11 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
           <ul className={styles.chips}>
             {l.suggestions.map((q) => (
               <li key={q}>
-                <button type="button" className={styles.chip} onClick={() => void ask(q)}>
+                <button
+                  type="button"
+                  className={styles.chip}
+                  onClick={() => void ask(q)}
+                >
                   {q}
                 </button>
               </li>
@@ -185,21 +191,22 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
         </section>
       )}
 
-      <ol className={styles.thread} aria-live="polite">
+      <ol className={chatStyles.thread} aria-live="polite">
         {turns.map((turn) => (
-          <li key={turn.id} className={styles.msg} data-from={turn.from}>
-            <span className={styles.who}>
-              {turn.from === "user" ? l.you : l.assistantName} · {formatTime(turn.at)}
+          <li key={turn.id} className={chatStyles.msg} data-from={turn.from}>
+            <span className={chatStyles.who}>
+              {turn.from === "user" ? l.you : l.assistantName} ·{" "}
+              {formatTime(turn.at)}
             </span>
-            <p className={styles.bubble}>
+            <p className={chatStyles.bubble}>
               {turn.from === "assistant" ? aiPlainText(turn.text) : turn.text}
             </p>
           </li>
         ))}
         {busy && (
-          <li className={styles.msg} data-from="assistant">
-            <span className={styles.who}>{l.assistantName}</span>
-            <p className={styles.bubble} role="status">
+          <li className={chatStyles.msg} data-from="assistant">
+            <span className={chatStyles.who}>{l.assistantName}</span>
+            <p className={chatStyles.bubble} role="status">
               {l.thinking}
             </p>
           </li>
@@ -219,7 +226,11 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
         <p className={styles.error} role="alert">
           {error}
           {lastQuestion && !busy && (
-            <button type="button" className="btn btn--secondary btn--sm" onClick={() => void ask(lastQuestion, false)}>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => void ask(lastQuestion, false)}
+            >
               {l.retry}
             </button>
           )}
@@ -229,7 +240,6 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
     </Drawer>
   );
 }
-
 
 /** Floating Member AI launcher. Restore the existing SportHub wolf mascot. */
 export function AssistantButton() {
@@ -259,9 +269,7 @@ export function AssistantButton() {
         </button>
       </div>
 
-      {open && (
-        <AssistantDrawer onClose={() => setOpen(false)} />
-      )}
+      {open && <AssistantDrawer onClose={() => setOpen(false)} />}
     </>
   );
 }

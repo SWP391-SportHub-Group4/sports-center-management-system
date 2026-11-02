@@ -180,6 +180,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    options.AddPolicy("prompt-test", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     options.AddPolicy("vnp-ipn", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -387,6 +397,10 @@ builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Training.ICoachM
 builder.Services.AddScoped<IAiRecommendationService, RuleBasedAiRecommendationService>();
 builder.Services.AddScoped<IWorkoutRecommendationService, WorkoutRecommendationService>();
 // AI Flow 6 — Gemini assistant
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<PromptTestChatService>();
+builder.Services.AddScoped<SystemPromptService>();
+builder.Services.AddScoped<ISystemPromptReader>(sp => sp.GetRequiredService<SystemPromptService>());
 
 builder.Services.AddScoped<
     IAiContextBuilder,

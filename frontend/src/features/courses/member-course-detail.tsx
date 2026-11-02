@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { MemberSchedule } from "@/features/member";
+import {
+  BmiRequiredDialog,
+  MemberSchedule,
+  useBmiGate,
+} from "@/features/member";
 import { CourseSticker } from "./course-sticker";
 import { CheckoutPanel } from "@/features/payments";
 import { StatusChip } from "@/components/ui";
@@ -63,6 +67,8 @@ export function CourseDetail({
     (signal) => courseApi.sessions(classId, false, signal),
     [classId],
   );
+  const bmiGate = useBmiGate(user?.role === "Member");
+  const [bmiPrompt, setBmiPrompt] = useState(false);
 
   if (state.loading)
     return (
@@ -196,6 +202,24 @@ export function CourseDetail({
           </div>
         </div>
         {user?.role === "Member" &&
+        !resumeId &&
+        !checkoutCompleted &&
+        canRegister &&
+        !enrolled &&
+        bmiGate.missing ? (
+          <>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setBmiPrompt(true)}
+            >
+              {vi ? "Đăng ký khóa học" : "Register for this course"}
+            </button>
+            {bmiPrompt && (
+              <BmiRequiredDialog onClose={() => setBmiPrompt(false)} />
+            )}
+          </>
+        ) : user?.role === "Member" &&
         (resumeId ||
           checkoutCompleted ||
           (canRegister && !enrollments.loading && !enrollments.error)) ? (
