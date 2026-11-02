@@ -733,6 +733,11 @@ export const en = {
     createRoomRentalHint:
       "Turn on to set an hourly price and weekly rental schedule. New rooms are active by default.",
     rentalSchedule: "Weekly rental schedule",
+    editOpeningHours: "Edit opening hours",
+    rentalSportRequired: "Select a sport",
+    rentalSportHint:
+      "Choose which sport members can play when renting this court.",
+    noRentalSports: "Create or activate a sport before enabling rental.",
     rentalDay: "Day",
     rentalOpens: "Opens",
     rentalCloses: "Closes",
@@ -868,6 +873,8 @@ export const en = {
     invalidReference:
       "The selected reference is no longer valid. Reload the list and check the selection.",
     duplicateName: "This name is already in use. Enter another name.",
+    duplicateSport: "This sport already exists.",
+    invalidSportName: "Enter a sport name containing letters or numbers.",
     duplicateSportCode:
       "This sport code is already in use. Enter another code.",
     forbidden: "You do not have permission to make this change.",

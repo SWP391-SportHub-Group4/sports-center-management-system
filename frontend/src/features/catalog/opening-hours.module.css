@@ -1,0 +1,241 @@
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.title h2 {
+  margin: 0;
+  font: var(--weight-semibold) var(--text-lg)/1.4 var(--font-body);
+}
+.title p {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.editButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.schedule {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin: 0;
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.day {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  min-width: 0;
+}
+.day:first-child {
+  padding-left: 0;
+}
+.day + .day {
+  border-left: 1px solid var(--border-subtle);
+}
+.day dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.day dd {
+  margin: 0;
+  white-space: nowrap;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.day .closed {
+  color: var(--text-muted);
+  font-weight: var(--weight-regular);
+}
+.dialog:global(.dialog) {
+  width: min(48rem, 100%);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--space-4) * 2);
+  overflow: hidden;
+}
+.dialog :global(.dialog__head),
+.dialog :global(.dialog__foot) {
+  flex-shrink: 0;
+}
+.dialog :global(.dialog__body) {
+  min-height: 0;
+  overflow-y: auto;
+}
+.dialog :global(.dialog__foot .btn) {
+  min-width: 6rem;
+  min-height: 44px;
+}
+.centerHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.centerHint svg {
+  flex-shrink: 0;
+}
+.editorFields.editorFields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.columnHead,
+.editorRow {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) 5rem repeat(2, minmax(0, 1.25fr));
+  align-items: center;
+  gap: var(--space-3);
+}
+.columnHead {
+  padding-bottom: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.editorRow {
+  min-height: 68px;
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.weekday {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+.openControl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  margin: 0;
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.openControl input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+.openControl:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+.timeFields {
+  grid-column: 3 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+.timeFields :global(.field) {
+  min-width: 0;
+  margin: 0;
+}
+.timeFields :global(.field > span:first-child) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.timeFields input {
+  min-width: 0;
+  min-height: 44px;
+  font-variant-numeric: tabular-nums;
+}
+.closedRow {
+  grid-column: 3 / -1;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.editorRow[data-closed="true"] .weekday {
+  color: var(--text-muted);
+}
+.error {
+  grid-column: 3 / -1;
+  color: var(--danger-700);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+@media (max-width: 1000px) {
+  .schedule {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: 0;
+  }
+  .day {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 48px;
+    padding: var(--space-3) 0;
+  }
+  .day + .day {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .day dt {
+    font-size: var(--text-sm);
+  }
+}
+@media (max-width: 600px) {
+  .columnHead {
+    display: none;
+  }
+  .editorRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2) var(--space-3);
+  }
+  .openControl {
+    justify-self: end;
+  }
+  .timeFields {
+    grid-column: 1 / -1;
+  }
+  .timeFields :global(.field > span:first-child) {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+  }
+  .closedRow {
+    grid-column: 1 / -1;
+    min-height: 24px;
+  }
+  .error {
+    grid-column: 1 / -1;
+  }
+  .dialog :global(.dialog__body) {
+    padding: var(--space-4);
+  }
+  .dialog :global(.dialog__foot .btn) {
+    flex: 1;
+  }
+}

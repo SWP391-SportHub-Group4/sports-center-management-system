@@ -181,7 +181,6 @@ test("sport creation omits all room-type controls and payload fields", async ({
     dialog(page).getByLabel("Room type name", { exact: true }),
   ).toHaveCount(0);
   await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
-  await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
   expect(fixture.writes).toHaveLength(1);
@@ -190,29 +189,47 @@ test("sport creation omits all room-type controls and payload fields", async ({
 });
 
 for (const [code, field, width] of [
-  ["sport_code_taken", "Code", 1440],
+  ["sport_code_taken", "Name", 1440],
   ["sport_name_taken", "Name", 390],
 ] as const) {
-  test(`sport duplicate ${field} error stays inside the create dialog`, async ({ page }) => {
+  test(`sport duplicate ${code} error stays inside the create dialog`, async ({
+    page,
+  }) => {
     const fixture = await setup(page, { fail: 409, code });
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/manager/sports");
-    await page.getByRole("button", { name: "Create sport", exact: true }).click();
-    await dialog(page).getByLabel("Code", { exact: true }).fill("basketball");
+    await page
+      .getByRole("button", { name: "Create sport", exact: true })
+      .click();
     await dialog(page).getByLabel("Name", { exact: true }).fill("Basketball");
-    await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+    await dialog(page)
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
     await expect(dialog(page)).toBeVisible();
-    await expect(dialog(page).getByLabel(field, { exact: true })).toHaveAttribute("aria-invalid", "true");
-    await expect(dialog(page).getByRole("alert")).toContainText("already in use");
-    await expect(page.getByRole("alert").filter({ hasText: "already in use" })).toHaveCount(1);
-    await dialog(page).getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "already in use" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Create sport", exact: true }).click();
+    await expect(
+      dialog(page).getByLabel(field, { exact: true }),
+    ).toHaveAttribute("aria-invalid", "true");
+    await expect(dialog(page).getByRole("alert")).toContainText(
+      "already exists",
+    );
+    await expect(
+      page.getByRole("alert").filter({ hasText: "already exists" }),
+    ).toHaveCount(1);
+    await dialog(page)
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "already exists" }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Create sport", exact: true })
+      .click();
     await expect(dialog(page).getByRole("alert")).toHaveCount(0);
     fixture.recover();
-    await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
     await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
-    await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
+    await dialog(page)
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
     await expect(dialog(page)).toHaveCount(0);
   });
 }
@@ -231,7 +248,6 @@ for (const width of [1440, 390])
       .getByRole("button", { name: "Create sport", exact: true })
       .click();
     await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball");
-    await dialog(page).getByLabel("Code", { exact: true }).fill("volleyball");
 
     await dialog(page)
       .getByRole("button", { name: "Save", exact: true })
@@ -254,6 +270,7 @@ for (const width of [1440, 390])
       fullPage: true,
     });
     fixture.recover();
+    await dialog(page).getByLabel("Name", { exact: true }).fill("Volleyball ");
     await dialog(page)
       .getByRole("button", { name: "Save", exact: true })
       .click();
@@ -278,9 +295,6 @@ test("sport creation uses service contract, reloads, and edits with immutable co
   await page.goto("/manager/catalog?tab=sports");
   await page.getByRole("button", { name: "Create sport", exact: true }).click();
   await dialog(page).getByLabel("Name", { exact: true }).fill("New Gym");
-  await dialog(page).getByLabel("Code", { exact: true }).fill("gym");
-  await dialog(page).getByLabel("Group courses", { exact: true }).uncheck();
-  await dialog(page).getByLabel("Membership", { exact: true }).check();
   await expect(
     dialog(page).getByLabel("Personal training", { exact: true }),
   ).toHaveCount(0);
@@ -292,13 +306,12 @@ test("sport creation uses service contract, reloads, and edits with immutable co
     method: "POST",
     body: {
       name: "New Gym",
-      code: "gym",
       services: [
         {
-          serviceType: "MEMBERSHIP_ACCESS",
+          serviceType: "GROUP_COURSE",
           isEnabled: true,
-          defaultSessionMinutes: null,
-          defaultMaxCapacity: null,
+          defaultSessionMinutes: 90,
+          defaultMaxCapacity: 12,
         },
       ],
     },
@@ -306,14 +319,13 @@ test("sport creation uses service contract, reloads, and edits with immutable co
   await row(page, "Basketball")
     .getByRole("button", { name: "Edit", exact: true })
     .click();
-  await expect(dialog(page).getByLabel("Code", { exact: true })).toBeDisabled();
+  await expect(dialog(page).getByLabel("Code", { exact: true })).toHaveCount(0);
   await expect(
     dialog(page).getByLabel("Display order", { exact: true }),
   ).toHaveCount(0);
   await expect(
     dialog(page).getByLabel("Membership", { exact: true }),
   ).toHaveCount(0);
-  await dialog(page).getByLabel("Court rental", { exact: true }).check();
   await expect(
     dialog(page).getByLabel("Room type", { exact: true }),
   ).toHaveCount(0);
@@ -333,16 +345,11 @@ test("sport creation uses service contract, reloads, and edits with immutable co
           defaultSessionMinutes: 90,
           defaultMaxCapacity: 12,
         },
-        {
-          serviceType: "COURT_RENTAL",
-          isEnabled: true,
-          defaultSessionMinutes: null,
-          defaultMaxCapacity: null,
-        },
       ],
     },
   });
   expect(fixture.writes[0].body).not.toHaveProperty("sortOrder");
+  expect(fixture.writes[0].body).not.toHaveProperty("code");
   expect(fixture.writes[1].body).not.toHaveProperty("sortOrder");
   expect(fixture.writes[1].body).not.toHaveProperty("code");
   expect(fixture.writes[1].body).not.toHaveProperty("operationType");
@@ -543,7 +550,9 @@ test("filters survive reload and sport deactivation confirms affected enrolled c
   await expect(page.getByLabel("Search", { exact: true })).toHaveValue(
     "Basket",
   );
-  const originalOverflow = await page.evaluate(() => document.body.style.overflow);
+  const originalOverflow = await page.evaluate(
+    () => document.body.style.overflow,
+  );
   await row(page, "Basketball")
     .getByRole("button", { name: "Edit", exact: true })
     .click();
@@ -566,7 +575,9 @@ test("filters survive reload and sport deactivation confirms affected enrolled c
   expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
     true,
   );
-  await confirmation.screenshot({ path: testInfo.outputPath("sport-deactivation.png") });
+  await confirmation.screenshot({
+    path: testInfo.outputPath("sport-deactivation.png"),
+  });
   await list.hover();
   await page.mouse.wheel(0, 1500);
   await expect
@@ -597,24 +608,46 @@ test("filters survive reload and sport deactivation confirms affected enrolled c
   expect(page.url()).toContain("keep=bookmark");
 });
 
-test("sport deactivation on mobile retries impact and submit errors and supports no affected classes", async ({ page }) => {
+test("sport deactivation on mobile retries impact and submit errors and supports no affected classes", async ({
+  page,
+}) => {
   const fixture = await setup(page, { fail: 503 });
   await page.setViewportSize({ width: 390, height: 844 });
   let failImpact = true;
-  await page.route("**/api/manager/sports/41/deactivation-impact", route =>
-    route.fulfill(failImpact ? { status: 503, json: { error: "unavailable" } } : { json: [] }));
+  await page.route("**/api/manager/sports/41/deactivation-impact", (route) =>
+    route.fulfill(
+      failImpact
+        ? { status: 503, json: { error: "unavailable" } }
+        : { json: [] },
+    ),
+  );
   await page.goto("/manager/sports");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await dialog(page).getByRole("switch").click();
-  const confirmation = page.getByRole("dialog", { name: "Are you sure you want to deactivate Basketball?", exact: true });
-  await expect(confirmation.getByRole("button", { name: "Yes", exact: true })).toBeDisabled();
-  await expect(confirmation.getByRole("alert")).toContainText("Could not load affected classes.");
+  const confirmation = page.getByRole("dialog", {
+    name: "Are you sure you want to deactivate Basketball?",
+    exact: true,
+  });
+  await expect(
+    confirmation.getByRole("button", { name: "Yes", exact: true }),
+  ).toBeDisabled();
+  await expect(confirmation.getByRole("alert")).toContainText(
+    "Could not load affected classes.",
+  );
   failImpact = false;
-  await confirmation.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(confirmation.getByText("No classes will be affected.", { exact: true })).toBeVisible();
+  await confirmation
+    .getByRole("button", { name: "Try again", exact: true })
+    .click();
+  await expect(
+    confirmation.getByText("No classes will be affected.", { exact: true }),
+  ).toBeVisible();
   await confirmation.getByRole("button", { name: "Yes", exact: true }).click();
   await expect(confirmation.getByRole("alert")).toBeVisible();
-  await expect(page.getByRole("dialog", { name: "Edit sport", exact: true }).getByRole("switch")).toBeChecked();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Edit sport", exact: true })
+      .getByRole("switch"),
+  ).toBeChecked();
   fixture.recover();
   await confirmation.getByRole("button", { name: "Yes", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
@@ -808,9 +841,8 @@ test("mobile tables and forms fit and English labels are accessible", async ({
     await page
       .getByRole("button", { name: "Create sport", exact: true })
       .click();
-    await dialog(page).getByLabel("Code", { exact: true }).fill("gym");
     await expect(
-      dialog(page).getByLabel("Membership", { exact: true }),
+      dialog(page).getByLabel("Name", { exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(

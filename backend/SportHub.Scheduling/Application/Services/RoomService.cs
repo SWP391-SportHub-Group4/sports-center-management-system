@@ -6,6 +6,7 @@ using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Catalog.Application;
 using SportHub.Scheduling.Occupancy.Domain;
 
 namespace SportHub.Scheduling.Application.Services;
@@ -78,6 +79,8 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
         foreach (var hour in openingHours) hour.RoomId = room.RoomId;
         db.Set<RoomOpeningHour>().AddRange(openingHours);
         var rentalRates = AddCreationRentalRates(room, request, openingHours);
+        if (room.AllowRental && request.RentalSetup?.SportId is int rentalSportId)
+            await RentalSportOffering.EnableAsync(db, audit, rentalSportId, actorUserId, ct);
         await db.SaveChangesAsync(ct);
 
         audit.Write(new AuditEntry(
@@ -90,7 +93,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
             foreach (var rate in rentalRates)
                 audit.Write(new AuditEntry(actorUserId, "CREATE_COURT_RATE", nameof(CourtRate), rate.RateId.ToString(),
                     NewValue: System.Text.Json.JsonSerializer.Serialize(new {
-                        roomId = room.RoomId, roomName = room.Name, roomTypeId = room.RoomTypeId, sportId = (int?)null,
+                        roomId = room.RoomId, roomName = room.Name, roomTypeId = room.RoomTypeId, sportId = rate.SportId,
                         days = rate.DaysOfWeek, startTimeLocal = rate.StartTimeLocal.ToString("HH:mm"),
                         endTimeLocal = rate.EndTimeLocal.ToString("HH:mm"), price = rate.PricePerHour, active = true
                     })));

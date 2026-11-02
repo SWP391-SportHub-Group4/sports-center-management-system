@@ -723,6 +723,7 @@ export function CourseEditor({
                     type="number"
                     min={1}
                     step={1}
+                    placeholder={room ? `Maximum: ${room.capacity}` : undefined}
                     max={
                       room
                         ? Math.min(
@@ -743,11 +744,6 @@ export function CourseEditor({
                     }
                   />
                 </Field>
-                {room && (
-                  <p>
-                    {l.capacity}: {room.capacity} ({room.name})
-                  </p>
-                )}
                 {capacityInvalid && <p role="alert">{m.capacityExceeded}</p>}
                 <Field
                   label={l.startDate}

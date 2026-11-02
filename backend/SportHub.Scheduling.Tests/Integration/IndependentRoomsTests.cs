@@ -28,7 +28,7 @@ public sealed class IndependentRoomsTests(SchedulingApiFactory factory)
         using var manager = factory.CreateApiClient(actor.UserId, UserRole.CenterManager);
         var created = await manager.PostAsJsonAsync("api/rooms", new {
             name = $"Price window {Guid.NewGuid():N}", capacity = 12, allowRental = true,
-            rentalSetup = new { pricePerHour = 100000, hours = new[] { new { dayOfWeek = 1, openTimeLocal = "08:00", closeTimeLocal = "20:00" } } }
+            rentalSetup = new { sportId = 3, pricePerHour = 100000, hours = new[] { new { dayOfWeek = 1, openTimeLocal = "08:00", closeTimeLocal = "20:00" } } }
         });
         created.EnsureSuccessStatusCode();
         var room = (await created.Content.ReadFromJsonAsync<RoomResponse>())!;
@@ -69,7 +69,7 @@ public sealed class IndependentRoomsTests(SchedulingApiFactory factory)
         var updated = await manager.PutAsJsonAsync($"api/rooms/{room.RoomId}", new { name = room.Name, capacity = 12, isActive = false, allowRental = true });
         updated.EnsureSuccessStatusCode();
         var createdWithBoth = await manager.PostAsJsonAsync("api/rooms", new { name = $"Preconfigured inactive {Guid.NewGuid():N}", capacity = 12, isActive = false, allowRental = true,
-            rentalSetup = new { pricePerHour = 100000, hours = new[] { new { dayOfWeek = 1, openTimeLocal = "06:00", closeTimeLocal = "22:00" } } } });
+            rentalSetup = new { sportId = 3, pricePerHour = 100000, hours = new[] { new { dayOfWeek = 1, openTimeLocal = "06:00", closeTimeLocal = "22:00" } } } });
         createdWithBoth.EnsureSuccessStatusCode();
     }
 
