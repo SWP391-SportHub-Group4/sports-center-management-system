@@ -24,6 +24,12 @@ import { RemoveMemberAvatarButton } from "@/components/RemoveMemberAvatarButton"
 import { RegisterMemberDialog } from "@/features/receptionist";
 import { MemberRentalHistory } from "./member-rental-history";
 
+const membershipStatusOrder: Record<string, number> = {
+  ACTIVE: 0,
+  EXPIRED: 1,
+  CANCELLED: 2,
+};
+
 /** Danh sách hội viên của Manager và đăng ký Member tại quầy. */
 export function ManagerMemberList() {
   const { t } = useLanguage();
@@ -236,16 +242,33 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
                 {(rows) =>
                   rows.length ? (
                     <Table headers={["Membership", "Start", "End", "Status"]}>
-                      {rows.map((p) => (
-                        <tr key={p.memberPackageId}>
-                          <td>{p.packageName}</td>
-                          <td>{formatDate(p.startDate)}</td>
-                          <td>{formatDate(p.endDate)}</td>
-                          <td>
-                            <StatusChip value={p.status} />
-                          </td>
-                        </tr>
-                      ))}
+                      {[...rows]
+                        .sort(
+                          (a, b) =>
+                            (membershipStatusOrder[a.status] ?? 3) -
+                            (membershipStatusOrder[b.status] ?? 3),
+                        )
+                        .map((p) => (
+                          <tr key={p.memberPackageId}>
+                            <td>{p.packageName}</td>
+                            <td>{formatDate(p.startDate)}</td>
+                            <td>{formatDate(p.endDate)}</td>
+                            <td>
+                              <StatusChip
+                                value={p.status}
+                                tone={
+                                  p.status === "ACTIVE"
+                                    ? "success"
+                                    : p.status === "EXPIRED"
+                                      ? "warning"
+                                      : p.status === "CANCELLED"
+                                        ? "danger"
+                                        : "neutral"
+                                }
+                              />
+                            </td>
+                          </tr>
+                        ))}
                     </Table>
                   ) : (
                     <p className={profileStyles.empty}>No memberships yet.</p>

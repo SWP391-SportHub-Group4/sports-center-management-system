@@ -165,6 +165,7 @@ function GiftComposer({
   const [sportId, setSportId] = useState("");
   const [classId, setClassId] = useState("");
   const [allSelected, setAllSelected] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
   const [selectingAll, setSelectingAll] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Record<string, Selected>>({});
@@ -218,7 +219,8 @@ function GiftComposer({
         query: {
           incidentId,
           keyword,
-          sportId: sportId || undefined,
+          sportId: sportId && sportId !== "unregistered" ? sportId : undefined,
+          unregistered: sportId === "unregistered" || undefined,
           classId: classId || undefined,
           page,
           pageSize: 20,
@@ -239,7 +241,7 @@ function GiftComposer({
     set(value);
     setPage(1);
     setAllSelected(false);
-    setSelected({});
+    setBulkSelectedIds([]);
   }
   function remove(id: string) {
     setAllSelected(false);
@@ -252,13 +254,19 @@ function GiftComposer({
   async function selectAll(checked: boolean) {
     if (!checked) {
       setAllSelected(false);
-      setSelected({});
+      setSelected((current) => {
+        const next = { ...current };
+        for (const id of bulkSelectedIds) delete next[id];
+        return next;
+      });
+      setBulkSelectedIds([]);
       return;
     }
     setSelectingAll(true);
     setError("");
     try {
-      const next: Record<string, Selected> = {};
+      const next: Record<string, Selected> = { ...selected };
+      const matchingIds: string[] = [];
       let currentPage = 1;
       let totalPages = 1;
       do {
@@ -268,7 +276,9 @@ function GiftComposer({
             query: {
               incidentId,
               keyword,
-              sportId: sportId || undefined,
+              sportId:
+                sportId && sportId !== "unregistered" ? sportId : undefined,
+              unregistered: sportId === "unregistered" || undefined,
               classId: classId || undefined,
               page: currentPage,
               pageSize: 100,
@@ -276,18 +286,21 @@ function GiftComposer({
           },
         );
         for (const recipient of result.items) {
-          if (!recipient.alreadyGifted)
+          if (!recipient.alreadyGifted) {
+            matchingIds.push(recipient.memberId);
             next[recipient.memberId] = selected[recipient.memberId] ?? {
               ...recipient,
               points,
               memberAgreed: false,
             };
+          }
         }
         totalPages = Math.ceil(result.totalCount / result.pageSize);
         currentPage++;
       } while (currentPage <= totalPages);
       setSelected(next);
-      setAllSelected(Object.keys(next).length > 0);
+      setBulkSelectedIds(matchingIds);
+      setAllSelected(matchingIds.length > 0);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -333,6 +346,7 @@ function GiftComposer({
       setReview(null);
       setSelected({});
       setAllSelected(false);
+      setBulkSelectedIds([]);
       setReason("");
       setRevision((r) => r + 1);
       onGifted?.();
@@ -438,6 +452,9 @@ function GiftComposer({
                 }}
               >
                 <option value="">{vi ? "Tất cả môn" : "All sports"}</option>
+                <option value="unregistered">
+                  {vi ? "Chưa đăng ký" : "Not registered"}
+                </option>
                 {filters.data?.sports.map((p) => (
                   <option key={p.sportId} value={p.sportId}>
                     {p.name}
@@ -452,7 +469,11 @@ function GiftComposer({
                 (item) => !sportId || item.sportId === Number(sportId),
               )}
               disabled={
-                filters.loading || !!filters.error || !!review || selectingAll
+                filters.loading ||
+                !!filters.error ||
+                !!review ||
+                selectingAll ||
+                sportId === "unregistered"
               }
               vi={vi}
             />
@@ -471,8 +492,8 @@ function GiftComposer({
           )}
           <p className="small muted">
             {vi
-              ? "Dành cho hội viên có giao dịch mua thành công trên web. Đổi bộ lọc sẽ xóa lựa chọn hiện tại."
-              : "Members with a successful purchase on the website. Changing filters clears the current selection."}
+              ? "Tặng điểm cho mọi hội viên, kể cả chưa mua gì. Các lựa chọn được giữ khi tìm kiếm hoặc đổi bộ lọc."
+              : "Gift points to any member, including those with no purchases. Selections are kept when searching or changing filters."}
           </p>
           <ActivitySwitch
             checked={allSelected}
@@ -501,6 +522,19 @@ function GiftComposer({
                 : "Selecting…"
               : `${rows.length} ${vi ? "người đã chọn" : "recipients selected"}`}
           </span>
+          {rows.length > 0 && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => {
+                setSelected({});
+                setAllSelected(false);
+                setBulkSelectedIds([]);
+              }}
+            >
+              {vi ? "Bỏ chọn tất cả" : "Clear selection"}
+            </button>
+          )}
           <AsyncSection state={recipients}>
             {(data) => (
               <>
@@ -612,8 +646,8 @@ function GiftComposer({
                 error={pointError(points)}
                 hint={
                   vi
-                    ? "Tự áp dụng cho tất cả người nhận đã chọn; có thể chỉnh riêng từng người."
-                    : "Applies to all selected recipients. You can adjust each recipient below."
+                    ? "Áp dụng cùng số điểm cho tất cả người nhận đã chọn."
+                    : "The same points amount applies to all selected recipients."
                 }
               >
                 <input
@@ -626,76 +660,36 @@ function GiftComposer({
                 />
               </Field>
             </div>
-            {rows.length > 0 && (
-              <Table
-                headers={[
-                  vi ? "Hội viên" : "Member",
-                  vi ? "Điểm tặng" : "Gift points",
-                  vi ? "Đồng ý nhận" : "Agreement",
-                  vi ? "Thao tác" : "Actions",
-                ]}
+            {rows.some((r) => r.requiresAgreement) && (
+              <div
+                className="stack"
+                role="group"
+                aria-label={vi ? "Đồng ý nhận điểm" : "Recipient agreements"}
               >
-                {rows.map((r) => (
-                  <tr key={r.memberId}>
-                    <td>
-                      {r.name}
-                      <br />
-                      <small>{r.email}</small>
-                    </td>
-                    <td>
-                      <Field
-                        label={`${vi ? "Điểm cho" : "Points for"} ${r.name}`}
-                        error={pointError(r.points)}
-                      >
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          value={r.points}
-                          onChange={(e) =>
-                            setSelected((current) => ({
-                              ...current,
-                              [r.memberId]: { ...r, points: e.target.value },
-                            }))
-                          }
-                        />
-                      </Field>
-                    </td>
-                    <td>
-                      {r.requiresAgreement ? (
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={r.memberAgreed}
-                            onChange={(e) =>
-                              setSelected((current) => ({
-                                ...current,
-                                [r.memberId]: {
-                                  ...r,
-                                  memberAgreed: e.target.checked,
-                                },
-                              }))
-                            }
-                          />{" "}
-                          {vi
-                            ? "Member đã đồng ý nhận điểm"
-                            : "Member agreed to receive points"}
-                        </label>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn--ghost"
-                        onClick={() => remove(r.memberId)}
-                      >
-                        {vi ? "Bỏ chọn" : "Remove"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
+                {rows
+                  .filter((r) => r.requiresAgreement)
+                  .map((r) => (
+                    <label key={r.memberId}>
+                      <input
+                        type="checkbox"
+                        checked={r.memberAgreed}
+                        onChange={(event) =>
+                          setSelected((current) => ({
+                            ...current,
+                            [r.memberId]: {
+                              ...r,
+                              memberAgreed: event.target.checked,
+                            },
+                          }))
+                        }
+                      />{" "}
+                      {vi
+                        ? "Member đã đồng ý nhận điểm"
+                        : "Member agreed to receive points"}
+                      : {r.name}
+                    </label>
+                  ))}
+              </div>
             )}
             <Field
               label={
