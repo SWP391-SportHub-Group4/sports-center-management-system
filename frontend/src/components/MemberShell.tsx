@@ -181,9 +181,6 @@ export function MemberFrame({
             <span className={styles.brandLogo}>
               Sport<span className={styles.brandLogoAccent}>Hub</span>
             </span>
-            <span className={styles.roleBadge}>
-              {t.navigation.roleLabel.Member}
-            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -262,11 +259,6 @@ export function MemberFrame({
                   <div className={styles.dropdownHeader}>
                     <div className={styles.dropdownName}>
                       {user.fullName || user.email}
-                    </div>
-                    <div className={styles.dropdownRole}>
-                      {language === "en"
-                        ? "SportHub Member"
-                        : "Hội viên SportHub"}
                     </div>
                   </div>
 

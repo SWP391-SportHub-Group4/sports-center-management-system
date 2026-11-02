@@ -462,7 +462,6 @@ export function AppFrame({
             <span className={shell.brandLogo}>
               Sport<span className={shell.brandLogoAccent}>Hub</span>
             </span>
-            <span className={shell.roleBadge}>{roleDisplay}</span>
           </Link>
 
           <nav
@@ -559,7 +558,6 @@ export function AppFrame({
                     <div className={shell.dropdownName}>
                       {user.fullName || user.email}
                     </div>
-                    <div className={shell.dropdownRole}>{roleDisplay}</div>
                   </div>
                   <Link
                     href="/account"

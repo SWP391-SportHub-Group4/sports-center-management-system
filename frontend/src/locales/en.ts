@@ -2478,8 +2478,8 @@ export const en = {
     refundClose: "Close",
   },
   assistant: {
-    open: "Ask SportHub",
-    title: "SportHub assistant",
+    open: "Ask Wolf",
+    title: "Wolf",
     intro:
       "Ask about your schedule, membership, classes or payments. It only reads your SportHub information and cannot book, pay or change anything.",
     suggestionsLabel: "Try asking",
@@ -2494,7 +2494,7 @@ export const en = {
     stop: "Stop",
     thinking: "Thinking…",
     you: "You",
-    assistantName: "SportHub assistant",
+    assistantName: "Wolf",
     retry: "Try again",
     newChat: "New conversation",
     tooLong: "Keep your question under 2000 characters.",
