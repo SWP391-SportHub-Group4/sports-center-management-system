@@ -18,7 +18,8 @@ public sealed class AiChatService(
     ISportHubDbContext db,
     IAiContextBuilder contextBuilder,
     IAiChatProvider provider,
-    IClock clock) : IAiChatService
+    IClock clock,
+    ISystemPromptReader promptReader) : IAiChatService
 {
     public const int MaxQuestionLength = 2000;
 
@@ -70,8 +71,28 @@ public sealed class AiChatService(
                 cancellationToken);
 
         using var contextDocument = JsonDocument.Parse(context);
+        // Resolve the authenticated role once for both prompt selection and navigation.
+        var role = contextDocument.RootElement.TryGetProperty("role", out var roleElement)
+            && roleElement.ValueKind == JsonValueKind.String
+                ? roleElement.GetString()?.Trim().ToLowerInvariant() switch
+                {
+                    "member" => "member",
+                    "coach" => "coach",
+                    _ => "unsupported"
+                }
+                : "unsupported";
+
+        var isCoach = role == "coach";
+        // Keep the published prompt and its version from the incoming branch.
+        var publishedPrompt = await promptReader.GetPublishedAsync(
+            isCoach ? "Coach" : "Member", cancellationToken);
+        var promptVersion = publishedPrompt.Version;
+        var systemPrompt = isCoach
+            ? publishedPrompt.Content
+            : SportHubAssistantSystemPrompt.WithQuestionLanguage(publishedPrompt.Content, question);
+
         var scopeFingerprint = contextDocument.RootElement.TryGetProperty("accessScope", out var accessScope)
-            ? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(accessScope.GetRawText()))) : null;
+            ? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(accessScope.GetRawText() + "\n" + promptVersion))) : null;
         if (previousInteractionId is not null)
         {
             var history = await db.Set<AiLog>().AsNoTracking().Where(l => l.UserId == userId && l.QueryType == AiQueryTypes.Chat)
@@ -80,31 +101,38 @@ public sealed class AiChatService(
             var allowed = history.Any(l => MatchesContext(l.InputPayload, l.ResponsePayload, previousInteractionId, scopeFingerprint));
             if (!allowed) previousInteractionId = null;
         }
-        var isCoach = contextDocument.RootElement.TryGetProperty("role", out var roleElement)
-            && roleElement.ValueKind == JsonValueKind.String
-            && roleElement.GetString() == "Coach";
-        var systemPrompt = isCoach
-            ? CoachAiSystemPrompt.Content
-            : SportHubAssistantSystemPrompt.ForQuestion(question);
-        var promptVersion = isCoach
-            ? CoachAiSystemPrompt.Version
-            : SportHubAssistantSystemPrompt.Version;
+        // Only Member and Coach have navigation knowledge available in the AI UI.
+        var roleSupportsNavigation = role is "member" or "coach";
 
-        var stopwatch =
-            Stopwatch.StartNew();
+        var localAnswer = roleSupportsNavigation
+            ? UiNavigationKnowledge.TryAnswer(question, role)
+            : null;
+
+        if (roleSupportsNavigation &&
+            localAnswer is null &&
+            UiNavigationKnowledge.IsNavigationQuestion(question))
+        {
+            localAnswer = UiNavigationKnowledge.NavigationFallback(question, role);
+        }
+
+        if (localAnswer is null &&
+            SportHubTopicGuard.IsClearlyOffTopic(question))
+        {
+            localAnswer = isCoach
+                ? "This question is outside SportHub's scope. I can help with class schedules, students, teaching and training features."
+                : "This question is outside SportHub's scope. I can help with SportHub services, classes, booking and training.";
+        }
+
+        var stopwatch = Stopwatch.StartNew();
 
         AiProviderResponse? providerResponse = null;
         Exception? providerFailure = null;
 
         try
         {
-            providerResponse =
-                await provider.AskAsync(
-                    systemPrompt,
-                    context,
-                    question,
-                    previousInteractionId,
-                    cancellationToken);
+            providerResponse = localAnswer is not null
+                ? new AiProviderResponse(Guid.NewGuid().ToString("N"), localAnswer, "SportHub Navigation Knowledge", "local")
+                : await provider.AskAsync(systemPrompt, context, question, previousInteractionId, cancellationToken);
         }
         catch (Exception ex)
             when (ex is not OperationCanceledException)

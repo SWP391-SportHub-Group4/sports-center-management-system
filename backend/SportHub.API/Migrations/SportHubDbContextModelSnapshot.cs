@@ -69,6 +69,64 @@ namespace SportHub.API.Migrations
                     b.ToTable("ai_logs", (string)null);
                 });
 
+            modelBuilder.Entity("SportHub.AI.Domain.Entities.SystemPrompt", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActivePayload")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("active_payload");
+
+                    b.Property<string>("Audience")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("audience");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DraftPayload")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("draft_payload");
+
+                    b.Property<string>("HistoryPayload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("history_payload");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ai_system_prompts");
+
+                    b.HasIndex("Audience")
+                        .IsUnique()
+                        .HasDatabaseName("ix_ai_system_prompts_audience");
+
+                    b.ToTable("ai_system_prompts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_ai_system_prompt_history_limit", "jsonb_array_length(history_payload) <= 1");
+
+                            t.HasCheckConstraint("ck_ai_system_prompt_role", "(id = 'member-system-prompt' AND audience = 'Member') OR (id = 'coach-system-prompt' AND audience = 'Coach')");
+                        });
+                });
+
             modelBuilder.Entity("SportHub.API.Persistence.ManagerRequestReadReceipt", b =>
                 {
                     b.Property<Guid>("ManagerId")

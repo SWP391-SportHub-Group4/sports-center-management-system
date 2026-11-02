@@ -24,6 +24,8 @@ export const planScopeOf = (record: TeachingRecord): PlanScope =>
 const planOrder = (a: TeachingRecord, b: TeachingRecord) =>
   a.createdAtUtc.localeCompare(b.createdAtUtc) ||
   a.recordId.localeCompare(b.recordId);
+/** Newest plan first, so a plan saved just now is the first thing a member sees. */
+const newestFirst = (a: TeachingRecord, b: TeachingRecord) => planOrder(b, a);
 
 export function TrainingPlanView({
   records,
@@ -92,14 +94,16 @@ export function TrainingPlanView({
       ? r.sessionId === sessionId
       : planScopeOf(r) === scope,
   );
-  const visible = scoped.filter((r) =>
-    scope === "personal"
-      ? (!student || r.memberId === student) &&
-        (!sessionId || !r.sessionId || r.sessionId === sessionId)
-      : scope === "session"
-        ? !session || r.sessionId === session
-        : true,
-  );
+  const visible = scoped
+    .filter((r) =>
+      scope === "personal"
+        ? (!student || r.memberId === student) &&
+          (!sessionId || !r.sessionId || r.sessionId === sessionId)
+        : scope === "session"
+          ? !session || r.sessionId === session
+          : true,
+    )
+    .sort(newestFirst);
   const now = useNow();
   const usedSessions = sortTeachingSessions(sessions, now);
   const shownSessions = usedSessions.filter(

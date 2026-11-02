@@ -902,6 +902,12 @@ textarea {
   color: var(--danger-700);
 }
 
+/* Lỗi trả về qua role="alert" mà chưa có class riêng vẫn phải hiện màu đỏ. */
+p[role="alert"]:not([class]),
+div[role="alert"]:not([class]) {
+  color: var(--danger-700);
+}
+
 .alert--success {
   background: var(--ok-100);
   color: var(--ok-700);

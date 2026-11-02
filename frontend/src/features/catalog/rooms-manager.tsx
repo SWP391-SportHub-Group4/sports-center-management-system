@@ -76,7 +76,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
       )}
       {editingRoom && (
         <RoomEditDialog
-          key={editingRoom.room.roomId}
+          key={`edit-room-${editingRoom.room.roomId}`}
           room={editingRoom.room}
           onClose={() => setEditingRoom(null)}
           onSaved={(updated) => {
@@ -245,7 +245,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
         )}
       {selectedRoom && (
         <RoomDetails
-          key={selectedRoom.roomId}
+          key={`room-details-${selectedRoom.roomId}`}
           room={selectedRoom}
           onEdit={openEditor}
           onDeleted={() => router.push("/manager/facilities")}
