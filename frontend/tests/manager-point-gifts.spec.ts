@@ -124,6 +124,104 @@ async function fixture(page: Page, dayPass = false, failOnce = false) {
 }
 
 for (const width of [1440, 390]) {
+  test(`Gift selections survive searches and filters at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const posts = await fixture(page);
+    const requests: URL[] = [];
+    const alex = {
+      memberId: member,
+      name: "Alex Nguyen",
+      email: "alex@example.com",
+      requiresAgreement: false,
+      alreadyGifted: false,
+    };
+    const linh = {
+      ...alex,
+      memberId: other,
+      name: "Linh Tran",
+      email: "linh@example.com",
+    };
+    await page.route("**/api/manager/point-gifts/recipients?**", (route) => {
+      const url = new URL(route.request().url());
+      requests.push(url);
+      const filtered =
+        url.searchParams.get("keyword") ||
+        url.searchParams.get("sportId") ||
+        url.searchParams.get("unregistered");
+      return route.fulfill({ json: paged(filtered ? [linh] : [alex, linh]) });
+    });
+    await page.goto("/manager/points");
+    await page.getByRole("checkbox", { name: "Select Alex Nguyen" }).check();
+    await page.getByLabel("Name or email", { exact: true }).fill("Linh");
+    await expect(
+      page.getByRole("checkbox", { name: "Select Alex Nguyen" }),
+    ).toHaveCount(0);
+    await page.getByRole("checkbox", { name: "Select Linh Tran" }).check();
+    await page.getByLabel("Sport", { exact: true }).selectOption("2");
+    await expect(
+      page.getByRole("heading", { name: "Selected recipients (2)" }),
+    ).toBeVisible();
+    await page
+      .getByLabel("Sport", { exact: true })
+      .selectOption("unregistered");
+    await expect
+      .poll(() => requests.at(-1)?.searchParams.get("unregistered"))
+      .toBe("true");
+    expect(requests.at(-1)?.searchParams.has("sportId")).toBe(false);
+    await expect(
+      page.getByRole("button", { name: "Class", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("checkbox", { name: "Select Linh Tran" }),
+    ).toBeChecked();
+    await page.getByRole("checkbox", { name: "Select Linh Tran" }).uncheck();
+    await expect(
+      page.getByRole("heading", { name: "Selected recipients (1)" }),
+    ).toBeVisible();
+    const toggle = page.getByRole("switch", { name: /Select all recipients/ });
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await expect(
+      page.getByRole("heading", { name: "Selected recipients (2)" }),
+    ).toBeVisible();
+    await toggle.uncheck();
+    await expect(
+      page.getByRole("heading", { name: "Selected recipients (1)" }),
+    ).toBeVisible();
+    await page.getByLabel("Name or email", { exact: true }).fill("");
+    await page.getByLabel("Sport", { exact: true }).selectOption("");
+    await expect(
+      page.getByRole("checkbox", { name: "Select Alex Nguyen" }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole("checkbox", { name: "Select Linh Tran" }),
+    ).not.toBeChecked();
+    await page
+      .getByRole("textbox", { name: "Common points amount", exact: true })
+      .fill("10");
+    await page.getByRole("checkbox", { name: "Select Linh Tran" }).check();
+    await page.getByLabel("Gift reason (required)").fill("Welcome all members");
+    await expect(
+      page
+        .getByRole("region", { name: "Selected recipients", exact: true })
+        .getByRole("table"),
+    ).toHaveCount(0);
+    await page.getByLabel("Sport", { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `../.tmp/gift-selection-${width}.png` });
+    await page
+      .getByRole("button", { name: "Review gift", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toContainText("Alex Nguyen");
+    await expect(page.getByRole("dialog")).toContainText("Linh Tran");
+    await page
+      .getByRole("button", { name: "Confirm gift", exact: true })
+      .click();
+    await expect.poll(() => posts.length).toBe(1);
+    expect(posts[0].recipients.map((r) => r.memberId)).toEqual([member, other]);
+    expect(posts[0].recipients.map((r) => r.points)).toEqual([10, 10]);
+  });
   test(`Gift filters search classes and select all pages at ${width}px`, async ({
     page,
   }) => {
@@ -227,11 +325,13 @@ for (const width of [1440, 390]) {
     await page.getByRole("checkbox", { name: "Select Alex Nguyen" }).check();
     await page.getByRole("checkbox", { name: "Select Linh Tran" }).check();
     await page
-      .getByRole("textbox", { name: "Points for Alex Nguyen" })
+      .getByRole("textbox", { name: "Common points amount", exact: true })
       .fill("15");
-    await page
-      .getByRole("textbox", { name: "Points for Linh Tran" })
-      .fill("10");
+    await expect(
+      page
+        .getByRole("region", { name: "Selected recipients", exact: true })
+        .getByRole("table"),
+    ).toHaveCount(0);
     await page.getByLabel("Gift reason (required)").fill("Member appreciation");
     expect(posts).toHaveLength(0);
     await page
@@ -251,7 +351,7 @@ for (const width of [1440, 390]) {
       page.getByRole("status").filter({ hasText: "Points added" }),
     ).toBeVisible();
     expect(posts).toHaveLength(1);
-    expect(posts[0].recipients.map((r) => r.points)).toEqual([15, 10]);
+    expect(posts[0].recipients.map((r) => r.points)).toEqual([15, 15]);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -306,7 +406,7 @@ test("Gift form validates typed points immediately and reviews in a popup", asyn
   await amount.fill("25");
   await expect(
     page.getByRole("textbox", { name: "Points for Alex Nguyen" }),
-  ).toHaveValue("25");
+  ).toHaveCount(0);
   await amount.hover();
   await page.mouse.wheel(0, -200);
   await expect(amount).toHaveValue("25");
@@ -361,7 +461,7 @@ test("Day-pass agreement is required and retry reuses the same batch", async ({
     page.getByRole("button", { name: "Review gift", exact: true }),
   ).toBeDisabled();
   await page
-    .getByRole("checkbox", { name: "Member agreed to receive points" })
+    .getByRole("checkbox", { name: /Member agreed to receive points/ })
     .check();
   await page.getByRole("button", { name: "Review gift", exact: true }).click();
   await page.getByRole("button", { name: "Confirm gift", exact: true }).click();
