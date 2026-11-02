@@ -416,7 +416,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
       body:
         "Restore the last published version of “" +
         revision.title +
-        "”? The live chatbot will use the restored content from its next message. Saved drafts and unsaved edits are kept.",
+        "”? The live chatbot will use the restored content from its next message. The editor will show the restored version, replacing any unsaved edits. Saved drafts remain on the server.",
       label: "Restore",
       action: async () => {
         const data = await commit(
@@ -432,10 +432,13 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
         );
         if (data) {
           setConfirmation(null);
-          if (id === a.id && !dirty) {
-            const restored = visible(data.find((row) => row.id === a.id)!);
-            setForm(restored);
-            setBaseline(JSON.stringify(restored));
+          const restored = data.find((row) => row.id === a.id)?.active;
+          if (id === a.id && restored) {
+            const { title, audience, category, content } = restored;
+            const restoredContent = { title, audience, category, content };
+            setForm(restoredContent);
+            setBaseline(JSON.stringify(restoredContent));
+            setFields({});
           }
         }
       },
