@@ -5,11 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
-  Clock3,
   MapPin,
-  UserRound,
 } from "lucide-react";
-import { AsyncSection, StatusChip } from "@/components/ui";
+import { StatusChip } from "@/components/ui";
 import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import { api } from "@/lib/apiClient";
 import { DEFAULT_AVATAR } from "@/lib/avatar";
@@ -41,11 +39,6 @@ export function ScheduleCoursePage({
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
-  const sessionDate = (utc: string, options: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", {
-      timeZone: "Asia/Ho_Chi_Minh",
-      ...options,
-    }).format(new Date(utc));
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -224,130 +217,6 @@ export function ScheduleCoursePage({
           classId={classId}
           sessions={state.data?.sessions ?? []}
         />
-        <section
-          className={styles.sessions}
-          aria-labelledby="schedule-course-sessions"
-        >
-          <header className={styles.sessionsHeader}>
-            <div>
-              <h3 id="schedule-course-sessions">
-                {vi ? "Lịch học của khóa" : "Course sessions"}
-              </h3>
-              <p>
-                {vi
-                  ? "Ngày, giờ và địa điểm của từng buổi học · Giờ Việt Nam (GMT+7)"
-                  : "Dates, times and locations · Vietnam time (GMT+7)"}
-              </p>
-            </div>
-            {state.data && (
-              <span className={styles.sessionCount}>
-                {state.data.sessions.length} {vi ? "buổi học" : "sessions"}
-              </span>
-            )}
-          </header>
-          <AsyncSection state={state}>
-            {(data) =>
-              data.sessions.length ? (
-                <ol className={styles.sessionList}>
-                  {data.sessions.map((session) => {
-                    const selected = session.startAtUtc === event?.startAtUtc;
-                    return (
-                      <li
-                        key={session.sessionId}
-                        className={styles.sessionRow}
-                        data-selected={selected}
-                        aria-current={selected ? "true" : undefined}
-                      >
-                        <time
-                          className={styles.sessionDate}
-                          dateTime={session.startAtUtc}
-                          aria-label={formatDate(session.startAtUtc)}
-                        >
-                          <strong>
-                            {sessionDate(session.startAtUtc, {
-                              day: "2-digit",
-                            })}
-                          </strong>
-                          <span>
-                            {sessionDate(session.startAtUtc, {
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </time>
-                        <div className={styles.sessionMain}>
-                          <span className={styles.sessionTitle}>
-                            {vi ? "Buổi" : "Session"} {session.sessionNo}
-                            <span className={styles.weekday}>
-                              {sessionDate(session.startAtUtc, {
-                                weekday: "long",
-                              })}
-                            </span>
-                          </span>
-                          <div className={styles.sessionTime}>
-                            <Clock3 size={16} aria-hidden="true" />
-                            <time dateTime={session.startAtUtc}>
-                              {formatTime(session.startAtUtc)}–
-                              {formatTime(session.endAtUtc)}
-                            </time>
-                          </div>
-                        </div>
-                        <dl className={styles.sessionLocation}>
-                          <div>
-                            <dt>
-                              <MapPin size={16} aria-hidden="true" />
-                              <span className="sr-only">
-                                {vi ? "Sân / phòng" : "Court / room"}
-                              </span>
-                            </dt>
-                            <dd>
-                              {session.roomName ||
-                                (vi
-                                  ? "Chưa có địa điểm"
-                                  : "Location to be assigned")}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>
-                              <UserRound size={16} aria-hidden="true" />
-                              <span className="sr-only">
-                                {vi ? "Huấn luyện viên" : "Coach"}
-                              </span>
-                            </dt>
-                            <dd>
-                              {session.coachName ||
-                                coach ||
-                                (vi ? "Đang phân công" : "To be assigned")}
-                            </dd>
-                          </div>
-                        </dl>
-                        <div className={styles.sessionState}>
-                          {selected && (
-                            <span className={styles.selectedLabel}>
-                              {vi ? "Đang xem" : "Viewing"}
-                            </span>
-                          )}
-                          <StatusChip value={session.status} />
-                          {session.isMakeup && (
-                            <span className={styles.makeupLabel}>
-                              {vi ? "Buổi học bù" : "Make-up session"}
-                            </span>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              ) : (
-                <p>
-                  {vi
-                    ? "Chưa có lịch học được công bố."
-                    : "No sessions have been published yet."}
-                </p>
-              )
-            }
-          </AsyncSection>
-        </section>
       </article>
     </div>
   );
