@@ -344,11 +344,12 @@ export function TeachingEditor({
           />
         </label>
         {kind === "PLAN" &&
+          !existing &&
           !sessionOnly &&
-          scope === "session" &&
+          (scope === "personal" || (scope === "session" &&
           homeworkSession &&
           !/completed|cancelled/i.test(homeworkSession.status) &&
-          Date.parse(homeworkSession.startAtUtc) > now && (
+          Date.parse(homeworkSession.startAtUtc) > now)) && (
             <details className={styles.aiTools}>
               <summary>
                 <Sparkles size={16} aria-hidden="true" />
@@ -392,7 +393,7 @@ export function TeachingEditor({
               <button
                 type="button"
                 className="btn btn--secondary btn--sm"
-                disabled={busy || !goal.trim() || !session}
+                disabled={busy || goal.trim().length < 12 || (scope === "personal" ? !student : !session)}
                 onClick={async () => {
                   const data = await ai.run(() =>
                     teachingApi.suggest(
@@ -401,8 +402,8 @@ export function TeachingEditor({
                       goal,
                       level,
                       language,
-                      "session",
-                      session || null,
+                      scope === "personal" ? "personal" : "session",
+                      scope === "personal" ? null : (session || null),
                     ),
                   );
                   if (data) setSuggestion(formatPlanContent(data.content));

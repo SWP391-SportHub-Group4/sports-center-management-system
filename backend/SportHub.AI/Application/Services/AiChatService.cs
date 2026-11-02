@@ -90,6 +90,25 @@ public sealed class AiChatService(
             ? CoachAiSystemPrompt.Version
             : SportHubAssistantSystemPrompt.Version;
 
+        // Navigation Knowledge is deliberately scoped to the two AI-enabled UI roles.
+        // Never coerce an unknown or staff role to Member.
+        var role = contextDocument.RootElement.TryGetProperty("role", out var chatRole)
+            ? chatRole.GetString()?.ToLowerInvariant() switch
+            {
+                "member" => "member",
+                "coach" => "coach",
+                _ => "unsupported"
+            }
+            : "unsupported";
+        var roleSupportsNavigation = role is "member" or "coach";
+        var localAnswer = roleSupportsNavigation ? UiNavigationKnowledge.TryAnswer(question, role) : null;
+        if (roleSupportsNavigation && localAnswer is null && UiNavigationKnowledge.IsNavigationQuestion(question))
+            localAnswer = UiNavigationKnowledge.NavigationFallback(question, role);
+        if (localAnswer is null && SportHubTopicGuard.IsClearlyOffTopic(question))
+            localAnswer = isCoach
+                ? "This question is outside SportHub's scope. I can help with class schedules, students, teaching and training features."
+                : "This question is outside SportHub's scope. I can help with SportHub services, classes, booking and training.";
+
         var stopwatch =
             Stopwatch.StartNew();
 
@@ -98,13 +117,9 @@ public sealed class AiChatService(
 
         try
         {
-            providerResponse =
-                await provider.AskAsync(
-                    systemPrompt,
-                    context,
-                    question,
-                    previousInteractionId,
-                    cancellationToken);
+            providerResponse = localAnswer is not null
+                ? new AiProviderResponse(Guid.NewGuid().ToString("N"), localAnswer, "SportHub Navigation Knowledge", "local")
+                : await provider.AskAsync(systemPrompt, context, question, previousInteractionId, cancellationToken);
         }
         catch (Exception ex)
             when (ex is not OperationCanceledException)
