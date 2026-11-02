@@ -1112,7 +1112,7 @@ export const en = {
     deactivateImpact:
       "The account will be deactivated and signed out. Its records are retained. An Administrator can activate it again.",
     guardHint:
-      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be deactivated.",
+      "You can't change your own access, Administrator roles, or deactivate the last active Administrator.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
