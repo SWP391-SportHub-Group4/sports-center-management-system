@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -15,7 +14,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// Danh mục phòng tập — BR-39 (chỉ Center Manager cấu hình), BR-57 (Name unique toàn trung tâm), BR-108 (loại phòng).
 /// Phòng ngừng hoạt động (IsActive=false) chặn booking mới nhưng giữ nguyên lịch đã có.
 /// </summary>
-public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit, IClock clock,
+public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit,
     SportHub.BuildingBlocks.Abstractions.Configuration.ISystemSettingProvider settings) : IRoomService
 {
     public async Task<RoomResponse> SetRentalAccessAsync(int roomId, bool allowRental, Guid actorUserId, CancellationToken ct = default)
@@ -24,8 +23,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
         var room = await db.Set<Room>().FromSqlInterpolated($"SELECT * FROM rooms WHERE room_id = {roomId} FOR UPDATE")
             .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("room_not_found", "Room not found.");
         var before = Describe(room);
-        if (allowRental && !room.AllowRental && room.RentalBookingOpensAtUtc is null)
-            room.RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1));
+        if (allowRental) room.RentalBookingOpensAtUtc = null;
         if (allowRental) room.RoomTypeId ??= await ResolveSharedRoomTypeAsync(ct);
         room.AllowRental = allowRental;
         audit.Write(new AuditEntry(actorUserId, allowRental ? "ALLOW_ROOM_RENTAL" : "DISABLE_ROOM_RENTAL",
@@ -69,9 +67,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
             Capacity = request.Capacity,
             RoomTypeId = request.RoomTypeId,
             IsActive = request.IsActive ?? true,
-            AllowRental = request.AllowRental ?? false,
-            RentalBookingOpensAtUtc = request.AllowRental == true
-                ? VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)) : null
+            AllowRental = request.AllowRental ?? false
         };
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -153,8 +149,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
 
         if (request.AllowRental is bool allowRental)
         {
-            if (allowRental && !room.AllowRental && room.RentalBookingOpensAtUtc is null)
-                room.RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1));
+            if (allowRental) room.RentalBookingOpensAtUtc = null;
             room.AllowRental = allowRental;
             if (allowRental) room.RoomTypeId ??= await ResolveSharedRoomTypeAsync(ct);
         }

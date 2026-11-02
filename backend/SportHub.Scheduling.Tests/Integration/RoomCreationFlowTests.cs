@@ -44,6 +44,7 @@ public sealed class RoomCreationFlowTests(SchedulingApiFactory factory)
         var room = (await response.Content.ReadFromJsonAsync<RoomResponse>())!;
         Assert.True(room.IsActive);
         Assert.True(room.AllowRental);
+        Assert.Null(room.RentalBookingOpensAtUtc);
         Assert.Null(room.SportId);
         await factory.QueryAsync(async db => {
             Assert.Equal(7, await db.RoomOpeningHours.CountAsync(h => h.RoomId == room.RoomId));
@@ -51,9 +52,6 @@ public sealed class RoomCreationFlowTests(SchedulingApiFactory factory)
             var rates = await db.CourtRates.Where(r => r.RoomId == room.RoomId).ToListAsync();
             Assert.Equal(2, rates.Count);
             Assert.All(rates, rate => { Assert.Null(rate.SportId); Assert.Equal(120000, rate.PricePerHour); Assert.True(rate.IsActive); });
-            // Simulate reaching the rental opening date while retaining a bookable slot.
-            (await db.Rooms.SingleAsync(r => r.RoomId == room.RoomId)).RentalBookingOpensAtUtc = DateTime.UtcNow.AddDays(-1);
-            await db.SaveChangesAsync();
             return 0;
         });
         using var scope = factory.Services.CreateScope();

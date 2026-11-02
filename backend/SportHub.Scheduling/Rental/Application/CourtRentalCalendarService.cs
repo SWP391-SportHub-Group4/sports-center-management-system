@@ -39,7 +39,6 @@ public sealed partial class CourtRentalService
                                && db.Set<CourtRate>().Any(rate => rate.IsActive && rate.RoomTypeId == room.RoomTypeId
                                    && (rate.RoomId == null || rate.RoomId == room.RoomId)
                                    && (rate.SportId == null || rate.SportId == sportId))
-                               && (room.RentalBookingOpensAtUtc == null || room.RentalBookingOpensAtUtc <= now)
                                && db.Set<RoomType>().Any(t => t.RoomTypeId == room.RoomTypeId && t.IsActive)
                            select new { room.RoomId, room.Name, room.RoomTypeId }).Distinct().OrderBy(r => r.Name).ToListAsync(ct);
         var ids = rooms.Select(r => r.RoomId).ToList();

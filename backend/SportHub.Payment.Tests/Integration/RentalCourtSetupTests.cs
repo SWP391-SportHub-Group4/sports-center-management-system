@@ -61,7 +61,7 @@ public sealed class RentalCourtSetupTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task New_court_blocks_calendar_quotes_and_checkout_until_next_Vietnam_day()
+    public async Task New_court_allows_calendar_quotes_and_checkout_immediately_even_with_legacy_delay()
     {
         var request = await RequestAsync();
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
@@ -75,23 +75,22 @@ public sealed class RentalCourtSetupTests(PaymentApiFactory factory)
         Assert.Equal(100000, courtPrice.PricePerHour);
         Assert.Equal("MON,TUE,WED,THU,FRI,SAT,SUN", courtPrice.DaysOfWeek);
         Assert.Contains(prices, r => r.RoomId == null && r.RoomTypeId == request.RoomTypeId && r.PricePerHour == 200000);
-        var date = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(1); // Trong cửa sổ hôm nay + 2 ngày (đổi lúc 06:00).
+        var date = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(1); // Within the 3-days-ahead booking limit.
         using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
-        Assert.Equal(VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(new SystemClock()).AddDays(1)), room.RentalBookingOpensAtUtc);
-        var beforeOpen = (await memberClient.GetFromJsonAsync<CourtCalendarDay>($"/api/court-rentals/calendar?sportId={request.SportId}&date={date:yyyy-MM-dd}&hours=1"))!;
-        Assert.DoesNotContain(beforeOpen.Rooms, r => r.RoomId == room.RoomId);
+        Assert.Null(room.RentalBookingOpensAtUtc);
+        var immediately = (await memberClient.GetFromJsonAsync<CourtCalendarDay>($"/api/court-rentals/calendar?sportId={request.SportId}&date={date:yyyy-MM-dd}&hours=1"))!;
+        Assert.Contains(immediately.Rooms, r => r.RoomId == room.RoomId);
         using (var beforeScope = factory.Services.CreateScope())
         {
             var service = beforeScope.ServiceProvider.GetRequiredService<ICourtRentalFulfillment>();
             var start = VietnamTime.StartOfDayUtc(date).AddHours(9);
-            var error = await Assert.ThrowsAsync<ConflictException>(() => service.QuoteAsync(
+            Assert.NotNull(await service.QuoteAsync(
                 new(member.UserId, request.SportId, room.RoomId, new DateTimeOffset(start), new DateTimeOffset(start.AddHours(1)))));
-            Assert.Equal("rental_court_not_open_yet", error.ErrorCode);
         }
-        // Simulate the booking-open boundary passing without changing hours, prices or sport.
+        // Existing courts may still carry a future timestamp from the removed rule.
         await factory.QueryAsync(async db => {
             await db.Rooms.Where(r => r.RoomId == room.RoomId).ExecuteUpdateAsync(s =>
-                s.SetProperty(r => r.RentalBookingOpensAtUtc, DateTime.UtcNow.AddSeconds(-1)));
+                s.SetProperty(r => r.RentalBookingOpensAtUtc, DateTime.UtcNow.AddDays(1)));
             return 0;
         });
         var calendarResponse = await memberClient.GetAsync($"/api/court-rentals/calendar?sportId={request.SportId}&date={date:yyyy-MM-dd}&hours=1");

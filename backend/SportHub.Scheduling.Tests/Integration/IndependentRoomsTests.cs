@@ -146,15 +146,7 @@ public sealed class IndependentRoomsTests(SchedulingApiFactory factory)
         Assert.Null(updated.SportId);
         Assert.Equal(room.Name, updated.Name);
         Assert.Equal(room.Capacity, updated.Capacity);
-        Assert.NotNull(updated.RentalBookingOpensAtUtc);
-        Assert.Equal("rental_court_not_open_yet", (await Assert.ThrowsAsync<ConflictException>(() => rentals.QuoteAsync(request))).ErrorCode);
-        // Advance the opening gate without changing the running test server clock.
-        await factory.QueryAsync(async db => {
-            var stored = await db.Rooms.SingleAsync(r => r.RoomId == room.RoomId);
-            stored.RentalBookingOpensAtUtc = DateTime.UtcNow.AddDays(-1);
-            await db.SaveChangesAsync();
-            return 0;
-        });
+        Assert.Null(updated.RentalBookingOpensAtUtc);
         var price = await manager.PostAsJsonAsync("api/manager/court-rates", new {
             roomId = room.RoomId, roomTypeId = updated.RoomTypeId, sportId = 3,
             daysOfWeek = new[] { "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN" },

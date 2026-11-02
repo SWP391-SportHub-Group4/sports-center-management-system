@@ -2,7 +2,7 @@ export const en = {
   rentalCourtSetup: {
     title: "Create a rental court",
     intro:
-      "Set up your court, opening hours and rental prices together. Member bookings open on the day after this court is created.",
+      "Set up your court, opening hours and rental prices together. Members can book as soon as the court is created.",
     details: "Court details",
     hours: "Opening hours",
     opens: "Opens",
@@ -29,7 +29,7 @@ export const en = {
     fromPrice: "From",
     priceSync: "Prices are also saved to Court Rental Pricing.",
     bookingHint:
-      "Member bookings open tomorrow, at 00:00 Vietnam time. Court details, hours and prices are saved together.",
+      "Members can book immediately after creation, up to 3 days ahead. Court details, hours and prices are saved together.",
     saveHint: "Court details, hours and prices are saved together.",
     submit: "Create rental court",
     daysRequired: "Choose at least one opening day.",
@@ -40,7 +40,7 @@ export const en = {
     noTypes:
       "Add an active room type linked to an active sport before creating a rental court.",
     created:
-      "has been created. Member bookings open on the following day (Vietnam time). Opening hours and prices have been saved.",
+      "has been created and is ready for member bookings. Opening hours and prices have been saved.",
     viewPrices: "View rental prices",
     create: "Create rental court",
     basicRoom: "Add room only",
