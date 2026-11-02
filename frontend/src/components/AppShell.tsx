@@ -3,7 +3,7 @@
 import { CoachAiAssistant } from "@/features/coach/coach-ai-assistant";
 
 import Link from "next/link";
-import { CalendarDays, History } from "lucide-react";
+import { BookOpen, CalendarDays, History } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
@@ -613,6 +613,21 @@ export function AppFrame({
                     >
                       <IconSettings size={15} />
                       <span>{t.navigation.items.systemSettings}</span>
+                    </Link>
+                  )}
+                  {user.role === "CenterManager" && (
+                    <Link
+                      href="/manager/ai-knowledge"
+                      className={`${shell.dropdownItem} ${styles.profileItem}`}
+                      aria-current={
+                        pathname.startsWith("/manager/ai-knowledge")
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() => setUserMenu(false)}
+                    >
+                      <BookOpen size={15} aria-hidden="true" />
+                      <span>AI Knowledge</span>
                     </Link>
                   )}
                   <div className={shell.dropdownDivider} />
