@@ -52,10 +52,7 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
             return course.ClassId;
         });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        async Task<Guid[]> Recipients(string query) {
-            var data = await client.GetFromJsonAsync<JsonElement>("/api/manager/point-gifts/recipients?pageSize=100&" + query);
-            return data.GetProperty("items").EnumerateArray().Select(r => r.GetProperty("memberId").GetGuid()).ToArray();
-        }
+        Task<Guid[]> Recipients(string query) => AllRecipientsAsync(client, query);
         Assert.Contains(courseBuyer.UserId, await Recipients(""));
         Assert.Contains(otherBuyer.UserId, await Recipients(""));
         Assert.Contains(unpaid.UserId, await Recipients(""));
@@ -155,8 +152,7 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
             return 0;
         });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var data = await client.GetFromJsonAsync<JsonElement>("/api/manager/point-gifts/recipients?pageSize=100");
-        var ids = data.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("memberId").GetGuid()).ToArray();
+        var ids = await AllRecipientsAsync(client);
         Assert.Contains(purchased.UserId, ids);
         Assert.Contains(expired.UserId, ids);
         Assert.Contains(unpaid.UserId, ids);
@@ -268,5 +264,22 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
         Assert.Equal(2, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.SourceEntityId == incidentId)));
         var options = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts/recipients?incidentId={incidentId}");
         Assert.True(options.GetProperty("items").EnumerateArray().Single(x => x.GetProperty("memberId").GetGuid() == member.UserId).GetProperty("alreadyGifted").GetBoolean());
+    }
+
+    private static async Task<Guid[]> AllRecipientsAsync(HttpClient client, string query = "")
+    {
+        var all = new List<Guid>();
+        var page = 1;
+        while (true)
+        {
+            var separator = string.IsNullOrEmpty(query) ? "" : "&" + query;
+            var data = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts/recipients?page={page}&pageSize=100{separator}");
+            var items = data.GetProperty("items").EnumerateArray().Select(r => r.GetProperty("memberId").GetGuid()).ToArray();
+            all.AddRange(items);
+            var total = data.GetProperty("totalCount").GetInt32();
+            if (all.Count >= total || items.Length == 0) break;
+            page++;
+        }
+        return all.ToArray();
     }
 }
