@@ -27,6 +27,22 @@ for (const points of [0, 50, 200]) {
   }) => {
     const member = await login(request, "an.member@sporthub.vn");
 
+    const profile = await request.put(`${base}/api/members/me/training-profile`, {
+      headers: { Authorization: `Bearer ${member.accessToken}` },
+      data: {
+        goal: "Build strength for course training",
+        goalType: "MUSCLE_GAIN",
+        experienceLevel: "BEGINNER",
+        dateOfBirth: "2000-01-01",
+        sex: "MALE",
+        heightCm: 175,
+        weightKg: 70,
+        activityLevel: "MODERATELY_ACTIVE",
+        trainingDaysPerWeek: 3,
+      },
+    });
+    expect(profile.ok(), await profile.text()).toBeTruthy();
+
     const manager = await login(request, "manager@sporthub.vn");
 
     const headers = {
