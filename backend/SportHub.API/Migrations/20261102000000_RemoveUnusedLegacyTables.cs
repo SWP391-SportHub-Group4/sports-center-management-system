@@ -17,7 +17,7 @@ public sealed class RemoveUnusedLegacyTables : Migration
         DECLARE has_rows boolean;
         DECLARE unused_tables text[] := ARRAY[
             'legacy_relationship_class_links', 'legacy_attendances', 'legacy_enrollments',
-            'legacy_class_recurrences', 'legacy_class_sessions', 'legacy_classes',
+            'legacy_class_sessions', 'legacy_class_recurrences', 'legacy_classes',
             'course_interest_subscriptions'
         ];
         BEGIN
