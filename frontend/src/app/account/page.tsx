@@ -16,7 +16,7 @@ import {
 import { api, ApiError } from "@/lib/apiClient";
 import { formatDate } from "@/lib/format";
 import { useAction, useApi, useNow } from "@/lib/useApi";
-import { useAuth, type Role } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import {
   PasswordRequirements,
@@ -244,11 +244,6 @@ export default function AccountPage() {
                   />
                   <div>
                     <h2>{data.fullName || data.email}</h2>
-                    <p>
-                      {t.navigation.roleLabel[
-                        (user?.role ?? data.role) as Role
-                      ] ?? data.role}
-                    </p>
                     <span>
                       {t.account.joinedOn} {formatDate(data.createdAt)}
                     </span>
@@ -271,10 +266,7 @@ export default function AccountPage() {
                         <div>
                           <strong>{data.email}</strong>
                           <div className="small muted">
-                            {t.navigation.roleLabel[
-                              (user?.role ?? data.role) as Role
-                            ] ?? data.role}{" "}
-                            · {t.account.joinedOn} {formatDate(data.createdAt)}
+                            {t.account.joinedOn} {formatDate(data.createdAt)}
                           </div>
                         </div>
                         <StatusChip value={data.status} />

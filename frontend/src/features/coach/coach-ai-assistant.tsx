@@ -58,13 +58,13 @@ export function CoachAiAssistant() {
 
   return <>
     <div className={styles.launcher}>
-      <button type="button" className={styles.launcherButton} aria-label="Open Coach AI Assistant"
+      <button type="button" className={styles.launcherButton} aria-label="Ask Wolf"
         aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
         <Image src="/sporthub/mascot-wolf-full.png" alt="" width={112} height={168}
           className={styles.launcherMascot} aria-hidden="true" />
       </button>
     </div>
-    {open && <Drawer title="Coach AI Assistant" nonModalDesktop onClose={() => setOpen(false)}
+    {open && <Drawer title="Wolf" nonModalDesktop onClose={() => setOpen(false)}
       footer={<form className={styles.form} onSubmit={(e) => { e.preventDefault(); void send(draft); }}>
         <label className="field"><span>Message</span>
           <textarea value={draft} maxLength={2000} onChange={(e) => setDraft(e.target.value)} />
@@ -84,7 +84,7 @@ export function CoachAiAssistant() {
         {messages.map((m, i) => (
           <p key={i}>
             <strong>
-              {m.role === "user" ? "You" : "Assistant"}:
+              {m.role === "user" ? "You" : "Wolf"}:
             </strong>{" "}
             {m.role === "assistant"
               ? aiPlainText(m.content)

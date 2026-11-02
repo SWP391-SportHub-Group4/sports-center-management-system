@@ -18,7 +18,8 @@ public sealed class AiChatService(
     ISportHubDbContext db,
     IAiContextBuilder contextBuilder,
     IAiChatProvider provider,
-    IClock clock) : IAiChatService
+    IClock clock,
+    ISystemPromptReader promptReader) : IAiChatService
 {
     public const int MaxQuestionLength = 2000;
 
@@ -70,8 +71,15 @@ public sealed class AiChatService(
                 cancellationToken);
 
         using var contextDocument = JsonDocument.Parse(context);
+        var isCoach = contextDocument.RootElement.TryGetProperty("role", out var roleElement)
+            && roleElement.ValueKind == JsonValueKind.String && roleElement.GetString() == "Coach";
+        var publishedPrompt = await promptReader.GetPublishedAsync(isCoach ? "Coach" : "Member", cancellationToken);
+        var promptVersion = publishedPrompt.Version;
+        var systemPrompt = isCoach ? publishedPrompt.Content
+            : SportHubAssistantSystemPrompt.WithQuestionLanguage(publishedPrompt.Content, question);
+
         var scopeFingerprint = contextDocument.RootElement.TryGetProperty("accessScope", out var accessScope)
-            ? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(accessScope.GetRawText()))) : null;
+            ? Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(accessScope.GetRawText() + "\n" + promptVersion))) : null;
         if (previousInteractionId is not null)
         {
             var history = await db.Set<AiLog>().AsNoTracking().Where(l => l.UserId == userId && l.QueryType == AiQueryTypes.Chat)
@@ -80,6 +88,7 @@ public sealed class AiChatService(
             var allowed = history.Any(l => MatchesContext(l.InputPayload, l.ResponsePayload, previousInteractionId, scopeFingerprint));
             if (!allowed) previousInteractionId = null;
         }
+
         var isCoach = contextDocument.RootElement.TryGetProperty("role", out var roleElement)
             && roleElement.ValueKind == JsonValueKind.String
             && roleElement.GetString() == "Coach";
@@ -108,7 +117,6 @@ public sealed class AiChatService(
             localAnswer = isCoach
                 ? "This question is outside SportHub's scope. I can help with class schedules, students, teaching and training features."
                 : "This question is outside SportHub's scope. I can help with SportHub services, classes, booking and training.";
-
         var stopwatch =
             Stopwatch.StartNew();
 

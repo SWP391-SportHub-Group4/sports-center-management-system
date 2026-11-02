@@ -220,6 +220,10 @@ export function ScheduleCoursePage({
             </dl>
           </div>
         </div>
+        <MemberTeachingFeed
+          classId={classId}
+          sessions={state.data?.sessions ?? []}
+        />
         <section
           className={styles.sessions}
           aria-labelledby="schedule-course-sessions"
@@ -344,10 +348,6 @@ export function ScheduleCoursePage({
             }
           </AsyncSection>
         </section>
-        <MemberTeachingFeed
-          classId={classId}
-          sessions={state.data?.sessions ?? []}
-        />
       </article>
     </div>
   );

@@ -60,11 +60,15 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
         [FromQuery] int? packageId, [FromQuery] MemberPackageStatus? membershipStatus,
         [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate,
         [FromQuery] int? sportId, [FromQuery] int? classId,
+        [FromQuery] bool unregistered = false,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
         if (fromDate > toDate) throw new BadRequestException("gift_dates_invalid", "End date must follow start date.");
         var incident = await IncidentAsync(incidentId, ct);
         var query = EligibleMembers(incident);
+        if (unregistered)
+            query = query.Where(u => !db.Set<Invoice>().Any(invoice => invoice.MemberId == u.UserId
+                && (invoice.Status == InvoiceStatus.Paid || invoice.Status == InvoiceStatus.PaidAfterReconciliation)));
         if (sportId.HasValue || classId.HasValue)
             query = query.Where(u => db.Set<Invoice>().Any(invoice => invoice.MemberId == u.UserId
                 && (invoice.Status == InvoiceStatus.Paid || invoice.Status == InvoiceStatus.PaidAfterReconciliation)
@@ -193,9 +197,7 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
 
     private IQueryable<UserAccount> EligibleMembers(IncidentNotice? incident)
     {
-        var query = db.Set<UserAccount>().AsNoTracking().Where(u => u.Status == UserStatus.Active && u.Role!.RoleName == UserRole.Member
-            && db.Set<Invoice>().Any(invoice => invoice.MemberId == u.UserId
-                && (invoice.Status == InvoiceStatus.Paid || invoice.Status == InvoiceStatus.PaidAfterReconciliation)));
+        var query = db.Set<UserAccount>().AsNoTracking().Where(u => u.Status == UserStatus.Active && u.Role!.RoleName == UserRole.Member);
         if (incident is null) return query;
         var from = DateOnly.FromDateTime(VietnamTime.ToLocal(incident.StartAtUtc));
         var to = DateOnly.FromDateTime(VietnamTime.ToLocal(incident.EndAtUtc.AddTicks(-1)));

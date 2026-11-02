@@ -52,22 +52,23 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
             return course.ClassId;
         });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        async Task<Guid[]> Recipients(string query) {
-            var data = await client.GetFromJsonAsync<JsonElement>("/api/manager/point-gifts/recipients?pageSize=100&" + query);
-            return data.GetProperty("items").EnumerateArray().Select(r => r.GetProperty("memberId").GetGuid()).ToArray();
-        }
+        Task<Guid[]> Recipients(string query) => AllRecipientsAsync(client, query);
         Assert.Contains(courseBuyer.UserId, await Recipients(""));
         Assert.Contains(otherBuyer.UserId, await Recipients(""));
-        Assert.DoesNotContain(unpaid.UserId, await Recipients(""));
+        Assert.Contains(unpaid.UserId, await Recipients(""));
+        var unregistered = await Recipients("unregistered=true");
+        Assert.Contains(unpaid.UserId, unregistered);
+        Assert.DoesNotContain(courseBuyer.UserId, unregistered);
+        Assert.DoesNotContain(otherBuyer.UserId, unregistered);
         Assert.Equal(new[] { courseBuyer.UserId }, await Recipients($"classId={classId}"));
         Assert.Contains(courseBuyer.UserId, await Recipients("sportId=3"));
         Assert.Empty(await Recipients($"sportId=2&classId={classId}"));
         var batch = new SendPointGifts { BatchId = Guid.NewGuid(), Reason = "All paying members",
             Recipients = [new(courseBuyer.UserId, 5), new(otherBuyer.UserId, 5)] };
         (await client.PostAsJsonAsync("/api/manager/point-gifts", batch)).EnsureSuccessStatusCode();
-        var rejected = await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
+        var accepted = await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
             BatchId = Guid.NewGuid(), Reason = "Unpaid course", Recipients = [new(unpaid.UserId, 5)] });
-        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
+        accepted.EnsureSuccessStatusCode();
     }
 
     private async Task<Guid> PurchaseMembership(Guid memberId, MemberPackageStatus status = MemberPackageStatus.Active, bool dayPass = false)
@@ -125,7 +126,7 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Gift_recipients_require_a_successful_purchase_and_send_rechecks_eligibility()
+    public async Task Gift_recipients_include_members_without_purchases_and_send_accepts_them()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var purchased = await factory.SeedUserAsync(UserRole.Member);
@@ -151,21 +152,22 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
             return 0;
         });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var data = await client.GetFromJsonAsync<JsonElement>("/api/manager/point-gifts/recipients?pageSize=100");
-        var ids = data.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("memberId").GetGuid()).ToArray();
+        var ids = await AllRecipientsAsync(client);
         Assert.Contains(purchased.UserId, ids);
         Assert.Contains(expired.UserId, ids);
-        Assert.DoesNotContain(unpaid.UserId, ids);
+        Assert.Contains(unpaid.UserId, ids);
         Assert.Contains(dayPassOnly.UserId, ids);
         Assert.Contains(expiredDayPass.UserId, ids);
-        Assert.DoesNotContain(unpaidDayPass.UserId, ids);
-        Assert.DoesNotContain(neverPurchased.UserId, ids);
+        Assert.Contains(unpaidDayPass.UserId, ids);
+        Assert.Contains(neverPurchased.UserId, ids);
+        Assert.DoesNotContain(manager.UserId, ids);
         foreach (var memberId in new[] { unpaid.UserId, unpaidDayPass.UserId, neverPurchased.UserId })
         {
             var response = await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
                 BatchId = Guid.NewGuid(), Reason = "Membership gift", Recipients = [new(memberId, 5)] });
-            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Contains("point_gift_recipient_ineligible", await response.Content.ReadAsStringAsync());
+            response.EnsureSuccessStatusCode();
+            Assert.Equal(5, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == memberId)
+                .Select(w => w.AvailablePoints).SingleAsync()));
         }
         var gift = await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
             BatchId = Guid.NewGuid(), Reason = "Day pass gift", Recipients = [new(dayPassOnly.UserId, 5)] });
@@ -262,5 +264,22 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
         Assert.Equal(2, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.SourceEntityId == incidentId)));
         var options = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts/recipients?incidentId={incidentId}");
         Assert.True(options.GetProperty("items").EnumerateArray().Single(x => x.GetProperty("memberId").GetGuid() == member.UserId).GetProperty("alreadyGifted").GetBoolean());
+    }
+
+    private static async Task<Guid[]> AllRecipientsAsync(HttpClient client, string query = "")
+    {
+        var all = new List<Guid>();
+        var page = 1;
+        while (true)
+        {
+            var separator = string.IsNullOrEmpty(query) ? "" : "&" + query;
+            var data = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts/recipients?page={page}&pageSize=100{separator}");
+            var items = data.GetProperty("items").EnumerateArray().Select(r => r.GetProperty("memberId").GetGuid()).ToArray();
+            all.AddRange(items);
+            var total = data.GetProperty("totalCount").GetInt32();
+            if (all.Count >= total || items.Length == 0) break;
+            page++;
+        }
+        return all.ToArray();
     }
 }

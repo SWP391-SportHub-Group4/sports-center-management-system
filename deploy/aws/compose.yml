@@ -1,0 +1,133 @@
+name: sporthub-aws
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:18-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      # PostgreSQL 18 stores versioned PGDATA underneath this directory.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  storage-init:
+    image: alpine:3.22
+    user: "0:0"
+    command: [sh, -ec, 'mkdir -p /data/dataprotection-keys /data/reports; chown -R 1654:1654 /data; chmod 700 /data /data/dataprotection-keys /data/reports']
+    volumes:
+      - backend_data:/data
+    restart: "no"
+
+  backend:
+    image: sporthub-backend:${IMAGE_TAG:-local}
+    build:
+      context: ../../backend
+      dockerfile: SportHub.API/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__Default: 'Host=postgres;Port=5432;Database="${POSTGRES_DB}";Username="${POSTGRES_USER}";Password="${POSTGRES_PASSWORD}"'
+      JwtOptions__SecretKey: ${JWT_SECRET:?Set JWT_SECRET}
+      JwtOptions__Issuer: ${JWT_ISSUER:-SportHub.Api}
+      JwtOptions__Audience: ${JWT_AUDIENCE:-SportHub.Client}
+      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN without a trailing slash}
+      Frontend__BaseUrl: ${FRONTEND_ORIGIN}
+      DataProtection__KeysPath: /var/lib/sporthub/dataprotection-keys
+      Reports__StorageRoot: /var/lib/sporthub/reports
+      Email__Provider: Brevo
+      Email__DemoLoggingEnabled: "false"
+      Email__Brevo__ApiKey: ${BREVO_API_KEY:?Set BREVO_API_KEY}
+      Email__Brevo__FromAddress: ${BREVO_FROM_ADDRESS:?Set BREVO_FROM_ADDRESS}
+      Email__Brevo__FromName: ${BREVO_FROM_NAME:-SportHub}
+      Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      VnPay__TmnCode: ${VNPAY_TMN_CODE:?Set VNPAY_TMN_CODE}
+      VnPay__HashSecret: ${VNPAY_HASH_SECRET:?Set VNPAY_HASH_SECRET}
+      VnPay__PaymentUrl: ${VNPAY_PAYMENT_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VnPay__QueryUrl: ${VNPAY_QUERY_URL:-https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
+      VnPay__ReturnUrl: ${FRONTEND_ORIGIN}/payments/return
+      CLOUDINARY_URL: ${CLOUDINARY_URL:?Set CLOUDINARY_URL}
+      AiService__BaseUrl: http://ai-service:8001
+    volumes:
+      - backend_data:/var/lib/sporthub
+    depends_on:
+      postgres:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+      ai-service:
+        condition: service_healthy
+    logging: *logging
+
+  ai-service:
+    image: sporthub-ai:${IMAGE_TAG:-local}
+    build:
+      context: ../../ai-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    logging: *logging
+
+  storage-export:
+    profiles: [tools]
+    image: alpine:3.22
+    volumes:
+      - backend_data:/data:ro
+    command: [tar, -C, /data, -cf, -, dataprotection-keys, reports]
+    restart: "no"
+
+  storage-import:
+    profiles: [tools]
+    image: python:3.12-slim
+    user: "0:0"
+    volumes:
+      - backend_data:/data
+      - ./restore-files.py:/restore-files.py:ro
+    entrypoint: [python, /restore-files.py]
+    restart: "no"
+
+volumes:
+  postgres_data:
+  backend_data:
+  caddy_data:
+  caddy_config:
