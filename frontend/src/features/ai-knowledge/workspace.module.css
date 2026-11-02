@@ -25,7 +25,8 @@
   text-wrap: balance;
 }
 .heading p {
-  max-width: 70ch;
+  max-width: none;
+  white-space: nowrap;
   margin: 0;
   color: var(--text-muted);
   line-height: 1.7;
@@ -638,4 +639,8 @@
   .drawer {
     animation: none;
   }
+}
+
+@media (max-width: 1023px) {
+  .heading p { white-space: normal; }
 }

@@ -415,9 +415,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
     setConfirmation({
       title: "Restore version",
       body:
-        "Restore version " +
-        revision.version +
-        " of “" +
+        "Restore the last published version of “" +
         revision.title +
         "”? The live chatbot will use the restored content from its next message. Saved drafts and unsaved edits are kept.",
       label: "Restore",
@@ -552,8 +550,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
             <span>{dirty ? "Unsaved changes" : "No new changes"}</span>
             {article?.active && (
               <span>
-                Version {article.active.version} is currently used by the live
-                chatbot.
+                The published prompt is currently used by the live chatbot.
               </span>
             )}
             {article && (
@@ -785,16 +782,8 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                           <span className={s.mobileAudience}>
                             {audienceLabels[content.audience]}
                           </span>
-                          {a.sourceVersion && (
-                            <small>Active version: {a.sourceVersion}</small>
-                          )}
-                          <small>
-                            {a.draft && a.active
-                              ? "Draft available · current version retained"
-                              : a.active
-                                ? `Version ${a.active.version}`
-                                : "Not provided to AI"}
-                          </small>
+                          {a.draft && a.active && <small>Draft available · current version retained</small>}
+                          {!a.active && <small>Not provided to AI</small>}
                         </td>
                         <td>{audienceLabels[content.audience]}</td>
                         <td>{categoryLabels[content.category]}</td>
@@ -923,11 +912,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                   {audienceLabels[visible(panel.article).audience]}
                 </span>
                 <h3>{visible(panel.article).title}</h3>
-                {panel.article.sourceVersion && (
-                  <p className={s.helper}>
-                    Active version: {panel.article.sourceVersion}
-                  </p>
-                )}
+                
                 <p className={s.helper}>
                   Viewing{" "}
                   {panel.article.draft
@@ -962,11 +947,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                       onClick={() => setSelectedVersion(r)}
                       aria-pressed={selectedVersion?.version === r.version}
                     >
-                      <strong>
-                        Version {r.version}{" "}
-                        {panel.article?.active?.version === r.version &&
-                          "· Active"}
-                      </strong>
+                      <strong>Last version</strong>
                       <span>
                         {dates(r.savedAt)} · {r.author}
                       </span>
@@ -984,7 +965,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                       className={s.secondary}
                       onClick={() => restore(panel.article!, selectedVersion)}
                     >
-                      Restore version {selectedVersion.version}
+                      Restore last version
                     </button>
                   </>
                 )}
