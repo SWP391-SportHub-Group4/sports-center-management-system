@@ -56,7 +56,6 @@ const dates = (value: string) =>
 const statusLabels = {
   Active: "Active",
   Draft: "Draft",
-  Archived: "Archived",
 };
 
 function previousBrowserVersion(

@@ -58,8 +58,7 @@ export const blank: Content = {
 };
 export const visible = (a: Article): Content =>
   a.draft ?? a.active ?? a.history[0];
-export const status = (a: Article) =>
-  a.active ? "Active" : a.draft ? "Draft" : "Archived";
+export const status = (a: Article) => (a.active ? "Active" : "Draft");
 const base = "/api/ai/system-prompts";
 export const knowledgeService = {
   async list(): Promise<Article[]> {
