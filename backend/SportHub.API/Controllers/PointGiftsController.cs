@@ -23,6 +23,8 @@ using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
 using SportHub.Scheduling.Rental.Application;
 using SportHub.Scheduling.Rental.Domain;
+using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Domain.Entities;
 
 namespace SportHub.API.Controllers;
 
@@ -32,7 +34,7 @@ public sealed class SendPointGifts
     public Guid BatchId { get; set; }
     public Guid? IncidentId { get; set; }
     [Required, MinLength(3), MaxLength(1000)] public string Reason { get; set; } = "";
-    [Required, MinLength(1), MaxLength(100)] public List<GiftRecipient> Recipients { get; set; } = [];
+    [Required, MinLength(1)] public List<GiftRecipient> Recipients { get; set; } = [];
 }
 
 /// <summary>Gifts are applied immediately when the Manager confirms the reviewed selection.</summary>
@@ -46,18 +48,32 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
 
     [HttpGet("filters")]
     public async Task<IActionResult> Filters(CancellationToken ct)
-        => Ok(await db.Set<MembershipPackage>().AsNoTracking().OrderBy(p => p.Name)
-            .Select(p => new { p.PackageId, p.Name }).ToListAsync(ct));
+        => Ok(new {
+            sports = await db.Set<Sport>().AsNoTracking().OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
+                .Select(s => new { s.SportId, s.Name }).ToListAsync(ct),
+            classes = await db.Set<Class>().AsNoTracking().OrderBy(c => c.Name).ThenBy(c => c.ClassId)
+                .Select(c => new { c.ClassId, c.SportId, c.Name, c.Code }).ToListAsync(ct)
+        });
 
     [HttpGet("recipients")]
     public async Task<IActionResult> Recipients([FromQuery] Guid? incidentId, [FromQuery] string? keyword,
         [FromQuery] int? packageId, [FromQuery] MemberPackageStatus? membershipStatus,
         [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate,
+        [FromQuery] int? sportId, [FromQuery] int? classId,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
         if (fromDate > toDate) throw new BadRequestException("gift_dates_invalid", "End date must follow start date.");
         var incident = await IncidentAsync(incidentId, ct);
         var query = EligibleMembers(incident);
+        if (sportId.HasValue || classId.HasValue)
+            query = query.Where(u => db.Set<Invoice>().Any(invoice => invoice.MemberId == u.UserId
+                && (invoice.Status == InvoiceStatus.Paid || invoice.Status == InvoiceStatus.PaidAfterReconciliation)
+                && db.Set<InvoiceItem>().Any(item => item.InvoiceId == invoice.InvoiceId
+                    && (!classId.HasValue || item.ClassId == classId)
+                    && (!sportId.HasValue || item.SportId == sportId
+                        || db.Set<Class>().Any(c => c.ClassId == item.ClassId && c.SportId == sportId)
+                        || (item.ItemType == InvoiceItemType.Membership
+                            && db.Set<Sport>().Any(s => s.SportId == sportId && s.Code == "GYM"))))));
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             var term = keyword.Trim().ToLowerInvariant();
@@ -105,10 +121,10 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
     public async Task<IActionResult> Send(SendPointGifts body, CancellationToken ct)
     {
         var reason = body.Reason.Trim();
-        if (body.BatchId == Guid.Empty || reason.Length is < 3 or > 1000 || body.Recipients.Count is < 1 or > 100
+        if (body.BatchId == Guid.Empty || reason.Length is < 3 or > 1000 || body.Recipients.Count < 1
             || body.Recipients.Any(r => r.MemberId == Guid.Empty || r.Points <= 0)
             || body.Recipients.Select(r => r.MemberId).Distinct().Count() != body.Recipients.Count)
-            throw new BadRequestException("point_gift_invalid", "Select 1–100 distinct members, positive whole points and a reason.");
+            throw new BadRequestException("point_gift_invalid", "Select distinct members, positive whole points and a reason.");
         var actor = User.RequireUserId();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
@@ -178,11 +194,8 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
     private IQueryable<UserAccount> EligibleMembers(IncidentNotice? incident)
     {
         var query = db.Set<UserAccount>().AsNoTracking().Where(u => u.Status == UserStatus.Active && u.Role!.RoleName == UserRole.Member
-            && db.Set<MemberPackage>().Any(p => p.MemberId == u.UserId
-                && (p.Status == MemberPackageStatus.Active || p.Status == MemberPackageStatus.Expired
-                    || (p.Status == MemberPackageStatus.Cancelled && db.Set<InvoiceItem>().Any(item => item.ItemId == p.InvoiceItemId
-                        && db.Set<Invoice>().Any(invoice => invoice.InvoiceId == item.InvoiceId
-                            && (invoice.Status == InvoiceStatus.Paid || invoice.Status == InvoiceStatus.PaidAfterReconciliation)))))));
+            && db.Set<Invoice>().Any(invoice => invoice.MemberId == u.UserId
+                && (invoice.Status == InvoiceStatus.Paid || invoice.Status == InvoiceStatus.PaidAfterReconciliation)));
         if (incident is null) return query;
         var from = DateOnly.FromDateTime(VietnamTime.ToLocal(incident.StartAtUtc));
         var to = DateOnly.FromDateTime(VietnamTime.ToLocal(incident.EndAtUtc.AddTicks(-1)));
