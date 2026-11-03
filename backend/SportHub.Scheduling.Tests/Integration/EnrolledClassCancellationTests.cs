@@ -240,7 +240,7 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Management_invoice_list_excludes_void_before_pagination_and_direct_lookup_is_hidden()
+    public async Task Management_invoice_list_includes_void_and_direct_lookup_is_visible()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
@@ -252,11 +252,11 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
         });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var page = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&pageSize=1"));
-        Assert.Equal(1, page.GetProperty("totalCount").GetInt32());
-        Assert.Equal(paidId, page.GetProperty("items")[0].GetProperty("invoiceId").GetGuid());
-        var empty = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&status=VOID"));
-        Assert.Equal(0, empty.GetProperty("totalCount").GetInt32());
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"api/invoices/{voidId}")).StatusCode);
+        Assert.Equal(2, page.GetProperty("totalCount").GetInt32());
+        var voided = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&status=VOID"));
+        Assert.Equal(1, voided.GetProperty("totalCount").GetInt32());
+        Assert.Equal(voidId, voided.GetProperty("items")[0].GetProperty("invoiceId").GetGuid());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"api/invoices/{voidId}")).StatusCode);
     }
 
     [Fact]

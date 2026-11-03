@@ -40,6 +40,7 @@ export function ManagerPeople() {
     <div className={styles.page}>
       <div className={styles.toolbar}>
         <FilterBar
+          inline
           fields={[
             {
               id: "keyword",
