@@ -211,7 +211,7 @@ test("reports use one period filter with tabs, and exports live on their own pag
   await expect(
     page.getByRole("heading", { name: "Current balance", exact: true }),
   ).toBeVisible();
-  await page.getByRole("tab", { name: "Members" }).click();
+  await page.getByRole("tab", { name: "Gyms", exact: true }).click();
   await expect(page).toHaveURL(/tab=members/);
   await expect(
     page.getByRole("heading", { name: "Membership buyers", exact: true }),
