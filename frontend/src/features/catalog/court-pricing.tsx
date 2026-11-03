@@ -2,6 +2,7 @@
 import { ActivitySwitch } from "@/components/ActivitySwitch";
 
 import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   loadCenterHours,
   minutesToTime,
@@ -231,7 +232,6 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
           Create court rate
         </button>
       </div>
-      {action.error && <p role="alert">{action.error}</p>}
       <AsyncSection state={rooms}>{() => null}</AsyncSection>
       <AsyncSection state={types}>
         {(rows) =>
@@ -346,7 +346,10 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
               e.preventDefault();
               if (action.busy || !hasChanges) return;
               setSubmitAttempted(true);
-              if (validationError) return;
+              if (validationError) {
+                action.setError(validationError);
+                return;
+              }
               void action.run(async () => {
                 const f = editor.form;
                 const body: SaveRate = {
@@ -537,20 +540,36 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                     End time must be after start time.
                   </p>
                 )}
-              {action.error && (
-                <p className={styles.error} role="alert">
-                  {action.error}
-                </p>
-              )}
-              {submitAttempted && validationError && (
-                <p className={styles.error} role="alert">
-                  {validationError}
-                </p>
-              )}
             </fieldset>
           </form>
         </Dialog>
       )}
+      {editor &&
+        action.error &&
+        createPortal(
+          <Dialog
+            title={
+              vi ? "Không thể lưu giá thuê" : "Could not save rental price"
+            }
+            size="sm"
+            onClose={action.reset}
+            showCloseButton={false}
+            footer={
+              <button
+                type="button"
+                className={`btn ${styles.errorClose}`}
+                onClick={action.reset}
+              >
+                {t.common.close}
+              </button>
+            }
+          >
+            <p className={styles.error} role="alert">
+              {action.error}
+            </p>
+          </Dialog>,
+          document.body,
+        )}
     </section>
   );
 }

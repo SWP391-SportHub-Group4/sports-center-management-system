@@ -121,6 +121,15 @@
   color: var(--danger-700);
   font-size: var(--text-sm);
 }
+.errorClose:global(.btn) {
+  background: var(--color-accent);
+  color: #000;
+}
+.errorClose:global(.btn):hover:not(:disabled):not([aria-disabled="true"]),
+.errorClose:global(.btn):active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-accent-hover);
+  color: #000;
+}
 @media (max-width: 540px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);

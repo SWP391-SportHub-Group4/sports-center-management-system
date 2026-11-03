@@ -109,7 +109,12 @@ test("editing a room rental price unlocks Sport and preserves the room and price
     .getByRole("checkbox", { name: "Wednesday", exact: true })
     .uncheck();
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Select a sport.");
+  const errorDialog = page.getByRole("dialog", {
+    name: "Could not save rental price",
+    exact: true,
+  });
+  await expect(errorDialog.getByRole("alert")).toHaveText("Select a sport.");
+  await errorDialog.getByRole("button", { name: "Close", exact: true }).click();
   expect(writes).toHaveLength(0);
   await dialog.getByLabel("Sport", { exact: true }).selectOption("4");
   await expect(dialog.getByLabel("Applies to", { exact: true })).toHaveCount(0);
@@ -161,7 +166,10 @@ test("editing a room rental price unlocks Sport and preserves the room and price
     if (field === "price") {
       await save.click();
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByRole("alert")).toContainText("2,000 VND");
+      await expect(errorDialog.getByRole("alert")).toContainText("2,000 VND");
+      await errorDialog
+        .getByRole("button", { name: "Close", exact: true })
+        .click();
       expect(writes).toHaveLength(1);
       await expect(save).toBeEnabled();
     }
@@ -184,6 +192,41 @@ test("editing a room rental price unlocks Sport and preserves the room and price
   ).toBeEnabled();
   await add.getByLabel("Sport", { exact: true }).selectOption("3");
   await add.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(add.getByRole("alert")).toContainText("2,000 VND");
+  await expect(errorDialog.getByRole("alert")).toContainText("2,000 VND");
+  await errorDialog.getByRole("button", { name: "Close", exact: true }).click();
   expect(writes).toHaveLength(1);
+  await add.getByLabel("Price per hour (VND)", { exact: true }).fill("120000");
+  let failSave = true;
+  await page.route("**/api/manager/court-rates", (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    if (failSave)
+      return route.fulfill({
+        status: 409,
+        json: {
+          error: "court_rate_overlap",
+          message: "Rental price windows overlap.",
+        },
+      });
+    return route.fulfill({ json: { ...rate, rateId: 92 } });
+  });
+  await add.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(errorDialog.getByRole("alert")).toHaveText(
+    "Rental price windows overlap.",
+  );
+  await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await errorDialog.screenshot({
+      path: testInfo.outputPath(`rental-error-${width}.png`),
+    });
+  }
+  await page.keyboard.press("Escape");
+  await expect(errorDialog).toHaveCount(0);
+  await expect(add).toBeVisible();
+  await expect(
+    add.getByLabel("Price per hour (VND)", { exact: true }),
+  ).toHaveValue("120000");
+  failSave = false;
+  await add.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(add).toHaveCount(0);
 });

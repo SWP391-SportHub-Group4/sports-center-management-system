@@ -514,6 +514,14 @@ for (const [status, code] of [
     page,
   }) => {
     const fixture = await setup(page, { fail: status, code });
+    await page.route("**/api/system-settings", (route) =>
+      route.fulfill({
+        json: [
+          { key: "center.opening_minutes", value: "360" },
+          { key: "center.closing_minutes", value: "1320" },
+        ],
+      }),
+    );
     await page.goto("/manager/catalog?tab=court-rates");
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await dialog(page)
@@ -523,10 +531,17 @@ for (const [status, code] of [
     await dialog(page)
       .getByRole("button", { name: "Save", exact: true })
       .click();
-    await expect(dialog(page).getByRole("alert")).toBeVisible();
+    const errorDialog = page.getByRole("dialog", {
+      name: "Could not save rental price",
+      exact: true,
+    });
+    await expect(errorDialog.getByRole("alert")).toBeVisible();
     await expect(
-      dialog(page).getByText("Server validation rejected the change"),
+      errorDialog.getByText("Server validation rejected the change"),
     ).toBeVisible();
+    await errorDialog
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
     await expect(
       dialog(page).getByLabel("Price per hour (VND)", { exact: true }),
     ).toHaveValue("150000");

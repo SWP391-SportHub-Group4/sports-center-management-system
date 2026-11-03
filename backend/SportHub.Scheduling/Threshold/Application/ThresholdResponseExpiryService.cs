@@ -172,7 +172,7 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             await occupancy.ReleaseAsync(OccupancySources.ClassSession, session.SessionId, ct);
             session.Status = ClassSessionStatus.Cancelled;
         }
-        entity.Status = ClassStatus.Cancelled;
+        entity.Cancel();
         entity.Version++;
         // System events retain a real affected account reference (audit FK),
         // with SYSTEM as the recorded actor role, as in payment system events.

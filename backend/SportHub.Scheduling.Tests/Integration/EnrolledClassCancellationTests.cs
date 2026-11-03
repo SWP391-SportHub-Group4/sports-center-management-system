@@ -178,6 +178,7 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
             refunds = RefundDecisions(preview, expectedPoints)
         });
         Assert.True(cancel.IsSuccessStatusCode, await cancel.Content.ReadAsStringAsync());
+        Assert.Equal($"{course.Request.Code.ToUpperInvariant()}_Cancel_{course.Id}", await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Code).SingleAsync()));
         Assert.Equal(ClassStatus.Cancelled, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
         Assert.Equal(EnrollmentStatus.CancelledByCenter, await factory.QueryAsync(db => db.Enrollments.Where(e => e.ClassId == course.Id && e.MemberId == member).Select(e => e.Status).SingleAsync()));
         var after = await CourseTestData.SessionsAsync(factory, course.Id);
