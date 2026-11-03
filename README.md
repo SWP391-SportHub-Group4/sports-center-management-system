@@ -3,16 +3,13 @@
 **Đồ án SWP391** · Gym, cầu lông và bóng rổ · Giao diện tiếng Việt và tiếng Anh
 
 [![CI Develop](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml)
-![.NET 10](https://img.shields.io/badge/Backend-.NET%2010-512BD4)
-![Next.js 16](https://img.shields.io/badge/Frontend-Next.js%2016-111111)
-![PostgreSQL 16](https://img.shields.io/badge/Database-PostgreSQL%2016-4169E1)
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white) ![Next.js 16](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&logoColor=white) ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
 SportHub kết nối những công việc thường bị tách rời ở một trung tâm thể thao: khách đăng ký dịch vụ, lễ tân bán hàng và check-in, huấn luyện viên theo dõi lớp, quản lý điều hành và quản trị viên kiểm soát tài khoản. Tùy dịch vụ, hóa đơn có thể thanh toán bằng ví điểm, VNPay hoặc kết hợp cả hai; lịch sân và lớp được kiểm soát để tránh đặt trùng hay vượt sức chứa.
 
-**Xem nhanh:** [Màn hình](#màn-hình-và-đường-dẫn-chụp-ảnh) · [Luồng nghiệp vụ](#luồng-nghiệp-vụ-nổi-bật) · [Kiến trúc](#kiến-trúc-hệ-thống) · [Chạy local](#chạy-local) · [Tài liệu](#tài-liệu)
+**Xem nhanh:** [Màn hình](#màn-hình) · [Luồng nghiệp vụ](#luồng-nghiệp-vụ-nổi-bật) · [Kiến trúc](#kiến-trúc-hệ-thống) · [Chạy local](#chạy-local) · [Tài liệu](#tài-liệu)
 
-<!-- Chụp http://localhost:3000/ và lưu thành docs/screenshots/home.png, sau đó bỏ comment dòng dưới. -->
-<!-- ![Trang chủ SportHub](docs/screenshots/home.png) -->
+![Trang chủ SportHub](docs/screenshots/home.webp)
 
 ## SportHub làm được gì?
 
@@ -26,42 +23,89 @@ SportHub kết nối những công việc thường bị tách rời ở một t
 
 Khách chưa đăng nhập có thể xem trang chủ và nội dung công khai. Các trang nghiệp vụ yêu cầu đăng nhập đúng vai trò.
 
-## Màn hình và đường dẫn chụp ảnh
+## Màn hình
 
-Các liên kết dưới đây trỏ tới **ứng dụng local** sau khi chạy frontend ở cổng `3000`. Bạn có thể chụp từng trang, lưu ảnh theo tên gợi ý trong `docs/screenshots/`, rồi chèn ảnh Markdown vào đúng mục. Đường dẫn trang vẫn hữu ích ngay cả trước khi có ảnh.
+Ảnh dưới đây chụp từ **ứng dụng local** (frontend cổng `3000`). Trang theo vai trò chỉ mở được khi đăng nhập đúng tài khoản.
 
-### Khách và hội viên
+### Khách
 
-| Màn hình | Trang để mở | Tên ảnh gợi ý |
-| --- | --- | --- |
-| Trang chủ | [http://localhost:3000/](http://localhost:3000/) | `home.png` |
-| Đăng nhập | [http://localhost:3000/login](http://localhost:3000/login) | `login.png` |
-| Danh sách lớp công khai | [http://localhost:3000/classes](http://localhost:3000/classes) | `public-classes.png` |
-| Tổng quan hội viên | [http://localhost:3000/member](http://localhost:3000/member) | `member-overview.png` |
-| Dịch vụ và gói tập | [http://localhost:3000/member/services](http://localhost:3000/member/services) | `member-services.png` |
-| Lịch cá nhân | [http://localhost:3000/member/schedule](http://localhost:3000/member/schedule) | `member-schedule.png` |
-| Tài chính và ví điểm | [http://localhost:3000/member/finance](http://localhost:3000/member/finance) | `member-finance.png` |
+Trang chủ công khai giới thiệu các môn, sơ đồ khu tập và câu hỏi thường gặp. Khách đăng nhập hoặc đăng ký hội viên bằng email hay Google.
 
-### Vận hành trung tâm
+| | |
+| --- | --- |
+| ![Khám phá SportHub](docs/screenshots/home-community.webp) | ![Các môn thể thao](docs/screenshots/home-disciplines.webp) |
+| ![Tham quan khu tập](docs/screenshots/home-tour-arena.webp) | ![Đặt sân](docs/screenshots/home-book-court.webp) |
+| ![Câu hỏi thường gặp](docs/screenshots/home-contact.webp) | |
 
-| Vai trò / màn hình | Trang để mở | Tên ảnh gợi ý |
-| --- | --- | --- |
-| Lễ tân · tổng quan | [http://localhost:3000/receptionist](http://localhost:3000/receptionist) | `receptionist-overview.png` |
-| Lễ tân · check-in Gym | [http://localhost:3000/receptionist/gym-checkin](http://localhost:3000/receptionist/gym-checkin) | `gym-checkin.png` |
-| Lễ tân · bán hàng | [http://localhost:3000/receptionist/sales](http://localhost:3000/receptionist/sales) | `receptionist-sales.png` |
-| Lễ tân · đối soát | [http://localhost:3000/receptionist/payment-reconciliation](http://localhost:3000/receptionist/payment-reconciliation) | `payment-reconciliation.png` |
-| Huấn luyện viên · lịch dạy | [http://localhost:3000/coach/schedule](http://localhost:3000/coach/schedule) | `coach-schedule.png` |
-| Huấn luyện viên · điểm danh | [http://localhost:3000/coach/attendance](http://localhost:3000/coach/attendance) | `coach-attendance.png` |
-| Quản lý · tổng quan | [http://localhost:3000/manager](http://localhost:3000/manager) | `manager-overview.png` |
-| Quản lý · lớp học | [http://localhost:3000/manager/classes](http://localhost:3000/manager/classes) | `manager-classes.png` |
-| Quản lý · báo cáo | [http://localhost:3000/manager/reports](http://localhost:3000/manager/reports) | `manager-reports.png` |
-| Quản trị · tài khoản | [http://localhost:3000/admin/users](http://localhost:3000/admin/users) | `admin-users.png` |
+| Đăng nhập | Đăng ký hội viên |
+| --- | --- |
+| ![Đăng nhập](docs/screenshots/login.png) | ![Đăng ký hội viên](docs/screenshots/register.png) |
 
-Ví dụ sau khi chụp trang báo cáo và lưu ảnh vào `docs/screenshots/manager-reports.png`, thêm dòng này dưới bảng hoặc thay bảng bằng bộ ảnh theo vai trò:
+### Hội viên
 
-```md
-![Báo cáo vận hành và doanh thu của quản lý](docs/screenshots/manager-reports.png)
-```
+**Tổng quan** · [`/member`](http://localhost:3000/member): hóa đơn chờ thanh toán, lối tắt, lịch sắp tới và gói đang dùng.
+
+![Tổng quan hội viên](docs/screenshots/member-overview.png)
+
+**Dịch vụ** · [`/member/services`](http://localhost:3000/member/services): khám phá gói Gym, lớp nhóm và thuê sân; tab *My services* hiển thị dịch vụ đang sở hữu.
+
+![Khám phá gói Gym](docs/screenshots/member-services.png)
+![Lớp nhóm và thuê sân](docs/screenshots/member-services-classes-courts.png)
+![Dịch vụ của tôi](docs/screenshots/member-my-services.png)
+
+**Lịch cá nhân** · [`/member/schedule`](http://localhost:3000/member/schedule): lịch lớp và lượt thuê sân theo tháng, bấm vào buổi để xem chi tiết.
+
+![Lịch cá nhân](docs/screenshots/member-schedule.png)
+![Chi tiết buổi học](docs/screenshots/member-schedule-detail.png)
+
+**Tài chính** · [`/member/finance`](http://localhost:3000/member/finance): ví điểm, lịch sử điểm và hóa đơn.
+
+![Ví điểm](docs/screenshots/member-finance.png)
+![Hóa đơn](docs/screenshots/member-invoices.png)
+
+**Hỗ trợ** · theo dõi yêu cầu đã gửi và mốc phản hồi.
+
+![Yêu cầu hỗ trợ](docs/screenshots/member-support.png)
+
+### Lễ tân
+
+**Quầy hôm nay** · [`/receptionist`](http://localhost:3000/receptionist): tìm hội viên hoặc quét mã QR check-in, xem lớp và lượt thuê sân sắp tới.
+
+![Quầy lễ tân](docs/screenshots/receptionist-overview.png)
+![Hồ sơ hội viên tại quầy](docs/screenshots/receptionist-member.png)
+
+**Check-in Gym** · [`/receptionist/gym-checkin`](http://localhost:3000/receptionist/gym-checkin)
+
+![Check-in Gym](docs/screenshots/gym-checkin.png)
+
+**AI tập luyện** · [`/member/workout-suggestions`](http://localhost:3000/member/workout-suggestions) và trợ lý AI trong khu vực hội viên.
+
+<!-- TODO: thêm ảnh docs/screenshots/member-ai.png -->
+
+### Huấn luyện viên
+
+**Lớp được phân công** · [`/coach/classes`](http://localhost:3000/coach/classes): lớp sắp dạy, sĩ số, buổi học kế tiếp.
+
+![Lớp của huấn luyện viên](docs/screenshots/coach-classes.png)
+
+**Chi tiết lớp** · học viên, giáo án từng buổi, kế hoạch cá nhân và thông báo.
+
+![Chi tiết lớp](docs/screenshots/coach-class-detail.png)
+
+**Trợ lý AI** cho huấn luyện viên.
+
+<!-- TODO: thêm ảnh docs/screenshots/coach-ai.png -->
+
+### Quản lý
+
+**Tổng quan** · [`/manager`](http://localhost:3000/manager): doanh thu thu được, lớp cần xem xét, hội viên Gym đang hoạt động, biểu đồ thu theo ngày và nguồn thu, đặt sân.
+
+![Tổng quan quản lý](docs/screenshots/manager-overview.jpg)
+![Biểu đồ doanh thu và đặt sân](docs/screenshots/manager-overview-charts.jpg)
+
+### Quản trị
+
+Ảnh [`/admin/users`](http://localhost:3000/admin/users) sẽ được bổ sung.
 
 > Trang theo vai trò sẽ chuyển về đăng nhập hoặc từ chối truy cập nếu tài khoản không có quyền tương ứng.
 
