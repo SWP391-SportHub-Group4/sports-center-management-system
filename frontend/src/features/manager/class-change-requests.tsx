@@ -10,7 +10,7 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useManagerRequestRead } from "@/lib/manager-request-reads";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { catalogApi } from "@/features/catalog";
 import type { ManagerCourseDto } from "@/lib/types";
@@ -148,7 +148,7 @@ export function ManagerClassChangeRequests({
                 {data.items.map((r) => (
                   <button
                     type="button"
-                    className={styles.row}
+                    className={`${styles.row} ${managerStyles.requestRow}`}
                     key={r.requestId}
                     onClick={() => setSelected(r)}
                   >
@@ -157,15 +157,18 @@ export function ManagerClassChangeRequests({
                         {r.className} · {vi ? "Buổi" : "Session"} {r.sessionNo}
                       </strong>
                       <small>
-                        {r.coachName} · {changeTypeLabel(r.type, vi)}
+                        {vi ? "Người gửi: " : "Sent by: "}
+                        {r.coachName}
                       </small>
-                      <small>{formatDateTime(r.originalStartAtUtc)}</small>
                       <small>
-                        {vi ? "Gửi lúc " : "Requested "}
-                        {formatDateTime(r.createdAtUtc)}
+                        {vi ? "Ngày gửi: " : "Date sent: "}
+                        {formatDate(r.createdAtUtc)}
                       </small>
                     </span>
-                    <span className={styles.status} data-status={r.status}>
+                    <span
+                      className={`${styles.status} ${managerStyles.requestStatus}`}
+                      data-status={r.status}
+                    >
                       {changeRequestStatusLabel(r, vi)}{" "}
                       <ArrowRight size={14} aria-hidden="true" />
                     </span>
@@ -368,10 +371,16 @@ function ReviewDrawer({
             {r.coachName} · {changeTypeLabel(r.type, vi)}
           </strong>
           <p>
+            {vi ? "Slot bị ảnh hưởng: " : "Affected slot: "}
             {formatDateTime(r.originalStartAtUtc)} –{" "}
-            {formatDateTime(r.originalEndAtUtc)}
+            {formatDate(r.originalStartAtUtc) === formatDate(r.originalEndAtUtc)
+              ? formatTime(r.originalEndAtUtc)
+              : formatDateTime(r.originalEndAtUtc)}
           </p>
-          <p>{r.reason}</p>
+          <p>
+            {vi ? "Lý do: " : "Reason: "}
+            {r.reason}
+          </p>
           {r.proposedStartAtUtc && (
             <p>
               {vi ? "Giờ đề xuất: " : "Suggested time: "}

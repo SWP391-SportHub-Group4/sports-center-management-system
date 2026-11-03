@@ -240,8 +240,6 @@ function GiftComposer({
   function filter(set: (s: string) => void, value: string) {
     set(value);
     setPage(1);
-    setAllSelected(false);
-    setBulkSelectedIds([]);
   }
   function remove(id: string) {
     setAllSelected(false);

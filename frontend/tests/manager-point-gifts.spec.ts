@@ -186,6 +186,28 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("heading", { name: "Selected recipients (2)" }),
     ).toBeVisible();
+    await page.getByLabel("Name or email", { exact: true }).fill("linh@");
+    await expect
+      .poll(() => requests.at(-1)?.searchParams.get("keyword"))
+      .toBe("linh@");
+    await expect(toggle).toBeChecked();
+    await page.getByLabel("Sport", { exact: true }).selectOption("2");
+    await expect
+      .poll(() => requests.at(-1)?.searchParams.get("sportId"))
+      .toBe("2");
+    await expect(toggle).toBeChecked();
+    await page
+      .getByLabel("Name or email", { exact: true })
+      .scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Class", exact: true }).click();
+    await page.getByRole("button", { name: "Cầu lông cơ bản BAD-01" }).click();
+    await expect
+      .poll(() => requests.at(-1)?.searchParams.get("classId"))
+      .toBe("10");
+    await expect(toggle).toBeChecked();
+    await expect(
+      page.getByRole("heading", { name: "Selected recipients (2)" }),
+    ).toBeVisible();
     await toggle.uncheck();
     await expect(
       page.getByRole("heading", { name: "Selected recipients (1)" }),
