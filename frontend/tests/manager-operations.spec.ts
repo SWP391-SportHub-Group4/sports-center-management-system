@@ -407,7 +407,7 @@ test("M05 deactivated coach details reassign the main class and refresh affected
   expect(writes).toBe(1);
 });
 
-test("M05 empty course cancellation previews before confirming and cannot repeat after refresh", async ({
+test("M05 empty course cancellation confirms directly and cannot repeat after refresh", async ({
   page,
 }) => {
   let cancelled = false;
@@ -456,12 +456,12 @@ test("M05 empty course cancellation previews before confirming and cannot repeat
   await section
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Cancellation audit");
-  await section
-    .getByRole("button", {
+  await expect(
+    section.getByRole("button", {
       name: en.operations.cancellationPreview,
       exact: true,
-    })
-    .click();
+    }),
+  ).toHaveCount(0);
   expect(writes).toBe(0);
   await section
     .getByRole("button", { name: en.operations.confirm, exact: true })
@@ -1260,7 +1260,7 @@ test("opening conditions omits guidance and threshold responses", async ({
   await expect(
     page.locator("summary").filter({ hasText: "How opening conditions work" }),
   ).toHaveCount(0);
-  await expect(page.getByText(en.classWorkspace.pricingLocked)).toBeVisible();
+  await expect(page.getByText(en.classWorkspace.pricingLocked)).toHaveCount(0);
   expect(responseReads).toEqual([]);
 });
 
@@ -2754,7 +2754,7 @@ test("enrolled class hides cancellation and keeps rescheduling available", async
   expect(cancellations).toBe(0);
 });
 
-test("at-risk class cancellation remains available with enrolled students and reviews immediate refunds", async ({
+test("at-risk class cancellation opens approved refund inputs with enrolled students", async ({
   page,
 }) => {
   let cancelled = false;
@@ -2815,13 +2815,13 @@ test("at-risk class cancellation remains available with enrolled students and re
   await dialog
     .getByLabel("Reason", { exact: true })
     .fill("Below enrollment threshold");
-  await dialog
-    .getByRole("button", {
+  await expect(
+    dialog.getByRole("button", {
       name: en.operations.cancellationPreview,
       exact: true,
-    })
-    .click();
-  await expect(dialog).toContainText(
+    }),
+  ).toHaveCount(0);
+  await expect(dialog).not.toContainText(
     en.classWorkspace.cancelBelowThresholdHint,
   );
   await expect(dialog).not.toContainText("Course interests");
@@ -2897,7 +2897,7 @@ test("create schedule blocks Next during conflicts and unlocks after a valid rep
   ).toBeVisible();
 });
 
-test("below-threshold Manager cancellation previews immediate refunds and then notifies through the cancel API", async ({
+test("below-threshold Manager cancellation confirms approved refunds without a preview button", async ({
   page,
 }) => {
   let cancelled = false,
@@ -2946,23 +2946,22 @@ test("below-threshold Manager cancellation previews immediate refunds and then n
   await page
     .getByText("Cancel class and notify members", { exact: true })
     .click();
-  const form = page.locator("details").filter({
-    has: page.locator("summary", {
-      hasText: "Cancel class and notify members",
-    }),
+  const form = page.getByRole("dialog", {
+    name: en.classWorkspace.cancelClass,
+    exact: true,
   });
   await form
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Not enough enrolled members");
-  await form
-    .getByRole("button", {
+  await expect(
+    form.getByRole("button", {
       name: en.operations.cancellationPreview,
       exact: true,
-    })
-    .click();
+    }),
+  ).toHaveCount(0);
   await expect(
     form.getByText(en.classWorkspace.cancelBelowThresholdHint),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await form
     .getByRole("textbox", { name: /Refund points — Member Linh/ })
     .fill("1200");

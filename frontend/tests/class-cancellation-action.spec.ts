@@ -111,15 +111,16 @@ async function fixture(page: Page) {
   };
 }
 
-test("due unevaluated class offers cancellation and reviews refunds before writing", async ({
+test("cancellation opens refund inputs directly and confirms without a preview button", async ({
   page,
 }) => {
   const f = await fixture(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/manager/classes/22?tab=management");
   const action = page.getByRole("region", { name: copy.cancelClass });
-  await expect(action).toContainText("4 / 6");
-  await expect(action).toContainText(copy.cancelBelowThresholdHint);
+  await expect(action).not.toContainText("4 / 6");
+  await expect(action).not.toContainText(copy.cancellationReviewFrom);
+  await expect(action).not.toContainText(copy.cancelBelowThresholdHint);
   await expect(
     page.getByText(copy.cancellationUnavailable, { exact: true }),
   ).toHaveCount(0);
@@ -143,11 +144,10 @@ test("due unevaluated class offers cancellation and reviews refunds before writi
   const preview = dialog.getByRole("button", {
     name: en.operations.cancellationPreview,
   });
-  await expect(preview).toBeDisabled();
+  await expect(preview).toHaveCount(0);
   await dialog
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Minimum enrollment was not reached");
-  await preview.click();
   const confirm = dialog.getByRole("button", {
     name: en.operations.confirm,
     exact: true,
@@ -238,6 +238,127 @@ test("cancellation stays closed while checking and recovers from a failed check"
   expect(f.writes).toHaveLength(0);
 });
 
+test("cancel dialog loads refund fields automatically and retries without losing the reason", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  await page.goto("/manager/classes/22?tab=threshold");
+  const open = page.getByRole("button", {
+    name: copy.cancelAndRefund,
+    exact: true,
+  });
+  await expect(open).toBeVisible();
+  let release!: () => void;
+  f.hold(
+    new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+  );
+  await open.click();
+  const dialog = page.getByRole("dialog", {
+    name: copy.cancelClass,
+    exact: true,
+  });
+  await dialog
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Keep this cancellation reason");
+  await expect(dialog.getByRole("status")).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: en.operations.cancellationPreview }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toHaveCount(0);
+  f.fail(true);
+  release();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  f.fail(false);
+  await dialog
+    .getByRole("button", { name: en.common.retry, exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("textbox", { name: /Refund points — Member Linh/ }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("Keep this cancellation reason");
+  expect(f.writes).toHaveLength(0);
+});
+
+test("changed roster refreshes automatically before confirmation can be retried", async ({
+  page,
+}) => {
+  await fixture(page);
+  let revision = 1;
+  const writes: { previewToken: string; refunds: { points: number }[] }[] = [];
+  await page.route("**/api/manager/classes/22/cancellation-preview", (route) =>
+    route.fulfill({
+      json: {
+        canCancel: true,
+        refundsImmediately: true,
+        previewToken: `roster-${revision}`,
+        confirmedCount: 1,
+        activeHoldCount: 0,
+        totalSessions: 8,
+        sessionsNotProvided: 8,
+        refundPoints: revision === 1 ? 300 : 200,
+        members: [
+          {
+            enrollmentId: "enrollment-1",
+            memberName: "Member Linh",
+            refundPoints: revision === 1 ? 300 : 200,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/manager/classes/22/cancel", (route) => {
+    writes.push(route.request().postDataJSON());
+    revision++;
+    return route.fulfill({
+      status: 409,
+      json: {
+        error: "class_cancellation_changed",
+        message: "Class cancellation changed.",
+      },
+    });
+  });
+  await page.goto("/manager/classes/22?tab=threshold");
+  await page
+    .getByRole("button", { name: copy.cancelAndRefund, exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: copy.cancelClass,
+    exact: true,
+  });
+  await dialog
+    .getByLabel(en.operations.reason, { exact: true })
+    .fill("Keep the entered reason");
+  const points = dialog.getByRole("textbox", {
+    name: /Refund points — Member Linh/,
+  });
+  await points.fill("250");
+  const confirm = dialog.getByRole("button", {
+    name: en.operations.confirm,
+    exact: true,
+  });
+  await confirm.click();
+  await expect(dialog).toContainText(
+    en.classCancellationRefund.invalid.replace("{points}", "200"),
+  );
+  await expect(points).toHaveValue("250");
+  await expect(confirm).toBeDisabled();
+  await expect(
+    dialog.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("Keep the entered reason");
+  await points.fill("175");
+  await confirm.click();
+  await expect.poll(() => writes.length).toBe(2);
+  expect(writes[0].previewToken).toBe("roster-1");
+  expect(writes[1].previewToken).toBe("roster-2");
+  expect(writes[1].refunds[0].points).toBe(175);
+});
+
 for (const [reason, message] of [
   ["enrollment_payment_missing", copy.cancellationPaymentMissing],
 ] as const) {
@@ -274,7 +395,7 @@ for (const [status, threshold] of [
     await expect(
       action.getByRole("button", { name: copy.cancelAndRefund }),
     ).toBeVisible();
-    await expect(action).toContainText(copy.cancelBelowThresholdHint);
+    await expect(action).not.toContainText(copy.cancelBelowThresholdHint);
     expect(f.writes).toHaveLength(0);
   });
 }

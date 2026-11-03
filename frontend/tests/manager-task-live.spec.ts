@@ -295,12 +295,12 @@ test("live isolated draft/edit/publish/reschedule/makeup/cancel refunds paid enr
   await page
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Acceptance cancel entire course");
-  await page
-    .getByRole("button", {
+  await expect(
+    page.getByRole("button", {
       name: en.operations.cancellationPreview,
       exact: true,
-    })
-    .click();
+    }),
+  ).toHaveCount(0);
   await expect(
     page.getByText(`${en.operations.refundTotal}: 1`, { exact: true }),
   ).toBeVisible();
