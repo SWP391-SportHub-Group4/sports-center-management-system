@@ -1,4 +1,0 @@
-export const HOMEPAGE_PLACEHOLDER =
-  "/sporthub/placeholders/sports-equipment.webp";
-export const HOMEPAGE_BLUR_DATA =
-  "data:image/webp;base64,UklGRgIBAABXRUJQVlA4IPYAAADwBgCdASowACAAPt1ip00opaOiMBVaqRAbiWYAwzR1eMSxNbQ9EUNPTJs3DRLTxiIurlBwL5CQqrEEPIdX4hLIAP78qkQ0d+1jZAQn1Cl7VpvulWAR48MDxa7+h5nvs/fxIxTme/N5lW2aQrGE0i0RGVaAlntEXtQiKg2K4x9ki3dHg3FT9x0/QAXli1aq/UZA3L0wzjXb8DAgBhM4zsbkM9E6XzEOvCnq7WOo8LFxVxyBYfxpOlcqiLe3CSfs9MYrJN/H1qvzjokUq2tfz8gdblnurw/F0KwLwCNxR4Epwd62nVAR22vm/TWIcIhTCOT9neWAAAA=";

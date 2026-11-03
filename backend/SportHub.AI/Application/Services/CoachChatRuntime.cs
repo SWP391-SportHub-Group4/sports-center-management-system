@@ -71,10 +71,9 @@ internal static class CoachChatRuntime
                 s.Room != null ? s.Room.Name : "Unknown"))
             .Take(400).ToListAsync(ct);
 
-        var students = await CoachDataScope.Enrollments(db, coachId)
-            .Join(db.Set<UserProfile>().AsNoTracking(), e => e.MemberId, p => p.UserId,
-                (e, p) => new StudentInfo(e.ClassId, p.FullName))
-            .OrderBy(s => s.ClassId).ThenBy(s => s.Name).Take(300).ToListAsync(ct);
+        // Use the same UserAccount/Profile relationship as the authorized teaching/students API.
+        // Keep enrollment scope on the server; do not expose unrelated users.
+        var students = await AuthorizedStudentsAsync(db, coachId, null, 300, ct);
 
         var supportQuery = db.Set<MemberSupportRequest>().AsNoTracking()
             .Where(r => r.AssignedToUserId == coachId);
@@ -130,12 +129,12 @@ internal static class CoachChatRuntime
         if (plan) return "plan"; // must precede class/schedule create restriction
         if (createSchedule) return "create-class";
         if (request) return "request";
-        bool roster = Contains(q, "hoc vien", "member nao", "member trong", "student", "ai hoc", "ai tham gia", "dang day cho ai", "who attends", "who are enrolled", "si so", "bao nhieu nguoi");
+        bool roster = Contains(q, "hoc vien", "member nao", "member trong", "student", "ai hoc", "ai tham gia", "dang day cho ai", "students nao", "member nao toi dang day", "who attends", "who are enrolled", "si so", "bao nhieu nguoi");
         bool sport = Contains(q, "mon gi", "mon nao", "mon the thao", "which sport", "what sport", "dang day mon");
         bool scheduleSubject = Contains(q, "lich", "lop", "buoi", "day", "session", "class", "schedule", "teaching");
         bool schedule = Contains(q, "lich day", "lich hoc", "lop hoc gan nhat", "lop day gan nhat", "buoi day", "buoi hoc", "next class", "next session", "teaching schedule") ||
             (scheduleSubject && Contains(q, "tiep theo", "gan nhat", "hom nay", "ngay mai", "tuan nay", "tuan sau", "thang nay", "da qua", "da day", "qua khu", "upcoming", "yesterday", "today", "tomorrow", "this week", "next week", "this month"));
-        bool classes = Contains(q, "lop toi", "lop dang day", "lop nao", "lop duoc", "my class", "assigned class", "bao nhieu lop", "cac lop", "danh sach lop");
+        bool classes = Contains(q, "lop toi", "lop dang day", "lop nao", "lop duoc", "my class", "assigned class", "bao nhieu lop", "cac lop", "danh sach lop", "day class nao", "dang day class", "class nao", "lop nao toi dang day", "lop toi dang phu trach");
         if (roster) return "roster";
         if (sport) return "sport";
         if (schedule) return "schedule";
@@ -143,11 +142,89 @@ internal static class CoachChatRuntime
         return how ? "navigation" : "other";
     }
 
+    // Verified Coach navigation: no Gemini request and no business data query required.
+    // This method is intentionally Coach-only; it must be called after authenticated role verification.
+    internal static string? TryStaticNavigationAnswer(string question)
+    {
+        var q = Normalize(question);
+        var vi = Vi(question);
+        if (Contains(q, "ban la ai", "who are you", "what are you"))
+            return vi
+                ? "Tôi là Wolf, trợ lý SportHub dành cho Coach. Tôi có thể hướng dẫn Schedule, Classes, Students, Request, Account và hỗ trợ tra cứu dữ liệu giảng dạy được phân quyền."
+                : "I am Wolf, SportHub's Coach assistant. I can guide you through Schedule, Classes, Students, Request, and Account, and help retrieve authorized teaching information.";
+
+        // Profile visibility is distinct from editing personal information.
+        if (Contains(q, "profile cong khai", "ho so cong khai", "public profile", "view public profile", "xem profile", "xem ho so coach"))
+            return vi
+                ? "Để xem hồ sơ Coach công khai: mở menu tài khoản → Account (/account) → Coach profile → View public profile. Bạn cũng có thể xem đường dẫn /coaches/{coachId} của chính mình; không tự điền CoachId khi chưa xác minh."
+                : "To view your public Coach profile: account menu → Account (/account) → Coach profile → View public profile. The public page is /coaches/{coachId}, using your verified Coach ID.";
+
+        if (Contains(q, "xem lop o dau", "danh sach lop o dau", "classes o dau", "where are my classes", "view classes"))
+            return vi ? "Chọn Classes trên thanh điều hướng Coach hoặc mở /coach/classes để xem các lớp được phân công. Chọn lớp để xem chi tiết."
+                      : "Open Classes in Coach navigation or go to /coach/classes; select an assigned class for details.";
+        if (Contains(q, "xem hoc vien o dau", "students o dau", "where are my students", "view students"))
+            return vi ? "Chọn Students trên thanh điều hướng Coach hoặc mở /coach/members. Chỉ những học viên thuộc phạm vi bạn được phép xem mới xuất hiện."
+                      : "Open Students in Coach navigation or go to /coach/members. Only authorized students are shown.";
+        if (Contains(q, "diem danh o dau", "attendance o dau", "where is attendance"))
+            return vi ? "Vào Schedule hoặc Classes, chọn buổi được phân công để thực hiện thao tác điểm danh nếu buổi đó đủ điều kiện; trang Attendance của Coach ở /coach/attendance."
+                      : "Open Schedule or Classes and select an eligible assigned session for attendance. The Coach Attendance page is /coach/attendance.";
+
+        if (Contains(q, "thong bao", "notification", "notifications", "chuong thong bao", "bell"))
+            return vi
+                ? "Để xem thông báo, chọn biểu tượng chuông ở thanh điều hướng hoặc mở trang Notifications (/notifications), rồi chọn thông báo cần xem."
+                : "To view notifications, select the bell icon in the top navigation or open Notifications (/notifications), then select a notification.";
+
+        if (Contains(q, "thong tin ca nhan", "thong tin tai khoan", "cap nhat ho so", "ho so ca nhan", "update profile", "edit profile", "personal information", "my profile", "account settings"))
+            return vi
+                ? "Để cập nhật thông tin cá nhân: mở menu tài khoản ở góc trên bên phải → Account (/account) → Personal Information → chỉnh thông tin → Save profile."
+                : "To update your profile: open the account menu in the upper-right → Account (/account) → Personal Information → edit the fields → Save profile.";
+
+        if (Contains(q, "lich day", "lich hoc", "schedule", "thoi khoa bieu", "buoi day", "my timetable") &&
+            Contains(q, "o dau", "xem", "mo", "truy cap", "nut", "where", "how to view", "open", "find"))
+            return vi
+                ? "Để xem lịch dạy, chọn Schedule trên thanh điều hướng Coach hoặc mở /coach/schedule. Chọn buổi học để xem chi tiết; Coach không có quyền tạo lịch lớp mới."
+                : "To view your teaching schedule, open Schedule in Coach navigation or go to /coach/schedule. Select a session for details; Coaches cannot create new class schedules.";
+
+        // Certificates and awards share one 20-document limit in CoachCredentialService.
+        // A quantity question must not fall through to the generic upload instructions.
+        if (Contains(q, "chung chi", "chung nhan", "bang cap", "certificate", "awards") &&
+            Contains(q, "bao nhieu", "toi da", "gioi han", "may cai", "maximum", "how many", "limit"))
+            return vi
+                ? "Bạn có thể lưu tối đa 20 tài liệu trong mục Certificates & awards (tính gộp chứng chỉ và giải thưởng). Để biết còn bao nhiêu chỗ trống, mở Account → Certificates & awards và xem chỉ số số tài liệu/20."
+                : "You can keep up to 20 documents in Certificates & awards combined (certificates and awards). Check Account → Certificates & awards for your current count out of 20.";
+
+        if (Contains(q, "chung chi", "chung nhan", "bang cap", "certificate", "awards"))
+            return vi
+                ? "Để thêm chứng chỉ: menu tài khoản → Account (/account) → Certificates & awards → Add document → chọn tệp và lưu."
+                : "To add a certificate: account menu → Account (/account) → Certificates & awards → Add document → upload and save.";
+        if (Contains(q, "avatar", "anh dai dien"))
+            return vi
+                ? "Đổi avatar: menu tài khoản → Account (/account) → Personal Information → Browse → chọn ảnh, rồi lưu theo nút hiển thị."
+                : "To update your avatar: account menu → Account (/account) → Personal Information → Browse → select an image, then save.";
+
+        if (Contains(q, "request o dau", "yeu cau o dau", "xem request", "xem yeu cau", "where are requests"))
+            return vi
+                ? "Vào Request (/coach/support). Tab Member support hiển thị yêu cầu hỗ trợ được giao; tab Absence requests dành cho yêu cầu vắng của Coach."
+                : "Open Request (/coach/support). Member support contains assigned support requests; Absence requests is for Coach absence requests.";
+
+        // Unknown UI navigation phrasing: a normal answer rather than a generic 502/provider error.
+        if (Contains(q, "o dau", "nut nao", "how do i find", "where is the button") &&
+            !Contains(q, "bao nhieu", "may", "who", "ai", "khi nao"))
+            return vi
+                ? "Tôi chưa hiểu rõ thao tác bạn muốn tìm. Bạn có thể cho biết tên chức năng hoặc trang trên SportHub không?"
+                : "I did not understand which action you mean. Could you name the SportHub feature or page?";
+        return null;
+    }
+
     internal static string ClassifyIntentForTests(string question) => Intent(Normalize(question));
 
     internal static async Task<string?> TryAnswerAsync(ISportHubDbContext db, Guid coachId,
         string question, DateTime now, CancellationToken ct)
     {
+        var detailsAnswer = await CoachClassStudentKnowledge.TryAnswerAsync(db, coachId, question, ct);
+        if (detailsAnswer is not null) return detailsAnswer;
+        var staticAnswer = TryStaticNavigationAnswer(question);
+        if (staticAnswer is not null) return staticAnswer;
         var q = Normalize(question);
         var vi = Vi(question);
         switch (Intent(q))
@@ -315,6 +392,34 @@ internal static class CoachChatRuntime
             (sessions.Count > limit && !nearest ? "\nChỉ hiển thị một phần danh sách. Xem Schedule để xem thêm." : "");
     }
 
+    // Two-phase query mirrors ClassTeachingService.StudentsAsync():
+    //   CoachDataScope.Enrollments -> UserAccount -> UserProfile.
+    // Explicitly project scalar IDs first so unrelated cross-module joins cannot break the roster query.
+    private static async Task<List<StudentInfo>> AuthorizedStudentsAsync(
+        ISportHubDbContext db, Guid coachId, int[]? classIds, int maxRows, CancellationToken ct)
+    {
+        var enrollments = CoachDataScope.Enrollments(db, coachId);
+        if (classIds is not null)
+            enrollments = enrollments.Where(e => classIds.Contains(e.ClassId));
+        var items = await enrollments
+            .OrderBy(e => e.ClassId).ThenBy(e => e.MemberId)
+            .Select(e => new { e.ClassId, e.MemberId })
+            .Distinct().Take(maxRows + 1).ToListAsync(ct);
+        if (items.Count == 0) return new List<StudentInfo>();
+        var memberIds = items.Select(e => e.MemberId).Distinct().ToArray();
+        var users = await db.Set<UserAccount>().AsNoTracking()
+            .Where(u => memberIds.Contains(u.UserId))
+            .Select(u => new {
+                u.UserId,
+                Name = u.Profile != null ? u.Profile.FullName : u.Email
+            }).ToListAsync(ct);
+        var names = users.ToDictionary(x => x.UserId, x => x.Name);
+        return items.Select(e => new StudentInfo(e.ClassId,
+                names.TryGetValue(e.MemberId, out var name) && !string.IsNullOrWhiteSpace(name)
+                    ? name : "Học viên chưa có tên hiển thị"))
+            .ToList();
+    }
+
     private static async Task<string> RosterAnswerAsync(ISportHubDbContext db, Guid coachId,
         string q, DateTime now, bool vi, CancellationToken ct)
     {
@@ -333,13 +438,9 @@ internal static class CoachChatRuntime
         if (classIds.Length == 0)
             return vi ? "Chưa tìm thấy lớp đang được phân công để xác minh danh sách hội viên. Xem Classes → Students." :
                 "No assigned classes were found for an authorized student lookup. Check Classes → Students.";
-        var members = await CoachDataScope.Enrollments(db, coachId)
-            .Where(e => classIds.Contains(e.ClassId))
-            .Join(db.Set<UserProfile>().AsNoTracking(), e => e.MemberId, p => p.UserId,
-                (e,p) => new StudentInfo(e.ClassId, p.FullName))
-            .OrderBy(x => x.ClassId).ThenBy(x => x.Name).Take(151).ToListAsync(ct);
+        var members = await AuthorizedStudentsAsync(db, coachId, classIds, 150, ct);
         if (members.Count == 0)
-            return vi ? "Không tìm thấy enrollment Confirmed còn hiệu lực của những lớp Coach được phép xem. Thử kiểm tra tab Students." :
+            return vi ? "Trong các lớp thuộc quyền xem của Coach, truy vấn không tìm thấy enrollment Confirmed còn hiệu lực. Kiểm tra Students để đối chiếu; kết quả này không khẳng định mọi lớp đều không có học viên." :
                 "No active Confirmed enrollments were found for authorized assigned classes. Check Students.";
         bool onlyCount = Contains(q, "bao nhieu", "si so", "how many");
         var label = requested?.Name ?? "các lớp được phân công";

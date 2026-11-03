@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,7 +20,8 @@ public sealed class AiChatService(
     IAiContextBuilder contextBuilder,
     IAiChatProvider provider,
     IClock clock,
-    ISystemPromptReader promptReader) : IAiChatService
+    ISystemPromptReader promptReader,
+    Microsoft.Extensions.Logging.ILogger<AiChatService> logger) : IAiChatService
 {
     public const int MaxQuestionLength = 2000;
 
@@ -64,7 +66,105 @@ public sealed class AiChatService(
                 "PreviousInteractionId is invalid.");
         }
 
-        var context =
+                // COACH_VERIFIED_NAVIGATION_FAST_PATH_V4
+        // Check the authenticated role before bypassing expensive data context and Gemini.
+        var coachVerifiedForNavigation = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking()
+            .AnyAsync(u => u.UserId == userId && u.Role != null &&
+                u.Role.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, cancellationToken);
+        if (coachVerifiedForNavigation)
+        {
+            var verifiedNavigationAnswer = CoachChatRuntime.TryStaticNavigationAnswer(question);
+            if (verifiedNavigationAnswer is not null)
+            {
+                var navigationLogId = Guid.NewGuid();
+                var navigationInteractionId = Guid.NewGuid().ToString("N");
+                var navigationCreatedAt = clock.UtcNow;
+                db.Set<AiLog>().Add(new AiLog
+                {
+                    LogId = navigationLogId,
+                    UserId = userId,
+                    QueryType = AiQueryTypes.Chat,
+                    InputPayload = JsonSerializer.Serialize(new { question, previousInteractionId, promptVersion = "coach-verified-navigation-v4" }),
+                    ResponsePayload = JsonSerializer.Serialize(new { interactionId = navigationInteractionId, answer = verifiedNavigationAnswer, provider = "SportHub Coach Knowledge", model = "local", success = true }),
+                    ResponseTimeMs = 0,
+                    CreatedAt = navigationCreatedAt
+                });
+                await db.SaveChangesAsync(cancellationToken);
+                return new AiChatResponse(navigationLogId, navigationInteractionId, question,
+                    verifiedNavigationAnswer, "SportHub Coach Knowledge", "local",
+                    "coach-verified-navigation-v4", 0, navigationCreatedAt);
+            }
+        }
+        // END_COACH_VERIFIED_NAVIGATION_FAST_PATH_V4
+
+        // COACH_ISOLATED_PRECONTEXT_V5
+        // Coach-only verified Q&A runs before the shared large-context/Gemini pipeline.
+        // Never infer Coach from user input: the role is checked against authenticated userId.
+        var isAuthenticatedCoachV5 = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking().AnyAsync(u => u.UserId == userId && u.Role != null &&
+                u.Role.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, cancellationToken);
+        if (isAuthenticatedCoachV5)
+        {
+            string? coachAnswerV5;
+            try
+            {
+                coachAnswerV5 = await CoachChatRuntime.TryAnswerAsync(
+                    db, userId, question, clock.UtcNow, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Do not confuse failed data retrieval with an empty Coach database.
+                System.Diagnostics.Trace.TraceError(
+                    "Coach data lookup failed: " + ex.GetType().Name);
+                coachAnswerV5 = "Tôi chưa thể truy xuất dữ liệu Coach lúc này. " +
+                    "Vui lòng thử lại hoặc kiểm tra log backend.";
+            }
+            if (coachAnswerV5 is not null)
+            {
+                var coachLogIdV5 = Guid.NewGuid();
+                var coachInteractionV5 = Guid.NewGuid().ToString("N");
+                var coachCreatedV5 = clock.UtcNow;
+                // Best-effort log: a logging failure must not break verified navigation.
+                try
+                {
+                    db.Set<AiLog>().Add(new AiLog
+                    {
+                        LogId = coachLogIdV5,
+                        UserId = userId,
+                        QueryType = AiQueryTypes.Chat,
+                        InputPayload = JsonSerializer.Serialize(new
+                        {
+                            question,
+                            previousInteractionId,
+                            promptVersion = "coach-isolated-v5"
+                        }),
+                        ResponsePayload = JsonSerializer.Serialize(new
+                        {
+                            interactionId = coachInteractionV5,
+                            answer = coachAnswerV5,
+                            provider = "SportHub Coach Data Tools",
+                            model = "local",
+                            success = true
+                        }),
+                        ResponseTimeMs = 0,
+                        CreatedAt = coachCreatedV5
+                    });
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    System.Diagnostics.Trace.TraceError(
+                        "Coach chat log write failed: " + ex.GetType().Name);
+                }
+                return new AiChatResponse(coachLogIdV5, coachInteractionV5,
+                    question, coachAnswerV5, "SportHub Coach Data Tools", "local",
+                    "coach-isolated-v5", 0, coachCreatedV5);
+            }
+        }
+        // END_COACH_ISOLATED_PRECONTEXT_V5
+
+var context =
             await contextBuilder.BuildAsync(
                 userId,
                 question,
@@ -104,17 +204,33 @@ public sealed class AiChatService(
         // Only Member and Coach have navigation knowledge available in the AI UI.
         var roleSupportsNavigation = role is "member" or "coach";
 
-        var localAnswer = roleSupportsNavigation
-            ? UiNavigationKnowledge.TryAnswer(question, role)
-            : null;
-
-        if (roleSupportsNavigation &&
-            localAnswer is null &&
-            UiNavigationKnowledge.IsNavigationQuestion(question))
+        // Dedicated role pipelines. No Coach intent handler is shared with Member.
+        // Only the trusted backend role selects a pipeline; user text cannot change it.
+        string? localAnswer;
+        if (role == "coach")
         {
-            localAnswer = UiNavigationKnowledge.NavigationFallback(question, role);
+            localAnswer = await CoachChatRuntime.TryAnswerAsync(db, userId, question, clock.UtcNow, cancellationToken);
+            if (localAnswer is null)
+                localAnswer = await AiCoachAnswerRouter.TryAnswerAsync(
+                db, userId, question, clock.UtcNow, cancellationToken);
+            if (localAnswer is null && IsExplicitRequestQuestion(question))
+                localAnswer = AiCoachRequestAnswers.TryAnswer(question, contextDocument.RootElement);
+            // Do not send uncertain Coach UI queries to the old Member/Coach shared fallback.
         }
-
+        else if (role == "member")
+        {
+            localAnswer = await AiMemberAnswerRouter.TryAnswerAsync(
+                db, userId, question, cancellationToken);
+            if (localAnswer is null && IsExplicitRequestQuestion(question))
+                localAnswer = AiMemberRequestAnswers.TryAnswer(question, contextDocument.RootElement);
+            if (localAnswer is null)
+                localAnswer = UiNavigationKnowledge.TryAnswer(question, "member");
+        }
+        else
+        {
+            throw new SportHub.BuildingBlocks.SharedKernel.Errors.ForbiddenException(
+                "ai_chat_role_forbidden", "Only Member and Coach can use the chat assistant.");
+        }
         if (localAnswer is null &&
             SportHubTopicGuard.IsClearlyOffTopic(question))
         {
@@ -132,12 +248,13 @@ public sealed class AiChatService(
         {
             providerResponse = localAnswer is not null
                 ? new AiProviderResponse(Guid.NewGuid().ToString("N"), localAnswer, "SportHub Navigation Knowledge", "local")
-                : await provider.AskAsync(systemPrompt, context, question, previousInteractionId, cancellationToken);
+                : await provider.AskAsync(systemPrompt, isCoach ? await CoachChatRuntime.BuildContextAsync(db, userId, clock.UtcNow, cancellationToken) : context, question, previousInteractionId, cancellationToken);
         }
         catch (Exception ex)
             when (ex is not OperationCanceledException)
         {
             providerFailure = ex;
+            logger.LogError(ex, "AI provider call failed for authenticated role {Role}", role);
         }
 
         stopwatch.Stop();
@@ -254,4 +371,16 @@ public sealed class AiChatService(
         } catch (JsonException) { return false; }
     }
 
+    // Explicit Request terms only. "member" and "há»™i viÃªn" are NOT Request intents.
+    private static bool IsExplicitRequestQuestion(string question)
+    {
+        var q = question.ToLowerInvariant();
+        return q.Contains("request", StringComparison.Ordinal) ||
+               q.Contains("yÃªu cáº§u", StringComparison.Ordinal) ||
+               q.Contains("yeu cau", StringComparison.Ordinal) ||
+               q.Contains("há»— trá»£", StringComparison.Ordinal) ||
+               q.Contains("ho tro", StringComparison.Ordinal) ||
+               q.Contains("bÃ¡o váº¯ng", StringComparison.Ordinal) ||
+               q.Contains("bao vang", StringComparison.Ordinal);
+    }
 }

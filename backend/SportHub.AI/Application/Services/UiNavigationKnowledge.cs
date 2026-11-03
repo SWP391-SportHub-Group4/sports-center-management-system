@@ -44,6 +44,9 @@ internal static class UiNavigationKnowledge
                 ? "Coach không có quyền tạo lớp hoặc buổi học mới. Vào Schedule để xem lịch được phân công; liên hệ Center Manager khi cần đổi lịch. Request chỉ dùng để báo vắng."
                 : "Coaches cannot create classes or teaching sessions. Open Schedule to view assignments. Contact a Center Manager for changes.";
 
+        if (role == "coach" && (Includes(q, "request") || Includes(q, "yeu cau")))
+            return "Vào Request (/coach/support). Tab Absence requests để xem yêu cầu vắng; để gửi mới, vào Schedule, chọn buổi dạy đủ điều kiện. Tab Member support để xử lý yêu cầu được phân công, không tạo request mới tại đây. Các trạng thái hiển thị: Not started, In progress, Done, Overdue (quá hạn SLA).";
+
         // A verified Coach workflow from teaching-editor.tsx and coach-class-page.tsx.
         if (role == "coach" && new[] { "plan", "giao an", "ke hoach tap", "lesson plan" }.Any(x => Includes(q, x)))
         {

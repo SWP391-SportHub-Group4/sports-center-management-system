@@ -26,9 +26,16 @@ interface Turn {
 
 const MAX = 2000;
 
-export function AssistantDrawer({ onClose }: { onClose: () => void }) {
+export function AssistantDrawer({ onClose, audience = "member" }: { onClose: () => void; audience?: "member" | "coach" }) {
   const { t } = useLanguage();
   const l = t.assistant;
+  const coach = audience === "coach";
+  const coachSuggestions = [
+    "What are my assigned teaching sessions?",
+    "How many support requests assigned to me are Done?",
+    "Where do I submit an absence request?",
+    "Which students are enrolled in my classes?",
+  ];
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -92,11 +99,16 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
       ]);
     } catch (cause) {
       if (controller.signal.aborted) return;
+      // Show a safe HTTP code for diagnosis without exposing server secrets.
+      const status = cause instanceof ApiError ? cause.status : null;
       setError(
-        cause instanceof ApiError &&
-          (cause.status === 502 || cause.status === 503)
-          ? l.unavailable
-          : l.failed,
+        status === 401 || status === 403
+          ? `Your session is not authorized for AI chat (HTTP ${status}). Please sign in again.`
+          : status === 502 || status === 503
+            ? `${l.unavailable} (HTTP ${status})`
+            : status != null
+              ? `${l.failed} (HTTP ${status})`
+              : l.failed,
       );
     } finally {
       if (abort.current === controller) {
@@ -172,11 +184,11 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
         </form>
       }
     >
-      <p className={styles.intro}>{l.intro}</p>
+      <p className={styles.intro}>{coach ? "Ask about assigned sessions, classes, students, absence requests and member support. Wolf reads authorized data and cannot change records." : l.intro}</p>
       {turns.length === 0 && (
         <section aria-label={l.suggestionsLabel}>
           <ul className={styles.chips}>
-            {l.suggestions.map((q) => (
+            {(coach ? coachSuggestions : l.suggestions).map((q) => (
               <li key={q}>
                 <button
                   type="button"
@@ -213,7 +225,7 @@ export function AssistantDrawer({ onClose }: { onClose: () => void }) {
         )}
       </ol>
 
-      {hasAnswer && (
+      {hasAnswer && !coach && (
         <p className={styles.links}>
           <span>{l.linksLabel}:</span>
           <Link href="/member/schedule">{l.linkSchedule}</Link>
