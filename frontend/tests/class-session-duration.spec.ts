@@ -116,6 +116,8 @@ async function setup(
       ]);
     if (path === "/api/room-types")
       return json([{ roomTypeId: 3, sportIds: [3], isActive: true }]);
+    if (path === "/api/manager/classes" && request.method() === "GET")
+      return json({ items: [], totalCount: 0, page: 1, pageSize: 100 });
     if (path === "/api/manager/class-schedule/availability") {
       slots.push({
         start: url.searchParams.get("startUtc")!,
@@ -156,10 +158,122 @@ async function schedule(page: Page, start = "18:00") {
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByLabel("Coach", { exact: true }).selectOption(coach);
   await page.getByLabel("Room", { exact: true }).selectOption("7");
+  await page.getByLabel("Capacity", { exact: true }).fill("12");
   await page.getByLabel("Course start date", { exact: true }).fill(date);
   await page.getByLabel("Number of sessions", { exact: true }).fill("2");
   await page.getByLabel("Day", { exact: true }).selectOption("5");
   await page.getByLabel("Start", { exact: true }).fill(start);
+}
+
+for (const width of [320, 390, 768, 1920]) {
+  test(`all create-class steps and field errors fit at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await setup(page);
+    const fits = async () => {
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      for (const control of await page
+        .locator("main input:visible, main select:visible")
+        .all()) {
+        const bounds = await control.boundingBox();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+      }
+    };
+    const screenshot = async (step: string) => {
+      await page.evaluate(() =>
+        window.scrollTo({ top: 0, behavior: "instant" }),
+      );
+      return page.screenshot({
+        path: testInfo.outputPath(`${step}-${width}.png`),
+        fullPage: true,
+      });
+    };
+    await information(page);
+    const progress = await page
+      .locator("ol[aria-label] li")
+      .evaluateAll((items) =>
+        items.map((item) => item.getBoundingClientRect().top),
+      );
+    if (width === 768) {
+      expect(progress[0]).toBe(progress[1]);
+      expect(progress[2]).toBe(progress[3]);
+      expect(progress[2]).toBeGreaterThan(progress[0]);
+    }
+    await fits();
+    await screenshot("information");
+    await schedule(page);
+    if (width <= 480)
+      expect(
+        (await page.getByLabel("Start", { exact: true }).boundingBox())!.width,
+      ).toBeGreaterThan(180);
+    const capacity = page.getByLabel("Capacity", { exact: true });
+    const startDate = page.getByLabel("Course start date", { exact: true });
+    const dateBefore = await startDate.boundingBox();
+    await capacity.fill("13");
+    const fieldError = capacity.locator("..").getByRole("alert");
+    await expect(fieldError).toHaveText(
+      "Class capacity exceeds the room or sport limit.",
+    );
+    await expect(capacity).toHaveAttribute("aria-invalid", "true");
+    const fieldBounds = await capacity.evaluate((input) => {
+      const control = input.getBoundingClientRect();
+      const error = input
+        .parentElement!.querySelector('[role="alert"]')!
+        .getBoundingClientRect();
+      const selects = [
+        ...input.parentElement!.parentElement!.querySelectorAll("select"),
+      ];
+      return {
+        bottom: control.bottom,
+        top: control.top,
+        errorTop: error.top,
+        selectTops: selects.map((select) => select.getBoundingClientRect().top),
+      };
+    });
+    expect(fieldBounds.errorTop).toBeGreaterThanOrEqual(fieldBounds.bottom);
+    expect((await startDate.boundingBox())!.x).toBeCloseTo(dateBefore!.x, 0);
+    if (width >= 1200) {
+      for (const top of fieldBounds.selectTops)
+        expect(top).toBeCloseTo(fieldBounds.top, 0);
+    }
+    await fits();
+    await screenshot("schedule-error");
+    await capacity.fill("12");
+    await expect(fieldError).toHaveCount(0);
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByLabel("Day", { exact: true })).toHaveCount(2);
+    await fits();
+    await page
+      .getByRole("button", { name: "Remove", exact: true })
+      .last()
+      .click();
+    const next = page.getByRole("button", { name: "Next", exact: true });
+    await expect(next).toBeEnabled();
+    await next.click();
+    const price = page.getByLabel("Tuition per student (VND)", { exact: true });
+    const cost = page.getByLabel("Total class cost (VND)", { exact: true });
+    await price.fill("500");
+    await cost.fill("-1");
+    await expect(price.locator("..").getByRole("alert")).toBeVisible();
+    await expect(cost.locator("..").getByRole("alert")).toBeVisible();
+    await fits();
+    await screenshot("pricing-error");
+    await price.fill("300000");
+    await cost.fill("600000");
+    await next.click();
+    await expect(
+      page.getByRole("button", { name: "Save draft", exact: true }),
+    ).toBeEnabled();
+    await expect(page.getByRole("table")).toBeVisible();
+    await fits();
+    await screenshot("review");
+  });
 }
 
 for (const value of ["", "0", "-1", "721", "90.5"]) {
@@ -198,6 +312,10 @@ test("custom duration drives availability, review, and save with an exact closin
     slots.every((s) => Date.parse(s.end) - Date.parse(s.start) === 120 * 60000),
   ).toBe(true);
   await next.click();
+  await page
+    .getByLabel("Tuition per student (VND)", { exact: true })
+    .fill("300000");
+  await page.getByLabel("Total class cost (VND)", { exact: true }).fill("0");
   await next.click();
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
   await expect.poll(() => writes.length).toBe(1);

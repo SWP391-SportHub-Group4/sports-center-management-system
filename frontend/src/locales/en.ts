@@ -373,7 +373,7 @@ export const en = {
       cost: "Enter a class cost of 0 VND or more.",
     },
     scheduleStep: "Coach, room & schedule",
-    pricingStep: "Tuition, cost & capacity",
+    pricingStep: "Tuition & cost",
     reviewStep: "Review generated sessions",
     saveDraft: "Save draft",
     draftHint:
@@ -475,7 +475,7 @@ export const en = {
     historyHint:
       "Audit history for this class. Related session actions may appear under their own session IDs.",
     created: "Created",
-    published: "Published",
+    published: "Published time",
     version: "Version",
     backToList: "Back to list",
     enrollmentTitle: "Enrollment",

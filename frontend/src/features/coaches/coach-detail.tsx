@@ -62,7 +62,11 @@ export function CoachDetail({
               userId={coach.userId}
               name={coach.fullName}
               avatarUrl={coach.avatarUrl}
-              status={<StatusChip value={coach.status} />}
+              status={
+                <span className={overviewStyles.headerStatus}>
+                  <StatusChip value={coach.status} />
+                </span>
+              }
               contact={
                 <p>
                   {coach.email} · {coach.phone ?? "—"}

@@ -43,7 +43,7 @@ export function CourseEditor({
   onSaved: (saved?: ManagerCourseDto) => void;
   onClose: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const l = t.operations;
   const m = t.managerOperations;
@@ -272,6 +272,14 @@ export function CourseEditor({
     Number(form.price) > 0
       ? Math.ceil(Number(form.costAmount) / Number(form.price))
       : 0;
+  const hasValidPricing =
+    form.price !== "" &&
+    form.costAmount !== "" &&
+    Number.isFinite(Number(form.price)) &&
+    Number(form.price) >= 1000 &&
+    Number(form.price) % 1000 === 0 &&
+    Number.isFinite(Number(form.costAmount)) &&
+    Number(form.costAmount) >= 0;
   const memberCount = (count: number) =>
     count === 1
       ? l.classSingleMember
@@ -281,6 +289,9 @@ export function CourseEditor({
     (!!room && Number(form.capacity) > room.capacity) ||
     (!!service?.defaultMaxCapacity &&
       Number(form.capacity) > service.defaultMaxCapacity);
+  const capacityLimit = room
+    ? Math.min(room.capacity, service?.defaultMaxCapacity ?? room.capacity)
+    : (service?.defaultMaxCapacity ?? undefined);
 
   /*
    * Current form converted into
@@ -463,7 +474,10 @@ export function CourseEditor({
 
   return (
     <Card>
-      <ol className={styles.steps} aria-label={t.classWorkspace.setupProgress}>
+      <ol
+        className={`${styles.steps} ${editorStyles.steps}`}
+        aria-label={t.classWorkspace.setupProgress}
+      >
         {[m.contentStep, m.scheduleStep, m.pricingStep, m.reviewStep].map(
           (label, index) => (
             <li
@@ -481,7 +495,7 @@ export function CourseEditor({
 
       <form
         ref={formRef}
-        className="stack"
+        className={`stack ${editorStyles.editorForm}`}
         onInvalidCapture={() =>
           setTouched({ code: true, name: true, duration: true })
         }
@@ -558,7 +572,7 @@ export function CourseEditor({
           ------------------------------------------- */}
 
           {step === 0 && (
-            <div className="form-grid">
+            <div className={editorStyles.fieldGrid}>
               <div>
                 <Field
                   label={l.code}
@@ -679,8 +693,11 @@ export function CourseEditor({
 
           {step === 1 && (
             <>
-              <div className="form-grid">
+              <div
+                className={`${editorStyles.fieldGrid} ${editorStyles.scheduleGrid}`}
+              >
                 <CoachSelector
+                  required
                   sportId={Number(form.sportId)}
                   value={form.coachId}
                   onChange={(coachId) =>
@@ -693,6 +710,7 @@ export function CourseEditor({
                 />
 
                 <RoomSelector
+                  required
                   onCatalogChanged={catalog.reload}
                   onCourtCreated={(court) =>
                     setForm((current) => ({
@@ -717,21 +735,22 @@ export function CourseEditor({
                   }
                 />
 
-                <Field label={l.capacity} required>
+                <Field
+                  label={l.capacity}
+                  required
+                  error={capacityInvalid ? m.capacityExceeded : undefined}
+                >
                   <input
                     required
                     type="number"
                     min={1}
                     step={1}
-                    placeholder={room ? `Maximum: ${room.capacity}` : undefined}
-                    max={
-                      room
-                        ? Math.min(
-                            room.capacity,
-                            service?.defaultMaxCapacity ?? room.capacity,
-                          )
+                    placeholder={
+                      capacityLimit
+                        ? `${language === "vi" ? "Tối đa" : "Maximum"}: ${capacityLimit}`
                         : undefined
                     }
+                    max={capacityLimit}
                     value={form.capacity}
                     onChange={(event) =>
                       setForm({
@@ -744,9 +763,9 @@ export function CourseEditor({
                     }
                   />
                 </Field>
-                {capacityInvalid && <p role="alert">{m.capacityExceeded}</p>}
                 <Field
                   label={l.startDate}
+                  required
                   hint={t.managerOperations.scheduleValidation.startDateHint}
                 >
                   <input
@@ -765,7 +784,7 @@ export function CourseEditor({
                   />
                 </Field>
 
-                <Field label={l.numSessions}>
+                <Field label={l.numSessions} required>
                   <input
                     required
                     type="number"
@@ -788,6 +807,7 @@ export function CourseEditor({
               </div>
 
               <ScheduleRuleEditor
+                className={editorStyles.weeklySchedule}
                 timeError={
                   catalog.data
                     ? centerHoursError(catalog.data.center)
@@ -862,7 +882,7 @@ export function CourseEditor({
 
           {step === 2 && (
             <>
-              <div className="form-grid">
+              <div className={editorStyles.fieldGrid}>
                 {(
                   [
                     ["price", t.classWorkspace.price, 1000, 1000],
@@ -873,6 +893,7 @@ export function CourseEditor({
                   <Field
                     key={key}
                     label={label}
+                    required
                     error={
                       key === "price" &&
                       (!Number.isFinite(Number(form.price)) ||
@@ -911,9 +932,7 @@ export function CourseEditor({
                 <p>
                   {l.classMinimumEnrollment}:{" "}
                   <strong>
-                    {form.costAmount === "" || form.price === ""
-                      ? "\u2014"
-                      : memberCount(threshold)}
+                    {hasValidPricing ? memberCount(threshold) : "\u2014"}
                   </strong>
                 </p>
               </div>
