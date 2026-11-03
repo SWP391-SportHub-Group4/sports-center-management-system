@@ -191,7 +191,7 @@ export function MemberPicker({
   }
 
   return (
-    <div className="field">
+    <div className="field" style={{ position: "relative" }}>
       {!hideLabel && <span>{labelText}</span>}
       <input
         aria-label={labelText}
@@ -210,14 +210,6 @@ export function MemberPicker({
         </span>
       )}
 
-      {ready && search.loading && (
-        <span className="field__hint">
-          {language === "en"
-            ? "Searching members..."
-            : "Đang tìm kiếm hội viên..."}
-        </span>
-      )}
-
       {ready && !search.loading && results.length === 0 && (
         <span
           className="field__hint"
@@ -233,10 +225,16 @@ export function MemberPicker({
       {results.length > 0 && (
         <div
           style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 40,
+            maxHeight: 320,
+            overflowY: "auto",
             border: "1px solid var(--line, #dfe5ec)",
             borderRadius: 8,
-            overflow: "hidden",
-            boxShadow: "0 4px 14px rgba(11, 45, 77, 0.08)",
+            boxShadow: "0 8px 24px rgba(11, 45, 77, 0.16)",
             background: "#ffffff",
             marginTop: 4,
           }}

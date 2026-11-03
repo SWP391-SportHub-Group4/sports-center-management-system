@@ -44,7 +44,7 @@ export function NoticeReview({
           : "")
       : l.selectedCount.replace("{n}", String(recipients.length));
   const scope = sendToAll
-    ? l.sendToAllHint
+    ? ""
     : noticeRoles
         .map((role) => ({
           role,
@@ -68,7 +68,7 @@ export function NoticeReview({
           <dt>{c.recipientCount}</dt>
           <dd>
             <strong className={styles.audience}>{audience}</strong>
-            <p className={styles.scope}>{scope}</p>
+            {scope && <p className={styles.scope}>{scope}</p>}
             {!sendToAll && recipients.length > 0 && (
               <ul
                 className={styles.recipients}

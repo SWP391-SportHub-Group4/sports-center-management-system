@@ -61,16 +61,12 @@ export function NoticeRecipients({
   return (
     <section className={styles.section} aria-label={t.operations.recipients}>
       <header className={styles.heading}>
-        <div>
-          <h2>{t.operations.recipients}</h2>
-          <p>{l.recipientHint}</p>
-        </div>
         <div className={styles.broadcast}>
           <ActivitySwitch
             checked={sendToAll}
             disabled={disabled}
             label={l.sendToAll}
-            hint={l.sendToAllHint}
+            hint=""
             onChange={(checked) => {
               setOpenedRole(null);
               onSendToAllChange(checked);

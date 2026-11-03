@@ -432,11 +432,6 @@ export function InvoiceList({
                   <dd>{isVoid ? "Cancelled" : formatMoney(i.outstanding)}</dd>
                 </div>
               </dl>
-              <p className={styles.detailHint}>
-                Open Details to view purchased services, their sport (if
-                recorded), quantities, unit prices, and available payment
-                records.
-              </p>
               <div className={styles.actions}>
                 <button
                   type="button"

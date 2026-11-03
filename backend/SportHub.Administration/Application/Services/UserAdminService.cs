@@ -75,7 +75,19 @@ public sealed class UserAdminService(
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (status is "ACTIVATION_REQUIRED" or "ACTIVATION_EXPIRING")
+            if (peopleOnly && status == "PENDING_ACTIVATION")
+            {
+                query = query.Where(u => u.Status == UserStatus.Active
+                    && (u.Credential == null || u.Credential.PasswordHash == null)
+                    && !u.ExternalLogins.Any());
+            }
+            else if (peopleOnly && status == "ACTIVE")
+            {
+                query = query.Where(u => u.Status == UserStatus.Active
+                    && ((u.Credential != null && u.Credential.PasswordHash != null)
+                        || u.ExternalLogins.Any()));
+            }
+            else if (status is "ACTIVATION_REQUIRED" or "ACTIVATION_EXPIRING")
             {
                 query = query.Where(u => u.Status == UserStatus.Active
                     && u.Role!.RoleName != UserRole.Member

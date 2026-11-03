@@ -235,30 +235,53 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
               }}
             />
           </Field>
-          <label>
-            <input
-              type="checkbox"
-              checked={sendEmail}
-              disabled={locked}
-              onChange={(e) => {
-                setEmail(e.target.checked);
-                change();
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "var(--space-2) var(--space-5)",
+            }}
+          >
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "var(--space-2)",
+                margin: 0,
               }}
-            />
-            {l.sendEmail}
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={sendInApp}
-              disabled={locked}
-              onChange={(e) => {
-                setInApp(e.target.checked);
-                change();
+            >
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                disabled={locked}
+                onChange={(e) => {
+                  setEmail(e.target.checked);
+                  change();
+                }}
+              />
+              {l.sendEmail}
+            </label>
+            <label
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "var(--space-2)",
+                margin: 0,
               }}
-            />
-            {l.sendInApp}
-          </label>
+            >
+              <input
+                type="checkbox"
+                checked={sendInApp}
+                disabled={locked}
+                onChange={(e) => {
+                  setInApp(e.target.checked);
+                  change();
+                }}
+              />
+              {l.sendInApp}
+            </label>
+          </div>
           <button
             className="btn btn--secondary"
             disabled={locked || !validSelection}
