@@ -450,7 +450,7 @@ export interface RevenueReportDto {
   legacyCashCollected: number;
   reconciliationCashCollected: number;
   reconciliationCashCount: number;
-  /** Bank transfers a Manager recorded as paid out; a separate line, never deducted from VNPay cash. */
+  /** Compatibility alias of totalRefunded; do not add it again. */
   bankRefundPaid?: number;
   bankRefundCount?: number;
   pointsRedeemed: number;
@@ -486,6 +486,10 @@ export interface RevenueReportDto {
     refunded: number;
     obligationReduction: number;
     net: number;
+    pointsRedeemed?: number;
+    pointsIssued?: number;
+    pointsRefunded?: number;
+    managerPointAdjustment?: number;
   }[];
 }
 

@@ -1,1 +1,1 @@
-export { PointSummary } from "./point-summary";
+export { PointsView } from "./points-dashboard-view";

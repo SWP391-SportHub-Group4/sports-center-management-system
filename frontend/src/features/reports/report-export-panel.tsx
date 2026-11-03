@@ -30,11 +30,17 @@ const columnsByType: Record<string, string[]> = {
   ],
   REVENUE_SUMMARY: [
     "collectedAmount",
+    "refundedAmount",
+    "netCollected",
     "reconciliationCashCollected",
+  ],
+  POINTS_SUMMARY: [
     "pointsRedeemed",
     "pointsIssued",
+    "pointsRefunded",
     "managerPointAdjustment",
     "outstandingPoints",
+    "outstandingPointsAsOfUtc",
   ],
   CLASS_ENROLLMENT: [
     "name",
@@ -65,7 +71,8 @@ export function ReportTypeSelect({
   const labels: Record<string, string> = {
     REVENUE_DIMENSIONS: l.dimensions,
     COURT_RENTAL_REVENUE: l.rentals,
-    REVENUE_SUMMARY: l.revenuePointsSummary,
+    REVENUE_SUMMARY: "Cash summary",
+    POINTS_SUMMARY: "Points summary",
     CLASS_ENROLLMENT: l.enrollment,
     MEMBERSHIP_PERIOD: l.membership,
     REVENUE: "Invoices by issue date",
@@ -120,7 +127,8 @@ export function ReportExportPanel({
   const labels: Record<string, string> = {
     REVENUE_DIMENSIONS: l.dimensions,
     COURT_RENTAL_REVENUE: l.rentals,
-    REVENUE_SUMMARY: l.revenuePointsSummary,
+    REVENUE_SUMMARY: "Cash summary",
+    POINTS_SUMMARY: "Points summary",
     CLASS_ENROLLMENT: l.enrollment,
     MEMBERSHIP_PERIOD: l.membership,
     REVENUE: "Invoices by issue date",
@@ -131,9 +139,13 @@ export function ReportExportPanel({
     sportName: l.sport,
     memberName: l.member,
     collectedAmount: l.cash,
+    refundedAmount: "Cash refunded",
+    netCollected: "After refunds",
     reconciliationCashCollected: l.reconciliationCash,
     pointsRedeemed: l.redeemedPoints,
     pointsIssued: l.issued,
+    pointsRefunded: "Points refunded",
+    outstandingPointsAsOfUtc: "Balance observed at",
     managerPointAdjustment: l.adjusted,
     outstandingPoints: l.outstanding,
     name: l.title,
@@ -176,7 +188,10 @@ export function ReportExportPanel({
                     ? "RENTAL"
                     : filters.source || null
                   : null,
-                memberId: dimensional ? filters.memberId || null : null,
+                memberId:
+                  dimensional || type === "POINTS_SUMMARY"
+                    ? filters.memberId || null
+                    : null,
               }),
             )
           )
@@ -192,9 +207,12 @@ export function ReportExportPanel({
           "REVENUE_DIMENSIONS",
           "COURT_RENTAL_REVENUE",
         ].includes(type) && <p>{l.cashBasisHint}</p>}
-        {type === "REVENUE_SUMMARY" && (
+        {type === "POINTS_SUMMARY" && (
           <>
-            <p>{l.globalPoints}</p>
+            <p>
+              Point activity for the selected period and member. Points are
+              separate from cash.
+            </p>
             <p>{l.currentPointHint}</p>
           </>
         )}

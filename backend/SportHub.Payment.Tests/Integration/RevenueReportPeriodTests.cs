@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Identity.Domain.Entities;
 using SportHub.Payment.Application.DTOs;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
@@ -84,6 +85,21 @@ public class RevenueReportPeriodTests(PaymentApiFactory factory)
                 ResolvedAt = VietnamTime.StartOfDayUtc(payoutDay).AddHours(9)
             });
 
+            var requestId = Guid.NewGuid();
+            db.Set<MemberSupportRequest>().Add(new()
+            {
+                RequestId = requestId, MemberId = member.UserId, RecordedByUserId = member.UserId,
+                InvoiceId = invoice.InvoiceId, Category = "PAYMENT", Subject = "Bank refund",
+                Description = "Payment from previous period", CreatedAt = VietnamTime.StartOfDayUtc(approveDay),
+                SlaDueAtUtc = VietnamTime.StartOfDayUtc(approveDay).AddDays(2)
+            });
+            db.Set<MemberSupportPayout>().Add(new()
+            {
+                PayoutId = Guid.NewGuid(), RequestId = requestId, InvoiceId = invoice.InvoiceId,
+                Amount = 500_000m, RecordedByUserId = manager.UserId,
+                RecordedAtUtc = VietnamTime.StartOfDayUtc(payoutDay).AddHours(9)
+            });
+
             await db.SaveChangesAsync();
             return true;
         });
@@ -106,6 +122,8 @@ public class RevenueReportPeriodTests(PaymentApiFactory factory)
         Assert.Equal(500_000m, may.TotalRefunded);
         Assert.Equal(-500_000m, may.NetRevenue);
         Assert.Equal(1, may.RefundCount);
+        Assert.Equal(500_000m, may.Daily.Sum(d => d.Refunded));
+        Assert.Equal(-500_000m, may.Daily.Sum(d => d.Net));
     }
 
     /// <summary>

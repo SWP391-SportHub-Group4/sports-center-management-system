@@ -70,6 +70,8 @@ async function managerFixture(page: Page, exportsRows: unknown[] = []) {
         fromDate: "2030-10-01",
         toDate: "2030-10-31",
         totalCollected: 100000,
+        totalRefunded: 10000,
+        netRevenue: 90000,
         pointsRedeemed: 200,
         pointsRedeemedVnd: 200000,
         pointsRefunded: 0,
@@ -79,6 +81,9 @@ async function managerFixture(page: Page, exportsRows: unknown[] = []) {
         managerPointAdjustment: 0,
         legacyCashCollected: 0,
         reconciliationCashCollected: 0,
+        bySource: [],
+        bySportAndSource: [],
+        daily: [],
       });
     if (path === "/api/reports/revenue-dimensions")
       return json({
@@ -89,7 +94,15 @@ async function managerFixture(page: Page, exportsRows: unknown[] = []) {
         rows: [],
       });
     if (path === "/api/reports/membership-period")
-      return json({ newMembers: 2, activeMembersAtPeriodEnd: 7 });
+      return json({
+        newMembers: 2,
+        activeMembersAtPeriodEnd: 7,
+        membersPurchasingMembershipInPeriod: 3,
+        dayPassesSold: 1,
+        daily: [],
+      });
+    if (path === "/api/reports/membership-summary")
+      return json({ asOfDate: "2030-10-01", membersWithActiveMembership: 7 });
     if (path === "/api/reports/class-enrollment")
       return json({ classes: [], totalClasses: 0 });
     if (path === "/api/manager/sports") return json([]);
@@ -182,37 +195,43 @@ test("reports use one period filter with tabs, and exports live on their own pag
 }) => {
   await managerFixture(page);
   await page.goto("/manager/reports");
-  await expect(page.getByText("Cash collected (VND)").first()).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Filtered collections", exact: true }),
+    page.getByRole("heading", { name: "Money received", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText(en.staffWork.redeemedPoints, { exact: true }).first(),
+    page.getByRole("heading", { name: "Cash refunded", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText(en.staffWork.currentPointHint)).toBeVisible();
   await expect(
-    page.getByText("Balance observed at", { exact: false }),
+    page.getByRole("heading", { name: "Points used", exact: true }),
   ).toHaveCount(0);
+  await page.getByRole("tab", { name: "Points", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Points used", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Current balance", exact: true }),
+  ).toBeVisible();
   await page.getByRole("tab", { name: "Members" }).click();
   await expect(page).toHaveURL(/tab=members/);
   await expect(
-    page.getByText("New member accounts", { exact: true }).first(),
+    page.getByRole("heading", { name: "Membership buyers", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Members with valid Membership on", { exact: false }),
+    page.getByRole("heading", { name: "Active Gym members", exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Exports and downloads" }).click();
+  await page.getByRole("link", { name: "Export", exact: true }).click();
   await expect(page).toHaveURL(/\/manager\/reports\/exports$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Report exports",
   );
   await expect(page.getByText("No exports yet.")).toBeVisible();
+  await page.getByLabel(en.common.filter, { exact: true }).click();
   await page
     .getByLabel("Report type", { exact: true })
-    .selectOption("REVENUE_SUMMARY");
+    .selectOption("POINTS_SUMMARY");
   await expect(
     page.getByRole("option", {
-      name: "Revenue and points summary",
+      name: "Points summary",
       exact: true,
     }),
   ).toHaveCount(1);
@@ -263,6 +282,7 @@ test("Manager exports identify members by name for revenue and rental reports", 
 }) => {
   const calls = await managerFixture(page);
   await page.goto("/manager/reports/exports");
+  await page.getByLabel(en.common.filter, { exact: true }).click();
   for (const type of ["REVENUE_DIMENSIONS", "COURT_RENTAL_REVENUE"]) {
     await page
       .getByLabel(en.staffWork.exportType, { exact: true })

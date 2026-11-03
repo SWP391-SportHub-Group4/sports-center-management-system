@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { MemberName } from "@/components/RecordName";
 import { useApi, type AsyncState } from "@/lib/useApi";
-import { formatDate, formatMoney, formatPoints } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { reportsApi, type ReportFilters, type ClassStatusReport } from "./api";
 import type { RevenueReportDto } from "@/lib/types";
 import { DashboardChart } from "./dashboard-chart";
@@ -16,7 +16,8 @@ import {
 } from "./report-periods";
 import s from "./reports-dashboard.module.css";
 
-export type DashboardTab = "revenue" | "rentals" | "classes" | "members";
+export type DashboardTab =
+  "revenue" | "points" | "rentals" | "classes" | "members";
 export interface ViewProps {
   selection: PeriodSelection;
   filters: ReportFilters;
@@ -76,7 +77,7 @@ export function ReportState<T>({
     children(state.data)
   );
 }
-function ComparisonNotice<T>({
+export function ComparisonNotice<T>({
   state,
   enabled,
 }: {
@@ -99,7 +100,7 @@ function ComparisonNotice<T>({
     </p>
   ) : null;
 }
-function Metric({
+export function Metric({
   label,
   value,
   money,
@@ -147,7 +148,7 @@ function Metric({
     </div>
   );
 }
-function PeriodNote({
+export function PeriodNote({
   primary,
   comparison,
   label,
@@ -169,7 +170,7 @@ function PeriodNote({
     </p>
   );
 }
-function Details({
+export function Details({
   children,
   title = "View details",
 }: {
@@ -189,22 +190,18 @@ function Details({
 }
 function CollectionRows({ report }: { report: RevenueReportDto }) {
   const [page, setPage] = useState(0),
-    rows = report.bySportAndSource;
+    rows = report.bySportAndSource.filter((r) => r.cashCollected !== 0);
   return (
     <>
       <div className={s.tableScroll}>
         <table>
           <thead>
             <tr>
-              {[
-                "Source",
-                "Sport",
-                "Member",
-                "Money received (VND)",
-                "Points used",
-              ].map((h) => (
-                <th key={h}>{h}</th>
-              ))}
+              {["Source", "Sport", "Member", "Money received (VND)"].map(
+                (h) => (
+                  <th key={h}>{h}</th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -216,7 +213,6 @@ function CollectionRows({ report }: { report: RevenueReportDto }) {
                   {r.memberId ? <MemberName id={r.memberId} /> : "Unclassified"}
                 </td>
                 <td>{number(r.cashCollected)}</td>
-                <td>{formatPoints(r.pointsRedeemed)}</td>
               </tr>
             ))}
           </tbody>
@@ -224,9 +220,6 @@ function CollectionRows({ report }: { report: RevenueReportDto }) {
             <tr>
               <th colSpan={3}>Total</th>
               <td>{number(rows.reduce((a, r) => a + r.cashCollected, 0))}</td>
-              <td>
-                {formatPoints(rows.reduce((a, r) => a + r.pointsRedeemed, 0))}
-              </td>
             </tr>
           </tfoot>
         </table>
@@ -324,7 +317,7 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
       <PeriodNote
         primary={primary}
         comparison={comparison}
-        label="Payments & completed cash refunds"
+        label="Payment dates & recorded bank-transfer refund dates"
       />
       <ComparisonNotice state={previous} enabled={!!comparison} />
       <ReportState state={state} name="Revenue">
@@ -346,7 +339,7 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   money
                   previous={previous.data?.totalRefunded}
                   equal={equal}
-                  hint="Completed cash payouts"
+                  hint="Recorded bank-transfer refunds"
                 />
                 <Metric
                   label="After refunds"
@@ -359,9 +352,8 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                 />
               </div>
               <p>
-                Recorded bank payouts: {formatMoney(r.bankRefundPaid ?? 0)} VND
-                ({r.bankRefundCount ?? 0} payout(s)). This amount is shown separately
-                from cash refunds and does not reduce money received.
+                Cash refunded includes recorded bank transfers. Point refunds
+                are tracked separately.
               </p>
               <div className={s.charts}>
                 <section className={s.panel}>
@@ -384,29 +376,6 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                     <CollectionRows report={previous.data} />
                   </Details>
                 )}
-              </Details>
-              <Details title="Points activity">
-                <dl className={s.points}>
-                  <div>
-                    <dt>Points used</dt>
-                    <dd>{formatPoints(r.pointsRedeemed)}</dd>
-                  </div>
-                  <div>
-                    <dt>Points refunded</dt>
-                    <dd>{formatPoints(r.pointsRefunded)}</dd>
-                  </div>
-                  <div>
-                    <dt>Current balance</dt>
-                    <dd>{formatPoints(r.outstandingPoints)}</dd>
-                  </div>
-                </dl>
-                <p className={s.note}>
-                  Current balance includes available and held points{" "}
-                  {filters.memberId
-                    ? "for the selected member"
-                    : "across all wallets"}
-                  ; it is not limited by period, sport or source.
-                </p>
               </Details>
               <p className={s.note}>
                 Refunds in points do not reduce After refunds. Operating costs

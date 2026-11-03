@@ -1,5 +1,5 @@
 "use client";
-import { PointSummary } from "@/features/reports";
+import Link from "next/link";
 import styles from "./manager-wallet.module.css";
 import { pagedItems } from "@/lib/paged";
 import { Suspense, useState } from "react";
@@ -56,7 +56,10 @@ export function ManagerWallet() {
   );
   return (
     <>
-      <PointSummary revision={revision} />
+      <p className={styles.reportLink}>
+        View balances and point activity in{" "}
+        <Link href="/manager/reports?tab=points">Reports · Points</Link>.
+      </p>
       <Suspense>
         <PointGifts onGifted={() => setRevision((value) => value + 1)} />
       </Suspense>
