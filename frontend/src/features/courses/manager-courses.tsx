@@ -115,14 +115,6 @@ export function ManagerCourses() {
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
-        <p className={styles.resultCount} role="status">
-          {courses.loading
-            ? t.common.loading
-            : copy.matched.replace(
-                "{count}",
-                String(courses.data?.totalCount ?? 0),
-              )}
-        </p>
         <div className={styles.primaryActions}>
           <Link className="btn" href="/manager/classes/new">
             {copy.create}
@@ -199,7 +191,6 @@ export function ManagerCourses() {
           ]}
         />
         {sports.error && <p role="alert">{sports.error.message}</p>}
-        <p className={styles.tableHint}>{m.holdHint}</p>
         <ApiTable
           caption={l.courses}
           state={courses}

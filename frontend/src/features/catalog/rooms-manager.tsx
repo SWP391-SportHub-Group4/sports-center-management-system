@@ -47,11 +47,6 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
     setEditingRoom({ room, apply });
   return (
     <>
-      {!detailId && (
-        <p className={roomStyles.intro}>
-          {t.managerCatalog.independentRoomsHint}
-        </p>
-      )}
       {creating && (
         <Dialog
           title={t.managerCatalog.createRoom}
@@ -118,8 +113,12 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                 }
               >
                 <option value="">{t.managerCatalog.allRentalStatuses}</option>
-                <option value="enabled">{t.managerCatalog.rentalEnabled}</option>
-                <option value="disabled">{t.managerCatalog.rentalDisabled}</option>
+                <option value="enabled">
+                  {t.managerCatalog.rentalEnabled}
+                </option>
+                <option value="disabled">
+                  {t.managerCatalog.rentalDisabled}
+                </option>
               </select>
             </div>
             <button className="btn" onClick={() => setCreating(true)}>

@@ -18,16 +18,10 @@
   flex-wrap: wrap;
 }
 .toolbar {
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 .primaryActions :global(.btn) {
   margin: 0;
-}
-.resultCount {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
 }
 .savedFilters {
   display: flex;
@@ -64,11 +58,6 @@
   margin-top: var(--space-1);
   color: var(--text-muted);
   font-size: var(--text-xs);
-}
-.tableHint {
-  margin: var(--space-3) 0 var(--space-4);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
 }
 .page :global([data-management-table] td),
 .page :global([data-management-table] th) {

@@ -681,7 +681,7 @@ test("class quick views survive reload and reset pagination", async ({
   await expect(
     page.getByRole("button", { name: en.wireStatus.AT_RISK, exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText(en.managerOperations.holdHint)).toBeVisible();
+  await expect(page.getByText(en.managerOperations.holdHint)).toHaveCount(0);
 });
 test("draft save is separate from publish and reviews every generated session", async ({
   page,
