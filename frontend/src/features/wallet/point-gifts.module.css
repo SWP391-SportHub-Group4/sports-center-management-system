@@ -148,7 +148,53 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.historyDialog:global(.dialog) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--space-4) * 2);
+  overflow: hidden;
+}
+.historyFilters {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.historyFilterGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.historyFilterActions {
+  justify-content: flex-end;
+}
+.historyFilterGrid :global(.field) {
+  min-width: 0;
+  margin: 0;
+}
+.historyFilterGrid input {
+  min-width: 0;
+  width: 100%;
+}
+.historyDialog :global(.dialog__head) {
+  flex-shrink: 0;
+}
+.historyDialog :global(.dialog__body) {
+  min-height: 0;
+  overflow-y: auto;
+}
+.historyDialog :global(.dialog__body),
+.historyDialog :global(.table-wrap) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.historyDialog :global(.dialog__body::-webkit-scrollbar),
+.historyDialog :global(.table-wrap::-webkit-scrollbar) {
+  display: none;
+}
 @media (max-width: 767px) {
+  .historyFilterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .filters {
     grid-template-columns: minmax(0, 1fr);
   }

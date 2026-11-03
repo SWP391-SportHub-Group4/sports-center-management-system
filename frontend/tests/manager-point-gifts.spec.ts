@@ -124,6 +124,122 @@ async function fixture(page: Page, dayPass = false, failOnce = false) {
 }
 
 for (const width of [1440, 390]) {
+  test(`Gift history opens in a popup and preserves the draft at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await fixture(page);
+    const requests: URL[] = [];
+    let empty = false;
+    await page.route("**/api/manager/point-gifts?**", (route) => {
+      const url = new URL(route.request().url());
+      requests.push(url);
+      const currentPage = Number(url.searchParams.get("page"));
+      const filtered = url.searchParams.has("member");
+      return route.fulfill({
+        json: {
+          page: currentPage,
+          pageSize: 10,
+          totalCount: empty ? 0 : filtered ? 1 : 11,
+          items: empty
+            ? []
+            : Array.from(
+                { length: filtered ? 1 : currentPage === 1 ? 10 : 1 },
+                (_, index) => ({
+                  giftId: `gift-${currentPage}-${index}`,
+                  memberName: `Gift member ${filtered ? 11 : (currentPage - 1) * 10 + index + 1}`,
+                  email: "gift@example.com",
+                  points: 10,
+                  reason: "Member appreciation",
+                  managerName: "Center Manager",
+                  createdAtUtc: "2026-11-03T01:00:00Z",
+                }),
+              ),
+        },
+      });
+    });
+    await page.goto(`/manager/points?incidentId=${incident}`);
+    const historyButton = page.getByRole("button", {
+      name: "Gift history",
+      exact: true,
+    });
+    const history = page.getByRole("dialog", {
+      name: "Gift history",
+      exact: true,
+    });
+    await expect(historyButton).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Gift history", exact: true }),
+    ).toHaveCount(0);
+    expect(requests).toHaveLength(0);
+    await page.getByRole("checkbox", { name: "Select Alex Nguyen" }).check();
+    await page.getByLabel("Gift reason (required)").fill("Keep this draft");
+    await historyButton.click();
+    await expect(history).toBeVisible();
+    await expect(history.getByRole("table")).toBeVisible();
+    await expect(history.getByRole("table")).toContainText("Gift member 1");
+    expect(requests[0].searchParams.get("incidentId")).toBe(incident);
+    expect(requests[0].searchParams.get("pageSize")).toBe("10");
+    await expect(history.locator("tbody tr")).toHaveCount(10);
+    await expect(history.locator(".dialog__body")).toHaveCSS(
+      "scrollbar-width",
+      "none",
+    );
+    await expect(history.locator(".table-wrap")).toHaveCSS(
+      "scrollbar-width",
+      "none",
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`gift-history-${width}.png`),
+      fullPage: true,
+    });
+    await history
+      .getByRole("button", { name: "Next page", exact: true })
+      .click();
+    await expect(history.getByRole("table")).toContainText("Gift member 11");
+    await expect(history.locator("tbody tr")).toHaveCount(1);
+    await history.getByLabel("Member", { exact: true }).fill("Gift member 11");
+    await history.getByLabel("Manager", { exact: true }).fill("Center Manager");
+    await history.getByLabel("From", { exact: true }).fill("2026-11-03");
+    await history.getByLabel("To", { exact: true }).fill("2026-11-03");
+    await history.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect
+      .poll(() => requests.at(-1)?.searchParams.get("member"))
+      .toBe("Gift member 11");
+    expect(requests.at(-1)?.searchParams.get("page")).toBe("1");
+    expect(requests.at(-1)?.searchParams.get("manager")).toBe("Center Manager");
+    expect(requests.at(-1)?.searchParams.get("fromDate")).toBe("2026-11-03");
+    expect(requests.at(-1)?.searchParams.get("toDate")).toBe("2026-11-03");
+    await expect(
+      history.getByRole("button", { name: "Next page", exact: true }),
+    ).toBeDisabled();
+    const filteredRequestCount = requests.length;
+    await history.getByLabel("From", { exact: true }).fill("2026-11-04");
+    await history.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(history.getByRole("alert")).toHaveText(
+      "To must be on or after From.",
+    );
+    expect(requests).toHaveLength(filteredRequestCount);
+    await history.getByRole("button", { name: "Clear", exact: true }).click();
+    await expect(history.getByLabel("Member", { exact: true })).toHaveValue("");
+    await expect(history.getByLabel("From", { exact: true })).toHaveValue("");
+    await expect(history.locator("tbody tr")).toHaveCount(10);
+    expect(requests.at(-1)?.searchParams.has("member")).toBe(false);
+    await page.keyboard.press("Escape");
+    await expect(history).toHaveCount(0);
+    await expect(page.getByLabel("Gift reason (required)")).toHaveValue(
+      "Keep this draft",
+    );
+    await expect(
+      page.getByRole("checkbox", { name: "Select Alex Nguyen" }),
+    ).toBeChecked();
+    empty = true;
+    await historyButton.click();
+    await expect(history.getByText("No points gifts yet.")).toBeVisible();
+    expect(requests.at(-1)?.searchParams.get("page")).toBe("1");
+    await history.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(history).toHaveCount(0);
+  });
   test(`Gift selections survive searches and filters at ${width}px`, async ({
     page,
   }) => {

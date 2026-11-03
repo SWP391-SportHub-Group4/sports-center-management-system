@@ -72,22 +72,124 @@ function GiftHistory({
   const { language } = useLanguage();
   const vi = language === "vi";
   const [page, setPage] = useState(1);
+  const emptyFilters = { member: "", manager: "", fromDate: "", toDate: "" };
+  const [draft, setDraft] = useState(emptyFilters);
+  const [filters, setFilters] = useState(emptyFilters);
+  const [filterError, setFilterError] = useState("");
   const state = useApi(
     (signal) =>
       api.get<Paged<Gift>>("/api/manager/point-gifts", {
         signal,
-        query: { incidentId, page, pageSize: 20 },
+        query: {
+          incidentId,
+          page,
+          pageSize: 10,
+          member: filters.member || undefined,
+          manager: filters.manager || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+        },
       }),
-    [incidentId, page, revision],
+    [
+      incidentId,
+      page,
+      revision,
+      filters.member,
+      filters.manager,
+      filters.fromDate,
+      filters.toDate,
+    ],
   );
   return (
-    <Card title={vi ? "Lịch sử tặng điểm" : "Gift history"}>
+    <>
+      <form
+        className={styles.historyFilters}
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (draft.fromDate && draft.toDate && draft.fromDate > draft.toDate) {
+            setFilterError(
+              vi
+                ? "Ngày kết thúc phải từ ngày bắt đầu trở đi."
+                : "To must be on or after From.",
+            );
+            return;
+          }
+          setFilterError("");
+          setFilters({
+            ...draft,
+            member: draft.member.trim(),
+            manager: draft.manager.trim(),
+          });
+          setPage(1);
+        }}
+        onReset={() => {
+          setDraft(emptyFilters);
+          setFilters(emptyFilters);
+          setFilterError("");
+          setPage(1);
+        }}
+      >
+        <div className={styles.historyFilterGrid}>
+          <Field label={vi ? "Hội viên" : "Member"}>
+            <input
+              type="search"
+              value={draft.member}
+              onChange={(event) =>
+                setDraft({ ...draft, member: event.target.value })
+              }
+            />
+          </Field>
+          <Field label={vi ? "Quản lý" : "Manager"}>
+            <input
+              type="search"
+              value={draft.manager}
+              onChange={(event) =>
+                setDraft({ ...draft, manager: event.target.value })
+              }
+            />
+          </Field>
+          <Field label={vi ? "Từ" : "From"}>
+            <input
+              type="date"
+              value={draft.fromDate}
+              onChange={(event) =>
+                setDraft({ ...draft, fromDate: event.target.value })
+              }
+            />
+          </Field>
+          <Field label={vi ? "Đến" : "To"}>
+            <input
+              type="date"
+              value={draft.toDate}
+              onChange={(event) =>
+                setDraft({ ...draft, toDate: event.target.value })
+              }
+            />
+          </Field>
+        </div>
+        {filterError && <p role="alert">{filterError}</p>}
+        <div className={`btn-row ${styles.historyFilterActions}`}>
+          <button type="submit" className="btn">
+            {vi ? "Lọc" : "Apply"}
+          </button>
+          <button type="reset" className="btn btn--ghost">
+            {vi ? "Xóa lọc" : "Clear"}
+          </button>
+        </div>
+      </form>
       <AsyncSection state={state}>
         {(data) => (
           <>
             {!data.totalCount ? (
               <p>
-                {vi ? "Chưa có khoản tặng điểm nào." : "No points gifts yet."}
+                {Object.values(filters).some(Boolean)
+                  ? vi
+                    ? "Không có lịch sử phù hợp."
+                    : "No matching gifts."
+                  : vi
+                    ? "Chưa có khoản tặng điểm nào."
+                    : "No points gifts yet."}
               </p>
             ) : (
               <Table
@@ -134,7 +236,7 @@ function GiftHistory({
           </>
         )}
       </AsyncSection>
-    </Card>
+    </>
   );
 }
 
@@ -172,6 +274,7 @@ function GiftComposer({
   const [points, setPoints] = useState("1");
   const [reason, setReason] = useState("");
   const [revision, setRevision] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [error, setError] = useState("");
@@ -411,7 +514,21 @@ function GiftComposer({
   }
   return (
     <div className="stack">
-      <Card title={vi ? "Tặng điểm" : "Gift points"}>
+      <Card
+        title={vi ? "Tặng điểm" : "Gift points"}
+        actions={
+          <button
+            type="button"
+            className="btn btn--secondary"
+            aria-haspopup="dialog"
+            aria-expanded={showHistory}
+            disabled={!!review}
+            onClick={() => setShowHistory(true)}
+          >
+            {vi ? "Lịch sử tặng điểm" : "Gift history"}
+          </button>
+        }
+      >
         <p>
           {vi
             ? "Chọn người nhận, nhập số điểm và lý do. Xác nhận sẽ cộng điểm ngay vào ví."
@@ -815,7 +932,19 @@ function GiftComposer({
           </Dialog>,
           document.body,
         )}
-      <GiftHistory incidentId={incidentId} revision={revision} />
+      {showHistory &&
+        createPortal(
+          <Dialog
+            title={vi ? "Lịch sử tặng điểm" : "Gift history"}
+            size="lg"
+            className={styles.historyDialog}
+            closeIconOnly
+            onClose={() => setShowHistory(false)}
+          >
+            <GiftHistory incidentId={incidentId} revision={revision} />
+          </Dialog>,
+          document.body,
+        )}
     </div>
   );
 }

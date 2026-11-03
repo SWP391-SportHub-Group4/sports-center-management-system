@@ -104,19 +104,42 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
     }
 
     [HttpGet]
-    public async Task<IActionResult> History([FromQuery] Guid? incidentId, [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20, CancellationToken ct = default)
+    public async Task<IActionResult> History([FromQuery] Guid? incidentId,
+        [FromQuery] string? member, [FromQuery] string? manager,
+        [FromQuery] DateOnly? fromDate, [FromQuery] DateOnly? toDate,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken ct = default)
     {
+        if (fromDate > toDate) throw new BadRequestException("gift_dates_invalid", "End date must follow start date.");
         page = Math.Clamp(page, 1, 100000); pageSize = Math.Clamp(pageSize, 1, 100);
-        var query = db.Set<PointGift>().AsNoTracking().Where(g => incidentId == null || g.IncidentId == incidentId);
-        var total = await query.CountAsync(ct);
-        var rows = await (from g in query
+        var query = from g in db.Set<PointGift>().AsNoTracking()
             join u in db.Set<UserAccount>() on g.MemberId equals u.UserId
             join m in db.Set<UserAccount>() on g.ManagerId equals m.UserId
-            orderby g.CreatedAtUtc descending, g.GiftId
+            where incidentId == null || g.IncidentId == incidentId
             select new { g.GiftId, g.BatchId, g.MemberId, MemberName = u.Profile != null ? u.Profile.FullName : u.Email,
                 u.Email, g.Points, g.Reason, g.IncidentId, g.MemberAgreed, g.CreatedAtUtc,
-                ManagerName = m.Profile != null ? m.Profile.FullName : m.Email, g.LedgerEntryId })
+                ManagerName = m.Profile != null ? m.Profile.FullName : m.Email, g.LedgerEntryId };
+        if (!string.IsNullOrWhiteSpace(member))
+        {
+            var term = member.Trim().ToLowerInvariant();
+            query = query.Where(g => g.MemberName.ToLower().Contains(term) || g.Email.ToLower().Contains(term));
+        }
+        if (!string.IsNullOrWhiteSpace(manager))
+        {
+            var term = manager.Trim().ToLowerInvariant();
+            query = query.Where(g => g.ManagerName.ToLower().Contains(term));
+        }
+        if (fromDate is { } from)
+        {
+            var start = VietnamTime.StartOfDayUtc(from);
+            query = query.Where(g => g.CreatedAtUtc >= start);
+        }
+        if (toDate is { } to && to < DateOnly.MaxValue)
+        {
+            var end = VietnamTime.EndOfDayExclusiveUtc(to);
+            query = query.Where(g => g.CreatedAtUtc < end);
+        }
+        var total = await query.CountAsync(ct);
+        var rows = await query.OrderByDescending(g => g.CreatedAtUtc).ThenBy(g => g.GiftId)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         return Ok(new PagedResult<object> { Items = rows.Cast<object>().ToList(), TotalCount = total, Page = page, PageSize = pageSize });
     }
