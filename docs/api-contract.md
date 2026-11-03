@@ -1016,4 +1016,3 @@ Tất cả route sau yêu cầu CenterManager.
 **Goal validation:** giới hạn input cơ bản → phân loại `VALID`, `VAGUE`, `INVALID` → chỉ sinh giáo án cho VALID hoặc VAGUE. VAGUE phải dùng context môn và trình độ, INVALID trả message, không gọi bước tạo giáo án. Không được coi AI validator là cơ chế xác thực quyền, và cần kiểm thử xử lý lỗi provider/JSON/timeout.
 
 **Navigation Knowledge:** API-contract chỉ mô tả endpoint và quyền; câu hỏi “button nằm ở đâu?” cần thêm mapping `role → page → tab → button → handler → API`. Chỉ đưa các mapping đã xác nhận vào câu trả lời. Kiểm tra đường dẫn thực tế của frontend trước khi khẳng định route đã có nút.
-

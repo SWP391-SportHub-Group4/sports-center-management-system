@@ -914,7 +914,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                   {audienceLabels[visible(panel.article).audience]}
                 </span>
                 <h3>{visible(panel.article).title}</h3>
-                
+
                 <p className={s.helper}>
                   Viewing{" "}
                   {panel.article.draft

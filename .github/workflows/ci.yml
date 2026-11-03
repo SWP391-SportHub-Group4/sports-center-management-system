@@ -183,6 +183,12 @@ jobs:
               exit 1
             fi
           done
+          backend_db=$(docker compose -f docker-compose.yml config --format json |
+            jq -r '.services.backend.environment.ConnectionStrings__Default')
+          if [[ "$backend_db" != Host=postgres\;Port=5432\;Database=sporthub_e2e\;* ]]; then
+            echo "::error file=docker-compose.yml::E2E API must use the isolated PostgreSQL service."
+            exit 1
+          fi
 
       - name: Start isolated PostgreSQL and API
         run: |
