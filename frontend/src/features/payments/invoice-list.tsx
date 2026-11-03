@@ -219,7 +219,7 @@ export function InvoiceList({
   const { t } = useLanguage();
   const { user } = useAuth();
   const hideVoids =
-    user?.role === "CenterManager" || user?.role === "SystemAdministrator";
+    user?.role === "SystemAdministrator";
 
   const [page, setPage] = useState(1);
 
