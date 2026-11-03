@@ -271,6 +271,8 @@ export const en = {
   },
   manualNotices: {
     sentSuccess: "Notice sent successfully.",
+    successHint: "Close this message to write another notice.",
+    newNotice: "New notice",
     chooseRecipients: "Choose recipients",
     recipientHint: "Choose recipients by role or send to the entire system.",
     sendToAll: "Send to entire system",

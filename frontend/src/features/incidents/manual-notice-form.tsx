@@ -1,12 +1,15 @@
 "use client";
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowRight, Check } from "lucide-react";
+import successStyles from "./notice-success.module.css";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/apiClient";
 import { NoticeReview } from "./notice-review";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useOperationsCopy, validReceiptId } from "@/features/manager";
-import { Card, Feedback, Field } from "@/components/ui";
+import { Card, Dialog, Field } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import {
   NoticeRecipients,
@@ -20,6 +23,7 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
   const c = useOperationsCopy();
   const mutation = useMutation();
   const [subject, setSubject] = useState("");
+  const subjectInput = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
   const [sendEmail, setEmail] = useState(true);
   const [sendInApp, setInApp] = useState(true);
@@ -118,6 +122,7 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
         });
       if (!validReceiptId(response.noticeId)) throw new Error(c.invalidReceipt);
       setSentId(response.noticeId);
+      setReview(false);
       onSent?.();
       setRecoveryKey("");
       setUncertain(false);
@@ -136,6 +141,45 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
   function change() {
     setReview(false);
   }
+  function resetAfterSuccess() {
+    if (mutation.busy) return;
+    setSentId("");
+    setRecoveryKey("");
+    setUncertain(false);
+    setReview(false);
+    setSubject("");
+    setMessage("");
+    setEmail(true);
+    setInApp(true);
+    setChosen({});
+    setSendToAll(false);
+    setSendToRoles([]);
+    request.current = null;
+    mutation.reset();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("noticeId");
+    url.searchParams.delete("noticeKey");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    requestAnimationFrame(() => subjectInput.current?.focus());
+  }
+  const deliveryFeedback = (
+    <>
+      {!sentId && <MutationFeedback mutation={mutation} />}
+      {uncertain && (
+        <>
+          <p role="status">{t.managerOperations.noticeUncertain}</p>
+          <button
+            className="btn btn--secondary"
+            disabled={mutation.busy}
+            onClick={send}
+          >
+            {l.retryNotice}
+          </button>
+          <Link href="/manager/audit-log">{t.navigation.items.auditLog}</Link>
+        </>
+      )}
+    </>
+  );
   return (
     <>
       {recoveryKey && (
@@ -206,11 +250,15 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!locked && validSelection) setReview(true);
+            if (!locked && validSelection) {
+              mutation.reset();
+              setReview(true);
+            }
           }}
         >
           <Field label={l.subject}>
             <input
+              ref={subjectInput}
               required
               minLength={3}
               maxLength={150}
@@ -261,6 +309,8 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
           </label>
           <button
             className="btn btn--secondary"
+            aria-haspopup="dialog"
+            aria-expanded={review}
             disabled={locked || !validSelection}
           >
             {l.review}
@@ -277,27 +327,56 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
             sendEmail={sendEmail}
             disabled={locked || !validSelection}
             onSend={() => void send()}
+            onClose={() => {
+              if (!mutation.busy) setReview(false);
+            }}
+            busy={mutation.busy}
+            feedback={deliveryFeedback}
           />
         )}
-        {sentId ? (
-          <Feedback success={t.manualNotices.sentSuccess} />
-        ) : (
-          <MutationFeedback mutation={mutation} />
-        )}
-        {uncertain && (
-          <>
-            <p role="status">{t.managerOperations.noticeUncertain}</p>
-            <button
-              className="btn btn--secondary"
-              disabled={mutation.busy}
-              onClick={send}
-            >
-              {l.retryNotice}
-            </button>
-            <Link href="/manager/audit-log">{t.navigation.items.auditLog}</Link>
-          </>
-        )}
+        {!review && deliveryFeedback}
       </Card>
+      {sentId &&
+        createPortal(
+          <Dialog
+            title={t.common.success}
+            size="sm"
+            className={successStyles.dialog}
+            closeIconOnly
+            showCloseButton={!mutation.busy}
+            onClose={resetAfterSuccess}
+          >
+            <div className={successStyles.content}>
+              <span className={successStyles.mark} aria-hidden="true">
+                <Check size={28} strokeWidth={2.5} />
+              </span>
+              <div className={successStyles.title} role="status">
+                {t.manualNotices.sentSuccess}
+              </div>
+              <p className={successStyles.hint}>
+                {t.manualNotices.successHint}
+              </p>
+              <div className={successStyles.actions}>
+                <button
+                  type="button"
+                  className={`btn ${successStyles.newNotice}`}
+                  disabled={mutation.busy}
+                  onClick={resetAfterSuccess}
+                >
+                  {t.manualNotices.newNotice}
+                </button>
+                <Link
+                  className={successStyles.details}
+                  href={`/manager/notices/${sentId}`}
+                >
+                  {t.manualNotices.openDetails}
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          </Dialog>,
+          document.body,
+        )}
     </>
   );
 }

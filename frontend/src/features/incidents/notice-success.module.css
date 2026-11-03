@@ -1,0 +1,123 @@
+.dialog:global(.dialog) {
+  position: relative;
+  width: min(28rem, 100%);
+  max-height: calc(100dvh - var(--space-4) * 2);
+  overflow-y: auto;
+  border: 0;
+}
+.dialog :global(.dialog__head) {
+  position: absolute;
+  inset: 0 0 auto;
+  justify-content: flex-end;
+  padding: var(--space-3);
+  border: 0;
+  pointer-events: none;
+}
+.dialog :global(.dialog__head h2) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.dialog :global(.dialog__head button) {
+  pointer-events: auto;
+}
+.dialog :global(.dialog__body) {
+  padding: var(--space-7) var(--space-6) var(--space-5);
+}
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  margin-bottom: var(--space-5);
+  border-radius: 50%;
+  color: var(--success-text);
+  background: var(--success-bg);
+}
+.title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--text-strong);
+  text-wrap: balance;
+}
+.hint {
+  max-width: 32ch;
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+.actions {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-6);
+}
+.newNotice:global(.btn) {
+  min-height: 44px;
+  margin: 0;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: none;
+}
+.newNotice:global(.btn):is(:hover, :active):not(:disabled) {
+  background: var(--color-accent-hover);
+  color: var(--color-on-accent);
+}
+.details {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  max-width: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.details svg {
+  flex-shrink: 0;
+}
+.details:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.details:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .mark {
+    animation: confirm 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes confirm {
+    from {
+      opacity: 0.4;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
