@@ -1,6 +1,0 @@
- M backend/SportHub.AI/Api/ClassTeachingAiController.cs
- M backend/SportHub.AI/Application/Services/UiNavigationKnowledge.cs
- M frontend/src/features/coaching/teaching-editor.tsx
- M frontend/src/features/coaching/training-plan-view.tsx
- M test.txt
-?? SportHub_Frontend_Diagnostic/
