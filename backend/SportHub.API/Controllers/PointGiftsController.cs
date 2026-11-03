@@ -25,6 +25,7 @@ using SportHub.Scheduling.Rental.Application;
 using SportHub.Scheduling.Rental.Domain;
 using SportHub.Scheduling.Catalog.Domain;
 using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
 
 namespace SportHub.API.Controllers;
 
@@ -51,7 +52,8 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
         => Ok(new {
             sports = await db.Set<Sport>().AsNoTracking().OrderBy(s => s.SortOrder).ThenBy(s => s.Name)
                 .Select(s => new { s.SportId, s.Name }).ToListAsync(ct),
-            classes = await db.Set<Class>().AsNoTracking().OrderBy(c => c.Name).ThenBy(c => c.ClassId)
+            classes = await db.Set<Class>().AsNoTracking().Where(c => c.Status != ClassStatus.Cancelled)
+                .OrderBy(c => c.Name).ThenBy(c => c.ClassId)
                 .Select(c => new { c.ClassId, c.SportId, c.Name, c.Code }).ToListAsync(ct)
         });
 

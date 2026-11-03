@@ -21,6 +21,29 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Class_filter_keeps_available_classes_and_excludes_cancelled_classes()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var ids = await factory.QueryAsync(async db => {
+            var roomId = await db.Rooms.Select(r => r.RoomId).FirstAsync();
+            var classes = new[] { ClassStatus.Draft, ClassStatus.Cancelled }.Select(status => new Class {
+                Code = "GIFT-FILTER-" + Guid.NewGuid().ToString("N"), Name = "Gift filter " + status,
+                SportId = 3, DefaultRoomId = roomId, Status = status, Capacity = 10,
+                Price = 100_000, NumSessions = 1, StartDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                CreatedAt = DateTime.UtcNow
+            }).ToArray();
+            db.Classes.AddRange(classes);
+            await db.SaveChangesAsync();
+            return classes.Select(c => c.ClassId).ToArray();
+        });
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var filters = await client.GetFromJsonAsync<JsonElement>("/api/manager/point-gifts/filters");
+        var classIds = filters.GetProperty("classes").EnumerateArray().Select(c => c.GetProperty("classId").GetInt32()).ToArray();
+        Assert.Contains(ids[0], classIds);
+        Assert.DoesNotContain(ids[1], classIds);
+    }
+
+    [Fact]
     public async Task History_filters_names_and_complete_Vietnam_dates_before_paginating()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
