@@ -131,6 +131,7 @@ export function ManagerCourses() {
       </div>
       <Card>
         <FilterBar
+          inline
           presets={
             <div
               className={styles.savedFilters}
