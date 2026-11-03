@@ -1,0 +1,108 @@
+.trail {
+  position: fixed;
+  z-index: 3;
+  inset: 0 0 auto auto;
+  --trail-width: clamp(360px, 45vw, 800px);
+  width: var(--trail-width);
+  height: 100svh;
+  pointer-events: none;
+  overflow: clip;
+  --trail-scale: 1;
+  --trail-line: 0;
+}
+.route {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: var(--trail-line);
+}
+.route path {
+  fill: none;
+  stroke: var(--color-accent, #c7f442);
+  stroke-opacity: 0.45;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 9;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.object {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: clamp(240px, 25vw, 380px);
+  height: clamp(240px, 25vw, 380px);
+  transform: translate3d(
+    calc(var(--trail-width) * var(--initial-x)),
+    calc(
+      100svh * var(--initial-y) * var(--hero-y-scale, 1) +
+        var(--hero-y-offset, 0px)
+    ),
+    0
+  );
+}
+.object[data-sport-object="1"] {
+  width: clamp(180px, 20vw, 280px);
+  height: clamp(180px, 20vw, 280px);
+}
+.object[data-sport-object="2"] {
+  width: clamp(180px, 18vw, 260px);
+  height: clamp(180px, 18vw, 260px);
+}
+.roll {
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%) rotate(var(--roll, 0deg))
+    scale(var(--trail-scale));
+}
+.entrance {
+  width: 100%;
+  height: 100%;
+  animation: appear 800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.asset {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 20px 20px #04120f55);
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.65);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (max-width: 767px) {
+  .trail {
+    --trail-width: 100vw;
+    --hero-y-scale: 0.45;
+    --hero-y-offset: 80px;
+  }
+  .object {
+    width: clamp(128px, 40vw, 200px);
+    height: clamp(128px, 40vw, 200px);
+  }
+  .object[data-sport-object="1"] {
+    width: clamp(104px, 33vw, 172px);
+    height: clamp(104px, 33vw, 172px);
+  }
+  .object[data-sport-object="2"] {
+    width: clamp(100px, 30vw, 156px);
+    height: clamp(100px, 30vw, 156px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trail {
+    position: absolute;
+  }
+  .route {
+    display: none;
+  }
+  .entrance {
+    animation: none;
+  }
+}

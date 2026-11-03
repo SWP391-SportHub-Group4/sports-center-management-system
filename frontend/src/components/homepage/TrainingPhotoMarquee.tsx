@@ -18,7 +18,7 @@ export function TrainingPhotoMarquee({ language }: { language: "en" | "vi" }) {
       className={styles.section}
       aria-labelledby="training-gallery-title"
     >
-      <header className={styles.heading}>
+      <header className={styles.heading} data-motion="heading">
         <h2 id="training-gallery-title">{gallery.title}</h2>
       </header>
       {state.error && (
@@ -36,11 +36,12 @@ export function TrainingPhotoMarquee({ language }: { language: "en" | "vi" }) {
       {photos.length > 0 && (
         <div
           className={styles.viewport}
+          data-motion="media"
           tabIndex={0}
           role="region"
           aria-label={language === "vi" ? "Gallery" : "Sport photo gallery"}
         >
-          <div className={styles.track}>
+          <div className={styles.track} data-motion-loop>
             {[0, 1].map((copy) => (
               <div
                 className={styles.group}

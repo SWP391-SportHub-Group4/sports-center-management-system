@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import styles from "./scroll-reveal.module.css";
 
-/** Content stays visible without JS. Observe once; never subscribe to scroll frames. */
+/** Reveal selected elements, never hide an entire section or its controls. */
 export function ScrollReveal({
   children,
   section,
@@ -18,29 +18,39 @@ export function ScrollReveal({
     if (!node || !("IntersectionObserver" in window)) return;
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     let observer: IntersectionObserver | undefined;
+    const visibility = new IntersectionObserver(([entry]) => {
+      node.dataset.offscreen = String(!entry.isIntersecting);
+    });
+    visibility.observe(node);
     const configure = () => {
       observer?.disconnect();
-      node.removeAttribute("data-pending");
-      if (
-        preference.matches ||
-        node.getBoundingClientRect().top < window.innerHeight
-      )
-        return;
-      node.dataset.pending = "true";
-      observer = new IntersectionObserver(
-        ([entry]) => {
-          if (!entry.isIntersecting) return;
-          node.removeAttribute("data-pending");
-          observer?.disconnect();
-        },
-        { rootMargin: "0px 0px -32px 0px", threshold: 0 },
+      const targets = [...node.querySelectorAll<HTMLElement>("[data-motion]")];
+      targets.forEach((target) =>
+        target.removeAttribute("data-motion-pending"),
       );
-      observer.observe(node);
+      if (preference.matches) return;
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.removeAttribute("data-motion-pending");
+            observer?.unobserve(entry.target);
+          });
+        },
+        { rootMargin: "0px 0px -56px 0px", threshold: 0 },
+      );
+      targets.forEach((target) => {
+        if (target.getBoundingClientRect().top < window.innerHeight) return;
+        target.dataset.motionPending = "true";
+        observer?.observe(target);
+      });
     };
     configure();
     preference.addEventListener("change", configure);
     return () => {
       observer?.disconnect();
+      visibility.disconnect();
+      delete node.dataset.offscreen;
       preference.removeEventListener("change", configure);
     };
   }, []);
