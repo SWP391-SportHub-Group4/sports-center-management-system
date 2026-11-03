@@ -190,7 +190,7 @@ export function SupportCreateDialog({
         </div>
 
         <label className={styles.field}>
-          {isManager ? "What is your request about? *" : "Request type"}
+          Request type
           <select
             value={category}
             onChange={(e) => {
@@ -220,35 +220,18 @@ export function SupportCreateDialog({
           />
         )}
 
-        {isManager && (
-          <label className={styles.field}>
-            Email
-            <input
-              aria-label="Email"
-              type="email"
-              value={member?.email ?? ""}
-              readOnly
-            />
-            <span className={styles.muted}>
-              The email registered on the member’s account.
-            </span>
-          </label>
-        )}
-
-        {!isManager && (
-          <label className={styles.field}>
-            Subject (optional)
-            <input
-              value={subject}
-              maxLength={200}
-              placeholder="Short summary"
-              onChange={(e) => setSubject(e.target.value)}
-            />
-          </label>
-        )}
+        <label className={styles.field}>
+          Subject (optional)
+          <input
+            value={subject}
+            maxLength={200}
+            placeholder="Short summary"
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </label>
 
         <label className={styles.field}>
-          {isManager ? "Your message *" : "Description"}
+          Description
           <textarea
             value={description}
             maxLength={2000}
@@ -330,11 +313,6 @@ export function SupportCreateDialog({
               : "Create & handle myself"}
           </button>
         </div>
-        {baseReady && handoverBlock && (
-          <p className={styles.helper}>
-            To hand over: {handoverBlock.toLowerCase()}
-          </p>
-        )}
       </div>
     </Dialog>
   );

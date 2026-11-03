@@ -23,8 +23,12 @@ export function ManagerPeople() {
   const router = useRouter();
   const [registering, setRegistering] = useState(false);
   const { values, setValues } = useUrlQuery(
-    { role: "", keyword: "", page: "1" },
-    { role: choiceQuery(["", "Member", "Coach"], ""), page: pageQuery },
+    { role: "", status: "", keyword: "", page: "1" },
+    {
+      role: choiceQuery(["", "Member", "Coach"], ""),
+      status: choiceQuery(["", "ACTIVE", "DEACTIVATED", "PENDING_ACTIVATION"], ""),
+      page: pageQuery,
+    },
   );
   const page = Number(values.page);
   const state = useApi(
@@ -33,7 +37,7 @@ export function ManagerPeople() {
         signal,
         query: { ...values, page, pageSize: 20 },
       }),
-    [values.role, values.keyword, page],
+    [values.role, values.status, values.keyword, page],
   );
 
   return (
@@ -57,10 +61,21 @@ export function ManagerPeople() {
                 { value: "Coach", label: "Coach" },
               ],
             },
+            {
+              id: "status",
+              label: "Status",
+              kind: "select",
+              options: [
+                { value: "", label: "All status" },
+                { value: "ACTIVE", label: "Active" },
+                { value: "DEACTIVATED", label: "Deactivated" },
+                { value: "PENDING_ACTIVATION", label: "Pending activation" },
+              ],
+            },
           ]}
           values={values}
           onChange={(next) => setValues({ ...next, page: "1" })}
-          onReset={() => setValues({ role: "", keyword: "", page: "1" })}
+          onReset={() => setValues({ role: "", status: "", keyword: "", page: "1" })}
         />
         <button
           type="button"

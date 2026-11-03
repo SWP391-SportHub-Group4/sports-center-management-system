@@ -640,11 +640,21 @@ export function AuditLogView({
   return (
     <div className={`${styles.root} ${styles.compact}`}>
       <Card
-        title={l.audit}
+        title={
+          administrator ? (
+            l.audit
+          ) : (
+            <p className="card__hint">
+              Events by Managers, Receptionists, Coaches and Members.
+              Administrator and system events are excluded. Open an event to
+              see its recorded values.
+            </p>
+          )
+        }
         hint={
           administrator
             ? "Events by Managers, Administrators and Coaches, automatic system events, and Member profile photo, support and payment resolution events. Visibility uses the role recorded at event time."
-            : "Events by Managers, Receptionists, Coaches and Members. Administrator and system events are excluded. Open an event to see its recorded values."
+            : undefined
         }
       >
         <AuditFilterForm

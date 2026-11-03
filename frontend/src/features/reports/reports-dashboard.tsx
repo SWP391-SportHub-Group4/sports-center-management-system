@@ -33,7 +33,7 @@ const labels = {
   points: "Points",
   rentals: "Courts",
   classes: "Classes",
-  members: "Members",
+  members: "Gyms",
 };
 interface Dimensions {
   sportId: string;
@@ -294,9 +294,11 @@ export function ReportsDashboard() {
               </div>
             </details>
           )}
-          <span className={changed ? s.pending : s.note} role="status">
-            {changed ? "Changes not applied" : "Applied · Vietnam time (UTC+7)"}
-          </span>
+          {changed && (
+            <span className={s.pending} role="status">
+              Changes not applied
+            </span>
+          )}
         </div>
         {error && <p role="alert">{error}</p>}
       </form>

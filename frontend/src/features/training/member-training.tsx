@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   CalendarDays,
   ClipboardList,
@@ -51,7 +51,10 @@ function readPlansSnapshot() {
   }
 }
 
-function AiWorkoutDraft({ activity, date }: { activity: string; date: string }) {
+type FeedEntry = { key: string; time: string; node: ReactNode };
+
+/** Plans saved locally from the AI assistant, as feed entries plus the delete confirmation dialog. */
+function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
   const raw = useSyncExternalStore(subscribeToPlans, readPlansSnapshot, () => "[]");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   let saved: SavedAiPlan[] = [];
@@ -76,15 +79,15 @@ function AiWorkoutDraft({ activity, date }: { activity: string; date: string }) 
     } catch { /* Local storage may be unavailable. */ }
   }
 
-  saved = saved.filter(({ suggestion, savedAt }) =>
-    (!activity || suggestion.sport === activity) &&
-    (!date || vietnamDate(savedAt) === date));
-  if (!saved.length) return null;
-  return (
-    <section className={styles.aiPlanSection} aria-label="Saved AI workout plans">
-      <h2 className={styles.aiPlanHeading}>AI workout suggestions</h2>
-      {saved.map(({ id, suggestion: plan, savedAt }) => (
-        <article className={styles.aiPlanCard} key={id}>
+  const entries: FeedEntry[] = !enabled ? [] : saved
+    .filter(({ suggestion, savedAt }) =>
+      (!activity || suggestion.sport === activity) &&
+      (!date || vietnamDate(savedAt) === date))
+    .map(({ id, suggestion: plan, savedAt }) => ({
+      key: `saved-${id}`,
+      time: savedAt,
+      node: (
+        <article className={styles.aiPlanCard}>
           <div className={styles.aiPlanAccent}>
             <span className={styles.aiPlanKind}>
               <ClipboardList size={15} aria-hidden="true" /> Lesson plan
@@ -92,36 +95,36 @@ function AiWorkoutDraft({ activity, date }: { activity: string; date: string }) 
             </span>
             <h3 className={styles.aiPlanTitle}>{plan.sport} workout - {plan.goal}</h3>
             <p className={styles.aiPlanMeta}>
-              Individual {" \u00b7 "} {plan.level} {" \u00b7 "} Saved {new Date(savedAt).toLocaleDateString("en-GB")} {" \u00b7 "} Not coach-approved
+              Individual {" · "} {plan.level} {" · "} Saved {new Date(savedAt).toLocaleDateString("en-GB")} {" · "} Not coach-approved
             </p>
             <div className={styles.aiPlanContent}>
-              <p><strong>Goal</strong> {" \u00b7 "} {plan.goal}</p>
+              <p><strong>Goal</strong> {" · "} {plan.goal}</p>
               {(plan.items ?? []).map((item, index) => (
                 <p key={`${index}-${item.exercise}`}>
-                  <strong>{index + 1}. {item.exercise}</strong> {" \u00b7 "} {item.sets} {item.sets === 1 ? "set" : "sets"} {" \u00d7 "} {item.reps} {item.reps === 1 ? "rep" : "reps"}
+                  <strong>{index + 1}. {item.exercise}</strong> {" · "} {item.sets} {item.sets === 1 ? "set" : "sets"} {" × "} {item.reps} {item.reps === 1 ? "rep" : "reps"}
                   {item.notes ? ` ${String.fromCharCode(183)} ${item.notes}` : ""}
                 </p>
               ))}
-              {plan.rationale && <p className={styles.aiPlanRationale}><strong>Why this workout?</strong> {" \u00b7 "} {plan.rationale}</p>}
+              {plan.rationale && <p className={styles.aiPlanRationale}><strong>Why this workout?</strong> {" · "} {plan.rationale}</p>}
             </div>
           </div>
           <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
         </article>
-      ))}
-      {pendingDelete && (
-        <Dialog
-          title="Delete this AI workout plan?"
-          description="This plan will be removed from your Training page. This cannot be undone."
-          size="sm"
-          onClose={() => setPendingDelete(null)}
-          footer={<>
-            <button type="button" className="btn btn--secondary" onClick={() => setPendingDelete(null)}>Cancel</button>
-            <button type="button" className="btn btn--danger" onClick={() => removePlan(pendingDelete)}>Delete</button>
-          </>}
-        >{null}</Dialog>
-      )}
-    </section>
-  );
+      ),
+    }));
+  const dialog = pendingDelete ? (
+    <Dialog
+      title="Delete this AI workout plan?"
+      description="This plan will be removed from your Training page. This cannot be undone."
+      size="sm"
+      onClose={() => setPendingDelete(null)}
+      footer={<>
+        <button type="button" className="btn btn--secondary" onClick={() => setPendingDelete(null)}>Cancel</button>
+        <button type="button" className="btn btn--danger" onClick={() => removePlan(pendingDelete)}>Delete</button>
+      </>}
+    >{null}</Dialog>
+  ) : null;
+  return { entries, dialog };
 }
 
 const TABS = ["plans", "results", "profile"] as const;
@@ -206,7 +209,47 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
     (!scope || (scope === "personal" ? Boolean(record.memberId) : !record.memberId)) &&
     (!date || vietnamDate(record.createdAtUtc) === date)
   );
-  const totalVisible = visibleAi.length + visibleRows.length;
+  const local = useSavedAiPlans(activity, date, kind === "plans" && source !== "coach" && !coach &&
+    (scope === "" || scope === "personal"));
+  // One feed, newest first, regardless of whether an AI suggestion or a coach created the plan.
+  const feed: FeedEntry[] = [
+    ...local.entries,
+    ...visibleAi.map((plan): FeedEntry => ({
+      key: `ai-${plan.id}`,
+      time: plan.generatedAt,
+      node: (
+        <article className={styles.panel}>
+          <div className={styles.planHeading}>
+            <strong>{plan.sport} · {plan.goal}</strong>
+            <span className={styles.aiBadge}>{vi ? "AI tạo" : "Created by AI"}</span>
+          </div>
+          <small>{new Date(plan.generatedAt).toLocaleString(vi ? "vi-VN" : "en-US")}</small>
+          <ol className={styles.aiExercises}>
+            {plan.items.map((item, index) => (
+              <li key={`${plan.id}-${index}`}>
+                <strong>{item.exercise}</strong> · {item.sets} × {item.reps}
+                {item.notes && <p>{item.notes}</p>}
+              </li>
+            ))}
+          </ol>
+          {plan.rationale && <p>{plan.rationale}</p>}
+        </article>
+      ),
+    })),
+    ...visibleRows.map(({ enrollment, record }): FeedEntry => ({
+      key: `coach-${record.recordId}`,
+      time: record.createdAtUtc,
+      node: (
+        <article className={styles.panel}>
+          {kind === "plans" && <span className={styles.coachBadge}>{vi ? "Coach tạo" : "Created by Coach"}</span>}
+          <Link href={`/member/schedule?course=${enrollment.classId}`}>
+            {enrollment.className}
+          </Link>
+          <TeachingRecords records={[record]} />
+        </article>
+      ),
+    })),
+  ].sort((x, y) => Date.parse(y.time) - Date.parse(x.time));
 
   return (
     <section className={styles.section}>
@@ -231,31 +274,8 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
           </select></label>
           <label>{vi ? "Ngày tạo" : "Created date"}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       </div>
-      {kind === "plans" && source !== "coach" && !coach &&
-        (scope === "" || scope === "personal") && <AiWorkoutDraft activity={activity} date={date} />}
-      {kind === "plans" && (
-        <div className={styles.aiPlans}>
-          {aiState.loading && source !== "coach" ? <p role="status">{vi ? "Đang tải gợi ý AI…" : "Loading AI suggestions…"}</p>
-            : aiState.error ? null
-            : visibleAi.map((plan) => (
-              <article className={styles.panel} key={plan.id}>
-                <div className={styles.planHeading}>
-                  <strong>{plan.sport} · {plan.goal}</strong>
-                  <span className={styles.aiBadge}>{vi ? "AI tạo" : "Created by AI"}</span>
-                </div>
-                <small>{new Date(plan.generatedAt).toLocaleString(vi ? "vi-VN" : "en-US")}</small>
-                <ol className={styles.aiExercises}>
-                  {plan.items.map((item, index) => (
-                    <li key={`${plan.id}-${index}`}>
-                      <strong>{item.exercise}</strong> · {item.sets} × {item.reps}
-                      {item.notes && <p>{item.notes}</p>}
-                    </li>
-                  ))}
-                </ol>
-                {plan.rationale && <p>{plan.rationale}</p>}
-              </article>
-            ))}
-        </div>
+      {kind === "plans" && aiState.loading && source !== "coach" && (
+        <p role="status">{vi ? "Đang tải gợi ý AI…" : "Loading AI suggestions…"}</p>
       )}
       {state.loading ? (
         <p role="status">
@@ -272,19 +292,13 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
             {vi ? "Thử lại" : "Try again"}
           </button>
         </div>
-      ) : visibleRows.length ? (
+      ) : feed.length ? (
         <div className={styles.page}>
-          {visibleRows.map(({ enrollment, record }) => (
-            <article className={styles.panel} key={record.recordId}>
-              {kind === "plans" && <span className={styles.coachBadge}>{vi ? "Coach tạo" : "Created by Coach"}</span>}
-              <Link href={`/member/schedule?course=${enrollment.classId}`}>
-                {enrollment.className}
-              </Link>
-              <TeachingRecords records={[record]} />
-            </article>
+          {feed.map((entry) => (
+            <div key={entry.key}>{entry.node}</div>
           ))}
         </div>
-      ) : kind === "plans" && (totalVisible > 0 || (source === "ai" && (aiState.loading || aiState.error))) ? null : (
+      ) : kind === "plans" && source === "ai" && (aiState.loading || aiState.error) ? null : (
         <p className={styles.muted}>
           {kind === "plans" ? source || coach || activity || scope || date
             ? (vi ? "Không có plan phù hợp với bộ lọc." : "No plans match these filters.")
@@ -295,6 +309,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
                 : "No coach content is available in your current classes yet."}
         </p>
       )}
+      {local.dialog}
     </section>
   );
 }

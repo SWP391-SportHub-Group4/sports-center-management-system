@@ -162,11 +162,6 @@ export function ScheduleCoursePage({
             <h2 ref={heading} tabIndex={-1} id="schedule-course-title">
               {name}
             </h2>
-            <p>
-              {vi
-                ? "Thông tin khóa học và các buổi bạn đã đăng ký, ngay trong lịch của bạn."
-                : "Your enrolled course and its sessions, right here in your schedule."}
-            </p>
             <dl className={styles.facts}>
               <div>
                 <dt>

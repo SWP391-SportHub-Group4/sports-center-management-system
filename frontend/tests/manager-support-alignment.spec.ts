@@ -303,17 +303,14 @@ test("manager records a member topic and message without requiring a subject", a
     .click();
   await dialog
     .getByRole("combobox", {
-      name: "What is your request about? *",
+      name: "Request type",
       exact: true,
     })
     .selectOption("FACILITY");
   await expect(
     dialog.getByRole("textbox", { name: "Email", exact: true }),
-  ).toHaveValue("an@example.com");
-  await expect(
-    dialog.getByRole("textbox", { name: "Subject", exact: true }),
   ).toHaveCount(0);
-  await dialog.getByRole("textbox", { name: /^Your message/ }).fill(message);
+  await dialog.getByRole("textbox", { name: /^Description/ }).fill(message);
   await dialog
     .getByRole("button", { name: "Create & handle myself", exact: true })
     .click();

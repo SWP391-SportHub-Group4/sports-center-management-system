@@ -19,9 +19,33 @@
 }
 .toolbar {
   justify-content: space-between;
+  flex-wrap: nowrap;
+  margin-bottom: var(--space-4);
+}
+.toolbar > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.toolbar > :first-child :global([role="group"]) {
+  margin-bottom: 0;
+}
+.primaryActions {
+  flex-shrink: 0;
 }
 .primaryActions :global(.btn) {
   margin: 0;
+}
+.page :global([data-filter-field="thresholdStatus"] select) {
+  min-width: 13.5rem;
+  padding-right: 2.5rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--chalk-600) 50%),
+    linear-gradient(135deg, var(--chalk-600) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
 }
 .resultCount {
   margin: 0;
