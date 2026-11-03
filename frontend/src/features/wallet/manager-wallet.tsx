@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import styles from "./manager-wallet.module.css";
 import { Suspense, useState } from "react";
 import { PointGifts } from "./point-gifts";
@@ -36,6 +37,10 @@ export function ManagerWallet() {
   const [revision, setRevision] = useState(0);
   return (
     <>
+      <p className={styles.reportLink}>
+        View balances and point activity in{" "}
+        <Link href="/manager/reports?tab=points">Reports · Points</Link>.
+      </p>
       <Suspense>
         <PointGifts
           onGifted={() => setRevision((value) => value + 1)}

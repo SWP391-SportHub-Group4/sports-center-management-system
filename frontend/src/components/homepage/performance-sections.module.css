@@ -28,7 +28,9 @@
 .heroCopy {
   position: relative;
   z-index: 1;
-  width: min(100%, 760px);
+  width: min(58%, 760px);
+  transform: translate3d(0, var(--hero-travel, 0px), 0);
+  opacity: var(--hero-presence, 1);
 }
 .hero h1 {
   margin: 0;
@@ -44,9 +46,17 @@
   overflow: hidden;
   padding-bottom: 0.06em;
 }
-.titleLine > span {
-  display: block;
-  animation: titleEnter 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+.wordMask {
+  display: inline-block;
+  overflow: clip;
+  vertical-align: top;
+  white-space: pre;
+}
+.titleWord {
+  display: inline-block;
+  transform-origin: left bottom;
+  animation: titleEnter 780ms var(--home-ease, cubic-bezier(0.16, 1, 0.3, 1))
+    var(--word-delay, 0ms) both;
 }
 .heroLead {
   max-width: 40ch;
@@ -103,10 +113,57 @@
   font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  animation: copyEnter 650ms var(--home-ease) 540ms both;
 }
+
+.scrollCue {
+  position: absolute;
+  z-index: 2;
+  right: max(48px, calc((100% - 1312px) / 2));
+  bottom: 32px;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 16px;
+  color: #e2eadb;
+  font-size: 12px;
+  text-decoration: none;
+  animation: copyEnter 650ms var(--home-ease) 640ms both;
+}
+.scrollIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgb(234 241 225 / 35%);
+  border-radius: 50%;
+  overflow: hidden;
+  transition:
+    background 220ms ease,
+    border-color 220ms ease;
+}
+.scrollIcon svg {
+  transform: rotate(90deg);
+  transition: transform 300ms var(--home-ease);
+}
+.scrollCue:hover .scrollIcon,
+.scrollCue:focus-visible .scrollIcon {
+  background: rgb(202 240 120 / 14%);
+  border-color: var(--color-accent);
+}
+.scrollCue:hover svg {
+  transform: translateY(4px) rotate(90deg);
+}
+.primaryCta svg {
+  transition: transform 250ms var(--home-ease);
+}
+.primaryCta:hover svg {
+  transform: translateX(4px);
+}
+
 @keyframes titleEnter {
   from {
-    transform: translate3d(0, 110%, 0) rotate(2deg);
+    transform: translate3d(0, 115%, 0) rotate(4deg);
   }
   to {
     transform: none;
@@ -122,21 +179,6 @@
     transform: none;
   }
 }
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .heroCopy {
-      animation: copyExit linear both;
-      animation-timeline: view();
-      animation-range: exit 0% exit 100%;
-    }
-  }
-}
-@keyframes copyExit {
-  to {
-    opacity: 0;
-    transform: translate3d(0, -60px, 0);
-  }
-}
 @media (max-width: 1023px) {
   .hero {
     padding-inline: 32px;
@@ -147,8 +189,14 @@
   .disciplines {
     left: 32px;
   }
+  .scrollCue {
+    right: 32px;
+  }
 }
 @media (max-width: 767px) {
+  .heroCopy {
+    width: 100%;
+  }
   .hero {
     align-items: end;
     padding: 140px 24px 144px;
@@ -182,15 +230,31 @@
     gap: 18px;
     font-size: 10px;
   }
+
+  .scrollCue {
+    right: 24px;
+    bottom: 90px;
+  }
+  .scrollCue > span:first-child {
+    display: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .heroCopy,
-  .titleLine > span,
+  .titleWord,
   .heroLead,
   .heroActions,
-  .primaryCta {
+  .primaryCta,
+  .disciplines,
+  .scrollCue,
+  .scrollIcon,
+  .scrollIcon svg,
+  .primaryCta svg {
     animation: none;
     transform: none !important;
     transition: none;
+  }
+  .heroCopy {
+    opacity: 1;
   }
 }

@@ -287,6 +287,7 @@ public sealed class ReportExportService(
             {
                 ReportTypes.RevenueDaily => await BuildRevenueDailyRowsAsync(fromDate, toDate, columns, ct, sportId, source, memberId),
                 ReportTypes.RevenueSummary => await BuildRevenueSummaryRowsAsync(fromDate, toDate, columns, ct, sportId, source, memberId),
+                ReportTypes.PointsSummary => await BuildRevenueSummaryRowsAsync(fromDate, toDate, columns, ct, null, null, memberId),
                 ReportTypes.CourtBookings => await BuildCourtBookingRowsAsync(fromDate, toDate, columns, sportId, memberId, ct),
                 ReportTypes.ClassStatus => await BuildClassStatusRowsAsync(fromDate, toDate, columns, sportId, ct),
                 ReportTypes.RevenueDimensions or ReportTypes.CourtRentalRevenue => await BuildDimensionRowsAsync(fromDate, toDate, columns, export.ReportType == ReportTypes.CourtRentalRevenue, ct, sportId, source, memberId),
@@ -342,6 +343,7 @@ public sealed class ReportExportService(
             "pointsRedeemed" => report.PointsRedeemed.ToString(CultureInfo.InvariantCulture),
             "pointsRedeemedVnd" => report.PointsRedeemedVnd.ToString(CultureInfo.InvariantCulture),
             "pointsIssued" => report.PointsIssued.ToString(CultureInfo.InvariantCulture),
+            "pointsRefunded" => report.PointsRefunded.ToString(CultureInfo.InvariantCulture),
             "managerPointAdjustment" => report.ManagerPointAdjustment.ToString(CultureInfo.InvariantCulture),
             "outstandingPoints" => report.OutstandingPoints.ToString(CultureInfo.InvariantCulture),
             "outstandingPointsAsOfUtc" => report.OutstandingPointsAsOfUtc.ToString("O", CultureInfo.InvariantCulture),
@@ -648,10 +650,10 @@ public sealed class ReportExportService(
         return pdf.Render(new ReportTable(
             ReportColumnLabels.ReportTitle(export.ReportType),
             subtitle,
-            [.. columns.Select(ReportColumnLabels.For)],
+            [.. columns.Select(column => ReportColumnLabels.For(column, export.ReportType))],
             rows,
             numeric,
-            IsSummary: export.ReportType == ReportTypes.RevenueSummary,
+            IsSummary: export.ReportType is ReportTypes.RevenueSummary or ReportTypes.PointsSummary,
             IsEnrollment: export.ReportType == ReportTypes.ClassEnrollment,
             IsMembership: export.ReportType == ReportTypes.MembershipPeriod));
     }

@@ -17,6 +17,10 @@ public static class SystemSettingKeys
 {
     public const string CenterOpeningMinutes = "center.opening_minutes";
     public const string CenterClosingMinutes = "center.closing_minutes";
+
+    /// <summary>Số giây tối thiểu giữa hai lần check-in Gym của cùng một Member.</summary>
+    public const string GymCheckInCooldownSeconds = "gym.checkin_cooldown_seconds";
+
     /// <summary>
     /// BR-33 — nhắc trước bao nhiêu ngày khi gói sắp hết hạn. BR chỉ nêu "ví dụ: 7 ngày",
     /// nên đây là cấu hình, không phải ngưỡng đã chốt.

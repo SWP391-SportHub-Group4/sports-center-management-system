@@ -17,6 +17,7 @@ namespace SportHub.API.Migrations
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "support.bank_data_retention_days");
         }
 

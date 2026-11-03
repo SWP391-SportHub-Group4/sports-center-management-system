@@ -12,6 +12,7 @@ import { CourtBookingSection } from "@/components/homepage/CourtBookingSection";
 import { ScrollReveal } from "@/components/homepage/ScrollReveal";
 import { LandingContentProvider } from "@/components/homepage/landing-content-context";
 import { HeroArenaVideo } from "@/components/homepage/HeroArenaVideo";
+import { LandingMotion } from "@/components/homepage/LandingMotion";
 
 export default function Page() {
   const { language } = useLanguage();
@@ -20,11 +21,9 @@ export default function Page() {
   return (
     <LandingContentProvider>
       <HeroArenaVideo />
-      <div
-        id="top"
+      <LandingMotion
         className={`${s.page} ${cinema.theme}`}
-        lang={language}
-        data-theme="arena-cinema"
+        language={language}
       >
         <span
           id="home-nav-sentinel"
@@ -53,7 +52,7 @@ export default function Page() {
             </ScrollReveal>
           </div>
         </main>
-      </div>
+      </LandingMotion>
     </LandingContentProvider>
   );
 }

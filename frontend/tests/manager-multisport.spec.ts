@@ -215,12 +215,13 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
     page.getByRole("heading", { name: "After refunds", exact: true }),
   ).toBeVisible();
   await expect(page.locator('[title="100,000 ₫"]').first()).toBeVisible();
-  await page.getByText("Points activity", { exact: true }).click();
-  const points = page
-    .locator("details")
-    .filter({ has: page.getByText("Points activity", { exact: true }) });
+  await page.getByRole("tab", { name: "Points", exact: true }).click();
+  const points = page.getByRole("tabpanel");
   await expect(points).toContainText(/Points refunded\s*25/);
-  await expect(points).toContainText(/Current balance\s*525/);
+  await expect(
+    points.getByRole("heading", { name: "Current balance", exact: true }),
+  ).toBeVisible();
+  await expect(points).toContainText("525");
 });
 
 for (const width of [390, 1440]) {

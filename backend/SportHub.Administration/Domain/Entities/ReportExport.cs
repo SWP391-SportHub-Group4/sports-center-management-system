@@ -40,6 +40,7 @@ public static class ReportTypes
     public const string Revenue = "REVENUE";
     public const string RevenueDaily = "REVENUE_DAILY";
     public const string RevenueSummary = "REVENUE_SUMMARY";
+    public const string PointsSummary = "POINTS_SUMMARY";
     public const string RevenueDimensions = "REVENUE_DIMENSIONS";
     public const string CourtRentalRevenue = "COURT_RENTAL_REVENUE";
     public const string MembershipPeriod = "MEMBERSHIP_PERIOD";
@@ -60,6 +61,7 @@ public static class ReportTypes
                 "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid"
             ],
             [RevenueSummary] = ["fromDate", "toDate", "collectedAmount", "refundedAmount", "netCollected", "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid", "bankRefundCount", "pointsRedeemed", "pointsRedeemedVnd", "pointsIssued", "managerPointAdjustment", "outstandingPoints", "outstandingPointsAsOfUtc"],
+            [PointsSummary] = ["fromDate", "toDate", "pointsRedeemed", "pointsIssued", "pointsRefunded", "managerPointAdjustment", "outstandingPoints", "outstandingPointsAsOfUtc"],
             [RevenueDimensions] = ["source", "sportId", "sportName", "memberName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
             [CourtRentalRevenue] = ["source", "sportId", "sportName", "memberName", "memberId", "collectedAmount", "legacyCashCollected", "pointsRedeemed", "pointsRedeemedVnd"],
             [MembershipPeriod] = ["fromDate", "toDate", "newMembers", "membersPurchasingMembershipInPeriod", "activeMembersAtPeriodEnd", "dayPassesSold"],

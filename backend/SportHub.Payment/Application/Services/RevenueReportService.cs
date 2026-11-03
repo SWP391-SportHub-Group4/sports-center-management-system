@@ -31,7 +31,7 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
             .Select(p => new { p.PaymentId, p.InvoiceId, p.PaidAt, p.Amount, p.Method }).ToListAsync(ct);
         var adjustments = await db.Set<PaymentAdjustment>().AsNoTracking()
             .Where(a => a.Status == PaymentAdjustmentStatus.Completed && a.CompletedAtUtc >= periodStart && a.CompletedAtUtc < periodEnd
-                && a.PointLedgerEntryId == null)
+                && a.PointLedgerEntryId == null && a.Type != PaymentAdjustmentType.Refund)
             .Select(a => new { a.AdjustmentId, a.InvoiceId, a.InvoiceItemId, a.CompletedAtUtc, a.Amount, a.Type }).ToListAsync(ct);
         var credits = await (from e in db.Set<VerifiedGatewayEvent>().AsNoTracking()
                             join a in db.Set<PaymentAttempt>().AsNoTracking() on e.PaymentAttemptId equals a.PaymentAttemptId
@@ -45,16 +45,14 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
                             select new { e.CreatedAtUtc, e.EntryType, e.Points, e.AvailableDelta, e.InvoiceItemId, e.ReferenceType, w.OwnerUserId })
             .ToListAsync(ct);
         var bankPayouts = await db.Set<SportHub.Identity.Domain.Entities.MemberSupportPayout>().AsNoTracking()
-            .Where(p => p.RecordedAtUtc >= periodStart && p.RecordedAtUtc < periodEnd)
+            .Where(p => p.RecordedAtUtc >= periodStart && p.RecordedAtUtc < periodEnd && p.Amount > 0)
             .Join(db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>().AsNoTracking(),
                 payout => payout.RequestId, request => request.RequestId,
-                (payout, request) => new { payout.RecordedAtUtc, payout.Amount, request.MemberId })
-            .Where(x => !memberId.HasValue || x.MemberId == memberId.Value)
+                (payout, request) => new { payout.PayoutId, payout.InvoiceId, payout.InvoiceItemId,
+                    payout.RecordedAtUtc, payout.Amount, request.MemberId })
             .ToListAsync(ct);
-        var bankPayoutByDay = bankPayouts.GroupBy(x => DateOnly.FromDateTime(VietnamTime.ToLocal(x.RecordedAtUtc)))
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
         var invoiceIds = payments.Select(p => p.InvoiceId).Union(adjustments.Select(a => a.InvoiceId))
-            .Union(credits.Select(e => e.InvoiceId)).ToArray();
+            .Union(credits.Select(e => e.InvoiceId)).Union(bankPayouts.Select(p => p.InvoiceId)).ToArray();
         var pointItemIds = points.Where(e => e.InvoiceItemId.HasValue).Select(e => e.InvoiceItemId!.Value).ToArray();
         var items = await db.Set<InvoiceItem>().AsNoTracking()
             .Where(i => invoiceIds.Contains(i.InvoiceId) || pointItemIds.Contains(i.ItemId))
@@ -101,9 +99,17 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
             var entry = adjustment.InvoiceItemId is Guid itemId
                 ? ItemEntry(itemId, Day(adjustment.CompletedAtUtc!.Value), owner)
                 : new Entry(Day(adjustment.CompletedAtUtc!.Value), "LegacyUnclassified", null, null, owner);
-            entries.Add(adjustment.Type == PaymentAdjustmentType.Refund
-                ? entry with { Refund = adjustment.Amount, RefundId = adjustment.AdjustmentId }
-                : entry with { Obligation = adjustment.Amount });
+            entries.Add(entry with { Obligation = adjustment.Amount });
+        }
+        foreach (var payout in bankPayouts)
+        {
+            // A payout is money already transferred, regardless of whether the member
+            // has acknowledged it. Use its recording date, not the invoice/payment date.
+            // Invoice-level payouts have no reliable sport/source attribution.
+            var entry = payout.InvoiceItemId is Guid itemId
+                ? ItemEntry(itemId, Day(payout.RecordedAtUtc), payout.MemberId)
+                : new Entry(Day(payout.RecordedAtUtc), "Unclassified", null, null, payout.MemberId);
+            entries.Add(entry with { Refund = payout.Amount, RefundId = payout.PayoutId });
         }
         foreach (var point in points)
         {
@@ -129,7 +135,9 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
             return new RevenueReportRowResponse(date, rows.Sum(e => e.Cash), rows.Sum(e => e.Refund),
                 rows.Sum(e => e.Obligation), rows.Sum(e => e.Cash - e.Refund))
             { LegacyCashCollected = rows.Sum(e => e.Legacy), ReconciliationCashCollected = rows.Where(e => e.Source == "Reconciliation").Sum(e => e.Cash),
-                BankRefundPaid = !sportId.HasValue && string.IsNullOrWhiteSpace(source) ? bankPayoutByDay.GetValueOrDefault(date) : 0m };
+                BankRefundPaid = rows.Sum(e => e.Refund),
+                PointsRedeemed = rows.Sum(e => e.Spent), PointsIssued = rows.Sum(e => e.Issued),
+                PointsRefunded = rows.Sum(e => e.PointsRefunded), ManagerPointAdjustment = rows.Sum(e => e.Adjustment) };
         }).ToList();
         var cashEntries = selected.Where(e => e.Cash != 0 || e.Spent != 0).ToList();
         var sourceRows = cashEntries.GroupBy(e => e.Source).OrderBy(g => g.Key)
@@ -149,8 +157,9 @@ public sealed class RevenueReportService(ISportHubDbContext db, IRevenueDimensio
             LegacyCashCollected = selected.Sum(e => e.Legacy),
             ReconciliationCashCollected = selected.Where(e => e.Source == "Reconciliation").Sum(e => e.Cash),
             ReconciliationCashCount = selected.Count(e => e.Source == "Reconciliation"),
-            BankRefundPaid = !sportId.HasValue && string.IsNullOrWhiteSpace(source) ? bankPayouts.Sum(x => x.Amount) : 0m,
-            BankRefundCount = !sportId.HasValue && string.IsNullOrWhiteSpace(source) ? bankPayouts.Count : 0,
+            // Retained as compatibility aliases; consumers must not add these again.
+            BankRefundPaid = selected.Sum(e => e.Refund),
+            BankRefundCount = selected.Count(e => e.RefundId.HasValue),
             PointsRedeemed = selected.Sum(e => e.Spent), PointsIssued = selected.Sum(e => e.Issued),
             PointsRefunded = selected.Sum(e => e.PointsRefunded), ManagerPointAdjustment = selected.Sum(e => e.Adjustment),
             OutstandingPoints = outstanding, OutstandingPointsAsOfUtc = outstandingAt,

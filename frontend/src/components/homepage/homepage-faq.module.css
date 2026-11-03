@@ -50,6 +50,30 @@
 .item {
   border-bottom: 1px solid var(--border-subtle);
 }
+.item summary > span:first-child {
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.item summary:hover > span:first-child {
+  transform: translateX(5px);
+}
+@supports (interpolate-size: allow-keywords) {
+  .item {
+    interpolate-size: allow-keywords;
+  }
+  .item::details-content {
+    block-size: 0;
+    opacity: 0;
+    overflow: clip;
+    transition:
+      block-size 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 200ms ease,
+      content-visibility 320ms allow-discrete;
+  }
+  .item[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+}
 
 .item summary {
   display: flex;
@@ -165,7 +189,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .indicator::before,
-  .indicator::after {
+  .indicator::after,
+  .item::details-content,
+  .item summary > span:first-child {
     transition: none;
+    transform: none;
   }
 }

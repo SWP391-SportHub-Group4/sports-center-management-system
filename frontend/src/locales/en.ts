@@ -1121,7 +1121,7 @@ export const en = {
     deactivateImpact:
       "The account will be deactivated and signed out. Its records are retained. An Administrator can activate it again.",
     guardHint:
-      "You cannot change your own account access. Administrator roles cannot be changed here. The last active Administrator cannot be deactivated.",
+      "You can't change your own access, Administrator roles, or deactivate the last active Administrator.",
     externalRoleHint:
       "External Coach roles are managed through registration and Manager approval.",
     editChange: "Edit change",
@@ -1374,12 +1374,16 @@ export const en = {
     invalidHours: "Opening time must be earlier than closing time.",
     unavailable: "Some settings are unavailable. Reload the page to try again.",
     rentalBlock: "Court rentals use {minutes}-minute blocks.",
-    units: { minutes: "minutes", hours: "hours", days: "days" },
+    units: { seconds: "seconds", minutes: "minutes", hours: "hours", days: "days" },
     groups: {
       hours: {
         title: "Center hours",
         description:
           "Opening and closing times in Vietnam (UTC+7). Applies to classes, courts and incidents.",
+      },
+      gym: {
+        title: "Gym check-in",
+        description: "Set the wait time before the same member can be checked in again.",
       },
       classes: {
         title: "Classes",
@@ -1414,6 +1418,10 @@ export const en = {
     centerClosingTime: {
       label: "Center closing time",
       hint: "Vietnam time (UTC+7). Classes and court opening hours must end at or before this time.",
+    },
+    gymCheckInCooldownSeconds: {
+      label: "Check-in cooldown (seconds)",
+      hint: "Minimum wait between two Gym check-ins of the same member. Choose 1–300 seconds (default 10).",
     },
     supportSlaHours: {
       label: "Support response deadline (hours)",
