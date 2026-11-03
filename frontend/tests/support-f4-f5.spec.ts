@@ -97,6 +97,25 @@ async function fixture(page: Page, role: "RECEPTIONIST" | "CENTER_MANAGER") {
       return json({ items: [row], totalCount: 1, page: 1, pageSize: 20 });
     }
     if (path === `/api/member-support-requests/${requestId}`) return json(row);
+    if (path === `/api/member-support-requests/${requestId}/payout-quote`)
+      return json({
+        invoiceItemId: "f6666666-6666-4666-8666-666666666666",
+        supportsEnteredPoints: true,
+        items: [
+          {
+            invoiceItemId: "f6666666-6666-4666-8666-666666666666",
+            description: "Court rental",
+            totalVnd: 50000,
+            vnpayVnd: 50000,
+            pointsApplied: 0,
+            pointsVnd: 0,
+            refundableVnpayVnd: 50000,
+            refundablePoints: 0,
+            refundableValueVnd: 50000,
+            maxRefundablePoints: 50,
+          },
+        ],
+      });
     if (path === `/api/member-support-requests/${requestId}/events`)
       return json(
         reported
@@ -162,8 +181,9 @@ async function fixture(page: Page, role: "RECEPTIONIST" | "CENTER_MANAGER") {
       return json({
         fromDate: "2026-10-01",
         toDate: "2026-10-25",
-        netRevenue: 100000,
-        totalRefunded: 0,
+        totalCollected: 100000,
+        netRevenue: 50000,
+        totalRefunded: 50000,
         paymentCount: 1,
         bankRefundPaid: 50000,
         bankRefundCount: 1,
@@ -275,7 +295,7 @@ test("F4 receptionist sees overdue queue and the paid, not activated follow-up w
   ).toBeVisible();
 });
 
-test("F5 manager records payout proof and sees reported receipt and separate revenue", async ({
+test("F5 manager records payout proof and sees the bank transfer in cash refunds", async ({
   page,
 }) => {
   const state = await fixture(page, "CENTER_MANAGER");
@@ -303,7 +323,7 @@ test("F5 manager records payout proof and sees reported receipt and separate rev
     .getByRole("textbox", { name: "Note about the call and refund (required)" })
     .fill("Called the member and completed the bank transfer.");
   await payout.getByRole("button", { name: "Record payout" }).click();
-  await expect(payout.getByText(/Recorded:.*50,000/)).toBeVisible();
+  await expect(payout.getByText(/Cash transferred:.*50,000/)).toBeVisible();
   expect(state.payoutBody()).toContain("50000");
   state.report();
   await page.reload();
@@ -313,8 +333,14 @@ test("F5 manager records payout proof and sees reported receipt and separate rev
   await page.goto("/manager");
   await expect(page.getByText("Overdue support requests: 0")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Bank payouts recorded", exact: true }),
+    page.getByRole("term").filter({ hasText: /^Cash refunded$/ }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Bank payouts recorded", { exact: true }),
+  ).toHaveCount(0);
   await page.goto("/manager/reports?tab=revenue");
-  await expect(page.getByText(/Recorded bank payouts:/)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Cash refunded", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/Recorded bank payouts:/)).toHaveCount(0);
 });

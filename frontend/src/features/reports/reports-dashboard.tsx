@@ -24,11 +24,13 @@ import {
   ReportState,
   type DashboardTab,
 } from "./report-dashboard-views";
+import { PointsView } from "./points-dashboard-view";
 import s from "./reports-dashboard.module.css";
 
-const tabs = ["revenue", "rentals", "classes", "members"] as const;
+const tabs = ["revenue", "points", "rentals", "classes", "members"] as const;
 const labels = {
-  revenue: "Revenue",
+  revenue: "Cash",
+  points: "Points",
   rentals: "Courts",
   classes: "Classes",
   members: "Members",
@@ -105,6 +107,7 @@ export function ReportsDashboard() {
   ].filter(Boolean).length;
   const View = {
     revenue: RevenueView,
+    points: PointsView,
     rentals: CourtsView,
     classes: ClassesView,
     members: MembersView,
@@ -226,23 +229,25 @@ export function ReportsDashboard() {
                 {activeFilterCount > 0 && ` (${activeFilterCount} applied)`}
               </summary>
               <div className={s.filterRow}>
-                <ReportState state={sports} name="Sports">
-                  {(rows) => (
-                    <Field label="Sport">
-                      <select
-                        value={dim.sportId}
-                        onChange={(e) => update({ sportId: e.target.value })}
-                      >
-                        <option value="">All sports</option>
-                        {rows.map((r) => (
-                          <option key={r.sportId} value={r.sportId}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  )}
-                </ReportState>
+                {tab !== "points" && (
+                  <ReportState state={sports} name="Sports">
+                    {(rows) => (
+                      <Field label="Sport">
+                        <select
+                          value={dim.sportId}
+                          onChange={(e) => update({ sportId: e.target.value })}
+                        >
+                          <option value="">All sports</option>
+                          {rows.map((r) => (
+                            <option key={r.sportId} value={r.sportId}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    )}
+                  </ReportState>
+                )}
                 {tab === "revenue" && (
                   <Field label="Source">
                     <select
@@ -266,7 +271,7 @@ export function ReportsDashboard() {
                     </select>
                   </Field>
                 )}
-                {["revenue", "rentals"].includes(tab) && (
+                {["revenue", "points", "rentals"].includes(tab) && (
                   <MemberPicker
                     scanner={false}
                     label="Member"

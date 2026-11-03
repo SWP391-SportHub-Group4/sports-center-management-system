@@ -236,9 +236,9 @@ UI phân biệt PENDING, FULFILLED, COMPENSATED, RECONCILIATION_REQUIRED. Nhận
 
 ### 6.4 Refund và báo cáo
 
-Refund theo invoice item, quyền lợi đã dùng và chuỗi chuyển lớp. Server tính cap; Manager duyệt theo policy. Ledger credit, hủy quyền lợi, audit/outbox phải nguyên tử, chống replay. Không rút/chuyển điểm hoặc dùng VNPay Refund API. Đã mua thì không hoàn khi Member tự hủy; hoàn chuyển khoản chỉ qua Support Request: Member gửi (chọn hóa đơn và 1–3 ảnh bắt buộc, không nhập số tài khoản; Lễ tân thấy, tạo hộ và bấm Remind giúp, chỉ Manager xử lý), Manager gọi điện cho Member, chuyển khoản ngoài hệ thống rồi ghi nhận số tiền, ghi chú và 1–3 ảnh chứng từ, hệ thống audit, thông báo/email cho Member và đưa số tiền vào báo cáo doanh thu và dashboard dưới dòng riêng `bankRefundPaid`. Chi tiết, dữ liệu và job: [Payment-Support-Workflow](Payment-Support-Workflow.md).
+Refund theo invoice item, quyền lợi đã dùng và chuỗi chuyển lớp. Server tính cap; Manager duyệt theo policy. Ledger credit, hủy quyền lợi, audit/outbox phải nguyên tử, chống replay. Không rút/chuyển điểm hoặc dùng VNPay Refund API. Đã mua thì không hoàn khi Member tự hủy; hoàn chuyển khoản chỉ qua Support Request: Member gửi (chọn hóa đơn và 1–3 ảnh bắt buộc, không nhập số tài khoản; Lễ tân thấy, tạo hộ và bấm Remind giúp, chỉ Manager xử lý), Manager gọi điện cho Member, chuyển khoản ngoài hệ thống rồi ghi nhận số tiền, ghi chú và 1–3 ảnh chứng từ, hệ thống audit, thông báo/email cho Member và đưa số tiền hoàn chuyển khoản đã ghi nhận vào Cash refunded (`totalRefunded`), trừ khỏi thu ròng theo ngày ghi payout giờ VN; không hiển thị dòng Bank payouts recorded riêng. Chi tiết, dữ liệu và job: [Payment-Support-Workflow](Payment-Support-Workflow.md).
 
-Báo cáo tách tiền VNPay thực thu, điểm dùng, điểm phát hành do hoàn/bồi hoàn, tiền hoàn chuyển khoản do Manager ghi nhận (`bankRefundPaid`, không cộng với hoàn điểm) và dịch vụ được cấp. Không cộng điểm hoàn thành doanh thu tiền mới. Dùng snapshot môn; dữ liệu không xác định được không tự gán vào Gym.
+Báo cáo tách tiền VNPay thực thu, điểm dùng, điểm phát hành do hoàn/bồi hoàn, tiền hoàn chuyển khoản do Manager ghi nhận (`totalRefunded`, trừ khỏi `netRevenue`, không cộng với hoàn điểm; `bankRefundPaid` chỉ còn là alias tương thích) và dịch vụ được cấp. Không cộng điểm hoàn thành doanh thu tiền mới. Dùng snapshot môn; dữ liệu không xác định được không tự gán vào Gym.
 
 ### 6.5 Implementation và giới hạn
 
@@ -1994,3 +1994,9 @@ Không khai báo trùng `role`, `isCoach`, `systemPrompt`, `promptVersion` khi m
 ### Giới hạn và bằng chứng
 
 Source ZIP kiểm kê là snapshot trước các commit remote mới. Phần này mô tả bản vá được chuẩn bị và hành vi cần nghiệm thu, **không xác nhận toàn bộ runtime đã PASS**. Không thay đổi kết luận triển khai cho Manager AI backend-only. Bảng kiểm thử/bước xác minh đặt tại `AI-Member-Coach-Implementation-Verification.md`.
+
+
+
+### Manager financial reporting: Cash and Points
+
+Reports separates cash movements from the point ledger. Cash refunded is the amount of recorded Support Request bank transfers, by Vietnam recording date, and reduces net collected. Refunds issued in points do not reduce cash. Cash and Points have separate bookmarks and exports while sharing the reporting period and comparison controls. Points contains the former Point Management general summary (used, issued, refunded, manager adjustments and current balance) plus daily activity; Point Management keeps operational gifting, member search and wallet history. Current balance is available plus held points measured now, not a historical closing balance.

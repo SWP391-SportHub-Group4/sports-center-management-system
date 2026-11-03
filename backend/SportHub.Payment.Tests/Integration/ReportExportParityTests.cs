@@ -24,6 +24,11 @@ public sealed class ReportExportParityTests(PaymentApiFactory factory)
         Assert.Equal(0, report.PointsIssued);
         Assert.InRange(report.OutstandingPointsAsOfUtc, started, DateTime.UtcNow);
         var exports = scope.ServiceProvider.GetRequiredService<SportHub.Administration.Application.Interfaces.IReportExportService>();
+        var pointExport = await exports.CreateAsync(new() { ReportType = "POINTS_SUMMARY", FromDate = from,
+            ToDate = from, Columns = ["pointsRedeemed", "pointsIssued", "pointsRefunded", "outstandingPoints"] }, manager.UserId);
+        Assert.Equal("Completed", pointExport.Status);
+        var (_, pointBytes) = await exports.DownloadAsync(pointExport.ReportExportId, manager.UserId, true);
+        Assert.Contains("pointsRedeemed,pointsIssued,pointsRefunded,outstandingPoints", System.Text.Encoding.UTF8.GetString(pointBytes));
         var export = await exports.CreateAsync(new() { ReportType = "REVENUE_SUMMARY", FromDate = from,
             ToDate = from, Columns = ["collectedAmount", "pointsRedeemed", "pointsIssued", "outstandingPoints", "outstandingPointsAsOfUtc"] }, manager.UserId);
         Assert.Equal("Completed", export.Status);
