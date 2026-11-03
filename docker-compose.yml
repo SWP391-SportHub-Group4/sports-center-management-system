@@ -29,8 +29,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: 8080
-      # ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
-      ConnectionStrings__Default: 'Host="sakura.proxy.rlwy.net";Port=38167;Database="railway";Username="postgres";Password="voGxDmVjorohIbwwTmHfAsnYPvIlsupm";SSL Mode=Require'
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       AiService__BaseUrl: http://ai-service:8001
       DataProtection__KeysPath: /var/lib/sporthub/dataprotection-keys
       Reports__StorageRoot: /var/lib/sporthub/reports
