@@ -208,7 +208,7 @@ npm run build
 npm run test:e2e
 ```
 
-CI trên PR vào `develop` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Hợp đồng API: `docs/api-contract.md`.
+CI trên PR vào `main` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Merge `main` chỉ phát hành backend/AI sau khi CI đạt; máy AWS tự cập nhật sau khi kích hoạt CD một lần theo [deploy/aws/CD.md](deploy/aws/CD.md). Hợp đồng API: `docs/api-contract.md`.
 
 ### Backend và frontend trên máy host (Rider/VS Code)
 
