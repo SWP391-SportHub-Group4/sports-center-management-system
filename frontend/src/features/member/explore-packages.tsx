@@ -577,18 +577,12 @@ function GymTier({
   const months = monthsOf(plan.durationDays);
   const original =
     plan.originalPrice ?? (!dayPass && baseMonthly ? baseMonthly * months : 0);
-  const saving = original > plan.price ? original - plan.price : 0;
   return (
     <article
       className={styles.tier}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
       <p className={styles.tags}>
-        {saving > 0 && (
-          <span className={styles.save}>
-            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
-          </span>
-        )}
         {active && (
           <span className={styles.current}>
             {active.isUsable
@@ -613,7 +607,7 @@ function GymTier({
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
-        {saving > 0 && (
+        {original > plan.price && (
           <s
             aria-label={`${tx("Giá gốc", "Original price")}: ${formatMoney(original)}`}
           >

@@ -300,7 +300,7 @@
 }
 .catalogToolbar {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: var(--space-4);
   margin-bottom: var(--space-5);
 }

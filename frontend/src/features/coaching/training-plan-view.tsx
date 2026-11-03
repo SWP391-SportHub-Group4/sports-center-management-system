@@ -12,7 +12,7 @@ import {
 import { useNow } from "@/lib/useApi";
 import { sortTeachingSessions } from "@/lib/teaching-order";
 import { StatusChip } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatTime } from "@/lib/format";
 import type { CourseSessionDto } from "@/lib/types";
 import type { TeachingRecord, TeachingMember } from "./teaching-api";
 import styles from "./training-plan-view.module.css";
@@ -572,7 +572,9 @@ function CourseRoadmap({
                     {vi ? "Buổi" : "Session"} {s.sessionNo}
                     {s.isMakeup ? (vi ? " · Học bù" : " · Makeup") : ""}
                   </strong>
-                  <small>{formatDateTime(s.startAtUtc)}</small>
+                  <small>
+                    {formatDateTime(s.startAtUtc)} – {formatTime(s.endAtUtc)}
+                  </small>
                   <span className={styles.phaseBadge} data-phase={phase}>
                     {phaseLabel}
                   </span>

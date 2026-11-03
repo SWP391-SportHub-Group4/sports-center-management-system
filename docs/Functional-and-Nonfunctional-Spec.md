@@ -160,4 +160,3 @@ Managers and System Administrators manage their own Cloudinary avatar from Accou
 **FR-AI-05.** Hệ thống dùng published system prompt do `ISystemPromptReader` cung cấp. Kiểm tra continuation theo quyền và phiên bản prompt; lưu AI log theo luồng hiện hữu.
 
 **NFR-AI-01.** Cần test E2E/contract cho role scope, nội dung đa ngôn ngữ, prompt injection, trường hợp không đủ thông tin, lỗi provider, thay đổi prompt version và sai khác frontend navigation catalog.
-

@@ -1994,4 +1994,3 @@ Không khai báo trùng `role`, `isCoach`, `systemPrompt`, `promptVersion` khi m
 ### Giới hạn và bằng chứng
 
 Source ZIP kiểm kê là snapshot trước các commit remote mới. Phần này mô tả bản vá được chuẩn bị và hành vi cần nghiệm thu, **không xác nhận toàn bộ runtime đã PASS**. Không thay đổi kết luận triển khai cho Manager AI backend-only. Bảng kiểm thử/bước xác minh đặt tại `AI-Member-Coach-Implementation-Verification.md`.
-

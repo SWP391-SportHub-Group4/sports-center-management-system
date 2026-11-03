@@ -94,7 +94,7 @@ public class InvoicesController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
-        => Ok(await invoices.SearchAsync(memberId, status, keyword, page, pageSize, ct, excludeVoid: User.IsInRole(SportHubRoleNames.SystemAdministrator)));
+        => Ok(await invoices.SearchAsync(memberId, status, keyword, page, pageSize, ct));
 
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("members/me/invoices")]

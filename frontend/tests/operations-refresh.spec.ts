@@ -154,7 +154,7 @@ test("personal settings preserve editing and separate security with keyboard tab
   });
 });
 
-test("manager navigation uses the requested order and invoices omit Void", async ({
+test("manager navigation uses the requested order and invoices include Void", async ({
   page,
 }) => {
   await setup(page);
@@ -174,11 +174,10 @@ test("manager navigation uses the requested order and invoices omit Void", async
   ).toHaveAttribute("href", "/manager/finance");
   await nav.getByRole("button", { name: "Services", exact: true }).click();
   await expect(page.getByText("PAID-ORDER", { exact: true })).toBeVisible();
-  await expect(page.getByText("VOID-ORDER", { exact: true })).toHaveCount(0);
-  await page.locator("details > summary").click();
+  await expect(page.getByText("VOID-ORDER", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("option", { name: "Void", exact: true }),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
 });
 
 test("overview omits collected and the schedule chooses dates instead of numbered weeks", async ({
