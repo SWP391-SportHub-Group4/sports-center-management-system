@@ -23,6 +23,7 @@ namespace SportHub.API.Migrations
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "gym.checkin_cooldown_seconds");
         }
     }
