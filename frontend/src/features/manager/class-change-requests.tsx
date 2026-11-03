@@ -71,11 +71,6 @@ export function ManagerClassChangeRequests({
           {vi ? "Yêu cầu thay đổi lịch lớp" : "Class schedule change requests"}
         </h2>
       </header>
-      <p className={styles.hint}>
-        {vi
-          ? "Xem lý do từ Coach và xác nhận phương án phù hợp. Học viên chỉ nhận thay đổi lịch sau khi xử lý thành công."
-          : "Review the Coach’s absence request and choose a substitute, reschedule or makeup, or reject it. Students receive schedule changes only after the operation succeeds."}
-      </p>
       <TableFilters>
         <div className={styles.filters}>
           <label>
