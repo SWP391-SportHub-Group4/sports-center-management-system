@@ -141,17 +141,25 @@ function HeroArenaPlayer({ auth }: { auth: boolean }) {
       targetY = 0;
       if (frame === null) frame = window.requestAnimationFrame(tick);
     };
-    const hero = element.parentElement;
+    const hero = auth
+      ? element.parentElement
+      : (document.querySelector<HTMLElement>('[data-home-section="top"]') ??
+        element.parentElement);
     hero?.addEventListener("pointermove", move);
     hero?.addEventListener("pointerleave", reset);
     const observer = new IntersectionObserver(
       ([entry]) => {
         visible = entry.isIntersecting;
+        if (!visible) {
+          if (frame !== null) window.cancelAnimationFrame(frame);
+          frame = null;
+          targetX = targetY = 0;
+        }
         update();
       },
       { threshold: 0.01 },
     );
-    observer.observe(element);
+    observer.observe(hero ?? element);
     player.addEventListener("playing", onReady);
     player.addEventListener("error", onError);
     reduced.addEventListener("change", update);
@@ -174,7 +182,7 @@ function HeroArenaPlayer({ auth }: { auth: boolean }) {
       hero?.removeEventListener("pointerleave", reset);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
-  }, [webm, mp4, custom, playlist.length]);
+  }, [webm, mp4, custom, playlist.length, auth]);
 
   return (
     <div

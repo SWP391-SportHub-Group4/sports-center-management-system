@@ -101,7 +101,7 @@ export function HomepageFAQ({ language }: { language: Language }) {
 
   return (
     <section className={styles.section} aria-labelledby="homepage-faq-title">
-      <div className={styles.intro}>
+      <div className={styles.intro} data-motion="heading">
         <p className={styles.eyebrow}>{t.eyebrow}</p>
         <h2 id="homepage-faq-title">{t.title}</h2>
         <p className={styles.lead}>{t.lead}</p>
