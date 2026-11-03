@@ -47,11 +47,6 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
     setEditingRoom({ room, apply });
   return (
     <>
-      {!detailId && (
-        <p className={roomStyles.intro}>
-          {t.managerCatalog.independentRoomsHint}
-        </p>
-      )}
       {creating && (
         <Dialog
           title={t.managerCatalog.createRoom}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useAuth } from "@/lib/auth";
 import { TableFilters } from "@/components/data/TableFilters";
 import { pagedItems } from "@/lib/paged";
 
@@ -217,9 +216,6 @@ export function InvoiceList({
   initialStatus?: string;
 }) {
   const { t } = useLanguage();
-  const { user } = useAuth();
-  const hideVoids =
-    user?.role === "CenterManager" || user?.role === "SystemAdministrator";
 
   const [page, setPage] = useState(1);
 
@@ -341,9 +337,7 @@ export function InvoiceList({
     }
   }
 
-  const visibleInvoices = pagedItems(state.data).filter(
-    (invoice) => !hideVoids || invoice.status.toUpperCase() !== "VOID",
-  );
+  const visibleInvoices = pagedItems(state.data);
   return (
     <>
       {linkError && <p role="alert">{linkError}</p>}
@@ -377,13 +371,13 @@ export function InvoiceList({
           >
             <option value="">—</option>
 
-            {["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"]
-              .filter((status) => !hideVoids || status !== "VOID")
-              .map((s) => (
+            {["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"].map(
+              (s) => (
                 <option key={s} value={s}>
                   {t.wireStatus[s as keyof typeof t.wireStatus]}
                 </option>
-              ))}
+              ),
+            )}
           </select>
         </label>
       </TableFilters>
