@@ -1,0 +1,761 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+
+import { MemberPicker } from "@/components/MemberPicker";
+import { api } from "@/lib/apiClient";
+import {
+  addDaysIso,
+  formatDateTime,
+  formatMoney,
+  mondayOfIso,
+  todayIso,
+} from "@/lib/format";
+import { pagedItems } from "@/lib/paged";
+import type {
+  CourtRentalDto,
+  CourtScheduleEntryDto,
+  InvoiceDetailDto,
+} from "@/lib/types";
+import { useApi, useNow } from "@/lib/useApi";
+import { vietnamLocal } from "@/lib/vietnam-time";
+import { catalogApi } from "@/features/catalog";
+import { courseApi } from "@/features/courses";
+import { rentalApi } from "@/features/rentals";
+
+import { useDeskMember } from "./desk-context";
+
+type View = "month" | "week" | "day" | "list";
+type TypeFilter = "ALL" | "CLASS_SESSION" | "COURT_RENTAL" | "AVAILABLE_SLOT";
+type StatusFilter =
+  | "ALL"
+  | "OPEN"
+  | "LOCKED"
+  | "UPCOMING"
+  | "IN_PROGRESS"
+  | "ENDED"
+  | "CANCELLED"
+  | "PENDING_PAYMENT"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "AVAILABLE";
+
+const dayOf = (utc: string) => vietnamLocal(utc).slice(0, 10);
+const monthStart = (day: string) => `${day.slice(0, 7)}-01`;
+
+function nextMonth(day: string, offset: number) {
+  const [year, month] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1 + offset, 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
+function endOfMonth(day: string) {
+  return addDaysIso(nextMonth(day, 1), -1);
+}
+
+function utcStart(localDate: string) {
+  return new Date(`${localDate}T00:00:00+07:00`).toISOString();
+}
+
+function utcEndExclusive(localDate: string) {
+  return new Date(`${addDaysIso(localDate, 1)}T00:00:00+07:00`).toISOString();
+}
+
+function temporalState(row: CourtScheduleEntryDto, now: number) {
+  const raw = row.status.toUpperCase();
+  if (raw.includes("CANCEL")) return "CANCELLED";
+  if (now < Date.parse(row.startAtUtc)) return "UPCOMING";
+  if (now < Date.parse(row.endAtUtc)) return "IN_PROGRESS";
+  return "ENDED";
+}
+
+export function ReceptionistSchedule() {
+  const desk = useDeskMember();
+  const [date, setDate] = useState(todayIso());
+  const [view, setView] = useState<View>("month");
+  const [type, setType] = useState<TypeFilter>("ALL");
+  const [status, setStatus] = useState<StatusFilter>("ALL");
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [sportId, setSportId] = useState("");
+  const now = useNow(30_000);
+
+  const first =
+    view === "month" || view === "list"
+      ? monthStart(date)
+      : view === "day"
+        ? date
+        : mondayOfIso(date);
+  const last =
+    view === "month" || view === "list"
+      ? endOfMonth(date)
+      : view === "day"
+        ? date
+        : addDaysIso(first, 6);
+
+  const schedule = useApi(
+    (signal) =>
+      api.get<CourtScheduleEntryDto[]>("/api/manager/court-schedule", {
+        signal,
+        query: {
+          fromDate: first,
+          toDate: last,
+          ...(desk.member?.userId ? { memberId: desk.member.userId } : {}),
+        },
+      }),
+    [first, last, desk.member?.userId],
+  );
+
+  const courses = useApi(
+    (signal) =>
+      courseApi.list(
+        { fromDate: first, toDate: last, page: 1, pageSize: 100 },
+        signal,
+      ),
+    [first, last],
+  );
+
+  const sports = useApi((signal) => catalogApi.sports(signal), []);
+  const rentalSports = (sports.data ?? []).filter(
+    (sport) =>
+      sport.isActive &&
+      sport.services.some(
+        (service) =>
+          service.serviceType === "COURT_RENTAL" && service.isEnabled,
+      ),
+  );
+
+  const effectiveSportId =
+    sportId || (rentalSports[0] ? String(rentalSports[0].sportId) : "");
+
+  const availability = useApi(
+    (signal) =>
+      desk.member && effectiveSportId
+        ? rentalApi.calendar(
+            Number(effectiveSportId),
+            date,
+            1,
+            signal,
+            desk.member.userId,
+          )
+        : Promise.resolve(null),
+    [desk.member?.userId, effectiveSportId, date],
+  );
+
+  const courseById = useMemo(
+    () =>
+      new Map(
+        pagedItems(courses.data).map((course) => [course.classId, course]),
+      ),
+    [courses.data],
+  );
+
+  function businessState(row: CourtScheduleEntryDto) {
+    if (row.sourceType === "CLASS_SESSION" && row.classId) {
+      const course = courseById.get(row.classId);
+      const sessionRaw = row.status.toUpperCase();
+
+      if (sessionRaw.includes("CANCEL")) return "CANCELLED";
+      if (course?.status === "CANCELLED") return "CANCELLED";
+      if (course?.status === "COMPLETED") return "COMPLETED";
+
+      // "Locked" is a registration/business state, not a time state.
+      if (course && !course.enrollmentOpen) return "LOCKED";
+      if (course && course.availableSeats <= 0) return "LOCKED";
+      if (course?.status === "PUBLISHED" || course?.status === "IN_PROGRESS")
+        return "OPEN";
+
+      return temporalState(row, now);
+    }
+
+    if (row.sourceType === "COURT_RENTAL") {
+      const raw = row.status.toUpperCase();
+      if (raw.includes("PENDING")) return "PENDING_PAYMENT";
+      if (raw.includes("CONFIRM")) return "CONFIRMED";
+      if (raw.includes("COMPLETE")) return "COMPLETED";
+      if (raw.includes("CANCEL")) return "CANCELLED";
+    }
+
+    return temporalState(row, now);
+  }
+
+  const filteredRows = useMemo(() => {
+    const term = query.trim().toLowerCase();
+
+    return (schedule.data ?? []).filter((row) => {
+      // Room blocks are operational resource records, not receptionist
+      // class/rental items. Availability below already exposes BLOCKED slots.
+      if (row.sourceType === "ROOM_BLOCK") return false;
+
+      if (type !== "ALL" && type !== "AVAILABLE_SLOT" && row.sourceType !== type)
+        return false;
+      if (type === "AVAILABLE_SLOT") return false;
+
+      const rowState = businessState(row);
+      const timeState = temporalState(row, now);
+
+      if (
+        status !== "ALL" &&
+        status !== rowState &&
+        status !== timeState
+      )
+        return false;
+
+      if (
+        term &&
+        ![
+          row.title,
+          row.coachName,
+          row.memberName,
+          row.status,
+          rowState,
+          ...(row.participants ?? []).flatMap((p) => [
+            p.memberName,
+            p.memberId,
+          ]),
+        ].some((value) => value?.toLowerCase().includes(term))
+      )
+        return false;
+
+      return true;
+    });
+  }, [schedule.data, type, status, query, now, courseById]);
+
+  const selected = (schedule.data ?? []).find(
+    (row) => `${row.sourceType}:${row.sourceId}` === selectedId,
+  );
+
+  const selectedRentals = useApi(
+    (signal) =>
+      selected?.sourceType === "COURT_RENTAL" && selected.memberId
+        ? api.get<CourtRentalDto[]>(
+            `/api/members/${selected.memberId}/court-rentals`,
+            {
+              signal,
+              query: {
+                fromUtc: utcStart(first),
+                toUtc: utcEndExclusive(last),
+              },
+            },
+          )
+        : Promise.resolve([]),
+    [selected?.sourceId, selected?.memberId, first, last],
+  );
+
+  const selectedRental = (selectedRentals.data ?? []).find(
+    (rental) => rental.courtRentalId === selected?.sourceId,
+  );
+
+  const selectedInvoice = useApi(
+    (signal) =>
+      selectedRental?.invoiceId
+        ? api.get<InvoiceDetailDto>(
+            `/api/invoices/${selectedRental.invoiceId}`,
+            { signal },
+          )
+        : Promise.resolve(null),
+    [selectedRental?.invoiceId],
+  );
+
+  const freeSlots = useMemo(() => {
+    if (!availability.data) return [];
+    return availability.data.rooms.flatMap((room) =>
+      room.slots
+        .filter((slot) => slot.status === "AVAILABLE")
+        .map((slot) => ({
+          roomId: room.roomId,
+          roomName: room.name,
+          startUtc: slot.startUtc,
+          endUtc: slot.endUtc,
+          totalPrice: slot.totalPrice,
+        })),
+    );
+  }, [availability.data]);
+
+  const blockedSlots = useMemo(() => {
+    if (!availability.data) return [];
+    return availability.data.rooms.flatMap((room) =>
+      room.slots
+        .filter((slot) => slot.status === "BLOCKED")
+        .map((slot) => ({
+          roomId: room.roomId,
+          roomName: room.name,
+          startUtc: slot.startUtc,
+          endUtc: slot.endUtc,
+        })),
+    );
+  }, [availability.data]);
+
+  const monthDates = useMemo(() => {
+    if (view !== "month") return [];
+    const count = Number(endOfMonth(first).slice(8));
+    return Array.from(
+      { length: count },
+      (_, index) =>
+        `${first.slice(0, 7)}-${String(index + 1).padStart(2, "0")}`,
+    );
+  }, [view, first]);
+
+  function changeDate(next: string) {
+    setDate(next);
+    setSelectedId("");
+  }
+
+  function move(offset: -1 | 1) {
+    if (view === "month" || view === "list")
+      changeDate(nextMonth(date, offset));
+    else if (view === "day") changeDate(addDaysIso(date, offset));
+    else changeDate(addDaysIso(date, offset * 7));
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 18 }}>
+      <section className="card" style={{ padding: 18 }}>
+        <h2>Activity schedule</h2>
+        <p>
+          Classes, court rentals, registration locks, free court slots and
+          payment state in one receptionist workspace.
+        </p>
+
+        <div className="btn-row">
+          {(["month", "week", "day", "list"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={
+                view === item ? "btn btn--sm" : "btn btn--secondary btn--sm"
+              }
+              aria-pressed={view === item}
+              onClick={() => {
+                setView(item);
+                setSelectedId("");
+              }}
+            >
+              {item[0].toUpperCase() + item.slice(1)}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={() => move(-1)}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={() => changeDate(todayIso())}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={() => move(1)}
+          >
+            Next
+          </button>
+          <label>
+            Date{" "}
+            <input
+              type="date"
+              value={date}
+              onChange={(event) => changeDate(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+            gap: 12,
+            marginTop: 14,
+          }}
+        >
+          <label>
+            Type
+            <select
+              value={type}
+              onChange={(event) =>
+                setType(event.target.value as TypeFilter)
+              }
+            >
+              <option value="ALL">All</option>
+              <option value="CLASS_SESSION">Classes</option>
+              <option value="COURT_RENTAL">Court rentals</option>
+              <option value="AVAILABLE_SLOT">Available court slots</option>
+            </select>
+          </label>
+
+          <label>
+            Status
+            <select
+              value={status}
+              onChange={(event) =>
+                setStatus(event.target.value as StatusFilter)
+              }
+            >
+              <option value="ALL">All statuses</option>
+              <option value="OPEN">Open for registration</option>
+              <option value="LOCKED">Locked / registration closed</option>
+              <option value="UPCOMING">Upcoming</option>
+              <option value="IN_PROGRESS">In progress</option>
+              <option value="ENDED">Ended</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="PENDING_PAYMENT">Pending payment</option>
+              <option value="CONFIRMED">Rental confirmed</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="AVAILABLE">Available court slot</option>
+            </select>
+          </label>
+
+          <label>
+            Search
+            <input
+              type="search"
+              placeholder="Class, coach, renter or member"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Court availability sport
+            <select
+              value={effectiveSportId}
+              onChange={(event) => setSportId(event.target.value)}
+            >
+              {rentalSports.map((sport) => (
+                <option key={sport.sportId} value={sport.sportId}>
+                  {sport.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <MemberPicker value={desk.member} onChange={desk.setMember} />
+          <small>
+            Selecting a member filters their class/rental schedule and lets the
+            system calculate bookable court slots against that member&apos;s
+            class conflicts.
+          </small>
+        </div>
+      </section>
+
+      {schedule.loading && <p>Loading schedule…</p>}
+      {schedule.error && <p role="alert">{schedule.error.message}</p>}
+
+      {!schedule.error && view === "month" && (
+        <section className="card" style={{ padding: 18 }}>
+          <h3>
+            {new Date(`${first}T00:00:00Z`).toLocaleDateString("en-US", {
+              month: "long",
+              year: "numeric",
+              timeZone: "UTC",
+            })}
+          </h3>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7,minmax(0,1fr))",
+              gap: 6,
+            }}
+          >
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+              <strong key={d} style={{ textAlign: "center" }}>
+                {d}
+              </strong>
+            ))}
+            {Array.from(
+              {
+                length:
+                  (new Date(`${first}T00:00:00Z`).getUTCDay() + 6) % 7,
+              },
+              (_, index) => <span key={`pad-${index}`} />,
+            )}
+            {monthDates.map((d) => {
+              const items = filteredRows.filter(
+                (row) => dayOf(row.startAtUtc) === d,
+              );
+              const locked = items.filter(
+                (row) => businessState(row) === "LOCKED",
+              ).length;
+
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => {
+                    changeDate(d);
+                    setView("day");
+                  }}
+                  style={{
+                    minHeight: 90,
+                    padding: 7,
+                    textAlign: "left",
+                    border: "1px solid var(--line)",
+                    borderRadius: 8,
+                    background:
+                      d === date ? "var(--ice)" : "var(--surface)",
+                    color: "inherit",
+                  }}
+                >
+                  <strong>{Number(d.slice(8))}</strong>
+                  <div style={{ fontSize: 12 }}>
+                    {
+                      items.filter(
+                        (row) => row.sourceType === "CLASS_SESSION",
+                      ).length
+                    }{" "}
+                    classes
+                  </div>
+                  <div style={{ fontSize: 12 }}>
+                    {
+                      items.filter(
+                        (row) => row.sourceType === "COURT_RENTAL",
+                      ).length
+                    }{" "}
+                    rentals
+                  </div>
+                  {locked > 0 && (
+                    <div style={{ fontSize: 12 }}>{locked} locked</div>
+                  )}
+                  {d === date && freeSlots.length > 0 && (
+                    <div style={{ fontSize: 12 }}>
+                      {freeSlots.length} free slots
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {(type === "ALL" || type === "AVAILABLE_SLOT") && (
+        <section className="card" style={{ padding: 18 }}>
+          <h3>Available court slots · {freeSlots.length}</h3>
+          {!desk.member ? (
+            <p>Select a member above to calculate bookable court slots.</p>
+          ) : availability.loading ? (
+            <p>Checking court availability…</p>
+          ) : availability.error ? (
+            <p role="alert">{availability.error.message}</p>
+          ) : freeSlots.length === 0 ? (
+            <p>No bookable 1-hour court slots for the selected day and sport.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 7 }}>
+              {freeSlots.map((slot) => (
+                <div
+                  key={`${slot.roomId}-${slot.startUtc}`}
+                  style={{
+                    padding: 10,
+                    border: "1px solid var(--line)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <strong>{slot.roomName}</strong> ·{" "}
+                  {formatDateTime(slot.startUtc)} –{" "}
+                  {formatDateTime(slot.endUtc)}
+                  {slot.totalPrice != null && (
+                    <> · {formatMoney(slot.totalPrice)}</>
+                  )}
+                  <span style={{ marginLeft: 10 }}>AVAILABLE</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!!blockedSlots.length && (
+            <p style={{ marginTop: 12 }}>
+              {blockedSlots.length} slot(s) are blocked by an operational
+              restriction / incident for this day.
+            </p>
+          )}
+        </section>
+      )}
+
+      {type !== "AVAILABLE_SLOT" && (
+        <section className="card" style={{ padding: 18 }}>
+          <h3>Schedules · {filteredRows.length}</h3>
+          {filteredRows.length === 0 && <p>No matching schedules.</p>}
+
+          {filteredRows.map((row) => {
+            const rowState = businessState(row);
+            const timeState = temporalState(row, now);
+
+            return (
+              <button
+                type="button"
+                key={`${row.sourceType}:${row.sourceId}`}
+                onClick={() =>
+                  setSelectedId(`${row.sourceType}:${row.sourceId}`)
+                }
+                style={{
+                  display: "flex",
+                  width: "100%",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  textAlign: "left",
+                  padding: 12,
+                  marginBottom: 6,
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  background: "var(--surface)",
+                  color: "inherit",
+                }}
+              >
+                <span>
+                  <strong>{row.title}</strong>
+                  <small style={{ display: "block" }}>
+                    {formatDateTime(row.startAtUtc)} –{" "}
+                    {formatDateTime(row.endAtUtc)} ·{" "}
+                    {row.sourceType === "CLASS_SESSION"
+                      ? "CLASS SESSION"
+                      : "COURT RENTAL"}
+                  </small>
+                </span>
+                <span>
+                  {rowState}
+                  {timeState !== rowState ? ` · ${timeState}` : ""}
+                  {row.status ? ` · ${row.status}` : ""}
+                </span>
+              </button>
+            );
+          })}
+        </section>
+      )}
+
+      {selected && (
+        <section className="card" style={{ padding: 18 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <h3>{selected.title}</h3>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setSelectedId("")}
+            >
+              Close
+            </button>
+          </div>
+
+          <p>
+            <strong>Schedule:</strong> {formatDateTime(selected.startAtUtc)} –{" "}
+            {formatDateTime(selected.endAtUtc)}
+          </p>
+          <p>
+            <strong>Status:</strong> {businessState(selected)} ·{" "}
+            {temporalState(selected, now)} · {selected.status}
+          </p>
+
+          {selected.sourceType === "CLASS_SESSION" && (
+            <>
+              <p>
+                <strong>Coach:</strong> {selected.coachName || "—"}
+              </p>
+              {selected.classId && courseById.get(selected.classId) && (
+                <p>
+                  <strong>Registration:</strong>{" "}
+                  {courseById.get(selected.classId)!.enrollmentOpen
+                    ? `Open · ${courseById.get(selected.classId)!.availableSeats} seat(s) available`
+                    : "LOCKED / closed for new registrations"}
+                </p>
+              )}
+
+              <h4>Enrolled members</h4>
+              {selected.participants?.length ? (
+                <ul>
+                  {selected.participants.map((participant) => (
+                    <li
+                      key={`${participant.memberId}-${participant.enrollmentId}`}
+                    >
+                      {participant.memberName} ·{" "}
+                      {participant.attendanceStatus || "Unmarked"}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No enrolled members.</p>
+              )}
+
+              <Link
+                className="btn"
+                href={`/receptionist/attendance?date=${dayOf(
+                  selected.startAtUtc,
+                )}&session=${selected.sourceId}`}
+              >
+                View / edit attendance
+              </Link>
+            </>
+          )}
+
+          {selected.sourceType === "COURT_RENTAL" && (
+            <>
+              <p>
+                <strong>Renter:</strong> {selected.memberName || "—"}
+              </p>
+              <p>
+                <strong>Rental state:</strong>{" "}
+                {selectedRental?.status || selected.status}
+              </p>
+
+              {selectedRentals.loading ? (
+                <p>Loading rental checkout…</p>
+              ) : selectedRental?.invoiceId ? (
+                selectedInvoice.loading ? (
+                  <p>Loading payment status…</p>
+                ) : selectedInvoice.error ? (
+                  <p role="alert">{selectedInvoice.error.message}</p>
+                ) : selectedInvoice.data ? (
+                  <>
+                    <p>
+                      <strong>Invoice:</strong>{" "}
+                      {selectedInvoice.data.summary.invoiceNumber}
+                    </p>
+                    <p>
+                      <strong>Payment:</strong>{" "}
+                      {selectedInvoice.data.summary.status}
+                      {" · "}
+                      {selectedInvoice.data.summary.fulfillmentOutcome}
+                      {selectedInvoice.data.summary.reconciliationRequired
+                        ? " · RECONCILIATION REQUIRED"
+                        : ""}
+                    </p>
+                    <p>
+                      <strong>Checkout:</strong>{" "}
+                      {selectedInvoice.data.summary.outstanding > 0
+                        ? "Awaiting payment"
+                        : "No outstanding balance"}
+                    </p>
+                  </>
+                ) : null
+              ) : (
+                <p>No invoice is linked to this rental.</p>
+              )}
+
+              {selected.memberId && (
+                <Link
+                  className="btn btn--secondary"
+                  href={`/receptionist/members/${selected.memberId}?tab=invoices`}
+                >
+                  Open member invoices
+                </Link>
+              )}
+            </>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}

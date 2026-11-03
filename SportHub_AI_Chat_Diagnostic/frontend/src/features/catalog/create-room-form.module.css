@@ -1,0 +1,107 @@
+.form {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.fields.fields {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.details {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+.rental {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.rental > :first-child {
+  max-width: 22rem;
+}
+.scheduleHeading h3 {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-base);
+  font-family: var(--font-body);
+}
+.scheduleHeading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.week {
+  display: grid;
+  min-width: 0;
+}
+.day,
+.weekHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: center;
+}
+.weekHeader {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.day {
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.day input[type="time"] {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.dayLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  margin: 0;
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.dayLabel input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+.dayLabel span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+@media (max-width: 520px) {
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .day,
+  .weekHeader {
+    gap: var(--space-2);
+    grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1.1fr));
+  }
+  .day input[type="time"] {
+    padding-inline: var(--space-1);
+    font-size: var(--text-xs);
+  }
+  .dayLabel {
+    gap: var(--space-1);
+    font-size: var(--text-xs);
+  }
+}

@@ -1,0 +1,248 @@
+.directory {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.toolbar p {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+}
+.toolbar p > span {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--text-body);
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 1 340px;
+  min-width: 0;
+  padding-inline: var(--space-3);
+  color: var(--text-body);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+}
+.search svg {
+  flex-shrink: 0;
+}
+.search:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding-block: var(--space-2);
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+.search input::placeholder {
+  color: var(--text-body);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--space-4);
+}
+.card {
+  --sport-bg: var(--color-primary-soft);
+  --sport-ink: var(--color-primary-soft-text);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--space-5);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  transition:
+    border-color 180ms ease-out,
+    transform 180ms ease-out;
+}
+.card[data-sport="badminton"] {
+  --sport-bg: var(--info-bg);
+  --sport-ink: var(--info-text);
+}
+.card[data-sport="basketball"] {
+  --sport-bg: var(--warning-bg);
+  --sport-ink: var(--warning-text);
+}
+.card:hover {
+  border-color: var(--sport-ink);
+  transform: translateY(-2px);
+}
+.card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.cardHeader > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.sport {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--sport-bg);
+  color: var(--sport-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.code {
+  color: var(--text-body);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  min-height: 112px;
+}
+.identity h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: 1.35;
+  font-family: inherit;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.sticker {
+  width: 80px;
+  flex: 0 0 80px;
+  border-radius: var(--radius-md);
+  background: var(--sport-bg);
+}
+.sticker > figure {
+  width: 100%;
+  margin: 0;
+}
+.sticker figcaption {
+  display: none;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.facts > div {
+  flex: 1 1 95px;
+  min-width: 0;
+}
+.facts dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-body);
+}
+.facts dt svg {
+  flex-shrink: 0;
+}
+.facts dd {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.nextSession {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  margin-top: auto;
+}
+.nextSession > svg {
+  color: var(--sport-ink);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.nextSession > div {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.nextSession span,
+.nextSession small {
+  font-size: var(--text-xs);
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+.nextSession strong {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.cardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-body);
+}
+.cardFooter strong {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--sport-ink);
+  font-size: var(--text-sm);
+}
+.empty {
+  margin: 0;
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--text-body);
+}
+@media (max-width: 560px) {
+  .search {
+    flex-basis: 100%;
+  }
+  .card {
+    padding: var(--space-4);
+  }
+  .sticker {
+    width: 64px;
+    flex-basis: 64px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  .card:hover {
+    transform: none;
+  }
+}

@@ -344,12 +344,8 @@ export function TeachingEditor({
           />
         </label>
         {kind === "PLAN" &&
-          !existing &&
           !sessionOnly &&
-          (scope === "personal" || (scope === "session" &&
-          homeworkSession &&
-          !/completed|cancelled/i.test(homeworkSession.status) &&
-          Date.parse(homeworkSession.startAtUtc) > now)) && (
+          (scope === "personal" || scope === "session") && (
             <details className={styles.aiTools}>
               <summary>
                 <Sparkles size={16} aria-hidden="true" />
@@ -393,7 +389,9 @@ export function TeachingEditor({
               <button
                 type="button"
                 className="btn btn--secondary btn--sm"
-                disabled={busy || goal.trim().length < 12 || (scope === "personal" ? !student : !session)}
+                disabled={busy || goal.trim().length < 5 || (scope === "personal" ? !student :
+                  !session || !homeworkSession || /completed|cancelled/i.test(homeworkSession.status) ||
+                  Date.parse(homeworkSession.startAtUtc) <= now)}
                 onClick={async () => {
                   const data = await ai.run(() =>
                     teachingApi.suggest(
@@ -417,7 +415,12 @@ export function TeachingEditor({
                     ? "Tạo gợi ý"
                     : "Generate suggestion"}
               </button>
+              {scope === "session" && (!homeworkSession || /completed|cancelled/i.test(homeworkSession.status) ||
+                Date.parse(homeworkSession.startAtUtc) <= now) && (
+                <small>AI session suggestions are available only before a scheduled session begins. You can still edit this saved plan manually.</small>
+              )}
               <Feedback error={ai.error} />
+              {existing && <small>AI generates a new draft. Your saved plan stays unchanged until you apply the suggestion and save your edits.</small>}
               {suggestion && (
                 <div className={styles.suggestion}>
                   <PlanContent content={suggestion} />
@@ -561,3 +564,4 @@ export function TeachingEditor({
     </section>
   );
 }
+

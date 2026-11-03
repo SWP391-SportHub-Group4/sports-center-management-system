@@ -1,0 +1,101 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 40rem;
+  overflow-wrap: anywhere;
+}
+.root .viewButton {
+  padding-inline: var(--space-2);
+  min-height: var(--control-height);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.identity strong {
+  font-size: var(--text-lg);
+}
+.context {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+.context dt {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-1);
+}
+.context dd {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.reason {
+  border-left: 3px solid var(--border-subtle);
+  padding-left: var(--space-3);
+}
+.reason p,
+.notice {
+  margin: var(--space-1) 0 0;
+  line-height: 1.5;
+}
+.tableWrap {
+  min-width: 0;
+}
+.content .table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.content .table th,
+.content .table td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+  white-space: normal;
+}
+.content .table thead th {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  background: var(--bg-surface-sunken);
+}
+.content .table tbody th {
+  background: transparent;
+  color: var(--text-body);
+  font-weight: var(--weight-medium);
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--text-sm);
+}
+.content .table .after {
+  font-weight: var(--weight-semibold);
+}
+@media (max-width: 520px) {
+  .context {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .content .table th,
+  .content .table td {
+    padding: var(--space-2);
+  }
+}

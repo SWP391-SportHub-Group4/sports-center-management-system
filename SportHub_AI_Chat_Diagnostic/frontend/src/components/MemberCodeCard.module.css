@@ -1,0 +1,31 @@
+.dialog:global(.dialog) {
+  max-height: calc(100dvh - 36px);
+}
+
+.dialog :global(.dialog__body) {
+  padding: 16px 20px;
+  gap: 12px;
+}
+
+.dialog :global(.dialog__desc) {
+  margin: 0;
+}
+
+.content {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.qr {
+  display: block;
+  width: min(240px, 100%, max(80px, calc(100dvh - 280px)));
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.memberId {
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+}

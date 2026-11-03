@@ -1,0 +1,111 @@
+.arrowButton:global(.btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  transition:
+    var(--transition-colors),
+    box-shadow 160ms var(--ease-out);
+}
+
+.arrowButton:global(.btn) svg {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  transition: transform 160ms var(--ease-out);
+}
+
+.arrowButton:global(.btn):is(:hover, :focus-visible):not(:disabled) {
+  box-shadow: var(--shadow-sm);
+}
+
+.arrowButton[data-direction="previous"]:is(:hover, :focus-visible):not(
+    :disabled
+  )
+  svg {
+  transform: translateX(-3px);
+}
+
+.arrowButton[data-direction="next"]:is(:hover, :focus-visible):not(:disabled)
+  svg {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrowButton:global(.btn),
+  .arrowButton:global(.btn) svg {
+    transition: none;
+  }
+
+  .arrowButton[data-direction]:is(:hover, :focus-visible):not(:disabled) svg {
+    transform: none;
+  }
+}
+
+button.cancelButton:global(.btn):not(:disabled) {
+  background: #e0340d;
+  color: var(--white);
+  border-color: transparent;
+}
+
+button.cancelButton:global(.btn):hover:not(:disabled) {
+  background: color-mix(in srgb, #e0340d, black 12%);
+}
+
+button.cancelButton:global(.btn):active:not(:disabled) {
+  background: color-mix(in srgb, #e0340d, black 20%);
+}
+
+.scheduleFeedback {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text-body);
+}
+.scheduleFeedback[data-state="blocked"] {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: currentColor;
+}
+.scheduleFeedback[data-state="ready"] {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+.scheduleFeedback > svg {
+  flex-shrink: 0;
+  margin-top: var(--space-1);
+}
+.scheduleFeedbackContent {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.scheduleFeedbackContent strong {
+  display: block;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+.scheduleFeedbackContent ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+}
+.scheduleFeedback :global(.btn) {
+  margin: 0;
+  flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .scheduleFeedback {
+    flex-wrap: wrap;
+  }
+}

@@ -44,6 +44,7 @@ export function PromptTestChat({
   dirty: boolean;
   onClose: () => void;
 }) {
+  void articles;
   const initial: Mode = form.audience === "Coach" ? "Coach" : "Member";
   const [mode, setMode] = useState<Mode>(initial);
   const [conversations, setConversations] = useState<
@@ -77,37 +78,27 @@ export function PromptTestChat({
   }, []);
   const session = conversations[mode];
   const currentEditor = form.audience === mode || form.audience === "Both";
-  const counterpart = articles.find(
-    (a) => a.id === `${mode.toLowerCase()}-system-prompt`,
-  );
   const backendPrompt = published[mode];
-  const prompt = currentEditor
-    ? form.content
-    : (counterpart?.draft?.content ??
-      counterpart?.active?.content ??
-      backendPrompt?.content ??
-      "");
-  const source = currentEditor
-    ? dirty
-      ? "Unsaved draft"
-      : article?.draft
-        ? "Saved draft"
-        : "Published prompt"
-    : counterpart?.draft
-      ? "Saved draft"
-      : "Published prompt";
+  // Test the complete published prompt, with the current category's draft as a final override.
+  // The real chat uses only published sections, not this draft preview.
+  const prompt = backendPrompt?.content
+    ? currentEditor && form.content.trim()
+      ? `${backendPrompt.content}\n\n=== TEST OVERRIDE ${form.category.toUpperCase()} ===\n${form.content}`
+      : backendPrompt.content
+    : currentEditor ? form.content : "";
+  const source = currentEditor ? "Published sections + editor preview" : "Published combined prompt";
   const changed =
     session.promptSnapshot !== undefined && session.promptSnapshot !== prompt;
   const promptError = !prompt.trim()
     ? "Enter prompt content in the editor before testing."
-    : prompt.length > 30000
-      ? "The prompt exceeds 30,000 characters. Shorten the content in the editor before testing."
+    : prompt.length > 120000
+      ? "The assembled prompt exceeds 120,000 characters. Shorten its categories."
       : "";
   const cannotSend =
     changed ||
     session.restartRequired ||
     !prompt.trim() ||
-    prompt.length > 30000;
+    prompt.length > 120000;
 
   useEffect(
     () => () => {
@@ -312,14 +303,11 @@ export function PromptTestChat({
           AI replies are real when the provider is configured.
         </p>
       </div>
-      {sourceError &&
-        !currentEditor &&
-        !counterpart?.active &&
-        !counterpart?.draft && (
-          <p className={s.error} role="alert">
-            {sourceError}
-          </p>
-        )}
+      {sourceError && !currentEditor && (
+        <p className={s.error} role="alert">
+          {sourceError}
+        </p>
+      )}
       {changed && (
         <div className={s.warning} role="status">
           Prompt changed — start a new conversation to test this version.

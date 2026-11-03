@@ -1,0 +1,12 @@
+namespace SportHub.Scheduling.Application.DTOs;
+
+public sealed record RoomResponse(
+    int RoomId,
+    string Name,
+    int Capacity,
+    int ActiveClassCount,
+    int? RoomTypeId,
+    bool IsActive,
+    int? SportId = null,
+    DateTime? RentalBookingOpensAtUtc = null,
+    bool AllowRental = false);

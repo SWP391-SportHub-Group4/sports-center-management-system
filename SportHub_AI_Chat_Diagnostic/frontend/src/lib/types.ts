@@ -1,0 +1,985 @@
+export interface Paged<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+export interface SupportRefundItemDto {
+  invoiceItemId: string;
+  description: string;
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+  refundableValueVnd?: number;
+  maxRefundablePoints?: number;
+}
+export interface SupportRefundBreakdownDto {
+  totalVnd: number;
+  vnpayVnd: number;
+  pointsApplied: number;
+  pointsVnd: number;
+  refundableVnpayVnd: number;
+  refundablePoints: number;
+  items: SupportRefundItemDto[];
+}
+export interface MemberSupportRequestDto {
+  requestId: string;
+  memberId: string;
+  recordedByUserId: string;
+  category:
+    | "GENERAL"
+    | "MEMBERSHIP"
+    | "CLASS"
+    | "PAYMENT"
+    | "PT"
+    | "FACILITY"
+    | "ACCOUNT"
+    | "OTHER";
+  subject: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  assignedToUserId: string | null;
+  memberName?: string | null;
+  memberEmail?: string | null;
+  assignedToName?: string | null;
+  progressNote: string | null;
+  updatedAt: string | null;
+  closedAt: string | null;
+  attachments?:
+    | {
+        attachmentId: string;
+        fileName: string;
+        kind?: "MEMBER_PROOF" | "PAYOUT_PROOF";
+      }[]
+    | null;
+  /** COUNTER, PHONE, FANPAGE (recorded by staff) or ONLINE (member self-service). */
+  channel?: string;
+  slaDueAtUtc?: string | null;
+  isOverdue?: boolean;
+  remindCount?: number;
+  invoiceId?: string | null;
+  invoiceItemId?: string | null;
+  outcome?: string | null;
+  bankAccountMasked?: string | null;
+  payout?: {
+    payoutId: string;
+    amount: number;
+    invoiceItemId?: string | null;
+    pointsRefunded?: number;
+    recordedAtUtc: string;
+    memberConfirmedAtUtc: string | null;
+    memberConfirmedBy: "MEMBER" | "SYSTEM" | null;
+    proofAttachmentIds: string[];
+  } | null;
+}
+
+export type SportServiceType =
+  "MEMBERSHIP_ACCESS" | "GROUP_COURSE" | "COURT_RENTAL";
+
+export interface SportServiceDto {
+  /** Server-owned ID, returned only by the Manager catalog. */
+  offeringId?: number;
+  serviceType: SportServiceType;
+  isEnabled: boolean;
+  /** Chỉ có với GROUP_COURSE. */
+  defaultSessionMinutes: number | null;
+  defaultMaxCapacity: number | null;
+}
+
+/** Phần còn thiếu để dịch vụ bán được; chỉ Manager nhận (api/manager/sports). */
+export interface ServiceReadinessDto {
+  serviceType: SportServiceType;
+  ready: boolean;
+  missing: ("room_type" | "room" | "opening_hours" | "court_rate")[];
+}
+
+export interface SportDto {
+  sportId: number;
+  /** Mã ổn định, không đổi sau khi tạo. */
+  code: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  services: SportServiceDto[];
+  readiness?: ServiceReadinessDto[] | null;
+}
+
+export interface CourseDto {
+  classId: number;
+  code: string;
+  name: string;
+  sportId: number;
+  sportName: string;
+  coachId: string | null;
+  coachName: string | null;
+  defaultRoomId: number;
+  roomName: string;
+  startDate: string;
+  numSessions: number;
+  capacity: number;
+  availableSeats: number;
+  price: number;
+  status: "PUBLISHED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  enrollmentOpen: boolean;
+  thresholdResponseClosed?: boolean;
+  openingConfirmed?: boolean;
+  firstSessionStartUtc: string | null;
+  /** Buổi đã bắt đầu / còn lại: Member vào giữa chừng cần biết khóa đã chạy tới đâu. */
+  sessionsPassed?: number;
+  sessionsRemaining?: number;
+  scheduleRules: {
+    dayOfWeek: number;
+    startTimeLocal: string;
+    endTimeLocal?: string | null;
+  }[];
+}
+
+export interface CourseEnrollmentDto {
+  invoiceItemId: string | null;
+  enrollmentId: string;
+  classId: number;
+  classCode: string;
+  className: string;
+  sportName: string;
+  memberId: string;
+  status:
+    | "CONFIRMED"
+    | "TRANSFERRED_OUT"
+    | "REFUNDED"
+    | "CANCELLED_BY_CENTER"
+    | "CANCELLED";
+  enrolledAt: string;
+  endedAt: string | null;
+  numSessions: number;
+  firstSessionStartUtc: string | null;
+  classStatus: string;
+  coachId?: string | null;
+  coachName?: string | null;
+  roomName?: string | null;
+  lastSessionEndUtc?: string | null;
+  /** Số buổi đã diễn ra (không tính buổi hủy). */
+  completedSessions?: number;
+  nextSessionStartUtc?: string | null;
+  sportId?: number;
+}
+
+export interface WalletBalanceDto {
+  ownerUserId: string;
+  availablePoints: number;
+  heldPoints: number;
+  vndPerPoint: number;
+}
+
+export interface WalletLedgerDto {
+  id: string;
+  entryType: "EARN" | "HOLD" | "RELEASE" | "SPEND" | "ADJUSTMENT";
+  points: number;
+  availableDelta: number;
+  heldDelta: number;
+  availableAfter: number;
+  heldAfter: number;
+  referenceType: string;
+  referenceId: string;
+  note: string | null;
+  createdAtUtc: string;
+  sourceDescription?: string | null;
+  sourceInvoiceId?: string | null;
+}
+
+export interface CheckoutDto {
+  isDayPass?: boolean;
+  closingSoon?: boolean;
+  closesAtUtc?: string | null;
+  beneficiaryUserId: string;
+  initiatorUserId: string;
+  serverNowUtc: string;
+  invoiceId: string;
+  checkoutSessionId: string;
+  revision: number;
+  kind: "MEMBERSHIP" | "CLASS" | "COURT_RENTAL" | "WALLET_TOP_UP";
+  state: string;
+  totalAmount: number;
+  pointsApplied: number;
+  cashAmount: number;
+  expiresAtUtc: string;
+  resourceHoldId: string | null;
+  invoiceStatus: "ISSUED" | "PAID" | "VOID" | "PAID_AFTER_RECONCILIATION";
+  fulfillmentOutcome:
+    "PENDING" | "FULFILLED" | "COMPENSATED" | "RECONCILIATION_REQUIRED";
+  reconciliationRequired: boolean;
+}
+
+export interface PaymentAttemptDto {
+  gatewayMode: "MOCK" | "VNPAY";
+  paymentAttemptId: string;
+  invoiceId: string;
+  transactionReference: string;
+  cashAmount: number;
+  pointsApplied: number;
+  expiresAtUtc: string;
+  paymentUrl: string | null;
+  state: string;
+}
+
+export interface RoomDto {
+  allowRental?: boolean;
+  rentalBookingOpensAtUtc?: string | null;
+  sportId?: number | null;
+  roomTypeId: number | null;
+  isActive: boolean;
+  roomId: number;
+  name: string;
+  capacity: number;
+  activeClassCount: number;
+}
+
+export interface ClassRecurrenceDto {
+  recurrenceId: number;
+  daysOfWeek: string;
+  startTimeLocal: string;
+  endTimeLocal: string;
+  timezone: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface ClassDto {
+  classId: number;
+  name: string;
+  discipline: string;
+  defaultRoomId: number;
+  defaultRoomName: string;
+  roomCapacity: number;
+  defaultCoachId: string | null;
+  defaultCoachName: string | null;
+  capacity: number;
+  status: string;
+  recurrences: ClassRecurrenceDto[];
+}
+
+export interface ClassSessionDto {
+  sessionId: string;
+  classId: number;
+  className: string;
+  discipline: string;
+  roomId: number;
+  roomName: string;
+  coachId: string;
+  coachName: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  capacity: number;
+  baselineCapacity: number;
+  confirmedCount: number;
+  status: string;
+  rescheduledFromSessionId: string | null;
+  isFull: boolean;
+}
+
+export interface MemberSessionDto {
+  session: ClassSessionDto;
+  myEnrollmentId: string | null;
+  myEnrollmentStatus: string | null;
+}
+
+export interface EnrollmentDto {
+  enrollmentId: string;
+  sessionId: string;
+  memberId: string;
+  memberEmail: string;
+  memberName: string;
+  memberPackageId: string;
+  status: string;
+  registeredAt: string;
+  cancelledAt: string | null;
+  cancellationDeadlineHours: number;
+  cancellationDeadlineUtc: string;
+  attendanceStatus: string | null;
+  session: ClassSessionDto;
+}
+
+export interface RosterEntryDto {
+  enrollmentId: string;
+  memberId: string;
+  memberEmail: string;
+  memberName: string;
+  enrollmentStatus: string;
+  attendanceStatus: string | null;
+  checkInTime: string | null;
+}
+
+export interface SessionRosterDto {
+  session: ClassSessionDto;
+  entries: RosterEntryDto[];
+}
+
+export interface MembershipPackageDto {
+  packageId: number;
+  name: string;
+  price: number;
+  originalPrice?: number | null;
+  durationDays: number;
+  sessionLimit: number | null;
+  description: string | null;
+  /** Optional publisher metadata; legacy API responses omit these fields. */
+  nameLanguage?: string | null;
+  descriptionLanguage?: string | null;
+  isActive: boolean;
+}
+
+export interface MemberPackageDto {
+  memberPackageId: string;
+  memberId: string;
+  memberEmail: string;
+  memberName: string;
+  packageId: number;
+  packageName: string;
+  startDate: string;
+  endDate: string;
+  remainingSessions: number | null;
+  sessionLimit: number | null;
+  status: string;
+  isUsable: boolean;
+  stackingApproved: boolean;
+  stackingApprovalReason: string | null;
+  invoiceItemId?: string | null;
+  /** Gym day pass expires at 22:00 Vietnam time on the purchase day. Null for monthly plans. */
+  expiresAtUtc?: string | null;
+}
+
+export interface InvoiceSummaryDto {
+  invoiceId: string;
+  itemDescription?: string | null;
+  paidAtUtc?: string | null;
+  checkoutExpiresAtUtc?: string | null;
+  invoiceNumber: string;
+  memberId: string;
+  memberEmail: string;
+  memberName: string;
+  totalAmount: number;
+  pointsSpent: number;
+  cashAmount: number;
+  fulfillmentOutcome: string;
+  reconciliationRequired: boolean;
+  grossCollected: number;
+  obligationReduction: number;
+  refundedAmount: number;
+  netCollected: number;
+  netPayable: number;
+  outstanding: number;
+  refundDue: number;
+  status: string;
+  issuedAt: string;
+}
+
+export interface InvoiceItemDto {
+  classId: number | null;
+  courtRentalId: string | null;
+  ptEntitlementId: string | null;
+  memberPackageId: string | null;
+  sportId: number | null;
+  sportName: string | null;
+  ptFrequencyPerWeek: number | null;
+  sourceInvoiceItemId: string | null;
+  itemId: string;
+  itemType: string;
+  description: string;
+  unitPrice: number;
+  quantity: number;
+  lineAmount: number;
+  relatedEntityId: string | null;
+}
+
+export interface PaymentDto {
+  paymentId: string;
+  amount: number;
+  method: string;
+  status: string;
+  referenceCode: string | null;
+  receivedByUserId: string;
+  receivedByName: string;
+  paidAt: string;
+}
+
+export interface PaymentAdjustmentDto {
+  pointLedgerEntryId: string | null;
+  centerFault: boolean;
+  invoiceItemId: string | null;
+  systemCalculatedPoints: number;
+  approvedPoints: number | null;
+  adjustmentId: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  paymentId: string | null;
+  type: string;
+  amount: number;
+  requestedAmount: number;
+  reason: string;
+  status: string;
+  requestedByUserId: string;
+  requestedByName: string;
+  approvedByUserId: string | null;
+  approvedByName: string | null;
+  completedByUserId: string | null;
+  completedByName: string | null;
+  refundMethod: string | null;
+  refundReferenceCode: string | null;
+  createdAt: string;
+  approvedAtUtc: string | null;
+  completedAtUtc: string | null;
+  awaitingPayout: boolean;
+  resolvedAt: string | null;
+}
+
+export interface InvoiceDetailDto {
+  summary: InvoiceSummaryDto;
+  memberPackageId: string | null;
+  items: InvoiceItemDto[];
+  payments: PaymentDto[];
+  adjustments: PaymentAdjustmentDto[];
+  suggestedRefundAmount: number;
+}
+
+export interface RevenueReportDto {
+  legacyCashCollected: number;
+  reconciliationCashCollected: number;
+  reconciliationCashCount: number;
+  /** Bank transfers a Manager recorded as paid out; a separate line, never deducted from VNPay cash. */
+  bankRefundPaid?: number;
+  bankRefundCount?: number;
+  pointsRedeemed: number;
+  pointsRedeemedVnd: number;
+  pointsIssued: number;
+  /** Refund credits only; a subset of pointsIssued. */
+  pointsRefunded: number;
+  managerPointAdjustment: number;
+  outstandingPoints: number;
+  outstandingPointsAsOfUtc?: string;
+  bySource: { source: string; cashCollected: number; pointsRedeemed: number }[];
+  bySportAndSource: {
+    source: string;
+    sportId: number | null;
+    sportName: string | null;
+    memberId: string | null;
+    cashCollected: number;
+    legacyCashCollected: number;
+    pointsRedeemed: number;
+  }[];
+  fromDate: string;
+  toDate: string;
+  totalCollected: number;
+  totalRefunded: number;
+  totalObligationReduction: number;
+  netRevenue: number;
+  invoiceCount: number;
+  paymentCount: number;
+  refundCount: number;
+  daily: {
+    date: string;
+    collected: number;
+    refunded: number;
+    obligationReduction: number;
+    net: number;
+  }[];
+}
+
+export interface UserAdminDto {
+  userId: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  phone: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+  hasPassword: boolean;
+  hasGoogleLink: boolean;
+  sportIds: number[];
+  /** Staff account that has not set a password yet (waiting for the activation email). */
+  activationPending?: boolean;
+  activationExpiresAtUtc?: string | null;
+  activationResendAvailableAtUtc?: string | null;
+}
+
+export type MyAccountDto = UserAdminDto & { avatarUrl?: string | null };
+
+export interface BodyMeasurementDto {
+  measuredAt: string;
+  heightCm: number;
+  weightKg: number;
+  bmi: number;
+}
+
+/** Self-reported health and training profile. Enum values use the UPPER_SNAKE_CASE wire format. */
+export interface MemberTrainingProfileDto {
+  bodyBuild?: string | null;
+  memberId: string;
+  goal: string;
+  goalType: string | null;
+  experienceLevel: string;
+  notes: string | null;
+  updatedAt: string;
+  dateOfBirth: string | null;
+  age: number | null;
+  sex: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  targetWeightKg: number | null;
+  bmi: number | null;
+  bmiCategory: string | null;
+  activityLevel: string | null;
+  trainingDaysPerWeek: number | null;
+  sessionMinutes: number | null;
+  dietaryPreference: string;
+  foodAllergies: string | null;
+  /** True when the profile has everything the AI needs (body measurements, age, activity, schedule). */
+  isComplete: boolean;
+  recentMeasurements: BodyMeasurementDto[];
+}
+
+export interface CoachMemberRelationshipDto {
+  relationshipId: string;
+  coachId: string;
+  coachName: string;
+  memberId: string;
+  memberEmail: string;
+  memberName: string;
+  sourceType: string;
+  classId: number | null;
+  className: string | null;
+  status: string;
+  startedAt: string;
+  endedAt: string | null;
+  endReason?: string | null;
+  activeClasses?: { classId: number; className: string }[];
+}
+
+export interface WorkoutPlanDto {
+  status: string;
+  updatedAt: string;
+  version: number;
+  planId: string;
+  memberId: string;
+  memberName: string;
+  coachId: string;
+  coachName: string;
+  relationshipId: string;
+  goal: string;
+  level: string;
+  createdAt: string;
+  items: {
+    itemId: string;
+    exercise: string;
+    sets: number;
+    reps: number;
+    notes: string | null;
+  }[];
+}
+
+export interface NutritionGuidanceDto {
+  maintenanceCalories: number | null;
+  targetCalories: number | null;
+  proteinGramsMin: number | null;
+  proteinGramsMax: number | null;
+  tips: string[];
+}
+
+export interface WorkoutSuggestionDto {
+  sport?: "Gym" | "Badminton" | "Basketball";
+  memberId: string;
+  memberName: string;
+  goal: string;
+  level: string;
+  input: {
+    historyWindowDays: number;
+    sessionsAttended: number;
+    sessionsMissed: number;
+    gymCheckIns: number;
+    recentDisciplines: string[];
+    recentCoachNotes: string[];
+  };
+  exercises: string[];
+  items?:
+    | { exercise: string; sets: number; reps: number; notes?: string | null }[]
+    | null;
+  rationale: string;
+  /** Formula-based energy and protein estimate; null when the member's health profile is incomplete. */
+  nutrition?: NutritionGuidanceDto | null;
+  responseTimeMs: number;
+  generatedAt: string;
+}
+
+export interface SavedWorkoutSuggestionDto {
+  id: string;
+  generatedAt: string;
+  sport: string;
+  goal: string;
+  level: string;
+  items: {
+    exercise: string;
+    sets: number;
+    reps: number;
+    notes?: string | null;
+  }[];
+  rationale: string;
+}
+
+export interface SystemSettingDto {
+  key: string;
+  value: string;
+  description: string;
+  updatedAt: string;
+}
+
+export interface AuditLogDto {
+  auditId: string;
+  userId: string;
+  actorEmail: string;
+  /** Current actor name, resolved from their profile. */
+  actorFullName?: string | null;
+  actorRole?: string | null;
+  action: string;
+  targetEntity: string;
+  targetId: string;
+  /** Current target identity; not an immutable snapshot of the audit event. */
+  targetFullName?: string | null;
+  targetEmail?: string | null;
+  /** Null/absent for non-account targets or an older API. */
+  targetAccountExists?: boolean | null;
+  /** Display-only current label; never a historical snapshot. */
+  currentTargetLabel?: string | null;
+  /** Current names for references in this event, keyed as Entity:ID. */
+  referenceNames?: Record<string, string> | null;
+  oldValue: string | null;
+  newValue: string | null;
+  ipAddress: string;
+  timestamp: string;
+}
+
+export interface ReportExportDto {
+  reportExportId: string;
+  reportType: string;
+  requestedByUserId: string;
+  requestedByName: string;
+  parametersJson: string;
+  status: string;
+  rowCount: number;
+  sizeBytes: number;
+  failureReason: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  expiresAt: string;
+  format: string;
+}
+
+export interface GymCheckInDto {
+  checkInId: string;
+  memberId: string;
+  checkedInByUserId: string;
+  checkInTime: string;
+}
+
+export interface CourseMemberSessionDto {
+  sessionId: string;
+  classId: number;
+  className: string;
+  sportName: string;
+  sessionNo: number;
+  roomName: string;
+  coachName?: string | null;
+  startAtUtc: string;
+  endAtUtc: string;
+  status: string;
+  isMakeup: boolean;
+  attendanceStatus: string | null;
+}
+
+export interface RoomTypeDto {
+  roomTypeId: number;
+  name: string;
+  sportIds: number[];
+  isActive: boolean;
+}
+export interface OpeningHourDto {
+  dayOfWeek: number;
+  openTimeLocal: string;
+  closeTimeLocal: string;
+}
+export interface CourtRateDto {
+  roomId?: number | null;
+  rateId: number;
+  roomTypeId: number;
+  sportId: number | null;
+  daysOfWeek: string;
+  startTimeLocal: string;
+  endTimeLocal: string;
+  pricePerHour: number;
+  isActive: boolean;
+}
+export interface RoomBlockDto {
+  blockId: string;
+  roomId: number;
+  startAtUtc: string;
+  endAtUtc: string;
+  reason: string;
+  incidentId: string | null;
+  createdByUserId: string;
+}
+export interface CoachSpecialtyDto {
+  userId: string;
+  fullName: string;
+  sportIds: number[];
+}
+export interface CourseSessionDto {
+  sessionId: string;
+  classId: number;
+  className: string;
+  sessionNo: number;
+  roomId: number;
+  roomName: string;
+  coachId: string;
+  coachName: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  status: string;
+  isMakeup: boolean;
+  rescheduledFromSessionId: string | null;
+  incidentReport?: {
+    outcome: string;
+    occurredAtUtc: string;
+    recordedAtUtc: string;
+    reason: string;
+    replacementSessionId: string | null;
+  } | null;
+}
+export interface PointConfirmationDto {
+  confirmationId: string;
+  invoiceId: string;
+  memberId: string;
+  points: number;
+  expiresAtUtc: string;
+  holdExpiresAtUtc: string;
+  status: string;
+  revision: number;
+}
+export interface RevenueDimensionsDto {
+  fromDate: string;
+  toDate: string;
+  cashCollected: number;
+  pointsRedeemedVnd: number;
+  rows: RevenueReportDto["bySportAndSource"];
+}
+export interface ClassEnrollmentReportDto {
+  fromDate: string;
+  toDate: string;
+  totalClasses: number;
+  totalCapacity: number;
+  totalConfirmed: number;
+  totalActiveHolds: number;
+  fillRatio: number;
+  classes: {
+    classId: number;
+    code: string;
+    name: string;
+    sportId: number;
+    sportName: string;
+    status: string;
+    capacity: number;
+    confirmedCount: number;
+    activeHoldCount: number;
+    availableSeats: number;
+    fillRatio: number;
+    breakEvenThreshold: number | null;
+    thresholdStatus: string;
+    firstSessionStartUtc: string | null;
+  }[];
+}
+export interface ThresholdResponseDto {
+  classCancelled?: boolean;
+  responseId: string;
+  classId: number;
+  className: string;
+  sportId: number;
+  paidValueVnd: number;
+  deadlineUtc: string;
+  choice: "REFUND" | "TRANSFER" | "KEEP_PLACE" | null;
+  targetClassId: number | null;
+  resolutionStatus: string;
+  additionalInvoiceId: string | null;
+  serverNowUtc: string;
+}
+
+export interface CourtRentalDto {
+  courtRentalId: string;
+  sportId: number;
+  roomId: number;
+  startAtUtc: string;
+  endAtUtc: string;
+  totalPrice: number;
+  status: "PENDING_PAYMENT" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+  invoiceItemId: string | null;
+  invoiceId?: string | null;
+}
+export interface CourtRentalQuoteDto {
+  totalPrice: number;
+  blocks: { startUtc: string; endUtc: string; price: number }[];
+}
+export interface CourtRentalPolicyDto {
+  slotMinutes: number;
+  maxHours: number;
+  advanceDays: number;
+  cancelFreeHours: number;
+  serverNowUtc: string;
+}
+export interface CourtRentalDetailDto {
+  rental: CourtRentalDto;
+  roomName: string;
+  sportName: string;
+  blocks: CourtRentalQuoteDto["blocks"];
+  cancelReason: string | null;
+  cancelledAtUtc: string | null;
+  refundPoints: number;
+}
+
+export interface ManagerCourseDto extends Omit<CourseDto, "status"> {
+  sessionMinutes?: number | null;
+  status: "DRAFT" | CourseDto["status"];
+  costAmount: number;
+  breakEvenThreshold: number | null;
+  thresholdStatus: string;
+  thresholdDeadlineUtc: string | null;
+  thresholdResponseDeadlineUtc: string | null;
+  confirmedCount: number;
+  reservedCount: number;
+  activeHoldCount: number;
+  /** Why the manager closed enrollment; null when open or closed without an incident reason. */
+  enrollmentClosedReason: string | null;
+  enrollmentClosedAtUtc: string | null;
+  version: number;
+  createdAt: string;
+  publishedAt: string | null;
+}
+export interface CourseRosterDto {
+  session: CourseSessionDto;
+  attendanceOpensAtUtc: string;
+  attendanceClosesAtUtc: string;
+  entries: {
+    enrollmentId: string;
+    memberId: string;
+    memberName: string;
+    enrollmentStatus: string;
+    attendanceStatus: string | null;
+    attendanceRecordedAt: string | null;
+  }[];
+}
+export interface CoachAdminDto {
+  avatarUrl?: string | null;
+  userId: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  status: string;
+  bio: string | null;
+  title?: string | null;
+  yearsExperience?: number | null;
+  studentCount?: number | null;
+  philosophy?: string | null;
+  sportIds: number[];
+  createdAt: string;
+}
+export interface CourtScheduleEntryDto {
+  incidentId?: string | null;
+  incidentScope?: "ROOM" | "CENTER" | null;
+  affectedRoomIds?: number[];
+  sourceType: "CLASS_SESSION" | "COURT_RENTAL" | "ROOM_BLOCK";
+  sourceId: string;
+  roomId: number | null;
+  startAtUtc: string;
+  endAtUtc: string;
+  coachId: string | null;
+  coachName: string | null;
+  title: string;
+  status: string;
+  classId: number | null;
+  /** Người thuê (chỉ với COURT_RENTAL). */
+  memberId?: string | null;
+  memberName?: string | null;
+  participants: {
+    memberId: string;
+    memberName: string;
+    enrollmentId: string | null;
+    attendanceStatus: string | null;
+    recordedAtUtc: string | null;
+  }[];
+}
+export interface RentalAvailabilityDto extends CourtRentalQuoteDto {
+  roomId: number;
+  name: string;
+  capacity: number;
+}
+export interface IncidentRefundRowDto {
+  sourceId: string;
+  sourceType: string;
+  memberId: string;
+  memberName: string | null;
+  serviceName: string;
+  startAtUtc: string;
+  endAtUtc: string;
+  status: string;
+  isPaid: boolean;
+  maximumRefundPoints: number;
+  refundedPoints: number;
+  suggestedRefundPoints: number;
+}
+export interface IncidentRefundReceiptDto extends Omit<
+  IncidentRefundRowDto,
+  "maximumRefundPoints" | "refundedPoints" | "suggestedRefundPoints"
+> {
+  points: number;
+  suggestedPoints: number;
+  previouslyRefundedPoints: number;
+  adjustmentReason: string | null;
+}
+export interface IncidentPreviewDto {
+  fenceId?: string | null;
+  fenceExpiresAtUtc?: string | null;
+  previewToken?: string;
+  refunds?: IncidentRefundRowDto[];
+  scope: string;
+  roomId: number | null;
+  startAtUtc: string;
+  endAtUtc: string;
+  canResolve: boolean;
+  blockReason: string | null;
+  /** True when the incident closes every active Gym room (BR-130/138). */
+  closesGym?: boolean;
+  suggestedMembershipExtensionDays?: number;
+  affectedMemberCount?: number;
+  /** Each affected member with the outcome and the server's expected refund (null until a schedule decision). */
+  members?: {
+    memberId: string;
+    memberName: string | null;
+    sourceType: string;
+    sourceId: string;
+    outcome:
+      | "REFUNDED_AS_POINTS"
+      | "CHECKOUT_RELEASED"
+      | "AWAITS_SCHEDULE_DECISION"
+      | "DAY_PASS_SUPPORT";
+    expectedRefundPoints: number | null;
+  }[];
+  expectedRefundPointsTotal?: number;
+  impacts: {
+    sourceType: string;
+    sourceId: string;
+    startAtUtc: string;
+    endAtUtc: string;
+    resolutionOptions: { action: string; method: string; path: string }[];
+  }[];
+}

@@ -1,0 +1,1895 @@
+{
+  "schema_version": 1,
+  "scope": [
+    "member",
+    "coach"
+  ],
+  "sources": [
+    "frontend routes",
+    "connected frontend components"
+  ],
+  "limitations": [
+    "No automatic RBAC determination",
+    "Button labels may be nested in conditional components",
+    "API calls via clients may not contain literal paths",
+    "Workflow step sequence requires confirmation"
+  ],
+  "entries": [
+    {
+      "route": "/account",
+      "role": "shared",
+      "page_source": "src/app/account/page.tsx",
+      "reachable_source_files": 49,
+      "ui_label_candidates": [
+        {
+          "label": "Retry",
+          "source": "src/components/coach-credentials/coach-credentials.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Cancel",
+          "source": "src/components/coach-credentials/coach-credentials.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Document file",
+          "source": "src/components/coach-credentials/coach-credentials.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Show on my public profile",
+          "source": "src/components/coach-credentials/coach-credentials.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Certificates and awards",
+          "source": "src/components/coach-credentials/coach-credentials.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Certificate",
+          "source": "src/components/coach-credentials/coach-credentials.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Award",
+          "source": "src/components/coach-credentials/coach-credentials.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Send",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Ask Wolf",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/requests/${type}/${id}/read",
+          "source": "src/lib/manager-request-reads.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/attendance",
+      "role": "coach",
+      "page_source": "src/app/coach/attendance/page.tsx",
+      "reachable_source_files": 34,
+      "ui_label_candidates": [
+        {
+          "label": "Your assigned classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Student directory",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Students",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Close",
+          "source": "src/features/coaching/coach-workspace.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-assessment-history.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-current-assessments.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Fitness profile",
+          "source": "src/features/coaching/student-physical-profile.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Plan content",
+          "source": "src/features/coaching/training-plan-view.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/change-requests",
+      "role": "coach",
+      "page_source": "src/app/coach/change-requests/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/classes/[classId]",
+      "role": "coach",
+      "page_source": "src/app/coach/classes/[classId]/page.tsx",
+      "reachable_source_files": 44,
+      "ui_label_candidates": [
+        {
+          "label": "Your assigned classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Assigned substitute sessions",
+          "source": "src/features/coaching/coach-class-page.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Close",
+          "source": "src/features/coaching/coach-workspace.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-current-assessments.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Fitness profile",
+          "source": "src/features/coaching/student-physical-profile.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Plan content",
+          "source": "src/features/coaching/training-plan-view.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/manager/classes/${classId}/lead-coach",
+          "source": "src/features/courses/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/reschedule",
+          "source": "src/features/courses/change-lead-coach-dialog.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/${mode === ",
+          "source": "src/features/courses/session-editor.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-threshold-responses/${d.responseId}",
+          "source": "src/features/courses/threshold.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/classes",
+      "role": "coach",
+      "page_source": "src/app/coach/classes/page.tsx",
+      "reachable_source_files": 61,
+      "ui_label_candidates": [
+        {
+          "label": "Send",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Ask Wolf",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Your assigned classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Close",
+          "source": "src/features/coaching/coach-workspace.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-current-assessments.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Fitness profile",
+          "source": "src/features/coaching/student-physical-profile.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Plan content",
+          "source": "src/features/coaching/training-plan-view.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/classes/${classId}/lead-coach",
+          "source": "src/features/courses/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/reschedule",
+          "source": "src/features/courses/change-lead-coach-dialog.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/${mode === ",
+          "source": "src/features/courses/session-editor.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-threshold-responses/${d.responseId}",
+          "source": "src/features/courses/threshold.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/requests/${type}/${id}/read",
+          "source": "src/lib/manager-request-reads.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/members/[memberId]",
+      "role": "coach",
+      "page_source": "src/app/coach/members/[memberId]/page.tsx",
+      "reachable_source_files": 44,
+      "ui_label_candidates": [
+        {
+          "label": "Send",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Ask Wolf",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Your assigned classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Student directory",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Students",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Close",
+          "source": "src/features/coaching/coach-workspace.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-assessment-history.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-current-assessments.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Fitness profile",
+          "source": "src/features/coaching/student-physical-profile.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Plan content",
+          "source": "src/features/coaching/training-plan-view.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/requests/${type}/${id}/read",
+          "source": "src/lib/manager-request-reads.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/members",
+      "role": "coach",
+      "page_source": "src/app/coach/members/page.tsx",
+      "reachable_source_files": 34,
+      "ui_label_candidates": [
+        {
+          "label": "Your assigned classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Student directory",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Students",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Close",
+          "source": "src/features/coaching/coach-workspace.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-assessment-history.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-current-assessments.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Fitness profile",
+          "source": "src/features/coaching/student-physical-profile.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Plan content",
+          "source": "src/features/coaching/training-plan-view.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach",
+      "role": "coach",
+      "page_source": "src/app/coach/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/schedule",
+      "role": "coach",
+      "page_source": "src/app/coach/schedule/page.tsx",
+      "reachable_source_files": 34,
+      "ui_label_candidates": [
+        {
+          "label": "Your assigned classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search classes",
+          "source": "src/features/coaching/class-directory.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Student directory",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Students",
+          "source": "src/features/coaching/coach-students.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Close",
+          "source": "src/features/coaching/coach-workspace.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-assessment-history.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Class sessions completed",
+          "source": "src/features/coaching/student-current-assessments.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Fitness profile",
+          "source": "src/features/coaching/student-physical-profile.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Plan content",
+          "source": "src/features/coaching/training-plan-view.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/coach/support",
+      "role": "coach",
+      "page_source": "src/app/coach/support/page.tsx",
+      "reachable_source_files": 42,
+      "ui_label_candidates": [
+        {
+          "label": "Send",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Ask Wolf",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Retry member",
+          "source": "src/features/receptionist/member-support-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Retry",
+          "source": "src/features/receptionist/member-support-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Member support",
+          "source": "src/features/receptionist/member-support-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Clear",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Retry",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Clear filters",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Try again",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Support requests",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Filter by status",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Support request pages",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Support request details",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Linked support request",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "All statuses",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "All staff",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Assigned to me",
+          "source": "src/features/receptionist/support-queue.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "PUT",
+          "path": "/api/members/front-desk/${member.userId}/email",
+          "source": "src/features/receptionist/pending-member-actions.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/members/front-desk/${member.userId}/resend-activation",
+          "source": "src/features/receptionist/pending-member-actions.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/requests/${type}/${id}/read",
+          "source": "src/lib/manager-request-reads.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/class-schedule",
+      "role": "member",
+      "page_source": "src/app/member/class-schedule/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/courses/[classId]",
+      "role": "member",
+      "page_source": "src/app/member/courses/[classId]/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/courses",
+      "role": "member",
+      "page_source": "src/app/member/courses/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/courts/book",
+      "role": "member",
+      "page_source": "src/app/member/courts/book/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/discover/[id]",
+      "role": "member",
+      "page_source": "src/app/member/discover/[id]/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/discover",
+      "role": "member",
+      "page_source": "src/app/member/discover/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/finance",
+      "role": "member",
+      "page_source": "src/app/member/finance/page.tsx",
+      "reachable_source_files": 69,
+      "ui_label_candidates": [
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Refunds for cancellations by the center",
+          "source": "src/features/payments/center-cancellation-offers.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Invoice information",
+          "source": "src/features/payments/invoice-detail.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Payment result",
+          "source": "src/features/payments/payment-result.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds",
+          "source": "src/features/payments/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds/center-cancellations/${offer.invoiceItemId}/points",
+          "source": "src/features/payments/center-cancellation-offers.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${checkout.invoiceId}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/point-confirmations/clear",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/wallet/me/checkouts/${id}/points",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/point-confirmations/${confirmation.confirmationId}/verify",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${id}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/reconcile",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds/${r.adjustmentId}/${approve ? ",
+          "source": "src/features/payments/manager-refunds.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds",
+          "source": "src/features/payments/refund-request-form.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/requests/${type}/${id}/read",
+          "source": "src/lib/manager-request-reads.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/help",
+      "role": "member",
+      "page_source": "src/app/member/help/page.tsx",
+      "reachable_source_files": 37,
+      "ui_label_candidates": [
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Help",
+          "source": "src/features/member/help-center.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Progress",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Request details",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Transfer confirmation",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Transfer",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Response time",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "My requests",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Retry invoice services",
+          "source": "src/features/member/help-request-form.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Contact support",
+          "source": "src/features/member/help-request-form.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Invoices",
+          "source": "src/features/member/help-request-form.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Invoice breakdown",
+          "source": "src/features/member/help-request-form.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Select a topic",
+          "source": "src/features/member/help-request-form.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Choose a service on this invoice",
+          "source": "src/features/member/help-request-form.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/support/requests/${row.requestId}/remind",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/support/requests/${row.requestId}/${received ? ",
+          "source": "src/features/member/help-my-requests.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/invoices/[id]",
+      "role": "member",
+      "page_source": "src/app/member/invoices/[id]/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/invoices",
+      "role": "member",
+      "page_source": "src/app/member/invoices/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/my-plans",
+      "role": "member",
+      "page_source": "src/app/member/my-plans/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/my-registrations",
+      "role": "member",
+      "page_source": "src/app/member/my-registrations/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member",
+      "role": "member",
+      "page_source": "src/app/member/page.tsx",
+      "reachable_source_files": 64,
+      "ui_label_candidates": [
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Current body build",
+          "source": "src/features/training/body-build-selector.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "BMI",
+          "source": "src/features/training/health-profile-summary.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/court-rentals/${entry.sourceId}/${action}",
+          "source": "src/components/scheduling/CalendarEventDrawer.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/court-rentals/${entry.sourceId}/cancel",
+          "source": "src/components/scheduling/CalendarEventDrawer.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/classes/${classId}/lead-coach",
+          "source": "src/features/courses/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/reschedule",
+          "source": "src/features/courses/change-lead-coach-dialog.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/${mode === ",
+          "source": "src/features/courses/session-editor.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-threshold-responses/${d.responseId}",
+          "source": "src/features/courses/threshold.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/profile",
+      "role": "member",
+      "page_source": "src/app/member/profile/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/rentals/[rentalId]",
+      "role": "member",
+      "page_source": "src/app/member/rentals/[rentalId]/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/rentals",
+      "role": "member",
+      "page_source": "src/app/member/rentals/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/schedule",
+      "role": "member",
+      "page_source": "src/app/member/schedule/page.tsx",
+      "reachable_source_files": 77,
+      "ui_label_candidates": [
+        {
+          "label": "Try again",
+          "source": "src/components/CoachProfilePreview.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Back to my schedule",
+          "source": "src/features/member/schedule-course-page.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Invoice information",
+          "source": "src/features/payments/invoice-detail.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Payment result",
+          "source": "src/features/payments/payment-result.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/classes/${classId}/lead-coach",
+          "source": "src/features/courses/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/reschedule",
+          "source": "src/features/courses/change-lead-coach-dialog.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/${mode === ",
+          "source": "src/features/courses/session-editor.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-threshold-responses/${d.responseId}",
+          "source": "src/features/courses/threshold.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds",
+          "source": "src/features/payments/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${checkout.invoiceId}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/point-confirmations/clear",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/wallet/me/checkouts/${id}/points",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/point-confirmations/${confirmation.confirmationId}/verify",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${id}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/reconcile",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds/${r.adjustmentId}/${approve ? ",
+          "source": "src/features/payments/manager-refunds.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/services/courses/[id]",
+      "role": "member",
+      "page_source": "src/app/member/services/courses/[id]/page.tsx",
+      "reachable_source_files": 38,
+      "ui_label_candidates": [
+        {
+          "label": "Try again",
+          "source": "src/components/CoachProfilePreview.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/manager/classes/${classId}/lead-coach",
+          "source": "src/features/courses/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/reschedule",
+          "source": "src/features/courses/change-lead-coach-dialog.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/${mode === ",
+          "source": "src/features/courses/session-editor.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-threshold-responses/${d.responseId}",
+          "source": "src/features/courses/threshold.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/services",
+      "role": "member",
+      "page_source": "src/app/member/services/page.tsx",
+      "reachable_source_files": 43,
+      "ui_label_candidates": [
+        {
+          "label": "Try again",
+          "source": "src/components/CoachProfilePreview.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/manager/classes/${classId}/lead-coach",
+          "source": "src/features/courses/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/reschedule",
+          "source": "src/features/courses/change-lead-coach-dialog.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-sessions/${session.sessionId}/${mode === ",
+          "source": "src/features/courses/session-editor.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-threshold-responses/${d.responseId}",
+          "source": "src/features/courses/threshold.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/threshold",
+      "role": "member",
+      "page_source": "src/app/member/threshold/page.tsx",
+      "reachable_source_files": 49,
+      "ui_label_candidates": [
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Invoice information",
+          "source": "src/features/payments/invoice-detail.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Payment result",
+          "source": "src/features/payments/payment-result.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/class-threshold-responses/${d.responseId}",
+          "source": "src/features/courses/threshold.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds",
+          "source": "src/features/payments/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${checkout.invoiceId}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/point-confirmations/clear",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/wallet/me/checkouts/${id}/points",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/point-confirmations/${confirmation.confirmationId}/verify",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${id}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/reconcile",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds/${r.adjustmentId}/${approve ? ",
+          "source": "src/features/payments/manager-refunds.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/threshold-responses/[responseId]",
+      "role": "member",
+      "page_source": "src/app/member/threshold-responses/[responseId]/page.tsx",
+      "reachable_source_files": 2,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/training",
+      "role": "member",
+      "page_source": "src/app/member/training/page.tsx",
+      "reachable_source_files": 55,
+      "ui_label_candidates": [
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Current body build",
+          "source": "src/features/training/body-build-selector.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "BMI",
+          "source": "src/features/training/health-profile-summary.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Saved AI workout plans",
+          "source": "src/features/training/member-training.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "AI suggestion",
+          "source": "src/features/training/member-training.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Coach",
+          "source": "src/features/training/member-training.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "AI Workout Suggestions",
+          "source": "src/features/training/training-profile.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/wallet",
+      "role": "member",
+      "page_source": "src/app/member/wallet/page.tsx",
+      "reachable_source_files": 1,
+      "ui_label_candidates": [],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/wallet/top-up",
+      "role": "member",
+      "page_source": "src/app/member/wallet/top-up/page.tsx",
+      "reachable_source_files": 51,
+      "ui_label_candidates": [
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Invoice information",
+          "source": "src/features/payments/invoice-detail.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Payment result",
+          "source": "src/features/payments/payment-result.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Start a new top-up",
+          "source": "src/features/wallet/wallet-top-up.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Pay with VNPay",
+          "source": "src/features/wallet/wallet-top-up.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Top-up steps",
+          "source": "src/features/wallet/wallet-top-up.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Top-up benefits",
+          "source": "src/features/wallet/wallet-top-up.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Quick amounts",
+          "source": "src/features/wallet/wallet-top-up.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Order summary",
+          "source": "src/features/wallet/wallet-top-up.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds",
+          "source": "src/features/payments/api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${checkout.invoiceId}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/point-confirmations/clear",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/wallet/me/checkouts/${id}/points",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/point-confirmations/${confirmation.confirmationId}/verify",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/checkouts/${id}/cancel",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/invoices/${id}/reconcile",
+          "source": "src/features/payments/checkout-panel.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/refunds/${r.adjustmentId}/${approve ? ",
+          "source": "src/features/payments/manager-refunds.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/member/workout-suggestions",
+      "role": "member",
+      "page_source": "src/app/member/workout-suggestions/page.tsx",
+      "reachable_source_files": 5,
+      "ui_label_candidates": [
+        {
+          "label": "Before you start",
+          "source": "src/app/member/workout-suggestions/page.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Workout recommendation",
+          "source": "src/app/member/workout-suggestions/page.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Workout context",
+          "source": "src/app/member/workout-suggestions/page.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    },
+    {
+      "route": "/notifications",
+      "role": "shared",
+      "page_source": "src/app/notifications/page.tsx",
+      "reachable_source_files": 34,
+      "ui_label_candidates": [
+        {
+          "label": "Member Navigation",
+          "source": "src/components/MemberShell.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Send",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Ask Wolf",
+          "source": "src/features/coach/coach-ai-assistant.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "What this means for your pass",
+          "source": "src/features/member/notification-body.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Try again",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Load unread messages",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Notification inbox",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Messages",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search notifications",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Search messages",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Clear search",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Loading messages",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Notifications",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Message pages",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Previous page",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Next page",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Message reader",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Previous message",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Next message",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        },
+        {
+          "label": "Close message",
+          "source": "src/features/member/notification-inbox.tsx",
+          "verification": "literal_label_in_connected_source",
+          "handler_traced": false
+        }
+      ],
+      "api_reference_candidates": [
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/components/NotificationBell.tsx",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/${encodeURIComponent(id)}/read",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/notifications/read-all",
+          "source": "src/features/member/notifications-api.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        },
+        {
+          "method": "POST",
+          "path": "/api/manager/requests/${type}/${id}/read",
+          "source": "src/lib/manager-request-reads.ts",
+          "verification": "literal_api_reference_not_role_permission"
+        }
+      ],
+      "verification": "route_exists; labels_not_full_workflow; api_not_authorization"
+    }
+  ]
+}

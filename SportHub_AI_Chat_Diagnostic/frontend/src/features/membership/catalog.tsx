@@ -1,0 +1,465 @@
+"use client";
+import { hasService } from "@/lib/sports";
+import { useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/apiClient";
+import { useApi } from "@/lib/useApi";
+import { useLanguage } from "@/lib/language";
+import { formatMoney, formatDate } from "@/lib/format";
+import { Card } from "@/components/ui";
+import { Button } from "@/components/primitives/Button";
+import type { CourseDto, MemberPackageDto, Paged, SportDto } from "@/lib/types";
+import { CheckoutPanel } from "@/features/payments";
+import {
+  catalogContentLanguage,
+  parseMembershipCatalog,
+} from "./catalog-content";
+import styles from "./catalog.module.css";
+
+export function MembershipCatalog({
+  purchase = false,
+  owned = [],
+  compact = false,
+  dense = false,
+  paymentModal = false,
+  gymActive = true,
+}: {
+  purchase?: boolean;
+  compact?: boolean;
+  dense?: boolean;
+  paymentModal?: boolean;
+  gymActive?: boolean;
+  /** Gói hội viên đã có: cùng loại gói đang hiệu lực hoặc chờ thanh toán thì chưa mua lại được. */
+  owned?: MemberPackageDto[];
+}) {
+  const { t, language } = useLanguage();
+  const text = (vi: string, en: string) => (language === "vi" ? vi : en);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [planId, setPlanId] = useState<number | null>(null);
+  const state = useApi(
+    async (signal) =>
+      purchase
+        ? parseMembershipCatalog(
+            await api.get<unknown>("/api/membership-packages", { signal }),
+          )
+        : [],
+    [purchase],
+  );
+  const activePackages =
+    state.data?.filter(
+      (packageItem) =>
+        packageItem.isActive &&
+        (gymActive || !/^\s*personal\s*training/i.test(packageItem.name)),
+    ) ?? [];
+  // Gói Gym theo thời hạn (1/3/6/12 tháng) gom thành một bộ chọn thay vì 4 thẻ rời.
+  const gymPlans = compact
+    ? activePackages
+        .filter(
+          (item) =>
+            /^\s*gym\b/i.test(item.name),
+        )
+        .sort((a, b) => a.durationDays - b.durationDays)
+    : [];
+  const showPlanPicker = gymPlans.length >= 2;
+  const gridPackages = showPlanPicker
+    ? activePackages.filter((item) => !gymPlans.includes(item))
+    : activePackages;
+  const plan =
+    gymPlans.find((item) => item.packageId === planId) ?? gymPlans[0];
+  const monthsOf = (days: number) => Math.max(1, Math.round(days / 30.4));
+  const renderAction = (p: (typeof activePackages)[number]) => {
+    const have = owned.find(
+      (o) =>
+        o.packageId === p.packageId &&
+        ["ACTIVE", "PENDING_PAYMENT"].includes(o.status.toUpperCase()),
+    );
+    return have ? (
+      <p role="note" className="muted">
+        {t.memberDashboardV2.ownedPackage.replace(
+          "{date}",
+          formatDate(have.endDate),
+        )}
+      </p>
+    ) : paymentModal ? (
+      <CheckoutPanel
+        modal
+        intent={{
+          kind: "membership",
+          body: {
+            packageId: p.packageId,
+            allowStacking: false,
+          },
+        }}
+        review={{
+          title: text("Thanh toán gói Gym", "Gym package payment"),
+          submitLabel: text("Thanh toán", "Payment"),
+          items: [
+            {
+              label: text("Gói tập", "Package"),
+              value: p.name,
+            },
+          ],
+        }}
+      />
+    ) : (
+      <button onClick={() => setSelected(p.packageId)}>
+        {text("Kiểm tra & thanh toán", "Review & checkout")}
+      </button>
+    );
+  };
+  const programs = useApi(
+    async (signal) => {
+      if (purchase)
+        return { sports: [] as SportDto[], courses: [] as CourseDto[] };
+      const [sports, coursePage] = await Promise.all([
+        api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
+        api.get<Paged<CourseDto>>("/api/classes", {
+          query: { page: 1, pageSize: 100 },
+          anonymous: true,
+          signal,
+        }),
+      ]);
+      return { sports, courses: coursePage.items };
+    },
+    [purchase],
+  );
+  const activeSports = (programs.data?.sports ?? []).filter(
+    (sport) => sport.isActive,
+  );
+  const coursesBySport = (sportId: number) =>
+    (programs.data?.courses ?? []).filter(
+      (course) =>
+        course.sportId === sportId &&
+        course.status === "PUBLISHED" &&
+        course.availableSeats > 0,
+    );
+  const sportLabel = (sport: SportDto) => {
+    if (/badminton|cầu\s*lông/i.test(sport.name))
+      return text("Cầu lông", "Badminton");
+    if (/basketball|bóng\s*rổ/i.test(sport.name))
+      return text("Bóng rổ", "Basketball");
+    if (/gym|fitness|conditioning|thể lực/i.test(sport.name))
+      return text("Gym & thể lực", "Gym & conditioning");
+    return sport.name;
+  };
+  return (
+    <section
+      id="programs"
+      className={`${styles.catalog} ${!purchase ? styles.publicCatalog : ""} ${compact ? styles.compact : ""} ${dense ? styles.dense : ""}`}
+      aria-busy={purchase ? state.loading : programs.loading}
+    >
+      {purchase && !compact && (
+        <h2>{text("Gói Gym đang mở bán", "Gym membership packages")}</h2>
+      )}
+      {purchase && state.loading ? (
+        <p role="status">
+          {text("Đang tải danh mục gói…", "Loading available packages…")}
+        </p>
+      ) : purchase && state.error ? (
+        <div role="alert">
+          <p>
+            {state.error.status === 429
+              ? text(
+                  "Bạn tải danh mục quá nhiều lần. Vui lòng đợi một chút rồi thử lại.",
+                  "Too many requests. Please wait a moment before reloading the packages.",
+                )
+              : state.error.status === 401 || state.error.status === 403
+                ? text(
+                    "Hiện bạn chưa thể truy cập danh mục này. Bạn có thể xem khóa học hoặc thử lại sau.",
+                    "You cannot access this catalog right now. You can explore programs or try again later.",
+                  )
+                : text(
+                    "Chưa tải được danh mục gói. Thử lại để xem giá và điều kiện mua.",
+                    "We could not load the packages. Try again to see prices and purchase conditions.",
+                  )}
+          </p>
+          <Button variant="secondary" onClick={state.reload}>
+            {text("Tải lại danh mục", "Reload packages")}
+          </Button>
+          {purchase && state.error.status === 401 && (
+            <p>
+              <Link href="/login?next=%2Fmember%2Fmy-plans">
+                {text(
+                  "Đăng nhập lại để chọn gói",
+                  "Sign in again to choose a package",
+                )}
+              </Link>
+            </p>
+          )}
+          <p>
+            <Link href="/#activities">
+              {text("Xem các môn tập", "Explore programs")}
+            </Link>
+          </p>
+        </div>
+      ) : purchase && !activePackages.length ? (
+        <p role="status">
+          {text(
+            "Hiện chưa có gói đang mở bán. Bạn có thể xem các môn tập đang hoạt động.",
+            "No packages are available right now. You can explore active programs.",
+          )}{" "}
+          <Link href="/#activities">
+            {text("Xem các môn tập", "Explore programs")}
+          </Link>
+        </p>
+      ) : (
+        <>
+          {purchase && showPlanPicker && plan && (
+            <section
+              className={styles.planPicker}
+              aria-labelledby="gym-plan-title"
+            >
+              <h3 id="gym-plan-title">
+                {text("Chọn thời hạn Gym", "Choose your Gym duration")}
+              </h3>
+              <div
+                className={styles.planTabs}
+                role="radiogroup"
+                aria-labelledby="gym-plan-title"
+              >
+                {gymPlans.map((item) => {
+                  const months = monthsOf(item.durationDays);
+                  return (
+                    <button
+                      key={item.packageId}
+                      type="button"
+                      role="radio"
+                      aria-checked={item.packageId === plan.packageId}
+                      onClick={() => setPlanId(item.packageId)}
+                    >
+                      <strong>{months}</strong>
+                      <span>
+                        {text("tháng", months === 1 ? "month" : "months")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className={styles.planBody}>
+                <p className={styles.planPrice}>
+                  <strong>{formatMoney(plan.price)}</strong>
+                  {plan.originalPrice != null &&
+                    plan.originalPrice > plan.price && (
+                      <s
+                        aria-label={`Original price: ${formatMoney(plan.originalPrice)}`}
+                      >
+                        {formatMoney(plan.originalPrice)}
+                      </s>
+                    )}
+                  <span>
+                    {" "}
+                    · {plan.durationDays} {t.refactor.days}
+                  </span>
+                </p>
+                <p className={styles.planMeta}>
+                  {"≈ "}
+                  {formatMoney(
+                    Math.round(plan.price / monthsOf(plan.durationDays)),
+                  )}
+                  {text("/tháng", "/month")}
+                  {(() => {
+                    const base = gymPlans[0];
+                    const months = monthsOf(plan.durationDays);
+                    const saving =
+                      months > 1 && monthsOf(base.durationDays) === 1
+                        ? base.price * months - plan.price
+                        : 0;
+                    return saving > 0 ? (
+                      <b className={styles.planSaving}>
+                        {text("Tiết kiệm ", "Save ")}
+                        {formatMoney(saving)}
+                      </b>
+                    ) : null;
+                  })()}
+                </p>
+                {plan.description?.trim() && (
+                  <p
+                    lang={catalogContentLanguage(
+                      plan.description,
+                      plan.descriptionLanguage,
+                    )}
+                    dir="auto"
+                  >
+                    {plan.description}
+                  </p>
+                )}
+                {renderAction(plan)}
+              </div>
+            </section>
+          )}
+          {purchase && gridPackages.length > 0 ? (
+            <div className={compact ? styles.packageGrid : "refactor-grid"}>
+              {gridPackages.map((p) => (
+                <Card
+                  key={p.packageId}
+                  title={
+                    <h3
+                      lang={catalogContentLanguage(p.name, p.nameLanguage)}
+                      dir="auto"
+                    >
+                      {p.name}
+                    </h3>
+                  }
+                >
+                  <p className={compact ? styles.packagePrice : undefined}>
+                    <strong>{formatMoney(p.price)}</strong>
+                    {p.originalPrice != null && p.originalPrice > p.price && (
+                      <s
+                        className={styles.originalPrice}
+                        aria-label={`Original price: ${formatMoney(p.originalPrice)}`}
+                      >
+                        {formatMoney(p.originalPrice)}
+                      </s>
+                    )}
+                    <span>
+                      {" "}
+                      · {p.durationDays} {t.refactor.days}
+                    </span>
+                  </p>
+                  {compact ? (
+                    <details className={styles.packageDetails}>
+                      <summary>
+                        {text("Quyền lợi & điều kiện", "Benefits & conditions")}
+                      </summary>
+                      {p.description?.trim() ? (
+                        <p
+                          lang={catalogContentLanguage(
+                            p.description,
+                            p.descriptionLanguage,
+                          )}
+                          dir="auto"
+                        >
+                          {p.description}
+                        </p>
+                      ) : (
+                        <p>
+                          {text(
+                            "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
+                            "The center has not provided a description. Check the benefits before buying.",
+                          )}
+                        </p>
+                      )}
+                    </details>
+                  ) : (
+                    <>
+                      {p.description?.trim() ? (
+                        <p
+                          lang={catalogContentLanguage(
+                            p.description,
+                            p.descriptionLanguage,
+                          )}
+                          dir="auto"
+                        >
+                          {p.description}
+                        </p>
+                      ) : (
+                        <p>
+                          {text(
+                            "Trung tâm chưa cung cấp mô tả. Kiểm tra quyền lợi trước khi mua.",
+                            "The center has not provided a description. Check the benefits before buying.",
+                          )}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {renderAction(p)}
+                </Card>
+              ))}
+            </div>
+          ) : null}
+        </>
+      )}
+      {!purchase && (
+        <>
+          {programs.loading ? (
+            <p role="status">
+              {text("Đang tải lớp đang mở…", "Loading available classes…")}
+            </p>
+          ) : programs.error ? (
+            <p role="status">
+              {text(
+                "Chưa tải được danh sách khóa học. Bạn vẫn có thể xem các môn tập.",
+                "Course prices could not be loaded. You can still explore the sports.",
+              )}{" "}
+              <Link href="/#activities">
+                {text("Xem môn tập", "Explore sports")}
+              </Link>
+            </p>
+          ) : (
+            <div className={styles.publicSportGrid}>
+              {activeSports.map((sport, index) => {
+                const sportCourses = coursesBySport(sport.sportId);
+                const isCourseSport = hasService(sport, "GROUP_COURSE");
+                return (
+                  <article
+                    className={styles.publicSportCard}
+                    key={sport.sportId}
+                  >
+                    <span className={styles.publicPlanIndex}>
+                      {String(index + 1).padStart(2, "0")}
+                      <span aria-hidden="true"> / </span>
+                      {isCourseSport
+                        ? text("KHÓA HỌC", "COURSES")
+                        : text("THỂ LỰC", "CONDITIONING")}
+                    </span>
+                    <h3>{sportLabel(sport)}</h3>
+                    {isCourseSport && sportCourses.length ? (
+                      <ul className={styles.sportCourseList}>
+                        {sportCourses.slice(0, 3).map((course) => (
+                          <li key={course.classId}>
+                            <div className={styles.sportCourseTitle}>
+                              <strong>{course.name}</strong>
+                              <span>{formatMoney(course.price)}</span>
+                            </div>
+                            <p>
+                              {course.numSessions} {text("buổi", "sessions")}
+                              {course.scheduleRules.length > 0 &&
+                                ` · ${course.scheduleRules
+                                  .map(
+                                    (rule) =>
+                                      `${text(["", "T2", "T3", "T4", "T5", "T6", "T7", "CN"][rule.dayOfWeek] ?? "", ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][rule.dayOfWeek] ?? "")} ${rule.startTimeLocal}`,
+                                  )
+                                  .join(" / ")}`}
+                              {` · ${course.availableSeats} ${text("chỗ", "spots")}`}
+                            </p>
+                            <Link href={`/courses/${course.classId}`}>
+                              {text("Xem khóa học", "View course")}{" "}
+                              <span aria-hidden="true">↗</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : isCourseSport ? (
+                      <p className={styles.noCourseCopy}>
+                        {text(
+                          "Chưa có khóa học mở đăng ký. Xem lịch lớp mới nhất tại trang môn tập.",
+                          "No open courses at the moment. Check the sport page for the latest schedule.",
+                        )}
+                      </p>
+                    ) : (
+                      <p className={styles.noCourseCopy}>
+                        {text(
+                          "Khu tập Gym tự do để rèn sức mạnh, sức bền và thể lực tổng quát.",
+                          "Open Gym training for strength, endurance, and overall conditioning.",
+                        )}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+      {selected && (
+        <CheckoutPanel
+          key={selected}
+          intent={{
+            kind: "membership",
+            body: { packageId: selected, allowStacking: false },
+          }}
+        />
+      )}
+    </section>
+  );
+}

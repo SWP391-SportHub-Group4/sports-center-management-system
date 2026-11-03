@@ -1,0 +1,36 @@
+.compact {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.compact > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.compact > form {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.compact > form > :global(.form-grid) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.compact > form > button {
+  justify-self: start;
+}
+@media (max-width: 700px) {
+  .compact > form > :global(.form-grid) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 400px) {
+  .compact > form > :global(.form-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,128 @@
+"use client";
+import Link from "next/link";
+import { useLandingCopy } from "./landing-content-context";
+import styles from "./homepage-faq.module.css";
+
+type Language = "en" | "vi";
+
+export const faqCopy = {
+  en: {
+    eyebrow: "A few useful answers",
+    title: "Good to know before you get started.",
+    lead: "A quick guide to choosing a sport, finding a class and making your first booking.",
+    questions: [
+      {
+        question: "Which sports and training options can I explore?",
+        answer: "SportHub offers badminton, basketball, Gym and conditioning.",
+      },
+      {
+        question: "Can I see class schedules and prices on the homepage?",
+        answer:
+          "The homepage gives you an overview of each sport. Current class dates, availability and prices are shown in the Member class catalog after you sign in.",
+      },
+      {
+        question: "How do I register for a class?",
+        answer:
+          "Sign in to your Member account, open the class catalog, choose an available class and follow checkout. If you are signed out, SportHub will ask you to sign in first.",
+        link: "Browse classes",
+        href: "/member/services",
+      },
+      {
+        question: "Can I buy a one-day Gym pass?",
+        answer:
+          "Yes. The Gym day pass costs 50,000 VND and is valid only on the day payment succeeds (Vietnam time).",
+        link: "See Gym passes",
+        href: "/member/services?view=explore&type=gym",
+      },
+      {
+        question: "Do I need an account to browse SportHub?",
+        answer:
+          "You can explore the homepage without an account. Sign-in is required for Member schedules, class registration and bookings.",
+        link: "Sign in to SportHub",
+        href: "/login",
+      },
+    ],
+  },
+  vi: {
+    eyebrow: "Một vài thông tin hữu ích",
+    title: "Thông tin cần biết trước khi bắt đầu.",
+    lead: "Hướng dẫn nhanh để chọn môn tập, tìm lớp và đặt buổi đầu tiên.",
+    questions: [
+      {
+        question: "SportHub có những môn tập và hình thức huấn luyện nào?",
+        answer: "SportHub có cầu lông, bóng rổ, Gym và rèn thể lực.",
+      },
+      {
+        question:
+          "Tôi có thể xem lịch lớp và học phí ngay trên homepage không?",
+        answer:
+          "Homepage giới thiệu tổng quan từng môn. Ngày học, chỗ còn trống và học phí hiện tại được hiển thị trong danh mục lớp Member sau khi đăng nhập.",
+      },
+      {
+        question: "Làm thế nào để đăng ký một lớp học?",
+        answer:
+          "Đăng nhập tài khoản Member, mở danh mục lớp, chọn lớp còn chỗ và làm theo hướng dẫn thanh toán. Nếu chưa đăng nhập, SportHub sẽ yêu cầu bạn đăng nhập trước.",
+        link: "Khám phá lớp học",
+        href: "/member/services",
+      },
+      {
+        question: "Tôi có thể mua vé Gym 1 ngày không?",
+        answer:
+          "Có. Vé Gym 1 ngày giá 50.000đ và có hiệu lực 24 giờ kể từ lúc thanh toán thành công.",
+        link: "Xem vé Gym",
+        href: "/member/services?view=explore&type=gym",
+      },
+      {
+        question: "Tôi có cần tài khoản để xem SportHub không?",
+        answer:
+          "Bạn có thể xem homepage mà không cần tài khoản. Cần đăng nhập để xem lịch Member, đăng ký lớp và đặt buổi tập.",
+        link: "Đăng nhập SportHub",
+        href: "/login",
+      },
+    ],
+  },
+} satisfies Record<
+  Language,
+  {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    questions: {
+      question: string;
+      answer: string;
+      link?: string;
+      href?: string;
+    }[];
+  }
+>;
+
+export function HomepageFAQ({ language }: { language: Language }) {
+  const t = useLandingCopy("faq", faqCopy[language]);
+
+  return (
+    <section className={styles.section} aria-labelledby="homepage-faq-title">
+      <div className={styles.intro}>
+        <p className={styles.eyebrow}>{t.eyebrow}</p>
+        <h2 id="homepage-faq-title">{t.title}</h2>
+        <p className={styles.lead}>{t.lead}</p>
+      </div>
+
+      <div className={styles.questions}>
+        {t.questions.map((item) => (
+          <details className={styles.item} key={item.question}>
+            <summary>
+              <span>{item.question}</span>
+              <span className={styles.indicator} aria-hidden="true" />
+            </summary>
+            <div className={styles.answer}>
+              <p>{item.answer}</p>
+              {item.link && item.href && (
+                <Link href={item.href}>{item.link}</Link>
+              )}
+            </div>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,257 @@
+.dialog {
+  --dialog-width: 1080px;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.8fr);
+  gap: var(--space-6);
+}
+.layout h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+  color: var(--text-strong);
+}
+.original {
+  min-width: 0;
+  padding-right: var(--space-6);
+  border-right: 1px solid var(--border-subtle);
+}
+.custom {
+  min-width: 0;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.heading > span {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.hint {
+  margin: var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.defaultCard {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.defaultCard[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  outline: 1px solid var(--color-primary);
+}
+.defaultCard video,
+.queue video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--bg-brand-deep);
+}
+.cardCaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 44px;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+}
+.queue {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  list-style: none;
+  padding: 0;
+  margin: var(--space-4) 0 0;
+}
+.queue li {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.queue li[data-dragging] {
+  opacity: 0.65;
+}
+.queue li[data-drop-target] {
+  border-color: var(--color-primary);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.itemCaption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  min-width: 0;
+}
+.position {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+}
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-strong);
+  cursor: pointer;
+}
+.iconButton:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+}
+.iconButton:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.videoFrame {
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.videoFrame:active {
+  cursor: grabbing;
+}
+.queue[data-selected] li[data-video-id] {
+  border-color: var(--color-primary);
+}
+.videoFrame:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -3px;
+}
+.reorder {
+  display: flex;
+  justify-content: flex-end;
+  padding-inline: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.queue .addSlot {
+  display: flex;
+  min-height: 180px;
+  border: 1px dashed var(--border-control);
+  background: var(--bg-surface-sunken);
+}
+.add {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-5);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+.add:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.actions :global(.btn) {
+  margin: 0;
+}
+.error {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.dialog :is(button, input, video):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.dialog button:disabled {
+  cursor: default;
+}
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+  .original {
+    padding-right: 0;
+    padding-bottom: var(--space-5);
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .queue {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .footer,
+  .actions {
+    width: 100%;
+  }
+  .actions > button {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog *,
+  .dialog *::before {
+    transition: none !important;
+  }
+}

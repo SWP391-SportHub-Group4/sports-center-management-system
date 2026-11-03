@@ -1,0 +1,132 @@
+/* Shared Manager calendar presentation with a responsive master/detail workspace. */
+.scheduleWorkspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.scheduleWorkspace[data-detail-open="true"] { grid-template-columns: minmax(0, 1.8fr) minmax(310px, 1fr); }
+.calendarPane { min-width: 0; overflow-x: auto; }
+.detailPane { min-width: 0; max-height: min(80vh, 950px); overflow-y: auto; position: sticky; top: 76px; }
+@media (max-width: 1100px) {
+  .scheduleWorkspace[data-detail-open="true"] { grid-template-columns: minmax(0,1fr); }
+  .detailPane { position: static; max-height: none; }
+}
+
+/* Shared Manager Activity Schedule visual language. Filters remain visible. */
+.weekToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sections :global(.btn) {
+  margin: 0;
+  min-height: 44px;
+}
+.sections :global(.btn[aria-pressed="true"]) {
+  background: var(--bg-inverse);
+  color: var(--text-on-inverse);
+  border-color: var(--bg-inverse);
+}
+.weekToolbar
+  .viewNavigation
+  .viewButton:global(
+    button.btn.btn--secondary[aria-pressed="true"]:not(:disabled)
+  ) {
+  background: var(--bg-inverse);
+  color: var(--text-on-inverse);
+  border-color: var(--bg-inverse);
+}
+.weekToolbar > :global(.field) {
+  width: 300px;
+  max-width: 100%;
+  margin: 0;
+}
+.weekNavigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+.weekNavigation :global(.btn) {
+  margin: 0;
+  min-height: 44px;
+}
+.viewNavigation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-sunken);
+}
+.weekToolbar .viewNavigation .viewButton:global(.btn.btn--secondary) {
+  min-width: 64px;
+  min-height: 36px;
+  padding: var(--space-2) var(--space-3);
+  border-color: transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  transition:
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out);
+}
+.weekToolbar
+  .viewNavigation
+  .viewButton:global(
+    button.btn.btn--secondary:hover:not([aria-pressed="true"])
+  ) {
+  background: var(--bg-surface);
+  color: var(--text-strong);
+}
+.dateNavigation {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.arrowButton:global(.btn) {
+  width: 44px;
+  padding: 0;
+  flex: none;
+  border-radius: var(--radius-md);
+}
+.arrowButton svg {
+  flex: none;
+  transition: transform 160ms var(--ease-out);
+}
+.arrowButton[data-direction="previous"]:hover svg {
+  transform: translateX(-2px);
+}
+.arrowButton[data-direction="next"]:hover svg {
+  transform: translateX(2px);
+}
+.currentButton:global(.btn) {
+  min-width: 128px;
+  padding-inline: var(--space-4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrowButton svg,
+  .weekToolbar .viewNavigation .viewButton:global(.btn.btn--secondary) {
+    transition: none;
+    transform: none;
+  }
+  .arrowButton[data-direction]:hover svg {
+    transform: none;
+  }
+}
+.filters {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.filtersAlwaysVisible { padding-top: var(--space-4); margin-top: var(--space-4); border-top: 1px solid var(--border-subtle); }
+.filtersAlwaysVisible label { display: grid; gap: 6px; }

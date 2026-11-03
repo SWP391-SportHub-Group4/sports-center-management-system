@@ -1,6 +1,6 @@
 namespace SportHub.AI.Domain.Entities;
 
-/// <summary>One managed prompt per chat role. JSON revision snapshots are updated atomically.</summary>
+/// <summary>One managed prompt per role and category. JSON revision snapshots are updated atomically.</summary>
 public sealed class SystemPrompt
 {
     public string Id { get; set; } = "";

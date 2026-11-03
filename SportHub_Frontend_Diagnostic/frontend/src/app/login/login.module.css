@@ -1,0 +1,121 @@
+/* Trang đăng nhập: bố cục thoáng, tiêu đề căn giữa, nhóm liên kết tách riêng. Token semantic only. */
+
+/* section.card (0,1,1) thắng `.auth__card` toàn cục (0,1,0) mà không phụ thuộc thứ tự nạp CSS. */
+section.card {
+  width: min(460px, 100%);
+  padding: clamp(18px, 2vw, 24px);
+  border-radius: var(--radius-xl);
+}
+
+.title {
+  max-width: none;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 2.5rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--text-strong);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.separator {
+  margin: var(--space-5) auto;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.form,
+.separator,
+.signup,
+.card :global(.demo-accounts) {
+  width: 100%;
+  margin-inline: auto;
+}
+
+/* "Quên mật khẩu?" nằm ngay dưới ô mật khẩu, căn phải, đủ vùng chạm 44px. */
+.passwordGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.forgot {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 var(--space-1);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.forgot:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.introMessage {
+  min-height: 36px;
+  margin-bottom: 0;
+}
+
+.feedback {
+  margin: 12px 0 16px;
+}
+
+.feedback :global(.alert) {
+  padding: 8px 10px;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.submit {
+  width: 100%;
+  min-height: 52px;
+  margin: 12px auto 0;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-md);
+}
+
+/* Nhóm liên kết đăng ký tách khỏi form bằng khoảng trắng + đường kẻ mảnh. */
+.signup {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.signup a {
+  margin-left: var(--space-1);
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.signup a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* Khối tài khoản demo (chỉ môi trường development): giữ huy hiệu DEV trên một dòng. */
+.card :global(.demo-accounts) {
+  margin-top: var(--space-6);
+}
+
+.card :global(.demo-accounts__badge) {
+  white-space: nowrap;
+}

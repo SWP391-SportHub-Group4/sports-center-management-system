@@ -1,0 +1,103 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { api } from "@/lib/apiClient";
+import { useApi } from "@/lib/useApi";
+import { todayIso, addDaysIso, formatDate, formatDateTime, mondayOfIso } from "@/lib/format";
+import { vietnamLocal } from "@/lib/vietnam-time";
+import type { CourtScheduleEntryDto } from "@/lib/types";
+
+const dayOf = (utc: string) => vietnamLocal(utc).slice(0, 10);
+const monthStart = (day: string) => `${day.slice(0, 7)}-01`;
+function nextMonth(day: string, offset: number) {
+  const [year, month] = day.split("-").map(Number);
+  const next = new Date(Date.UTC(year, month - 1 + offset, 1));
+  return next.toISOString().slice(0, 10);
+}
+function endOfMonth(day: string) { return addDaysIso(nextMonth(day, 1), -1); }
+const normalized = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+function operationalStatus(row: CourtScheduleEntryDto, now: number) {
+  const raw = normalized(row.status);
+  if (raw.includes("CANCEL")) return "Cancelled";
+  if (row.sourceType === "ROOM_BLOCK") return "Unavailable / incident";
+  if (raw.includes("BLOCK") || raw.includes("SUSPEND") || raw.includes("INCIDENT")) return "Unavailable / incident";
+  if (raw.includes("CLOSED") || raw.includes("VOID")) return "Closed";
+  if (now < Date.parse(row.startAtUtc)) return "Upcoming";
+  if (now < Date.parse(row.endAtUtc)) return "In progress";
+  return "Ended";
+}
+
+/** Read-only calendar navigation. Class attendance actions remain in AttendanceBoard. */
+export function ReceptionistSchedule() {
+  const [date, setDate] = useState(todayIso());
+  const [view, setView] = useState<"month" | "week" | "day" | "list">("month");
+  const [type, setType] = useState("ALL");
+  const [status, setStatus] = useState("ALL");
+  const [member, setMember] = useState("");
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const now = Date.now();
+  const first = view === "month" ? monthStart(date) : view === "day" ? date : mondayOfIso(date);
+  const last = view === "month" ? endOfMonth(date) : view === "day" ? date : addDaysIso(first, 6);
+  const data = useApi(async (signal) => {
+    // The API permits ranges of at most 31 inclusive days.
+    return api.get<CourtScheduleEntryDto[]>("/api/manager/court-schedule", {
+      signal, query: { fromDate: first, toDate: last },
+    });
+  }, [first, last]);
+  const rows = useMemo(() => (data.data ?? []).filter((r) => {
+    if (type !== "ALL" && r.sourceType !== type) return false;
+    if (status !== "ALL" && operationalStatus(r, now) !== status) return false;
+    if (member.trim()) {
+      const term = member.trim().toLowerCase();
+      const candidates = [r.memberId, r.memberName, ...(r.participants ?? []).flatMap(p => [p.memberId, p.memberName])];
+      if (!candidates.some(x => x?.toLowerCase().includes(term))) return false;
+    }
+    if (query.trim() && ![r.title, r.coachName, r.memberName, r.status].some(x => x?.toLowerCase().includes(query.trim().toLowerCase()))) return false;
+    return true;
+  }), [data.data, member, now, query, status, type]);
+  const selected = rows.find(r => `${r.sourceType}:${r.sourceId}` === selectedId);
+  const dates = Array.from({ length: Number(last.slice(8)) }, (_, i) => `${first.slice(0,7)}-${String(i+1).padStart(2,"0")}`);
+  const changeDate = (next: string) => {setDate(next);setSelectedId("");};
+  return <div style={{ display: "grid", gap: 18 }}>
+    <section className="card" style={{ padding: 18 }}>
+      <h2>Activity schedule</h2>
+      <p>Browse class sessions, booked court rentals and operational restrictions. Availability and checkout must be confirmed through the relevant booking/payment workflow.</p>
+      <div className="btn-row">
+        {(["month", "week", "day", "list"] as const).map(v => <button key={v} className="btn btn--secondary btn--sm" aria-pressed={view === v} onClick={() => { setView(v);setSelectedId(""); }}>{v[0].toUpperCase()+v.slice(1)}</button>)}
+        <button className="btn btn--secondary btn--sm" onClick={() => changeDate(view === "month" ? nextMonth(date, -1) : addDaysIso(date, view === "day" ? -1 : -7))}>Previous</button>
+        <button className="btn btn--secondary btn--sm" onClick={() => changeDate(todayIso())}>Today</button>
+        <button className="btn btn--secondary btn--sm" onClick={() => changeDate(view === "month" ? nextMonth(date, 1) : addDaysIso(date, view === "day" ? 1 : 7))}>Next</button>
+        <label>Date <input type="date" value={date} onChange={e => changeDate(e.target.value)} /></label>
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
+        <label>Type <select value={type} onChange={e => setType(e.target.value)}><option value="ALL">All</option><option value="CLASS_SESSION">Classes</option><option value="COURT_RENTAL">Court bookings</option><option value="ROOM_BLOCK">Unavailable / incident</option></select></label>
+        <label>Status <select value={status} onChange={e => setStatus(e.target.value)}>{["ALL","Upcoming","In progress","Ended","Cancelled","Closed","Unavailable / incident"].map(x=><option key={x} value={x}>{x === "ALL" ? "All statuses" : x}</option>)}</select></label>
+        <label>Member <input type="search" placeholder="Name or ID" value={member} onChange={e => setMember(e.target.value)} /></label>
+        <label>Search <input type="search" placeholder="Class, coach or booking" value={query} onChange={e => setQuery(e.target.value)} /></label>
+      </div>
+    </section>
+    {data.loading && <p>Loading schedule…</p>}
+    {data.error && <p role="alert">{data.error.message}</p>}
+    {!data.error && view === "month" && <section className="card" style={{ padding: 18 }}>
+      <h3>{new Date(`${first}T00:00:00Z`).toLocaleDateString("en-US", {month:"long",year:"numeric",timeZone:"UTC"})}</h3>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,minmax(0,1fr))",gap:6}}>
+        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=><strong key={d} style={{textAlign:"center"}}>{d}</strong>)}
+        {Array.from({length:(new Date(`${first}T00:00:00Z`).getUTCDay()+6)%7},(_,i)=><span key={`pad${i}`}/>)}
+        {dates.map(d=>{const items=rows.filter(r=>dayOf(r.startAtUtc)===d);return <button key={d} type="button" onClick={()=>{changeDate(d);setView("day");}} style={{minHeight:74,padding:6,textAlign:"left",border:"1px solid var(--line)",borderRadius:8,background:d===date?"var(--ice)":"var(--surface)",color:"inherit"}}><strong>{Number(d.slice(8))}</strong><div style={{fontSize:12}}>{items.filter(r=>r.sourceType==="CLASS_SESSION").length} classes</div><div style={{fontSize:12}}>{items.filter(r=>r.sourceType==="COURT_RENTAL").length} bookings</div>{items.some(r=>r.sourceType==="ROOM_BLOCK")&&<small>Restrictions</small>}</button>;})}
+      </div>
+    </section>}
+    {!data.error && <section className="card" style={{padding:18}}><h3>Schedules · {rows.length}</h3>
+      {rows.length===0 && <p>No matching scheduled activities. No records does not guarantee a court is available for booking.</p>}
+      {rows.map(r=><button type="button" key={`${r.sourceType}:${r.sourceId}`} onClick={()=>setSelectedId(`${r.sourceType}:${r.sourceId}`)} style={{display:"flex",width:"100%",justifyContent:"space-between",gap:12,textAlign:"left",padding:12,marginBottom:6,border:"1px solid var(--line)",borderRadius:8,background:"var(--surface)",color:"inherit"}}><span><strong>{r.title}</strong><small style={{display:"block"}}>{formatDateTime(r.startAtUtc)} – {formatDateTime(r.endAtUtc)} · {r.sourceType.replaceAll("_"," ")}</small></span><span>{operationalStatus(r,now)} · {r.status}</span></button>)}
+    </section>}
+    {selected && <section className="card" style={{padding:18}}><div style={{display:"flex",justifyContent:"space-between"}}><h3>{selected.title}</h3><button className="btn btn--secondary btn--sm" onClick={()=>setSelectedId("")}>Close</button></div>
+      <p><strong>Type:</strong> {selected.sourceType} · <strong>Status:</strong> {selected.status}</p>
+      <p><strong>Schedule:</strong> {formatDateTime(selected.startAtUtc)} – {formatDateTime(selected.endAtUtc)}</p>
+      {selected.sourceType==="CLASS_SESSION" && <><p><strong>Coach:</strong> {selected.coachName || "—"}</p><h4>Enrolled members</h4>{selected.participants?.length ? <ul>{selected.participants.map(p=><li key={`${p.memberId}-${p.enrollmentId}`}>{p.memberName} · {p.attendanceStatus || "Unmarked"}</li>)}</ul> : <p>No enrolled members in the schedule response.</p>}<Link className="btn" href={`/receptionist/attendance?date=${dayOf(selected.startAtUtc)}&session=${selected.sourceId}`}>View / edit attendance</Link></>}
+      {selected.sourceType==="COURT_RENTAL" && <><p><strong>Renter:</strong> {selected.memberName || "—"}</p><p><strong>Rental status:</strong> {selected.status}</p><p>Payment and checkout status are not included in the schedule response. Open the member invoice to verify payment; do not infer it from the reservation status.</p>{selected.memberId&&<Link className="btn btn--secondary" href={`/receptionist/members/${selected.memberId}?tab=invoices`}>Member invoices</Link>}</>}
+      {selected.sourceType==="ROOM_BLOCK" && <p>This time period is marked unavailable. Incident details must be checked with the incident workflow.</p>}
+    </section>}
+  </div>;
+}

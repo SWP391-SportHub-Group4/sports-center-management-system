@@ -1,0 +1,22 @@
+.narrative {
+  display: grid;
+  gap: var(--space-3);
+}
+.narrative section {
+  display: grid;
+  gap: var(--space-1);
+}
+.narrative h6 {
+  margin: 0;
+  color: var(--color-primary-soft-text);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+.narrative p,
+.plain {
+  margin: 0;
+  max-width: 70ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}

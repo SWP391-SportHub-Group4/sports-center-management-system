@@ -1,0 +1,5 @@
+backend/SportHub.AI/Api/ClassTeachingAiController.cs
+backend/SportHub.AI/Application/Services/UiNavigationKnowledge.cs
+frontend/src/features/coaching/teaching-editor.tsx
+frontend/src/features/coaching/training-plan-view.tsx
+test.txt

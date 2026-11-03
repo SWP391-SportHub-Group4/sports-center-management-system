@@ -1,0 +1,6 @@
+import { redirect } from "next/navigation";
+
+/** Tuyến cũ: hoàn điểm nay là tab của Tài chính. Giữ bookmark. */
+export default function Page() {
+  redirect("/manager/requests?type=refunds");
+}

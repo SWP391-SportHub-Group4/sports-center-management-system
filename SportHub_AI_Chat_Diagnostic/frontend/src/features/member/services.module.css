@@ -1,0 +1,22 @@
+.packages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-3);
+}
+.packages > :global(.card) {
+  align-self: start;
+}
+.packages > :global(.card) > :global(.card__head),
+.packages > :global(.card) > :global(.card__body) {
+  padding: var(--space-4);
+}
+.packages > :global(.card) > :global(.card__body) {
+  font-size: var(--text-sm);
+}
+.disclosure > summary {
+  min-height: 44px;
+  align-content: center;
+  cursor: pointer;
+  color: var(--color-primary-soft-text);
+  font-weight: var(--weight-semibold);
+}

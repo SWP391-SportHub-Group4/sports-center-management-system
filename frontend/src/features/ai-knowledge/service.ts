@@ -11,7 +11,7 @@ function changed() {
   window.dispatchEvent(new Event("sporthub:knowledge-changed"));
 }
 export type Audience = "Member" | "Coach" | "Both";
-export type Category = "Rules" | "Policies" | "Procedures" | "General";
+export type Category = "Rules" | "Policies" | "Procedures" | "General" | "Api";
 export type Content = {
   title: string;
   audience: Audience;
@@ -49,6 +49,7 @@ export const categoryLabels = {
   Policies: "Policy",
   Procedures: "Procedure",
   General: "General information",
+  Api: "API reference",
 };
 export const blank: Content = {
   title: "",

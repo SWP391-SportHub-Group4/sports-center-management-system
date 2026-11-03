@@ -1,0 +1,83 @@
+.detail {
+  min-width: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-xs);
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--bg-surface-sunken);
+}
+.summary > div,
+.expiry {
+  display: grid;
+  gap: var(--space-1);
+}
+.label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.paidAt {
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+}
+.expiry strong {
+  font-variant-numeric: tabular-nums;
+}
+.expiry small {
+  color: var(--text-muted);
+}
+.tableHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.tableHead h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+.tableHead span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.scope {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.tableScroll {
+  overflow-x: auto;
+  border: 1px solid var(--bg-surface-sunken);
+  border-radius: var(--radius-md);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+}
+.table th {
+  background: var(--bg-surface-sunken);
+  font-size: var(--text-sm);
+}
+.table tbody tr:nth-child(even) {
+  background: var(--bg-surface-sunken);
+}
+.table tbody tr:nth-child(odd) {
+  background: var(--bg-surface);
+}
+.table tbody tr + tr {
+  border-top: 1px solid var(--bg-surface-sunken);
+}

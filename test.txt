@@ -29,3 +29,6 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 cd "C:\Users\ACER\OneDrive\Desktop\swp\sports-center-management-system\frontend"
 
 pnpm run dev
+
+
+python tools\sync_ai_navigation.py --repo . --out .\ai-navigation-output

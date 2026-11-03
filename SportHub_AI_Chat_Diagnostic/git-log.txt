@@ -1,0 +1,5 @@
+361f2e07 fix/fe: member
+90f162f4 Merge pull request #185 from SWP391-SportHub-Group4/feat/member
+971961a7 fix/UI: reason for admin
+aa8587dd Merge pull request #184 from SWP391-SportHub-Group4/feat/hao-ai-flow5-flow6
+212f255f update: AI training goal validate & AI chatbox CRUD #2 & update docs

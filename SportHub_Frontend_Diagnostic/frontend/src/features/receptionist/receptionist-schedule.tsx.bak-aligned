@@ -1,0 +1,649 @@
+"use client";
+
+import Link from "next/link";
+import { Calendar, type CalendarEvent } from "@/components/scheduling";
+import { useLanguage } from "@/lib/language";
+import { ReceptionistInlineAttendance } from "./receptionist-inline-attendance";
+import { useMemo, useState } from "react";
+
+import { MemberPicker } from "@/components/MemberPicker";
+import { api } from "@/lib/apiClient";
+import {
+  addDaysIso,
+  formatDateTime,
+  formatMoney,
+  mondayOfIso,
+  todayIso,
+} from "@/lib/format";
+import { pagedItems } from "@/lib/paged";
+import type {
+  CourtRentalDto,
+  CourtScheduleEntryDto,
+  InvoiceDetailDto,
+} from "@/lib/types";
+import { useApi, useNow } from "@/lib/useApi";
+import { vietnamLocal } from "@/lib/vietnam-time";
+import { catalogApi } from "@/features/catalog";
+import { courseApi } from "@/features/courses";
+import { rentalApi } from "@/features/rentals";
+
+import { useDeskMember } from "./desk-context";
+import styles from "./receptionist-schedule-layout.module.css";
+import { ReceptionistAvailabilityGrid } from "./receptionist-availability-grid";
+
+type View = "week" | "day" | "list";
+type TypeFilter = "ALL" | "CLASS_SESSION" | "COURT_RENTAL" | "AVAILABLE_SLOT";
+type StatusFilter =
+  | "ALL"
+  | "OPEN"
+  | "LOCKED"
+  | "UPCOMING"
+  | "IN_PROGRESS"
+  | "ENDED"
+  | "CANCELLED"
+  | "PENDING_PAYMENT"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "AVAILABLE";
+
+const OPEN_MINUTE = 6 * 60;
+const CLOSE_MINUTE = 22 * 60;
+
+const dayOf = (utc: string) => vietnamLocal(utc).slice(0, 10);
+function utcStart(localDate: string) {
+  return new Date(`${localDate}T00:00:00+07:00`).toISOString();
+}
+
+function utcEndExclusive(localDate: string) {
+  return new Date(`${addDaysIso(localDate, 1)}T00:00:00+07:00`).toISOString();
+}
+
+function vietnamParts(nowMs: number) {
+  const shifted = new Date(nowMs + 7 * 60 * 60 * 1000);
+  return {
+    date: shifted.toISOString().slice(0, 10),
+    minute: shifted.getUTCHours() * 60 + shifted.getUTCMinutes(),
+  };
+}
+
+function operatingBaseDate(nowMs: number) {
+  const local = vietnamParts(nowMs);
+  return local.minute < OPEN_MINUTE ? addDaysIso(local.date, -1) : local.date;
+}
+
+function localMinuteOf(utc: string) {
+  const local = vietnamLocal(utc);
+  const [hour, minute] = local.slice(11, 16).split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function isRentalWindowSlot(startUtc: string, endUtc: string) {
+  const start = localMinuteOf(startUtc);
+  const end = localMinuteOf(endUtc);
+  return start >= OPEN_MINUTE && end <= CLOSE_MINUTE && end > start;
+}
+
+function temporalState(row: CourtScheduleEntryDto, now: number) {
+  const raw = row.status.toUpperCase();
+  if (raw.includes("CANCEL")) return "CANCELLED";
+  if (now < Date.parse(row.startAtUtc)) return "UPCOMING";
+  if (now < Date.parse(row.endAtUtc)) return "IN_PROGRESS";
+  return "ENDED";
+}
+
+export function ReceptionistSchedule() {
+  const desk = useDeskMember();
+  const [date, setDate] = useState(todayIso());
+  const [view, setView] = useState<View>("week");
+  const { t } = useLanguage();
+  const [type, setType] = useState<TypeFilter>("ALL");
+  const [status, setStatus] = useState<StatusFilter>("ALL");
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [sportId, setSportId] = useState("");
+
+  const now = useNow(30_000);
+
+  const first =
+    view === "day" ? date : mondayOfIso(date);
+
+  const last =
+    view === "day" ? date : addDaysIso(first, 6);
+
+  const schedule = useApi(
+    (signal) =>
+      api.get<CourtScheduleEntryDto[]>("/api/manager/court-schedule", {
+        signal,
+        query: {
+          fromDate: first,
+          toDate: last,
+          ...(desk.member?.userId ? { memberId: desk.member.userId } : {}),
+        },
+      }),
+    [first, last, desk.member?.userId],
+  );
+
+  const courses = useApi(
+    (signal) =>
+      courseApi.list(
+        { fromDate: first, toDate: last, page: 1, pageSize: 100 },
+        signal,
+      ),
+    [first, last],
+  );
+
+  const sports = useApi((signal) => catalogApi.sports(signal), []);
+  const rentalSports = (sports.data ?? []).filter(
+    (sport) =>
+      sport.isActive &&
+      sport.services.some(
+        (service) =>
+          service.serviceType === "COURT_RENTAL" && service.isEnabled,
+      ),
+  );
+
+  const effectiveSportId =
+    sportId || (rentalSports[0] ? String(rentalSports[0].sportId) : "");
+
+  const operatingDay = operatingBaseDate(now);
+  const actualToday = vietnamParts(now).date;
+
+  const availabilityDates = useMemo(
+    () => [
+      operatingDay,
+      addDaysIso(operatingDay, 1),
+      addDaysIso(operatingDay, 2),
+    ],
+    [operatingDay],
+  );
+
+  const availability = useApi(
+    async (signal) => {
+      const member = desk.member;
+
+      if (!member || !effectiveSportId) return [];
+
+      return Promise.all(
+        availabilityDates.map(async (slotDate) => {
+          if (slotDate < actualToday) {
+            return { date: slotDate, calendar: null };
+          }
+
+          return {
+            date: slotDate,
+            calendar: await rentalApi.calendar(
+              Number(effectiveSportId),
+              slotDate,
+              1,
+              signal,
+              member.userId,
+            ),
+          };
+        }),
+      );
+    },
+    [
+      desk.member?.userId,
+      effectiveSportId,
+      operatingDay,
+      actualToday,
+    ],
+  );
+
+  const courseById = useMemo(
+    () =>
+      new Map(
+        pagedItems(courses.data).map((course) => [course.classId, course]),
+      ),
+    [courses.data],
+  );
+
+  function businessState(row: CourtScheduleEntryDto) {
+    if (row.sourceType === "CLASS_SESSION" && row.classId) {
+      const course = courseById.get(row.classId);
+      const raw = row.status.toUpperCase();
+
+      if (raw.includes("CANCEL")) return "CANCELLED";
+      if (course?.status === "CANCELLED") return "CANCELLED";
+      if (course?.status === "COMPLETED") return "COMPLETED";
+      if (course && !course.enrollmentOpen) return "LOCKED";
+      if (course && course.availableSeats <= 0) return "LOCKED";
+      if (course?.status === "PUBLISHED" || course?.status === "IN_PROGRESS")
+        return "OPEN";
+
+      return temporalState(row, now);
+    }
+
+    if (row.sourceType === "COURT_RENTAL") {
+      const raw = row.status.toUpperCase();
+      if (raw.includes("PENDING")) return "PENDING_PAYMENT";
+      if (raw.includes("CONFIRM")) return "CONFIRMED";
+      if (raw.includes("COMPLETE")) return "COMPLETED";
+      if (raw.includes("CANCEL")) return "CANCELLED";
+    }
+
+    return temporalState(row, now);
+  }
+
+  const filteredRows = useMemo(() => {
+    const term = query.trim().toLowerCase();
+
+    return (schedule.data ?? []).filter((row) => {
+      if (row.sourceType === "ROOM_BLOCK") return false;
+
+      if (type !== "ALL" && type !== "AVAILABLE_SLOT" && row.sourceType !== type)
+        return false;
+      if (type === "AVAILABLE_SLOT") return false;
+
+      const rowState = businessState(row);
+      const timeState = temporalState(row, now);
+
+      if (
+        status !== "ALL" &&
+        status !== rowState &&
+        status !== timeState
+      )
+        return false;
+
+      if (
+        term &&
+        ![
+          row.title,
+          row.coachName,
+          row.memberName,
+          row.status,
+          rowState,
+          ...(row.participants ?? []).flatMap((participant) => [
+            participant.memberName,
+            participant.memberId,
+          ]),
+        ].some((value) => value?.toLowerCase().includes(term))
+      )
+        return false;
+
+      return true;
+    });
+  }, [schedule.data, type, status, query, now, courseById]);
+
+  const selected = (schedule.data ?? []).find(
+    (row) => `${row.sourceType}:${row.sourceId}` === selectedId,
+  );
+
+  const selectedRentals = useApi(
+    (signal) =>
+      selected?.sourceType === "COURT_RENTAL" && selected.memberId
+        ? api.get<CourtRentalDto[]>(
+            `/api/members/${selected.memberId}/court-rentals`,
+            {
+              signal,
+              query: {
+                fromUtc: utcStart(first),
+                toUtc: utcEndExclusive(last),
+              },
+            },
+          )
+        : Promise.resolve([]),
+    [selected?.sourceId, selected?.memberId, first, last],
+  );
+
+  const selectedRental = (selectedRentals.data ?? []).find(
+    (rental) => rental.courtRentalId === selected?.sourceId,
+  );
+
+  const selectedInvoice = useApi(
+    (signal) =>
+      selectedRental?.invoiceId
+        ? api.get<InvoiceDetailDto>(
+            `/api/invoices/${selectedRental.invoiceId}`,
+            { signal },
+          )
+        : Promise.resolve(null),
+    [selectedRental?.invoiceId],
+  );
+
+  const freeSlots = useMemo(
+    () =>
+      (availability.data ?? []).flatMap(({ date: slotDate, calendar }) =>
+        (calendar?.rooms ?? []).flatMap((room) =>
+          room.slots
+            .filter(
+              (slot) =>
+                slot.status === "AVAILABLE" &&
+                isRentalWindowSlot(slot.startUtc, slot.endUtc) &&
+                Date.parse(slot.startUtc) > now,
+            )
+            .map((slot) => ({
+              date: slotDate,
+              roomId: room.roomId,
+              roomName: room.name,
+              startUtc: slot.startUtc,
+              endUtc: slot.endUtc,
+              totalPrice: slot.totalPrice,
+            })),
+        ),
+      ),
+    [availability.data, now],
+  );
+
+  const blockedSlots = useMemo(
+    () =>
+      (availability.data ?? []).flatMap(({ date: slotDate, calendar }) =>
+        (calendar?.rooms ?? []).flatMap((room) =>
+          room.slots
+            .filter(
+              (slot) =>
+                slot.status === "BLOCKED" &&
+                isRentalWindowSlot(slot.startUtc, slot.endUtc),
+            )
+            .map((slot) => ({
+              date: slotDate,
+              roomId: room.roomId,
+              roomName: room.name,
+              startUtc: slot.startUtc,
+              endUtc: slot.endUtc,
+            })),
+        ),
+      ),
+    [availability.data],
+  );
+
+  const freeSlotsByDate = useMemo(
+    () =>
+      availabilityDates.map((slotDate) => ({
+        date: slotDate,
+        slots: freeSlots.filter((slot) => slot.date === slotDate),
+        blockedCount: blockedSlots.filter((slot) => slot.date === slotDate)
+          .length,
+      })),
+    [availabilityDates, freeSlots, blockedSlots],
+  );
+
+
+  function changeDate(next: string) {
+    setDate(next);
+    setSelectedId("");
+  }
+
+  function move(offset: -1 | 1) {
+    changeDate(addDaysIso(date, view === "day" ? offset : offset * 7));
+  }
+
+  const calendarEvents: CalendarEvent[] = filteredRows.map((row) => ({
+    id: `${row.sourceType}:${row.sourceId}`,
+    title: row.title,
+    type: row.sourceType,
+    startAtUtc: row.startAtUtc,
+    endAtUtc: row.endAtUtc,
+    roomName: null,
+    coachName: row.coachName,
+    status: row.sourceType === "CLASS_SESSION" && businessState(row) === "LOCKED"
+      ? "LOCKED"
+      : row.status,
+  }));
+
+  return (
+    <div style={{ display: "grid", gap: 18 }}>
+      <section className="card" style={{ padding: 18 }}>
+        <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <label>
+            Date
+            <input type="date" value={date}
+              onChange={(event) => changeDate(event.target.value)} />
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div role="group" aria-label="Calendar view" style={{ display: "flex", gap: 2, borderRadius: 8, background: "var(--surface-muted, #edf1ea)", padding: 4 }}>
+              {(["day", "week", "list"] as const).map((item) => (
+                <button key={item} type="button"
+                  className={view === item ? "btn btn--sm" : "btn btn--secondary btn--sm"}
+                  aria-pressed={view === item}
+                  onClick={() => { setView(item); setSelectedId(""); }}>
+                  {item[0].toUpperCase() + item.slice(1)}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="btn btn--secondary btn--sm"
+              aria-label="Previous period" onClick={() => move(-1)}>←</button>
+            <button type="button" className="btn btn--secondary btn--sm"
+              onClick={() => changeDate(todayIso())}>
+              {view === "day" ? "Today" : "Current week"}
+            </button>
+            <button type="button" className="btn btn--secondary btn--sm"
+              aria-label="Next period" onClick={() => move(1)}>→</button>
+          </div>
+        </div>
+        <hr style={{ margin: "18px 0", border: 0, borderTop: "1px solid var(--line)" }} />
+        <details>
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>Filters</summary>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+            gap: 12,
+            marginTop: 14,
+          }}
+        >
+          <label>
+            Type
+            <select
+              value={type}
+              onChange={(event) =>
+                setType(event.target.value as TypeFilter)
+              }
+            >
+              <option value="ALL">All</option>
+              <option value="CLASS_SESSION">Classes</option>
+              <option value="COURT_RENTAL">Court rentals</option>
+              <option value="AVAILABLE_SLOT">Available court slots</option>
+            </select>
+          </label>
+
+          <label>
+            Status
+            <select
+              value={status}
+              onChange={(event) =>
+                setStatus(event.target.value as StatusFilter)
+              }
+            >
+              <option value="ALL">All statuses</option>
+              <option value="OPEN">Open for registration</option>
+              <option value="LOCKED">Locked / registration closed</option>
+              <option value="UPCOMING">Upcoming</option>
+              <option value="IN_PROGRESS">In progress</option>
+              <option value="ENDED">Ended</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="PENDING_PAYMENT">Pending payment</option>
+              <option value="CONFIRMED">Rental confirmed</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="AVAILABLE">Available court slot</option>
+            </select>
+          </label>
+
+          <label>
+            Search
+            <input
+              type="search"
+              placeholder="Class, coach, renter or member"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Court availability sport
+            <select
+              value={effectiveSportId}
+              onChange={(event) => setSportId(event.target.value)}
+            >
+              {rentalSports.map((sport) => (
+                <option key={sport.sportId} value={sport.sportId}>
+                  {sport.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <MemberPicker value={desk.member} onChange={desk.setMember} />
+          <small>
+            Selecting a member filters their class/rental schedule and checks
+            court availability against that member&apos;s class conflicts.
+          </small>
+        </div>
+        </details>
+      </section>
+
+      {schedule.error && <p role="alert">{schedule.error.message}</p>}
+
+      <div className={styles.scheduleWorkspace} data-detail-open={Boolean(selected)}>
+        <div className={styles.calendarPane}>
+          {schedule.loading && <p>Loading schedule…</p>}
+      {!schedule.error && (
+        <section className="card" style={{ padding: 18 }}>
+          <h3 style={{ marginTop: 0 }}>{view === "day" ? date : `${first} – ${last}`}</h3>
+          <Calendar
+            events={calendarEvents}
+            date={date}
+            view={view}
+            labels={t.calendar}
+            onDateChange={changeDate}
+            onSelectEvent={(event) => setSelectedId(event.id)}
+            hideToolbar
+          />
+        </section>
+      )}
+
+        </div>
+        {selected && (
+          <aside className={styles.detailPane} aria-label="Selected schedule details">
+
+        <section className="card" style={{ padding: 18, minWidth: 0, alignSelf: "start" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <h3>{selected.title}</h3>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setSelectedId("")}
+            >
+              Close
+            </button>
+          </div>
+
+          <p>
+            <strong>Schedule:</strong> {formatDateTime(selected.startAtUtc)} –{" "}
+            {formatDateTime(selected.endAtUtc)}
+          </p>
+
+          <p>
+            <strong>Status:</strong> {businessState(selected)} ·{" "}
+            {temporalState(selected, now)} · {selected.status}
+          </p>
+
+          {selected.sourceType === "CLASS_SESSION" && (
+            <>
+              <p>
+                <strong>Coach:</strong> {selected.coachName || "—"}
+              </p>
+
+              {selected.classId && courseById.get(selected.classId) && (
+                <p>
+                  <strong>Registration:</strong>{" "}
+                  {courseById.get(selected.classId)!.enrollmentOpen
+                    ? `Open · ${courseById.get(selected.classId)!.availableSeats} seat(s) available`
+                    : "LOCKED / closed for new registrations"}
+                </p>
+              )}
+
+              <ReceptionistInlineAttendance sessionId={selected.sourceId} />
+              </>
+          )}
+
+          {selected.sourceType === "COURT_RENTAL" && (
+            <>
+              <p>
+                <strong>Renter:</strong> {selected.memberName || "—"}
+              </p>
+
+              <p>
+                <strong>Rental state:</strong>{" "}
+                {selectedRental?.status || selected.status}
+              </p>
+
+              {selectedRentals.loading ? (
+                <p>Loading rental checkout…</p>
+              ) : selectedRental?.invoiceId ? (
+                selectedInvoice.loading ? (
+                  <p>Loading payment status…</p>
+                ) : selectedInvoice.error ? (
+                  <p role="alert">{selectedInvoice.error.message}</p>
+                ) : selectedInvoice.data ? (
+                  <>
+                    <p>
+                      <strong>Invoice:</strong>{" "}
+                      {selectedInvoice.data.summary.invoiceNumber}
+                    </p>
+                    <p>
+                      <strong>Payment:</strong>{" "}
+                      {selectedInvoice.data.summary.status}
+                      {" · "}
+                      {selectedInvoice.data.summary.fulfillmentOutcome}
+                      {selectedInvoice.data.summary.reconciliationRequired
+                        ? " · RECONCILIATION REQUIRED"
+                        : ""}
+                    </p>
+                    <p>
+                      <strong>Checkout:</strong>{" "}
+                      {selectedInvoice.data.summary.outstanding > 0
+                        ? "Awaiting payment"
+                        : "No outstanding balance"}
+                    </p>
+                  </>
+                ) : null
+              ) : (
+                <p>No invoice is linked to this rental.</p>
+              )}
+
+              {selected.memberId && (
+                <Link
+                  className="btn btn--secondary"
+                  href={`/receptionist/members/${selected.memberId}?tab=invoices`}
+                >
+                  Open member invoices
+                </Link>
+              )}
+            </>
+          )}
+        </section>
+          </aside>
+        )}
+      </div>
+      {(type === "ALL" || type === "AVAILABLE_SLOT") && (
+        <section className="card" style={{ padding: 18 }}>
+          <h3>Available court slots · 06:00–22:00 · 3 operating days</h3>
+          <p>Hourly availability by court. The last slot is 21:00–22:00; the three-day window rolls over at 06:00.</p>
+          {!desk.member ? (
+            <p>Select a member to verify bookable slots against their schedule.</p>
+          ) : availability.loading ? (
+            <p>Checking court availability…</p>
+          ) : availability.error ? (
+            <p role="alert">{availability.error.message}</p>
+          ) : (
+            <ReceptionistAvailabilityGrid
+              days={availability.data ?? []}
+              now={now}
+              selectedSport={rentalSports.find(sport => String(sport.sportId) === effectiveSportId)?.name}
+            />
+          )}
+        </section>
+      )}
+
+    </div>
+  );
+}

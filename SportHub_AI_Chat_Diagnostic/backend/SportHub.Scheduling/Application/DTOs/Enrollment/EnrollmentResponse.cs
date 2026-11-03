@@ -1,0 +1,23 @@
+namespace SportHub.Scheduling.Application.DTOs;
+
+/// <summary>Ghi danh khóa học của một Member.</summary>
+public sealed record EnrollmentResponse(
+    Guid EnrollmentId,
+    int ClassId,
+    string ClassCode,
+    string ClassName,
+    string SportName,
+    Guid MemberId,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string Status,
+    DateTime EnrolledAt,
+    DateTime? EndedAt,
+    int NumSessions,
+    DateTime? FirstSessionStartUtc,
+    [property: SportHub.BuildingBlocks.Api.WireEnum] string ClassStatus, Guid? InvoiceItemId = null,
+    string? CoachName = null,
+    string? RoomName = null,
+    DateTime? LastSessionEndUtc = null,
+    int CompletedSessions = 0,
+    DateTime? NextSessionStartUtc = null,
+    int SportId = 0,
+    Guid? CoachId = null);

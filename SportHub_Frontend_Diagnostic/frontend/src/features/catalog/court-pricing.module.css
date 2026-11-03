@@ -1,0 +1,135 @@
+.dialog:global(.dialog) {
+  width: min(40rem, 100%);
+  max-height: calc(100dvh - var(--space-4) * 2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dialog :global(.dialog__head),
+.dialog :global(.dialog__foot) {
+  flex-shrink: 0;
+}
+.dialog :global(.dialog__body) {
+  min-height: 0;
+  overflow-y: auto;
+}
+.dialog :global(.dialog__foot .btn) {
+  min-width: 6rem;
+  min-height: 44px;
+  margin: 0;
+}
+.form,
+.fields.fields {
+  min-width: 0;
+  margin: 0;
+}
+.fields.fields {
+  display: grid;
+  gap: var(--space-5);
+  padding: 0;
+  border: 0;
+}
+.fields.fields > label {
+  display: flex;
+}
+.grid select:disabled {
+  opacity: 1;
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.grid :global(.field),
+.price :global(.field) {
+  min-width: 0;
+  margin: 0;
+}
+.price input {
+  font-variant-numeric: tabular-nums;
+}
+.days.days {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.days legend {
+  padding: 0 var(--space-2) 0 0;
+  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+}
+.dayActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+.dayActions :global(.btn) {
+  margin: 0;
+  min-height: 44px;
+}
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.dayGrid label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.dayGrid input {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+.dayGrid label:has(input:checked) {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary-soft-text);
+}
+.dayGrid label:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.dayGrid label:hover {
+  border-color: var(--color-primary);
+}
+.dayGrid label:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+.error {
+  margin: var(--space-2) 0 0;
+  color: var(--danger-700);
+  font-size: var(--text-sm);
+}
+@media (max-width: 540px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dayGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dialog :global(.dialog__body) {
+    padding: var(--space-4);
+  }
+  .dialog :global(.dialog__foot .btn) {
+    flex: 1;
+    min-width: 0;
+  }
+}

@@ -1,0 +1,61 @@
+.section {
+  min-width: 0;
+}
+.section h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--text-strong);
+}
+.section > p {
+  margin: 0 0 16px;
+  color: var(--text-body);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.photo {
+  margin: 0;
+  min-width: 0;
+}
+.photo figcaption {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface-sunken);
+  padding: 12px;
+  text-align: center;
+}
+.frame img {
+  width: 100%;
+  height: 240px;
+  object-fit: contain;
+}
+.frame p {
+  color: var(--text-body);
+  font-size: 13px;
+}
+.photo > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--color-primary);
+  text-underline-offset: 3px;
+}
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
