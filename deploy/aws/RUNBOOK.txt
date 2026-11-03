@@ -1,0 +1,155 @@
+SportHub: prepare Railway -> AWS, preserving existing data
+
+STATUS AND COST
+This directory is a deployment kit, not an already completed migration.
+No AWS resources are provisioned and there is no auto-deploy workflow.
+The currently approved ceiling is USD 5/month TOTAL before credits. No suitable
+full-stack host has been approved within that ceiling. Do not provision a host
+or start paid services until a costed design fits the ceiling or it is revised.
+Budget alerts are notifications, not a guaranteed spending cap.
+The current IAM read-only identity cannot create deployment resources.
+This kit can be reviewed in Codex Cloud without provisioning AWS resources.
+
+SCOPE
+Keep frontend on Vercel. Move backend, Python AI and PostgreSQL together to an
+approved Ubuntu 24.04 Docker host. Only Caddy publishes ports 80 and 443.
+PostgreSQL and AI have no public host ports. PostgreSQL stays on major version 18;
+this is a logical pg_dump/pg_restore transfer, not a Railway disk-volume copy.
+Runtime files include encrypted outbox Data Protection keys and saved reports.
+Use encrypted durable host storage, plus encrypted off-host backups. A single
+host has downtime during maintenance and is not a high-availability design.
+There is no schema change, new migration, automatic seed or bootstrap here.
+
+1. PREPARE WITHOUT CHANGING RAILWAY
+Use the exact application commit compatible with the final source database.
+If main changed after this branch was created, merge/review it and rebuild first.
+Do not restore a newer database into older application code without review.
+Use the branch member-coach-workflow for the prepared deployment kit.
+Do not upload the local .env or AWS profiles to GitHub.
+For Codex Cloud: connect this repository/branch, install AWS CLI, Docker/Compose,
+Python 3 and PostgreSQL 18 clients. Supply credentials through private environment
+settings, never a task prompt. A cloud sandbox may not support a Docker daemon;
+in that case prepare/build elsewhere and execute deployment on the approved host.
+AWS credentials on a local Windows profile do not automatically reach cloud tasks.
+
+After a host and its cost have been approved, install Docker explicitly:
+  sudo bash deploy/aws/install-docker.sh
+Configure host firewall/security group: public 80/443; SSH only from the
+operator's IP if SSH is used. Do not open 5432, 8001 or 8080.
+Use an API hostname you control; point its DNS at the destination for Caddy TLS.
+Do not change the Vercel API variable yet.
+  cp deploy/aws/.env.example deploy/aws/.env
+  chmod 600 deploy/aws/.env
+Fill values privately. Destination POSTGRES_PASSWORD must be random alphanumeric,
+at least 24 characters. Copy JWT issuer/audience/secret and integration credentials
+from the existing backend; use the real Brevo API key, not its SMTP password.
+Keep Production. Do not enable demo account seed or bootstrap for an existing DB.
+Preserve /app as backend content root (already set in the Dockerfile); do not
+change the Data Protection application discriminator when moving existing keys.
+  bash deploy/aws/compose.sh config --quiet
+  bash deploy/aws/compose.sh config --format json | python3 deploy/aws/preflight.py
+  bash deploy/aws/compose.sh build backend ai-service
+Do not paste the resolved config JSON into chat/logs; it contains secrets.
+
+2. TAKE A FINAL CONSISTENT SOURCE BACKUP
+Schedule a short maintenance window. Stop writes from BOTH the Vercel site and
+any local backend pointing at Railway. Drain/resolve pending payments first;
+keep a record of any outstanding gateway callbacks. Stop source API/workers
+before the final dump. Do not run source and destination workers simultaneously.
+Keep Railway services/volumes intact for rollback.
+
+Create a private backup directory outside Git. With a PostgreSQL 18 client,
+provide PGHOST (Railway PUBLIC proxy), PGPORT (its public port), PGDATABASE,
+PGUSER, PGSSLMODE=require and PGPASSWORD privately in the operator environment.
+Never put the password in a command argument or source file.
+  pg_dump --format=custom --file=/private/backup/database.dump
+  pg_restore --list /private/backup/database.dump
+Clear PGPASSWORD after use. Record current_database(), server_version and counts
+of user_accounts, invoices, memberships, classes and __EFMigrationsHistory.
+Also inventory all public tables and extensions; confirm they restore without
+missing extension support. Do not use DROP, --clean, or reset the source schema.
+
+From a Railway backend shell with the persistent runtime volume mounted, export:
+  tar -C /var/lib/sporthub -cf /tmp/backend-data.tar dataprotection-keys reports
+Transfer that archive privately to the same backup directory using the operator's
+authenticated Railway access. A CLI/SSH export must preserve binary output; avoid
+copy/pasting binary data or PowerShell text redirection for archive contents.
+Remove the temporary source archive after verifying a private downloaded copy.
+Do not disclose key XML contents. Missing keys cannot decrypt old outbox messages.
+If reports/keys are mounted elsewhere on the source, export the actual configured
+directories with the archive root names dataprotection-keys and reports.
+On a trusted Linux shell in the backup directory, create the checksums:
+  sha256sum database.dump backend-data.tar > SHA256SUMS
+Securely transfer the three files to the destination. Keep an encrypted off-host
+copy. Verify both source backups before continuing.
+
+3. RESTORE TO EMPTY DESTINATION ONLY
+Never use a Railway connection string in the destination Compose configuration.
+The kit always connects to its private local postgres container.
+  bash deploy/aws/restore.sh /private/backup railway
+Replace railway above if the exact destination POSTGRES_DB is different.
+The script refuses a running API, a database with user tables, mismatched checksums
+or an occupied runtime volume. It validates archive paths, refuses symlinks/devices
+and imports SQL in one transaction without --clean. It does not start the API.
+If restore fails, leave the API stopped. Inspect the error; do not bypass the
+empty-target guards or delete a volume containing the only copy of your data.
+For a retry use a separately approved fresh destination after retaining backups.
+
+Compare table inventory, row counts and migration history against the source:
+  bash deploy/aws/compose.sh exec postgres sh
+  psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+Use SELECT-only verification. The source and destination should match BEFORE any
+workers are started. Restore retains existing accounts, passwords and roles.
+Do NOT bootstrap a new admin or seed demo data over the restored system.
+
+4. MIGRATE AND START DESTINATION
+Only after the final backup and data validation:
+  bash deploy/aws/deploy.sh --confirm-restored
+This builds app images, verifies restored schema/key presence, runs the existing
+/app/migrate bundle explicitly, then starts the services in Production.
+Startup does not perform Development migration/seed. Logs are rotated.
+The script changes no Railway resources, DNS, Vercel or AWS resources itself.
+Check status/logs (never paste secrets):
+  bash deploy/aws/compose.sh ps
+  bash deploy/aws/compose.sh logs --tail=80 backend ai-service caddy
+  curl --fail https://YOUR_API_DOMAIN/api/health
+Verify backend -> AI connectivity and an actual AI suggestion, not just /health.
+Test outbound HTTPS to Brevo, Gemini, Cloudinary and VNPay from the new host.
+VNPay QueryDR must be checked separately: moving hosting does not guarantee that
+VNPay accepts the new outbound IP or merchant credentials.
+Retain existing integration keys. Update a Brevo IP allowlist if used.
+Confirm the Google client still authorizes the unchanged Vercel frontend origin.
+Update VNPay IPN endpoint to the new backend through the merchant's supported
+configuration if IPN is enabled. ReturnUrl remains the Vercel payments/return URL.
+
+5. CUT OVER AND VERIFY
+Set Vercel NEXT_PUBLIC_API_BASE_URL=https://YOUR_API_DOMAIN (no trailing slash)
+and redeploy the frontend, since public Next.js values are build-time values.
+Check login, account roles, image/PDF access, AI, notifications/email, court
+booking, class enrollment, invoice totals and a real sandbox payment confirmation.
+Confirm CORS allows the exact Vercel origin. Health alone does not prove these.
+Keep Railway frozen and available for rollback; do not delete its volumes.
+Do not claim migration complete until these checks pass.
+
+6. ONGOING BACKUP / DEPLOY / ROLLBACK
+Before later deployments, stop destination writers and back up:
+  bash deploy/aws/compose.sh stop caddy backend
+  bash deploy/aws/backup.sh
+Copy the resulting backup directory off the host securely, then deploy/restart.
+Pin IMAGE_TAG to a commit before building so images can be identified.
+Never run docker compose down -v on this stack. Docker image push does not back
+up database/runtime volumes. Test backup restoration on a separate empty target.
+
+Before cutover, rollback simply keeps Vercel on Railway and stops destination.
+After destination accepts writes, the Railway database is stale: stop writers,
+back up the new destination and plan a reverse logical transfer/reconciliation
+before routing users back. Do not point users at the old DB and silently lose
+new records. Schema rollback needs a compatible backup/application combination.
+Keep the same Data Protection keys with the database in either direction.
+
+References:
+https://www.postgresql.org/docs/18/app-pgdump.html
+https://www.postgresql.org/docs/18/app-pgrestore.html
+https://hub.docker.com/_/postgres
+https://docs.docker.com/engine/install/ubuntu/
+https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview

@@ -38,8 +38,11 @@ public sealed partial class IncidentService
     }
 
     private static string PreviewFingerprint(IncidentShape shape, IReadOnlyList<IncidentRefundRow> rows,
-        IReadOnlyList<IncidentImpact> impacts)
+        IReadOnlyList<IncidentImpact> impacts, IReadOnlyList<IncidentDayPassMember> passMembers,
+        IReadOnlyList<IncidentResolutionSelection>? resolutions = null)
         => Fingerprint(new { shape.Scope, shape.RoomId, shape.StartUtc, shape.EndUtc, shape.RoomIds,
+            DayPassMembers = passMembers.OrderBy(p => p.PassId),
+            Resolutions = (resolutions ?? []).OrderBy(p => p.SourceId),
             Rows = rows.Select(r => new { Row = r, r.InvoiceItemId, r.InvoiceId }), Impacts = impacts.Select(i => new { i.SourceType, i.SourceId, i.StartAtUtc, i.EndAtUtc }) });
 
     private static List<IncidentRefundReceipt> Selections(IReadOnlyList<IncidentRefundRow> rows, IncidentRequest request)

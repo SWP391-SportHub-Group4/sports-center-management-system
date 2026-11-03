@@ -138,7 +138,7 @@
   color: var(--text-strong);
   font-variant-numeric: tabular-nums;
 }
-.refundFooter button:only-child {
+.dialog :global(.dialog__foot) .refundFooter > .recheck {
   margin-inline-start: auto;
 }
 @media (min-width: 768px) {

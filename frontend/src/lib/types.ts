@@ -621,7 +621,12 @@ export interface SavedWorkoutSuggestionDto {
   sport: string;
   goal: string;
   level: string;
-  items: { exercise: string; sets: number; reps: number; notes?: string | null }[];
+  items: {
+    exercise: string;
+    sets: number;
+    reps: number;
+    notes?: string | null;
+  }[];
   rationale: string;
 }
 
@@ -943,6 +948,8 @@ export interface IncidentRefundReceiptDto extends Omit<
   adjustmentReason: string | null;
 }
 export interface IncidentPreviewDto {
+  fenceId?: string | null;
+  fenceExpiresAtUtc?: string | null;
   previewToken?: string;
   refunds?: IncidentRefundRowDto[];
   scope: string;
@@ -962,7 +969,10 @@ export interface IncidentPreviewDto {
     sourceType: string;
     sourceId: string;
     outcome:
-      "REFUNDED_AS_POINTS" | "CHECKOUT_RELEASED" | "AWAITS_SCHEDULE_DECISION" | "DAY_PASS_SUPPORT";
+      | "REFUNDED_AS_POINTS"
+      | "CHECKOUT_RELEASED"
+      | "AWAITS_SCHEDULE_DECISION"
+      | "DAY_PASS_SUPPORT";
     expectedRefundPoints: number | null;
   }[];
   expectedRefundPointsTotal?: number;

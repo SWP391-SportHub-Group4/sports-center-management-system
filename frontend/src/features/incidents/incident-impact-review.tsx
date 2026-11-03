@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./incidents.module.css";
-import { api, ApiError } from "@/lib/apiClient";
+import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatPoints } from "@/lib/format";
@@ -21,19 +21,24 @@ import type {
   CourtScheduleEntryDto,
 } from "@/lib/types";
 import { IncidentSessionEditor } from "./incident-session-editor";
-import { incidentApi, type IncidentRequest } from "./incident-api";
+import {
+  type IncidentRequest,
+  type IncidentResolutionSelection,
+} from "./incident-api";
 function ClassImpactEditor({
   id,
   incident,
   onSaved,
   onClose,
   onOutcome,
+  onStage,
 }: {
   id: string;
   incident: IncidentRequest;
   onSaved: () => void;
   onClose: () => void;
   onOutcome: (status: StepStatus, message?: string) => void;
+  onStage: (plan: IncidentResolutionSelection) => void;
 }) {
   const [openedAt] = useState(Date.now);
   const state = useApi(
@@ -66,6 +71,7 @@ function ClassImpactEditor({
             incident={incident}
             onSaved={onSaved}
             onOutcome={onOutcome}
+            onStage={onStage}
           />
         ) : (
           <SessionEditor
@@ -80,12 +86,7 @@ function ClassImpactEditor({
             embedded
             initialMode="cancel"
             onOutcome={onOutcome}
-            incidentFence={async () =>
-              (await incidentApi.openFence(incident)).fenceId
-            }
-            beforeSave={async () => {
-              await incidentApi.openFence(incident);
-            }}
+            onStageIncident={onStage}
           />
         )
       }
@@ -133,6 +134,9 @@ export function IncidentImpactReview({
   onResult,
   onEditingChange,
   disabled = false,
+  resolutions = [],
+  onStage,
+  onRemovePlan,
 }: {
   preview: IncidentPreviewDto;
   incidentRequest: IncidentRequest;
@@ -146,6 +150,9 @@ export function IncidentImpactReview({
   ) => void;
   onEditingChange?: (editing: boolean) => void;
   disabled?: boolean;
+  resolutions?: IncidentResolutionSelection[];
+  onStage: (plan: IncidentResolutionSelection) => void;
+  onRemovePlan?: (sourceId: string) => void;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -223,6 +230,19 @@ export function IncidentImpactReview({
                 <td>
                   {labels[r.sourceType] ?? r.sourceType}
                   {entry && <p>{entry.title}</p>}
+                  {resolutions.some((p) => p.sourceId === r.sourceId) && (
+                    <>
+                      <p className="small muted">{t.incidentPlans.selected}</p>
+                      <button
+                        type="button"
+                        className="btn btn--secondary"
+                        disabled={disabled || !!editing}
+                        onClick={() => onRemovePlan?.(r.sourceId)}
+                      >
+                        {t.incidentPlans.remove}
+                      </button>
+                    </>
+                  )}
                 </td>
                 <td>
                   {details.data?.rooms.find(
@@ -327,40 +347,25 @@ export function IncidentImpactReview({
               ?.title || l.roomBlock}
           </p>
           <p>{t.incidentHistory.removeBlockHint}</p>
+          <p>{t.incidentPlans.hint}</p>
           <div className="btn-row">
             <button
               className="btn"
               disabled={mutation.busy || disabled}
-              onClick={async () => {
-                onResult?.("ROOM_BLOCK", removeId, "pending");
-                if (
-                  await mutation.run(async () => {
-                    try {
-                      await api.del(`/api/manager/room-blocks/${removeId}`);
-                    } catch (error) {
-                      onResult?.(
-                        "ROOM_BLOCK",
-                        removeId,
-                        !(error instanceof ApiError) ||
-                          error.status === 0 ||
-                          error.status >= 500
-                          ? "unknown"
-                          : "failed",
-                        error instanceof Error ? error.message : undefined,
-                      );
-                      throw error;
-                    }
-                  })
-                ) {
-                  onResult?.("ROOM_BLOCK", removeId, "succeeded");
-                  onCompleted?.("ROOM_BLOCK", removeId);
-                  setRemoveId("");
-                  onEditingChange?.(false);
-                  onRefresh();
-                }
+              onClick={() => {
+                onStage({
+                  sourceId: removeId,
+                  action: "REMOVE_ROOM_BLOCK",
+                  label:
+                    details.data?.entries.find((e) => e.sourceId === removeId)
+                      ?.title ?? l.roomBlock,
+                });
+                setRemoveId("");
+                onEditingChange?.(false);
+                onRefresh();
               }}
             >
-              {l.confirm}
+              {t.incidentPlans.usePlan}
             </button>
             <CloseButton
               label={l.close}
@@ -386,11 +391,13 @@ export function IncidentImpactReview({
               if (!editorBusy) closeEditor();
             }}
           >
+            <p role="status">{t.incidentPlans.hint}</p>
             <p className={styles.intro}>{t.incidentHistory.makeupHint}</p>
             <ClassImpactEditor
               key={editing.id}
               id={editing.id}
               incident={incidentRequest}
+              onStage={onStage}
               onOutcome={(status, message) => {
                 setEditorBusy(status === "pending");
                 onResult?.("CLASS_SESSION", editing.id, status, message);

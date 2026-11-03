@@ -1,3 +1,4 @@
+using SportHub.Membership.Application.Services;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
@@ -22,7 +23,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
     IClassEnrollmentFulfillment classes, IInvoiceNumberGenerator invoiceNumbers, ISportCatalogReader catalog,
     PaymentNoticeService notices,
     ISystemSettingProvider settings, ICourtRentalFulfillment rentals, IPaymentGateway gateway,
-    IPackagePurchaseService packages, IMembershipFulfillment memberships, PaymentFulfillmentService fulfillment, IAuditWriter audit, IClock clock)
+    IPackagePurchaseService packages, IMembershipFulfillment memberships, PaymentFulfillmentService fulfillment, IAuditWriter audit, IClock clock,
+    DayPassHoursService dayPassHours)
     : ICheckoutLifecycleService
 {
     public async Task<CheckoutResponse> FindByReferenceAsync(string reference, Guid actorId, CancellationToken ct)
@@ -110,6 +112,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var now = clock.UtcNow;
         var expiry = now.AddMinutes(await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct));
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await DayPassHoursLock.AcquireAsync(db, ct: ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {memberId} FOR UPDATE", ct);
         var existing = await db.Set<CheckoutSession>().AsNoTracking()
@@ -187,6 +190,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var now = clock.UtcNow;
         var minutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await DayPassHoursLock.AcquireAsync(db, ct: ct);
         // The member lock serializes idempotent double-clicks and schedule conflict checks.
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {memberId} FOR UPDATE", ct);
@@ -270,6 +274,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var now = clock.UtcNow;
         var minutes = await CheckoutHoldPolicy.ReadMinutesAsync(settings, ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await DayPassHoursLock.AcquireAsync(db, ct: ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT user_id FROM user_accounts WHERE user_id = {request.MemberId} FOR UPDATE", ct);
         var existing = await db.Set<CheckoutSession>().AsNoTracking()
@@ -335,6 +340,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
         var invoice = await db.Set<Invoice>().AsNoTracking().SingleOrDefaultAsync(x => x.InvoiceId == invoiceId, ct)
             ?? throw new NotFoundException("invoice_not_found", "Invoice not found.");
         EnsureAccess(invoice, actorId, isStaff);
+        await dayPassHours.CloseDueAsync(ct, invoiceId);
+        invoice = await db.Set<Invoice>().AsNoTracking().SingleAsync(x => x.InvoiceId == invoiceId, ct);
         var session = await db.Set<CheckoutSession>().AsNoTracking().SingleOrDefaultAsync(
             x => x.CheckoutSessionId == invoice.CheckoutCycleId, ct)
             ?? throw new NotFoundException("checkout_not_found", "Checkout not found.");
@@ -343,8 +350,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
                 .Any(p => p.MemberPackageId == item.MemberPackageId && p.PackageId == SportHub.Membership.Domain.DayPass.PackageId), ct);
         var closesAtUtc = isDayPass
             ? SportHub.Membership.Domain.Rules.DayPassClock.ClosesAtUtc(
-                await SportHub.BuildingBlocks.Abstractions.Configuration.CenterOperatingHours.ReadAsync(settings, ct),
-                invoice.IssuedAt)
+                invoice.IssuedAt,
+                await SportHub.BuildingBlocks.Abstractions.Configuration.CenterOperatingHours.ReadAsync(settings, ct))
             : (DateTime?)null;
         return ToResponse(invoice, session) with
         {
@@ -357,8 +364,10 @@ public sealed class CheckoutService(ISportHubDbContext db,
 
     public async Task<CheckoutResponse> ConfirmPointsAsync(Guid invoiceId, Guid actorId, bool isStaff, CancellationToken ct)
     {
+        await GetAsync(invoiceId, actorId, isStaff, ct);
         await using (var tx = await db.Database.BeginTransactionAsync(ct))
         {
+            await DayPassHoursLock.AcquireAsync(db, ct: ct);
             var invoice = await LockInvoiceAsync(invoiceId, ct);
             EnsureAccess(invoice, actorId, isStaff);
             if (await db.Set<SportHub.Payment.Wallet.Domain.PointConfirmation>().AnyAsync(x => x.InvoiceId == invoiceId
@@ -389,6 +398,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
     public async Task<PaymentAttemptResponse> StartPaymentAsync(Guid invoiceId, Guid actorId,
         bool isStaff, string clientIp, CancellationToken ct)
     {
+        await GetAsync(invoiceId, actorId, isStaff, ct);
         Guid attemptId = Guid.Empty;
         Guid cycleId = Guid.Empty;
         string? reference = null;
@@ -399,6 +409,7 @@ public sealed class CheckoutService(ISportHubDbContext db,
         string? url = null;
         await using (var tx = await db.Database.BeginTransactionAsync(ct))
         {
+            await DayPassHoursLock.AcquireAsync(db, ct: ct);
             var invoice = await LockInvoiceAsync(invoiceId, ct);
             EnsureAccess(invoice, actorId, isStaff);
             if (await db.Set<SportHub.Payment.Wallet.Domain.PointConfirmation>().AnyAsync(x => x.InvoiceId == invoiceId
@@ -555,7 +566,8 @@ public sealed class CheckoutService(ISportHubDbContext db,
     }
 
     private CheckoutResponse ToResponse(Invoice i, CheckoutSession s)
-        => new(i.InvoiceId, s.CheckoutSessionId, s.Revision, s.Kind, s.State,
+        => new(i.InvoiceId, s.CheckoutSessionId, s.Revision, s.Kind,
+            s.State == DayPassHoursService.ClosedState ? "Expired" : s.State,
             i.TotalAmount, i.PointsApplied, i.CashAmount, s.ExpiresAtUtc, s.ResourceHoldId,
             i.Status.ToString(), Domain.Rules.InvoiceFulfillment.Outcome(i.Status, i.PaidVia, i.ReconciliationRequired),
             i.ReconciliationRequired, i.MemberId, i.IssuedByUserId, clock.UtcNow);

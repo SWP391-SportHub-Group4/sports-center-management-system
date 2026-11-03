@@ -219,16 +219,6 @@
   color: var(--text-muted);
   font-size: var(--text-sm);
 }
-.save {
-  max-width: 100%;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--volt-400);
-  color: var(--chalk-950);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 500;
-}
 .tags {
   display: flex;
   flex-wrap: wrap;

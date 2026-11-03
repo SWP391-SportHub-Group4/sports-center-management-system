@@ -144,3 +144,19 @@ System Administrators can inspect before/after images for profile photo upload, 
 ### Manager support configuration and profile updates
 
 Managers and System Administrators manage their own Cloudinary avatar from Account using the shared crop editor (JPG/PNG/WebP, maximum 5 MiB). Self-service upload/removal uses the authenticated account ID, records audit events and cleans up replaced images; their avatar API requires authentication. Operating settings provides the three existing support deadline/reminder/payout confirmation values, with validation matching the backend. Operations health reports paid-but-unactivated invoices and overdue support requests, replacing the previous manual-compensation count. New support/payment audit events use human-readable labels and safe event details; bank account information is never added to audit values. No new support setting or database migration is introduced by these updates.
+
+---
+
+## Bổ sung yêu cầu AI Flow 5/6 — 02/11/2026
+
+**FR-AI-01.** Coach được yêu cầu gợi ý giáo án cho buổi học hợp lệ hoặc một học viên trong lớp được phân công, tùy scope được UI và backend hỗ trợ. Gợi ý chỉ là bản nháp; thao tác Save của Coach mới ghi nội dung.
+
+**FR-AI-02.** Training Goal phải được kiểm tra đầu vào cơ bản và ngữ nghĩa. Mục tiêu đúng nhưng chung chung được phân loại VAGUE, dùng ngữ cảnh môn và trình độ để tiếp tục; input vô nghĩa, ngoài phạm vi, không phù hợp hoặc không an toàn phải bị từ chối với lời giải thích. Phải thử tiếng Việt có dấu/không dấu, tiếng Anh và ngôn ngữ hỗn hợp. Không hứa bảo đảm đúng tuyệt đối cho mọi câu.
+
+**FR-AI-03.** Chatbox UI chỉ có cho Member và Coach. Phạm vi hướng dẫn navigation không bao gồm thao tác của Manager, Receptionist, Admin; không suy ra quyền từ endpoint được liệt kê trong tài liệu.
+
+**FR-AI-04.** Hướng dẫn thao tác phải dùng tên page/tab/button có thật và dựa trên role được xác thực. Với chức năng không xác minh được, trả lời có giới hạn thay vì tự tạo đường đi. Với câu hỏi tiếng Việt, trả lời tiếng Việt nhưng giữ đúng button label tiếng Anh của sản phẩm.
+
+**FR-AI-05.** Hệ thống dùng published system prompt do `ISystemPromptReader` cung cấp. Kiểm tra continuation theo quyền và phiên bản prompt; lưu AI log theo luồng hiện hữu.
+
+**NFR-AI-01.** Cần test E2E/contract cho role scope, nội dung đa ngôn ngữ, prompt injection, trường hợp không đủ thông tin, lỗi provider, thay đổi prompt version và sai khác frontend navigation catalog.

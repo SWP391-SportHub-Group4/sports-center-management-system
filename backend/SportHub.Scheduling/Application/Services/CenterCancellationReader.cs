@@ -17,7 +17,7 @@ public sealed class CenterCancellationReader(ISportHubDbContext db) : ICenterCan
     {
         var classes = await ClassQuery(memberId: memberId, fromUtc: sinceUtc).ToListAsync(ct);
         var rentals = await RentalQuery(memberId: memberId, fromUtc: sinceUtc).ToListAsync(ct);
-        return Merge(classes, rentals);
+        return await MergeAsync(classes, rentals, ct);
     }
 
     public async Task<IReadOnlyList<CenterCancelledEntitlement>> ListCancelledBetweenAsync(DateTime fromUtc,
@@ -27,14 +27,14 @@ public sealed class CenterCancellationReader(ISportHubDbContext db) : ICenterCan
         var limit = skip + take;
         var classes = await ClassQuery(fromUtc: fromUtc, toUtc: toUtc, limit: limit).ToListAsync(ct);
         var rentals = await RentalQuery(fromUtc: fromUtc, toUtc: toUtc, limit: limit).ToListAsync(ct);
-        return Merge(classes, rentals).Skip(skip).Take(take).ToList();
+        return (await MergeAsync(classes, rentals, ct)).Skip(skip).Take(take).ToList();
     }
 
     public async Task<CenterCancelledEntitlement?> GetAsync(Guid invoiceItemId, CancellationToken ct = default)
     {
         var classes = await ClassQuery(itemId: invoiceItemId).ToListAsync(ct);
         var rentals = await RentalQuery(itemId: invoiceItemId).ToListAsync(ct);
-        return Merge(classes, rentals).FirstOrDefault();
+        return (await MergeAsync(classes, rentals, ct)).FirstOrDefault();
     }
 
     private IQueryable<Row> ClassQuery(Guid? memberId = null, DateTime? fromUtc = null,
@@ -50,7 +50,8 @@ public sealed class CenterCancellationReader(ISportHubDbContext db) : ICenterCan
         if (limit.HasValue) query = query.Take(limit.Value);
         return from e in query
                join c in db.Set<Class>().AsNoTracking() on e.ClassId equals c.ClassId
-               select new Row("Class", e.InvoiceItemId!.Value, e.MemberId, c.Name, e.EndedAt!.Value, null);
+               select new Row("Class", e.InvoiceItemId!.Value, e.MemberId, c.Name, e.EndedAt!.Value, null, c.ClassId,
+                   e.CenterCancellationRefundPoints, e.CenterCancellationPaidBalanceVnd);
     }
 
     private IQueryable<Row> RentalQuery(Guid? memberId = null, DateTime? fromUtc = null,
@@ -66,12 +67,25 @@ public sealed class CenterCancellationReader(ISportHubDbContext db) : ICenterCan
         query = query.OrderBy(r => r.CancelledAtUtc).ThenBy(r => r.InvoiceItemId);
         if (limit.HasValue) query = query.Take(limit.Value);
         return query.Select(r => new Row("CourtRental", r.InvoiceItemId!.Value, r.MemberId, "Court rental",
-            r.CancelledAtUtc!.Value, r.CancelReason!.Substring(CenterFaultPrefix.Length)));
+            r.CancelledAtUtc!.Value, r.CancelReason!.Substring(CenterFaultPrefix.Length), null, null, null));
     }
 
-    private static List<CenterCancelledEntitlement> Merge(IEnumerable<Row> classes, IEnumerable<Row> rentals)
-        => classes.Concat(rentals).OrderBy(x => x.At).ThenBy(x => x.ItemId)
-            .Select(x => new CenterCancelledEntitlement(x.ItemId, x.MemberId, x.Kind, x.Name, x.At, x.Reason)).ToList();
+    private async Task<List<CenterCancelledEntitlement>> MergeAsync(List<Row> classes, List<Row> rentals, CancellationToken ct)
+    {
+        var ids = classes.Select(x => x.ClassId!.Value).Distinct().ToList();
+        var sessions = await db.Set<ClassSession>().AsNoTracking().Where(s => ids.Contains(s.ClassId)).ToListAsync(ct);
+        var ratios = sessions.GroupBy(s => s.ClassId).ToDictionary(g => g.Key, g =>
+        {
+            var (total, remaining) = ClassCancellationSessions.Count(g);
+            return new SportHub.BuildingBlocks.Abstractions.Payment.RefundFraction(total == 0 ? 1 : remaining, total == 0 ? 1 : total);
+        });
+        return classes.Concat(rentals).OrderBy(x => x.At).ThenBy(x => x.ItemId)
+            .Select(x => new CenterCancelledEntitlement(x.ItemId, x.MemberId, x.Kind, x.Name, x.At, x.Reason,
+                x.RefundPoints.HasValue ? null : x.ClassId is int id ? ratios.GetValueOrDefault(id) : null,
+                x.RefundPoints is int points && x.PaidBalance is decimal paidBalance
+                    ? Math.Max(0m, paidBalance - points * 1000m) : 0m)).ToList();
+    }
 
-    private sealed record Row(string Kind, Guid ItemId, Guid MemberId, string Name, DateTime At, string? Reason);
+    private sealed record Row(string Kind, Guid ItemId, Guid MemberId, string Name, DateTime At, string? Reason,
+        int? ClassId, int? RefundPoints, decimal? PaidBalance);
 }

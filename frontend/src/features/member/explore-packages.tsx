@@ -43,6 +43,8 @@ import {
 } from "./service-kinds";
 import { KindTile, TypeFilter, type FilterValue } from "./service-ui";
 import { useStartCheckout } from "./use-start-checkout";
+import { memberEnrollments } from "./api";
+import { BmiRequiredDialog, useBmiGate } from "./bmi-gate";
 import styles from "./explore-packages.module.css";
 
 const WEEKDAY = {
@@ -101,12 +103,18 @@ export function ExplorePackages({
     },
     [staffMemberId],
   );
+  // Members buying for themselves: the same "already enrolled" lock as the counter view.
+  const ownEnrollments = useApi(
+    async (signal) => (staffMemberId ? [] : memberEnrollments(signal)),
+    [staffMemberId],
+  );
   const enrolledClassIds = new Set(
-    (staffEnrollments.data ?? [])
+    (staffMemberId ? (staffEnrollments.data ?? []) : (ownEnrollments.data ?? []))
       .filter((row) => row.status === "CONFIRMED")
       .map((row) => row.classId),
   );
-
+  const bmiGate = useBmiGate(!staffMemberId);
+  const [bmiPrompt, setBmiPrompt] = useState(false);
   const owned = useApi(
     async (signal) =>
       (
@@ -371,7 +379,9 @@ export function ExplorePackages({
                     key={c.classId}
                     course={c}
                     unavailableReason={
-                      staffMember
+                      !staffMember && enrolledClassIds.has(c.classId)
+                        ? tx("Đã đăng ký", "Already enrolled")
+                        : staffMember
                         ? enrolledClassIds.has(c.classId)
                           ? tx("Đã đăng ký", "Already enrolled")
                           : staffEnrollments.error
@@ -399,7 +409,9 @@ export function ExplorePackages({
                       (enrolledClassIds.has(c.classId) ||
                         !staffEnrollments.data)
                         ? undefined
-                        : staffMember
+                        : !staffMember && bmiGate.missing
+                          ? setBmiPrompt(true)
+                          : staffMember
                           ? setStaffSale({
                               title: c.name,
                               price: c.price,
@@ -444,6 +456,7 @@ export function ExplorePackages({
           </div>
         </Section>
       )}
+      {bmiPrompt && <BmiRequiredDialog onClose={() => setBmiPrompt(false)} />}
       {staffMember && staffSale && (
         <Dialog
           title={`${staffSale.title} · ${staffMember.fullName || staffMember.email}`}
@@ -564,18 +577,12 @@ function GymTier({
   const months = monthsOf(plan.durationDays);
   const original =
     plan.originalPrice ?? (!dayPass && baseMonthly ? baseMonthly * months : 0);
-  const saving = original > plan.price ? original - plan.price : 0;
   return (
     <article
       className={styles.tier}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
       <p className={styles.tags}>
-        {saving > 0 && (
-          <span className={styles.save}>
-            {tx("Tiết kiệm", "Save")} {formatMoney(saving)}
-          </span>
-        )}
         {active && (
           <span className={styles.current}>
             {active.isUsable
@@ -600,7 +607,7 @@ function GymTier({
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
-        {saving > 0 && (
+        {original > plan.price && (
           <s
             aria-label={`${tx("Giá gốc", "Original price")}: ${formatMoney(original)}`}
           >

@@ -20,7 +20,7 @@ public sealed partial class ClassSessionService
     public async Task<ClassSessionResponse> CreateIncidentMakeupAsync(Guid sessionId, IncidentMakeupRequest request,
         Guid actorUserId, CancellationToken ct = default)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
         var session = await LockAndLoadAsync(sessionId, ct);
         var cls = await db.Set<Class>().SingleAsync(c => c.ClassId == session.ClassId, ct);
         var fence = await db.Set<IncidentFence>().FromSqlInterpolated(
@@ -39,13 +39,13 @@ public sealed partial class ClassSessionService
                 || prior.AfterRoomId != (request.Makeup.RoomId ?? session.RoomId)
                 || prior.AfterCoachId != (request.Makeup.CoachId ?? session.CoachId))
                 throw new ConflictException("incident_step_changed", "This incident already has a different replacement. Reload its history.");
-            await tx.CommitAsync(ct); return await GetAsync(replacement, null, ct);
+            if (tx is not null) await tx.CommitAsync(ct); return await GetAsync(replacement, null, ct);
         }
         EnsureEditable(session, cls);
         if (request.Makeup.StartAtUtc < fence.EndAtUtc)
             throw new BadRequestException("replacement_during_incident", "Choose a replacement after the incident ends.");
         var result = await CancelWithMakeupCoreAsync(sessionId, request, actorUserId, ct, fence.FenceId);
-        await tx.CommitAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
         return result;
     }
 
@@ -59,7 +59,7 @@ public sealed partial class ClassSessionService
         if (request.Outcome is not ("INTERRUPTED" or "NOT_HELD" or "COMPLETED_AS_PLANNED")
             || string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length is < 3 or > 500)
             throw new BadRequestException("invalid_session_incident", "Choose an outcome and provide a reason with 3–500 characters.");
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
         var session = await LockAndLoadAsync(sessionId, ct);
         var occurred = DateTime.SpecifyKind(request.OccurredAtUtc, DateTimeKind.Utc);
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new {
@@ -70,7 +70,7 @@ public sealed partial class ClassSessionService
             var stored = JsonSerializer.Deserialize<StoredIncident>(session.IncidentReportJson)!;
             if (stored.RequestKey != key)
                 throw new ConflictException("session_incident_already_recorded", "This session already has an incident outcome. Refresh its history.");
-            await tx.CommitAsync(ct);
+            if (tx is not null) await tx.CommitAsync(ct);
             return await GetAsync(stored.Report.ReplacementSessionId ?? sessionId, null, ct);
         }
         var fence = await db.Set<IncidentFence>().FromSqlInterpolated(
@@ -124,7 +124,7 @@ public sealed partial class ClassSessionService
         audit.Write(new AuditEntry(actorUserId, "RECORD_SESSION_INCIDENT", nameof(ClassSession), sessionId.ToString(),
             NewValue: JsonSerializer.Serialize(report), Reason: request.Reason.Trim()));
         await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
         return await GetAsync(replacementId ?? sessionId, null, ct);
     }
 

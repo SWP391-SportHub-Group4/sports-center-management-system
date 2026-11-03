@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -73,6 +74,46 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
             Refunds = preview.Refunds.Select(r => new IncidentRefundSelection(r.SourceId, r.SuggestedRefundPoints)).ToList() };
 
     [Fact]
+    public async Task Confirmation_automatically_notifies_day_pass_members_once_using_actual_expiry()
+    {
+        var f = await SeedAsync();
+        var expiry = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(f.Window.StartAtUtc))).AddHours(20).AddMinutes(30);
+        await factory.QueryAsync(async db => {
+            await db.MemberPackages.Where(p => p.MemberPackageId == f.Pass)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.ExpiresAtUtc, expiry));
+            return 0;
+        });
+        var window = f.Window with { StartAtUtc = f.Window.StartAtUtc.AddHours(3), EndAtUtc = f.Window.EndAtUtc.AddHours(3) };
+        var preview = await Preview(window);
+        Assert.Empty(preview.Refunds);
+        Assert.False(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == f.Member)));
+        var request = Confirm(window, preview);
+        var id = await Resolve(request, f.Manager);
+        Assert.Equal(id, await Resolve(request, f.Manager));
+        using var scope = factory.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<IncidentService>();
+        await service.SendDayPassNoticeAsync(id, f.Manager, default);
+        var receipt = await service.GetAsync(id);
+        Assert.NotNull(receipt.DayPassNoticeSentAtUtc);
+        Assert.Equal(expiry, Assert.Single(receipt.DayPassMembers).ExpiresAtUtc);
+        Assert.Equal(MemberPackageStatus.Expired, await factory.QueryAsync(db => db.MemberPackages.Where(p => p.MemberPackageId == f.Pass).Select(p => p.Status).SingleAsync()));
+        Assert.False(await factory.QueryAsync(db => db.PointLedgerEntries.AnyAsync(e => db.PointWallets.Any(w => w.WalletId == e.WalletId && w.OwnerUserId == f.Member))));
+        Assert.False(await factory.QueryAsync(db => db.Set<SportHub.Payment.Wallet.Domain.PointGift>().AnyAsync(g => g.IncidentId == id)));
+        var notices = await factory.QueryAsync(db => db.Notifications
+            .Where(n => n.UserId == f.Member && n.SourceEntityId == id).ToListAsync());
+        Assert.Equal(2, notices.Count);
+        var inApp = Assert.Single(notices, n => n.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp);
+        Assert.Contains(VietnamTime.ToLocal(expiry).ToString("dd/MM/yyyy HH:mm"), inApp.Message);
+        Assert.DoesNotContain("22:00", inApp.Message);
+        var email = Assert.Single(notices, n => n.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.Email);
+        Assert.False(string.IsNullOrWhiteSpace(email.ProtectedEmailPayload));
+        var payload = scope.ServiceProvider.GetRequiredService<IDataProtectionProvider>()
+            .CreateProtector("SportHub.Notification.EmailPayload.v1").Unprotect(email.ProtectedEmailPayload!);
+        using var emailJson = System.Text.Json.JsonDocument.Parse(payload);
+        Assert.Contains(VietnamTime.ToLocal(expiry).ToString("dd/MM/yyyy HH:mm"), emailJson.RootElement.GetProperty("HtmlBody").GetString());
+    }
+
+    [Fact]
     public async Task Day_pass_stays_unchanged_while_historical_rental_refunds_once()
     {
         var f = await SeedAsync(); var preview = await Preview(f.Window);
@@ -121,6 +162,7 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         var request = Confirm(f.Window, preview) with { Refunds = preview.Refunds.Select(r => new IncidentRefundSelection(r.SourceId, 9999, "Extra compensation")).ToList() };
         Assert.Equal("incident_refund_points_invalid", (await Assert.ThrowsAsync<BadRequestException>(() => Resolve(request, f.Manager))).ErrorCode);
         Assert.False(await factory.QueryAsync(db => db.PointLedgerEntries.AnyAsync(e => e.InvoiceItemId == f.PassItem || e.InvoiceItemId == f.RentalItem)));
+        Assert.False(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == f.Member)));
     }
 
     [Fact]
@@ -171,5 +213,33 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         var changed = request with { Reason = "Different details using the same confirmation" };
         Assert.Equal("incident_operation_conflict", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(changed, f.Manager))).ErrorCode);
         Assert.Equal(200, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == f.Member).Select(w => w.AvailablePoints).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task Day_pass_compensation_is_rejected_without_resolving_or_notifying()
+    {
+        var f = await SeedAsync();
+        var preview = await Preview(f.Window);
+        var request = Confirm(f.Window, preview);
+        foreach (var gifts in new SportHub.BuildingBlocks.Abstractions.Wallet.IncidentPointGift[][] {
+            [new(f.Member, 5)], [new(Guid.NewGuid(), 1)], [new(f.Member, -1)], [new(f.Member, 1), new(f.Member, 1)], [new(f.Member, int.MaxValue)] })
+            Assert.Equal("incident_day_pass_compensation_disabled", (await Assert.ThrowsAsync<BadRequestException>(() => Resolve(request with { DayPassGifts = gifts }, f.Manager))).ErrorCode);
+        Assert.False(await factory.QueryAsync(db => db.Set<IncidentNotice>().AnyAsync(i => i.IncidentId == request.OperationId)));
+        Assert.False(await factory.QueryAsync(db => db.Set<SportHub.Payment.Wallet.Domain.PointGift>().AnyAsync(g => g.IncidentId == request.OperationId)));
+        Assert.False(await factory.QueryAsync(db => db.Notifications.AnyAsync(n => n.UserId == f.Member)));
+    }
+
+    [Fact]
+    public async Task Changed_day_pass_recipients_require_a_new_preview_before_notifying()
+    {
+        var f = await SeedAsync();
+        var request = Confirm(f.Window, await Preview(f.Window));
+        await factory.QueryAsync(async db => {
+            await db.MemberPackages.Where(p => p.MemberPackageId == f.Pass)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, MemberPackageStatus.Cancelled));
+            return 0;
+        });
+        Assert.Equal("incident_refund_preview_changed", (await Assert.ThrowsAsync<ConflictException>(() => Resolve(request, f.Manager))).ErrorCode);
+        Assert.False(await factory.QueryAsync(db => db.Set<IncidentNotice>().AnyAsync(i => i.IncidentId == request.OperationId)));
     }
 }

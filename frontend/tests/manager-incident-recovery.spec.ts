@@ -83,7 +83,21 @@ for (const full of [false, true]) {
         return route.fulfill({
           json: { items: [], page: 1, pageSize: 20, totalCount: 0 },
         });
-      if (path === "/api/manager/incidents/preview")
+      if (path === "/api/manager/incidents/resolve") {
+        reports++;
+        const plan = route.request().postDataJSON().resolutions[0];
+        expect(plan.sourceId).toBe(sessionId);
+        expect(plan.action).toBe("SESSION_OUTCOME");
+        expect(plan.outcome).toBe(
+          full ? "COMPLETED_AS_PLANNED" : "INTERRUPTED",
+        );
+        if (!full) expect(plan.startAtUtc).toBe("2032-02-01T02:00:00.000Z");
+        return route.fulfill({
+          json: { incidentId: "55555555-5555-4555-8555-555555555555" },
+        });
+      }
+      if (path === "/api/manager/incidents/preview") {
+        handled = (route.request().postDataJSON().resolutions?.length ?? 0) > 0;
         return route.fulfill({
           json: {
             scope: "ROOM",
@@ -106,6 +120,7 @@ for (const full of [false, true]) {
                 ],
           },
         });
+      }
       if (path.endsWith("/suggestions")) {
         searches++;
         return route.fulfill({ status: 404 });
@@ -205,13 +220,13 @@ for (const full of [false, true]) {
       fullPage: true,
     });
     await dialog
-      .getByRole("button", { name: "Confirm outcome", exact: true })
+      .getByRole("button", { name: en.incidentPlans.usePlan, exact: true })
       .click();
     await expect(dialog).toHaveCount(0);
     await expect(
       page.getByText(en.incidentHistory.noImpacts, { exact: true }),
     ).toBeVisible();
-    expect(reports).toBe(1);
+    expect(reports).toBe(0);
     expect(searches).toBe(0);
     await impacts
       .getByRole("button", { name: en.managerOperations.recheck, exact: true })
@@ -243,5 +258,19 @@ for (const full of [false, true]) {
     await expect(impacts).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(reports).toBe(0);
+    await page
+      .getByRole("button", { name: en.operations.review, exact: true })
+      .click();
+    await impacts
+      .getByRole("button", { name: en.managerOperations.recheck, exact: true })
+      .click();
+    await page
+      .getByRole("button", {
+        name: en.managerOperations.finalResolve,
+        exact: true,
+      })
+      .click();
+    await expect.poll(() => reports).toBe(1);
   });
 }

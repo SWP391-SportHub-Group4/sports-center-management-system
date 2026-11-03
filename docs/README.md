@@ -17,3 +17,10 @@ Tài liệu hiện hành của dự án:
 | [Team Task Assignment](handoff/Team-Task-Assignment.md) | Phân công và các việc còn mở |
 
 Các tài liệu Flow và hướng dẫn kiểm thử cũ đã được gỡ khỏi thư mục này. Bản chốt demo local ở bảng trên thay thế các bản kịch bản cũ; lịch sử của chúng vẫn có trong Git.
+
+---
+
+## AI documentation update — 02/11/2026
+
+- [AI Member/Coach — Implementation & Verification](AI-Member-Coach-Implementation-Verification.md): mapping chức năng, validation, merge notes, runtime/CI checklist và giới hạn nghiệm thu.
+- Các cập nhật của Flow 5 và Flow 6 được bổ sung vào `00-Source-of-Truth.md`, `api-contract.md`, `Functional-and-Nonfunctional-Spec.md`, `Center-Management-System-Design-v3.md` và `LOCAL-DEMO-SCRIPT-6-FLOWS.md`.

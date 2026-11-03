@@ -106,7 +106,7 @@ export function PaymentReturn({
             );
           }
         }
-        // The URL identifies the attempt only. Confirmation comes from the backend's signed QueryDR.
+        // Send the return fields so Development can verify VNPay's signature when IPN is unreachable.
         if (
           reference &&
           ["AWAITING_PAYMENT", "VOID"].includes(derivePhase(current))

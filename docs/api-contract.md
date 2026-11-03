@@ -999,3 +999,20 @@ Tất cả route sau yêu cầu CenterManager.
 | GET | `/api/manager/point-gifts/recipients` | `incidentId?,keyword?,packageId?,membershipStatus?,fromDate?,toDate?,page,pageSize`. PagedResult gồm memberId/name/email/requiresAgreement/alreadyGifted. Bộ lọc không tự chọn người nhận. |
 | POST | `/api/manager/point-gifts` | `{batchId,incidentId?,reason,recipients:[{memberId,points,memberAgreed}]}`; 1–100 người khác nhau, lý do 3–1000 ký tự, points nguyên dương. 200 `{batchId,recipients,totalPoints}`. Cộng ngay trong một transaction. Cùng batch/payload retry trả kết quả cũ; khác payload 409 point_gift_batch_conflict. Incident + Member trùng 409 incident_member_already_gifted; cần đồng ý mà chưa ghi nhận 400 day_pass_gift_agreement_required. |
 | GET | `/api/manager/point-gifts` | Lịch sử phân trang, lọc incidentId, có người nhận, Manager, điểm, lý do, thời gian, ledgerEntryId. |
+
+---
+
+## AI Member/Coach — contract bổ sung cho bản vá 02/11/2026
+
+> Đây là ghi chú đối chiếu **bản vá dự kiến tích hợp**, không thay thế OpenAPI runtime. Khi khác nhau, kiểm tra controller đang được deploy. Các đoạn cũ bên dưới ghi `scope=session` duy nhất phản ánh phiên bản trước khi mở rộng Personal Plan.
+
+| Luồng | Route | Quyền và hành vi cần kiểm tra |
+|---|---|---|
+| Coach AI lesson suggestion | `POST /api/coaches/me/teaching/classes/{classId}/suggestion` | Coach được phân công. `scope=session` gắn buổi hợp lệ; `scope=personal` gắn `memberId` thuộc lớp/Coach hợp lệ. Kết quả là suggestion, không tự lưu. |
+| Coach member workout suggestion (legacy/khác luồng) | `POST /api/ai/workout-suggestions/{memberId}` | Coach có quan hệ cho phép; không nhầm API này với nút AI lesson suggestion của class teaching editor. |
+| AI chatbot | `POST /api/ai/chat` | Chỉ bật UI chatbot cho Member/Coach; truy vấn navigation phải lọc theo role từ backend context và không mở quyền API nghiệp vụ mới. |
+| AI logs | `GET /api/ai/logs` | Quyền endpoint xác định ở backend, không diễn giải là một nút giao diện Member/Coach. |
+
+**Goal validation:** giới hạn input cơ bản → phân loại `VALID`, `VAGUE`, `INVALID` → chỉ sinh giáo án cho VALID hoặc VAGUE. VAGUE phải dùng context môn và trình độ, INVALID trả message, không gọi bước tạo giáo án. Không được coi AI validator là cơ chế xác thực quyền, và cần kiểm thử xử lý lỗi provider/JSON/timeout.
+
+**Navigation Knowledge:** API-contract chỉ mô tả endpoint và quyền; câu hỏi “button nằm ở đâu?” cần thêm mapping `role → page → tab → button → handler → API`. Chỉ đưa các mapping đã xác nhận vào câu trả lời. Kiểm tra đường dẫn thực tế của frontend trước khi khẳng định route đã có nút.

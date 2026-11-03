@@ -7,6 +7,8 @@ async function fixture(page: Page) {
     localStorage.setItem("sporthub.accessToken", "manager-fixture"),
   );
   let cancelled = false;
+  let classStatus = "PUBLISHED";
+  let thresholdStatus = "NOT_EVALUATED";
   let failed = false;
   let blockedReason: string | null = null;
   let gate: Promise<void> | null = null;
@@ -44,10 +46,10 @@ async function fixture(page: Page) {
           price: 300000,
           costAmount: 1800000,
           breakEvenThreshold: 6,
-          thresholdStatus: "NOT_EVALUATED",
+          thresholdStatus,
           thresholdDeadlineUtc: "2030-10-22T07:00:00Z",
           firstSessionStartUtc: "2030-10-25T07:00:00Z",
-          status: cancelled ? "CANCELLED" : "PUBLISHED",
+          status: cancelled ? "CANCELLED" : classStatus,
           confirmedCount: 4,
           reservedCount: 4,
           activeHoldCount: 0,
@@ -74,6 +76,13 @@ async function fixture(page: Page) {
           totalSessions: 8,
           sessionsNotProvided: 8,
           refundPoints: 1200,
+          members: [
+            {
+              enrollmentId: "enrollment-1",
+              memberName: "Member Linh",
+              refundPoints: 300,
+            },
+          ],
         },
       });
     }
@@ -86,6 +95,10 @@ async function fixture(page: Page) {
   });
   return {
     writes,
+    setClass: (status: string, threshold: string) => {
+      classStatus = status;
+      thresholdStatus = threshold;
+    },
     fail: (value: boolean) => {
       failed = value;
     },
@@ -104,7 +117,7 @@ test("due unevaluated class offers cancellation and reviews refunds before writi
   const f = await fixture(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/manager/classes/22?tab=management");
-  const action = page.getByRole("region", { name: copy.belowThresholdTitle });
+  const action = page.getByRole("region", { name: copy.cancelClass });
   await expect(action).toContainText("4 / 6");
   await expect(action).toContainText(copy.cancelBelowThresholdHint);
   await expect(
@@ -135,7 +148,38 @@ test("due unevaluated class offers cancellation and reviews refunds before writi
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Minimum enrollment was not reached");
   await preview.click();
-  await expect(dialog).toContainText("1200");
+  const confirm = dialog.getByRole("button", {
+    name: en.operations.confirm,
+    exact: true,
+  });
+  await expect(confirm).toBeDisabled();
+  const points = dialog.getByRole("textbox", {
+    name: /Refund points — Member Linh/,
+  });
+  for (const invalid of [
+    "-1",
+    "1.5",
+    "301",
+    "abc",
+    "1e2",
+    "999999999999999999999",
+    "",
+  ]) {
+    await points.fill(invalid);
+    await expect(points).toHaveAttribute("aria-invalid", "true");
+    await expect(dialog.getByRole("alert")).toHaveText(
+      en.classCancellationRefund.invalid.replace("{points}", "300"),
+    );
+    await expect(confirm).toBeDisabled();
+    expect(f.writes).toHaveLength(0);
+  }
+  await points.fill("0");
+  await expect(confirm).toBeEnabled();
+  await points.fill("250");
+  await expect(points).not.toHaveAttribute("aria-invalid", "true");
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await expect(confirm).toBeEnabled();
+  await expect(dialog).toContainText("250");
   await expect(dialog).not.toContainText("Course interests");
   expect(f.writes).toHaveLength(0);
   for (const width of [1440, 390]) {
@@ -154,6 +198,7 @@ test("due unevaluated class offers cancellation and reviews refunds before writi
     {
       reason: "Minimum enrollment was not reached",
       previewToken: "latest-roster",
+      refunds: [{ enrollmentId: "enrollment-1", points: 250 }],
     },
   ]);
   await expect(
@@ -194,10 +239,7 @@ test("cancellation stays closed while checking and recovers from a failed check"
 });
 
 for (const [reason, message] of [
-  ["before_review_deadline", copy.cancellationBeforeDeadline],
-  ["session_completed", copy.cancellationTeachingCompleted],
-  ["threshold_met", copy.cancellationThresholdMet],
-  ["threshold_waived", copy.cancellationWaived],
+  ["enrollment_payment_missing", copy.cancellationPaymentMissing],
 ] as const) {
   test(`server blocks cancellation for ${reason} and explains why`, async ({
     page,
@@ -212,6 +254,27 @@ for (const [reason, message] of [
     await expect(
       page.getByRole("button", { name: copy.viewSchedule, exact: true }),
     ).toBeVisible();
+    expect(f.writes).toHaveLength(0);
+  });
+}
+
+for (const [status, threshold] of [
+  ["PUBLISHED", "MET"],
+  ["PUBLISHED", "WAIVED_BY_MANAGER"],
+  ["PUBLISHED", "NOT_EVALUATED"],
+  ["IN_PROGRESS", "MET"],
+] as const) {
+  test(`manager can review cancellation for ${status} / ${threshold}`, async ({
+    page,
+  }) => {
+    const f = await fixture(page);
+    f.setClass(status, threshold);
+    await page.goto("/manager/classes/22?tab=management");
+    const action = page.getByRole("region", { name: copy.cancelClass });
+    await expect(
+      action.getByRole("button", { name: copy.cancelAndRefund }),
+    ).toBeVisible();
+    await expect(action).toContainText(copy.cancelBelowThresholdHint);
     expect(f.writes).toHaveLength(0);
   });
 }

@@ -104,8 +104,7 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
     {
         RequireBuyer();
         var actorId = User.RequireUserId();
-        // Ownership is checked before calling VNPay. The browser's return parameters are never
-        // accepted as proof of payment; only a signed QueryDR response can change the invoice.
+        // Check ownership before using return parameters or querying VNPay.
         var checkout = await checkouts.FindByReferenceAsync(request.Reference, actorId, ct);
         var attempt = await db.Set<PaymentAttempt>().AsNoTracking()
             .SingleAsync(x => x.VnpTxnRef == request.Reference && x.InvoiceId == checkout.InvoiceId, ct);
@@ -115,7 +114,8 @@ public sealed class CheckoutsController(CheckoutService checkouts, IPackagePurch
         {
             // Development only: localhost cannot receive the IPN and the sandbox QueryDR is unreliable,
             // so accept the return parameters when they carry a valid VNPay signature for this reference.
-            // VerifyCallback checks the signature, terminal code and amount; production never takes this path.
+            // VerifyCallback checks the signature and merchant; reconciliation checks the amount
+            // and processes the signed result through the same path as an IPN.
             var returned = request.Fields;
             if (environment.IsDevelopment() && returned is { Count: > 0 }
                 && returned.GetValueOrDefault("vnp_TxnRef") == request.Reference)

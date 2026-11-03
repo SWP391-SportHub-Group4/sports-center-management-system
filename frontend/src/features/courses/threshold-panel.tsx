@@ -1,9 +1,7 @@
 "use client";
-import { CourseCancellation } from "./course-operations";
 import styles from "./course-management.module.css";
 import { createPortal } from "react-dom";
 import { useState } from "react";
-import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -95,19 +93,6 @@ export function ThresholdPanel({
                   : "Approve running below threshold before this deadline if needed. If still below threshold without a waiver when it expires, the system cancels the class and refunds remaining enrollments."}
               </p>
             )}
-          {course.thresholdStatus === "AT_RISK" &&
-            !course.thresholdResponseDeadlineUtc && (
-              <div role="alert" className={styles.openingNotice}>
-                <p>
-                  {vi
-                    ? "Chưa mở cửa sổ phản hồi. Nếu không còn đủ thời gian, Manager phải chốt mở dưới ngưỡng, hủy hoặc dời khai giảng. Lớp chưa được chốt sẽ không tự bắt đầu."
-                    : "This class is below its minimum enrollment. Approve running below threshold, defer opening, or cancel and refund all remaining paid balances as points. The Coach and enrolled members will be notified."}
-                </p>
-                <Link href={`/manager/classes/${course.classId}?tab=sessions`}>
-                  Move the first session
-                </Link>
-              </div>
-            )}
           {course.status === "PUBLISHED" &&
             openingPassed &&
             !["MET", "WAIVED_BY_MANAGER"].includes(course.thresholdStatus) && (
@@ -134,17 +119,6 @@ export function ThresholdPanel({
             )}
           </div>
           {!editable && <p className="small muted">{copy.pricingLocked}</p>}
-          {course.status === "PUBLISHED" &&
-            course.thresholdStatus === "AT_RISK" && (
-              <details className={styles.guidance}>
-                <summary>Cancel class and refund points</summary>
-                <CourseCancellation
-                  classId={course.classId}
-                  onSaved={onSaved}
-                  embedded
-                />
-              </details>
-            )}
         </div>
       </Card>
       {action &&

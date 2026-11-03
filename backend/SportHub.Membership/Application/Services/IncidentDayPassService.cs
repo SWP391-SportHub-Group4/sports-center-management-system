@@ -14,7 +14,7 @@ public sealed class IncidentDayPassService(ISportHubDbContext db) : IIncidentDay
         => await db.Set<MemberPackage>().AsNoTracking()
             .Where(p => p.PackageId == DayPass.PackageId && p.InvoiceItemId != null && p.StartDate >= from && p.StartDate <= to)
             .OrderBy(p => p.MemberPackageId)
-            .Select(p => new IncidentDayPass(p.MemberPackageId, p.MemberId, p.InvoiceItemId!.Value, p.StartDate, p.Status.ToString()))
+            .Select(p => new IncidentDayPass(p.MemberPackageId, p.MemberId, p.InvoiceItemId!.Value, p.StartDate, p.Status.ToString(), p.ExpiresAtUtc))
             .ToListAsync(ct);
 
     public async Task CancelAsync(Guid passId, CancellationToken ct = default)

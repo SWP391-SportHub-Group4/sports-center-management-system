@@ -17,6 +17,7 @@ import { NotificationBell } from "./NotificationBell";
 import { MemberCodeButton } from "./MemberCodeCard";
 import { AssistantButton } from "@/features/member/assistant";
 import { walletApi } from "@/features/wallet/api";
+import { useWalletRefresh } from "@/features/wallet/wallet-events";
 import { useApi } from "@/lib/useApi";
 import { formatPoints } from "@/lib/format";
 import {
@@ -51,6 +52,7 @@ const MemberFrameContext = createContext(false);
 function MemberWalletHeader() {
   const { language } = useLanguage();
   const wallet = useApi((signal) => walletApi.balance(signal), []);
+  useWalletRefresh(wallet.reload);
   return (
     <Link
       href="/member/finance?tab=wallet"
@@ -179,9 +181,6 @@ export function MemberFrame({
             <span className={styles.brandLogo}>
               Sport<span className={styles.brandLogoAccent}>Hub</span>
             </span>
-            <span className={styles.roleBadge}>
-              {t.navigation.roleLabel.Member}
-            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -260,11 +259,6 @@ export function MemberFrame({
                   <div className={styles.dropdownHeader}>
                     <div className={styles.dropdownName}>
                       {user.fullName || user.email}
-                    </div>
-                    <div className={styles.dropdownRole}>
-                      {language === "en"
-                        ? "SportHub Member"
-                        : "Hội viên SportHub"}
                     </div>
                   </div>
 

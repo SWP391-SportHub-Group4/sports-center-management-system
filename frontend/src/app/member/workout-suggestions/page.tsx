@@ -22,8 +22,6 @@ import { api, ApiError } from "@/lib/apiClient";
 import type { WorkoutSuggestionDto, SportDto } from "@/lib/types";
 import styles from "./workout-suggestions.module.css";
 
-const AI_SUGGESTION_PLAN_KEY = "sporthub:member:ai-workout-draft:v1";
-
 export default function MemberWorkoutSuggestionsPage() {
   const router = useRouter();
   const [sport, setSport] = useState("Gym");

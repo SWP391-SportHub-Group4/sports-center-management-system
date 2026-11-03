@@ -12,7 +12,7 @@ import {
 import { useNow } from "@/lib/useApi";
 import { sortTeachingSessions } from "@/lib/teaching-order";
 import { StatusChip } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatTime } from "@/lib/format";
 import type { CourseSessionDto } from "@/lib/types";
 import type { TeachingRecord, TeachingMember } from "./teaching-api";
 import styles from "./training-plan-view.module.css";
@@ -24,6 +24,8 @@ export const planScopeOf = (record: TeachingRecord): PlanScope =>
 const planOrder = (a: TeachingRecord, b: TeachingRecord) =>
   a.createdAtUtc.localeCompare(b.createdAtUtc) ||
   a.recordId.localeCompare(b.recordId);
+/** Newest plan first, so a plan saved just now is the first thing a member sees. */
+const newestFirst = (a: TeachingRecord, b: TeachingRecord) => planOrder(b, a);
 
 export function TrainingPlanView({
   records,
@@ -92,14 +94,16 @@ export function TrainingPlanView({
       ? r.sessionId === sessionId
       : planScopeOf(r) === scope,
   );
-  const visible = scoped.filter((r) =>
-    scope === "personal"
-      ? (!student || r.memberId === student) &&
-        (!sessionId || !r.sessionId || r.sessionId === sessionId)
-      : scope === "session"
-        ? !session || r.sessionId === session
-        : true,
-  );
+  const visible = scoped
+    .filter((r) =>
+      scope === "personal"
+        ? (!student || r.memberId === student) &&
+          (!sessionId || !r.sessionId || r.sessionId === sessionId)
+        : scope === "session"
+          ? !session || r.sessionId === session
+          : true,
+    )
+    .sort(newestFirst);
   const now = useNow();
   const usedSessions = sortTeachingSessions(sessions, now);
   const shownSessions = usedSessions.filter(
@@ -568,7 +572,9 @@ function CourseRoadmap({
                     {vi ? "Buổi" : "Session"} {s.sessionNo}
                     {s.isMakeup ? (vi ? " · Học bù" : " · Makeup") : ""}
                   </strong>
-                  <small>{formatDateTime(s.startAtUtc)}</small>
+                  <small>
+                    {formatDateTime(s.startAtUtc)} – {formatTime(s.endAtUtc)}
+                  </small>
                   <span className={styles.phaseBadge} data-phase={phase}>
                     {phaseLabel}
                   </span>

@@ -12,12 +12,65 @@ using SportHub.Membership.Domain;
 using SportHub.Membership.Domain.Enums;
 using SportHub.Payment.Domain.Enums;
 using SportHub.Payment.Wallet.Application;
+using SportHub.Scheduling.Domain.Entities;
+using SportHub.Scheduling.Domain.Enums;
 
 namespace SportHub.Payment.Tests.Integration;
 
 [Collection(nameof(PaymentApiCollection))]
 public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
 {
+    [Fact]
+    public async Task Course_and_other_paid_purchases_qualify_and_sport_and_class_filters_match_purchased_items()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var courseBuyer = await factory.SeedUserAsync(UserRole.Member);
+        var otherBuyer = await factory.SeedUserAsync(UserRole.Member);
+        var unpaid = await factory.SeedUserAsync(UserRole.Member);
+        var courseInvoice = await factory.SeedInvoiceAsync(courseBuyer.UserId, manager.UserId, 100_000);
+        var otherInvoice = await factory.SeedInvoiceAsync(otherBuyer.UserId, manager.UserId, 100_000);
+        var unpaidInvoice = await factory.SeedInvoiceAsync(unpaid.UserId, manager.UserId, 100_000);
+        var classId = await factory.QueryAsync(async db => {
+            var course = new Class { Code = "GIFT-" + Guid.NewGuid().ToString("N"), Name = "Gift filter course",
+                SportId = 3, DefaultRoomId = await db.Rooms.Select(r => r.RoomId).FirstAsync(),
+                Status = ClassStatus.Draft, Capacity = 10, Price = 100_000, NumSessions = 1,
+                StartDate = DateOnly.FromDateTime(DateTime.UtcNow), CreatedAt = DateTime.UtcNow };
+            db.Classes.Add(course);
+            await db.SaveChangesAsync();
+            foreach (var invoiceId in new[] { courseInvoice.InvoiceId, unpaidInvoice.InvoiceId }) {
+                var item = await db.InvoiceItems.SingleAsync(i => i.InvoiceId == invoiceId);
+                item.ItemType = InvoiceItemType.ClassPackage;
+                item.ClassId = course.ClassId;
+                // Legacy paid items can lack a sport snapshot; resolve it through the class.
+                item.SportId = null;
+            }
+            var otherItem = await db.InvoiceItems.SingleAsync(i => i.InvoiceId == otherInvoice.InvoiceId);
+            otherItem.ItemType = InvoiceItemType.WalletTopUp;
+            foreach (var id in new[] { courseInvoice.InvoiceId, otherInvoice.InvoiceId })
+                (await db.Invoices.SingleAsync(i => i.InvoiceId == id)).Status = InvoiceStatus.Paid;
+            await db.SaveChangesAsync();
+            return course.ClassId;
+        });
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        Task<Guid[]> Recipients(string query) => AllRecipientsAsync(client, query);
+        Assert.Contains(courseBuyer.UserId, await Recipients(""));
+        Assert.Contains(otherBuyer.UserId, await Recipients(""));
+        Assert.Contains(unpaid.UserId, await Recipients(""));
+        var unregistered = await Recipients("unregistered=true");
+        Assert.Contains(unpaid.UserId, unregistered);
+        Assert.DoesNotContain(courseBuyer.UserId, unregistered);
+        Assert.DoesNotContain(otherBuyer.UserId, unregistered);
+        Assert.Equal(new[] { courseBuyer.UserId }, await Recipients($"classId={classId}"));
+        Assert.Contains(courseBuyer.UserId, await Recipients("sportId=3"));
+        Assert.Empty(await Recipients($"sportId=2&classId={classId}"));
+        var batch = new SendPointGifts { BatchId = Guid.NewGuid(), Reason = "All paying members",
+            Recipients = [new(courseBuyer.UserId, 5), new(otherBuyer.UserId, 5)] };
+        (await client.PostAsJsonAsync("/api/manager/point-gifts", batch)).EnsureSuccessStatusCode();
+        var accepted = await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
+            BatchId = Guid.NewGuid(), Reason = "Unpaid course", Recipients = [new(unpaid.UserId, 5)] });
+        accepted.EnsureSuccessStatusCode();
+    }
+
     private async Task<Guid> PurchaseMembership(Guid memberId, MemberPackageStatus status = MemberPackageStatus.Active, bool dayPass = false)
     {
         var package = await factory.SeedPendingPackageAsync(memberId);
@@ -46,35 +99,34 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Gift_limit_matches_overview_net_collected_and_changes_with_real_payments()
+    public async Task Gift_limit_is_fixed_and_enforced_independently_of_payments()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var invoiceId = await PurchaseMembership(member.UserId);
+        await factory.QueryAsync(async db => {
+            await db.Payments.Where(p => p.InvoiceId == invoiceId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.PaidAt, DateTime.UtcNow.AddMonths(-1)));
+            return 0;
+        });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var limit = (await client.GetFromJsonAsync<PointGiftLimit>("/api/manager/point-gifts/limits"))!;
-        var report = await client.GetFromJsonAsync<JsonElement>($"/api/reports/revenue?fromDate={limit.FromDate:yyyy-MM-dd}&toDate={limit.ToDate:yyyy-MM-dd}");
-        Assert.Equal(report.GetProperty("netRevenue").GetDecimal(), limit.NetCollectedVnd);
-        Assert.Equal((int)decimal.Floor(Math.Max(0m, limit.NetCollectedVnd) / PointWalletService.VndPerPoint), limit.MaxPoints);
-        var request = new SendPointGifts { BatchId = Guid.NewGuid(), Reason = "Gift above current Net collected",
-            Recipients = [new(member.UserId, limit.MaxPoints + 1)] };
+        Assert.Equal(10_000, limit.MaxPoints);
+        var request = new SendPointGifts { BatchId = Guid.NewGuid(), Reason = "Member appreciation",
+            Recipients = [new(member.UserId, 10_001)] };
         var denied = await client.PostAsJsonAsync("/api/manager/point-gifts", request);
         Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
         Assert.Contains("point_gift_limit_exceeded", await denied.Content.ReadAsStringAsync());
         Assert.False(await factory.QueryAsync(db => db.Set<PointGift>().AnyAsync(g => g.BatchId == request.BatchId)));
-        await factory.QueryAsync(async db => {
-            await db.Payments.Where(p => p.InvoiceId == invoiceId).ExecuteUpdateAsync(s => s.SetProperty(p => p.Amount, p => p.Amount + PointWalletService.VndPerPoint));
-            return 0;
-        });
-        var updated = (await client.GetFromJsonAsync<PointGiftLimit>("/api/manager/point-gifts/limits"))!;
-        Assert.Equal(limit.NetCollectedVnd + PointWalletService.VndPerPoint, updated.NetCollectedVnd);
-        Assert.Equal(limit.MaxPoints + 1, updated.MaxPoints);
+        request.Recipients = [new(member.UserId, 10_000)];
         var accepted = await client.PostAsJsonAsync("/api/manager/point-gifts", request);
         Assert.True(accepted.IsSuccessStatusCode, await accepted.Content.ReadAsStringAsync());
+        Assert.Equal(10_000, await factory.QueryAsync(db => db.Set<PointGift>()
+            .Where(g => g.BatchId == request.BatchId).Select(g => g.Points).SingleAsync()));
     }
 
     [Fact]
-    public async Task Gift_recipients_only_include_members_who_purchased_membership_and_send_rechecks_eligibility()
+    public async Task Gift_recipients_include_members_without_purchases_and_send_accepts_them()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var purchased = await factory.SeedUserAsync(UserRole.Member);
@@ -87,6 +139,7 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
         await PurchaseMembership(purchased.UserId);
         await PurchaseMembership(expired.UserId, MemberPackageStatus.Expired);
         await PurchaseMembership(expiredDayPass.UserId, MemberPackageStatus.Expired, dayPass: true);
+        await PurchaseMembership(dayPassOnly.UserId, dayPass: true);
         await factory.SeedPendingPackageAsync(unpaid.UserId);
         var pass = await factory.SeedPendingPackageAsync(dayPassOnly.UserId);
         var pendingPass = await factory.SeedPendingPackageAsync(unpaidDayPass.UserId);
@@ -99,21 +152,22 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
             return 0;
         });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var data = await client.GetFromJsonAsync<JsonElement>("/api/manager/point-gifts/recipients?pageSize=100");
-        var ids = data.GetProperty("items").EnumerateArray().Select(x => x.GetProperty("memberId").GetGuid()).ToArray();
+        var ids = await AllRecipientsAsync(client);
         Assert.Contains(purchased.UserId, ids);
         Assert.Contains(expired.UserId, ids);
-        Assert.DoesNotContain(unpaid.UserId, ids);
+        Assert.Contains(unpaid.UserId, ids);
         Assert.Contains(dayPassOnly.UserId, ids);
         Assert.Contains(expiredDayPass.UserId, ids);
-        Assert.DoesNotContain(unpaidDayPass.UserId, ids);
-        Assert.DoesNotContain(neverPurchased.UserId, ids);
+        Assert.Contains(unpaidDayPass.UserId, ids);
+        Assert.Contains(neverPurchased.UserId, ids);
+        Assert.DoesNotContain(manager.UserId, ids);
         foreach (var memberId in new[] { unpaid.UserId, unpaidDayPass.UserId, neverPurchased.UserId })
         {
             var response = await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
                 BatchId = Guid.NewGuid(), Reason = "Membership gift", Recipients = [new(memberId, 5)] });
-            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Contains("point_gift_recipient_ineligible", await response.Content.ReadAsStringAsync());
+            response.EnsureSuccessStatusCode();
+            Assert.Equal(5, await factory.QueryAsync(db => db.PointWallets.Where(w => w.OwnerUserId == memberId)
+                .Select(w => w.AvailablePoints).SingleAsync()));
         }
         var gift = await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
             BatchId = Guid.NewGuid(), Reason = "Day pass gift", Recipients = [new(dayPassOnly.UserId, 5)] });
@@ -210,5 +264,22 @@ public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
         Assert.Equal(2, await factory.QueryAsync(db => db.Notifications.CountAsync(n => n.SourceEntityId == incidentId)));
         var options = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts/recipients?incidentId={incidentId}");
         Assert.True(options.GetProperty("items").EnumerateArray().Single(x => x.GetProperty("memberId").GetGuid() == member.UserId).GetProperty("alreadyGifted").GetBoolean());
+    }
+
+    private static async Task<Guid[]> AllRecipientsAsync(HttpClient client, string query = "")
+    {
+        var all = new List<Guid>();
+        var page = 1;
+        while (true)
+        {
+            var separator = string.IsNullOrEmpty(query) ? "" : "&" + query;
+            var data = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts/recipients?page={page}&pageSize=100{separator}");
+            var items = data.GetProperty("items").EnumerateArray().Select(r => r.GetProperty("memberId").GetGuid()).ToArray();
+            all.AddRange(items);
+            var total = data.GetProperty("totalCount").GetInt32();
+            if (all.Count >= total || items.Length == 0) break;
+            page++;
+        }
+        return all.ToArray();
     }
 }

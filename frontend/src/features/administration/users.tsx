@@ -430,6 +430,15 @@ export function EditUser({
         </div>
         {!review ? (
           <>
+            <Field label={l.reason} required hint="Recorded in the audit log.">
+              <textarea
+                required
+                minLength={3}
+                maxLength={500}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
             {a.role === "COACH" && (
               <section
                 className={styles.accessSection}
@@ -437,7 +446,6 @@ export function EditUser({
               >
                 <div className={styles.sectionHeading}>
                   <h3>Specialties</h3>
-                  <p>Assign sport specialties for this coach.</p>
                 </div>
                 <SportOptions
                   state={sportOptions}
@@ -468,21 +476,6 @@ export function EditUser({
                 <p>{d.memberRoleLocked}</p>
               </section>
             )}
-            {a.userId === user?.userId && (
-              <Field
-                label={l.reason}
-                required
-                hint="Required for every access change. Your reason is recorded in the audit log."
-              >
-                <textarea
-                  required
-                  minLength={3}
-                  maxLength={500}
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </Field>
-            )}
             {a.userId !== user?.userId && (
               <section
                 className={styles.accessSection}
@@ -490,24 +483,7 @@ export function EditUser({
               >
                 <div className={styles.sectionHeading}>
                   <h3>Account status</h3>
-                  <p>
-                    Restrict or restore sign-in access. You will review the
-                    change before confirming.
-                  </p>
                 </div>
-                <Field
-                  label={l.reason}
-                  required
-                  hint="Required for every access change. Your reason is recorded in the audit log."
-                >
-                  <textarea
-                    required
-                    minLength={3}
-                    maxLength={500}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                </Field>
                 <button
                   type="button"
                   className={

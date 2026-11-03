@@ -11,7 +11,8 @@ public interface IRefundCreditService
     Task<RefundCreditResult> CreditAsync(RefundCreditRequest request, CancellationToken cancellationToken = default);
     Task<RefundCreditResult> CreditDifferenceAsync(RefundCreditDifferenceRequest request,
         CancellationToken cancellationToken = default);
-    Task<decimal> GetRemainingItemValueVndAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
+    Task<decimal> GetRemainingItemValueVndAsync(Guid invoiceItemId, CancellationToken cancellationToken = default,
+        RefundFraction? proration = null);
     Task LockPaidItemAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
     Task<int> GetSystemRefundPointsAsync(Guid invoiceItemId, CancellationToken cancellationToken = default);
     Task LockBatchAsync(IReadOnlyList<Guid> itemIds, IReadOnlyList<Guid> invoiceIds, CancellationToken cancellationToken = default);
@@ -33,3 +34,9 @@ public sealed record RefundCreditResult(int PointsCredited, bool AlreadyApplied)
 public sealed record RefundCreditDifferenceRequest(Guid InvoiceItemId, int Points, string Reason, Guid EventId);
 
 public sealed record RefundItemBalance(Guid InvoiceId, bool IsPaid, int RemainingPoints, int RefundedPoints);
+
+/// <summary>Keep the session fraction exact until rounding the final VND amount.</summary>
+public sealed record RefundFraction(int Numerator, int Denominator)
+{
+    public decimal Apply(decimal value) => decimal.Floor(value * Numerator / Denominator);
+}

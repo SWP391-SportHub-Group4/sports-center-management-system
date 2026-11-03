@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ActivitySwitch } from "@/components/ActivitySwitch";
+import { GiftClassFilter } from "./gift-class-filter";
 import styles from "./point-gifts.module.css";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -28,10 +30,13 @@ type Recipient = {
   alreadyGifted: boolean;
 };
 type Selected = Recipient & { points: string; memberAgreed: boolean };
+type GiftFilters = {
+  sports: { sportId: number; name: string }[];
+  classes: { classId: number; sportId: number; name: string; code: string }[];
+};
 type GiftLimit = {
   fromDate: string;
   toDate: string;
-  netCollectedVnd: number;
   vndPerPoint: number;
   maxPoints: number;
 };
@@ -157,7 +162,11 @@ function GiftComposer({
   const { user } = useAuth();
   const vi = language === "vi";
   const [keyword, setKeyword] = useState("");
-  const [packageId, setPackageId] = useState("");
+  const [sportId, setSportId] = useState("");
+  const [classId, setClassId] = useState("");
+  const [allSelected, setAllSelected] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
+  const [selectingAll, setSelectingAll] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Record<string, Selected>>({});
   const [points, setPoints] = useState("1");
@@ -198,12 +207,9 @@ function GiftComposer({
     !limits.loading &&
     !!limits.data &&
     Number(value) <= limits.data.maxPoints;
-  const packages = useApi(
+  const filters = useApi(
     (signal) =>
-      api.get<{ packageId: number; name: string }[]>(
-        "/api/manager/point-gifts/filters",
-        { signal },
-      ),
+      api.get<GiftFilters>("/api/manager/point-gifts/filters", { signal }),
     [],
   );
   const recipients = useApi(
@@ -213,18 +219,19 @@ function GiftComposer({
         query: {
           incidentId,
           keyword,
-          packageId: packageId || undefined,
+          sportId: sportId && sportId !== "unregistered" ? sportId : undefined,
+          unregistered: sportId === "unregistered" || undefined,
+          classId: classId || undefined,
           page,
           pageSize: 20,
         },
       }),
-    [incidentId, keyword, packageId, page, revision],
+    [incidentId, keyword, sportId, classId, page, revision],
   );
   const rows = Object.values(selected);
   const valid =
     withinLimit(points) &&
     rows.length > 0 &&
-    rows.length <= 100 &&
     reason.trim().length >= 3 &&
     reason.trim().length <= 1000 &&
     rows.every(
@@ -233,13 +240,78 @@ function GiftComposer({
   function filter(set: (s: string) => void, value: string) {
     set(value);
     setPage(1);
+    setAllSelected(false);
+    setBulkSelectedIds([]);
   }
   function remove(id: string) {
+    setAllSelected(false);
     setSelected((current) => {
       const next = { ...current };
       delete next[id];
       return next;
     });
+  }
+  async function selectAll(checked: boolean) {
+    if (!checked) {
+      setAllSelected(false);
+      setSelected((current) => {
+        const next = { ...current };
+        for (const id of bulkSelectedIds) delete next[id];
+        return next;
+      });
+      setBulkSelectedIds([]);
+      return;
+    }
+    setSelectingAll(true);
+    setError("");
+    try {
+      const next: Record<string, Selected> = { ...selected };
+      const matchingIds: string[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+      do {
+        const result = await api.get<Paged<Recipient>>(
+          "/api/manager/point-gifts/recipients",
+          {
+            query: {
+              incidentId,
+              keyword,
+              sportId:
+                sportId && sportId !== "unregistered" ? sportId : undefined,
+              unregistered: sportId === "unregistered" || undefined,
+              classId: classId || undefined,
+              page: currentPage,
+              pageSize: 100,
+            },
+          },
+        );
+        for (const recipient of result.items) {
+          if (!recipient.alreadyGifted) {
+            matchingIds.push(recipient.memberId);
+            next[recipient.memberId] = selected[recipient.memberId] ?? {
+              ...recipient,
+              points,
+              memberAgreed: false,
+            };
+          }
+        }
+        totalPages = Math.ceil(result.totalCount / result.pageSize);
+        currentPage++;
+      } while (currentPage <= totalPages);
+      setSelected(next);
+      setBulkSelectedIds(matchingIds);
+      setAllSelected(matchingIds.length > 0);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : vi
+            ? "Không tải được toàn bộ người nhận. Vui lòng thử lại."
+            : "Could not load all recipients. Please retry.",
+      );
+    } finally {
+      setSelectingAll(false);
+    }
   }
   async function send() {
     if (!review || lock.current) return;
@@ -273,6 +345,8 @@ function GiftComposer({
       setPending(null);
       setReview(null);
       setSelected({});
+      setAllSelected(false);
+      setBulkSelectedIds([]);
       setReason("");
       setRevision((r) => r + 1);
       onGifted?.();
@@ -333,8 +407,8 @@ function GiftComposer({
     if (!validPoints(value)) return invalidPoints;
     if (limits.data && Number(value) > limits.data.maxPoints)
       return vi
-        ? `Không được vượt ${formatPoints(limits.data.maxPoints)} điểm, theo Net collected ${formatMoney(limits.data.netCollectedVnd)} của tháng này.`
-        : `Cannot exceed ${formatPoints(limits.data.maxPoints)} points, based on this month's Net collected of ${formatMoney(limits.data.netCollectedVnd)}.`;
+        ? `Tối đa ${formatPoints(limits.data.maxPoints)} điểm mỗi người trong mỗi lần tặng.`
+        : `Cannot exceed ${formatPoints(limits.data.maxPoints)} points per recipient per submission.`;
     return undefined;
   }
   return (
@@ -350,7 +424,7 @@ function GiftComposer({
             <Link href={`/manager/incidents/${incidentId}`}>
               {vi
                 ? "Đang hỗ trợ sự cố Gym — xem chi tiết"
-                : "Supporting a Gym incident — view details"}
+                : "Supporting a Gym incident: view details"}
             </Link>{" "}
             ·{" "}
             <Link href="/manager/points">
@@ -360,33 +434,107 @@ function GiftComposer({
         )}
         {success && <p role="status">{success}</p>}
         {error && !review && <p role="alert">{error}</p>}
-        <fieldset className={styles.form} disabled={!!review}>
-          <div className="form-grid">
+        <fieldset className={styles.form} disabled={!!review || selectingAll}>
+          <div className={styles.filters}>
             <Field label={vi ? "Tên hoặc email" : "Name or email"}>
               <input
                 value={keyword}
                 onChange={(e) => filter(setKeyword, e.target.value)}
               />
             </Field>
-            <Field label={vi ? "Gói Membership" : "Membership plan"}>
+            <Field label={vi ? "Môn thể thao" : "Sport"}>
               <select
-                value={packageId}
-                onChange={(e) => filter(setPackageId, e.target.value)}
+                value={sportId}
+                disabled={filters.loading || !!filters.error}
+                onChange={(e) => {
+                  filter(setSportId, e.target.value);
+                  setClassId("");
+                }}
               >
-                <option value="">{vi ? "Tất cả gói" : "All plans"}</option>
-                {packages.data?.map((p) => (
-                  <option key={p.packageId} value={p.packageId}>
+                <option value="">{vi ? "Tất cả môn" : "All sports"}</option>
+                <option value="unregistered">
+                  {vi ? "Chưa đăng ký" : "Not registered"}
+                </option>
+                {filters.data?.sports.map((p) => (
+                  <option key={p.sportId} value={p.sportId}>
                     {p.name}
                   </option>
                 ))}
               </select>
             </Field>
+            <GiftClassFilter
+              value={classId}
+              onChange={(value) => filter(setClassId, value)}
+              classes={(filters.data?.classes ?? []).filter(
+                (item) => !sportId || item.sportId === Number(sportId),
+              )}
+              disabled={
+                filters.loading ||
+                !!filters.error ||
+                !!review ||
+                selectingAll ||
+                sportId === "unregistered"
+              }
+              vi={vi}
+            />
           </div>
-          <p>
+          {filters.error && (
+            <p role="alert">
+              {vi ? "Không tải được bộ lọc." : "Could not load filters."}{" "}
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={filters.reload}
+              >
+                {vi ? "Thử lại" : "Retry"}
+              </button>
+            </p>
+          )}
+          <p className="small muted">
             {vi
-              ? "Chọn từng người nhận; tối đa 100 người mỗi lần."
-              : "Select individual recipients; up to 100 per gift."}
+              ? "Tặng điểm cho mọi hội viên, kể cả chưa mua gì. Các lựa chọn được giữ khi tìm kiếm hoặc đổi bộ lọc."
+              : "Gift points to any member, including those with no purchases. Selections are kept when searching or changing filters."}
           </p>
+          <ActivitySwitch
+            checked={allSelected}
+            onChange={(checked) => void selectAll(checked)}
+            disabled={
+              selectingAll ||
+              recipients.loading ||
+              !!recipients.error ||
+              !recipients.data?.totalCount
+            }
+            label={vi ? "Chọn tất cả người nhận" : "Select all recipients"}
+            hint={
+              selectingAll
+                ? vi
+                  ? "Đang tải toàn bộ người nhận…"
+                  : "Loading all recipients…"
+                : vi
+                  ? "Chọn mọi hội viên khớp bộ lọc trên tất cả các trang."
+                  : "Select every matching member across all pages."
+            }
+          />
+          <span className="small muted" role="status">
+            {selectingAll
+              ? vi
+                ? "Đang chọn…"
+                : "Selecting…"
+              : `${rows.length} ${vi ? "người đã chọn" : "recipients selected"}`}
+          </span>
+          {rows.length > 0 && (
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => {
+                setSelected({});
+                setAllSelected(false);
+                setBulkSelectedIds([]);
+              }}
+            >
+              {vi ? "Bỏ chọn tất cả" : "Clear selection"}
+            </button>
+          )}
           <AsyncSection state={recipients}>
             {(data) => (
               <>
@@ -423,10 +571,7 @@ function GiftComposer({
                               type="checkbox"
                               aria-label={`${vi ? "Chọn" : "Select"} ${r.name}`}
                               checked={!!selected[r.memberId]}
-                              disabled={
-                                r.alreadyGifted ||
-                                (!selected[r.memberId] && rows.length >= 100)
-                              }
+                              disabled={r.alreadyGifted}
                               onChange={(e) =>
                                 e.target.checked
                                   ? setSelected((current) => ({
@@ -467,8 +612,8 @@ function GiftComposer({
               {limits.loading && (
                 <p role="status">
                   {vi
-                    ? "Đang tải giới hạn theo Net collected…"
-                    : "Loading the Net collected limit…"}
+                    ? "Đang tải giới hạn tặng điểm…"
+                    : "Loading the gift limit…"}
                 </p>
               )}
               {limits.error && (
@@ -491,8 +636,8 @@ function GiftComposer({
                 <p className="small muted">
                   {vi ? "Giới hạn mỗi người" : "Maximum per recipient"}:{" "}
                   {formatPoints(limits.data.maxPoints)} {vi ? "điểm" : "points"}{" "}
-                  · Net collected: {formatMoney(limits.data.netCollectedVnd)} ·
-                  1 {vi ? "điểm" : "point"} ={" "}
+                  · {vi ? "Mỗi lần tặng" : "Per submission"} · 1{" "}
+                  {vi ? "điểm" : "point"} ={" "}
                   {formatMoney(limits.data.vndPerPoint)}
                 </p>
               )}
@@ -501,8 +646,8 @@ function GiftComposer({
                 error={pointError(points)}
                 hint={
                   vi
-                    ? "Tự áp dụng cho tất cả người nhận đã chọn; có thể chỉnh riêng từng người."
-                    : "Applies to all selected recipients. You can adjust each recipient below."
+                    ? "Áp dụng cùng số điểm cho tất cả người nhận đã chọn."
+                    : "The same points amount applies to all selected recipients."
                 }
               >
                 <input
@@ -515,76 +660,36 @@ function GiftComposer({
                 />
               </Field>
             </div>
-            {rows.length > 0 && (
-              <Table
-                headers={[
-                  vi ? "Hội viên" : "Member",
-                  vi ? "Điểm tặng" : "Gift points",
-                  vi ? "Đồng ý nhận" : "Agreement",
-                  vi ? "Thao tác" : "Actions",
-                ]}
+            {rows.some((r) => r.requiresAgreement) && (
+              <div
+                className="stack"
+                role="group"
+                aria-label={vi ? "Đồng ý nhận điểm" : "Recipient agreements"}
               >
-                {rows.map((r) => (
-                  <tr key={r.memberId}>
-                    <td>
-                      {r.name}
-                      <br />
-                      <small>{r.email}</small>
-                    </td>
-                    <td>
-                      <Field
-                        label={`${vi ? "Điểm cho" : "Points for"} ${r.name}`}
-                        error={pointError(r.points)}
-                      >
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          value={r.points}
-                          onChange={(e) =>
-                            setSelected((current) => ({
-                              ...current,
-                              [r.memberId]: { ...r, points: e.target.value },
-                            }))
-                          }
-                        />
-                      </Field>
-                    </td>
-                    <td>
-                      {r.requiresAgreement ? (
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={r.memberAgreed}
-                            onChange={(e) =>
-                              setSelected((current) => ({
-                                ...current,
-                                [r.memberId]: {
-                                  ...r,
-                                  memberAgreed: e.target.checked,
-                                },
-                              }))
-                            }
-                          />{" "}
-                          {vi
-                            ? "Member đã đồng ý nhận điểm"
-                            : "Member agreed to receive points"}
-                        </label>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn--ghost"
-                        onClick={() => remove(r.memberId)}
-                      >
-                        {vi ? "Bỏ chọn" : "Remove"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
+                {rows
+                  .filter((r) => r.requiresAgreement)
+                  .map((r) => (
+                    <label key={r.memberId}>
+                      <input
+                        type="checkbox"
+                        checked={r.memberAgreed}
+                        onChange={(event) =>
+                          setSelected((current) => ({
+                            ...current,
+                            [r.memberId]: {
+                              ...r,
+                              memberAgreed: event.target.checked,
+                            },
+                          }))
+                        }
+                      />{" "}
+                      {vi
+                        ? "Member đã đồng ý nhận điểm"
+                        : "Member agreed to receive points"}
+                      : {r.name}
+                    </label>
+                  ))}
+              </div>
             )}
             <Field
               label={

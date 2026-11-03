@@ -44,7 +44,7 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
         if (packageId == DayPass.PackageId)
         {
             var center = await CenterOperatingHours.ReadAsync(settings, ct);
-            if (!DayPassClock.IsOpen(center, clock.UtcNow))
+            if (!DayPassClock.IsOpen(clock.UtcNow, center))
                 throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
                     $"Gym day passes can be purchased only from {center.Opens} until {center.Closes} Vietnam time.");
         }
@@ -110,10 +110,10 @@ public sealed class MembershipFulfillment(ISportHubDbContext db, IAuditWriter au
             await gymClosure.LockForActivationAsync(ct);
             if (await gymClosure.IsGymClosedAtAsync(clock.UtcNow, ct))
                 throw new ConflictException("gym_closed_today", "The Gym is closed due to an incident; this day pass cannot be activated.");
-            if (!DayPassClock.IsOpen(center, clock.UtcNow) || purchaseDay != today)
+            if (!DayPassClock.IsOpen(clock.UtcNow, center) || purchaseDay != today)
                 throw new ConflictException(PaymentSupportErrorCodes.DayPassOutsideHours,
                     $"This Gym day pass cannot be activated after {center.Closes} Vietnam time.");
-            entity.ExpiresAtUtc = DayPassClock.ClosesAtUtc(center, clock.UtcNow);
+            entity.ExpiresAtUtc = DayPassClock.ClosesAtUtc(clock.UtcNow, center);
             entity.EndDate = today;
             end = entity.EndDate;
         }

@@ -543,6 +543,7 @@ test("filters survive reload and sport deactivation confirms affected enrolled c
   await expect(page.getByLabel("Search", { exact: true })).toHaveValue(
     "Basket",
   );
+  const originalOverflow = await page.evaluate(() => document.body.style.overflow);
   await row(page, "Basketball")
     .getByRole("button", { name: "Edit", exact: true })
     .click();
@@ -554,6 +555,7 @@ test("filters survive reload and sport deactivation confirms affected enrolled c
   await expect(
     confirmation.getByText("Affected classes (24)", { exact: true }),
   ).toBeVisible();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
   const list = confirmation.getByRole("region", {
     name: "Affected classes",
     exact: true,
@@ -577,9 +579,13 @@ test("filters survive reload and sport deactivation confirms affected enrolled c
       .getByRole("switch"),
   ).toBeChecked();
   expect(fixture.writes).toHaveLength(0);
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
   await dialog(page).getByRole("switch").click();
   await confirmation.getByRole("button", { name: "Yes", exact: true }).click();
   await expect(dialog(page)).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => document.body.style.overflow))
+    .toBe(originalOverflow);
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0]).toMatchObject({
     path: "/api/manager/sports/41/deactivate",

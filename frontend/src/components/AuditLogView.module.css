@@ -13,6 +13,91 @@
   min-width: 0;
 }
 
+.filters .managerFilterBar {
+  position: relative;
+  display: block;
+}
+
+.managerFilterBar > details > summary {
+  margin-right: 160px;
+}
+
+.managerFilterBar [data-filter-actions] {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.managerFilterBar [data-filter-actions] > :global(.btn) {
+  margin: 0;
+}
+
+.filters .managerFilterBar [data-filter-fields] input,
+.filters .managerFilterBar [data-filter-fields] select {
+  min-height: 44px;
+}
+
+.managerFilterBar [data-filter-controls] {
+  display: block;
+  margin: 0;
+}
+
+.managerFilterBar [data-filter-fields] {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--space-4);
+}
+
+.managerFilterBar [data-filter-field] {
+  grid-column: span 3;
+}
+
+.managerFilterBar [data-filter-field="date"] {
+  grid-column: span 6;
+}
+
+.managerFilterBar [data-filter-field="actor"] {
+  grid-column: span 9;
+}
+
+.managerFilterBar fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.managerFilterBar [data-filter-reset] {
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 1023px) {
+  .managerFilterBar [data-filter-fields] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .managerFilterBar [data-filter-field] {
+    grid-column: span 1;
+  }
+
+  .managerFilterBar [data-filter-field="date"],
+  .managerFilterBar [data-filter-field="actor"] {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 639px) {
+  .managerFilterBar [data-filter-fields] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .managerFilterBar [data-filter-field="date"] fieldset > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .advancedFilters {
   margin-top: var(--space-1);
 }

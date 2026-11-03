@@ -1970,3 +1970,27 @@ Gym and court purchases open the shared checkout dialog. The checkoutIntent
 query value scopes recovery to the selected service intent, preventing another
 package's button from resuming an unrelated invoice. Wallet data loads when a
 payment dialog opens rather than for every package card.
+
+---
+
+## Phụ lục cập nhật: AI Goal Validation và Member/Coach Navigation (02/11/2026)
+
+### Phân lớp và trách nhiệm
+
+1. `ClassTeachingAiController`: xác thực Coach, class/session/member scope; kiểm tra Goal; gọi semantic classification trước generation; chỉ trả bản nháp khi đủ điều kiện.
+2. UI Coach teaching editor: chọn học viên/session tương ứng, nhận suggestion, xem/sửa và tự Save. Không dùng nút bật/tắt của frontend để thay cho kiểm tra quyền ở backend.
+3. `AiChatService`: lấy role trong backend context, đọc published prompt từ `ISystemPromptReader`, sử dụng navigation knowledge khi có dữ liệu xác minh; fallback ngoài phạm vi phải không chặn nhầm câu hỏi về UI.
+4. `UiNavigationKnowledge`: chỉ dùng hai role Member/Coach. Catalog cần phân biệt route có thật với workflow được xác nhận và định kỳ kiểm tra khi component thay đổi.
+5. `SportHubTopicGuard`: phát hiện chủ đề rõ ràng ngoài phạm vi; không thay thế semantic intent classifier toàn diện.
+
+### Mô hình xử lý Training Goal
+
+`Input → basic validation → semantic verdict (VALID/VAGUE/INVALID) → (VALID hoặc VAGUE: generate; INVALID: explain) → Coach review → Save`. Mục tiêu mơ hồ có nghĩa như “tập kỹ thuật” không bị reject chỉ vì ít chi tiết. Mục tiêu phi thực tế/yêu cầu chữa bệnh không được chuyển thành cam kết sức khỏe. Output AI cần được kiểm tra bài tập, sets/reps và giới hạn ngữ cảnh trước khi lưu.
+
+### Bảo toàn code sau merge
+
+Không khai báo trùng `role`, `isCoach`, `systemPrompt`, `promptVersion` khi merge. `AiChatService` mới có constructor dependency `ISystemPromptReader`; published `promptVersion` được dùng trong scope fingerprint của continuation. Giữ `Stopwatch`, logging và error translation.
+
+### Giới hạn và bằng chứng
+
+Source ZIP kiểm kê là snapshot trước các commit remote mới. Phần này mô tả bản vá được chuẩn bị và hành vi cần nghiệm thu, **không xác nhận toàn bộ runtime đã PASS**. Không thay đổi kết luận triển khai cho Manager AI backend-only. Bảng kiểm thử/bước xác minh đặt tại `AI-Member-Coach-Implementation-Verification.md`.

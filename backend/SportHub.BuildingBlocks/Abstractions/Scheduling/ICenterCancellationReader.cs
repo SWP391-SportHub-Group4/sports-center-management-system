@@ -18,4 +18,6 @@ public interface ICenterCancellationReader
 
 /// <param name="Kind">"Class" hoặc "CourtRental".</param>
 public sealed record CenterCancelledEntitlement(Guid InvoiceItemId, Guid MemberId, string Kind, string Name,
-    DateTime CancelledAtUtc, string? Reason);
+    DateTime CancelledAtUtc, string? Reason,
+    SportHub.BuildingBlocks.Abstractions.Payment.RefundFraction? Proration = null,
+    decimal NonRefundableValueVnd = 0m);
