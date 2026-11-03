@@ -16,6 +16,7 @@ export function DashboardChart({
   integerValues = false,
   seriesLabel,
   secondary,
+  legendUnit,
 }: {
   rows: ChartDay[];
   comparison?: ChartDay[];
@@ -24,6 +25,7 @@ export function DashboardChart({
   bars?: boolean;
   integerValues?: boolean;
   seriesLabel?: string;
+  legendUnit?: string;
   secondary?: {
     label: string;
     unit: string;
@@ -104,7 +106,7 @@ export function DashboardChart({
             {second?.label} · Comparison
           </span>
         )}
-        <span>{second ? "Count · people / passes" : unit}</span>
+        <span>{legendUnit ?? (second ? "Count · people / passes" : unit)}</span>
       </div>
       <svg
         viewBox={`0 0 ${canvasWidth} 210`}

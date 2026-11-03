@@ -71,6 +71,21 @@ async function fixture(page: Page, failComparison = false) {
           { sportId: 4, name: "Basketball" },
         ],
       });
+    if (path === "/api/manager/point-gifts/filters")
+      return route.fulfill({ json: { sports: [], classes: [] } });
+    if (path === "/api/manager/point-gifts/limits")
+      return route.fulfill({
+        json: {
+          fromDate: "2026-10-01",
+          toDate: today,
+          vndPerPoint: 1000,
+          maxPoints: 100,
+        },
+      });
+    if (path.startsWith("/api/manager/point-gifts"))
+      return route.fulfill({
+        json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
+      });
     if (path === "/api/users")
       return route.fulfill({
         json: {
@@ -123,6 +138,8 @@ async function fixture(page: Page, failComparison = false) {
           netRevenue: value * days.length - 200000,
           pointsRedeemed: 200,
           pointsRefunded: 25,
+          pointsIssued: 75,
+          managerPointAdjustment: 5,
           outstandingPoints: 525,
           bySource: [
             {
@@ -146,6 +163,10 @@ async function fixture(page: Page, failComparison = false) {
             collected: value,
             refunded: i === 1 ? 200000 : 0,
             net: value - (i === 1 ? 200000 : 0),
+            pointsRedeemed: i === 0 ? 200 : 0,
+            pointsIssued: i === 0 ? 75 : 0,
+            pointsRefunded: i === 0 ? 25 : 0,
+            managerPointAdjustment: i === 0 ? 5 : 0,
           })),
         },
       });
@@ -263,7 +284,7 @@ test("Apply updates all report data and keeps filters scoped to each bookmark", 
     .at(-1)!;
   expect(court.searchParams.get("toDate")).toBe("2026-10-31");
   expect(court.searchParams.has("memberId")).toBe(false);
-  await page.getByRole("tab", { name: "Revenue", exact: true }).click();
+  await page.getByRole("tab", { name: "Cash", exact: true }).click();
   await page.getByText(/More filters/).click();
   await expect(page.getByLabel("Sport", { exact: true })).toHaveValue("3");
 });
@@ -313,6 +334,52 @@ test("Export navigates to the dedicated export page", async ({ page }) => {
     0,
   );
 });
+
+test("Points has its own dashboard and member-only filters; Point Management keeps operations", async ({
+  page,
+}) => {
+  const requests = await fixture(page);
+  await page.goto("/manager/reports?tab=points");
+  await expect(
+    page.getByRole("tab", { name: "Points", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("heading", { name: "Current balance", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Daily point activity", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "After refunds", exact: true }),
+  ).toHaveCount(0);
+  await page.getByText("More filters", { exact: true }).click();
+  await expect(page.getByLabel("Sport", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Source", { exact: true })).toHaveCount(0);
+  await page.getByPlaceholder("Find a member").fill("Alex");
+  await page.getByRole("button", { name: /Alex Member/ }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect
+    .poll(() =>
+      requests
+        .filter((u) => u.pathname === "/api/reports/revenue")
+        .at(-1)
+        ?.searchParams.get("memberId"),
+    )
+    .toBe(memberId);
+  const request = requests
+    .filter((u) => u.pathname === "/api/reports/revenue")
+    .at(-1)!;
+  expect(request.searchParams.has("sportId")).toBe(false);
+  expect(request.searchParams.has("source")).toBe(false);
+  await page.getByRole("link", { name: "Open Point Management" }).click();
+  await expect(page).toHaveURL(/\/manager\/points$/);
+  await expect(
+    page.getByRole("heading", { name: "Current balance", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Reports · Points", exact: true }),
+  ).toBeVisible();
+});
 for (const [width, height] of [
   [1440, 900],
   [1366, 768],
@@ -325,7 +392,7 @@ for (const [width, height] of [
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/manager/reports");
-    for (const name of ["Revenue", "Courts", "Classes", "Members"]) {
+    for (const name of ["Cash", "Points", "Courts", "Classes", "Members"]) {
       await page.getByRole("tab", { name, exact: true }).click();
       await expect(
         page.getByText(

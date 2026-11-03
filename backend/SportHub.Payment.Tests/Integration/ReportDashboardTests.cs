@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Identity.Domain.Entities;
 using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
@@ -61,6 +62,20 @@ public sealed class ReportDashboardTests(PaymentApiFactory factory)
             db.Set<PointLedgerEntry>().Add(ledger);
             foreach (var pointRefund in new[] { false, true })
                 db.Set<PaymentAdjustment>().Add(new() { AdjustmentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId, InvoiceItemId = item.ItemId, Type = PaymentAdjustmentType.Refund, Amount = pointRefund ? 50_000m : 100_000m, RequestedAmount = pointRefund ? 50_000m : 100_000m, Reason = "Reporting scope", Status = PaymentAdjustmentStatus.Completed, RequestedByUserId = manager.UserId, ApprovedByUserId = manager.UserId, CompletedByUserId = manager.UserId, CreatedAt = at, ApprovedAtUtc = at, CompletedAtUtc = at.AddHours(2), RefundMethod = PaymentMethod.Cash, PointLedgerEntryId = pointRefund ? ledger.LedgerEntryId : null });
+            var requestId = Guid.NewGuid();
+            db.Set<MemberSupportRequest>().Add(new()
+            {
+                RequestId = requestId, MemberId = member.UserId, RecordedByUserId = member.UserId,
+                InvoiceId = invoice.InvoiceId, InvoiceItemId = item.ItemId, Category = "PAYMENT",
+                Subject = "Reporting refund", Description = "Recorded bank transfer", CreatedAt = at,
+                SlaDueAtUtc = at.AddDays(2)
+            });
+            db.Set<MemberSupportPayout>().Add(new()
+            {
+                PayoutId = Guid.NewGuid(), RequestId = requestId, InvoiceId = invoice.InvoiceId,
+                InvoiceItemId = item.ItemId, Amount = 100_000m, RecordedByUserId = manager.UserId,
+                RecordedAtUtc = at.AddHours(2)
+            });
             await db.SaveChangesAsync(); return true;
         });
         using var scope = factory.Services.CreateScope();
@@ -70,11 +85,20 @@ public sealed class ReportDashboardTests(PaymentApiFactory factory)
         Assert.Equal(100_000m, report.TotalRefunded);
         Assert.Equal(500_000m, report.NetRevenue);
         Assert.Equal(50, report.PointsRefunded);
+        Assert.Equal(1, report.RefundCount);
+        Assert.Equal(100_000m, report.BankRefundPaid);
         Assert.Equal(report.TotalCollected, report.BySource.Sum(r => r.CashCollected));
         Assert.Equal(report.TotalCollected, report.BySportAndSource.Sum(r => r.CashCollected));
         Assert.Equal(report.NetRevenue, report.Daily.Sum(r => r.Net));
+        Assert.Equal(report.PointsIssued, report.Daily.Sum(r => r.PointsIssued));
+        Assert.Equal(report.PointsRedeemed, report.Daily.Sum(r => r.PointsRedeemed));
+        Assert.Equal(report.PointsRefunded, report.Daily.Sum(r => r.PointsRefunded));
         var outside = await service.GetAsync(day.AddDays(-1), day.AddDays(-1), memberId: member.UserId);
         Assert.Equal(0, outside.TotalCollected);
+        var excluded = await service.GetAsync(day, day, source: "WALLET_TOP_UP", memberId: member.UserId);
+        Assert.Equal(0, excluded.TotalRefunded);
+        Assert.Equal(0, excluded.RefundCount);
+        Assert.Equal(0, excluded.BankRefundPaid);
         var exports = scope.ServiceProvider.GetRequiredService<IReportExportService>();
         foreach (var type in new[] { "REVENUE_SUMMARY", "REVENUE_DAILY" })
         {
@@ -82,7 +106,9 @@ public sealed class ReportDashboardTests(PaymentApiFactory factory)
             Assert.Equal("Completed", export.Status);
             var (name, bytes) = await exports.DownloadAsync(export.ReportExportId, manager.UserId, true);
             Assert.Contains("2011-03-12", name);
-            Assert.Contains("600000,100000,500000", System.Text.Encoding.UTF8.GetString(bytes));
+            var values = System.Text.Encoding.UTF8.GetString(bytes).Split('\n', StringSplitOptions.RemoveEmptyEntries)[1]
+                .Trim().Split(',').Select(value => decimal.Parse(value, CultureInfo.InvariantCulture)).ToArray();
+            Assert.Equal(new[] { 600_000m, 100_000m, 500_000m }, values);
         }
         var pdf = await exports.CreateAsync(new() { ReportType = "REVENUE_SUMMARY", FromDate = day, ToDate = day, SportId = sport, Source = "RENTAL", MemberId = member.UserId, Format = "Pdf", Columns = ["collectedAmount", "refundedAmount", "netCollected"] }, manager.UserId);
         Assert.Equal("Completed", pdf.Status);

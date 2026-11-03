@@ -95,7 +95,10 @@ export function MonthlyAnalysis() {
     [today],
   );
   const support = useApi(
-    (signal) => api.get<{ overdue: number }>("/api/member-support-requests/stats", { signal }),
+    (signal) =>
+      api.get<{ overdue: number }>("/api/member-support-requests/stats", {
+        signal,
+      }),
     [],
   );
   const reviewCount = review.data?.totalCount ?? 0;
@@ -259,18 +262,13 @@ export function MonthlyAnalysis() {
           <p>Valid today · {formatDate(today)}</p>
           <small>Each member counted once · excludes day passes</small>
         </Metric>
-        <Metric
-          label="Bank payouts recorded"
-          value={<><ExactMoney amount={revenue.data?.bankRefundPaid ?? 0} /><span className={styles.valueUnit}>VND</span></>}
-          loading={revenue.loading}
-          unavailable={!!revenue.error}
-        >
-          <p>{revenue.data?.bankRefundCount ?? 0} payout(s) this month</p>
-          <small>Shown separately from cash refunds</small>
-        </Metric>
       </div>
-      <Link href="/manager/requests?type=support&overdue=1" className={styles.reportLink}>
-        Overdue support requests: {support.data?.overdue ?? (support.loading ? "…" : "—")}
+      <Link
+        href="/manager/requests?type=support&overdue=1"
+        className={styles.reportLink}
+      >
+        Overdue support requests:{" "}
+        {support.data?.overdue ?? (support.loading ? "…" : "—")}
         <ArrowUpRight size={16} aria-hidden="true" />
       </Link>
       <section
@@ -360,8 +358,9 @@ export function MonthlyAnalysis() {
         </section>
       </div>
       <p className={styles.footnote}>
-        Recorded bank payouts are shown separately and do not reverse VNPay
-        collections. Point refunds are tracked separately. Operating costs are not deducted.
+        Cash refunded includes recorded bank transfers, dated when the payout
+        was recorded. Point refunds are tracked separately. Operating costs are
+        not deducted.
       </p>
     </div>
   );
