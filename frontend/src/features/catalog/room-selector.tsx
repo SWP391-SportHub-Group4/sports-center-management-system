@@ -14,7 +14,9 @@ export function RoomSelector({
   onCatalogChanged,
   onCourtCreated,
   required = false,
+  showHint = true,
 }: {
+  showHint?: boolean;
   allowCreate?: boolean;
   onCatalogChanged?: () => void;
   onCourtCreated?: (court: RoomDto) => void;
@@ -46,12 +48,14 @@ export function RoomSelector({
             label={t.operations.room}
             required={required}
             hint={
-              <>
-                {t.managerCatalog.roomPickerHint}{" "}
-                <Link href="/manager/facilities">
-                  {t.managerCatalog.manageRooms}
-                </Link>
-              </>
+              showHint ? (
+                <>
+                  {t.managerCatalog.roomPickerHint}{" "}
+                  <Link href="/manager/facilities">
+                    {t.managerCatalog.manageRooms}
+                  </Link>
+                </>
+              ) : undefined
             }
           >
             <select

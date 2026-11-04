@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import type { CourtBookingReport } from "./api";
 import styles from "./manager-overview.module.css";
 
@@ -48,11 +48,6 @@ export function CourtBookingSummary({
           </tr>
         </tfoot>
       </table>
-      <p className={styles.note}>
-        Rental dates: {formatDate(report.fromDate)} –{" "}
-        {formatDate(report.toDate)}. Confirmed/completed bookings only; booked
-        hours do not measure actual attendance.
-      </p>
     </>
   );
 }

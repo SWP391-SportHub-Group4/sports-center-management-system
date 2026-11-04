@@ -244,15 +244,16 @@ public sealed partial class ClassSessionService(
             throw new BadRequestException("session_time_in_past", "Session time in past.");
         }
 
-        // Buổi bù thêm ở CUỐI lịch: sau buổi cuối còn hiệu lực của khóa (không tính buổi đang hủy).
-        var lastEnd = await db.Set<ClassSession>()
-            .Where(s => s.ClassId == cls.ClassId && s.SessionId != sessionId && s.Status != ClassSessionStatus.Cancelled)
-            .MaxAsync(s => (DateTime?)s.EndAtUtc, ct);
-
-        if (lastEnd is DateTime last && start < last)
+        // Ordinary makeups follow the course. Incident replacements may use any
+        // future conflict-free slot outside the incident window.
+        if (incidentFenceId is null)
         {
-            throw new BadRequestException(
-                "makeup_must_be_after_schedule", "Makeup must be after schedule.");
+            var lastEnd = await db.Set<ClassSession>()
+                .Where(s => s.ClassId == cls.ClassId && s.SessionId != sessionId && s.Status != ClassSessionStatus.Cancelled)
+                .MaxAsync(s => (DateTime?)s.EndAtUtc, ct);
+            if (lastEnd is DateTime last && start < last)
+                throw new BadRequestException(
+                    "makeup_must_be_after_schedule", "Makeup must be after schedule.");
         }
 
         var roomId = makeup.RoomId ?? session.RoomId;
@@ -281,6 +282,9 @@ public sealed partial class ClassSessionService(
         // nên buổi bù xung đột thì buổi cũ không bị hủy.
         await occupancy.ReleaseAsync(OccupancySources.ClassSession, sessionId, ct);
         session.Status = ClassSessionStatus.Cancelled;
+
+        if (incidentFenceId is not null)
+            await UpdateOpeningScheduleAsync(cls, sessionId, session.StartAtUtc, start, ct);
 
         db.Set<ClassSession>().Add(newSession);
         await db.SaveChangesAsync(ct);

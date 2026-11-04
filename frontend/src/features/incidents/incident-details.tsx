@@ -5,7 +5,14 @@ import { AsyncSection, Card } from "@/components/ui";
 import Link from "next/link";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDate, formatTime } from "@/lib/format";
+import {
+  ArrowRight,
+  CalendarDays,
+  Clock3,
+  MapPin,
+  UserRound,
+} from "lucide-react";
 import { incidentApi } from "./incident-api";
 import styles from "./incident-history.module.css";
 
@@ -23,7 +30,6 @@ export function IncidentDetailsView({ id }: { id: string }) {
     <AsyncSection state={state}>
       {(incident) => (
         <>
-          <IncidentDayPassSupport incident={incident} />
           <Card title={incident.reason}>
             <dl className={styles.details}>
               <div>
@@ -47,7 +53,100 @@ export function IncidentDetailsView({ id }: { id: string }) {
                 <dd>{formatDateTime(incident.createdAtUtc)}</dd>
               </div>
             </dl>
-            <p>{incident.resolutionSummary}</p>
+            <IncidentDayPassSupport incident={incident} />
+            {!!incident.activities?.length && (
+              <section className={styles.activityHistory}>
+                <h3>{t.operations.impact}</h3>
+                {incident.activities.map((activity) => (
+                  <article key={activity.stepId} className={styles.activity}>
+                    <header className={styles.activityHeading}>
+                      <strong>
+                        {activity.title}
+                        {activity.sessionNo != null
+                          ? ` · Session ${activity.sessionNo}`
+                          : ""}
+                      </strong>
+                      {activity.action !== "CANCEL_WITH_MAKEUP" && (
+                        <span>
+                          {activity.action === "REVIEWED_COMPLETED"
+                            ? outcomes.COMPLETED_AS_PLANNED
+                            : t.incidentPlans.actions[activity.action]}
+                        </span>
+                      )}
+                    </header>
+                    <dl className={styles.activitySchedules}>
+                      {[
+                        {
+                          label: t.incidentHistory.originalSchedule,
+                          updated: false,
+                          schedule: activity.originalSchedule,
+                        },
+                        ...(activity.replacementSchedule
+                          ? [
+                              {
+                                label: t.incidentHistory.updatedSchedule,
+                                updated: true,
+                                schedule: activity.replacementSchedule,
+                              },
+                            ]
+                          : []),
+                      ].map(({ label, schedule, updated }) => (
+                        <div
+                          key={label}
+                          className={styles.schedulePanel}
+                          data-updated={updated || undefined}
+                        >
+                          <dt>
+                            {label}
+                            {updated && (
+                              <span
+                                className={styles.scheduleArrow}
+                                aria-hidden="true"
+                              >
+                                <ArrowRight size={28} strokeWidth={2.25} />
+                              </span>
+                            )}
+                          </dt>
+                          <dd>
+                            <p className={styles.scheduleTime}>
+                              <Clock3 size={20} aria-hidden="true" />
+                              <strong>
+                                {formatTime(schedule.startAtUtc)} –{" "}
+                                {formatTime(schedule.endAtUtc)}
+                              </strong>
+                            </p>
+                            <p className={styles.scheduleDate}>
+                              <CalendarDays size={18} aria-hidden="true" />
+                              <span>
+                                {formatDate(schedule.startAtUtc)}
+                                {formatDate(schedule.startAtUtc) !==
+                                formatDate(schedule.endAtUtc)
+                                  ? ` – ${formatDate(schedule.endAtUtc)}`
+                                  : ""}
+                              </span>
+                            </p>
+                            {schedule.roomName && (
+                              <p className={styles.scheduleResource}>
+                                <MapPin size={18} aria-hidden="true" />
+                                <span>{t.operations.room}</span>
+                                <span>{schedule.roomName}</span>
+                              </p>
+                            )}
+                            {schedule.coachName && (
+                              <p className={styles.scheduleResource}>
+                                <UserRound size={18} aria-hidden="true" />
+                                <span>{t.operations.coach}</span>
+                                <span>{schedule.coachName}</span>
+                              </p>
+                            )}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </article>
+                ))}
+              </section>
+            )}
             {!!incident.refunds?.length && (
               <IncidentRefundTable
                 readOnly
@@ -68,29 +167,43 @@ export function IncidentDetailsView({ id }: { id: string }) {
                 )}
               />
             )}
-            {!!incident.sessionReports?.length && (
+            {!!incident.sessionReports?.filter(
+              (row) =>
+                !incident.activities?.some(
+                  (activity) => activity.sourceId === row.sessionId,
+                ),
+            ).length && (
               <section className="stack">
                 <h2>{vi ? "Kết quả xử lý buổi học" : "Session outcomes"}</h2>
-                {incident.sessionReports.map((row) => (
-                  <div key={row.sessionId}>
-                    <strong>
-                      {row.className} · #{row.sessionNo} ·{" "}
-                      {outcomes[row.report.outcome] ?? row.report.outcome}
-                    </strong>
-                    <p>
-                      {vi ? "Xảy ra" : "Occurred"}:{" "}
-                      {formatDateTime(row.report.occurredAtUtc)} ·{" "}
-                      {vi ? "Ghi nhận" : "Recorded"}:{" "}
-                      {formatDateTime(row.report.recordedAtUtc)}
-                    </p>
-                    <p>{row.report.reason}</p>
-                    {row.report.replacementSessionId && (
-                      <Link href={`/manager/classes/${row.classId}`}>
-                        {vi ? "Xem lịch học lại" : "View replacement schedule"}
-                      </Link>
-                    )}
-                  </div>
-                ))}
+                {incident.sessionReports
+                  .filter(
+                    (row) =>
+                      !incident.activities?.some(
+                        (activity) => activity.sourceId === row.sessionId,
+                      ),
+                  )
+                  .map((row) => (
+                    <div key={row.sessionId}>
+                      <strong>
+                        {row.className} · #{row.sessionNo} ·{" "}
+                        {outcomes[row.report.outcome] ?? row.report.outcome}
+                      </strong>
+                      <p>
+                        {vi ? "Xảy ra" : "Occurred"}:{" "}
+                        {formatDateTime(row.report.occurredAtUtc)} ·{" "}
+                        {vi ? "Ghi nhận" : "Recorded"}:{" "}
+                        {formatDateTime(row.report.recordedAtUtc)}
+                      </p>
+                      <p>{row.report.reason}</p>
+                      {row.report.replacementSessionId && (
+                        <Link href={`/manager/classes/${row.classId}`}>
+                          {vi
+                            ? "Xem lịch học lại"
+                            : "View replacement schedule"}
+                        </Link>
+                      )}
+                    </div>
+                  ))}
               </section>
             )}
           </Card>

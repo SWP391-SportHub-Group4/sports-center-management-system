@@ -211,6 +211,7 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 // interface về lý do phải cắt vòng phụ thuộc theo cách này.
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<IAuditReader, AuditReader>();
+builder.Services.AddScoped<ICancellationReasonReader, CancellationReasonReader>();
 builder.Services.AddScoped<INotificationWriter, NotificationWriter>();
 builder.Services.AddScoped<INotificationDeliveryReader, NotificationDeliveryReader>();
 builder.Services.AddScoped<SportHub.Notification.Application.Services.EmailDispatchService>();

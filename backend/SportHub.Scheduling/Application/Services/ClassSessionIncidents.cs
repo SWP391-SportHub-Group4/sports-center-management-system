@@ -42,8 +42,10 @@ public sealed partial class ClassSessionService
             if (tx is not null) await tx.CommitAsync(ct); return await GetAsync(replacement, null, ct);
         }
         EnsureEditable(session, cls);
-        if (request.Makeup.StartAtUtc < fence.EndAtUtc)
-            throw new BadRequestException("replacement_during_incident", "Choose a replacement after the incident ends.");
+        var replacementStart = DateTime.SpecifyKind(request.Makeup.StartAtUtc, DateTimeKind.Utc);
+        var replacementEnd = replacementStart + (session.EndAtUtc - session.StartAtUtc);
+        if (replacementStart < fence.EndAtUtc && replacementEnd > fence.StartAtUtc)
+            throw new BadRequestException("replacement_during_incident", "Choose a replacement outside the incident window.");
         var result = await CancelWithMakeupCoreAsync(sessionId, request, actorUserId, ct, fence.FenceId);
         if (tx is not null) await tx.CommitAsync(ct);
         return result;

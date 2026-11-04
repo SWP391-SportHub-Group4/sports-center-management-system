@@ -180,6 +180,12 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await historyButton.click();
     await expect(history).toBeVisible();
+    await expect(
+      history.getByRole("button", { name: "Apply", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      history.getByRole("button", { name: "Clear", exact: true }),
+    ).toHaveCount(0);
     await expect(history.getByRole("table")).toBeVisible();
     await expect(history.getByRole("table")).toContainText("Gift member 1");
     expect(requests[0].searchParams.get("incidentId")).toBe(incident);
@@ -206,10 +212,15 @@ for (const width of [1440, 390]) {
     await history.getByLabel("Manager", { exact: true }).fill("Center Manager");
     await history.getByLabel("From", { exact: true }).fill("2026-11-03");
     await history.getByLabel("To", { exact: true }).fill("2026-11-03");
-    await history.getByRole("button", { name: "Apply", exact: true }).click();
     await expect
-      .poll(() => requests.at(-1)?.searchParams.get("member"))
-      .toBe("Gift member 11");
+      .poll(() => Object.fromEntries(requests.at(-1)?.searchParams ?? []))
+      .toMatchObject({
+        member: "Gift member 11",
+        manager: "Center Manager",
+        fromDate: "2026-11-03",
+        toDate: "2026-11-03",
+        page: "1",
+      });
     expect(requests.at(-1)?.searchParams.get("page")).toBe("1");
     expect(requests.at(-1)?.searchParams.get("manager")).toBe("Center Manager");
     expect(requests.at(-1)?.searchParams.get("fromDate")).toBe("2026-11-03");
@@ -219,12 +230,14 @@ for (const width of [1440, 390]) {
     ).toBeDisabled();
     const filteredRequestCount = requests.length;
     await history.getByLabel("From", { exact: true }).fill("2026-11-04");
-    await history.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(history.getByRole("alert")).toHaveText(
       "To must be on or after From.",
     );
     expect(requests).toHaveLength(filteredRequestCount);
-    await history.getByRole("button", { name: "Clear", exact: true }).click();
+    await history.getByLabel("Member", { exact: true }).fill("");
+    await history.getByLabel("Manager", { exact: true }).fill("");
+    await history.getByLabel("From", { exact: true }).fill("");
+    await history.getByLabel("To", { exact: true }).fill("");
     await expect(history.getByLabel("Member", { exact: true })).toHaveValue("");
     await expect(history.getByLabel("From", { exact: true })).toHaveValue("");
     await expect(history.locator("tbody tr")).toHaveCount(10);

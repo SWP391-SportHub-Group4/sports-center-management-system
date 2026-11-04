@@ -8,7 +8,6 @@ import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatPoints } from "@/lib/format";
 import { Table, AsyncSection, Dialog } from "@/components/ui";
 import { CloseButton } from "@/components/CloseButton";
-import { catalogApi } from "@/features/catalog";
 import { useOperationsCopy } from "@/features/manager";
 import { SessionEditor } from "@/features/courses";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -32,6 +31,7 @@ function ClassImpactEditor({
   onClose,
   onOutcome,
   onStage,
+  initialPlan,
 }: {
   id: string;
   incident: IncidentRequest;
@@ -39,8 +39,12 @@ function ClassImpactEditor({
   onClose: () => void;
   onOutcome: (status: StepStatus, message?: string) => void;
   onStage: (plan: IncidentResolutionSelection) => void;
+  initialPlan?: IncidentResolutionSelection;
 }) {
   const [openedAt] = useState(Date.now);
+  async function confirmPlan(plan: IncidentResolutionSelection) {
+    onStage(plan);
+  }
   const state = useApi(
     async (signal) => {
       const session = await api.get<CourseSessionDto>(
@@ -72,6 +76,8 @@ function ClassImpactEditor({
             onSaved={onSaved}
             onOutcome={onOutcome}
             onStage={onStage}
+            onConfirm={confirmPlan}
+            initialPlan={initialPlan}
           />
         ) : (
           <SessionEditor
@@ -84,9 +90,11 @@ function ClassImpactEditor({
             showCloseButton={false}
             showReviewActions={false}
             embedded
+            showWeeklySchedule
             initialMode="cancel"
             onOutcome={onOutcome}
-            onStageIncident={onStage}
+            onConfirmIncident={confirmPlan}
+            initialIncidentPlan={initialPlan}
           />
         )
       }
@@ -136,7 +144,6 @@ export function IncidentImpactReview({
   disabled = false,
   resolutions = [],
   onStage,
-  onRemovePlan,
 }: {
   preview: IncidentPreviewDto;
   incidentRequest: IncidentRequest;
@@ -152,7 +159,6 @@ export function IncidentImpactReview({
   disabled?: boolean;
   resolutions?: IncidentResolutionSelection[];
   onStage: (plan: IncidentResolutionSelection) => void;
-  onRemovePlan?: (sourceId: string) => void;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -166,17 +172,17 @@ export function IncidentImpactReview({
   const details = useApi(
     async (signal) => {
       if (!preview.startAtUtc || !preview.endAtUtc) return null;
-      const [entries, rooms] = await Promise.all([
-        api.get<CourtScheduleEntryDto[]>("/api/manager/court-schedule", {
+      const entries = await api.get<CourtScheduleEntryDto[]>(
+        "/api/manager/court-schedule",
+        {
           signal,
           query: {
             fromDate: vietnamLocal(preview.startAtUtc).slice(0, 10),
             toDate: vietnamLocal(preview.endAtUtc).slice(0, 10),
           },
-        }),
-        catalogApi.rooms(signal),
-      ]);
-      return { entries, rooms };
+        },
+      );
+      return { entries };
     },
     [
       preview.startAtUtc,
@@ -196,31 +202,16 @@ export function IncidentImpactReview({
   return (
     <>
       <div className={styles.impactSummary}>
-        <p>
-          {c.impactCount}: <strong>{preview.impacts.length}</strong>
-        </p>
-        <p>
-          {preview.canResolve
-            ? t.incidentHistory.ready
-            : t.incidentHistory.changesNeeded}
-        </p>
+        <h3>
+          {c.impactCount}: {preview.impacts.length}
+        </h3>
       </div>
-      {preview.blockReason && (
-        <p className={styles.notice}>{preview.blockReason}</p>
-      )}
       {details.error && <p role="status">{c.detailsUnavailable} </p>}
-      {!preview.impacts.length && <p>{t.incidentHistory.noImpacts}</p>}
+      {!preview.impacts.length && (
+        <p className={styles.impactEmpty}>{t.incidentHistory.noImpacts}</p>
+      )}
       {!!preview.impacts.length && (
-        <Table
-          headers={[
-            l.impact,
-            l.room,
-            l.coach,
-            l.start,
-            l.end,
-            t.common.actions,
-          ]}
-        >
+        <Table headers={[l.impact, l.coach, l.start, l.end, t.common.actions]}>
           {preview.impacts.map((r) => {
             const entry = details.data?.entries.find(
               (e) => e.sourceType === r.sourceType && e.sourceId === r.sourceId,
@@ -228,26 +219,10 @@ export function IncidentImpactReview({
             return (
               <tr key={`${r.sourceType}-${r.sourceId}`}>
                 <td>
-                  {labels[r.sourceType] ?? r.sourceType}
-                  {entry && <p>{entry.title}</p>}
-                  {resolutions.some((p) => p.sourceId === r.sourceId) && (
-                    <>
-                      <p className="small muted">{t.incidentPlans.selected}</p>
-                      <button
-                        type="button"
-                        className="btn btn--secondary"
-                        disabled={disabled || !!editing}
-                        onClick={() => onRemovePlan?.(r.sourceId)}
-                      >
-                        {t.incidentPlans.remove}
-                      </button>
-                    </>
-                  )}
-                </td>
-                <td>
-                  {details.data?.rooms.find(
-                    (room) => room.roomId === entry?.roomId,
-                  )?.name || "—"}
+                  <div className={styles.impactActivity}>
+                    <span>{labels[r.sourceType] ?? r.sourceType}</span>
+                    {entry && <span>{entry.title}</span>}
+                  </div>
                 </td>
                 <td>{entry?.coachName || "—"}</td>
                 <td>{formatDateTime(r.startAtUtc)}</td>
@@ -255,7 +230,7 @@ export function IncidentImpactReview({
                 <td>
                   {r.sourceType === "CLASS_SESSION" ? (
                     <button
-                      className="btn btn--secondary"
+                      className={`btn btn--secondary ${styles.makeupAction}`}
                       disabled={disabled || !!editing || !!removeId}
                       onClick={() => {
                         setEditing({ type: r.sourceType, id: r.sourceId });
@@ -386,17 +361,18 @@ export function IncidentImpactReview({
           <Dialog
             title={t.incidentHistory.editSession}
             size="lg"
-            className={styles.dialog}
+            className={`${styles.dialog} ${styles.sessionDialog}`}
             onClose={() => {
               if (!editorBusy) closeEditor();
             }}
           >
-            <p role="status">{t.incidentPlans.hint}</p>
-            <p className={styles.intro}>{t.incidentHistory.makeupHint}</p>
             <ClassImpactEditor
               key={editing.id}
               id={editing.id}
               incident={incidentRequest}
+              initialPlan={resolutions.find(
+                (plan) => plan.sourceId === editing.id,
+              )}
               onStage={onStage}
               onOutcome={(status, message) => {
                 setEditorBusy(status === "pending");

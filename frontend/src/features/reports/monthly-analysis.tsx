@@ -164,10 +164,6 @@ export function MonthlyAnalysis() {
       <header className={styles.header}>
         <div>
           <h1>Overview</h1>
-          <p>
-            Collections & attendance · {formatDate(period.filters.fromDate)} –{" "}
-            {formatDate(today)} · Vietnam time
-          </p>
         </div>
         <div className={styles.headerActions}>
           <span className={styles.period}>
@@ -240,10 +236,9 @@ export function MonthlyAnalysis() {
         >
           <p>
             {reviewCount > 0
-              ? "Below opening threshold · decision needed"
+              ? "Below opening threshold"
               : "No classes awaiting review"}
           </p>
-          <small>Published classes flagged at risk · all dates</small>
           {reviewCount > 0 && (
             <Link
               href="/manager/classes?status=PUBLISHED&thresholdStatus=AT_RISK"
@@ -260,7 +255,6 @@ export function MonthlyAnalysis() {
           unavailable={!!membership.error}
         >
           <p>Valid today · {formatDate(today)}</p>
-          <small>Each member counted once · excludes day passes</small>
         </Metric>
       </div>
       <Link
@@ -277,7 +271,6 @@ export function MonthlyAnalysis() {
       >
         <header>
           <h2 id="class-status-title">Classes</h2>
-          <p>Current status · all classes · cancelled excluded</p>
         </header>
         <AsyncSection state={classStatus}>
           {(report) => (
@@ -285,19 +278,14 @@ export function MonthlyAnalysis() {
               <div data-status="open">
                 <dt>Open</dt>
                 <dd>{formatNumber(report.open)}</dd>
-                <dd className={styles.classDescription}>
-                  Published or in progress
-                </dd>
               </div>
               <div data-status="completed">
                 <dt>Completed</dt>
                 <dd>{formatNumber(report.completed)}</dd>
-                <dd className={styles.classDescription}>Finished classes</dd>
               </div>
               <div data-status="unpublished">
                 <dt>Unpublished</dt>
                 <dd>{formatNumber(report.unpublished)}</dd>
-                <dd className={styles.classDescription}>Draft classes</dd>
               </div>
             </dl>
           )}
@@ -338,7 +326,6 @@ export function MonthlyAnalysis() {
         >
           <header className={styles.panelHeader}>
             <h2 id="collection-sources-title">Collections by source</h2>
-            <p>Share of total collected · VND</p>
           </header>
           <AsyncSection state={revenue}>
             {(report) => <RevenueMix report={report} />}
@@ -349,7 +336,6 @@ export function MonthlyAnalysis() {
           >
             <header className={styles.panelHeader}>
               <h2 id="court-booking-title">Court bookings</h2>
-              <p>Full month · Bookings and booked hours by sport</p>
             </header>
             <AsyncSection state={bookings}>
               {(report) => <CourtBookingSummary report={report} />}
@@ -357,11 +343,6 @@ export function MonthlyAnalysis() {
           </section>
         </section>
       </div>
-      <p className={styles.footnote}>
-        Cash refunded includes recorded bank transfers, dated when the payout
-        was recorded. Point refunds are tracked separately. Operating costs are
-        not deducted.
-      </p>
     </div>
   );
 }

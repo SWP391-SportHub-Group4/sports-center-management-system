@@ -162,10 +162,6 @@ export function RecordedAttendance({
           {formatNumber(selected.classAttendances)} class attendances
         </span>
       </div>
-      <p className={styles.note}>
-        Each member counts once per day. Class attendance means Present; rental
-        visitors are not tracked. Records may be updated later.
-      </p>
     </section>
   );
 }

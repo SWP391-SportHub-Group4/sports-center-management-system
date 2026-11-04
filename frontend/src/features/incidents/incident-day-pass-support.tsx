@@ -1,6 +1,5 @@
 "use client";
 
-import { Card } from "@/components/ui";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useLanguage } from "@/lib/language";
 import type { IncidentDetails } from "./incident-api";
@@ -23,7 +22,8 @@ export function IncidentDayPassSupport({
   ];
   const title = t.incidentDayPassMembers.detailsTitle;
   return (
-    <Card title={title}>
+    <section className={styles.support}>
+      <h3>{title}</h3>
       {members.length > 0 ? (
         <ul className={styles.members} tabIndex={0} aria-label={title}>
           {members.map((member) => (
@@ -40,6 +40,6 @@ export function IncidentDayPassSupport({
       ) : (
         <p>{t.incidentDayPassMembers.empty}</p>
       )}
-    </Card>
+    </section>
   );
 }

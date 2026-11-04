@@ -31,9 +31,8 @@ public sealed class IncidentsController(IncidentService incidents) : ControllerB
 
     /// <summary>Start handling: holds the window so no one books into it while schedule work is done.</summary>
     [HttpPost("fences")]
-    public IActionResult OpenFence([FromBody] IncidentRequest request, CancellationToken ct)
-        => throw new SportHub.BuildingBlocks.SharedKernel.Errors.ConflictException("incident_drafts_disabled",
-            "Incident reviews are read-only. Confirm the incident to save changes.");
+    public async Task<IActionResult> OpenFence([FromBody] IncidentRequest request, CancellationToken ct)
+        => Ok(await incidents.OpenFenceAsync(request, User.RequireUserId(), ct));
 
     [HttpGet("fences")]
     public async Task<IActionResult> OpenFences(CancellationToken ct)

@@ -1,13 +1,115 @@
 .history {
   min-width: 0;
 }
+.filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.filters label {
+  margin: 0;
+  min-width: 0;
+}
+.filters :is(input, select) {
+  width: 100%;
+  min-width: 0;
+}
+.scopeControl {
+  position: relative;
+  min-width: 0;
+}
+.scopeInput {
+  padding-right: 2.5rem;
+}
+.scopeChevron {
+  position: absolute;
+  right: var(--space-3);
+  bottom: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.scopeMenu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 18rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+.scopeOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.scopeOption span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.scopeOption svg {
+  flex-shrink: 0;
+}
+.scopeOption:hover,
+.scopeOption[data-active],
+.scopeOption[aria-selected="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+}
+.scopeEmpty {
+  padding: var(--space-3);
+  color: var(--text-muted);
+}
+@media (max-width: 640px) {
+  .filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.results {
+  height: min(55dvh, 34rem);
+  min-width: 0;
+}
 .history :global([role="region"]) {
-  max-height: 26rem;
+  height: min(55dvh, 34rem);
+  max-height: min(55dvh, 34rem);
   overflow: auto;
   overscroll-behavior: contain;
 }
 .history table {
+  width: 100%;
   min-width: 760px;
+  table-layout: fixed;
+}
+.history thead th:nth-child(1) {
+  width: 27%;
+}
+.history thead th:nth-child(2) {
+  width: 23%;
+}
+.history thead th:nth-child(3),
+.history thead th:nth-child(4) {
+  width: 19%;
+}
+.history thead th:last-child {
+  width: 12%;
 }
 .history thead th {
   position: sticky;
@@ -35,4 +137,109 @@
 .details dd {
   margin: var(--space-1) 0 0;
   overflow-wrap: anywhere;
+}
+.activityHistory {
+  margin-top: var(--space-6);
+}
+.activityHistory h3 {
+  margin: 0 0 var(--space-4);
+}
+.activity {
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.activityHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.activityHeading span {
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-sunken);
+}
+.activityHeading > strong {
+  font-size: var(--text-lg);
+}
+.activitySchedules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3rem;
+  margin: var(--space-4) 0 0;
+}
+.schedulePanel {
+  position: relative;
+  padding: var(--space-5);
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.scheduleArrow {
+  position: absolute;
+  left: -1.5rem;
+  top: 50%;
+  display: flex;
+  color: var(--text-strong);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.schedulePanel[data-updated] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  border-color: transparent;
+}
+.activitySchedules dt {
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-4);
+}
+.activitySchedules dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.scheduleTime,
+.scheduleDate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+.scheduleTime strong {
+  font-size: var(--text-2xl);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.scheduleDate {
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+.scheduleResource {
+  display: grid;
+  grid-template-columns: 18px 4rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+}
+.scheduleResource svg {
+  margin-top: 3px;
+}
+.scheduleResource span:last-child {
+  font-weight: var(--weight-medium);
+}
+.scheduleTime svg,
+.scheduleDate svg {
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .activitySchedules {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .scheduleArrow {
+    left: 50%;
+    top: -1.5rem;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
 }

@@ -55,7 +55,6 @@ public sealed class IncidentReviewTests(PaymentApiFactory factory)
         (await client.PostAsJsonAsync("/api/manager/incidents/preview", request)).EnsureSuccessStatusCode();
         Assert.Equal(0, await factory.QueryAsync(db => db.Set<IncidentFence>().CountAsync(f => f.RoomId == room)));
         Assert.Equal(0, await factory.QueryAsync(db => db.Set<IncidentNotice>().CountAsync(f => f.RoomId == room)));
-        await Error(await client.PostAsJsonAsync("/api/manager/incidents/fences", request), HttpStatusCode.Conflict, "incident_drafts_disabled");
         using (var scope = factory.Services.CreateScope())
         {
             // A customer may still book while the Manager is only looking at a preview.

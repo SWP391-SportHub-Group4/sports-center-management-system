@@ -75,7 +75,36 @@ function GiftHistory({
   const emptyFilters = { member: "", manager: "", fromDate: "", toDate: "" };
   const [draft, setDraft] = useState(emptyFilters);
   const [filters, setFilters] = useState(emptyFilters);
-  const [filterError, setFilterError] = useState("");
+  const invalidDateRange = !!(
+    draft.fromDate &&
+    draft.toDate &&
+    draft.fromDate > draft.toDate
+  );
+  const filterError = invalidDateRange
+    ? vi
+      ? "Ngày kết thúc phải từ ngày bắt đầu trở đi."
+      : "To must be on or after From."
+    : "";
+  useEffect(() => {
+    if (invalidDateRange) return;
+    const nextFilters = {
+      ...draft,
+      member: draft.member.trim(),
+      manager: draft.manager.trim(),
+    };
+    if (
+      nextFilters.member === filters.member &&
+      nextFilters.manager === filters.manager &&
+      nextFilters.fromDate === filters.fromDate &&
+      nextFilters.toDate === filters.toDate
+    )
+      return;
+    const timer = setTimeout(() => {
+      setFilters(nextFilters);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft, filters, invalidDateRange]);
   const state = useApi(
     (signal) =>
       api.get<Paged<Gift>>("/api/manager/point-gifts", {
@@ -107,27 +136,6 @@ function GiftHistory({
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          if (draft.fromDate && draft.toDate && draft.fromDate > draft.toDate) {
-            setFilterError(
-              vi
-                ? "Ngày kết thúc phải từ ngày bắt đầu trở đi."
-                : "To must be on or after From.",
-            );
-            return;
-          }
-          setFilterError("");
-          setFilters({
-            ...draft,
-            member: draft.member.trim(),
-            manager: draft.manager.trim(),
-          });
-          setPage(1);
-        }}
-        onReset={() => {
-          setDraft(emptyFilters);
-          setFilters(emptyFilters);
-          setFilterError("");
-          setPage(1);
         }}
       >
         <div className={styles.historyFilterGrid}>
@@ -169,14 +177,6 @@ function GiftHistory({
           </Field>
         </div>
         {filterError && <p role="alert">{filterError}</p>}
-        <div className={`btn-row ${styles.historyFilterActions}`}>
-          <button type="submit" className="btn">
-            {vi ? "Lọc" : "Apply"}
-          </button>
-          <button type="reset" className="btn btn--ghost">
-            {vi ? "Xóa lọc" : "Clear"}
-          </button>
-        </div>
       </form>
       <AsyncSection state={state}>
         {(data) => (

@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
-import { AsyncSection, Card, Dialog } from "@/components/ui";
+import { AsyncSection, Card, Dialog, StatusChip } from "@/components/ui";
 
 import { courtHourlyPrices } from "./court-hourly-prices";
 
@@ -157,14 +157,15 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                 id: "allowRental",
                 header: t.managerCatalog.rentalStatus,
                 cell: (r) => (
-                  <span
-                    className={roomStyles.statusLabel}
-                    data-enabled={!!r.allowRental}
-                  >
-                    {r.allowRental
-                      ? t.managerCatalog.rentalEnabled
-                      : t.managerCatalog.rentalDisabled}
-                  </span>
+                  <StatusChip
+                    value={r.allowRental ? "ACTIVE" : "INACTIVE"}
+                    tone={r.allowRental ? "success" : "neutral"}
+                    label={
+                      r.allowRental
+                        ? t.managerCatalog.rentalEnabled
+                        : t.managerCatalog.rentalDisabled
+                    }
+                  />
                 ),
               },
               { id: "capacity", header: l.capacity, numeric: true },
@@ -200,14 +201,14 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
                 id: "isActive",
                 header: l.status,
                 cell: (r) => (
-                  <span
-                    className={roomStyles.statusLabel}
-                    data-enabled={r.isActive}
-                  >
-                    {r.isActive
-                      ? t.wireStatus.ACTIVE
-                      : t.managerCatalog.roomDeactive}
-                  </span>
+                  <StatusChip
+                    value={r.isActive ? "ACTIVE" : "INACTIVE"}
+                    label={
+                      r.isActive
+                        ? t.wireStatus.ACTIVE
+                        : t.managerCatalog.roomDeactive
+                    }
+                  />
                 ),
               },
             ]}

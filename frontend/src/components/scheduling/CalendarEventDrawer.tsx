@@ -3,6 +3,7 @@ import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
+import { Ban } from "lucide-react";
 import { api } from "@/lib/apiClient";
 
 import { Drawer, buttonClass } from "@/components/primitives";
@@ -11,6 +12,8 @@ import { StatusChip } from "@/components/ui";
 
 import { formatDateTime } from "@/lib/format";
 import { useLanguage } from "@/lib/language";
+import { useApi } from "@/lib/useApi";
+import { vietnamLocal } from "@/lib/vietnam-time";
 
 import type { CourtScheduleEntryDto } from "@/lib/types";
 import styles from "./CalendarEventDrawer.module.css";
@@ -48,6 +51,42 @@ export function CalendarEventDrawer({
   const participants = entry.participants ?? [];
   const [rentalBusy, setRentalBusy] = useState(false);
   const [rentalError, setRentalError] = useState("");
+  const cancellation = useApi(
+    async (signal) => {
+      if (entry.status !== "CANCELLED" || entry.cancellationReason?.trim())
+        return null;
+      const entries = await api.get<CourtScheduleEntryDto[]>(
+        coach
+          ? "/api/coaches/me/court-schedule"
+          : "/api/manager/court-schedule",
+        {
+          signal,
+          query: {
+            fromDate: vietnamLocal(entry.startAtUtc).slice(0, 10),
+            toDate: vietnamLocal(entry.endAtUtc).slice(0, 10),
+            roomId: entry.roomId,
+          },
+        },
+      );
+      return (
+        entries.find(
+          (item) =>
+            item.sourceType === entry.sourceType &&
+            item.sourceId === entry.sourceId,
+        )?.cancellationReason ?? null
+      );
+    },
+    [
+      entry.sourceId,
+      entry.sourceType,
+      entry.status,
+      entry.cancellationReason,
+      entry.startAtUtc,
+      entry.endAtUtc,
+      entry.roomId,
+      coach,
+    ],
+  );
 
   /** BR-159: chỉ Lễ tân đánh dấu Checked-in hoặc No-show cho lượt thuê sân. */
   async function markRental(action: "check-in" | "no-show") {
@@ -65,19 +104,6 @@ export function CalendarEventDrawer({
   }
 
   let footer = undefined;
-
-  if (manager && entry.classId) {
-    footer = (
-      <Link
-        className={buttonClass({
-          variant: "secondary",
-        })}
-        href={`/manager/classes/${entry.classId}`}
-      >
-        {l.details}
-      </Link>
-    );
-  }
 
   if (coach && entry.sourceType === "CLASS_SESSION" && entry.classId) {
     footer = (
@@ -160,6 +186,25 @@ export function CalendarEventDrawer({
           </dd>
         </div>
       </dl>
+      {entry.status === "CANCELLED" && (
+        <section className={styles.cancellation}>
+          <header>
+            <Ban size={20} aria-hidden="true" />
+            <h3>{shared.cancellationReason}</h3>
+          </header>
+          {cancellation.loading ? (
+            <p role="status">{t.common.loading}</p>
+          ) : cancellation.error ? (
+            <p role="alert">{cancellation.error.message}</p>
+          ) : (
+            <p>
+              {entry.cancellationReason?.trim() ||
+                cancellation.data?.trim() ||
+                shared.noCancellationReason}
+            </p>
+          )}
+        </section>
+      )}
       {entry.incidentScope === "CENTER" && !!affectedRoomNames?.length && (
         <section>
           <h3>{t.incidentHistory.affectedRooms}</h3>
@@ -229,37 +274,39 @@ export function CalendarEventDrawer({
         </Link>
       )}
 
-      {showParticipants && entry.sourceType === "CLASS_SESSION" && (
-        <section className={styles.participants}>
-          <h3>{shared.participants}</h3>
+      {showParticipants &&
+        entry.sourceType === "CLASS_SESSION" &&
+        (entry.status !== "CANCELLED" || participants.length > 0) && (
+          <section className={styles.participants}>
+            <h3>{shared.participants}</h3>
 
-          {participants.length ? (
-            <table
-              className={styles.participantTable}
-              aria-label={shared.participants}
-            >
-              <thead>
-                <tr>
-                  <th scope="col">{l.member}</th>
-                  <th scope="col">{l.attendance}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {participants.map((participant) => (
-                  <tr key={participant.memberId}>
-                    <td>{participant.memberName}</td>
-                    <td>
-                      <StatusChip value={participant.attendanceStatus} />
-                    </td>
+            {participants.length ? (
+              <table
+                className={styles.participantTable}
+                aria-label={shared.participants}
+              >
+                <thead>
+                  <tr>
+                    <th scope="col">{l.member}</th>
+                    <th scope="col">{l.attendance}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="muted">{shared.noParticipants}</p>
-          )}
-        </section>
-      )}
+                </thead>
+                <tbody>
+                  {participants.map((participant) => (
+                    <tr key={participant.memberId}>
+                      <td>{participant.memberName}</td>
+                      <td>
+                        <StatusChip value={participant.attendanceStatus} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="muted">{shared.noParticipants}</p>
+            )}
+          </section>
+        )}
       {extraDetails}
     </Drawer>
   );

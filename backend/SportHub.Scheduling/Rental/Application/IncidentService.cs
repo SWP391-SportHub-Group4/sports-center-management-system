@@ -52,8 +52,47 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
             select new { session.SessionId, session.ClassId, session.SessionNo, session.Class!.Name, session.IncidentReportJson }).Distinct().ToListAsync(ct);
         var saved = await db.Set<IncidentNotice>().AsNoTracking().SingleAsync(x => x.IncidentId == incidentId, ct);
         var refundJson = saved.RefundsJson;
-        return details with { ClosesGym = saved.ClosesGym, DayPassNoticeSentAtUtc = saved.DayPassNoticeSentAtUtc, DayPassMembers = System.Text.Json.JsonSerializer.Deserialize<List<IncidentDayPassMember>>(saved.DayPassMembersJson) ?? [], Refunds = System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(refundJson) ?? [], SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
+        var activities = await ActivityHistoryAsync(details, ct);
+        return details with { Activities = activities, ClosesGym = saved.ClosesGym, DayPassNoticeSentAtUtc = saved.DayPassNoticeSentAtUtc, DayPassMembers = System.Text.Json.JsonSerializer.Deserialize<List<IncidentDayPassMember>>(saved.DayPassMembersJson) ?? [], Refunds = System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(refundJson) ?? [], SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
             ClassSessionService.ReadIncidentReport(r.IncidentReportJson)!)).ToList() };
+    }
+
+    private async Task<IReadOnlyList<IncidentActivityHistory>> ActivityHistoryAsync(IncidentDetailsResponse incident, CancellationToken ct)
+    {
+        var scope = Enum.Parse<IncidentScope>(incident.Scope);
+        var changes = await (from step in db.Set<IncidentFenceStep>().AsNoTracking()
+            join fence in db.Set<IncidentFence>().AsNoTracking() on step.FenceId equals fence.FenceId
+            join session in db.Set<ClassSession>().AsNoTracking() on step.SessionId equals (Guid?)session.SessionId into sessions
+            from session in sessions.DefaultIfEmpty()
+            where step.State == IncidentFenceStepState.Applied &&
+                (fence.ResolvedIncidentId == incident.IncidentId || fence.ResolvedIncidentId == null &&
+                    fence.Scope == scope && fence.RoomId == incident.RoomId &&
+                    fence.StartAtUtc == incident.StartAtUtc && fence.EndAtUtc == incident.EndAtUtc)
+            orderby step.CreatedAtUtc, step.StepId
+            select new { Step = step, ClassId = session == null ? (int?)null : session.ClassId,
+                SessionNo = session == null ? (int?)null : session.SessionNo,
+                ClassName = session == null ? null : session.Class!.Name }).ToListAsync(ct);
+        var roomIds = changes.SelectMany(x => new[] { x.Step.BeforeRoomId, x.Step.AfterRoomId }).Distinct().ToArray();
+        var roomNames = await db.Set<Room>().AsNoTracking().Where(r => roomIds.Contains(r.RoomId))
+            .ToDictionaryAsync(r => r.RoomId, r => r.Name, ct);
+        var coachNames = new Dictionary<Guid, string?>();
+        foreach (var coachId in changes.SelectMany(x => new[] { x.Step.BeforeCoachId, x.Step.AfterCoachId }).Where(id => id != Guid.Empty).Distinct())
+            coachNames[coachId] = (await users.GetAsync(coachId, ct))?.FullName;
+        return changes.Select(row => {
+            var step = row.Step;
+            var replacement = step.Kind is IncidentFenceStepKind.Reschedule or IncidentFenceStepKind.CancelWithMakeup;
+            return new IncidentActivityHistory(step.StepId,
+                step.Kind == IncidentFenceStepKind.RemoveRoomBlock ? "ROOM_BLOCK" : "CLASS_SESSION",
+                step.SessionId ?? step.RoomBlockId ?? step.StepId, row.ClassId, row.SessionNo,
+                row.ClassName ?? step.BlockReason ?? roomNames.GetValueOrDefault(step.BeforeRoomId) ?? "Room block",
+                step.Kind switch { IncidentFenceStepKind.Reschedule => "RESCHEDULE",
+                    IncidentFenceStepKind.CancelWithMakeup => "CANCEL_WITH_MAKEUP",
+                    IncidentFenceStepKind.RemoveRoomBlock => "REMOVE_ROOM_BLOCK", _ => "REVIEWED_COMPLETED" },
+                new(step.BeforeStartUtc, step.BeforeEndUtc, roomNames.GetValueOrDefault(step.BeforeRoomId), coachNames.GetValueOrDefault(step.BeforeCoachId)),
+                replacement ? new(step.AfterStartUtc, step.AfterStartUtc + (step.BeforeEndUtc - step.BeforeStartUtc),
+                    roomNames.GetValueOrDefault(step.AfterRoomId), coachNames.GetValueOrDefault(step.AfterCoachId)) : null,
+                step.MakeupSessionId);
+        }).ToList();
     }
 
     private IQueryable<IncidentDetailsResponse> HistoryQuery(IQueryable<IncidentNotice> query)
@@ -579,6 +618,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var end = DateTime.SpecifyKind(request.EndAtUtc, DateTimeKind.Utc);
         if (end <= start || end - start > TimeSpan.FromDays(31))
             throw new BadRequestException("invalid_incident_range", "Invalid incident range.");
+        if (start < clock.UtcNow)
+            throw new BadRequestException("incident_start_in_past", "Incident start must not be in the past.");
         List<int> roomIds;
         int? roomId = request.RoomId;
         if (scope == IncidentScope.Room)
@@ -641,7 +682,12 @@ public sealed record IncidentDetailsResponse(Guid IncidentId,
     public bool ClosesGym { get; init; }
     public DateTime? DayPassNoticeSentAtUtc { get; init; }
     public IReadOnlyList<IncidentDayPassMember> DayPassMembers { get; init; } = [];
+    public IReadOnlyList<IncidentActivityHistory> Activities { get; init; } = [];
 }
+public sealed record IncidentActivitySchedule(DateTime StartAtUtc, DateTime EndAtUtc, string? RoomName, string? CoachName);
+public sealed record IncidentActivityHistory(Guid StepId, string SourceType, Guid SourceId, int? ClassId,
+    int? SessionNo, string Title, string Action, IncidentActivitySchedule OriginalSchedule,
+    IncidentActivitySchedule? ReplacementSchedule, Guid? ReplacementSessionId);
 public sealed record IncidentSessionHistory(Guid SessionId, int ClassId, int SessionNo, string ClassName,
     SportHub.Scheduling.Application.DTOs.IncidentSessionReport Report);
 public sealed record IncidentImpact([property: SportHub.BuildingBlocks.Api.WireEnum] string SourceType, Guid SourceId, DateTime StartAtUtc, DateTime EndAtUtc)

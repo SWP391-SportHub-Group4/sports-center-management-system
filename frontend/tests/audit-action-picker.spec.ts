@@ -105,13 +105,13 @@ test("Manager can select operational actions with the keyboard and dismiss sugge
   await page.goto("/manager/audit-log");
   const input = page.getByRole("combobox", { name: "Action", exact: true });
   await input.fill("create class");
-  await expect(page.getByRole("option")).toHaveCount(1);
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(1);
   await input.press("ArrowDown");
   await input.press("Enter");
   await expect(input).toHaveValue("CREATE_CLASS");
-  await page
-    .getByRole("button", { name: "Apply filters", exact: true })
-    .click();
+  await expect(
+    page.getByRole("button", { name: "Apply filters", exact: true }),
+  ).toHaveCount(0);
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("action"))
     .toBe("CREATE_CLASS");
@@ -119,6 +119,69 @@ test("Manager can select operational actions with the keyboard and dismiss sugge
   await input.press("Escape");
   await expect(input).toBeFocused();
   await expect(page.getByRole("listbox")).toHaveCount(0);
+});
+
+test("Manager audit filters stay visible and apply automatically from later pages", async ({
+  page,
+}, testInfo) => {
+  const queries = await setup(page, true);
+  await page.goto("/manager/audit-log?page=6");
+  for (const name of [
+    "Apply filters",
+    "Clear filters",
+    "All time",
+    "Today",
+    "Last 7 days",
+    "This month",
+  ])
+    await expect(page.getByRole("button", { name, exact: true })).toHaveCount(
+      0,
+    );
+  const actor = page.getByLabel("Actor name or email", { exact: true });
+  await expect(actor).toBeVisible();
+  await actor.fill("Alex");
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("actor"))
+    .toBe("Alex");
+  await expect(actor).toBeFocused();
+  await expect(page).not.toHaveURL(/page=6/);
+  await actor.pressSequentially(" Nguyen");
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("actor"))
+    .toBe("Alex Nguyen");
+  await expect(page.getByLabel("Record type", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByText("Event dates · Vietnam (UTC+7)", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel("From date", { exact: true }).fill("2026-11-04");
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("fromUtc"))
+    .toBe("2026-11-03T17:00:00.000Z");
+  await page.getByLabel("To date", { exact: true }).fill("2026-11-03");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "The end date must be on or after the start date." }),
+  ).toContainText("The end date must be on or after the start date.");
+  await page.getByLabel("To date", { exact: true }).fill("2026-11-05");
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("toUtc"))
+    .toBe("2026-11-05T17:00:00.000Z");
+  await page.goBack();
+  await expect(page.getByLabel("To date", { exact: true })).toHaveValue("");
+  await expect(actor).toHaveValue("Alex Nguyen");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({
+    path: testInfo.outputPath("audit-filters-desktop.png"),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(actor).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+  await page.screenshot({
+    path: testInfo.outputPath("audit-filters-mobile.png"),
+  });
 });
 
 test("Missing choices and load failures show useful states and retry succeeds", async ({

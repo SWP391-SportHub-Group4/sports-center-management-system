@@ -188,6 +188,7 @@
   max-height: min(20rem, 30dvh);
 }
 .historyDialog:global(.dialog) {
+  width: min(860px, 100%);
   display: flex;
   flex-direction: column;
   max-height: calc(100dvh - var(--space-4) * 2);
@@ -202,9 +203,6 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
-}
-.historyFilterActions {
-  justify-content: flex-end;
 }
 .historyFilterGrid :global(.field) {
   min-width: 0;

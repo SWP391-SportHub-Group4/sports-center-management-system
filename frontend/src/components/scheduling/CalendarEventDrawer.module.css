@@ -7,6 +7,33 @@
   display: grid;
   gap: var(--space-4);
 }
+.cancellation {
+  margin-block: var(--space-5);
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+}
+.cancellation header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  color: var(--danger-text);
+}
+.cancellation header svg {
+  flex-shrink: 0;
+}
+.cancellation h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.cancellation p {
+  margin: 0;
+  color: var(--text-strong);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 .summaryRow {
   display: grid;
