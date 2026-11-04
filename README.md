@@ -160,7 +160,7 @@ Tại thư mục gốc repository, tạo `.env` từ file mẫu và điền mậ
 Copy-Item .env.example .env
 ```
 
-`.env` không được đưa vào Git. Các luồng thanh toán, email, Google và AI cần cấu hình riêng trong file mẫu; xem [RUNBOOK](docs/RUNBOOK.md) trước khi thử các tích hợp ngoài.
+CI trên PR vào `main` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Merge `main` chỉ phát hành backend/AI sau khi CI đạt; máy AWS tự cập nhật sau khi kích hoạt CD một lần theo [deploy/aws/CD.md](deploy/aws/CD.md). Hợp đồng API: `docs/api-contract.md`.
 
 ### 2. Khởi động dịch vụ nền
 

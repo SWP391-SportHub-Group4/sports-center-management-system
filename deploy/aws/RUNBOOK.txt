@@ -1,14 +1,14 @@
 SportHub: prepare Railway -> AWS, preserving existing data
 
 STATUS AND COST
-This directory is a deployment kit, not an already completed migration.
-No AWS resources are provisioned and there is no auto-deploy workflow.
-The currently approved ceiling is USD 5/month TOTAL before credits. No suitable
-full-stack host has been approved within that ceiling. Do not provision a host
-or start paid services until a costed design fits the ceiling or it is revised.
-Budget alerts are notifications, not a guaranteed spending cap.
-The current IAM read-only identity cannot create deployment resources.
-This kit can be reviewed in Codex Cloud without provisioning AWS resources.
+For ongoing production releases from main, use deploy/aws/CD.md. CI builds
+and publishes a release after checks pass; AWS updates after setup-cd.sh has
+been activated once on the host. The rest of this document covers the original
+manual migration procedure, not the normal CD update process.
+The operator's deployed Lightsail configuration is 2 vCPU / 2 GB / 60 GB with a
+USD 12/month base bundle, within the subsequently authorized USD 22 AWS budget.
+Taxes, overages and optional services are separate. Budget alerts do not cap
+spending. This CD change creates no paid AWS resources or firewall openings.
 
 SCOPE
 Keep frontend on Vercel. Move backend, Python AI and PostgreSQL together to an
