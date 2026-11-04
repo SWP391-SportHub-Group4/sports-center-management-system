@@ -67,8 +67,8 @@ export function MemberRentalHistory({ memberId }: { memberId: string }) {
                         className="btn btn--secondary btn--sm"
                         href={
                           rental.invoiceId
-                            ? `/manager/finance?invoiceId=${rental.invoiceId}`
-                            : `/manager/finance?invoiceItemId=${rental.invoiceItemId}`
+                            ? `/manager/members/${memberId}?tab=invoices&invoiceId=${rental.invoiceId}`
+                            : `/manager/members/${memberId}?tab=invoices&invoiceItemId=${rental.invoiceItemId}`
                         }
                       >
                         View invoice

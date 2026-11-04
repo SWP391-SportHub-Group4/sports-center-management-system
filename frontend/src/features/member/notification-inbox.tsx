@@ -260,7 +260,6 @@ export function NotificationInbox() {
   return (
     <section className={styles.inbox} aria-label="Notification inbox">
       <header className={styles.toolbar}>
-        <p>Schedule changes, class updates and messages from your center.</p>
         <div className={styles.toolbarActions}>
           <Button
             variant="secondary"

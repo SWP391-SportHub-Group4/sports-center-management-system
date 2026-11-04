@@ -69,8 +69,7 @@ export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
   );
   return (
     <Card title={l.history}>
-      <p>{l.ownOnly}</p>
-      <TableFilters>
+      <TableFilters inline>
         <form
           className={`${styles.filters} form-grid`}
           onSubmit={(e) => {
@@ -103,7 +102,7 @@ export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
               onChange={(e) => setTo(e.target.value)}
             />
           </Field>
-          <button className="btn btn--secondary" disabled={invalidRange}>
+          <button className="btn" disabled={invalidRange}>
             {l.apply}
           </button>
         </form>

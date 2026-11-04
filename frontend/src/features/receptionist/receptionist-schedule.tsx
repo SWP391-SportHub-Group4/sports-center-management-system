@@ -390,6 +390,14 @@ export function ReceptionistSchedule() {
           </div>
         </div>
         <div className={styles.filters}>
+        <div style={{ marginTop: 14 }}>
+          <MemberPicker
+            value={desk.member}
+            onChange={desk.setMember}
+            scanner={false}
+            placeholder="Search by name, phone or email…"
+          />
+        </div>
         <div
           style={{
             display: "grid",
@@ -460,13 +468,6 @@ export function ReceptionistSchedule() {
           </label>
         </div>
 
-        <div style={{ marginTop: 14 }}>
-          <MemberPicker value={desk.member} onChange={desk.setMember} />
-          <small>
-            Selecting a member filters their class/rental schedule and checks
-            court availability against that member&apos;s class conflicts.
-          </small>
-        </div>
         </div>
       </Card>
 

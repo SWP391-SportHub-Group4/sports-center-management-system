@@ -301,7 +301,6 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
           </Dialog>,
           document.body,
         )}
-      <p className={styles.intro}>{t.incidentHistory.intro}</p>
       {drafts.error && (
         <div className="alert alert--warning" role="alert">
           <p>{t.incidentDraft.cleanupError}</p>

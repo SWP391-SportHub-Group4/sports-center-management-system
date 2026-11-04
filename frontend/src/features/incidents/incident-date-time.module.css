@@ -16,11 +16,6 @@
   gap: var(--space-4);
   margin-bottom: var(--space-4);
 }
-.group legend {
-  padding: 0;
-  margin-bottom: var(--space-2);
-  font-weight: var(--weight-semibold);
-}
 .inputs {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 7rem;

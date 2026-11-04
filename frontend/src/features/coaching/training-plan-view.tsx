@@ -74,9 +74,7 @@ export function TrainingPlanView({
     personal: vi ? "Tạo kế hoạch cá nhân" : "New personal plan",
   };
   const descriptions = {
-    course: vi
-      ? "Lộ trình từ buổi đầu đến buổi cuối: mục tiêu toàn khóa và nội dung sẽ học ở từng buổi."
-      : "Your complete roadmap: course goals and what you will learn in each session.",
+    course: "",
     session: vi
       ? "Các bài tập và trình tự thực hiện của từng buổi học."
       : "Exercises and training sequence for each session.",
@@ -151,13 +149,15 @@ export function TrainingPlanView({
           })}
         </div>
       )}
-      <p className={styles.scopeDescription}>
-        {viewMode === "session"
-          ? vi
-            ? "Bài tập và kế hoạch của buổi đang chọn."
-            : "Exercises and plans for the selected session."
-          : descriptions[scope]}
-      </p>
+      {(viewMode === "session" || descriptions[scope]) && (
+        <p className={styles.scopeDescription}>
+          {viewMode === "session"
+            ? vi
+              ? "Bài tập và kế hoạch của buổi đang chọn."
+              : "Exercises and plans for the selected session."
+            : descriptions[scope]}
+        </p>
+      )}
       <div className={styles.toolbar}>
         {onViewCoursePlan && (
           <button
@@ -586,18 +586,16 @@ function CourseRoadmap({
                     </p>
                   ))}
                 {lessonPlans.length ? (
-                  lessonPlans.map((plan) => (
-                    <div key={plan.recordId} className={styles.roadmapLesson}>
-                      <h4>{plan.title}</h4>
-                      <details
-                        className={styles.roadmapDetails}
-                        open={phase === "next" || phase === "live"}
-                      >
-                        <summary>
-                          {vi
-                            ? "Xem nội dung buổi học"
-                            : "View session content"}
-                        </summary>
+                  <details
+                    className={styles.roadmapDetails}
+                    open={phase === "next" || phase === "live"}
+                  >
+                    <summary>
+                      {vi ? "Xem nội dung buổi học" : "View session content"}
+                    </summary>
+                    {lessonPlans.map((plan) => (
+                      <div key={plan.recordId} className={styles.roadmapLesson}>
+                        <h4>{plan.title}</h4>
                         <PlanContent content={plan.content} />
                         {onEdit && plan.coachId === editableCoachId && (
                           <button
@@ -609,9 +607,9 @@ function CourseRoadmap({
                             {vi ? "Chỉnh sửa" : "Edit"}
                           </button>
                         )}
-                      </details>
-                    </div>
-                  ))
+                      </div>
+                    ))}
+                  </details>
                 ) : (
                   <>
                     {!courseTopics.has(s.sessionNo) && (

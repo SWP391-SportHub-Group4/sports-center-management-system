@@ -114,93 +114,56 @@ export function ManagerCourses() {
   ];
   return (
     <div className={styles.page}>
-      <div className={styles.toolbar}>
-        <p className={styles.resultCount} role="status">
-          {courses.loading
-            ? t.common.loading
-            : copy.matched.replace(
-                "{count}",
-                String(courses.data?.totalCount ?? 0),
-              )}
-        </p>
-        <div className={styles.primaryActions}>
-          <Link className="btn" href="/manager/classes/new">
-            {copy.create}
-          </Link>
-        </div>
-      </div>
       <Card>
-        <FilterBar
-          inline
-          presets={
-            <div
-              className={styles.savedFilters}
-              role="group"
-              aria-label={m.savedFilters}
-            >
-              {[
-                [m.all, "", ""],
-                [statusLabel("DRAFT"), "DRAFT", ""],
-                [m.recruiting, "PUBLISHED", ""],
-                [statusLabel("AT_RISK"), "PUBLISHED", "AT_RISK"],
-                [statusLabel("IN_PROGRESS"), "IN_PROGRESS", ""],
-                [m.history, "COMPLETED", ""],
-              ].map(([label, status, thresholdStatus]) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="btn btn--secondary"
-                  aria-pressed={
-                    values.status === status &&
-                    values.thresholdStatus === thresholdStatus
-                  }
-                  onClick={() =>
-                    setValues({ status, thresholdStatus, page: "1" })
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          }
-          values={values}
-          onChange={(next) => setValues({ ...next, page: "1" })}
-          onReset={() => setValues(defaults)}
-          fields={[
-            { id: "keyword", label: l.search, kind: "search" },
-            {
-              id: "sportId",
-              label: l.sport,
-              kind: "select",
-              options: [
-                { value: "", label: l.all },
-                ...(sports.data ?? [])
-                  .filter((s) => hasService(s, "GROUP_COURSE"))
-                  .map((s) => ({ value: String(s.sportId), label: s.name })),
-              ],
-            },
-            {
-              id: "status",
-              label: l.status,
-              kind: "select",
-              options: [
-                { value: "", label: l.all },
-                ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
-              ],
-            },
-            {
-              id: "thresholdStatus",
-              label: l.thresholdFilter,
-              kind: "select",
-              options: [
-                { value: "", label: l.all },
-                ...thresholds.map((s) => ({ value: s, label: statusLabel(s) })),
-              ],
-            },
-          ]}
-        />
+        <div className={styles.toolbar}>
+          <FilterBar
+            inline
+            values={values}
+            onChange={(next) => setValues({ ...next, page: "1" })}
+            onReset={() => setValues(defaults)}
+            fields={[
+              { id: "keyword", label: l.search, kind: "search" },
+              {
+                id: "sportId",
+                label: l.sport,
+                kind: "select",
+                options: [
+                  { value: "", label: l.allSports },
+                  ...(sports.data ?? [])
+                    .filter((s) => hasService(s, "GROUP_COURSE"))
+                    .map((s) => ({ value: String(s.sportId), label: s.name })),
+                ],
+              },
+              {
+                id: "status",
+                label: l.status,
+                kind: "select",
+                options: [
+                  { value: "", label: l.allStatuses },
+                  ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
+                ],
+              },
+              {
+                id: "thresholdStatus",
+                label: l.thresholdFilter,
+                kind: "select",
+                options: [
+                  { value: "", label: l.allOpeningConditions },
+                  ...thresholds.map((status) => ({
+                    value: status,
+                    label: statusLabel(status),
+                  })),
+                ],
+              },
+            ]}
+          />
+          <div className={styles.primaryActions}>
+            <Link className="btn" href="/manager/classes/new">
+              {copy.create}
+            </Link>
+          </div>
+        </div>
         {sports.error && <p role="alert">{sports.error.message}</p>}
-        <p className={styles.tableHint}>{m.holdHint}</p>
         <ApiTable
           caption={l.courses}
           state={courses}

@@ -31,11 +31,10 @@ export function IncidentDateTime({
   const { t } = useLanguage();
   const [date = "", time = ""] = value.split("T");
   return (
-    <fieldset className={styles.group}>
-      <legend>{label}</legend>
+    <div className={styles.group}>
       <div className={styles.inputs}>
         <Field
-          label={t.operations.date}
+          label={label}
           hint={
             minTime && maxTime
               ? t.incidentHistory.allowedHours
@@ -76,6 +75,6 @@ export function IncidentDateTime({
           />
         </Field>
       </div>
-    </fieldset>
+    </div>
   );
 }

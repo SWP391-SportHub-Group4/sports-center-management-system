@@ -302,7 +302,7 @@ test("comparison errors retain the primary data and current Gym count has no com
   expect(
     requests.some((u) => u.searchParams.get("toDate") === "2026-09-23"),
   ).toBe(true);
-  await page.getByRole("tab", { name: "Members", exact: true }).click();
+  await page.getByRole("tab", { name: "Gyms", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Active Gym members" }),
   ).toBeVisible();
@@ -392,7 +392,7 @@ for (const [width, height] of [
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/manager/reports");
-    for (const name of ["Cash", "Points", "Courts", "Classes", "Members"]) {
+    for (const name of ["Cash", "Points", "Courts", "Classes", "Gyms"]) {
       await page.getByRole("tab", { name, exact: true }).click();
       await expect(
         page.getByText(
