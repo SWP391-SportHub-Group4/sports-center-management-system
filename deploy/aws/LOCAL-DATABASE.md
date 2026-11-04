@@ -1,5 +1,9 @@
 # Backend local dùng DB của website AWS
 
+Để team kết nối trực tiếp bằng connection string từ IP thay đổi, dùng
+[endpoint DB public với TLS](PUBLIC-DATABASE.md). Hướng dẫn dưới đây dành cho
+SSH tunnel khi DB vẫn ở profile private.
+
 Luồng kết nối: backend local → `127.0.0.1:15432` → SSH → PostgreSQL trong Docker
 trên AWS. Giữ nguyên cấu hình Compose và firewall của PostgreSQL; không cần mở
 cổng 5432 ra Internet. Chỉ cần quyền SSH tới máy AWS và tài khoản DB riêng.

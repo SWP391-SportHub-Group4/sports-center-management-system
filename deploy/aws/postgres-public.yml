@@ -1,0 +1,29 @@
+# Opt-in direct access. Prepare TLS files before enabling POSTGRES_ACCESS=public.
+services:
+  access:
+    ports:
+      - target: 5432
+        published: "${POSTGRES_PUBLIC_PORT:-15432}"
+        host_ip: 0.0.0.0
+        protocol: tcp
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/run/sporthub-db/server.crt
+      - -c
+      - ssl_key_file=/run/sporthub-db/server.key
+      - -c
+      - hba_file=/run/sporthub-db/pg_hba.conf
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
+      - -c
+      - password_encryption=scram-sha-256
+    volumes:
+      - type: bind
+        source: /opt/sporthub/postgres-public
+        target: /run/sporthub-db
+        read_only: true
+        bind:
+          create_host_path: false
