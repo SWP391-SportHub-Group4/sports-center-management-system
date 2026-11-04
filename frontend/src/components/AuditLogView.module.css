@@ -58,7 +58,36 @@
 }
 
 .managerFilterBar [data-filter-field="actor"] {
-  grid-column: span 9;
+  grid-column: 1 / -1;
+}
+
+.managerFilterBar legend:empty {
+  display: none;
+}
+
+.filters .managerFilterBar[data-inline] [data-filter-fields] {
+  align-items: end;
+}
+
+.filters
+  .managerFilterBar[data-inline]
+  [data-filter-fields]
+  [data-filter-field] {
+  max-width: none;
+}
+
+.filters
+  .managerFilterBar[data-inline]
+  [data-filter-fields]
+  [data-filter-field]
+  input,
+.filters
+  .managerFilterBar[data-inline]
+  [data-filter-fields]
+  [data-filter-field]
+  select {
+  width: 100%;
+  max-width: 100%;
 }
 
 .managerFilterBar fieldset {
@@ -69,8 +98,7 @@
 }
 
 .managerFilterBar [data-filter-reset] {
-  justify-content: flex-end;
-  margin-top: var(--space-4);
+  display: none;
 }
 
 @media (max-width: 1023px) {

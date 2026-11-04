@@ -95,12 +95,6 @@ export function ManagerCourses() {
       ),
     },
     {
-      id: "activeHoldCount",
-      header: copy.holds,
-      numeric: true,
-      cell: (c) => <span className={styles.count}>{c.activeHoldCount}</span>,
-    },
-    {
       id: "threshold",
       header: copy.opening,
       cell: (c) => <StatusChip value={c.thresholdStatus} />,

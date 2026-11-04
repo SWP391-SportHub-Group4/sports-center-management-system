@@ -161,7 +161,7 @@ public sealed class WalletConcurrencyTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Member_cannot_read_another_members_wallet_and_counter_read_is_audited()
+    public async Task Member_cannot_read_another_members_wallet_and_counter_read_does_not_write_an_audit()
     {
         var owner = await FundedOwner();
         var other = await factory.SeedUserAsync(UserRole.Member);
@@ -170,6 +170,6 @@ public sealed class WalletConcurrencyTests(PaymentApiFactory factory)
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
         using var counter = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
         Assert.Equal(HttpStatusCode.OK, (await counter.GetAsync($"/api/members/{owner}/points")).StatusCode);
-        Assert.True(await factory.QueryAsync(db => db.AuditLogs.AnyAsync(x => x.Action == "VIEW_MEMBER_WALLET" && x.TargetId == owner.ToString())));
+        Assert.False(await factory.QueryAsync(db => db.AuditLogs.AnyAsync(x => x.Action == "VIEW_MEMBER_WALLET" && x.TargetId == owner.ToString())));
     }
 }

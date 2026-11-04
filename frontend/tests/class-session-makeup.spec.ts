@@ -224,11 +224,14 @@ test("replacement chains and unavailable original sessions remain visible withou
   ).toContainText("Makeup session");
 });
 
-test("future incidents stage makeup and save it only with final incident confirmation", async ({
+test("incident schedule selections stay pending until the affected-activities Confirm", async ({
   page,
-}) => {
+}, testInfo) => {
   await fixture(page, [original, makeup, next]);
   let handled = false;
+  let available = false;
+  let holds = 0;
+  const scheduleRequests: URL[] = [];
   const writes: { path: string; body: Record<string, unknown> }[] = [];
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -246,6 +249,8 @@ test("future incidents stage makeup and save it only with final incident confirm
             capacity: 20,
             isActive: true,
           },
+          { roomId: 2, name: "Court B", capacity: 20, isActive: true },
+          { roomId: 3, name: "Court C", capacity: 20, isActive: true },
         ],
       });
     if (path === "/api/room-types")
@@ -254,24 +259,79 @@ test("future incidents stage makeup and save it only with final incident confirm
       });
     if (path === "/api/coaches")
       return route.fulfill({
-        json: [{ userId: "coach-a", fullName: "Alex Nguyen" }],
+        json: [
+          { userId: "coach-a", fullName: "Alex Nguyen" },
+          { userId: "coach-b", fullName: "Linh Tran" },
+        ],
       });
+    if (path === "/api/manager/court-schedule") {
+      const url = new URL(route.request().url());
+      scheduleRequests.push(url);
+      const startAtUtc = `${url.searchParams.get("fromDate")}T11:00:00Z`;
+      const endAtUtc = `${url.searchParams.get("fromDate")}T12:30:00Z`;
+      return route.fulfill({
+        json: [
+          {
+            sourceType: "CLASS_SESSION",
+            sourceId: "room-only",
+            title: "Selected room activity",
+            roomId: 1,
+            coachId: "coach-c",
+            startAtUtc,
+            endAtUtc,
+            status: "SCHEDULED",
+          },
+          {
+            sourceType: "CLASS_SESSION",
+            sourceId: "coach-only",
+            title: "Selected coach activity",
+            roomId: 3,
+            coachId: "coach-a",
+            startAtUtc,
+            endAtUtc,
+            status: "SCHEDULED",
+          },
+          {
+            sourceType: "CLASS_SESSION",
+            sourceId: "unrelated",
+            title: "Other resources activity",
+            roomId: 2,
+            coachId: "coach-b",
+            startAtUtc,
+            endAtUtc,
+            status: "SCHEDULED",
+          },
+          {
+            sourceType: "CLASS_SESSION",
+            sourceId: "original",
+            title: "Original session excluded",
+            roomId: 1,
+            coachId: "coach-a",
+            startAtUtc,
+            endAtUtc,
+            status: "SCHEDULED",
+          },
+        ],
+      });
+    }
     if (path === "/api/manager/class-schedule/availability")
       return route.fulfill({
         json: {
-          available: true,
+          available,
           roomName: "Court A",
           coachName: "Alex Nguyen",
-          reasons: [],
+          reasons: available ? [] : ["room_conflict"],
         },
       });
-    if (path === "/api/manager/incidents/fences")
+    if (path === "/api/manager/incidents/fences") {
+      if (route.request().method() === "POST") holds++;
       return route.fulfill({
         json:
           route.request().method() === "GET"
             ? []
             : { fenceId: "incident-fence" },
       });
+    }
     if (path === "/api/manager/incidents/resolve") {
       writes.push({ path, body: route.request().postDataJSON() });
       return route.fulfill({
@@ -284,17 +344,15 @@ test("future incidents stage makeup and save it only with final incident confirm
         json: {
           canResolve: handled,
           members: [],
-          impacts: handled
-            ? []
-            : [
-                {
-                  sourceType: "CLASS_SESSION",
-                  sourceId: "original",
-                  startAtUtc: original.startAtUtc,
-                  endAtUtc: original.endAtUtc,
-                  resolutionOptions: [],
-                },
-              ],
+          impacts: [
+            {
+              sourceType: "CLASS_SESSION",
+              sourceId: "original",
+              startAtUtc: original.startAtUtc,
+              endAtUtc: original.endAtUtc,
+              resolutionOptions: [],
+            },
+          ],
         },
       });
     }
@@ -329,7 +387,86 @@ test("future incidents stage makeup and save it only with final incident confirm
     name: en.incidentHistory.editSession,
     exact: true,
   });
-  await expect(dialog).toContainText(en.classSessions.incidentMakeupTitle);
+  const calendar = dialog.getByRole("region", {
+    name: en.classScheduleLookup.title,
+    exact: true,
+  });
+  await expect(
+    calendar.getByText("Selected room activity", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByText("Selected coach activity", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByText("Other resources activity", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    calendar.getByText("Original session excluded", { exact: true }),
+  ).toHaveCount(0);
+  await dialog
+    .getByLabel(en.operations.room, { exact: true })
+    .selectOption("2");
+  await dialog
+    .getByLabel(en.operations.coach, { exact: true })
+    .selectOption("coach-b");
+  await expect(
+    calendar.getByText("Other resources activity", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    calendar.getByText("Selected room activity", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    calendar.getByText("Selected coach activity", { exact: true }),
+  ).toHaveCount(0);
+  await calendar
+    .getByRole("button", { name: en.mSchedule.nextWeek, exact: true })
+    .click();
+  await expect
+    .poll(() => scheduleRequests.at(-1)?.searchParams.get("fromDate"))
+    .toBe("2032-11-08");
+  await calendar
+    .getByRole("button", { name: en.mSchedule.prevWeek, exact: true })
+    .click();
+  await expect
+    .poll(() => scheduleRequests.at(-1)?.searchParams.get("fromDate"))
+    .toBe("2032-11-01");
+  await calendar
+    .getByRole("button", { name: en.mSchedule.currentWeek, exact: true })
+    .click();
+  await dialog
+    .getByLabel(en.operations.room, { exact: true })
+    .selectOption("1");
+  await dialog
+    .getByLabel(en.operations.coach, { exact: true })
+    .selectOption("coach-a");
+  await expect(
+    dialog.getByText(en.classSessions.incidentMakeupTitle, { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByText(en.incidentPlans.hint, { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByText(en.incidentHistory.makeupHint, { exact: true }),
+  ).toHaveCount(0);
+  const impacts = page.getByRole("dialog", {
+    name: en.operations.impact,
+    exact: true,
+  });
+  await expect(
+    impacts.getByRole("button", { name: en.operations.confirm, exact: true }),
+  ).toBeDisabled();
+  await expect(
+    impacts.getByRole("columnheader", {
+      name: en.operations.room,
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    impacts.getByText(en.incidentHistory.changesNeeded, { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    impacts.getByText(en.incidentHistory.reviewHint, { exact: true }),
+  ).toHaveCount(0);
   await expect(
     dialog.getByRole("combobox", { name: en.operations.edit, exact: true }),
   ).toHaveCount(0);
@@ -339,28 +476,60 @@ test("future incidents stage makeup and save it only with final incident confirm
   await dialog
     .getByLabel(en.classSessions.makeupStart, { exact: true })
     .fill("2032-12-02T18:00");
+  await expect
+    .poll(() => scheduleRequests.at(-1)?.searchParams.get("fromDate"))
+    .toBe("2032-11-29");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect
+      .poll(() => dialog.evaluate((el) => el.scrollWidth <= el.clientWidth))
+      .toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath(`incident-session-schedule-${width}.png`),
+      animations: "disabled",
+    });
+  }
   await dialog
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Lighting failure on Court A");
-  await dialog
-    .getByRole("button", {
+  await expect(
+    dialog.getByRole("button", {
       name: en.managerOperations.reviewChange,
       exact: true,
-    })
+    }),
+  ).toHaveCount(0);
+  await dialog
+    .getByRole("button", { name: en.operations.confirm, exact: true })
     .click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  expect(writes).toHaveLength(0);
+  expect(holds).toBe(0);
+  available = true;
   await dialog
     .getByRole("button", { name: en.operations.confirm, exact: true })
     .click();
   await expect(dialog).toHaveCount(0);
+  expect(holds).toBe(0);
   expect(writes).toHaveLength(0);
-  await page
-    .getByRole("button", { name: en.managerOperations.recheck, exact: true })
-    .click();
-  await page
+  await impacts
     .getByRole("button", {
-      name: en.managerOperations.finalResolve,
+      name: en.incidentHistory.arrangeMakeup,
       exact: true,
     })
+    .click();
+  await expect(
+    dialog.getByLabel(en.classSessions.makeupStart, { exact: true }),
+  ).toHaveValue("2032-12-02T18:00");
+  await expect(
+    dialog.getByLabel(en.operations.reason, { exact: true }),
+  ).toHaveValue("Lighting failure on Court A");
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  expect(writes).toHaveLength(0);
+  await expect(
+    impacts.getByText(en.incidentPlans.hint, { exact: true }),
+  ).toHaveCount(0);
+  await impacts
+    .getByRole("button", { name: en.operations.confirm, exact: true })
     .click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].path).toBe("/api/manager/incidents/resolve");
@@ -368,10 +537,116 @@ test("future incidents stage makeup and save it only with final incident confirm
     {
       sourceId: "original",
       action: "CANCEL_WITH_MAKEUP",
-      reason: "Lighting failure on Court A",
       startAtUtc: "2032-12-02T11:00:00.000Z",
       roomId: 1,
       coachId: "coach-a",
+      reason: "Lighting failure on Court A",
     },
   ]);
+  expect(holds).toBe(0);
 });
+
+for (const [activities, services] of [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+]) {
+  test(`incident Confirm requires no activities or services: ${activities}/${services}`, async ({
+    page,
+  }) => {
+    await fixture(page, []);
+    const resolved: unknown[] = [];
+    await page.route("**/api/manager/incidents/preview", (route) =>
+      route.fulfill({
+        json: {
+          ...route.request().postDataJSON(),
+          canResolve: true,
+          previewToken: "latest-preview",
+          members: [],
+          impacts: activities
+            ? [
+                {
+                  sourceType: "CLASS_SESSION",
+                  sourceId: "original",
+                  startAtUtc: original.startAtUtc,
+                  endAtUtc: original.endAtUtc,
+                  resolutionOptions: [],
+                },
+              ]
+            : [],
+          refunds: services
+            ? [
+                {
+                  sourceId: "rental",
+                  sourceType: "COURT_RENTAL",
+                  memberId: "member",
+                  memberName: "Alex",
+                  serviceName: "Court rental",
+                  status: "Confirmed",
+                  isPaid: true,
+                  maximumRefundPoints: 100,
+                  refundedPoints: 0,
+                  suggestedRefundPoints: 100,
+                  startAtUtc: original.startAtUtc,
+                  endAtUtc: original.endAtUtc,
+                },
+              ]
+            : [],
+        },
+      }),
+    );
+    await page.route("**/api/manager/incidents/resolve", (route) => {
+      resolved.push(route.request().postDataJSON());
+      return route.fulfill({
+        json: { incidentId: "55555555-5555-4555-8555-555555555555" },
+      });
+    });
+    await page.goto(
+      "/manager/incidents?scope=ROOM&roomId=1&start=2032-11-02T18:00&end=2032-11-02T19:30&reason=Court%20repair",
+    );
+    await page
+      .getByRole("button", { name: en.operations.review, exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: en.operations.impact,
+      exact: true,
+    });
+    const confirm = dialog.getByRole("button", {
+      name: en.operations.confirm,
+      exact: true,
+    });
+    await expect(
+      dialog.getByText(en.incidentRefunds.changed, { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      dialog.getByRole("button", {
+        name: en.managerOperations.recheck,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    if (activities || services) {
+      await expect(confirm).toBeDisabled();
+      expect(resolved).toHaveLength(0);
+    } else {
+      await expect(confirm).toBeEnabled();
+      await confirm.click();
+      await expect(
+        page.getByRole("dialog", {
+          name: en.incidentHistory.successTitle,
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("dialog", {
+          name: en.managerOperations.resolveReview,
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      expect(resolved).toHaveLength(1);
+      expect(resolved[0]).toMatchObject({
+        previewToken: "latest-preview",
+        refunds: [],
+      });
+    }
+  });
+}

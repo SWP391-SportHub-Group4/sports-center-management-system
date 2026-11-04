@@ -36,7 +36,7 @@ public sealed record AuditLogResponse(
 public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryService
 {
     private static IQueryable<AuditLog> Visible(IQueryable<AuditLog> query, bool administrator)
-        => administrator
+        => (administrator
             ? query.Where(a => a.ActorRole == "SYSTEM_ADMINISTRATOR" || a.ActorRole == "CENTER_MANAGER"
                 || a.ActorRole == "COACH" || a.ActorRole == "SYSTEM"
                 || (a.ActorRole == "MEMBER" && (
@@ -45,7 +45,8 @@ public sealed class AuditQueryService(ISportHubDbContext db) : IAuditQueryServic
                     || (a.TargetEntity == "MemberSupportRequest" && a.Action == "REMIND_SUPPORT_REQUEST")
                     || (a.TargetEntity == "Invoice" && a.Action == "CONVERT_UNACTIVATED_PAYMENT_TO_POINTS"))))
             : query.Where(a => a.ActorRole == "CENTER_MANAGER" || a.ActorRole == "RECEPTIONIST"
-                || a.ActorRole == "COACH" || a.ActorRole == "MEMBER");
+                || a.ActorRole == "COACH" || a.ActorRole == "MEMBER"))
+            .Where(a => a.Action != "VIEW_MEMBER_WALLET");
 
     public async Task<IReadOnlyList<string>> ListActionsAsync(bool administrator = false, CancellationToken ct = default)
     {

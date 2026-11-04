@@ -31,6 +31,7 @@ public sealed record EmailNotificationRequest(
 
 public static class NotificationEvents
 {
+    public const string IncidentCreated = nameof(IncidentCreated);
     public const string ManagerPointsGifted = nameof(ManagerPointsGifted);
     public const string PaymentUnactivated = nameof(PaymentUnactivated);
     public const string PaymentConvertedToPoints = nameof(PaymentConvertedToPoints);

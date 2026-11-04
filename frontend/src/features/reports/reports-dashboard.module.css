@@ -62,6 +62,7 @@
   margin: 4px 0;
 }
 .filters {
+  margin-bottom: var(--space-3);
   background: #fff;
   padding: 14px 18px;
   border-radius: 12px;

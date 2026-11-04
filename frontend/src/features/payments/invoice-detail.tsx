@@ -100,13 +100,11 @@ export function InvoiceDetail({
             </div>
             <section className={styles.contextPanel} aria-label="Invoice information">
               <h3 className={styles.sectionTitle}>Invoice information</h3>
-              <p className={styles.contextDescription}>
+              {(voided || !paid) && <p className={styles.contextDescription}>
                 {voided
                   ? "This invoice is void. The original order is preserved for reference, but it is not an outstanding payment request."
-                  : paid
-                    ? "Payment has been recorded. Review the transaction and purchased services below."
-                    : "This order is awaiting payment. Only a completed payment provides a downloadable receipt."}
-              </p>
+                  : "This order is awaiting payment. Only a completed payment provides a downloadable receipt."}
+              </p>}
               <dl className={styles.contextGrid}>
                 <div><dt>Invoice number</dt><dd>{d.summary.invoiceNumber}</dd></div>
                 <div><dt>Issued on</dt><dd>{formatDateTime(d.summary.issuedAt)}</dd></div>
