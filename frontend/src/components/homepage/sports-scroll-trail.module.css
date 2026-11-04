@@ -2,7 +2,9 @@
   position: fixed;
   z-index: 3;
   inset: 0 0 auto auto;
-  --trail-width: clamp(360px, 45vw, 800px);
+  --trail-width: clamp(360px, 48vw, 860px);
+  --hero-band: calc(100svh - 215px);
+  --hero-start: 110px;
   width: var(--trail-width);
   height: 100svh;
   pointer-events: none;
@@ -30,35 +32,53 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: clamp(240px, 25vw, 380px);
-  height: clamp(240px, 25vw, 380px);
+  --object-x: var(--initial-x);
+  --object-y: var(--initial-y);
+  width: clamp(220px, 22vw, 340px);
+  height: clamp(220px, 22vw, 340px);
   transform: translate3d(
-    calc(var(--trail-width) * var(--initial-x)),
-    calc(
-      100svh * var(--initial-y) * var(--hero-y-scale, 1) +
-        var(--hero-y-offset, 0px)
-    ),
+    calc(var(--trail-width) * var(--object-x)),
+    calc(var(--hero-band) * var(--object-y) + var(--hero-start)),
     0
   );
 }
 .object[data-sport-object="1"] {
-  width: clamp(180px, 20vw, 280px);
-  height: clamp(180px, 20vw, 280px);
+  width: clamp(180px, 18vw, 280px);
+  height: clamp(180px, 18vw, 280px);
 }
 .object[data-sport-object="2"] {
-  width: clamp(180px, 18vw, 260px);
-  height: clamp(180px, 18vw, 260px);
+  width: clamp(176px, 17vw, 260px);
+  height: clamp(176px, 17vw, 260px);
 }
 .roll {
   width: 100%;
   height: 100%;
-  transform: translate(-50%, -50%) rotate(var(--roll, 0deg))
-    scale(var(--trail-scale));
+  perspective: 900px;
+  transform: translate(-50%, calc(-50% + var(--startup-object-y, 0px)))
+    rotate(var(--roll, 0deg)) scale(var(--trail-scale));
+}
+:global([data-startup-phase="revealing"]) .roll {
+  transition: transform 1300ms cubic-bezier(0.22, 0.61, 0.36, 1) 180ms;
+}
+.response {
+  width: 100%;
+  height: 100%;
+  transform: translate3d(
+      calc(var(--hover-x, 0) * 18px),
+      calc(var(--hover-y, 0) * 12px - var(--hover-lift, 0) * 12px),
+      0
+    )
+    rotateX(calc(var(--hover-y, 0) * -11deg))
+    rotateY(calc(var(--hover-x, 0) * 14deg))
+    rotateZ(calc(var(--hover-x, 0) * 5deg))
+    scale(calc(1 + var(--hover-lift, 0) * 0.075));
+  filter: brightness(calc(1 + var(--hover-lift, 0) * 0.08));
 }
 .entrance {
   width: 100%;
   height: 100%;
   animation: appear 800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-play-state: var(--hero-animation-state, running);
 }
 .asset {
   width: 100%;
@@ -76,13 +96,15 @@
     transform: none;
   }
 }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .trail {
     --trail-width: 100vw;
-    --hero-y-scale: 0.45;
-    --hero-y-offset: 80px;
+    --hero-band: 40svh;
+    --hero-start: 80px;
   }
   .object {
+    --object-x: var(--compact-x);
+    --object-y: var(--compact-y);
     width: clamp(128px, 40vw, 200px);
     height: clamp(128px, 40vw, 200px);
   }
@@ -104,5 +126,9 @@
   }
   .entrance {
     animation: none;
+  }
+  .response {
+    transform: none;
+    filter: none;
   }
 }

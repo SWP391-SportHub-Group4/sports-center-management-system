@@ -1,6 +1,5 @@
 "use client";
 
-import { formatNumber } from "@/lib/format";
 import type { CourtBookingReport } from "./api";
 import styles from "./manager-overview.module.css";
 
@@ -13,21 +12,16 @@ export function CourtBookingSummary({
   report: CourtBookingReport;
 }) {
   if (!report.bySport.length)
-    return (
-      <p className={styles.note}>
-        No court bookings or rental sports in this period.
-      </p>
-    );
+    return <p className={styles.note}>No paid court bookings today.</p>;
   return (
     <>
       <table className={styles.bookingTable}>
         <caption className="sr-only">
-          Confirmed and completed rentals by sport for the full current month
+          Paid court rental hours by sport for today
         </caption>
         <thead>
           <tr>
             <th scope="col">Sport</th>
-            <th scope="col">Bookings</th>
             <th scope="col">Booked hours</th>
           </tr>
         </thead>
@@ -35,7 +29,6 @@ export function CourtBookingSummary({
           {report.bySport.map((row) => (
             <tr key={row.sportId} data-empty={row.bookings === 0 || undefined}>
               <th scope="row">{row.sportName}</th>
-              <td>{formatNumber(row.bookings)}</td>
               <td>{hours(row.bookedHours)}</td>
             </tr>
           ))}
@@ -43,7 +36,6 @@ export function CourtBookingSummary({
         <tfoot>
           <tr>
             <th scope="row">Total</th>
-            <td>{formatNumber(report.totalBookings)}</td>
             <td>{hours(report.totalBookedHours)}</td>
           </tr>
         </tfoot>

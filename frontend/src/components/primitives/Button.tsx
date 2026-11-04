@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { SportLoader } from "@/components/loading/SportLoader";
 
 export type ButtonVariant =
   "primary" | "secondary" | "ghost" | "quiet" | "danger";
@@ -10,7 +11,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** primary = hành động chính của vùng (mỗi vùng tối đa một); danger = thao tác phá hủy. */
   variant?: ButtonVariant;
   size?: ButtonSize;
-  /** Đang gửi: khóa nút, hiện spinner, đặt aria-busy. Nhãn giữ nguyên để nút không đổi độ rộng. */
+  /** Đang gửi: khóa nút, hiện bộ loading SportHub, đặt aria-busy và giữ nhãn thao tác. */
   loading?: boolean;
   /** Nhãn trình đọc màn hình đọc khi loading (đã i18n ở nơi gọi). */
   loadingLabel?: string;
@@ -79,7 +80,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? (
           <>
-            <span className="spinner" aria-hidden="true" />
+            <SportLoader size="inline" decorative />
             {loadingLabel && <span className="sr-only">{loadingLabel}</span>}
           </>
         ) : (

@@ -38,6 +38,13 @@ export function validPeriod(p: Period): boolean {
     iso(new Date(p.toDate)) === p.toDate
   );
 }
+export function periodDates(period: Period): string[] {
+  if (!validPeriod(period)) return [];
+  const start = Date.parse(period.fromDate);
+  return Array.from({ length: periodDays(period) }, (_, index) =>
+    iso(new Date(start + index * dayMs)),
+  );
+}
 export function reportPeriods(
   selection: PeriodSelection,
   today: string,
