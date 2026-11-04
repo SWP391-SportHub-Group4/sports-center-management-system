@@ -709,8 +709,6 @@ export const en = {
     noStudents: "No students enrolled yet.",
     editPricing: "Edit pricing",
     approveBelowThreshold: "Approve below threshold",
-    approveBelowHint:
-      "Allow this class to run without meeting its break-even threshold. Confirmed members will be notified. Provide a reason for this decision.",
     pricingLocked:
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
