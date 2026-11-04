@@ -51,6 +51,10 @@ Check, Frontend E2E + API, AWS Deployment Checks và Build AWS Release. Release
 được phát hành với tag `aws-FULL_COMMIT_SHA`. CI xanh xác nhận build/release;
 trạng thái triển khai thật phải xem trên AWS, vì CD là dịch vụ kéo release.
 
+DB mặc định không mở public. Nếu team cần connection string trực tiếp từ IP
+thay đổi, operator bật TLS/profile public theo [PUBLIC-DATABASE.md](PUBLIC-DATABASE.md).
+Đây là thay đổi thủ công cấu hình DB/firewall, không được bật chỉ bằng merge mã.
+
 Tại Ubuntu (cũng mở được bằng Lightsail browser SSH):
 
 ```bash

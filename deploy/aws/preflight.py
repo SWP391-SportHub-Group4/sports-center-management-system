@@ -32,8 +32,28 @@ require('@' in backend['Email__Brevo__FromAddress'], 'BREVO_FROM_ADDRESS must be
 require(backend['CLOUDINARY_URL'].startswith('cloudinary://'), 'CLOUDINARY_URL must use cloudinary:// credentials.')
 for name in ['VnPay__PaymentUrl', 'VnPay__QueryUrl']:
     require(urlsplit(backend[name]).scheme == 'https', f'{name} must use HTTPS.')
-for service in ['postgres', 'backend', 'ai-service']:
+for service in ['backend', 'ai-service']:
     require(not config['services'][service].get('ports'), f'{service} must not publish a host port.')
+database = config['services']['postgres']
+ports = database.get('ports', [])
+if ports:
+    require(len(ports) == 1 and ports[0].get('target') == 5432
+            and ports[0].get('host_ip') == '0.0.0.0' and ports[0].get('protocol') == 'tcp'
+            and str(ports[0].get('published', '')).isdigit()
+            and 1024 <= int(ports[0]['published']) <= 65535,
+            'Public PostgreSQL requires one explicit IPv4 TCP port targeting 5432.')
+    expected = ['postgres']
+    for setting in ('ssl=on', 'ssl_cert_file=/run/sporthub-db/server.crt',
+                    'ssl_key_file=/run/sporthub-db/server.key',
+                    'hba_file=/run/sporthub-db/pg_hba.conf',
+                    'ssl_min_protocol_version=TLSv1.2', 'password_encryption=scram-sha-256'):
+        expected.extend(['-c', setting])
+    require(database.get('command') == expected,
+            'Public PostgreSQL must use the TLS-only authentication configuration.')
+    require(any(m.get('type') == 'bind' and m.get('source') == '/opt/sporthub/postgres-public'
+                and m.get('target') == '/run/sporthub-db' and m.get('read_only') is True
+                for m in database.get('volumes', [])),
+            'Public PostgreSQL requires its prepared TLS directory mounted read-only.')
 if errors:
     sys.exit('\n'.join(errors))
 print('Deployment configuration validated; credentials were not displayed.')
