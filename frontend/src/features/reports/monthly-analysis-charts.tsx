@@ -265,7 +265,9 @@ export function CashTrend({
 
 export function RevenueMix({
   report,
+  showInsight = true,
 }: {
+  showInsight?: boolean;
   report: Pick<
     RevenueReportDto,
     "bySource" | "reconciliationCashCollected" | "totalCollected"
@@ -312,10 +314,12 @@ export function RevenueMix({
           </li>
         ))}
       </ul>
-      <p className={overview.insight}>
-        <strong>{leader.label}</strong> accounts for{" "}
-        {(leader.share * 100).toFixed(1)}% of collections.
-      </p>
+      {showInsight && (
+        <p className={overview.insight}>
+          <strong>{leader.label}</strong> accounts for{" "}
+          {(leader.share * 100).toFixed(1)}% of collections.
+        </p>
+      )}
     </div>
   );
 }

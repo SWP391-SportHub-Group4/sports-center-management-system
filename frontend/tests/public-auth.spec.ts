@@ -35,6 +35,7 @@ async function waitForLoginLayout(page: Page) {
 }
 
 async function openPublicNavigation(page: Page) {
+  await expect(page.locator("[data-startup-loader]")).toHaveCount(0);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   if (!(await navigation.isVisible())) {
     await page

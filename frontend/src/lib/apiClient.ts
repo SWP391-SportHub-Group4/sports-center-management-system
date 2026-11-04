@@ -6,6 +6,7 @@
  */
 
 import { en } from "@/locales/en";
+import { withRequestActivity } from "./request-activity";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
@@ -130,6 +131,17 @@ async function request<T>(
   path: string,
   body?: unknown,
   options: RequestOptions = {},
+): Promise<T> {
+  return withRequestActivity(() =>
+    performRequest<T>(method, path, body, options),
+  );
+}
+
+async function performRequest<T>(
+  method: string,
+  path: string,
+  body: unknown,
+  options: RequestOptions,
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.idempotencyKey)
@@ -282,6 +294,13 @@ export async function fetchBlob(
   path: string,
   options?: { signal?: AbortSignal },
 ): Promise<Blob> {
+  return withRequestActivity(() => performBlobFetch(path, options));
+}
+
+async function performBlobFetch(
+  path: string,
+  options?: { signal?: AbortSignal },
+): Promise<Blob> {
   const token = readToken();
   const response = await fetch(buildUrl(path), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -302,6 +321,10 @@ export async function fetchBlob(
  * Authorization header để kiểm ownership (BR-45), mà điều hướng trình duyệt thì không gửi được.
  */
 export async function downloadFile(path: string, fallbackName: string) {
+  return withRequestActivity(() => performDownload(path, fallbackName));
+}
+
+async function performDownload(path: string, fallbackName: string) {
   const token = readToken();
 
   const response = await fetch(buildUrl(path), {

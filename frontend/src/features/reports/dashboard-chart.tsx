@@ -1,14 +1,21 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { formatDate } from "@/lib/format";
+import { periodDates, type Period } from "./report-periods";
 import styles from "./reports-dashboard.module.css";
 export interface ChartDay {
   date: string;
-  value: number;
+  value: number | null;
   detail?: string;
 }
+function calendarRows(data: ChartDay[], period?: Period): ChartDay[] {
+  const dates = period ? periodDates(period) : [];
+  if (!dates.length) return data;
+  const byDate = new Map(data.map((day) => [day.date, day]));
+  return dates.map((date) => byDate.get(date) ?? { date, value: null });
+}
 export function DashboardChart({
-  rows,
+  rows: suppliedRows,
   comparison,
   label,
   unit,
@@ -17,6 +24,7 @@ export function DashboardChart({
   seriesLabel,
   secondary,
   legendUnit,
+  period,
 }: {
   rows: ChartDay[];
   comparison?: ChartDay[];
@@ -26,6 +34,7 @@ export function DashboardChart({
   integerValues?: boolean;
   seriesLabel?: string;
   legendUnit?: string;
+  period?: Period;
   secondary?: {
     label: string;
     unit: string;
@@ -33,6 +42,7 @@ export function DashboardChart({
     comparison?: ChartDay[];
   };
 }) {
+  const rows = calendarRows(suppliedRows, period);
   const [selected, setSelected] = useState(0);
   const container = useRef<HTMLDivElement>(null);
   const [canvasWidth, setCanvasWidth] = useState(720);
@@ -47,16 +57,26 @@ export function DashboardChart({
   }, [rows.length]);
   const plotWidth = canvasWidth - 80;
   const index = Math.min(selected, Math.max(0, rows.length - 1));
-  const baseline = comparison?.length === rows.length ? comparison : undefined;
-  const second = secondary?.rows.length === rows.length ? secondary : undefined;
+  const baseline =
+    comparison?.length === suppliedRows.length ? comparison : undefined;
+  const second =
+    secondary?.rows.length === suppliedRows.length
+      ? { ...secondary, rows: calendarRows(secondary.rows, period) }
+      : undefined;
   const secondBaseline =
-    second?.comparison?.length === rows.length ? second.comparison : undefined;
+    second?.comparison?.length === suppliedRows.length
+      ? second.comparison
+      : undefined;
   const values = [
     ...rows,
     ...(baseline ?? []),
     ...(second?.rows ?? []),
     ...(secondBaseline ?? []),
-  ].map((r) => r.value);
+  ]
+    .map((r) => r.value)
+    .filter(
+      (value): value is number => value !== null && Number.isFinite(value),
+    );
   const low = Math.min(0, ...values),
     high = Math.max(1, ...values);
   const ticks = [
@@ -67,8 +87,20 @@ export function DashboardChart({
   const x = (i: number) =>
     56 + ((i + 0.5) * plotWidth) / Math.max(1, rows.length);
   const y = (n: number) => 180 - ((n - low) / (high - low)) * 155;
-  const path = (data: ChartDay[]) =>
-    data.map((r, i) => `${i ? "L" : "M"}${x(i)},${y(r.value)}`).join(" ");
+  const path = (data: ChartDay[]) => {
+    let connected = false;
+    return data
+      .map((r, i) => {
+        if (r.value === null) {
+          connected = false;
+          return "";
+        }
+        const command = connected ? "L" : "M";
+        connected = true;
+        return `${command}${x(i)},${y(r.value)}`;
+      })
+      .join(" ");
+  };
   const number = (n: number) =>
     new Intl.NumberFormat("en", {
       notation: "compact",
@@ -76,6 +108,12 @@ export function DashboardChart({
     }).format(n);
   const exact = (n: number) =>
     n.toLocaleString("en", { maximumFractionDigits: 2 });
+  const valueText = (value: number | null, units: string) =>
+    value === null ? "No data yet" : `${exact(value)} ${units}`;
+  const selectedValue = rows[index]?.value;
+  const secondValue = second?.rows[index]?.value;
+  const baselineDay = baseline?.[index];
+  const secondBaselineDay = secondBaseline?.[index];
   if (!rows.length)
     return <p className={styles.empty}>No activity in this period.</p>;
   return (
@@ -135,17 +173,19 @@ export function DashboardChart({
           </g>
         ))}
         {bars ? (
-          rows.map((r, i) => (
-            <rect
-              key={r.date}
-              x={x(i) - (plotWidth * 0.35) / rows.length}
-              y={Math.min(y(0), y(r.value))}
-              width={(plotWidth * 0.7) / rows.length}
-              height={Math.max(1, Math.abs(y(r.value) - y(0)))}
-              fill="#227d70"
-              opacity={index === i ? 1 : 0.65}
-            />
-          ))
+          rows.map((r, i) =>
+            r.value === null ? null : (
+              <rect
+                key={r.date}
+                x={x(i) - (plotWidth * 0.35) / rows.length}
+                y={Math.min(y(0), y(r.value))}
+                width={(plotWidth * 0.7) / rows.length}
+                height={Math.max(1, Math.abs(y(r.value) - y(0)))}
+                fill="#227d70"
+                opacity={index === i ? 1 : 0.65}
+              />
+            ),
+          )
         ) : (
           <path d={path(rows)} fill="none" stroke="#126b5c" strokeWidth="2.5" />
         )}
@@ -183,14 +223,11 @@ export function DashboardChart({
           stroke="#6b8880"
           strokeDasharray="3 3"
         />
-        <circle cx={x(index)} cy={y(rows[index].value)} r="4" fill="#126b5c" />
-        {second && (
-          <circle
-            cx={x(index)}
-            cy={y(second.rows[index].value)}
-            r="4"
-            fill="#3563a5"
-          />
+        {selectedValue != null && (
+          <circle cx={x(index)} cy={y(selectedValue)} r="4" fill="#126b5c" />
+        )}
+        {secondValue != null && (
+          <circle cx={x(index)} cy={y(secondValue)} r="4" fill="#3563a5" />
         )}
         {[0, Math.floor((rows.length - 1) / 2), rows.length - 1]
           .filter((v, i, a) => a.indexOf(v) === i)
@@ -229,36 +266,41 @@ export function DashboardChart({
         value={index}
         onChange={(e) => setSelected(Number(e.target.value))}
         aria-label={`${label}: select a day`}
-        aria-valuetext={`${formatDate(rows[index].date)}: ${seriesLabel ?? ""} ${exact(rows[index].value)} ${unit}${second ? `; ${second.label}: ${exact(second.rows[index].value)} ${second.unit}` : ""}`}
+        aria-valuetext={`${formatDate(rows[index].date)}: ${seriesLabel ?? ""} ${valueText(rows[index].value, unit)}${second ? `; ${second.label}: ${valueText(second.rows[index].value, second.unit)}` : ""}`}
       />
       <div className={styles.chartReadout} aria-live="polite">
         <span>
           <b>{formatDate(rows[index].date)}</b> ·{" "}
           {seriesLabel && `${seriesLabel}: `}
-          {exact(rows[index].value)} {unit}
+          {valueText(rows[index].value, unit)}
           {rows[index].detail && <small>{rows[index].detail}</small>}
         </span>
-        {baseline && (
+        {baselineDay && (
           <span>
-            <b>{formatDate(baseline[index].date)}</b> ·{" "}
-            {seriesLabel && `${seriesLabel}: `} {exact(baseline[index].value)}{" "}
-            {unit}
-            {baseline[index].detail && <small>{baseline[index].detail}</small>}
+            <b>{formatDate(baselineDay.date)}</b> ·{" "}
+            {seriesLabel && `${seriesLabel}: `}{" "}
+            {valueText(baselineDay.value, unit)}
+            {baselineDay.detail && <small>{baselineDay.detail}</small>}
           </span>
         )}
         {second && (
           <span>
             <b>{formatDate(second.rows[index].date)}</b> · {second.label}:{" "}
-            {exact(second.rows[index].value)} {second.unit}
+            {valueText(second.rows[index].value, second.unit)}
           </span>
         )}
-        {secondBaseline && (
+        {secondBaselineDay && (
           <span>
-            <b>{formatDate(secondBaseline[index].date)}</b> · {second?.label}{" "}
-            (comparison): {exact(secondBaseline[index].value)} {second?.unit}
+            <b>{formatDate(secondBaselineDay.date)}</b> · {second?.label}{" "}
+            (comparison): {valueText(secondBaselineDay.value, second!.unit)}
           </span>
         )}
       </div>
+      {rows.some((day) => day.value === null) && (
+        <p className={styles.note}>
+          Dates without reported data are left blank.
+        </p>
+      )}
       {comparison && !baseline && (
         <p className={styles.note}>
           Different period lengths. Compare totals above; daily series are not

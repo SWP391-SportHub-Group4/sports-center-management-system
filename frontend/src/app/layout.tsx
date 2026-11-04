@@ -22,6 +22,7 @@ import { AuthProvider } from "@/lib/auth";
 import { LanguageProvider } from "@/lib/language";
 import { SiteFooter } from "@/components/SiteFooter";
 import { HomepageBackdrop } from "@/components/homepage/HeroArenaVideo";
+import { StartupExperience } from "@/components/loading/StartupExperience";
 import { NumberInputWheelGuard } from "@/components/NumberInputWheelGuard";
 
 export const metadata: Metadata = {
@@ -47,9 +48,11 @@ export default function RootLayout({
         {/* AuthProvider and LanguageProvider wrap the entire application */}
         <LanguageProvider>
           <AuthProvider>
-            <HomepageBackdrop />
-            {children}
-            <SiteFooter />
+            <StartupExperience>
+              <HomepageBackdrop />
+              {children}
+              <SiteFooter />
+            </StartupExperience>
           </AuthProvider>
         </LanguageProvider>
       </body>

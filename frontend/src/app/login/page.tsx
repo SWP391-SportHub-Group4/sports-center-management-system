@@ -1,4 +1,5 @@
 "use client";
+import { SportLoader } from "@/components/loading/SportLoader";
 
 import { useLanguage } from "@/lib/language";
 import { Suspense, useRef, useState } from "react";
@@ -280,7 +281,7 @@ function LoginForm() {
             >
               {busy ? (
                 <span className="btn__busy">
-                  <span className="spinner" aria-hidden="true" />
+                  <SportLoader size="inline" decorative />
                   <span>Signing in…</span>
                 </span>
               ) : (

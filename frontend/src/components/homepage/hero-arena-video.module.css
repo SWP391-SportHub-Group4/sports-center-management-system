@@ -15,7 +15,15 @@
 .depth {
   position: absolute;
   inset: -3%;
-  transform: translate3d(var(--hero-x, 0px), var(--hero-y, 0px), 0);
+  transform: translate3d(
+      var(--hero-x, 0px),
+      calc(var(--hero-y, 0px) + var(--startup-scene-y, 0px)),
+      0
+    )
+    scale(var(--startup-scene-scale, 1));
+}
+:global([data-startup-phase="revealing"]) .depth {
+  transition: transform 1300ms cubic-bezier(0.22, 0.61, 0.36, 1) 180ms;
 }
 .poster,
 .video {
