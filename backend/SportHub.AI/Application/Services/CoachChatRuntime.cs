@@ -146,6 +146,10 @@ internal static class CoachChatRuntime
     // This method is intentionally Coach-only; it must be called after authenticated role verification.
     internal static string? TryStaticNavigationAnswer(string question)
     {
+        // Coach notification data must not be converted into a generic navigation answer.
+        if (CoachNotificationAnswers.IsNotificationDataQuestion(question)) return null;
+        var coachClassesStudentsNavigation = CoachClassesStudentsNavigation.TryAnswer(question);
+        if (coachClassesStudentsNavigation is not null) return coachClassesStudentsNavigation;
         var q = Normalize(question);
         var vi = Vi(question);
         if (Contains(q, "ban la ai", "who are you", "what are you"))
@@ -221,6 +225,9 @@ internal static class CoachChatRuntime
     internal static async Task<string?> TryAnswerAsync(ISportHubDbContext db, Guid coachId,
         string question, DateTime now, CancellationToken ct)
     {
+        // Coach-only, JWT-scoped notification query before shared context or Gemini.
+        var notificationAnswerV9 = await CoachNotificationAnswers.TryAnswerAsync(db, coachId, question, now, ct);
+        if (notificationAnswerV9 is not null) return notificationAnswerV9;
         var detailsAnswer = await CoachClassStudentKnowledge.TryAnswerAsync(db, coachId, question, ct);
         if (detailsAnswer is not null) return detailsAnswer;
         var staticAnswer = TryStaticNavigationAnswer(question);

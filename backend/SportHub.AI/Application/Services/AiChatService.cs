@@ -66,6 +66,57 @@ public sealed class AiChatService(
                 "PreviousInteractionId is invalid.");
         }
 
+        // COACH_INTENT_ORCHESTRATOR_V10: Role-scoped analysis before all legacy Coach short-circuits.
+        // Do not derive Coach role from the question, client route or frontend state.
+        var coachIntentV10 = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
+            .AsNoTracking().AnyAsync(u => u.UserId == userId && u.Role != null &&
+                u.Role.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, cancellationToken);
+        if (coachIntentV10)
+        {
+            var coachAnalysisTimerV10 = System.Diagnostics.Stopwatch.StartNew();
+            var coachAnalysisV10 = await CoachIntentOrchestrator.TryAnswerAsync(
+                db, userId, question, clock.UtcNow, provider, promptReader, cancellationToken);
+            if (coachAnalysisV10 is not null)
+            {
+                coachAnalysisTimerV10.Stop();
+                var coachLogIdV10 = Guid.NewGuid();
+                var coachNowV10 = clock.UtcNow;
+                var coachCleanV10 = AiPlainTextSanitizer.Clean(coachAnalysisV10.Answer);
+                // Keep the usual AI chat response contract. Do not change either Chatbox UI.
+                try
+                {
+                    db.Set<AiLog>().Add(new AiLog
+                    {
+                        LogId = coachLogIdV10, UserId = userId, QueryType = AiQueryTypes.Chat,
+                        CreatedAt = coachNowV10,
+                        ResponseTimeMs = (int)Math.Min(int.MaxValue, coachAnalysisTimerV10.ElapsedMilliseconds),
+                        InputPayload = JsonSerializer.Serialize(new
+                        {
+                            question, previousInteractionId,
+                            promptVersion = coachAnalysisV10.PromptVersion,
+                            intent = coachAnalysisV10.Intent
+                        }),
+                        ResponsePayload = JsonSerializer.Serialize(new
+                        {
+                            interactionId = coachAnalysisV10.InteractionId,
+                            answer = coachCleanV10, provider = coachAnalysisV10.Provider,
+                            model = coachAnalysisV10.Model, success = true
+                        })
+                    });
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    System.Diagnostics.Trace.TraceError("Coach analysis logging failed: " + ex.GetType().Name);
+                }
+                return new AiChatResponse(coachLogIdV10, coachAnalysisV10.InteractionId,
+                    question, coachCleanV10, coachAnalysisV10.Provider, coachAnalysisV10.Model,
+                    coachAnalysisV10.PromptVersion,
+                    (int)Math.Min(int.MaxValue, coachAnalysisTimerV10.ElapsedMilliseconds), coachNowV10);
+            }
+        }
+        // END_COACH_INTENT_ORCHESTRATOR_V10
+
                 // COACH_VERIFIED_NAVIGATION_FAST_PATH_V4
         // Check the authenticated role before bypassing expensive data context and Gemini.
         var coachVerifiedForNavigation = await db.Set<SportHub.Identity.Domain.Entities.UserAccount>()
@@ -163,6 +214,13 @@ public sealed class AiChatService(
             }
         }
         // END_COACH_ISOLATED_PRECONTEXT_V5
+
+// Member-only verified UI/data response, before shared context or Gemini.
+// Coach and AI Plan are not routed through this handler.
+var memberPortalResponse = await MemberPortalChat.TryAnswerAsync(
+    db, clock, userId, question, cancellationToken);
+if (memberPortalResponse is not null)
+    return memberPortalResponse;
 
 var context =
             await contextBuilder.BuildAsync(

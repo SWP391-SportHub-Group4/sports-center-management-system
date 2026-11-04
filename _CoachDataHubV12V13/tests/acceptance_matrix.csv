@@ -1,0 +1,27 @@
+Role,Domain,Question,Expected handling,Verification
+Coach,Classes,Tôi đang dạy lớp nào?,Existing exact Coach class handler,Compare with Coach Classes UI
+Coach,Classes,So sánh BAD01 và BAD02,Data Hub class evidence + Gemini analysis,Compare capacity/fee/status against class details
+Coach,Classes,Lớp nào còn nhiều chỗ nhất?,Bounded class data + valid ranking,Compare Available seats not Capacity
+Coach,Classes,Tại sao lớp BAD01 ít chỗ trống?,No invented causation; reason only with evidence,Check enrollment facts
+Coach,Students,Tôi đang dạy những ai?,Existing authorized roster query,Compare with Coach Students list
+Coach,Students,Tóm tắt danh sách học viên lớp BAD01,Bounded roster evidence + Gemini,Compare actual roster
+Coach,Students,BMI học viên nào cao nhất?,v11 exact metrics not Gemini arithmetic,Compare saved measurements
+Coach,Students,BMI trung bình của lớp BAD01?,v11 exact metrics,Check self-reported missing data
+Coach,Students,Hồ sơ sức khỏe học viên Coach khác?,Forbidden/no data,Authorization negative test
+Coach,Schedule,Lịch dạy hôm nay?,Existing exact schedule handler,Compare schedule UI
+Coach,Schedule,Phân tích lịch dạy tuần này,Data Hub session evidence + Gemini,Check window and status
+Coach,Schedule,So sánh lịch tuần này và tuần sau,Data Hub window evidence + Gemini,Compare actual session times
+Coach,Requests,Có bao nhiêu request Done?,Existing exact assigned request counts,Compare Request UI
+Coach,Requests,Request nào cần ưu tiên xử lý?,Data Hub evidence + Gemini recommended priority,Compare deadlines and statuses
+Coach,Requests,Tại sao request quá hạn?,Do not assert reason not in records,Check SLA data
+Coach,Notifications,Có bao nhiêu thông báo chưa đọc?,Existing exact notification count,Compare notification bell
+Coach,Notifications,Thông báo nào quan trọng nhất?,Data Hub evidence + Gemini,No claimed stored priority without evidence
+Coach,Notifications,Tóm tắt thông báo gần đây,Data Hub summary,Compare actual notification content
+Coach,Navigation,Thêm chứng chỉ ở đâu?,Existing verified navigation,no provider needed
+Coach,Navigation,Xem học viên ở đâu?,Existing verified navigation,no provider needed
+Member,Isolation,So sánh BMI học viên Coach khác,No Coach tool access,Authenticated Member negative test
+Coach,Isolation,Tạo giáo án từ Chatbox,Navigation only; no Plan generator call,Ensure AI Plan unchanged
+Coach,Dynamic,Tạo lớp mới và phân công Coach,New query sees it when Published/InProgress,Compare fresh GET
+Coach,Dynamic,Ghi danh học viên mới hợp lệ,New query sees confirmed active enrollment,Compare fresh GET
+Coach,Provider,Gemini API unavailable,Correct service failure rather than invented facts,Observe HTTP error and logs
+Coach,Followup,Trong số đó ai cao nhất?,Current v13 lacks safe multi-turn entity memory,Known limitation; request clarification
