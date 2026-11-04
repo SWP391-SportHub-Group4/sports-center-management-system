@@ -303,14 +303,16 @@ test("an old SLA notice opens the final outcome even when the request is no long
   });
 });
 
-test("legacy payout notice explains its queue fallback", async ({ page }) => {
+test("legacy payout notice retains its queue link without helper text", async ({
+  page,
+}) => {
   await fixture(page, "payout", "legacy");
   await page.goto(`/notifications?message=${noticeId}`);
   await expect(
     page.getByText(
       "This older notice has no request link. Open the queue to find the request.",
     ),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await page.getByRole("link", { name: "Open support queue" }).click();
   await expect(page).toHaveURL("/manager/requests?type=support");
 });

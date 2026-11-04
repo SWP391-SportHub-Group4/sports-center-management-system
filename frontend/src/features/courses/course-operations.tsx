@@ -4,8 +4,8 @@ import managementStyles from "./course-management.module.css";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { pagedItems } from "@/lib/paged";
-import { useRef, useState } from "react";
-import { api } from "@/lib/apiClient";
+import { useState } from "react";
+import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
@@ -252,7 +252,15 @@ export function CourseCancellation({
   const { t } = useLanguage();
   const l = t.operations;
   const [reason, setReason] = useState(initialReason);
-  const [review, setReview] = useState<CancellationPreview | null>(null);
+  const preview = useApi(
+    (signal) =>
+      api.get<CancellationPreview>(
+        `/api/manager/classes/${classId}/cancellation-preview`,
+        { signal },
+      ),
+    [classId],
+  );
+  const review = preview.data;
   const [refunds, setRefunds] = useState<Record<string, string>>({});
   const c = t.classCancellationRefund;
   const validPoints = (value: string | undefined, maximum: number) =>
@@ -265,79 +273,42 @@ export function CourseCancellation({
     review.members.every((m) =>
       validPoints(refunds[m.enrollmentId], m.refundPoints),
     );
-  const refundTotal =
-    review?.members.reduce(
-      (sum, m) =>
-        sum +
-        (validPoints(refunds[m.enrollmentId], m.refundPoints)
-          ? Number(refunds[m.enrollmentId])
-          : 0),
-      0,
-    ) ?? 0;
-  const revision = useRef(0);
   const mutation = useMutation();
   return (
     <CancellationContainer embedded={embedded} title={l.cancel}>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const expected = revision.current;
-          await mutation.run(async () => {
-            const result = await api.get<CancellationPreview>(
-              `/api/manager/classes/${classId}/cancellation-preview`,
-            );
-            if (revision.current === expected) {
-              setReview(result);
-              setRefunds({});
-            }
-          }, "");
-        }}
-      >
+      <div className="stack">
         <Field label={l.reason}>
           <textarea
             required
             minLength={3}
             maxLength={500}
             value={reason}
-            onChange={(e) => {
-              revision.current++;
-              setReason(e.target.value);
-              setReview(null);
-            }}
+            disabled={mutation.busy}
+            onChange={(e) => setReason(e.target.value)}
           />
         </Field>
-        <button
-          className="btn btn--secondary"
-          disabled={mutation.busy || reason.trim().length < 3}
-        >
-          {l.cancellationPreview}
-        </button>
-      </form>
-      {review && (
+      </div>
+      {preview.loading && <p role="status">{t.common.loading}</p>}
+      {preview.error && (
+        <div role="alert">
+          <p>{preview.error.message}</p>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={preview.reload}
+          >
+            {t.common.retry}
+          </button>
+        </div>
+      )}
+      {!preview.loading && !preview.error && review && (
         <div className={managementStyles.cancellationReview}>
-          <dl className={managementStyles.cancellationPreviewFacts}>
-            <div>
-              <dt>{l.confirmed}</dt>
-              <dd>{review.confirmedCount}</dd>
-            </div>
-            <div>
-              <dt>{l.held}</dt>
-              <dd>{review.activeHoldCount}</dd>
-            </div>
-            <div>
-              <dt>{l.sessionsRemaining}</dt>
-              <dd>
-                {review.sessionsNotProvided} / {review.totalSessions}
-              </dd>
-            </div>
-          </dl>
           {review.members.length > 0 && (
             <section
               className={managementStyles.cancellationRefundInputs}
               aria-label={c.title}
             >
               <h3>{c.title}</h3>
-              <p>{c.hint}</p>
               {review.members.map((member) => {
                 const value = refunds[member.enrollmentId];
                 const invalid =
@@ -380,13 +351,6 @@ export function CourseCancellation({
               })}
             </section>
           )}
-          <div className={managementStyles.cancellationRefund}>
-            <span>{c.total}</span>
-            <strong>{validRefunds ? refundTotal : "—"}</strong>
-          </div>
-          {review.refundsImmediately && (
-            <p>{t.classWorkspace.cancelBelowThresholdHint}</p>
-          )}
           {!review.canCancel && (
             <p role="alert">
               {review.confirmedCount > 0
@@ -403,17 +367,25 @@ export function CourseCancellation({
               reason.trim().length < 3
             }
             onClick={async () => {
-              const ok = await mutation.run(() =>
-                api.post(`/api/manager/classes/${classId}/cancel`, {
-                  reason,
-                  previewToken: review.previewToken,
-                  refunds: review.members.map((m) => ({
-                    enrollmentId: m.enrollmentId,
-                    points: Number(refunds[m.enrollmentId]),
-                  })),
-                }),
-              );
-              setReview(null);
+              const ok = await mutation.run(async () => {
+                try {
+                  await api.post(`/api/manager/classes/${classId}/cancel`, {
+                    reason,
+                    previewToken: review.previewToken,
+                    refunds: review.members.map((m) => ({
+                      enrollmentId: m.enrollmentId,
+                      points: Number(refunds[m.enrollmentId]),
+                    })),
+                  });
+                } catch (cause) {
+                  if (
+                    cause instanceof ApiError &&
+                    cause.code === "class_cancellation_changed"
+                  )
+                    preview.reload();
+                  throw cause;
+                }
+              });
               if (ok) onSaved();
             }}
           >

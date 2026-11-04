@@ -13,6 +13,7 @@ export function RoomSelector({
   allowCreate = false,
   onCatalogChanged,
   onCourtCreated,
+  required = false,
 }: {
   allowCreate?: boolean;
   onCatalogChanged?: () => void;
@@ -20,6 +21,7 @@ export function RoomSelector({
   value: string;
   onChange: (value: string) => void;
   sportId?: number;
+  required?: boolean;
 }) {
   const { t } = useLanguage();
   const data = useApi(async (signal) => {
@@ -42,6 +44,7 @@ export function RoomSelector({
         {(rooms) => (
           <Field
             label={t.operations.room}
+            required={required}
             hint={
               <>
                 {t.managerCatalog.roomPickerHint}{" "}
@@ -51,11 +54,15 @@ export function RoomSelector({
               </>
             }
           >
-            <select value={value} onChange={(e) => onChange(e.target.value)}>
+            <select
+              required={required}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+            >
               <option value="">—</option>
               {rooms.map((r) => (
                 <option key={r.roomId} value={r.roomId}>
-                  {r.name} · {r.capacity}
+                  {r.name}
                 </option>
               ))}
             </select>

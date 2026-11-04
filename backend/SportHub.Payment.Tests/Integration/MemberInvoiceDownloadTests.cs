@@ -19,6 +19,26 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class MemberInvoiceDownloadTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Manager_can_filter_and_view_void_invoices_but_cannot_download_pdf()
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, manager.UserId, 100_000m);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHub.API.Persistence.SportHubDbContext>();
+            var row = await db.Invoices.SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            row.Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Void;
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var result = await client.GetFromJsonAsync<JsonElement>($"/api/invoices?memberId={member.UserId}&status=VOID");
+        Assert.Equal(invoice.InvoiceId, Assert.Single(result.GetProperty("items").EnumerateArray()).GetProperty("invoiceId").GetGuid());
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/invoices/{invoice.InvoiceId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.GetAsync($"/api/invoices/{invoice.InvoiceId}/receipt.pdf")).StatusCode);
+    }
+
+    [Fact]
     public async Task Member_downloads_own_pdf_but_cannot_download_another_members_invoice()
     {
         var member = await factory.SeedUserAsync(UserRole.Member);

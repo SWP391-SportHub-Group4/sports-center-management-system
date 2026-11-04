@@ -118,7 +118,6 @@ export function ThresholdPanel({
               </button>
             )}
           </div>
-          {!editable && <p className="small muted">{copy.pricingLocked}</p>}
         </div>
       </Card>
       {action &&

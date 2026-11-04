@@ -33,7 +33,12 @@ export function PackageMembers({
     (signal) =>
       api.get<Paged<Buyer>>("/api/member-packages", {
         signal,
-        query: { packageId: plan.packageId, page, pageSize: 20 },
+        query: {
+          packageId: plan.packageId,
+          currentMembersOnly: true,
+          page,
+          pageSize: 20,
+        },
       }),
     [plan.packageId, page],
   );
@@ -60,7 +65,7 @@ export function PackageMembers({
                 ))}
               </Table>
             ) : (
-              <p>No members have registered for this package.</p>
+              <p>No members currently have an active package.</p>
             )}
             <Pager
               page={page}

@@ -21,6 +21,82 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Class_filter_keeps_available_classes_and_excludes_cancelled_classes()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var ids = await factory.QueryAsync(async db => {
+            var roomId = await db.Rooms.Select(r => r.RoomId).FirstAsync();
+            var classes = new[] { ClassStatus.Draft, ClassStatus.Cancelled }.Select(status => new Class {
+                Code = "GIFT-FILTER-" + Guid.NewGuid().ToString("N"), Name = "Gift filter " + status,
+                SportId = 3, DefaultRoomId = roomId, Status = status, Capacity = 10,
+                Price = 100_000, NumSessions = 1, StartDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                CreatedAt = DateTime.UtcNow
+            }).ToArray();
+            db.Classes.AddRange(classes);
+            await db.SaveChangesAsync();
+            return classes.Select(c => c.ClassId).ToArray();
+        });
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        var filters = await client.GetFromJsonAsync<JsonElement>("/api/manager/point-gifts/filters");
+        var classIds = filters.GetProperty("classes").EnumerateArray().Select(c => c.GetProperty("classId").GetInt32()).ToArray();
+        Assert.Contains(ids[0], classIds);
+        Assert.DoesNotContain(ids[1], classIds);
+    }
+
+    [Fact]
+    public async Task History_filters_names_and_complete_Vietnam_dates_before_paginating()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var otherManager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var otherMember = await factory.SeedUserAsync(UserRole.Member);
+        var unique = Guid.NewGuid().ToString("N");
+        var memberName = "History Member " + unique;
+        var managerName = "History Manager " + unique;
+        await factory.QueryAsync(async db => {
+            (await db.UserProfiles.SingleAsync(p => p.UserId == member.UserId)).FullName = memberName;
+            (await db.UserProfiles.SingleAsync(p => p.UserId == manager.UserId)).FullName = managerName;
+            await db.SaveChangesAsync();
+            return 0;
+        });
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        using var otherClient = factory.CreateApiClient(otherManager.UserId, UserRole.CenterManager);
+        var day = new DateOnly(2026, 11, 3);
+        var start = VietnamTime.StartOfDayUtc(day);
+        var end = VietnamTime.EndOfDayExclusiveUtc(day);
+        async Task<Guid> Gift(HttpClient sender, Guid memberId, DateTime timestamp)
+        {
+            var batchId = Guid.NewGuid();
+            (await sender.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
+                BatchId = batchId, Reason = "History filter coverage", Recipients = [new(memberId, 5)]
+            })).EnsureSuccessStatusCode();
+            return await factory.QueryAsync(async db => {
+                var gift = await db.Set<SportHub.Payment.Wallet.Domain.PointGift>().SingleAsync(g => g.BatchId == batchId);
+                gift.CreatedAtUtc = timestamp;
+                await db.SaveChangesAsync();
+                return gift.GiftId;
+            });
+        }
+        await Gift(client, member.UserId, start.AddSeconds(-1));
+        var first = await Gift(client, member.UserId, start);
+        var last = await Gift(client, member.UserId, end.AddTicks(-10));
+        await Gift(client, member.UserId, end);
+        await Gift(otherClient, member.UserId, start);
+        await Gift(client, otherMember.UserId, start);
+        var names = $"member={Uri.EscapeDataString(memberName.ToUpperInvariant())}&manager={Uri.EscapeDataString(managerName.ToLowerInvariant())}";
+        var dates = "fromDate=2026-11-03&toDate=2026-11-03";
+        var result = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts?{names}&{dates}&pageSize=1");
+        Assert.Equal(2, result.GetProperty("totalCount").GetInt32());
+        Assert.Equal(last, Assert.Single(result.GetProperty("items").EnumerateArray()).GetProperty("giftId").GetGuid());
+        var next = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts?{names}&{dates}&pageSize=1&page=2");
+        Assert.Equal(first, Assert.Single(next.GetProperty("items").EnumerateArray()).GetProperty("giftId").GetGuid());
+        var byEmail = await client.GetFromJsonAsync<JsonElement>($"/api/manager/point-gifts?member={Uri.EscapeDataString(member.Email)}&{dates}");
+        Assert.Equal(3, byEmail.GetProperty("totalCount").GetInt32());
+        var invalid = await client.GetAsync("/api/manager/point-gifts?fromDate=2026-11-04&toDate=2026-11-03");
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
     public async Task Course_and_other_paid_purchases_qualify_and_sport_and_class_filters_match_purchased_items()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);

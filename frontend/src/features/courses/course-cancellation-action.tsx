@@ -2,7 +2,6 @@
 
 import { CircleAlert, Clock3, LockKeyhole } from "lucide-react";
 import { api } from "@/lib/apiClient";
-import { formatDateTime } from "@/lib/format";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { ManagerCourseDto } from "@/lib/types";
@@ -55,7 +54,7 @@ export function CourseCancellationAction({
       ? copy.cancellationRetryHint
       : allowed
         ? refund
-          ? copy.cancelBelowThresholdHint
+          ? null
           : copy.cancelClassHint
         : reason === "before_review_deadline"
           ? copy.cancellationBeforeDeadline
@@ -80,24 +79,7 @@ export function CourseCancellationAction({
       <Icon size={22} aria-hidden="true" />
       <div>
         <h3>{title}</h3>
-        <p aria-live="polite">{message}</p>
-        {!pending && !failed && course.status === "PUBLISHED" && (
-          <div className={styles.cancellationFacts}>
-            <span>
-              <strong>
-                {preview.data?.confirmedCount} /{" "}
-                {course.breakEvenThreshold ?? "—"}
-              </strong>{" "}
-              {copy.enrolledLabel}
-            </span>
-            {course.thresholdDeadlineUtc && (
-              <span>
-                {copy.cancellationReviewFrom}{" "}
-                {formatDateTime(course.thresholdDeadlineUtc)}
-              </span>
-            )}
-          </div>
-        )}
+        {message && <p aria-live="polite">{message}</p>}
       </div>
       {pending ? (
         <span role="status" className={styles.cancellationPending}>

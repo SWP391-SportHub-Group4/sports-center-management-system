@@ -2,7 +2,7 @@ export const en = {
   rentalCourtSetup: {
     title: "Create a rental court",
     intro:
-      "Set up your court, opening hours and rental prices together. Member bookings open on the day after this court is created.",
+      "Set up your court, opening hours and rental prices together. Members can book as soon as the court is created.",
     details: "Court details",
     hours: "Opening hours",
     opens: "Opens",
@@ -29,7 +29,7 @@ export const en = {
     fromPrice: "From",
     priceSync: "Prices are also saved to Court Rental Pricing.",
     bookingHint:
-      "Member bookings open tomorrow, at 00:00 Vietnam time. Court details, hours and prices are saved together.",
+      "Members can book immediately after creation, up to 3 days ahead. Court details, hours and prices are saved together.",
     saveHint: "Court details, hours and prices are saved together.",
     submit: "Create rental court",
     daysRequired: "Choose at least one opening day.",
@@ -40,7 +40,7 @@ export const en = {
     noTypes:
       "Add an active room type linked to an active sport before creating a rental court.",
     created:
-      "has been created. Member bookings open on the following day (Vietnam time). Opening hours and prices have been saved.",
+      "has been created and is ready for member bookings. Opening hours and prices have been saved.",
     viewPrices: "View rental prices",
     create: "Create rental court",
     basicRoom: "Add room only",
@@ -271,6 +271,8 @@ export const en = {
   },
   manualNotices: {
     sentSuccess: "Notice sent successfully.",
+    successHint: "Close this message to write another notice.",
+    newNotice: "New notice",
     chooseRecipients: "Choose recipients",
     sendToAll: "Send to entire system",
     reviewNotice: "Review notice",
@@ -370,7 +372,7 @@ export const en = {
       cost: "Enter a class cost of 0 VND or more.",
     },
     scheduleStep: "Coach, room & schedule",
-    pricingStep: "Tuition, cost & capacity",
+    pricingStep: "Tuition & cost",
     reviewStep: "Review generated sessions",
     saveDraft: "Save draft",
     draftHint:
@@ -472,7 +474,7 @@ export const en = {
     historyHint:
       "Audit history for this class. Related session actions may appear under their own session IDs.",
     created: "Created",
-    published: "Published",
+    published: "Published time",
     version: "Version",
     backToList: "Back to list",
     enrollmentTitle: "Enrollment",
@@ -730,6 +732,11 @@ export const en = {
     createRoomRentalHint:
       "Turn on to set an hourly price and weekly rental schedule. New rooms are active by default.",
     rentalSchedule: "Weekly rental schedule",
+    editOpeningHours: "Edit opening hours",
+    rentalSportRequired: "Select a sport",
+    rentalSportHint:
+      "Choose which sport members can play when renting this court.",
+    noRentalSports: "Create or activate a sport before enabling rental.",
     rentalDay: "Day",
     rentalOpens: "Opens",
     rentalCloses: "Closes",
@@ -865,6 +872,8 @@ export const en = {
     invalidReference:
       "The selected reference is no longer valid. Reload the list and check the selection.",
     duplicateName: "This name is already in use. Enter another name.",
+    duplicateSport: "This sport already exists.",
+    invalidSportName: "Enter a sport name containing letters or numbers.",
     duplicateSportCode:
       "This sport code is already in use. Enter another code.",
     forbidden: "You do not have permission to make this change.",

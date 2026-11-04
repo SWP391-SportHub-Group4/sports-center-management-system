@@ -29,6 +29,9 @@ public sealed class SaveRoomRequest
 
 public sealed class RoomCreationRentalSetup
 {
+    [Range(1, int.MaxValue)]
+    public int? SportId { get; set; }
+
     public decimal PricePerHour { get; set; }
 
     [Required, MinLength(1), MaxLength(7)]

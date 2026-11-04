@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { en } from "../src/locales/en";
 
 const roles = ["Admin", "Manager", "Receptionist", "Coach", "Member"];
@@ -16,6 +17,7 @@ async function fixture(page: Page) {
     queries: [] as URL[],
     failed: false,
     sent: null as Record<string, unknown> | null,
+    sentKeys: [] as string[],
   };
   await page.addInitScript(() => {
     localStorage.setItem("sporthub.accessToken", "recipient-test");
@@ -89,6 +91,7 @@ async function fixture(page: Page) {
       route.request().method() === "POST"
     ) {
       state.sent = route.request().postDataJSON();
+      state.sentKeys.push(route.request().headers()["idempotency-key"]);
       return json({ noticeId: "77777777-7777-4777-8777-777777777777" });
     }
     return json([]);
@@ -104,6 +107,161 @@ async function open(page: Page, role: string) {
     })
     .click();
   return page.getByRole("dialog", { name: `${role} recipients`, exact: true });
+}
+
+for (const width of [1440, 390]) {
+  test(`review notice opens as a popup and retains edits on close at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const state = await fixture(page);
+    await page.goto("/manager/notices");
+    const member = await open(page, "Member");
+    await member
+      .getByRole("checkbox", { name: "Member Person 01", exact: true })
+      .check();
+    await member.getByRole("button", { name: l.finishSelection }).click();
+    await page
+      .getByLabel(en.operations.subject, { exact: true })
+      .fill("Training update");
+    await page
+      .getByLabel(en.operations.message, { exact: true })
+      .fill("Please review the new training schedule.");
+    const review = page.getByRole("dialog", {
+      name: l.reviewNotice,
+      exact: true,
+    });
+    const reviewButton = page.getByRole("button", {
+      name: en.operations.review,
+      exact: true,
+    });
+    await expect(review).toHaveCount(0);
+    await reviewButton.click();
+    await expect(review).toBeVisible();
+    await expect(review).toContainText("Training update");
+    await expect(review).toContainText("Member Person 01");
+    expect(state.sent).toBeNull();
+    await review.screenshot({
+      path: testInfo.outputPath(`notice-review-${width}.png`),
+    });
+    await page.keyboard.press("Escape");
+    await expect(review).toHaveCount(0);
+    await expect(
+      page.getByLabel(en.operations.subject, { exact: true }),
+    ).toHaveValue("Training update");
+    await expect(
+      page.getByRole("article", { name: "Member recipients", exact: true }),
+    ).toContainText("Member Person 01");
+    await reviewButton.click();
+    let reject = true;
+    await page.route("**/api/manager/notices", (route) =>
+      reject && route.request().method() === "POST"
+        ? route.fulfill({
+            status: 400,
+            json: {
+              error: "notice_invalid",
+              message: "Please check the notice.",
+            },
+          })
+        : route.fallback(),
+    );
+    await review
+      .getByRole("button", { name: en.operations.send, exact: true })
+      .click();
+    await expect(review.getByRole("alert")).toContainText(
+      "Please check the notice.",
+    );
+    await expect(review).toBeVisible();
+    reject = false;
+    await review
+      .getByRole("button", { name: en.operations.send, exact: true })
+      .click();
+    await expect(review).toHaveCount(0);
+    expect(state.sent?.subject).toBe("Training update");
+    expect(state.sent?.recipientUserIds).toEqual(["4-1"]);
+    const success = page.getByRole("dialog", {
+      name: en.common.success,
+      exact: true,
+    });
+    await expect(success.getByRole("status")).toHaveText(l.sentSuccess);
+    await expect(
+      success.getByRole("button", { name: l.newNotice, exact: true }),
+    ).toBeVisible();
+    const accessibility = await new AxeBuilder({ page })
+      .include('[role="dialog"][aria-label="Success"]')
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    await success.screenshot({
+      path: testInfo.outputPath(`notice-success-${width}.png`),
+    });
+    if (width === 390) {
+      await success
+        .getByRole("button", { name: l.newNotice, exact: true })
+        .click();
+    } else {
+      await success.locator("..").click({ position: { x: 5, y: 5 } });
+    }
+    await expect(success).toHaveCount(0);
+    await expect(
+      page.getByLabel(en.operations.subject, { exact: true }),
+    ).toBeEnabled();
+    await expect(
+      page.getByLabel(en.operations.subject, { exact: true }),
+    ).toHaveValue("");
+    await expect(
+      page.getByLabel(en.operations.message, { exact: true }),
+    ).toHaveValue("");
+    await expect(
+      page.getByRole("article", { name: "Member recipients", exact: true }),
+    ).not.toContainText("Member Person 01");
+    expect(new URL(page.url()).searchParams.has("noticeId")).toBe(false);
+    expect(new URL(page.url()).searchParams.has("noticeKey")).toBe(false);
+    await page.getByRole("switch", { name: new RegExp(l.sendToAll) }).check();
+    await page
+      .getByLabel(en.operations.subject, { exact: true })
+      .fill("Second notice");
+    await page
+      .getByLabel(en.operations.message, { exact: true })
+      .fill("Another announcement for everyone.");
+    await reviewButton.click();
+    await review
+      .getByRole("button", { name: en.operations.send, exact: true })
+      .click();
+    await expect(success).toBeVisible();
+    expect(state.sent?.subject).toBe("Second notice");
+    expect(state.sent?.sendToAll).toBe(true);
+    expect(state.sentKeys).toHaveLength(2);
+    expect(new Set(state.sentKeys).size).toBe(2);
+  });
+}
+
+for (const parameter of ["noticeId", "noticeKey"]) {
+  test(`completed notice from ${parameter} can reset to a fresh editable compose form`, async ({
+    page,
+  }) => {
+    const state = await fixture(page);
+    const id = "77777777-7777-4777-8777-777777777777";
+    await page.route(`**/api/manager/notices/by-key/${id}`, (route) =>
+      route.fulfill({ json: { noticeId: id } }),
+    );
+    await page.goto(`/manager/notices?${parameter}=${id}`);
+    const success = page.getByRole("dialog", {
+      name: en.common.success,
+      exact: true,
+    });
+    await expect(success.getByRole("status")).toHaveText(l.sentSuccess);
+    await success.locator("..").click({ position: { x: 5, y: 5 } });
+    await expect(success).toHaveCount(0);
+    await expect(
+      page.getByLabel(en.operations.subject, { exact: true }),
+    ).toBeEditable();
+    await page.reload();
+    await expect(success).toHaveCount(0);
+    await expect(
+      page.getByLabel(en.operations.subject, { exact: true }),
+    ).toBeEditable();
+    expect(state.sent).toBeNull();
+  });
 }
 
 test("notice compose has bottom-aligned role buttons and a system-wide send switch", async ({

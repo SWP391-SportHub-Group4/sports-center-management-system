@@ -92,7 +92,7 @@ export function ScheduleReview({
             </p>
             <Table
               headers={[
-                "#",
+                "Session",
                 t.operations.start,
                 t.operations.end,
                 t.operations.status,

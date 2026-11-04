@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
@@ -45,23 +44,14 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
     public async Task<SportResponse> CreateAsync(SaveSportRequest request, Guid actorUserId, CancellationToken ct = default)
     {
-        var code = NormalizeCode(request.Code)
-                   ?? throw new BadRequestException("sport_code_invalid", "Sport code invalid.");
         var name = request.Name.Trim();
+        var code = SportCode.FromName(name);
+        if (code.Length == 0)
+            throw new BadRequestException("sport_name_invalid", "Enter a sport name containing letters or numbers.");
         var services = ValidateServices(code, request.Services);
         var roomTypeName = request.CreateRoomType ? request.RoomTypeName?.Trim() : null;
         if (request.CreateRoomType && (string.IsNullOrWhiteSpace(roomTypeName) || roomTypeName.Length > 100))
             throw new BadRequestException("invalid_room_type_name", "Enter a room type name between 1 and 100 characters.");
-
-        if (await db.Set<Sport>().AnyAsync(s => s.Code == code, ct))
-        {
-            throw new ConflictException("sport_code_taken", "Sport code taken.");
-        }
-
-        if (await db.Set<Sport>().AnyAsync(s => s.Name == name, ct))
-        {
-            throw new ConflictException("sport_name_taken", "Sport name taken.");
-        }
 
         var sport = new Sport
         {
@@ -75,6 +65,11 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var ordered = await LockAndListSportsAsync(ct);
+        // Check after the catalog lock so concurrent creates cannot pass together.
+        if (await db.Set<Sport>().AnyAsync(s => s.Name == name, ct))
+            throw new ConflictException("sport_name_taken", "This sport already exists.");
+        if (await db.Set<Sport>().AnyAsync(s => s.Code == code, ct))
+            throw new ConflictException("sport_code_taken", "This sport already exists.");
         if (roomTypeName is not null && await db.Set<RoomType>().AnyAsync(t => t.Name == roomTypeName, ct))
             throw new ConflictException("room_type_name_taken", "This room type name is already used. Choose another name.");
         ordered.Add(sport);
@@ -358,14 +353,15 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         return result;
     }
 
-    private static string? NormalizeCode(string? value)
+    public async Task<SportNameAvailabilityResponse> CheckNameAsync(string name, int? excludeSportId, CancellationToken ct)
     {
-        var code = value?.Trim().ToLowerInvariant();
-        return code is not null && SportCodePattern().IsMatch(code) ? code : null;
+        name = name.Trim();
+        var code = SportCode.FromName(name);
+        var valid = name.Length is >= 1 and <= 100 && code.Length > 0;
+        var available = valid && !await db.Set<Sport>().AnyAsync(s => s.SportId != excludeSportId
+            && (s.Name == name || (excludeSportId == null && s.Code == code)), ct);
+        return new(name, valid, available);
     }
-
-    [GeneratedRegex("^[a-z0-9_]{2,32}$")]
-    private static partial Regex SportCodePattern();
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

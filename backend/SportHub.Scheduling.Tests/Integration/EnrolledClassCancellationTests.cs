@@ -178,6 +178,7 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
             refunds = RefundDecisions(preview, expectedPoints)
         });
         Assert.True(cancel.IsSuccessStatusCode, await cancel.Content.ReadAsStringAsync());
+        Assert.Equal($"{course.Request.Code.ToUpperInvariant()}_Cancel_{course.Id}", await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Code).SingleAsync()));
         Assert.Equal(ClassStatus.Cancelled, await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.Status).SingleAsync()));
         Assert.Equal(EnrollmentStatus.CancelledByCenter, await factory.QueryAsync(db => db.Enrollments.Where(e => e.ClassId == course.Id && e.MemberId == member).Select(e => e.Status).SingleAsync()));
         var after = await CourseTestData.SessionsAsync(factory, course.Id);
@@ -398,23 +399,32 @@ public sealed class EnrolledClassCancellationTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Management_invoice_list_includes_void_and_direct_lookup_is_visible()
+    public async Task Manager_invoice_list_includes_void_with_pagination_filter_and_detail_but_pdf_is_blocked()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
         var voidId = Guid.NewGuid(); var paidId = Guid.NewGuid();
         await factory.QueryAsync(async db => {
             db.Invoices.AddRange(new SportHub.Payment.Domain.Entities.Invoice { InvoiceId = voidId, InvoiceNumber = $"VOID-{voidId:N}", MemberId = member.UserId, IssuedByUserId = manager.UserId, TotalAmount = 100000, Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Void, IssuedAt = DateTime.UtcNow },
-                new SportHub.Payment.Domain.Entities.Invoice { InvoiceId = paidId, InvoiceNumber = $"PAID-{paidId:N}", MemberId = member.UserId, IssuedByUserId = manager.UserId, TotalAmount = 100000, Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Paid, IssuedAt = DateTime.UtcNow });
+                new SportHub.Payment.Domain.Entities.Invoice { InvoiceId = paidId, InvoiceNumber = $"PAID-{paidId:N}", MemberId = member.UserId, IssuedByUserId = manager.UserId, TotalAmount = 100000, Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Paid, IssuedAt = DateTime.UtcNow.AddDays(-1) });
             await db.SaveChangesAsync(); return 0;
         });
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         var page = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&pageSize=1"));
         Assert.Equal(2, page.GetProperty("totalCount").GetInt32());
-        var voided = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&status=VOID"));
-        Assert.Equal(1, voided.GetProperty("totalCount").GetInt32());
-        Assert.Equal(voidId, voided.GetProperty("items")[0].GetProperty("invoiceId").GetGuid());
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"api/invoices/{voidId}")).StatusCode);
+        Assert.Equal(voidId, Assert.Single(page.GetProperty("items").EnumerateArray()).GetProperty("invoiceId").GetGuid());
+        var nextPage = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&page=2&pageSize=1"));
+        Assert.Equal(2, nextPage.GetProperty("totalCount").GetInt32());
+        Assert.Equal(paidId, Assert.Single(nextPage.GetProperty("items").EnumerateArray()).GetProperty("invoiceId").GetGuid());
+        var voids = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&status=VOID"));
+        Assert.Equal(1, voids.GetProperty("totalCount").GetInt32());
+        Assert.Equal(voidId, Assert.Single(voids.GetProperty("items").EnumerateArray()).GetProperty("invoiceId").GetGuid());
+        var paid = await Json(await client.GetAsync($"api/invoices?memberId={member.UserId}&status=PAID"));
+        Assert.Equal(1, paid.GetProperty("totalCount").GetInt32());
+        Assert.Equal(paidId, Assert.Single(paid.GetProperty("items").EnumerateArray()).GetProperty("invoiceId").GetGuid());
+        var detail = await Json(await client.GetAsync($"api/invoices/{voidId}"));
+        Assert.Equal(voidId, detail.GetProperty("summary").GetProperty("invoiceId").GetGuid());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.GetAsync($"api/invoices/{voidId}/receipt.pdf")).StatusCode);
     }
 
     [Fact]

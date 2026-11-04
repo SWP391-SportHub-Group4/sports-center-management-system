@@ -107,7 +107,7 @@ export function CourtBookingCalendar({
         .toISOString()
         .slice(0, 10)
     : todayIso();
-  const maxDate = addDaysIso(today, policy.data?.advanceDays ?? 30);
+  const maxDate = addDaysIso(today, policy.data?.advanceDays ?? 3);
   const date = datePick ?? today;
   const month = monthPick ?? today.slice(0, 7);
   const [year, monthNumber] = month.split("-").map(Number);
@@ -433,8 +433,8 @@ export function CourtBookingCalendar({
                   </div>
                   <p className={styles.policy}>
                     {text(
-                      `Đặt trước tối đa ${limits.advanceDays} ngày. Giờ hiển thị theo Việt Nam.`,
-                      `Book up to ${limits.advanceDays} days ahead. Times are in Vietnam time.`,
+                      `Đặt trước tối đa ${limits.advanceDays} ngày tính từ hôm nay, theo giờ Việt Nam.`,
+                      `Book up to ${limits.advanceDays} days ahead from today, based on Vietnam time.`,
                     )}
                   </p>
                 </section>

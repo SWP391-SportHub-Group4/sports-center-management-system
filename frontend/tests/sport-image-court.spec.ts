@@ -13,7 +13,7 @@ async function createForm(page: Page) {
     name: "Create sport",
     exact: true,
   });
-  await dialog.getByLabel("Code", { exact: true }).fill("tennis");
+  await expect(dialog.getByLabel("Code", { exact: true })).toHaveCount(0);
   await dialog.getByLabel("Name", { exact: true }).fill("Tennis");
   return dialog;
 }
