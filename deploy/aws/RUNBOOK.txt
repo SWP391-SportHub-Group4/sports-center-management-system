@@ -13,7 +13,8 @@ spending. This CD change creates no paid AWS resources or firewall openings.
 SCOPE
 Keep frontend on Vercel. Move backend, Python AI and PostgreSQL together to an
 approved Ubuntu 24.04 Docker host. Only Caddy publishes ports 80 and 443.
-PostgreSQL and AI have no public host ports. PostgreSQL stays on major version 18;
+By default PostgreSQL and AI have no public host ports. For an explicitly enabled
+TLS-only PostgreSQL public endpoint, follow PUBLIC-DATABASE.md. PostgreSQL stays on major version 18;
 this is a logical pg_dump/pg_restore transfer, not a Railway disk-volume copy.
 Runtime files include encrypted outbox Data Protection keys and saved reports.
 Use encrypted durable host storage, plus encrypted off-host backups. A single
@@ -35,7 +36,8 @@ AWS credentials on a local Windows profile do not automatically reach cloud task
 After a host and its cost have been approved, install Docker explicitly:
   sudo bash deploy/aws/install-docker.sh
 Configure host firewall/security group: public 80/443; SSH only from the
-operator's IP if SSH is used. Do not open 5432, 8001 or 8080.
+operator's IP if SSH is used. Do not open 5432, 8001 or 8080. The optional TLS-only
+database endpoint publishes 15432 only after completing PUBLIC-DATABASE.md.
 Use an API hostname you control; point its DNS at the destination for Caddy TLS.
 Do not change the Vercel API variable yet.
   cp deploy/aws/.env.example deploy/aws/.env

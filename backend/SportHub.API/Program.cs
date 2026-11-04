@@ -61,6 +61,18 @@ LoadRootEnvIfPresent();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// A local API can use the website database through an SSH tunnel. Keep schema
+// changes and scheduled work on the deployed API when this mode is selected.
+var sharedDatabase = builder.Configuration.GetValue<bool>("SharedDatabase:Enabled");
+if (sharedDatabase && (!builder.Environment.IsDevelopment()
+    || args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal)
+        || a == "--bootstrap-initial-admin")))
+{
+    Console.Error.WriteLine("SharedDatabase:Enabled requires Development and forbids seed/bootstrap commands.");
+    Environment.ExitCode = 1;
+    return;
+}
+
 var bootstrapInitialAdmin = args.Contains("--bootstrap-initial-admin", StringComparer.Ordinal);
 if (bootstrapInitialAdmin && args.Length != 1)
 {
@@ -232,7 +244,6 @@ builder.Services.AddScoped<CoachCredentialService>();
 builder.Services.AddSingleton<CoachCredentialPdfCache>();
 builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(120));
-builder.Services.AddHostedService<CoachCredentialCleanupJob>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
@@ -445,28 +456,7 @@ builder.Services.AddHttpClient(
     });
 
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-34 (phát thông báo).
-builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();
-builder.Services.AddHostedService<MemberPackageExpiryJob>();
-builder.Services.AddScoped<MemberCourseNotificationService>();
-builder.Services.AddHostedService<MemberCourseNotificationsJob>();
-builder.Services.AddHostedService<CoachAttendanceReminderJob>();
-builder.Services.AddHostedService<StaffInvitationExpiryJob>();
-builder.Services.AddHostedService<MemberInvitationExpiryJob>();
-builder.Services.AddHostedService<ClassStatusJob>();
-builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
-builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
-builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
-builder.Services.AddHostedService<RentalStatusJob>();
-builder.Services.AddHostedService<SeatHoldExpiryJob>();
-builder.Services.AddHostedService<CheckoutExpiryJob>();
-builder.Services.AddHostedService<DayPassClosingJob>();
-builder.Services.AddHostedService<PaymentReconciliationJob>();
-builder.Services.AddHostedService<SupportSlaReminderJob>();
-builder.Services.AddScoped<SupportPayoutMaintenance>();
-builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
-builder.Services.AddHostedService<PointHoldExpiryJob>();
-builder.Services.AddHostedService<NotificationDispatchJob>();
-builder.Services.AddHostedService<AvatarDeletionJob>();
+builder.Services.AddSportHubBackgroundJobs(enabled: !sharedDatabase);
 
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
@@ -497,6 +487,11 @@ builder.Services.AddScoped<LocalDemoStaffSeeder>();
 builder.Services.AddScoped<PaymentNoticeService>();
 
 var app = builder.Build();
+
+if (sharedDatabase)
+{
+    app.Logger.LogWarning("Shared database mode: automatic migrations, seeding, and background jobs are disabled. API requests can still change website data.");
+}
 
 if (!bootstrapInitialAdmin && seedCommands.Length == 0)
 {
@@ -568,7 +563,7 @@ if (seedCommands.Length > 0)
 }
 
 // Development migrates the schema. Keep the local demo catalog stable after replacing BR-141 fixtures.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() && !sharedDatabase)
 {
     await using var startupScope = app.Services.CreateAsyncScope();
     var startupDb = startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>();

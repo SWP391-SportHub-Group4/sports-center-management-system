@@ -162,6 +162,8 @@ Copy-Item .env.example .env
 
 CI trên PR vào `main` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Merge `main` chỉ phát hành backend/AI sau khi CI đạt; máy AWS tự cập nhật sau khi kích hoạt CD một lần theo [deploy/aws/CD.md](deploy/aws/CD.md). Hợp đồng API: `docs/api-contract.md`.
 
+Để backend local dùng DB đang chạy trên AWS, xem [endpoint public với TLS](deploy/aws/PUBLIC-DATABASE.md) hoặc [SSH tunnel](deploy/aws/LOCAL-DATABASE.md). Chế độ dùng DB chung tắt migration, seed và job nền trên máy local; thao tác qua API vẫn tác động dữ liệu website.
+
 ### 2. Khởi động dịch vụ nền
 
 ```powershell
