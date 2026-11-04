@@ -1,24 +1,19 @@
 "use client";
 import Link from "next/link";
 import styles from "./manager-wallet.module.css";
-import { pagedItems } from "@/lib/paged";
 import { Suspense, useState } from "react";
+import { createPortal } from "react-dom";
 import { PointGifts } from "./point-gifts";
-import {
-  AsyncSection,
-  Card,
-  Dialog,
-  Field,
-  Pager,
-  Table,
-} from "@/components/ui";
+import { AsyncSection, Dialog } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
-import type { WalletBalanceDto, UserAdminDto, Paged } from "@/lib/types";
+import type { WalletBalanceDto, UserAdminDto } from "@/lib/types";
 import { WalletBalance } from "./wallet-balance";
 import { WalletLedger } from "./wallet-ledger";
-function OwnerWallet({ owner }: { owner: UserAdminDto }) {
+type WalletOwner = Pick<UserAdminDto, "userId" | "fullName" | "email">;
+
+function OwnerWallet({ owner }: { owner: WalletOwner }) {
   const state = useApi(
     async (signal) => {
       const data = await api.get<WalletBalanceDto>(
@@ -31,6 +26,10 @@ function OwnerWallet({ owner }: { owner: UserAdminDto }) {
   );
   return (
     <div className={styles.wallet}>
+      <div>
+        <strong>{owner.fullName}</strong>
+        <p className="small muted">{owner.email}</p>
+      </div>
       <AsyncSection state={state}>
         {(data) => <WalletBalance balance={data} />}
       </AsyncSection>
@@ -40,20 +39,8 @@ function OwnerWallet({ owner }: { owner: UserAdminDto }) {
 }
 export function ManagerWallet() {
   const { t } = useLanguage();
-  const l = t.staffWork;
-  const role = "MEMBER";
-  const [keyword, setKeyword] = useState("");
-  const [page, setPage] = useState(1);
-  const [owner, setOwner] = useState<UserAdminDto | null>(null);
+  const [owner, setOwner] = useState<WalletOwner | null>(null);
   const [revision, setRevision] = useState(0);
-  const users = useApi(
-    (signal) =>
-      api.get<Paged<UserAdminDto>>("/api/users", {
-        signal,
-        query: { role, keyword, page, pageSize: 20 },
-      }),
-    [role, keyword, page],
-  );
   return (
     <>
       <p className={styles.reportLink}>
@@ -61,60 +48,29 @@ export function ManagerWallet() {
         <Link href="/manager/reports?tab=points">Reports · Points</Link>.
       </p>
       <Suspense>
-        <PointGifts onGifted={() => setRevision((value) => value + 1)} />
+        <PointGifts
+          onGifted={() => setRevision((value) => value + 1)}
+          onManageWallet={(recipient) =>
+            setOwner({
+              userId: recipient.memberId,
+              fullName: recipient.name,
+              email: recipient.email,
+            })
+          }
+        />
       </Suspense>
-      <Card title={l.owner}>
-        <div className={styles.search}>
-          <Field label={l.keyword}>
-            <input
-              value={keyword}
-              onChange={(e) => {
-                setKeyword(e.target.value);
-                setPage(1);
-                setOwner(null);
-              }}
-            />
-          </Field>
-        </div>
-        <AsyncSection state={users}>
-          {(data) => (
-            <>
-              <Table headers={[l.fullName, l.email, l.actions]}>
-                {pagedItems(data).map((u) => (
-                  <tr key={u.userId}>
-                    <td>{u.fullName}</td>
-                    <td>{u.email}</td>
-                    <td>
-                      <button
-                        className="btn btn--secondary"
-                        onClick={() => setOwner(u)}
-                      >
-                        {l.wallet}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </Table>
-              <Pager
-                page={data.page}
-                pageSize={data.pageSize}
-                totalCount={data.totalCount}
-                onChange={setPage}
-              />
-            </>
-          )}
-        </AsyncSection>
-      </Card>
-      {owner && (
-        <Dialog
-          title={t.staffWork.wallet}
-          size="lg"
-          className={styles.dialog}
-          onClose={() => setOwner(null)}
-        >
-          <OwnerWallet key={`${owner.userId}:${revision}`} owner={owner} />
-        </Dialog>
-      )}
+      {owner &&
+        createPortal(
+          <Dialog
+            title={t.staffWork.wallet}
+            size="lg"
+            className={styles.dialog}
+            onClose={() => setOwner(null)}
+          >
+            <OwnerWallet key={`${owner.userId}:${revision}`} owner={owner} />
+          </Dialog>,
+          document.body,
+        )}
     </>
   );
 }
