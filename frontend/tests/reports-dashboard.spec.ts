@@ -109,7 +109,12 @@ async function fixture(page: Page, failComparison = false) {
       });
     if (path.startsWith("/api/users/"))
       return route.fulfill({
-        json: { userId: memberId, fullName: "Alex Member", role: "MEMBER" },
+        json: {
+          userId: memberId,
+          fullName: "Alex Member",
+          email: "alex@example.test",
+          role: "MEMBER",
+        },
       });
     const fromDate = url.searchParams.get("fromDate") ?? "2026-10-01",
       toDate = url.searchParams.get("toDate") ?? today;
@@ -252,7 +257,9 @@ test("Apply updates all report data and keeps filters scoped to each bookmark", 
   ).toBeVisible();
   await page.getByText("More filters", { exact: true }).click();
   await page.getByLabel("Sport", { exact: true }).selectOption("3");
-  await page.getByLabel("Source", { exact: true }).selectOption("RENTAL");
+  await page
+    .getByLabel("Collection source", { exact: true })
+    .selectOption("RENTAL");
   await page.getByPlaceholder("Find a member").fill("Alex");
   await page.getByRole("button", { name: /Alex Member/ }).click();
   await expect(
@@ -290,7 +297,9 @@ test("Apply updates all report data and keeps filters scoped to each bookmark", 
   expect(court.searchParams.get("toDate")).toBe("2026-10-31");
   expect(court.searchParams.has("memberId")).toBe(false);
   await page.getByRole("tab", { name: "Cash", exact: true }).click();
-  await page.getByText(/More filters/).click();
+  await expect(
+    page.getByRole("button", { name: /More filters/ }),
+  ).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByLabel("Sport", { exact: true })).toHaveValue("3");
 });
 test("comparison errors retain the primary data and current Gym count has no comparison", async ({
@@ -329,9 +338,12 @@ test("Export navigates to the dedicated export page", async ({ page }) => {
   );
   await page.goto("/manager/reports");
   const link = page.getByRole("link", { name: "Export", exact: true });
-  await expect(link).toHaveAttribute("href", "/manager/reports/exports");
+  await expect(link).toHaveAttribute(
+    "href",
+    /\/manager\/reports\/exports\?tab=revenue&fromDate=2026-10-01&toDate=2026-10-31/,
+  );
   await link.click();
-  await expect(page).toHaveURL(/\/manager\/reports\/exports$/);
+  await expect(page).toHaveURL(/\/manager\/reports\/exports\?/);
   await expect(
     page.getByRole("heading", { name: "Report exports", exact: true }),
   ).toBeVisible();
@@ -359,7 +371,9 @@ test("Points has its own dashboard and member-only filters; Point Management kee
   ).toHaveCount(0);
   await page.getByText("More filters", { exact: true }).click();
   await expect(page.getByLabel("Sport", { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Source", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByLabel("Collection source", { exact: true }),
+  ).toHaveCount(0);
   await page.getByPlaceholder("Find a member").fill("Alex");
   await page.getByRole("button", { name: /Alex Member/ }).click();
   await page.getByRole("button", { name: "Apply", exact: true }).click();
@@ -482,11 +496,307 @@ test("an entirely future reporting period still has a complete blank daily chart
   }
 });
 
+test("applied chips remain visible and Reset only clears the active bookmark", async ({
+  page,
+}) => {
+  const requests = await fixture(page);
+  await page.goto("/manager/reports");
+  const more = page.getByRole("button", { name: /More filters/ });
+  await more.click();
+  await page.getByLabel("Sport", { exact: true }).selectOption("3");
+  await page
+    .getByLabel("Collection source")
+    .selectOption("CLASS_TRANSFER_DIFFERENCE");
+  await expect(
+    page.getByRole("button", { name: "Export", exact: true }),
+  ).toBeDisabled();
+  await page.getByLabel("Compare with").selectOption("previous");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Class transfer payments");
+  await expect(more).toContainText("2");
+  await more.click();
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Sport", { exact: true })).not.toBeVisible();
+
+  await page.getByRole("tab", { name: "Courts", exact: true }).click();
+  await more.click();
+  await expect(page.getByLabel("Collection source")).toHaveCount(0);
+  await page.getByLabel("Sport", { exact: true }).selectOption("4");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByLabel("Sport", { exact: true }).selectOption("3");
+  await page.getByRole("tab", { name: "Cash", exact: true }).click();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await more.click();
+  await page
+    .getByRole("button", { name: "Reset filters", exact: true })
+    .click();
+  await expect(page.getByLabel("Applied filters", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByLabel("Compare with")).toHaveValue("previous");
+  await expect
+    .poll(() =>
+      requests
+        .filter(
+          (u) =>
+            u.pathname === "/api/reports/revenue" &&
+            u.searchParams.get("fromDate") === "2026-10-01",
+        )
+        .at(-1)
+        ?.searchParams.has("sportId"),
+    )
+    .toBe(false);
+  await page.getByRole("tab", { name: "Courts", exact: true }).click();
+  await expect(page.getByLabel("Sport", { exact: true })).toHaveValue("3");
+  await expect(
+    page.getByText("Changes not applied", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Basketball");
+  await page.getByRole("tab", { name: "Classes", exact: true }).click();
+  await more.click();
+  await expect(page.getByLabel("Sport", { exact: true })).toBeVisible();
+  await expect(page.getByPlaceholder("Find a member")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Gyms", exact: true }).click();
+  await expect(more).toHaveCount(0);
+});
+
+test("Cash export carries applied dimensions and comparison; unapplied changes cannot export", async ({
+  page,
+}) => {
+  await fixture(page);
+  const jobs: Record<string, unknown>[] = [];
+  await page.route("**/api/reports/exports**", async (route) => {
+    if (route.request().method() === "POST") {
+      jobs.push(route.request().postDataJSON());
+      return route.fulfill({
+        json: {
+          reportExportId: "33333333-3333-4333-8333-333333333333",
+          status: "PENDING",
+        },
+      });
+    }
+    return route.fulfill({
+      json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
+    });
+  });
+  await page.goto(
+    `/manager/reports?tab=revenue&fromDate=2026-10-01&toDate=2026-10-31&compare=previous&sportId=3&source=RENTAL&memberId=${memberId}`,
+  );
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Alex Member");
+  await page.getByRole("link", { name: "Export", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Report exports", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await expect(page.getByLabel("Sport", { exact: true })).toHaveValue("3");
+  await expect(page.getByLabel("Collection source")).toHaveValue("RENTAL");
+  await expect(
+    page.getByText("alex@example.test", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("checkbox").first().check();
+  const submit = page.getByRole("button", { name: "Export", exact: true });
+  await submit.click();
+  await expect.poll(() => jobs.length).toBe(1);
+  expect(jobs[0]).toMatchObject({
+    reportType: "REVENUE_SUMMARY",
+    fromDate: "2026-10-01",
+    toDate: today,
+    sportId: 3,
+    source: "RENTAL",
+    memberId,
+  });
+  await page
+    .getByLabel("Export period", { exact: true })
+    .selectOption("comparison");
+  await submit.click();
+  await expect.poll(() => jobs.length).toBe(2);
+  expect(jobs[1]).toMatchObject({
+    fromDate: "2026-09-01",
+    toDate: "2026-09-23",
+    sportId: 3,
+    source: "RENTAL",
+    memberId,
+  });
+  await page.getByLabel("Sport", { exact: true }).selectOption("4");
+  await expect(submit).toBeDisabled();
+  await expect(
+    page.getByText("Changes not applied", { exact: true }),
+  ).toBeVisible();
+  expect(jobs).toHaveLength(2);
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await submit.click();
+  await expect.poll(() => jobs.length).toBe(3);
+  expect(jobs[2].sportId).toBe(4);
+  await page.getByRole("link", { name: /Back to reports/ }).click();
+  await expect(
+    page.getByRole("tab", { name: "Cash", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Basketball");
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Alex Member");
+  await page.getByRole("link", { name: "Export", exact: true }).click();
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Basketball");
+  await page.reload();
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Basketball");
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Alex Member");
+});
+
+test("Points export strips incompatible dimensions and future activity cannot be exported", async ({
+  page,
+}) => {
+  await fixture(page);
+  let payload: Record<string, unknown> | undefined;
+  await page.route("**/api/reports/exports**", async (route) => {
+    if (route.request().method() === "POST")
+      payload = route.request().postDataJSON();
+    return route.fulfill({
+      json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
+    });
+  });
+  await page.goto(
+    `/manager/reports/exports?tab=points&fromDate=2026-10-01&toDate=2026-10-31&sportId=3&source=RENTAL&memberId=${memberId}`,
+  );
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await expect(page.getByLabel("Sport", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Collection source")).toHaveCount(0);
+  await expect(
+    page.getByText("alex@example.test", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("checkbox").first().check();
+  const submit = page.getByRole("button", { name: "Export", exact: true });
+  await submit.click();
+  await expect.poll(() => payload).toBeDefined();
+  expect(payload).toMatchObject({
+    reportType: "POINTS_SUMMARY",
+    sportId: null,
+    source: null,
+    memberId,
+    toDate: today,
+  });
+  await page
+    .getByLabel("Report period", { exact: true })
+    .selectOption("custom");
+  await page.getByLabel("From", { exact: true }).fill("2026-11-01");
+  await page.getByLabel("To", { exact: true }).fill("2026-11-30");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(submit).toBeDisabled();
+  await expect(page.getByText(/No elapsed dates/)).toBeVisible();
+});
+
+test("catalog failures can retry without clearing an applied historical sport", async ({
+  page,
+}) => {
+  const requests = await fixture(page);
+  let broken = true;
+  await page.route("**/api/manager/sports", (route) =>
+    route.fulfill(
+      broken
+        ? {
+            status: 503,
+            json: { error: "unavailable", message: "Unavailable" },
+          }
+        : {
+            json: [
+              { sportId: 3, name: "Badminton" },
+              { sportId: 8, name: "Tennis" },
+            ],
+          },
+    ),
+  );
+  await page.goto("/manager/reports?tab=classes&sportId=9");
+  await page.getByRole("button", { name: /More filters/ }).click();
+  await expect(
+    page.getByText("Sports unavailable.", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Sport", { exact: true })).toBeDisabled();
+  await expect(
+    page.getByLabel("Applied filters", { exact: true }),
+  ).toContainText("Sport 9");
+  broken = false;
+  await page
+    .locator("#report-more-filters")
+    .getByRole("button", { name: "Retry", exact: true })
+    .click();
+  await expect(page.getByLabel("Sport", { exact: true })).toBeEnabled();
+  await expect(page.getByLabel("Sport", { exact: true })).toHaveValue("9");
+  await expect(
+    page.getByRole("option", { name: "Tennis", exact: true }),
+  ).toHaveCount(1);
+  await expect
+    .poll(() =>
+      requests
+        .filter((u) => u.pathname === "/api/reports/class-status")
+        .at(-1)
+        ?.searchParams.get("sportId"),
+    )
+    .toBe("9");
+});
+
 for (const [width, height] of [
   [1440, 900],
   [1366, 768],
   [320, 800],
 ]) {
+  test(`expanded report and export filters fit ${width}`, async ({
+    page,
+  }, testInfo) => {
+    await fixture(page);
+    await page.setViewportSize({ width, height });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.route("**/api/reports/exports**", (route) =>
+      route.fulfill({
+        json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
+      }),
+    );
+    await page.goto(
+      `/manager/reports?fromDate=2026-10-01&toDate=2026-10-31&sportId=3&source=RENTAL&memberId=${memberId}`,
+    );
+    await page.getByRole("button", { name: /More filters/ }).click();
+    await expect(
+      page.getByText("alex@example.test", { exact: true }),
+    ).toBeVisible();
+    const panel = page.locator("#report-more-filters");
+    const bounds = await panel.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({
+      path: testInfo.outputPath(`filters-${width}.png`),
+      fullPage: true,
+    });
+    await page.getByRole("link", { name: "Export", exact: true }).click();
+    await page.getByRole("button", { name: /More filters/ }).click();
+    await expect(
+      page.getByText("alex@example.test", { exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width + 1);
+    await page.screenshot({
+      path: testInfo.outputPath(`export-${width}.png`),
+      fullPage: true,
+    });
+  });
+
   test(`all report bookmarks fit ${width} and charts support keyboard`, async ({
     page,
   }) => {

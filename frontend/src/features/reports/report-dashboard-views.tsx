@@ -16,6 +16,7 @@ import {
   type PeriodSelection,
 } from "./report-periods";
 import s from "./reports-dashboard.module.css";
+import { reportSourceName } from "./report-filter-config";
 
 export type DashboardTab =
   "revenue" | "points" | "rentals" | "classes" | "members";
@@ -31,18 +32,7 @@ const compact = (n: number) =>
     notation: "compact",
     maximumFractionDigits: 2,
   }).format(n);
-export const sourceName = (name: string) =>
-  ({
-    MEMBERSHIP: "Gym",
-    CLASS_PACKAGE: "Classes",
-    RENTAL: "Court rental",
-    WALLET_TOP_UP: "Wallet top-ups",
-    WALLET_TOPUP: "Wallet top-ups",
-    DAY_PASS: "Day passes",
-    RECONCILIATION: "Reconciliation",
-    LEGACY_UNCLASSIFIED: "Unclassified (legacy)",
-    UNCLASSIFIED: "Unclassified",
-  })[name] ?? name.replaceAll("_", " ");
+export const sourceName = reportSourceName;
 export function rangeText(p: Period | null) {
   return p
     ? `${formatDate(p.fromDate)} – ${formatDate(p.toDate)}`
