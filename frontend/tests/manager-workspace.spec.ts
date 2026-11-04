@@ -481,7 +481,7 @@ test("manager wallets provide history without manual adjustments", async ({
   await page.goto("/manager/points");
   await expect(
     page.getByRole("link", { name: "Reports · Points" }),
-  ).toHaveAttribute("href", "/manager/reports?tab=points");
+  ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Points activity", exact: true }),
   ).toHaveCount(0);

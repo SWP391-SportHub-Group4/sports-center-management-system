@@ -378,6 +378,12 @@ test("Points has its own dashboard and member-only filters; Point Management kee
   ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Reports · Points", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("View balances and point activity in", { exact: false }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Gift points (0)", exact: true }),
   ).toBeVisible();
 });
 for (const [width, height] of [
