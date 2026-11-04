@@ -142,6 +142,13 @@
     background 220ms ease,
     border-color 220ms ease;
 }
+.titleWord,
+.heroLead,
+.heroActions,
+.disciplines,
+.scrollCue {
+  animation-play-state: var(--hero-animation-state, running);
+}
 .scrollIcon svg {
   transform: rotate(90deg);
   transition: transform 300ms var(--home-ease);
@@ -193,13 +200,22 @@
     right: 32px;
   }
 }
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero {
+    align-items: end;
+    padding-top: 400px;
+  }
+  .heroCopy {
+    width: 100%;
+  }
+}
 @media (max-width: 767px) {
   .heroCopy {
     width: 100%;
   }
   .hero {
     align-items: end;
-    padding: 140px 24px 144px;
+    padding: 320px 24px 144px;
   }
   .hero::after {
     background: linear-gradient(

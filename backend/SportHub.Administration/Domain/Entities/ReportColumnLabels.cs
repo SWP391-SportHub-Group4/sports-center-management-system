@@ -72,7 +72,7 @@ public static class ReportColumnLabels
 
     public static string For(string column) => column switch
     {
-        "bookings" => "Confirmed bookings", "bookedHours" => "Booked hours", "dayPassesSold" => "Day passes sold", "startDate" => "Start date",
+        "bookings" => "Paid bookings", "bookedHours" => "Booked hours", "dayPassesSold" => "Day passes sold", "startDate" => "Start date",
         _ => Labels.GetValueOrDefault(column, column)
     };
 

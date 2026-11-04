@@ -11,6 +11,7 @@ import {
 import type { TableColumn, TableProps } from "@/components/contracts/table";
 import { usePathname } from "next/navigation";
 import { StateView } from "./StateView";
+import { SportLoader } from "@/components/loading/SportLoader";
 import { useLanguage } from "@/lib/language";
 import styles from "./Table.module.css";
 
@@ -217,60 +218,47 @@ export function Table<Row>({
                 </tr>
               </thead>
               <tbody>
-                {kind === "loading"
-                  ? [0, 1, 2].map((index) => (
-                      <tr key={index} aria-hidden="true">
-                        {columns.map((column) => (
-                          <td
+                {kind === "loading" ? (
+                  <tr>
+                    <td
+                      className={styles.loadingCell}
+                      colSpan={columns.length + (hasActions ? 1 : 0)}
+                    >
+                      <SportLoader label={t.common.loading} />
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr
+                      key={getRowId(row)}
+                      onClick={
+                        onRowOpen ? (event) => openRow(event, row) : undefined
+                      }
+                    >
+                      {columns.map((column) => {
+                        const Cell = column.rowHeader ? "th" : "td";
+                        return (
+                          <Cell
                             key={column.id}
+                            scope={column.rowHeader ? "row" : undefined}
                             data-label={column.header}
-                            className={hiddenClass(column)}
+                            className={`${hiddenClass(column)} ${column.numeric ? styles.numeric : ""}`}
                           >
-                            <div className="skeleton" />
-                          </td>
-                        ))}
-                        {hasActions && (
-                          <td data-label={t.common.actions}>
-                            <div className="skeleton" />
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  : rows.map((row) => (
-                      <tr
-                        key={getRowId(row)}
-                        onClick={
-                          onRowOpen ? (event) => openRow(event, row) : undefined
-                        }
-                      >
-                        {columns.map((column) => {
-                          const Cell = column.rowHeader ? "th" : "td";
-                          return (
-                            <Cell
-                              key={column.id}
-                              scope={column.rowHeader ? "row" : undefined}
-                              data-label={column.header}
-                              className={`${hiddenClass(column)} ${column.numeric ? styles.numeric : ""}`}
-                            >
-                              <div className={styles.cell}>
-                                {cell(column, row)}
-                              </div>
-                            </Cell>
-                          );
-                        })}
-                        {hasActions && (
-                          <td data-label={t.common.actions}>{actions(row)}</td>
-                        )}
-                      </tr>
-                    ))}
+                            <div className={styles.cell}>
+                              {cell(column, row)}
+                            </div>
+                          </Cell>
+                        );
+                      })}
+                      {hasActions && (
+                        <td data-label={t.common.actions}>{actions(row)}</td>
+                      )}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
-          {kind === "loading" && (
-            <span className="sr-only" role="status">
-              {t.common.loading}
-            </span>
-          )}
         </>
       )}
       {pagination &&

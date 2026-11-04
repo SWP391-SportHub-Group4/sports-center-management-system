@@ -16,6 +16,7 @@ import { useLanguage } from "@/lib/language";
 import { FieldContext } from "@/components/primitives/FieldContext";
 import { useModalBehavior } from "@/components/primitives/useModalBehavior";
 import { CloseButton } from "./CloseButton";
+import { SportLoader } from "./loading/SportLoader";
 
 export function Card({
   title,
@@ -69,17 +70,7 @@ export function Stat({
 export { StatusChip } from "@/components/data/StatusChip";
 
 export function Loading({ rows = 3 }: { rows?: number }) {
-  return (
-    <div className="stack" aria-busy="true" aria-live="polite">
-      {Array.from({ length: rows }).map((_, index) => (
-        <div
-          key={index}
-          className="skeleton"
-          style={{ width: `${100 - index * 12}%` }}
-        />
-      ))}
-    </div>
-  );
+  return <SportLoader size={rows === 0 ? "inline" : "section"} />;
 }
 
 export function EmptyState({ message }: { message?: ReactNode }) {

@@ -1,0 +1,106 @@
+.loader {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  color: inherit;
+}
+.objects {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+}
+.object {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--loading-object-size, 52px);
+  height: var(--loading-object-size, 52px);
+  animation: readyToMove 1.8s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+.object:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.object:nth-child(3) {
+  animation-delay: -0.6s;
+}
+.asset {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.section {
+  display: flex;
+  width: 100%;
+  min-height: 116px;
+  padding: 16px;
+  gap: 12px;
+}
+.label {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.inline {
+  --loading-object-size: 19px;
+  flex-shrink: 0;
+  height: 24px;
+}
+.inline .objects {
+  gap: 0;
+}
+.splash {
+  --loading-object-size: clamp(120px, 21vw, 290px);
+  width: 100%;
+}
+.splash .objects {
+  width: 100%;
+  min-height: clamp(180px, 36vh, 360px);
+  gap: clamp(0px, 4vw, 64px);
+}
+.splash .object {
+  animation-name: suspended;
+  animation-duration: 3.6s;
+  filter: drop-shadow(0 22px 16px #0004);
+}
+.splash .object:nth-child(2) {
+  --object-tilt: -14deg;
+  margin-top: -10%;
+}
+.splash .object:nth-child(3) {
+  --object-tilt: 12deg;
+}
+@keyframes readyToMove {
+  0%,
+  100% {
+    transform: translateY(2px) rotate(-9deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(14deg);
+  }
+}
+@keyframes suspended {
+  0%,
+  100% {
+    transform: translateY(10px) rotate(var(--object-tilt, -8deg));
+  }
+  50% {
+    transform: translateY(-16px) rotate(calc(var(--object-tilt, -8deg) + 12deg));
+  }
+}
+@media (max-width: 480px) {
+  .splash {
+    --loading-object-size: clamp(88px, 29vw, 138px);
+  }
+  .splash .objects {
+    min-height: 220px;
+    gap: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .object,
+  .splash .object {
+    animation: none;
+  }
+}
