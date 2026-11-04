@@ -317,7 +317,9 @@ export function Table({
   headers,
   children,
 }: {
-  headers: (string | { text: string; numeric?: boolean })[];
+  headers: (
+    string | { text: string; numeric?: boolean; content?: ReactNode }
+  )[];
   children: ReactNode;
 }) {
   const { t } = useLanguage();
@@ -348,7 +350,7 @@ export function Table({
                   scope="col"
                   className={numeric ? "num" : undefined}
                 >
-                  {text}
+                  {typeof header === "string" ? text : (header.content ?? text)}
                 </th>
               );
             })}

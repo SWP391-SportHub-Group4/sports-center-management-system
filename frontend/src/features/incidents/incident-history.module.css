@@ -130,6 +130,20 @@
   gap: var(--space-4);
   margin: 0;
 }
+.incidentReason {
+  margin-bottom: var(--space-5);
+}
+.incidentReason > span {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.incidentReason p {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .details dt {
   color: var(--text-muted);
   font-size: var(--text-sm);
@@ -140,6 +154,8 @@
 }
 .activityHistory {
   margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
 }
 .activityHistory h3 {
   margin: 0 0 var(--space-4);

@@ -3108,6 +3108,7 @@ export const en = {
     maximum: "Up to {points} points remaining.",
     released: "Release the booking and any held points; no refund credit.",
     reason: "Reason for adjustment",
+    reasonColumn: "Reason",
     reasonHint: "Explain the adjusted amount (3-500 characters).",
     invalid: "Enter whole points from 0 to the remaining balance.",
     total: "Total refund",
@@ -3123,7 +3124,7 @@ export const en = {
   incidentHistory: {
     successTitle: "Incident created successfully",
     successMessage:
-      "The incident has been saved. Notifications to affected members are queued for automatic delivery.",
+      "The incident has been saved. In-app and email notifications to all active accounts are queued for automatic delivery.",
     arrangeMakeup: "Arrange a makeup session",
     makeupHint:
       "For a serious incident, replace the missed session in full. Members keep their enrollment and pay no extra fee. The coach and members receive the updated schedule.",
@@ -3172,7 +3173,7 @@ export const en = {
     noRentals: "No court rentals were affected.",
     blockedRooms: "Blocked rooms",
     blockedPeriod: "Blocked for the affected period above.",
-    notifications: "Notifications to affected customers",
+    notifications: "Incident notifications",
     noNotifications: "No customer notifications have been recorded.",
     deliverySending: "Notifications are being sent.",
     deliverySent: "Notifications have been sent.",

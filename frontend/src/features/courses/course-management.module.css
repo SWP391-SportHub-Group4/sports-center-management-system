@@ -76,7 +76,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-4);
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 .openingStatus p {
   margin: 0;

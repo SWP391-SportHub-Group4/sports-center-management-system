@@ -51,6 +51,8 @@ export interface IncidentDelivery {
 }
 
 export interface IncidentDetails {
+  recordedByName?: string | null;
+  dayPassMemberEmails?: Record<string, string>;
   activities?: {
     stepId: string;
     sourceType: string;

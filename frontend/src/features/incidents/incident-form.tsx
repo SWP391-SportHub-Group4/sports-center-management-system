@@ -399,6 +399,7 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                 </Field>
                 {scope === "ROOM" && (
                   <RoomSelector
+                    searchable
                     showHint={false}
                     value={roomId}
                     onChange={(v) => {

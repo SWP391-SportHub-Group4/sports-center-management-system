@@ -72,6 +72,7 @@ async function fixture(page: Page, dayPass = false, failOnce = false) {
             memberId: member,
             name: "Alex Nguyen",
             email: "alex@example.com",
+            availablePoints: 250,
             requiresAgreement: dayPass,
             alreadyGifted: false,
           },
@@ -79,6 +80,7 @@ async function fixture(page: Page, dayPass = false, failOnce = false) {
             memberId: other,
             name: "Linh Tran",
             email: "linh@example.com",
+            availablePoints: 125,
             requiresAgreement: false,
             alreadyGifted: dayPass,
           },
@@ -287,12 +289,13 @@ for (const width of [1440, 390]) {
     ).toHaveCount(0);
     await expect(page.getByLabel("Gift reason (required)")).toHaveCount(0);
     const table = page.getByRole("region", {
-      name: "Select, Member, Actions",
+      name: "Select all recipients, Member, Available points, Actions",
       exact: true,
     });
     await expect(table.locator("th")).toHaveText([
-      "Select",
+      "",
       "Member",
+      "Available points",
       "Actions",
     ]);
     await table
@@ -354,6 +357,7 @@ for (const width of [1440, 390]) {
   test(`Selections and select-all survive filters at ${width}px`, async ({
     page,
   }) => {
+    await page.setViewportSize({ width, height: 1000 });
     await fixture(page);
     const requests: URL[] = [];
     await page.route("**/api/manager/point-gifts/recipients?**", (route) => {
@@ -368,6 +372,7 @@ for (const width of [1440, 390]) {
                   memberId: member,
                   name: "Alex Nguyen",
                   email: "alex@example.com",
+                  availablePoints: 125,
                   requiresAgreement: false,
                   alreadyGifted: false,
                 },
@@ -377,6 +382,7 @@ for (const width of [1440, 390]) {
             memberId: other,
             name: "Linh Tran",
             email: "linh@example.com",
+            availablePoints: 125,
             requiresAgreement: false,
             alreadyGifted: false,
           },
@@ -384,7 +390,16 @@ for (const width of [1440, 390]) {
       });
     });
     await page.goto("/manager/points");
-    const toggle = page.getByRole("switch", { name: /Select all recipients/ });
+    const toggle = page.getByRole("checkbox", {
+      name: "Select all recipients",
+      exact: true,
+    });
+    await expect(
+      page.locator("thead th").filter({ hasText: "Available points" }),
+    ).toHaveCount(1);
+    await expect(
+      page.getByRole("button", { name: "Clear selection", exact: true }),
+    ).toHaveCount(0);
     await toggle.click();
     await expect(toggle).toBeChecked();
     await page.getByLabel("Name or email", { exact: true }).fill("Linh");
@@ -443,6 +458,7 @@ test("Scrolling recipient list loads every server page without navigation button
             memberId: `member-${start + i}`,
             name: `Member ${start + i}`,
             email: `member${start + i}@example.com`,
+            availablePoints: 125,
             requiresAgreement: false,
             alreadyGifted: start + i === 101,
           }),
@@ -454,12 +470,14 @@ test("Scrolling recipient list loads every server page without navigation button
   await expect(
     page.getByRole("checkbox", { name: "Select Member 101", exact: true }),
   ).toBeDisabled();
-  await expect(page.getByRole("checkbox")).toHaveCount(102);
+  await expect(page.getByRole("checkbox")).toHaveCount(103);
   expect(requested).toContain(2);
   await expect(
     page.getByRole("button", { name: /Previous page|Next page/ }),
   ).toHaveCount(0);
-  await page.getByRole("switch", { name: /Select all recipients/ }).click();
+  await page
+    .getByRole("checkbox", { name: "Select all recipients", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Gift points (101)", exact: true })
     .click();
@@ -578,4 +596,44 @@ test("incident details list affected day-pass members without support actions", 
   await expect(
     page.getByRole("button", { name: "Notify day-pass holders" }),
   ).toHaveCount(0);
+});
+
+test("Recipient points fall back to wallet balances when the running API omits them", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.route("**/api/manager/point-gifts/recipients?**", (route) =>
+    route.fulfill({
+      json: paged([
+        {
+          memberId: member,
+          name: "Alex Nguyen",
+          email: "alex@example.com",
+          requiresAgreement: false,
+          alreadyGifted: false,
+        },
+        {
+          memberId: other,
+          name: "Linh Tran",
+          email: "linh@example.com",
+          availablePoints: 0,
+          requiresAgreement: false,
+          alreadyGifted: false,
+        },
+      ]),
+    }),
+  );
+  const walletRequests: string[] = [];
+  await page.route("**/api/manager/wallets/**", (route) => {
+    walletRequests.push(new URL(route.request().url()).pathname);
+    return route.fulfill({
+      json: { availablePoints: 375, heldPoints: 0, vndPerPoint: 1000 },
+    });
+  });
+  await page.goto("/manager/points");
+  const alex = page.locator("tbody tr").filter({ hasText: "Alex Nguyen" });
+  const linh = page.locator("tbody tr").filter({ hasText: "Linh Tran" });
+  await expect(alex.locator("td").nth(2)).toHaveText("375");
+  await expect(linh.locator("td").nth(2)).toHaveText("0");
+  expect(walletRequests).toEqual(["/api/manager/wallets/" + member]);
 });

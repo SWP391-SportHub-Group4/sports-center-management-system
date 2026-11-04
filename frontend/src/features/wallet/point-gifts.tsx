@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { GiftClassFilter } from "./gift-class-filter";
 import styles from "./point-gifts.module.css";
 import { useSearchParams } from "next/navigation";
@@ -20,12 +19,13 @@ import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
-import type { Paged } from "@/lib/types";
+import type { Paged, WalletBalanceDto } from "@/lib/types";
 
 type Recipient = {
   memberId: string;
   name: string;
   email: string;
+  availablePoints: number;
   requiresAgreement: boolean;
   alreadyGifted: boolean;
 };
@@ -272,9 +272,6 @@ function GiftComposer({
   const [keyword, setKeyword] = useState("");
   const [sportId, setSportId] = useState("");
   const [classId, setClassId] = useState("");
-  const [allSelected, setAllSelected] = useState(false);
-  const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
-  const [selectingAll, setSelectingAll] = useState(false);
   const [selected, setSelected] = useState<Record<string, Selected>>({});
   const [points, setPoints] = useState("1");
   const [reason, setReason] = useState("");
@@ -349,6 +346,31 @@ function GiftComposer({
         result.items.length > 0 &&
         (currentPage - 1) * result.pageSize < result.totalCount
       );
+      // Older running API versions omit balances from the recipient response.
+      // Resolve those entries through the existing wallet endpoint with bounded concurrency.
+      const missingBalances = items.filter(
+        (item) => !Number.isFinite(item.availablePoints),
+      );
+      let nextBalance = 0;
+      await Promise.all(
+        Array.from(
+          { length: Math.min(4, missingBalances.length) },
+          async () => {
+            while (nextBalance < missingBalances.length) {
+              const recipient = missingBalances[nextBalance++];
+              const wallet = await api.get<WalletBalanceDto>(
+                `/api/manager/wallets/${recipient.memberId}`,
+                { signal },
+              );
+              if (!Number.isFinite(wallet.availablePoints))
+                throw new Error(
+                  "Could not load the member's point balance. Please retry.",
+                );
+              recipient.availablePoints = wallet.availablePoints;
+            }
+          },
+        ),
+      );
       return { ...result, items };
     },
     [incidentId, keyword, sportId, classId, revision],
@@ -366,74 +388,33 @@ function GiftComposer({
     set(value);
   }
   function remove(id: string) {
-    setAllSelected(false);
     setSelected((current) => {
       const next = { ...current };
       delete next[id];
       return next;
     });
   }
-  async function selectAll(checked: boolean) {
-    if (!checked) {
-      setAllSelected(false);
-      setSelected((current) => {
-        const next = { ...current };
-        for (const id of bulkSelectedIds) delete next[id];
-        return next;
-      });
-      setBulkSelectedIds([]);
-      return;
-    }
-    setSelectingAll(true);
-    setError("");
-    try {
-      const next: Record<string, Selected> = { ...selected };
-      const matchingIds: string[] = [];
-      let currentPage = 1;
-      let totalPages = 1;
-      do {
-        const result = await api.get<Paged<Recipient>>(
-          "/api/manager/point-gifts/recipients",
-          {
-            query: {
-              incidentId,
-              keyword,
-              sportId:
-                sportId && sportId !== "unregistered" ? sportId : undefined,
-              unregistered: sportId === "unregistered" || undefined,
-              classId: classId || undefined,
-              page: currentPage,
-              pageSize: 100,
-            },
-          },
-        );
-        for (const recipient of result.items) {
-          if (!recipient.alreadyGifted) {
-            matchingIds.push(recipient.memberId);
-            next[recipient.memberId] = selected[recipient.memberId] ?? {
-              ...recipient,
-              points,
-              memberAgreed: false,
-            };
-          }
-        }
-        totalPages = Math.ceil(result.totalCount / result.pageSize);
-        currentPage++;
-      } while (currentPage <= totalPages);
-      setSelected(next);
-      setBulkSelectedIds(matchingIds);
-      setAllSelected(matchingIds.length > 0);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : vi
-            ? "Không tải được toàn bộ người nhận. Vui lòng thử lại."
-            : "Could not load all recipients. Please retry.",
-      );
-    } finally {
-      setSelectingAll(false);
-    }
+  const matchingRecipients = (recipients.data?.items ?? []).filter(
+    (r) => !r.alreadyGifted,
+  );
+  const allSelected =
+    matchingRecipients.length > 0 &&
+    matchingRecipients.every((r) => !!selected[r.memberId]);
+  const someSelected = matchingRecipients.some((r) => !!selected[r.memberId]);
+  function selectAll(checked: boolean) {
+    setSelected((current) => {
+      const next = { ...current };
+      for (const recipient of matchingRecipients) {
+        if (checked)
+          next[recipient.memberId] = current[recipient.memberId] ?? {
+            ...recipient,
+            points,
+            memberAgreed: false,
+          };
+        else delete next[recipient.memberId];
+      }
+      return next;
+    });
   }
   async function send() {
     if (lock.current || (!pending && !valid)) return;
@@ -474,8 +455,6 @@ function GiftComposer({
       setReview(null);
       setShowComposer(false);
       setSelected({});
-      setAllSelected(false);
-      setBulkSelectedIds([]);
       setReason("");
       setRevision((r) => r + 1);
       onGifted?.();
@@ -576,7 +555,7 @@ function GiftComposer({
         )}
         {success && <p role="status">{success}</p>}
         {error && !review && !showComposer && <p role="alert">{error}</p>}
-        <fieldset className={styles.form} disabled={!!review || selectingAll}>
+        <fieldset className={styles.form} disabled={!!review}>
           <div className={styles.filters}>
             <Field label={vi ? "Tên hoặc email" : "Name or email"}>
               <input
@@ -614,7 +593,6 @@ function GiftComposer({
                 filters.loading ||
                 !!filters.error ||
                 !!review ||
-                selectingAll ||
                 sportId === "unregistered"
               }
               vi={vi}
@@ -632,44 +610,9 @@ function GiftComposer({
               </button>
             </p>
           )}
-          <ActivitySwitch
-            checked={allSelected}
-            onChange={(checked) => void selectAll(checked)}
-            disabled={
-              selectingAll ||
-              recipients.loading ||
-              !!recipients.error ||
-              !recipients.data?.totalCount
-            }
-            label={vi ? "Chọn tất cả người nhận" : "Select all recipients"}
-            hint={
-              selectingAll
-                ? vi
-                  ? "Đang tải toàn bộ người nhận…"
-                  : "Loading all recipients…"
-                : ""
-            }
-          />
           <span className="small muted" role="status">
-            {selectingAll
-              ? vi
-                ? "Đang chọn…"
-                : "Selecting…"
-              : `${rows.length} ${vi ? "người đã chọn" : "recipients selected"}`}
+            {rows.length} {vi ? "người đã chọn" : "recipients selected"}
           </span>
-          {rows.length > 0 && (
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => {
-                setSelected({});
-                setAllSelected(false);
-                setBulkSelectedIds([]);
-              }}
-            >
-              {vi ? "Bỏ chọn tất cả" : "Clear selection"}
-            </button>
-          )}
           <AsyncSection state={recipients}>
             {(data) => (
               <>
@@ -685,8 +628,36 @@ function GiftComposer({
                   >
                     <Table
                       headers={[
-                        vi ? "Chọn" : "Select",
+                        {
+                          text: vi
+                            ? "Chọn tất cả người nhận"
+                            : "Select all recipients",
+                          content: (
+                            <input
+                              type="checkbox"
+                              aria-label={
+                                vi
+                                  ? "Chọn tất cả người nhận"
+                                  : "Select all recipients"
+                              }
+                              checked={allSelected}
+                              disabled={!matchingRecipients.length}
+                              ref={(element) => {
+                                if (element)
+                                  element.indeterminate =
+                                    someSelected && !allSelected;
+                              }}
+                              onChange={(event) =>
+                                selectAll(event.target.checked)
+                              }
+                            />
+                          ),
+                        },
                         vi ? "Hội viên" : "Member",
+                        {
+                          text: vi ? "Điểm hiện có" : "Available points",
+                          numeric: true,
+                        },
                         vi ? "Thao tác" : "Actions",
                       ]}
                     >
@@ -725,6 +696,11 @@ function GiftComposer({
                             )}
                           </td>
 
+                          <td className={styles.recipientPoints}>
+                            {Number.isFinite(r.availablePoints)
+                              ? formatPoints(r.availablePoints)
+                              : "—"}
+                          </td>
                           <td>
                             <button
                               type="button"
@@ -748,7 +724,7 @@ function GiftComposer({
             type="button"
             className="btn"
             aria-haspopup="dialog"
-            disabled={!rows.length || selectingAll || !!review}
+            disabled={!rows.length || !!review}
             onClick={() => {
               setError("");
               setSuccess("");

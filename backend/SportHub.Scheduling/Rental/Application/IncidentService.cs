@@ -53,6 +53,15 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var saved = await db.Set<IncidentNotice>().AsNoTracking().SingleAsync(x => x.IncidentId == incidentId, ct);
         var refundJson = saved.RefundsJson;
         var activities = await ActivityHistoryAsync(details, ct);
+        var recorder = await users.GetAsync(saved.CreatedByUserId, ct);
+        var affectedMembers = System.Text.Json.JsonSerializer.Deserialize<List<IncidentDayPassMember>>(saved.DayPassMembersJson) ?? [];
+        var memberEmails = new Dictionary<Guid, string>();
+        foreach (var memberId in affectedMembers.Select(m => m.MemberId).Distinct())
+        {
+            var member = await users.GetAsync(memberId, ct);
+            if (member is not null) memberEmails[memberId] = member.Email;
+        }
+        details = details with { RecordedByName = recorder?.FullName, DayPassMemberEmails = memberEmails };
         return details with { Activities = activities, ClosesGym = saved.ClosesGym, DayPassNoticeSentAtUtc = saved.DayPassNoticeSentAtUtc, DayPassMembers = System.Text.Json.JsonSerializer.Deserialize<List<IncidentDayPassMember>>(saved.DayPassMembersJson) ?? [], Refunds = System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(refundJson) ?? [], SessionReports = rows.Select(r => new IncidentSessionHistory(r.SessionId, r.ClassId, r.SessionNo, r.Name,
             ClassSessionService.ReadIncidentReport(r.IncidentReportJson)!)).ToList() };
     }
@@ -112,7 +121,11 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         var receiptJson = await db.Set<IncidentNotice>().Where(i => i.IncidentId == incidentId).Select(i => i.RefundsJson).SingleAsync(ct);
         ids.Add(incidentId);
         ids.AddRange((System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(receiptJson) ?? []).Select(r => r.NotificationSourceId));
-        return await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
+        var resolution = await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
+        var announcement = await delivery.GetAsync(NotificationEvents.IncidentCreated, incidentId, ct);
+        return new(resolution.Total + announcement.Total, resolution.Pending + announcement.Pending,
+            resolution.Sending + announcement.Sending, resolution.Sent + announcement.Sent,
+            resolution.Failed + announcement.Failed, resolution.Read + announcement.Read);
     }
 
     /// <summary>Review is read-only. No incident or temporary hold exists until confirmation.</summary>
@@ -325,6 +338,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
                 RefundChoices = choiceRows.Select(r => r.SourceId).ToArray() }), Reason: request.Reason.Trim()));
         await db.SaveChangesAsync(ct);
         if (passMembers.Count > 0) await SendDayPassNoticeAsync(incidentId, managerId, ct);
+        await QueueIncidentAnnouncementAsync(notice, ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return incidentId;
     }
@@ -679,6 +694,8 @@ public sealed record IncidentDetailsResponse(Guid IncidentId,
     DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc,
     IReadOnlyList<IncidentSessionHistory>? SessionReports = null, IReadOnlyList<IncidentRefundReceipt>? Refunds = null)
 {
+    public string? RecordedByName { get; init; }
+    public IReadOnlyDictionary<Guid, string> DayPassMemberEmails { get; init; } = new Dictionary<Guid, string>();
     public bool ClosesGym { get; init; }
     public DateTime? DayPassNoticeSentAtUtc { get; init; }
     public IReadOnlyList<IncidentDayPassMember> DayPassMembers { get; init; } = [];

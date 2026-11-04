@@ -3,7 +3,6 @@ import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
-import { Ban } from "lucide-react";
 import { api } from "@/lib/apiClient";
 
 import { Drawer, buttonClass } from "@/components/primitives";
@@ -15,7 +14,12 @@ import { useLanguage } from "@/lib/language";
 import { useApi } from "@/lib/useApi";
 import { vietnamLocal } from "@/lib/vietnam-time";
 
-import type { CourtScheduleEntryDto } from "@/lib/types";
+import type {
+  CourtScheduleEntryDto,
+  CourtRentalDto,
+  InvoiceDetailDto,
+  Paged,
+} from "@/lib/types";
 import styles from "./CalendarEventDrawer.module.css";
 
 export function CalendarEventDrawer({
@@ -43,7 +47,8 @@ export function CalendarEventDrawer({
   /** Hide read-only participant summary when role-specific attendance is supplied. */
   showParticipants?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
 
   const l = t.operations;
   const shared = t.calendar;
@@ -51,6 +56,60 @@ export function CalendarEventDrawer({
   const participants = entry.participants ?? [];
   const [rentalBusy, setRentalBusy] = useState(false);
   const [rentalError, setRentalError] = useState("");
+  const rentalCheckout = useApi(
+    async (signal) => {
+      if (
+        entry.sourceType !== "COURT_RENTAL" ||
+        !entry.memberId ||
+        (!manager && !receptionist)
+      )
+        return null;
+      let rental: CourtRentalDto | undefined;
+      if (manager) {
+        let page = 1;
+        while (true) {
+          const result = await api.get<Paged<CourtRentalDto>>(
+            `/api/manager/members/${entry.memberId}/court-rentals`,
+            { signal, query: { page, pageSize: 100 } },
+          );
+          rental = result.items.find(
+            (item) => item.courtRentalId === entry.sourceId,
+          );
+          if (
+            rental ||
+            !result.items.length ||
+            page * result.pageSize >= result.totalCount
+          )
+            break;
+          page++;
+        }
+      } else {
+        const items = await api.get<CourtRentalDto[]>(
+          `/api/members/${entry.memberId}/court-rentals`,
+          {
+            signal,
+            query: { fromUtc: entry.startAtUtc, toUtc: entry.endAtUtc },
+          },
+        );
+        rental = items.find((item) => item.courtRentalId === entry.sourceId);
+      }
+      return rental?.invoiceId
+        ? api.get<InvoiceDetailDto>(`/api/invoices/${rental.invoiceId}`, {
+            signal,
+          })
+        : null;
+    },
+    [
+      entry.sourceId,
+      entry.memberId,
+      entry.sourceType,
+      entry.status,
+      entry.startAtUtc,
+      entry.endAtUtc,
+      manager,
+      receptionist,
+    ],
+  );
   const cancellation = useApi(
     async (signal) => {
       if (entry.status !== "CANCELLED" || entry.cancellationReason?.trim())
@@ -186,25 +245,109 @@ export function CalendarEventDrawer({
           </dd>
         </div>
       </dl>
-      {entry.status === "CANCELLED" && (
-        <section className={styles.cancellation}>
-          <header>
-            <Ban size={20} aria-hidden="true" />
-            <h3>{shared.cancellationReason}</h3>
-          </header>
-          {cancellation.loading ? (
-            <p role="status">{t.common.loading}</p>
-          ) : cancellation.error ? (
-            <p role="alert">{cancellation.error.message}</p>
-          ) : (
-            <p>
-              {entry.cancellationReason?.trim() ||
-                cancellation.data?.trim() ||
-                shared.noCancellationReason}
+      {entry.sourceType === "COURT_RENTAL" && (manager || receptionist) && (
+        <section className={styles.rentalInvoice}>
+          <dl className={styles.invoiceDetails}>
+            {entry.status === "CANCELLED" && (
+              <div className={styles.invoiceRow}>
+                <dt>{l.reason}:</dt>
+                <dd>
+                  {cancellation.loading ? (
+                    <span role="status">{t.common.loading}</span>
+                  ) : cancellation.error ? (
+                    <span role="alert">{cancellation.error.message}</span>
+                  ) : (
+                    entry.cancellationReason?.trim() ||
+                    cancellation.data?.trim() ||
+                    shared.noCancellationReason
+                  )}
+                </dd>
+              </div>
+            )}
+            <div className={styles.invoiceRow}>
+              <dt>{vi ? "Hóa đơn" : "Invoice"}:</dt>
+              <dd>
+                {rentalCheckout.loading
+                  ? t.common.loading
+                  : rentalCheckout.data?.summary.invoiceNumber || "—"}
+              </dd>
+            </div>
+            <div className={styles.invoiceRow}>
+              <dt>{vi ? "Thanh toán" : "Payment"}:</dt>
+              <dd>
+                {rentalCheckout.data ? (
+                  <span className={styles.paymentStatus}>
+                    <StatusChip value={rentalCheckout.data.summary.status} />
+                    <StatusChip
+                      value={rentalCheckout.data.summary.fulfillmentOutcome}
+                    />
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
+            <div className={styles.invoiceRow}>
+              <dt>{vi ? "Tình trạng thanh toán" : "Checkout"}:</dt>
+              <dd>
+                {rentalCheckout.data
+                  ? rentalCheckout.data.summary.outstanding > 0
+                    ? vi
+                      ? "Chờ thanh toán"
+                      : "Awaiting payment"
+                    : vi
+                      ? "Không còn dư nợ"
+                      : "No outstanding balance"
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+          {rentalCheckout.error && (
+            <p role="alert">
+              {rentalCheckout.error.message}{" "}
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={rentalCheckout.reload}
+              >
+                {t.common.retry}
+              </button>
             </p>
+          )}
+          {rentalCheckout.data?.summary.reconciliationRequired && (
+            <p role="alert">
+              {vi ? "Cần đối soát" : "Reconciliation required"}
+            </p>
+          )}
+          {entry.memberId && (
+            <Link
+              className="btn btn--secondary"
+              href={`/${manager ? "manager" : "receptionist"}/members/${entry.memberId}?tab=invoices`}
+            >
+              {vi ? "Mở hóa đơn hội viên" : "Open member invoices"}
+            </Link>
           )}
         </section>
       )}
+      {entry.status === "CANCELLED" &&
+        !(entry.sourceType === "COURT_RENTAL" && (manager || receptionist)) && (
+          <section
+            className={`${styles.cancellation} ${entry.sourceType === "COURT_RENTAL" ? styles.rentalReason : ""}`}
+          >
+            <strong>{l.reason}:</strong>{" "}
+            {cancellation.loading ? (
+              <p role="status">{t.common.loading}</p>
+            ) : cancellation.error ? (
+              <p role="alert">{cancellation.error.message}</p>
+            ) : (
+              <p>
+                {entry.cancellationReason?.trim() ||
+                  cancellation.data?.trim() ||
+                  shared.noCancellationReason}
+              </p>
+            )}
+          </section>
+        )}
       {entry.incidentScope === "CENTER" && !!affectedRoomNames?.length && (
         <section>
           <h3>{t.incidentHistory.affectedRooms}</h3>

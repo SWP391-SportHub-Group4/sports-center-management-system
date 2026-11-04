@@ -1,17 +1,11 @@
 "use client";
-
 import { useState } from "react";
-import { Search, UserPlus, X } from "lucide-react";
-import { AvatarImage } from "@/components/AvatarImage";
-import { ActivitySwitch } from "@/components/ActivitySwitch";
-import { AsyncSection, Dialog, Field } from "@/components/ui";
-import { Pagination } from "@/features/operations";
+import { AsyncSection, Field, Table } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import type { Paged } from "@/lib/types";
-import styles from "./notice-recipient-picker.module.css";
-
+import styles from "./notice-recipient-table.module.css";
 export const noticeRoles = [
   "SYSTEM_ADMINISTRATOR",
   "CENTER_MANAGER",
@@ -20,365 +14,242 @@ export const noticeRoles = [
   "MEMBER",
 ] as const;
 export type NoticeRole = (typeof noticeRoles)[number];
-type RecipientOption = {
+export type NoticeRecipient = {
   userId: string;
   name: string;
   email: string;
   avatarUrl: string | null;
+  role: NoticeRole;
 };
-export type NoticeRecipient = RecipientOption & { role: NoticeRole };
 export type NoticeSelection = Record<string, NoticeRecipient>;
 type FilterOptions = {
   classes: { classId: number; code: string; name: string }[];
   specialties: { sportId: number; name: string }[];
 };
-
 export function NoticeRecipients({
   value,
   onChange,
   disabled,
-  sendToAll,
-  onSendToAllChange,
-  sendToRoles,
-  onSendToRoleChange,
 }: {
   value: NoticeSelection;
   onChange: (next: NoticeSelection) => void;
   disabled: boolean;
-  sendToAll: boolean;
-  onSendToAllChange: (checked: boolean) => void;
-  sendToRoles: NoticeRole[];
-  onSendToRoleChange: (role: NoticeRole, checked: boolean) => void;
 }) {
-  const { t } = useLanguage();
-  const l = t.manualNotices;
-  const [openedRole, setOpenedRole] = useState<NoticeRole | null>(null);
-  function remove(userId: string) {
-    const next = { ...value };
-    delete next[userId];
-    onChange(next);
-  }
-  return (
-    <section className={styles.section} aria-label={t.operations.recipients}>
-      <header className={styles.heading}>
-        <div className={styles.broadcast}>
-          <ActivitySwitch
-            checked={sendToAll}
-            disabled={disabled}
-            label={l.sendToAll}
-            hint=""
-            onChange={(checked) => {
-              setOpenedRole(null);
-              onSendToAllChange(checked);
-            }}
-          />
-        </div>
-      </header>
-      <div className={styles.roles}>
-        {noticeRoles.map((role) => {
-          const wholeRole = sendToAll || sendToRoles.includes(role);
-          const selected = Object.values(value).filter(
-            (account) => account.role === role,
-          );
-          return (
-            <article
-              key={role}
-              className={styles.role}
-              aria-label={`${l.roles[role]} recipients`}
-            >
-              <div className={styles.roleHeading}>
-                <h3>{l.roles[role]}</h3>
-                <span>
-                  {wholeRole
-                    ? l.allActiveAccounts
-                    : l.selectedCount.replace("{n}", String(selected.length))}
-                </span>
-              </div>
-              <div className={styles.roleBroadcast}>
-                <ActivitySwitch
-                  checked={wholeRole}
-                  disabled={disabled || sendToAll}
-                  label={l.sendToRole.replace("{role}", l.roles[role])}
-                  hint=""
-                  onChange={(checked) => {
-                    setOpenedRole(null);
-                    onSendToRoleChange(role, checked);
-                  }}
-                />
-              </div>
-              <div className={styles.selectionArea}>
-                {!wholeRole && selected.length > 0 && (
-                  <ul
-                    className={styles.selectedList}
-                    tabIndex={0}
-                    aria-label={`${l.roles[role]} selected recipients`}
-                  >
-                    {selected.map((account) => (
-                      <li key={account.userId}>
-                        <AvatarImage
-                          name={account.name}
-                          avatarUrl={account.avatarUrl}
-                          size={28}
-                        />
-                        <span
-                          className={styles.selectedName}
-                          title={account.name}
-                        >
-                          {account.name}
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.remove}
-                          disabled={disabled}
-                          aria-label={l.removeRecipient.replace(
-                            "{name}",
-                            account.name,
-                          )}
-                          onClick={() => remove(account.userId)}
-                        >
-                          <X size={15} aria-hidden="true" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <button
-                type="button"
-                className={`btn btn--secondary ${styles.chooseButton}`}
-                disabled={disabled || wholeRole}
-                aria-label={`${l.chooseRecipients}: ${l.roles[role]}`}
-                onClick={() => setOpenedRole(role)}
-              >
-                <UserPlus size={17} aria-hidden="true" />
-                {l.chooseRecipients}
-              </button>
-            </article>
-          );
-        })}
-      </div>
-      {openedRole && (
-        <RecipientDialog
-          key={openedRole}
-          role={openedRole}
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-          excludedRoles={sendToRoles}
-          onClose={() => setOpenedRole(null)}
-        />
-      )}
-    </section>
-  );
-}
-
-function RecipientDialog({
-  role,
-  value,
-  onChange,
-  disabled,
-  onClose,
-  excludedRoles,
-}: {
-  role: NoticeRole;
-  value: NoticeSelection;
-  onChange: (next: NoticeSelection) => void;
-  disabled: boolean;
-  onClose: () => void;
-  excludedRoles: NoticeRole[];
-}) {
-  const { t } = useLanguage();
-  const l = t.manualNotices;
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
   const [keyword, setKeyword] = useState("");
+  const [role, setRole] = useState<NoticeRole | "">("");
   const [classId, setClassId] = useState("");
   const [sportId, setSportId] = useState("");
-  const [page, setPage] = useState(1);
   const filters = useApi(
     (signal) =>
-      role === "MEMBER" || role === "COACH"
-        ? api.get<FilterOptions>("/api/manager/notices/recipient-filters", {
-            signal,
-          })
-        : Promise.resolve(null),
-    [role],
+      api.get<FilterOptions>("/api/manager/notices/recipient-filters", {
+        signal,
+      }),
+    [],
   );
   const users = useApi(
-    (signal) =>
-      api.get<Paged<RecipientOption>>(
-        "/api/manager/notices/recipient-options",
-        {
-          signal,
-          query: {
-            role,
-            keyword: keyword.trim() || undefined,
-            classId: classId || undefined,
-            sportId: sportId || undefined,
-            page,
-            pageSize: 20,
-          },
-        },
-      ),
-    [role, keyword, classId, sportId, page],
+    async (signal) => {
+      const groups = await Promise.all(
+        (role ? [role] : noticeRoles).map(async (selectedRole) => {
+          const items: NoticeRecipient[] = [];
+          let page = 1;
+          while (true) {
+            const result = await api.get<Paged<Omit<NoticeRecipient, "role">>>(
+              "/api/manager/notices/recipient-options",
+              {
+                signal,
+                query: {
+                  role: selectedRole,
+                  classId:
+                    selectedRole === "MEMBER"
+                      ? classId || undefined
+                      : undefined,
+                  sportId:
+                    selectedRole === "COACH" ? sportId || undefined : undefined,
+                  page,
+                  pageSize: 100,
+                },
+              },
+            );
+            items.push(
+              ...result.items.map((item) => ({ ...item, role: selectedRole })),
+            );
+            if (!result.items.length || items.length >= result.totalCount)
+              break;
+            page++;
+          }
+          return items;
+        }),
+      );
+      return groups.flat().sort((a, b) => a.name.localeCompare(b.name));
+    },
+    [role, classId, sportId],
   );
-  const selectedCount = Object.values(value).filter(
-    (account) => account.role === role,
-  ).length;
-  const atLimit =
-    Object.values(value).filter(
-      (account) => !excludedRoles.includes(account.role),
-    ).length >= 200;
-  function toggle(account: RecipientOption, checked: boolean) {
-    if (disabled || (checked && atLimit)) return;
+  const visible = (users.data ?? []).filter((user) =>
+    (user.name + " " + user.email)
+      .toLocaleLowerCase()
+      .includes(keyword.trim().toLocaleLowerCase()),
+  );
+  const allSelected =
+    visible.length > 0 && visible.every((user) => !!value[user.userId]);
+  const someSelected = visible.some((user) => !!value[user.userId]);
+  const count = Object.keys(value).length;
+  function toggleAll(checked: boolean) {
     const next = { ...value };
-    if (checked) next[account.userId] = { ...account, role };
-    else delete next[account.userId];
+    for (const user of visible) {
+      if (checked) next[user.userId] = user;
+      else delete next[user.userId];
+    }
     onChange(next);
   }
   return (
-    <Dialog
-      title={`${l.roles[role]} recipients`}
-      description={l.selectionPersists}
-      onClose={onClose}
-      size="md"
-      className={styles.dialog}
-      footer={
-        <div className={styles.footer}>
-          <span aria-live="polite">
-            {l.selectedCount.replace("{n}", String(selectedCount))}
-          </span>
-          <button type="button" className="btn" onClick={onClose}>
-            {l.finishSelection}
-          </button>
-        </div>
-      }
-    >
-      <div className={styles.filters}>
-        <Field label={l.searchName}>
-          <span className={styles.search}>
-            <Search size={18} aria-hidden="true" />
-            <input
-              type="search"
-              maxLength={200}
-              value={keyword}
-              disabled={disabled}
-              onChange={(event) => {
-                setKeyword(event.target.value);
-                setPage(1);
-              }}
-            />
-          </span>
+    <div className={styles.workspace}>
+      <fieldset className={styles.filters} disabled={disabled}>
+        <Field label={vi ? "Tên hoặc email" : "Name or email"}>
+          <input
+            type="search"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+        </Field>
+        <Field label={vi ? "Vai trò" : "Role"}>
+          <select
+            value={role}
+            onChange={(e) => {
+              setRole(e.target.value as NoticeRole | "");
+              setClassId("");
+              setSportId("");
+            }}
+          >
+            <option value="">{vi ? "Tất cả vai trò" : "All roles"}</option>
+            {noticeRoles.map((r) => (
+              <option key={r} value={r}>
+                {t.manualNotices.roles[r]}
+              </option>
+            ))}
+          </select>
         </Field>
         {role === "MEMBER" && (
-          <Field label={l.currentCourse}>
+          <Field label={t.manualNotices.currentCourse}>
             <select
               value={classId}
-              disabled={disabled || filters.loading || !!filters.error}
-              onChange={(event) => {
-                setClassId(event.target.value);
-                setPage(1);
-              }}
+              disabled={filters.loading || !!filters.error}
+              onChange={(e) => setClassId(e.target.value)}
             >
-              <option value="">{l.allCourses}</option>
-              {filters.data?.classes.map((course) => (
-                <option key={course.classId} value={course.classId}>
-                  {course.code} · {course.name}
+              <option value="">{t.manualNotices.allCourses}</option>
+              {filters.data?.classes.map((c) => (
+                <option key={c.classId} value={c.classId}>
+                  {c.name} · {c.code}
                 </option>
               ))}
             </select>
           </Field>
         )}
         {role === "COACH" && (
-          <Field label={l.specialty}>
+          <Field label={t.manualNotices.specialty}>
             <select
               value={sportId}
-              disabled={disabled || filters.loading || !!filters.error}
-              onChange={(event) => {
-                setSportId(event.target.value);
-                setPage(1);
-              }}
+              disabled={filters.loading || !!filters.error}
+              onChange={(e) => setSportId(e.target.value)}
             >
-              <option value="">{l.allSpecialties}</option>
-              {filters.data?.specialties.map((sport) => (
-                <option key={sport.sportId} value={sport.sportId}>
-                  {sport.name}
+              <option value="">{vi ? "Tất cả môn" : "All sports"}</option>
+              {filters.data?.specialties.map((s) => (
+                <option key={s.sportId} value={s.sportId}>
+                  {s.name}
                 </option>
               ))}
             </select>
           </Field>
         )}
-      </div>
+      </fieldset>
       {filters.error && (
-        <div className={styles.filterError} role="alert">
-          <span>{l.filterUnavailable}</span>
+        <p role="alert">
+          {filters.error.message}
           <button
-            className="btn btn--secondary btn--sm"
             type="button"
+            className="btn btn--secondary"
             onClick={filters.reload}
           >
             {t.common.retry}
           </button>
-        </div>
-      )}
-      {atLimit && (
-        <p className={styles.limit} role="status">
-          {l.selectionLimit}
         </p>
       )}
-      <div className={styles.results}>
-        <AsyncSection state={users}>
-          {(data) => (
-            <>
-              {data.items.length ? (
-                <ul
-                  className={styles.accounts}
-                  tabIndex={0}
-                  aria-label={`${l.roles[role]} recipient accounts`}
-                >
-                  {data.items.map((account) => (
-                    <li key={account.userId}>
-                      <label
-                        className={styles.account}
-                        data-selected={!!value[account.userId]}
-                      >
-                        <AvatarImage
-                          name={account.name}
-                          avatarUrl={account.avatarUrl}
-                          size={42}
-                        />
-                        <span className={styles.identity}>
-                          <strong>{account.name}</strong>
-                          <span>{account.email}</span>
-                        </span>
-                        <input
-                          type="checkbox"
-                          aria-label={account.name}
-                          checked={!!value[account.userId]}
-                          disabled={
-                            disabled || (!value[account.userId] && atLimit)
-                          }
-                          onChange={(event) =>
-                            toggle(account, event.target.checked)
-                          }
-                        />
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className={styles.emptyResults} role="status">
-                  {l.noMatchingAccounts}
-                </p>
-              )}
-              <Pagination
-                page={page}
-                count={data.totalCount}
-                loading={users.loading}
-                onChange={setPage}
-              />
-            </>
-          )}
-        </AsyncSection>
-      </div>
-    </Dialog>
+      <span className="small muted" role="status">
+        {count} {vi ? "người đã chọn" : "recipients selected"}
+      </span>
+      {count > 200 && (
+        <p role="alert">
+          {vi
+            ? "Mỗi lần gửi tối đa 200 người nhận."
+            : "Choose up to 200 recipients per notice."}
+        </p>
+      )}
+      <AsyncSection state={users}>
+        {() =>
+          visible.length ? (
+            <div className={styles.table}>
+              <Table
+                headers={[
+                  {
+                    text: vi
+                      ? "Chọn tất cả người nhận"
+                      : "Select all recipients",
+                    content: (
+                      <input
+                        type="checkbox"
+                        aria-label={
+                          vi
+                            ? "Chọn tất cả người nhận"
+                            : "Select all recipients"
+                        }
+                        checked={allSelected}
+                        disabled={disabled}
+                        ref={(el) => {
+                          if (el)
+                            el.indeterminate = someSelected && !allSelected;
+                        }}
+                        onChange={(e) => toggleAll(e.target.checked)}
+                      />
+                    ),
+                  },
+                  vi ? "Người nhận" : "Recipient",
+                  vi ? "Vai trò" : "Role",
+                ]}
+              >
+                {visible.map((user) => (
+                  <tr key={user.userId}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label={(vi ? "Chọn " : "Select ") + user.name}
+                        checked={!!value[user.userId]}
+                        disabled={disabled}
+                        onChange={(e) => {
+                          const next = { ...value };
+                          if (e.target.checked) next[user.userId] = user;
+                          else delete next[user.userId];
+                          onChange(next);
+                        }}
+                      />
+                    </td>
+                    <td>
+                      {user.name}
+                      <br />
+                      <small>{user.email}</small>
+                    </td>
+                    <td>{t.manualNotices.roles[user.role]}</td>
+                  </tr>
+                ))}
+              </Table>
+            </div>
+          ) : (
+            <p>
+              {vi ? "Không có người nhận phù hợp." : "No matching recipients."}
+            </p>
+          )
+        }
+      </AsyncSection>
+    </div>
   );
 }

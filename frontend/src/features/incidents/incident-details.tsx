@@ -30,7 +30,11 @@ export function IncidentDetailsView({ id }: { id: string }) {
     <AsyncSection state={state}>
       {(incident) => (
         <>
-          <Card title={incident.reason}>
+          <Card title={vi ? "Chi tiết sự cố" : "Incident details"}>
+            <div className={styles.incidentReason}>
+              <span>{vi ? "Lý do" : "Reason"}</span>
+              <p>{incident.reason}</p>
+            </div>
             <dl className={styles.details}>
               <div>
                 <dt>{l.incidentScope}</dt>
@@ -41,22 +45,31 @@ export function IncidentDetailsView({ id }: { id: string }) {
                 </dd>
               </div>
               <div>
-                <dt>{t.operations.start}</dt>
+                <dt>{vi ? "Bắt đầu sự cố" : "Incident start"}</dt>
                 <dd>{formatDateTime(incident.startAtUtc)}</dd>
               </div>
               <div>
-                <dt>{t.operations.end}</dt>
+                <dt>{vi ? "Kết thúc sự cố" : "Incident end"}</dt>
                 <dd>{formatDateTime(incident.endAtUtc)}</dd>
               </div>
+              {incident.recordedByName && (
+                <div>
+                  <dt>{vi ? "Người ghi nhận" : "Recorded by"}</dt>
+                  <dd>{incident.recordedByName}</dd>
+                </div>
+              )}
               <div>
                 <dt>{l.incidentRecordedAt}</dt>
                 <dd>{formatDateTime(incident.createdAtUtc)}</dd>
               </div>
             </dl>
-            <IncidentDayPassSupport incident={incident} />
             {!!incident.activities?.length && (
               <section className={styles.activityHistory}>
-                <h3>{t.operations.impact}</h3>
+                <h3>
+                  {vi
+                    ? "Lớp học và lịch bị ảnh hưởng"
+                    : "Affected classes & schedules"}
+                </h3>
                 {incident.activities.map((activity) => (
                   <article key={activity.stepId} className={styles.activity}>
                     <header className={styles.activityHeading}>
@@ -77,14 +90,14 @@ export function IncidentDetailsView({ id }: { id: string }) {
                     <dl className={styles.activitySchedules}>
                       {[
                         {
-                          label: t.incidentHistory.originalSchedule,
+                          label: t.classWorkspace.originalSchedule,
                           updated: false,
                           schedule: activity.originalSchedule,
                         },
                         ...(activity.replacementSchedule
                           ? [
                               {
-                                label: t.incidentHistory.updatedSchedule,
+                                label: t.classWorkspace.updatedSchedule,
                                 updated: true,
                                 schedule: activity.replacementSchedule,
                               },
@@ -147,6 +160,7 @@ export function IncidentDetailsView({ id }: { id: string }) {
                 ))}
               </section>
             )}
+            <IncidentDayPassSupport incident={incident} />
             {!!incident.refunds?.length && (
               <IncidentRefundTable
                 readOnly
@@ -173,8 +187,8 @@ export function IncidentDetailsView({ id }: { id: string }) {
                   (activity) => activity.sourceId === row.sessionId,
                 ),
             ).length && (
-              <section className="stack">
-                <h2>{vi ? "Kết quả xử lý buổi học" : "Session outcomes"}</h2>
+              <section className={styles.activityHistory}>
+                <h3>{vi ? "Kết quả xử lý buổi học" : "Session outcomes"}</h3>
                 {incident.sessionReports
                   .filter(
                     (row) =>
