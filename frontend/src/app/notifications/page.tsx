@@ -6,12 +6,12 @@ import { useAuth } from "@/lib/auth";
 export default function Page() {
   const { user } = useAuth();
   return user?.role === "Member" ? (
-    <MemberShell title="Inbox">
+    <MemberShell title="Notifications">
       <MemberNotifications key={user.userId} />
     </MemberShell>
   ) : (
     <AppShell
-      title="Inbox"
+      title="Notifications"
       allow={[
         "Member",
         "Coach",

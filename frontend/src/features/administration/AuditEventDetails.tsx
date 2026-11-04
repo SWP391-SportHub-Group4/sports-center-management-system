@@ -19,7 +19,8 @@ export function AuditEventDetails({
   row: AuditLogDto;
   roomTypes?: RoomTypeDto[];
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const vi = language === "vi";
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const model = auditEventModel(
@@ -28,6 +29,24 @@ export function AuditEventDetails({
     roomTypes,
     user?.role === "CenterManager",
   );
+  const displayValue = (key: string, value: string) => {
+    if (!["sessionId", "makeupSessionId", "replacementSessionId"].includes(key))
+      return value;
+    const session = /^([^·]+) · (.+) · #(\d+)$/.exec(value);
+    if (!session) return value;
+    const [, code, name, number] = session;
+    return (
+      <div className={styles.sessionValue}>
+        <strong>
+          {name} · {vi ? "Buổi" : "Session"} {number}
+        </strong>
+        <span className="small muted">
+          {vi ? "Mã lớp: " : "Class code: "}
+          {code}
+        </span>
+      </div>
+    );
+  };
   return (
     <div className={styles.root}>
       <button
@@ -115,14 +134,22 @@ export function AuditEventDetails({
                     <tbody>
                       {model.fields.map((field) => (
                         <tr key={field.key}>
-                          <th scope="row">{field.label}</th>
+                          <th scope="row">
+                            {field.key === "sessionId"
+                              ? vi
+                                ? "Buổi học liên quan"
+                                : "Related session"
+                              : field.label}
+                          </th>
                           {model.comparison ? (
                             <>
-                              <td>{field.before}</td>
-                              <td className={styles.after}>{field.after}</td>
+                              <td>{displayValue(field.key, field.before)}</td>
+                              <td className={styles.after}>
+                                {displayValue(field.key, field.after)}
+                              </td>
                             </>
                           ) : (
-                            <td>{field.value}</td>
+                            <td>{displayValue(field.key, field.value)}</td>
                           )}
                         </tr>
                       ))}

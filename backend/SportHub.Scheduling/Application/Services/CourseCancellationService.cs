@@ -196,7 +196,7 @@ public sealed class CourseCancellationService(ISportHubDbContext db, IRefundCred
         await db.Entry(course).ReloadAsync(ct);
         course.ThresholdResponseDeadlineUtc = null;
         course.EnrollmentOpen = false;
-        course.Status = ClassStatus.Cancelled; course.Version++;
+        course.Cancel(); course.Version++;
         audit.Write(new(actorId, "CANCEL_CLASS", nameof(Class), classId.ToString(),
             NewValue: JsonSerializer.Serialize(new { current.ConfirmedCount, current.ActiveHoldCount, current.RefundPoints,
                 current.SessionsNotProvided, current.RefundsImmediately, course.ThresholdResponseDeadlineUtc,

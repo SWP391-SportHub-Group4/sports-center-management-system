@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Configuration;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.Scheduling.Application.Commands;
@@ -18,6 +19,8 @@ public sealed partial class RoomService
         var setup = request.RentalSetup;
         if (setup is null || setup.Hours is null || setup.Hours.Count is < 1 or > 7)
             throw new BadRequestException("invalid_rental_setup", "Choose at least one rental day and enter an hourly price.");
+        if (setup.SportId is not int sportId || !await db.Set<Sport>().AnyAsync(s => s.SportId == sportId && s.IsActive && s.Code != "gym", ct))
+            throw new BadRequestException("invalid_rental_sport", "Choose an active sport for this rental court.");
         if (setup.PricePerHour < 2000 || setup.PricePerHour % 2000 != 0)
             throw new BadRequestException("invalid_price", "Enter a positive hourly price in steps of 2,000 VND.");
         var hours = setup.Hours.Select(h => new RoomOpeningHour {
@@ -36,7 +39,7 @@ public sealed partial class RoomService
     {
         if (!room.AllowRental) return [];
         var rates = hours.GroupBy(h => new { h.OpenTimeLocal, h.CloseTimeLocal }).Select(group => new CourtRate {
-            RoomId = room.RoomId, RoomTypeId = room.RoomTypeId!.Value, SportId = null, IsActive = true,
+            RoomId = room.RoomId, RoomTypeId = room.RoomTypeId!.Value, SportId = request.RentalSetup!.SportId, IsActive = true,
             DaysOfWeek = string.Join(",", group.Select(h => RentalDays[h.DayOfWeek])),
             StartTimeLocal = group.Key.OpenTimeLocal, EndTimeLocal = group.Key.CloseTimeLocal,
             PricePerHour = request.RentalSetup!.PricePerHour

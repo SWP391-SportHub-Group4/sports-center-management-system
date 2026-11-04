@@ -16,6 +16,11 @@
 }
 .page [role="tablist"] {
   min-width: 0;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.page [role="tablist"]::-webkit-scrollbar {
+  display: none;
 }
 .page [role="tab"] {
   position: relative;

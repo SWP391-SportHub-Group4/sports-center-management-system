@@ -13,6 +13,7 @@ import { AsyncSection, Field } from "@/components/ui";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import type { RoomDto } from "@/lib/types";
+import { catalogApi } from "./api";
 import styles from "./create-room-form.module.css";
 
 const weekOrder = [1, 2, 3, 4, 5, 6, 0];
@@ -31,6 +32,7 @@ export function CreateRoomForm({
   const [name, setName] = useState("");
   const [capacity, setCapacity] = useState(12);
   const [allowRental, setAllowRental] = useState(false);
+  const [sportId, setSportId] = useState("");
   const [price, setPrice] = useState("");
   const [days, setDays] = useState(
     weekOrder.map((dayOfWeek) => ({
@@ -44,6 +46,17 @@ export function CreateRoomForm({
   const center = useApi(
     (signal) => (allowRental ? loadCenterHours(signal) : Promise.resolve(null)),
     [allowRental],
+  );
+  const sports = useApi(
+    (signal) =>
+      allowRental ? catalogApi.sports(signal, true) : Promise.resolve([]),
+    [allowRental],
+  );
+  const rentalSports = (sports.data ?? []).filter(
+    (sport) => sport.isActive && sport.code !== "gym",
+  );
+  const validSport = rentalSports.some(
+    (sport) => sport.sportId === Number(sportId),
   );
   const mutation = useMutation();
   useEffect(() => {
@@ -106,10 +119,15 @@ export function CreateRoomForm({
         setValidation("");
         if (
           allowRental &&
-          (center.loading || !center.data || priceInvalid || scheduleError)
+          (center.loading ||
+            !center.data ||
+            !validSport ||
+            priceInvalid ||
+            scheduleError)
         ) {
           setValidation(
-            scheduleError ??
+            (!validSport ? copy.rentalSportRequired : undefined) ??
+              scheduleError ??
               (priceInvalid ? copy.rentalPriceHint : copy.rentalHoursLoading),
           );
           return;
@@ -123,7 +141,13 @@ export function CreateRoomForm({
               isActive: true,
               allowRental,
               ...(allowRental
-                ? { rentalSetup: { pricePerHour: Number(price), hours } }
+                ? {
+                    rentalSetup: {
+                      sportId: Number(sportId),
+                      pricePerHour: Number(price),
+                      hours,
+                    },
+                  }
                 : {}),
             });
           })
@@ -174,6 +198,36 @@ export function CreateRoomForm({
                   className={styles.rental}
                   aria-label={copy.rentalSchedule}
                 >
+                  <AsyncSection state={sports}>
+                    {() => (
+                      <>
+                        <Field
+                          label={t.operations.sport}
+                          required
+                          hint={copy.rentalSportHint}
+                        >
+                          <select
+                            required
+                            value={sportId}
+                            onChange={(event) => {
+                              setSportId(event.target.value);
+                              setValidation("");
+                            }}
+                          >
+                            <option value="">{copy.rentalSportRequired}</option>
+                            {rentalSports.map((sport) => (
+                              <option key={sport.sportId} value={sport.sportId}>
+                                {sport.name}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                        {!rentalSports.length && (
+                          <p role="status">{copy.noRentalSports}</p>
+                        )}
+                      </>
+                    )}
+                  </AsyncSection>
                   <Field
                     label={copy.pricePerHour}
                     required
@@ -281,7 +335,11 @@ export function CreateRoomForm({
           disabled={
             mutation.busy ||
             (allowRental &&
-              (center.loading || !center.data || Boolean(scheduleError)))
+              (center.loading ||
+                !center.data ||
+                sports.loading ||
+                !validSport ||
+                Boolean(scheduleError)))
           }
         >
           {mutation.busy ? t.common.loading : t.operations.save}

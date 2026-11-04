@@ -38,6 +38,8 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit, 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await LockRoomTypesAsync([request.RoomTypeId], ct);
         await ApplyAsync(rate, request, existingId: null, ct);
+        if (rate.IsActive && rate.RoomId is not null && rate.SportId is int sportId)
+            await RentalSportOffering.EnableAsync(db, audit, sportId, actorUserId, ct);
         db.Set<CourtRate>().Add(rate);
         await db.SaveChangesAsync(ct);
 
@@ -59,6 +61,8 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit, 
 
         var before = await DescribeAsync(rate, ct);
         await ApplyAsync(rate, request, rateId, ct);
+        if (rate.IsActive && rate.RoomId is not null && rate.SportId is int sportId)
+            await RentalSportOffering.EnableAsync(db, audit, sportId, actorUserId, ct);
 
         audit.Write(new AuditEntry(actorUserId, "UPDATE_COURT_RATE", nameof(CourtRate), rateId.ToString(),
             OldValue: before, NewValue: await DescribeAsync(rate, ct)));

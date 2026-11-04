@@ -72,22 +72,124 @@ function GiftHistory({
   const { language } = useLanguage();
   const vi = language === "vi";
   const [page, setPage] = useState(1);
+  const emptyFilters = { member: "", manager: "", fromDate: "", toDate: "" };
+  const [draft, setDraft] = useState(emptyFilters);
+  const [filters, setFilters] = useState(emptyFilters);
+  const [filterError, setFilterError] = useState("");
   const state = useApi(
     (signal) =>
       api.get<Paged<Gift>>("/api/manager/point-gifts", {
         signal,
-        query: { incidentId, page, pageSize: 20 },
+        query: {
+          incidentId,
+          page,
+          pageSize: 10,
+          member: filters.member || undefined,
+          manager: filters.manager || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+        },
       }),
-    [incidentId, page, revision],
+    [
+      incidentId,
+      page,
+      revision,
+      filters.member,
+      filters.manager,
+      filters.fromDate,
+      filters.toDate,
+    ],
   );
   return (
-    <Card title={vi ? "Lịch sử tặng điểm" : "Gift history"}>
+    <>
+      <form
+        className={styles.historyFilters}
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (draft.fromDate && draft.toDate && draft.fromDate > draft.toDate) {
+            setFilterError(
+              vi
+                ? "Ngày kết thúc phải từ ngày bắt đầu trở đi."
+                : "To must be on or after From.",
+            );
+            return;
+          }
+          setFilterError("");
+          setFilters({
+            ...draft,
+            member: draft.member.trim(),
+            manager: draft.manager.trim(),
+          });
+          setPage(1);
+        }}
+        onReset={() => {
+          setDraft(emptyFilters);
+          setFilters(emptyFilters);
+          setFilterError("");
+          setPage(1);
+        }}
+      >
+        <div className={styles.historyFilterGrid}>
+          <Field label={vi ? "Hội viên" : "Member"}>
+            <input
+              type="search"
+              value={draft.member}
+              onChange={(event) =>
+                setDraft({ ...draft, member: event.target.value })
+              }
+            />
+          </Field>
+          <Field label={vi ? "Quản lý" : "Manager"}>
+            <input
+              type="search"
+              value={draft.manager}
+              onChange={(event) =>
+                setDraft({ ...draft, manager: event.target.value })
+              }
+            />
+          </Field>
+          <Field label={vi ? "Từ" : "From"}>
+            <input
+              type="date"
+              value={draft.fromDate}
+              onChange={(event) =>
+                setDraft({ ...draft, fromDate: event.target.value })
+              }
+            />
+          </Field>
+          <Field label={vi ? "Đến" : "To"}>
+            <input
+              type="date"
+              value={draft.toDate}
+              onChange={(event) =>
+                setDraft({ ...draft, toDate: event.target.value })
+              }
+            />
+          </Field>
+        </div>
+        {filterError && <p role="alert">{filterError}</p>}
+        <div className={`btn-row ${styles.historyFilterActions}`}>
+          <button type="submit" className="btn">
+            {vi ? "Lọc" : "Apply"}
+          </button>
+          <button type="reset" className="btn btn--ghost">
+            {vi ? "Xóa lọc" : "Clear"}
+          </button>
+        </div>
+      </form>
       <AsyncSection state={state}>
         {(data) => (
           <>
             {!data.totalCount ? (
               <p>
-                {vi ? "Chưa có khoản tặng điểm nào." : "No points gifts yet."}
+                {Object.values(filters).some(Boolean)
+                  ? vi
+                    ? "Không có lịch sử phù hợp."
+                    : "No matching gifts."
+                  : vi
+                    ? "Chưa có khoản tặng điểm nào."
+                    : "No points gifts yet."}
               </p>
             ) : (
               <Table
@@ -134,11 +236,16 @@ function GiftHistory({
           </>
         )}
       </AsyncSection>
-    </Card>
+    </>
   );
 }
 
-export function PointGifts({ onGifted }: { onGifted?: () => void }) {
+type GiftComposerProps = {
+  onGifted?: () => void;
+  onManageWallet?: (recipient: Recipient) => void;
+};
+
+export function PointGifts({ onGifted, onManageWallet }: GiftComposerProps) {
   const params = useSearchParams();
   const incidentId = params.get("incidentId") || undefined;
   // Context changes remount the selection and recovery state rather than reusing another incident's draft.
@@ -147,6 +254,7 @@ export function PointGifts({ onGifted }: { onGifted?: () => void }) {
       key={incidentId ?? "general"}
       incidentId={incidentId}
       onGifted={onGifted}
+      onManageWallet={onManageWallet}
     />
   );
 }
@@ -154,9 +262,9 @@ export function PointGifts({ onGifted }: { onGifted?: () => void }) {
 function GiftComposer({
   incidentId,
   onGifted,
-}: {
+  onManageWallet,
+}: GiftComposerProps & {
   incidentId?: string;
-  onGifted?: () => void;
 }) {
   const { language } = useLanguage();
   const { user } = useAuth();
@@ -167,11 +275,12 @@ function GiftComposer({
   const [allSelected, setAllSelected] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
   const [selectingAll, setSelectingAll] = useState(false);
-  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Record<string, Selected>>({});
   const [points, setPoints] = useState("1");
   const [reason, setReason] = useState("");
   const [revision, setRevision] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showComposer, setShowComposer] = useState(false);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [error, setError] = useState("");
@@ -213,20 +322,36 @@ function GiftComposer({
     [],
   );
   const recipients = useApi(
-    (signal) =>
-      api.get<Paged<Recipient>>("/api/manager/point-gifts/recipients", {
-        signal,
-        query: {
-          incidentId,
-          keyword,
-          sportId: sportId && sportId !== "unregistered" ? sportId : undefined,
-          unregistered: sportId === "unregistered" || undefined,
-          classId: classId || undefined,
-          page,
-          pageSize: 20,
-        },
-      }),
-    [incidentId, keyword, sportId, classId, page, revision],
+    async (signal) => {
+      const items: Recipient[] = [];
+      let currentPage = 1;
+      let result: Paged<Recipient>;
+      do {
+        result = await api.get<Paged<Recipient>>(
+          "/api/manager/point-gifts/recipients",
+          {
+            signal,
+            query: {
+              incidentId,
+              keyword,
+              sportId:
+                sportId && sportId !== "unregistered" ? sportId : undefined,
+              unregistered: sportId === "unregistered" || undefined,
+              classId: classId || undefined,
+              page: currentPage,
+              pageSize: 100,
+            },
+          },
+        );
+        items.push(...result.items);
+        currentPage++;
+      } while (
+        result.items.length > 0 &&
+        (currentPage - 1) * result.pageSize < result.totalCount
+      );
+      return { ...result, items };
+    },
+    [incidentId, keyword, sportId, classId, revision],
   );
   const rows = Object.values(selected);
   const valid =
@@ -239,9 +364,6 @@ function GiftComposer({
     );
   function filter(set: (s: string) => void, value: string) {
     set(value);
-    setPage(1);
-    setAllSelected(false);
-    setBulkSelectedIds([]);
   }
   function remove(id: string) {
     setAllSelected(false);
@@ -314,12 +436,18 @@ function GiftComposer({
     }
   }
   async function send() {
-    if (!review || lock.current) return;
+    if (lock.current || (!pending && !valid)) return;
     lock.current = true;
     setBusy(true);
     setError("");
     setSuccess("");
-    const intent = pending ?? review;
+    const intent = pending ?? {
+      batchId: crypto.randomUUID(),
+      incidentId,
+      reason: reason.trim(),
+      recipients: rows.map((r) => ({ ...r, points: Number(r.points) })),
+    };
+    setReview(intent);
     setPending(intent);
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(intent));
@@ -344,6 +472,7 @@ function GiftComposer({
       }
       setPending(null);
       setReview(null);
+      setShowComposer(false);
       setSelected({});
       setAllSelected(false);
       setBulkSelectedIds([]);
@@ -366,6 +495,7 @@ function GiftComposer({
         e.status !== 429
       ) {
         setPending(null);
+        setReview(null);
         try {
           sessionStorage.removeItem(storageKey);
         } catch {
@@ -387,6 +517,7 @@ function GiftComposer({
   function closeReview() {
     if (busy || pending) return;
     setReview(null);
+    setShowComposer(false);
     setError("");
   }
   function changeCommonPoints(value: string) {
@@ -413,12 +544,23 @@ function GiftComposer({
   }
   return (
     <div className="stack">
-      <Card title={vi ? "Tặng điểm" : "Gift points"}>
-        <p>
-          {vi
-            ? "Chọn người nhận, nhập số điểm và lý do. Xác nhận sẽ cộng điểm ngay vào ví."
-            : "Select recipients, enter points and a reason. Confirmation adds points to their wallets immediately."}
-        </p>
+      <Card
+        title={vi ? "Tặng điểm" : "Gift points"}
+        actions={
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn btn--secondary"
+              aria-haspopup="dialog"
+              aria-expanded={showHistory}
+              disabled={!!review}
+              onClick={() => setShowHistory(true)}
+            >
+              {vi ? "Lịch sử tặng điểm" : "Gift history"}
+            </button>
+          </div>
+        }
+      >
         {incidentId && (
           <p>
             <Link href={`/manager/incidents/${incidentId}`}>
@@ -433,7 +575,7 @@ function GiftComposer({
           </p>
         )}
         {success && <p role="status">{success}</p>}
-        {error && !review && <p role="alert">{error}</p>}
+        {error && !review && !showComposer && <p role="alert">{error}</p>}
         <fieldset className={styles.form} disabled={!!review || selectingAll}>
           <div className={styles.filters}>
             <Field label={vi ? "Tên hoặc email" : "Name or email"}>
@@ -490,11 +632,6 @@ function GiftComposer({
               </button>
             </p>
           )}
-          <p className="small muted">
-            {vi
-              ? "Tặng điểm cho mọi hội viên, kể cả chưa mua gì. Các lựa chọn được giữ khi tìm kiếm hoặc đổi bộ lọc."
-              : "Gift points to any member, including those with no purchases. Selections are kept when searching or changing filters."}
-          </p>
           <ActivitySwitch
             checked={allSelected}
             onChange={(checked) => void selectAll(checked)}
@@ -510,9 +647,7 @@ function GiftComposer({
                 ? vi
                   ? "Đang tải toàn bộ người nhận…"
                   : "Loading all recipients…"
-                : vi
-                  ? "Chọn mọi hội viên khớp bộ lọc trên tất cả các trang."
-                  : "Select every matching member across all pages."
+                : ""
             }
           />
           <span className="small muted" role="status">
@@ -545,27 +680,18 @@ function GiftComposer({
                       : "No matching members. Try changing the filters."}
                   </p>
                 ) : (
-                  <div className={styles.selectionTable}>
+                  <div
+                    className={`${styles.selectionTable} ${styles.recipientTable}`}
+                  >
                     <Table
                       headers={[
-                        vi ? "Hội viên" : "Member",
                         vi ? "Chọn" : "Select",
+                        vi ? "Hội viên" : "Member",
+                        vi ? "Thao tác" : "Actions",
                       ]}
                     >
                       {data.items.map((r) => (
                         <tr key={r.memberId}>
-                          <td>
-                            {r.name}
-                            <br />
-                            <small>{r.email}</small>
-                            {r.alreadyGifted && (
-                              <p className="small muted">
-                                {vi
-                                  ? "Đã tặng cho sự cố này"
-                                  : "Already gifted for this incident"}
-                              </p>
-                            )}
-                          </td>
                           <td>
                             <input
                               type="checkbox"
@@ -586,185 +712,76 @@ function GiftComposer({
                               }
                             />
                           </td>
+                          <td>
+                            {r.name}
+                            <br />
+                            <small>{r.email}</small>
+                            {r.alreadyGifted && (
+                              <p className="small muted">
+                                {vi
+                                  ? "Đã tặng cho sự cố này"
+                                  : "Already gifted for this incident"}
+                              </p>
+                            )}
+                          </td>
+
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn--secondary"
+                              onClick={() => onManageWallet?.(r)}
+                            >
+                              {vi ? "Quản lý ví" : "Wallet management"}
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </Table>
                   </div>
                 )}
-                <Pager
-                  page={data.page}
-                  pageSize={data.pageSize}
-                  totalCount={data.totalCount}
-                  onChange={setPage}
-                />
               </>
             )}
           </AsyncSection>
-          <section
-            className="stack"
-            aria-label={vi ? "Người nhận đã chọn" : "Selected recipients"}
-          >
-            <h3>
-              {vi ? "Người nhận đã chọn" : "Selected recipients"} ({rows.length}
-              )
-            </h3>
-            <div className={styles.commonPoints}>
-              {limits.loading && (
-                <p role="status">
-                  {vi
-                    ? "Đang tải giới hạn tặng điểm…"
-                    : "Loading the gift limit…"}
-                </p>
-              )}
-              {limits.error && (
-                <div role="alert">
-                  <p>
-                    {vi
-                      ? "Không tải được giới hạn tặng điểm. Vui lòng thử lại."
-                      : "Could not load the gift limit. Please retry."}
-                  </p>
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={limits.reload}
-                  >
-                    {vi ? "Thử lại" : "Retry limit"}
-                  </button>
-                </div>
-              )}
-              {limits.data && (
-                <p className="small muted">
-                  {vi ? "Giới hạn mỗi người" : "Maximum per recipient"}:{" "}
-                  {formatPoints(limits.data.maxPoints)} {vi ? "điểm" : "points"}{" "}
-                  · {vi ? "Mỗi lần tặng" : "Per submission"} · 1{" "}
-                  {vi ? "điểm" : "point"} ={" "}
-                  {formatMoney(limits.data.vndPerPoint)}
-                </p>
-              )}
-              <Field
-                label={vi ? "Số điểm chung" : "Common points amount"}
-                error={pointError(points)}
-                hint={
-                  vi
-                    ? "Áp dụng cùng số điểm cho tất cả người nhận đã chọn."
-                    : "The same points amount applies to all selected recipients."
-                }
-              >
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  disabled={limits.loading || !limits.data}
-                  value={points}
-                  onChange={(e) => changeCommonPoints(e.target.value)}
-                />
-              </Field>
-            </div>
-            {rows.some((r) => r.requiresAgreement) && (
-              <div
-                className="stack"
-                role="group"
-                aria-label={vi ? "Đồng ý nhận điểm" : "Recipient agreements"}
-              >
-                {rows
-                  .filter((r) => r.requiresAgreement)
-                  .map((r) => (
-                    <label key={r.memberId}>
-                      <input
-                        type="checkbox"
-                        checked={r.memberAgreed}
-                        onChange={(event) =>
-                          setSelected((current) => ({
-                            ...current,
-                            [r.memberId]: {
-                              ...r,
-                              memberAgreed: event.target.checked,
-                            },
-                          }))
-                        }
-                      />{" "}
-                      {vi
-                        ? "Member đã đồng ý nhận điểm"
-                        : "Member agreed to receive points"}
-                      : {r.name}
-                    </label>
-                  ))}
-              </div>
-            )}
-            <Field
-              label={
-                vi ? "Lý do tặng điểm (bắt buộc)" : "Gift reason (required)"
-              }
-            >
-              <textarea
-                value={reason}
-                minLength={3}
-                maxLength={1000}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </Field>
-            <p>
-              {vi ? "Tổng điểm đã chọn" : "Selected points total"}:{" "}
-              {rows.every((r) => validPoints(r.points))
-                ? formatPoints(rows.reduce((n, r) => n + Number(r.points), 0))
-                : "—"}
-            </p>
-            <button
-              className="btn"
-              disabled={!valid}
-              onClick={() => {
-                setError("");
-                setSuccess("");
-                setReview({
-                  batchId: crypto.randomUUID(),
-                  incidentId,
-                  reason: reason.trim(),
-                  recipients: rows.map((r) => ({
-                    ...r,
-                    points: Number(r.points),
-                  })),
-                });
-              }}
-            >
-              {vi ? "Xem lại khoản tặng" : "Review gift"}
-            </button>
-          </section>
         </fieldset>
+        <div className={styles.giftActions}>
+          <button
+            type="button"
+            className="btn"
+            aria-haspopup="dialog"
+            disabled={!rows.length || selectingAll || !!review}
+            onClick={() => {
+              setError("");
+              setSuccess("");
+              setShowComposer(true);
+            }}
+          >
+            {vi ? "Tặng điểm" : "Gift points"} ({rows.length})
+          </button>
+        </div>
       </Card>
-      {review &&
+      {(showComposer || review) &&
         createPortal(
           <Dialog
-            title={vi ? "Xem lại khoản tặng" : "Review gift"}
+            title={vi ? "Tặng điểm" : "Gift points"}
             size="lg"
+            className={styles.giftDialog}
+            closeIconOnly
             onClose={closeReview}
             showCloseButton={!busy && !pending}
-            description={
-              vi
-                ? "Kiểm tra danh sách người nhận, số điểm và lý do trước khi xác nhận."
-                : "Check the recipients, gift amounts and reason before confirming."
-            }
             footer={
               <div className="btn-row">
-                {!pending && (
-                  <button
-                    className="btn btn--secondary"
-                    disabled={busy}
-                    onClick={closeReview}
-                  >
-                    {vi ? "Quay lại chỉnh sửa" : "Back to edit"}
-                  </button>
-                )}
                 <button
+                  type="button"
+                  className="btn btn--secondary"
+                  disabled={busy || !!pending}
+                  onClick={closeReview}
+                >
+                  {vi ? "Hủy" : "Cancel"}
+                </button>
+                <button
+                  type="button"
                   className="btn"
-                  disabled={
-                    busy ||
-                    (!pending &&
-                      (limits.loading ||
-                        !limits.data ||
-                        review.recipients.some(
-                          (r) => r.points > limits.data!.maxPoints,
-                        )))
-                  }
+                  disabled={busy || (!pending && !valid)}
                   onClick={() => void send()}
                 >
                   {busy
@@ -783,41 +800,177 @@ function GiftComposer({
             }
           >
             <div className="stack">
-              <h3>{vi ? "Danh sách người nhận" : "Gift recipients"}</h3>
-              <Table
-                headers={[
-                  vi ? "Hội viên" : "Member",
-                  vi ? "Điểm được tặng" : "Gift points",
-                ]}
-              >
-                {review.recipients.map((r) => (
-                  <tr key={r.memberId}>
-                    <td>
-                      {r.name}
-                      <br />
-                      <small>{r.email}</small>
-                    </td>
-                    <td>{formatPoints(r.points)}</td>
-                  </tr>
-                ))}
-              </Table>
-              <section>
-                <h3>{vi ? "Lý do tặng" : "Gift reason"}</h3>
-                <p className={styles.reason}>{review.reason}</p>
-              </section>
-              {error && <p role="alert">{error}</p>}
-              {pending && (
-                <p role="status">
-                  {vi
-                    ? "Đang chờ xác nhận kết quả. Thử lại cùng khoản tặng để tránh cộng trùng."
-                    : "The result is unconfirmed. Retry the same gift safely; points will not be added twice."}
-                </p>
+              <div className={styles.selectionTable}>
+                <Table
+                  headers={[
+                    vi ? "Hội viên" : "Member",
+                    vi ? "Điểm được tặng" : "Gift points",
+                  ]}
+                >
+                  {(pending?.recipients ?? rows).map((r) => (
+                    <tr key={r.memberId}>
+                      <td>
+                        {r.name}
+                        <br />
+                        <small>{r.email}</small>
+                      </td>
+                      <td>{formatPoints(Number(r.points))}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+              {pending ? (
+                <>
+                  <p>
+                    {vi ? "Lý do" : "Gift reason"}: {pending.reason}
+                  </p>
+                  <p role="status">
+                    {vi
+                      ? "Kết quả chưa được xác nhận. Thử lại cùng khoản tặng để tránh cộng trùng."
+                      : "The result is unconfirmed. Retry the same gift safely; points will not be added twice."}
+                  </p>
+                </>
+              ) : (
+                <fieldset className={styles.form} disabled={busy}>
+                  <section
+                    className="stack"
+                    aria-label={
+                      vi ? "Người nhận đã chọn" : "Selected recipients"
+                    }
+                  >
+                    <h3>
+                      {vi ? "Người nhận đã chọn" : "Selected recipients"} (
+                      {rows.length})
+                    </h3>
+                    <div className={styles.commonPoints}>
+                      {limits.loading && (
+                        <p role="status">
+                          {vi
+                            ? "Đang tải giới hạn tặng điểm…"
+                            : "Loading the gift limit…"}
+                        </p>
+                      )}
+                      {limits.error && (
+                        <div role="alert">
+                          <p>
+                            {vi
+                              ? "Không tải được giới hạn tặng điểm. Vui lòng thử lại."
+                              : "Could not load the gift limit. Please retry."}
+                          </p>
+                          <button
+                            type="button"
+                            className="btn btn--secondary"
+                            onClick={limits.reload}
+                          >
+                            {vi ? "Thử lại" : "Retry limit"}
+                          </button>
+                        </div>
+                      )}
+                      {limits.data && (
+                        <p className="small muted">
+                          {vi ? "Giới hạn mỗi người" : "Maximum per recipient"}:{" "}
+                          {formatPoints(limits.data.maxPoints)}{" "}
+                          {vi ? "điểm" : "points"} ·{" "}
+                          {vi ? "Mỗi lần tặng" : "Per submission"} · 1{" "}
+                          {vi ? "điểm" : "point"} ={" "}
+                          {formatMoney(limits.data.vndPerPoint)}
+                        </p>
+                      )}
+                      <Field
+                        label={vi ? "Số điểm chung" : "Common points amount"}
+                        error={pointError(points)}
+                        hint={
+                          vi
+                            ? "Áp dụng cùng số điểm cho tất cả người nhận đã chọn."
+                            : "The same points amount applies to all selected recipients."
+                        }
+                      >
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          disabled={limits.loading || !limits.data}
+                          value={points}
+                          onChange={(e) => changeCommonPoints(e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                    {rows.some((r) => r.requiresAgreement) && (
+                      <div
+                        className="stack"
+                        role="group"
+                        aria-label={
+                          vi ? "Đồng ý nhận điểm" : "Recipient agreements"
+                        }
+                      >
+                        {rows
+                          .filter((r) => r.requiresAgreement)
+                          .map((r) => (
+                            <label key={r.memberId}>
+                              <input
+                                type="checkbox"
+                                checked={r.memberAgreed}
+                                onChange={(event) =>
+                                  setSelected((current) => ({
+                                    ...current,
+                                    [r.memberId]: {
+                                      ...r,
+                                      memberAgreed: event.target.checked,
+                                    },
+                                  }))
+                                }
+                              />{" "}
+                              {vi
+                                ? "Member đã đồng ý nhận điểm"
+                                : "Member agreed to receive points"}
+                              : {r.name}
+                            </label>
+                          ))}
+                      </div>
+                    )}
+                    <Field
+                      label={
+                        vi
+                          ? "Lý do tặng điểm (bắt buộc)"
+                          : "Gift reason (required)"
+                      }
+                    >
+                      <textarea
+                        value={reason}
+                        minLength={3}
+                        maxLength={1000}
+                        onChange={(e) => setReason(e.target.value)}
+                      />
+                    </Field>
+                    <p>
+                      {vi ? "Tổng điểm đã chọn" : "Selected points total"}:{" "}
+                      {rows.every((r) => validPoints(r.points))
+                        ? formatPoints(
+                            rows.reduce((n, r) => n + Number(r.points), 0),
+                          )
+                        : "—"}
+                    </p>
+                  </section>
+                </fieldset>
               )}
+              {error && <p role="alert">{error}</p>}
             </div>
           </Dialog>,
           document.body,
         )}
-      <GiftHistory incidentId={incidentId} revision={revision} />
+      {showHistory &&
+        createPortal(
+          <Dialog
+            title={vi ? "Lịch sử tặng điểm" : "Gift history"}
+            size="lg"
+            className={styles.historyDialog}
+            closeIconOnly
+            onClose={() => setShowHistory(false)}
+          >
+            <GiftHistory incidentId={incidentId} revision={revision} />
+          </Dialog>,
+          document.body,
+        )}
     </div>
   );
 }

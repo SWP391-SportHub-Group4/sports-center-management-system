@@ -23,6 +23,7 @@ import { LanguageProvider } from "@/lib/language";
 import { SiteFooter } from "@/components/SiteFooter";
 import { HomepageBackdrop } from "@/components/homepage/HeroArenaVideo";
 import { StartupExperience } from "@/components/loading/StartupExperience";
+import { NumberInputWheelGuard } from "@/components/NumberInputWheelGuard";
 
 export const metadata: Metadata = {
   title: "SportHub | Sports Center Management",
@@ -43,6 +44,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <NumberInputWheelGuard />
         {/* AuthProvider and LanguageProvider wrap the entire application */}
         <LanguageProvider>
           <AuthProvider>

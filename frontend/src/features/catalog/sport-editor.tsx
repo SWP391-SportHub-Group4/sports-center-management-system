@@ -8,6 +8,7 @@ import {
   type SportImageEditorHandle,
 } from "./sport-image-editor";
 import { useLanguage } from "@/lib/language";
+import { useApi } from "@/lib/useApi";
 import { Field } from "@/components/ui";
 import { useMutation } from "@/features/operations";
 import type { SportDto } from "@/lib/types";
@@ -17,7 +18,6 @@ import { SportDeactivationDialog } from "./sport-deactivation-dialog";
 
 interface FormState {
   isActive: boolean;
-  code: string;
   name: string;
   description: string;
   imageUrl: string;
@@ -25,7 +25,6 @@ interface FormState {
 }
 const empty: FormState = {
   isActive: true,
-  code: "",
   name: "",
   services: [
     {
@@ -59,7 +58,6 @@ export function SportEditor({
     row
       ? {
           isActive: row.isActive,
-          code: row.code,
           name: row.name,
           description: row.description ?? "",
           imageUrl: row.imageUrl ?? "",
@@ -68,21 +66,34 @@ export function SportEditor({
       : empty,
   );
   const editor = { id: row?.sportId ?? null };
-  const codeError =
-    mutation.error?.code === "sport_code_taken"
-      ? c.duplicateSportCode
-      : undefined;
+  const name = form.name.trim();
+  const availability = useApi(
+    (signal) =>
+      name
+        ? catalogApi.sportNameAvailability(name, row?.sportId, signal)
+        : Promise.resolve({ name, isValid: true, isAvailable: true }),
+    [name, row?.sportId],
+  );
+  const checked = availability.data?.name === name ? availability.data : null;
   const nameError =
-    mutation.error?.code === "sport_name_taken" ? c.duplicateName : undefined;
+    checked && !checked.isValid
+      ? c.invalidSportName
+      : (checked && !checked.isAvailable) ||
+          mutation.error?.code === "sport_name_taken" ||
+          mutation.error?.code === "sport_code_taken"
+        ? c.duplicateSport
+        : mutation.error?.code === "sport_name_invalid"
+          ? c.invalidSportName
+          : undefined;
   return (
     <>
       <CatalogFormDialog
         title={editor.id === null ? c.createSport : c.editSport}
         busy={mutation.busy}
-        canSubmit={!preparingImage}
+        canSubmit={!preparingImage && !nameError && !availability.loading}
         mutation={{
           ...mutation,
-          error: codeError || nameError ? null : mutation.error,
+          error: nameError ? null : mutation.error,
         }}
         onClose={() => {
           mutation.reset();
@@ -90,11 +101,8 @@ export function SportEditor({
         }}
         onSubmit={async (e) => {
           e.preventDefault();
-          if (preparingImage) return;
+          if (preparingImage || nameError || availability.loading) return;
           const body: SaveSport = {
-            ...(editor.id === null
-              ? { code: form.code.trim().toLowerCase() }
-              : {}),
             isActive: form.isActive,
             name: form.name.trim(),
             description: form.description,
@@ -144,32 +152,18 @@ export function SportEditor({
             }}
           />
         )}
-        <div className="form-grid">
-          <Field
-            label={l.code}
-            required={editor.id === null}
-            hint={l.codeHint}
-            error={codeError}
-          >
-            <input
-              required={editor.id === null}
-              disabled={editor.id !== null}
-              maxLength={32}
-              pattern="[a-z0-9_]{2,32}"
-              value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value })}
-            />
-          </Field>
-          <Field label={l.name} required error={nameError}>
-            <input
-              required
-              pattern=".*\S.*"
-              maxLength={100}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </Field>
-        </div>
+        <Field label={l.name} required error={nameError}>
+          <input
+            required
+            pattern=".*\S.*"
+            maxLength={100}
+            value={form.name}
+            onChange={(e) => {
+              mutation.reset();
+              setForm({ ...form, name: e.target.value });
+            }}
+          />
+        </Field>
         <SportImageEditor
           ref={imageEditor}
           value={form.imageUrl}

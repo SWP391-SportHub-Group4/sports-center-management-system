@@ -481,7 +481,7 @@ test("manager wallets provide history without manual adjustments", async ({
   await page.goto("/manager/points");
   await expect(
     page.getByRole("link", { name: "Reports · Points" }),
-  ).toHaveAttribute("href", "/manager/reports?tab=points");
+  ).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Points activity", exact: true }),
   ).toHaveCount(0);
@@ -501,6 +501,42 @@ test("manager wallets provide history without manual adjustments", async ({
   expect(calls.some((c) => c.path.includes("adjustments"))).toBe(false);
 });
 
+test("number inputs ignore the mouse wheel and retain focus and keyboard editing", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto("/manager/facilities");
+  await page.getByRole("button", { name: "Create room", exact: true }).click();
+  const capacity = page.getByRole("dialog").getByRole("spinbutton");
+  await capacity.fill("12");
+  await capacity.hover();
+  for (const deltaY of [-100, 100]) {
+    await Promise.all([
+      page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            document.addEventListener(
+              "wheel",
+              () => {
+                requestAnimationFrame(() =>
+                  requestAnimationFrame(() => resolve()),
+                );
+              },
+              { once: true },
+            );
+          }),
+      ),
+      page.mouse.wheel(0, deltaY),
+    ]);
+    await expect(capacity).toHaveValue("12");
+    await expect(capacity).toBeFocused();
+  }
+  await capacity.press("ArrowUp");
+  await expect(capacity).toHaveValue("13");
+  await capacity.fill("24");
+  await expect(capacity).toHaveValue("24");
+});
+
 test("membership buyer list is scoped to the chosen plan and links to member details", async ({
   page,
 }) => {
@@ -510,9 +546,9 @@ test("membership buyer list is scoped to the chosen plan and links to member det
     (req) => new URL(req.url()).pathname === "/api/member-packages",
   );
   await page.getByRole("button", { name: "View members", exact: true }).click();
-  expect(new URL((await request).url()).searchParams.get("packageId")).toBe(
-    "1",
-  );
+  const query = new URL((await request).url()).searchParams;
+  expect(query.get("packageId")).toBe("1");
+  expect(query.get("currentMembersOnly")).toBe("true");
   await expect(
     page
       .getByRole("dialog")

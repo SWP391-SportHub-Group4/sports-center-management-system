@@ -31,6 +31,11 @@ public class SportsController(SportCatalogService sports) : ControllerBase
         => Ok(await sports.ListAsync(includeInactive: true, ct, ParseService(service)));
 
     [Authorize(Policy = SportHubPolicies.CatalogManage)]
+    [HttpGet("api/manager/sports/name-availability")]
+    public async Task<IActionResult> NameAvailability([FromQuery] string name, [FromQuery] int? excludeSportId, CancellationToken ct)
+        => Ok(await sports.CheckNameAsync(name, excludeSportId, ct));
+
+    [Authorize(Policy = SportHubPolicies.CatalogManage)]
     [HttpPost("api/manager/sports")]
     public async Task<IActionResult> Create([FromBody] SaveSportRequest request, CancellationToken ct)
         => StatusCode(StatusCodes.Status201Created, await sports.CreateAsync(request, User.RequireUserId(), ct));

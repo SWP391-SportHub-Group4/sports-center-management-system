@@ -10,19 +10,21 @@ export function ScheduleRuleEditor({
   minStart,
   maxStart,
   timeError,
+  className = "",
 }: {
   value: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
   minStart?: string;
   maxStart?: string;
   timeError?: string;
+  className?: string;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
   const notice = useOperatingHoursPopup();
   return (
     <fieldset
-      className={styles.scheduleRules}
+      className={`${styles.scheduleRules} ${className}`}
       onChangeCapture={(event) => {
         if (timeError) notice.checkTime(event, timeError);
       }}
@@ -52,7 +54,7 @@ export function ScheduleRuleEditor({
               ))}
             </select>
           </Field>
-          <Field label={l.start}>
+          <Field label={l.start} required>
             <input
               required
               type="time"
