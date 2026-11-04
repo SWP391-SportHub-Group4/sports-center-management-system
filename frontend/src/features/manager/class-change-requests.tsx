@@ -10,7 +10,7 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useAction } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useManagerRequestRead } from "@/lib/manager-request-reads";
-import { formatDate, formatDateTime, formatTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { catalogApi } from "@/features/catalog";
 import type { ManagerCourseDto } from "@/lib/types";
@@ -71,7 +71,12 @@ export function ManagerClassChangeRequests({
           {vi ? "Yêu cầu thay đổi lịch lớp" : "Class schedule change requests"}
         </h2>
       </header>
-      <TableFilters>
+      <p className={styles.hint}>
+        {vi
+          ? "Xem lý do từ Coach và xác nhận phương án phù hợp. Học viên chỉ nhận thay đổi lịch sau khi xử lý thành công."
+          : "Review the Coach’s absence request and choose a substitute, reschedule or makeup, or reject it. Students receive schedule changes only after the operation succeeds."}
+      </p>
+      <TableFilters inline>
         <div className={styles.filters}>
           <label>
             {vi ? "Trạng thái" : "Status"}
@@ -143,7 +148,7 @@ export function ManagerClassChangeRequests({
                 {data.items.map((r) => (
                   <button
                     type="button"
-                    className={`${styles.row} ${managerStyles.requestRow}`}
+                    className={styles.row}
                     key={r.requestId}
                     onClick={() => setSelected(r)}
                   >
@@ -152,18 +157,15 @@ export function ManagerClassChangeRequests({
                         {r.className} · {vi ? "Buổi" : "Session"} {r.sessionNo}
                       </strong>
                       <small>
-                        {vi ? "Người gửi: " : "Sent by: "}
-                        {r.coachName}
+                        {r.coachName} · {changeTypeLabel(r.type, vi)}
                       </small>
+                      <small>{formatDateTime(r.originalStartAtUtc)}</small>
                       <small>
-                        {vi ? "Ngày gửi: " : "Date sent: "}
-                        {formatDate(r.createdAtUtc)}
+                        {vi ? "Gửi lúc " : "Requested "}
+                        {formatDateTime(r.createdAtUtc)}
                       </small>
                     </span>
-                    <span
-                      className={`${styles.status} ${managerStyles.requestStatus}`}
-                      data-status={r.status}
-                    >
+                    <span className={styles.status} data-status={r.status}>
                       {changeRequestStatusLabel(r, vi)}{" "}
                       <ArrowRight size={14} aria-hidden="true" />
                     </span>
@@ -366,16 +368,10 @@ function ReviewDrawer({
             {r.coachName} · {changeTypeLabel(r.type, vi)}
           </strong>
           <p>
-            {vi ? "Slot bị ảnh hưởng: " : "Affected slot: "}
             {formatDateTime(r.originalStartAtUtc)} –{" "}
-            {formatDate(r.originalStartAtUtc) === formatDate(r.originalEndAtUtc)
-              ? formatTime(r.originalEndAtUtc)
-              : formatDateTime(r.originalEndAtUtc)}
+            {formatDateTime(r.originalEndAtUtc)}
           </p>
-          <p>
-            {vi ? "Lý do: " : "Reason: "}
-            {r.reason}
-          </p>
+          <p>{r.reason}</p>
           {r.proposedStartAtUtc && (
             <p>
               {vi ? "Giờ đề xuất: " : "Suggested time: "}

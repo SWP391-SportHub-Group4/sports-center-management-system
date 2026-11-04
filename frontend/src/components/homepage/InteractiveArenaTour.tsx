@@ -303,13 +303,16 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
   });
 
   const selected = text.zones[activeZone];
-  const metrics: Array<{ label: string; value: string }> =
-    activeZone === "badminton"
+  const metricsFor = (
+    zone: ZoneId,
+  ): Array<{ label: string; value: string }> => {
+    const selected = text.zones[zone];
+    return zone === "badminton"
       ? [
           { label: text.court, value: selected.specOne },
           { label: text.lighting, value: selected.specTwo },
         ]
-      : activeZone === "basketball"
+      : zone === "basketball"
         ? [
             { label: text.floor, value: selected.specOne },
             { label: text.height, value: selected.specTwo },
@@ -319,6 +322,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
             { label: text.method, value: selected.specTwo },
             { label: text.formats, value: text.formatsValue },
           ];
+  };
 
   const handleTabKeyDown = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -351,7 +355,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
       data-zone={activeZone}
       aria-labelledby="arena-tour-title"
     >
-      <header className={styles.tourHeader}>
+      <header className={styles.tourHeader} data-motion="heading">
         <div>
           <h2 id="arena-tour-title">{text.title}</h2>
         </div>
@@ -395,7 +399,7 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
             })}
           </div>
 
-          <div className={styles.mapShell}>
+          <div className={styles.mapShell} data-motion="media">
             <div className={styles.mapHeading}>
               <span>{text.mapLabel}</span>
               <span>{text.mapZones}</span>
@@ -445,37 +449,62 @@ export function InteractiveArenaTour({ language }: { language: Language }) {
           aria-labelledby={`arena-tab-${activeZone}`}
           tabIndex={0}
           data-zone={activeZone}
+          data-motion="copy"
         >
-          <div className={styles.featurePhoto} key={activeZone}>
-            <Image
-              src={selected.image}
-              alt={selected.imageAlt}
-              fill
-              sizes="(max-width: 1023px) 100vw, 46vw"
-              priority={false}
-            />
-            <div className={styles.featurePhotoScrim} aria-hidden="true" />
-            <div className={styles.photoTopline}>
-              <span>ZONE 0{zoneOrder.indexOf(activeZone) + 1}</span>
-              <span className={styles.photoLive}>
-                <span aria-hidden="true" />
-                {text.zoneLabel}
-              </span>
-            </div>
-            <p className={styles.photoTitle}>{selected.title}</p>
+          <div className={styles.featurePhotos}>
+            {zoneOrder.map((zone) => (
+              <div
+                className={styles.featurePhoto}
+                key={zone}
+                data-active={activeZone === zone}
+                aria-hidden={activeZone !== zone}
+              >
+                <Image
+                  src={text.zones[zone].image}
+                  alt={activeZone === zone ? text.zones[zone].imageAlt : ""}
+                  fill
+                  sizes="(max-width: 1023px) 100vw, 46vw"
+                  priority={false}
+                />
+                <div className={styles.featurePhotoScrim} aria-hidden="true" />
+                <div className={styles.photoTopline}>
+                  <span>ZONE 0{zoneOrder.indexOf(zone) + 1}</span>
+                  <span className={styles.photoLive}>
+                    <span aria-hidden="true" />
+                    {text.zoneLabel}
+                  </span>
+                </div>
+                <p className={styles.photoTitle}>{text.zones[zone].title}</p>
+              </div>
+            ))}
           </div>
 
           <div className={styles.featureBody}>
-            <p className={styles.featureDescription}>{selected.description}</p>
-            <div className={styles.metricGrid}>
-              {metrics.map((metric) => {
-                return (
-                  <div className={styles.metric} key={metric.label}>
-                    <span className={styles.metricLabel}>{metric.label}</span>
-                    <strong>{metric.value}</strong>
+            <div className={styles.featureDetailsStack}>
+              {zoneOrder.map((zone) => (
+                <div
+                  className={styles.featureDetails}
+                  key={zone}
+                  data-active={activeZone === zone}
+                  aria-hidden={activeZone !== zone}
+                >
+                  <p className={styles.featureDescription}>
+                    {text.zones[zone].description}
+                  </p>
+                  <div className={styles.metricGrid}>
+                    {metricsFor(zone).map((metric) => {
+                      return (
+                        <div className={styles.metric} key={metric.label}>
+                          <span className={styles.metricLabel}>
+                            {metric.label}
+                          </span>
+                          <strong>{metric.value}</strong>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
             <div className={styles.featureFooter}>
               <p>{text.exploreDescription}</p>

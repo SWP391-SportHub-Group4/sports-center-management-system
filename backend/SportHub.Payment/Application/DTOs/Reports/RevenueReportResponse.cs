@@ -8,7 +8,7 @@ public sealed record RevenueReportResponse(
     DateOnly FromDate,
     DateOnly ToDate,
     decimal TotalCollected,
-    /// <summary>Refund Completed theo ngày THỰC TRẢ trong kỳ.</summary>
+    /// <summary>Recorded support bank-transfer refunds, by RecordedAtUtc in the selected Vietnam period; excludes points.</summary>
     decimal TotalRefunded,
     /// <summary>Discount/Correction Completed trong kỳ — hiển thị riêng để đối soát.</summary>
     decimal TotalObligationReduction,
@@ -27,10 +27,10 @@ public sealed record RevenueReportResponse(
     public int ReconciliationCashCount { get; init; }
 
     /// <summary>
-    /// Bank transfers a Manager recorded as paid out through Support Requests, dated by the recorded payout time.
-    /// Shown on its own line: it is not subtracted from VNPay cash collected and never added to point refunds.
+    /// Compatibility alias of TotalRefunded. Do not add it to refunds or show it as a separate KPI.
     /// </summary>
     public decimal BankRefundPaid { get; init; }
+    /// <summary>Compatibility alias of RefundCount; excludes point-only payouts.</summary>
     public int BankRefundCount { get; init; }
 
     /// <summary>Points spent during the period.</summary>

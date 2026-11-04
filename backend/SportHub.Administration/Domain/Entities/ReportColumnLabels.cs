@@ -8,8 +8,8 @@ public static class ReportColumnLabels
             ["date"] = "Collection date (VN)",
             ["legacyCashCollected"] = "Legacy cash collected",
             ["reconciliationCashCollected"] = "Reconciled/compensated cash",
-            ["bankRefundPaid"] = "Bank refunds paid (VND, not deducted from VNPay cash)",
-            ["bankRefundCount"] = "Bank refunds paid (count)",
+            ["bankRefundPaid"] = "Cash refunded (VND, compatibility alias)",
+            ["bankRefundCount"] = "Cash refund count (compatibility alias)",
             ["source"] = "Revenue source",
             ["sportId"] = "Sport ID",
             ["sportName"] = "Sport",
@@ -17,6 +17,7 @@ public static class ReportColumnLabels
             ["pointsRedeemed"] = "Points used by members in period",
             ["pointsRedeemedVnd"] = "Point value used (VND equivalent, not cash)",
             ["pointsIssued"] = "Points refunded",
+            ["pointsRefunded"] = "Points refunded (included in issued)",
             ["managerPointAdjustment"] = "Manager point adjustment in period",
             ["outstandingPoints"] = "Current outstanding points (available + held)",
             ["outstandingPointsAsOfUtc"] = "Current point balance observed at (UTC)",
@@ -66,7 +67,7 @@ public static class ReportColumnLabels
         "activePackages", "remainingSessions", "totalSpent"
         , "legacyCashCollected", "reconciliationCashCollected", "bankRefundPaid", "bankRefundCount", "pointsRedeemed", "pointsRedeemedVnd",
         "newMembers", "membersPurchasingMembershipInPeriod", "activeMembersAtPeriodEnd", "capacity", "confirmedCount", "activeHoldCount",
-        "availableSeats", "fillRatio", "breakEvenThreshold", "pointsIssued", "managerPointAdjustment", "outstandingPoints"
+        "availableSeats", "fillRatio", "breakEvenThreshold", "pointsIssued", "pointsRefunded", "managerPointAdjustment", "outstandingPoints"
     };
 
     public static string For(string column) => column switch
@@ -74,6 +75,18 @@ public static class ReportColumnLabels
         "bookings" => "Confirmed bookings", "bookedHours" => "Booked hours", "dayPassesSold" => "Day passes sold", "startDate" => "Start date",
         _ => Labels.GetValueOrDefault(column, column)
     };
+
+    public static string For(string column, string reportType)
+        => reportType is ReportTypes.RevenueDaily or ReportTypes.RevenueSummary or ReportTypes.PointsSummary
+            ? column switch
+            {
+                "date" => "Payment / refund date (VN)",
+                "refundedAmount" => "Cash refunded by bank transfer (VND)",
+                "netCollected" => "After refunds (VND)",
+                "pointsIssued" => "Points issued (all wallet credits)",
+                _ => For(column)
+            }
+            : For(column);
 
     public static bool IsNumeric(string column) => column is "bookings" or "bookedHours" or "dayPassesSold" || NumericColumns.Contains(column);
 
@@ -90,7 +103,8 @@ public static class ReportColumnLabels
         ReportTypes.ClassStatus => "Classes by start date (current status)",
         ReportTypes.Revenue => "Invoices by issue date",
         ReportTypes.RevenueDaily => "Revenue by collection date",
-        ReportTypes.RevenueSummary => "Revenue and points summary",
+        ReportTypes.RevenueSummary => "Cash summary",
+        ReportTypes.PointsSummary => "Points summary",
         ReportTypes.RevenueDimensions => "Revenue by sport and source",
         ReportTypes.CourtRentalRevenue => "Court rental revenue",
         ReportTypes.MembershipPeriod => "Membership by period",

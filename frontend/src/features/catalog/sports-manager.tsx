@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Search } from "lucide-react";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { StatusChip } from "@/components/ui";
@@ -10,12 +11,12 @@ import { SportEditor } from "./sport-editor";
 import {
   CatalogPanel,
   CatalogFeedback,
-  CatalogFilters,
   CatalogTable,
   matchesCatalog,
   useCatalogFilters,
 } from "./manager-shared";
 import styles from "./manager-catalog.module.css";
+import roomStyles from "./rooms-manager.module.css";
 
 export function SportsManager() {
   const { t } = useLanguage();
@@ -29,7 +30,29 @@ export function SportsManager() {
   return (
     <>
       <CatalogPanel
-        filters={<CatalogFilters filters={filters} />}
+        filters={
+          <div className={roomStyles.filters}>
+            <label className={roomStyles.search}>
+              <Search size={18} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label={t.common.search}
+                placeholder={t.common.search}
+                value={filters.values.q}
+                onChange={(event) => filters.set({ q: event.target.value })}
+              />
+            </label>
+            <select
+              aria-label={l.status}
+              value={filters.values.status}
+              onChange={(event) => filters.set({ status: event.target.value })}
+            >
+              <option value="">{c.allRoomStatuses}</option>
+              <option value="active">{t.wireStatus.ACTIVE}</option>
+              <option value="inactive">{t.wireStatus.INACTIVE}</option>
+            </select>
+          </div>
+        }
         actions={
           <button
             className="btn"

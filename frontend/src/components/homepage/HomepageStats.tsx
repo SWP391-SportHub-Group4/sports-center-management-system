@@ -66,11 +66,16 @@ function CountUp({
         suffix;
       if (progress < 1) frame = requestAnimationFrame(animate);
     };
-    if (preference.matches) finish();
-    else frame = requestAnimationFrame(animate);
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      if (!preference.matches) frame = requestAnimationFrame(animate);
+    });
+    if (!preference.matches) observer.observe(node);
     preference.addEventListener("change", finish);
     return () => {
       cancelAnimationFrame(frame);
+      observer.disconnect();
       preference.removeEventListener("change", finish);
     };
   }, [value, suffix, language]);
@@ -119,6 +124,8 @@ export function HomepageStats({
   showcaseData?: HomepageShowcaseSources;
 }) {
   const [active, setActive] = useState<CategoryId>(initialCategory);
+  const [previous, setPrevious] = useState<CategoryId | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
   const { coaches: liveCoaches, error: coachesError } = useCoachShowcase(
     showcaseData?.coaches,
   );
@@ -174,6 +181,17 @@ export function HomepageStats({
       : `/login?next=${encodeURIComponent(memberPath)}`;
 
   const select = (id: CategoryId) => {
+    if (id === active) return;
+    const direction =
+      categoryLabels.findIndex((item) => item.id === id) >
+      categoryLabels.findIndex((item) => item.id === active)
+        ? 1
+        : -1;
+    sectionRef.current?.style.setProperty(
+      "--bookmark-direction",
+      String(direction),
+    );
+    setPrevious(active);
     setActive(id);
     window.dispatchEvent(new CustomEvent("sporthub:showcase", { detail: id }));
   };
@@ -221,18 +239,20 @@ export function HomepageStats({
 
   return (
     <section
+      ref={sectionRef}
       className={styles.section}
       aria-labelledby="homepage-stats-title"
       id="sporthub"
       data-home-section="sporthub"
     >
-      <header className={styles.heading}>
-        <h2 id="homepage-stats-title">{intro.title}</h2>
-        <p>{intro.lead}</p>
-      </header>
       <ScrollReveal>
+        <header className={styles.heading} data-motion="heading">
+          <h2 id="homepage-stats-title">{intro.title}</h2>
+          <p>{intro.lead}</p>
+        </header>
         <div
           className={styles.bookmarks}
+          data-motion="copy"
           role="tablist"
           aria-label={vi ? "Khám phá SportHub" : "Explore SportHub"}
         >
@@ -307,6 +327,7 @@ export function HomepageStats({
                 key={item.id}
                 className={styles.panel}
                 data-active={active === item.id}
+                data-exiting={previous === item.id && active !== item.id}
                 role="tabpanel"
                 id={`${item.id}-details`}
                 aria-labelledby={item.id}

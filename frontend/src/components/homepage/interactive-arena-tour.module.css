@@ -421,14 +421,27 @@
   --panel-accent: #06b6d4;
 }
 
-.featurePhoto {
+.featurePhotos {
   position: relative;
   aspect-ratio: 3 / 2;
-  min-height: 0;
   flex: none;
   overflow: hidden;
   background: #10191b;
-  animation: photoReveal 320ms ease both;
+}
+.featurePhoto {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.035);
+  transition:
+    opacity 340ms ease,
+    transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.featurePhoto[data-active="true"] {
+  z-index: 1;
+  opacity: 1;
+  transform: none;
 }
 
 .featurePhoto img {
@@ -496,6 +509,28 @@
   flex: 1;
   flex-direction: column;
   padding: clamp(19px, 2.4vw, 26px);
+}
+.featureDetailsStack {
+  display: grid;
+}
+.featureDetails {
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+  opacity: 0;
+  transform: translate3d(10px, 0, 0);
+  pointer-events: none;
+  transition:
+    opacity 220ms ease,
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0ms linear 220ms;
+}
+.featureDetails[data-active="true"] {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition-delay: 60ms, 60ms, 0ms;
 }
 
 .featureDescription {
@@ -769,15 +804,6 @@
   }
 }
 
-@keyframes photoReveal {
-  from {
-    opacity: 0.45;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @media (max-width: 1023px) {
   .tourHeader {
     grid-template-columns: minmax(0, 1fr);
@@ -920,6 +946,8 @@
   .hotspotCore,
   .featurePanel,
   .featurePhoto,
+  .featureBody,
+  .featureDetails,
   .featurePhoto img,
   .memberCta,
   .memberCta svg {

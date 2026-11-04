@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Enums;
+using SportHub.Identity.Domain.Entities;
 using SportHub.Payment.Application.Interfaces;
 using SportHub.Payment.Application.Services;
 using SportHub.Payment.Domain.Entities;
@@ -89,6 +90,21 @@ public sealed class ReportReconciliationTests(PaymentApiFactory factory)
                     Status = PaymentAdjustmentStatus.Completed, RequestedByUserId = staff.UserId, CreatedAt = paidAt,
                     CompletedAtUtc = completedAt, CompletedByUserId = staff.UserId, RefundMethod = PaymentMethod.Cash,
                     RefundReferenceCode = "LOAD"
+                });
+                // Legacy adjustments must not be added again to the recorded bank payout.
+                var requestId = Guid.NewGuid();
+                db.Set<MemberSupportRequest>().Add(new()
+                {
+                    RequestId = requestId, MemberId = member.UserId, RecordedByUserId = staff.UserId,
+                    InvoiceId = invoice.InvoiceId, InvoiceItemId = item.ItemId, Category = "PAYMENT",
+                    Subject = "Refund", Description = "Bank transfer refund", CreatedAt = paidAt,
+                    SlaDueAtUtc = paidAt.AddDays(2)
+                });
+                db.Set<MemberSupportPayout>().Add(new()
+                {
+                    PayoutId = Guid.NewGuid(), RequestId = requestId, InvoiceId = invoice.InvoiceId,
+                    InvoiceItemId = item.ItemId, Amount = 10_000m, RecordedByUserId = staff.UserId,
+                    RecordedAtUtc = completedAt
                 });
                 db.Set<PointLedgerEntry>().Add(new PointLedgerEntry
                 {

@@ -274,13 +274,11 @@ export const en = {
     successHint: "Close this message to write another notice.",
     newNotice: "New notice",
     chooseRecipients: "Choose recipients",
-    recipientHint: "Choose recipients by role or send to the entire system.",
     sendToAll: "Send to entire system",
     reviewNotice: "Review notice",
     sendToRole: "Send to all {role}",
     selectedRoleAudience: "All active accounts in selected roles",
     selectedIndividuals: "{n} individually selected",
-    sendToAllHint: "Include every active account across all roles.",
     allActiveAccounts: "All active accounts",
     selectedCount: "{n} selected",
     noSelection: "No recipients selected",
@@ -308,7 +306,6 @@ export const en = {
     history: "Sent notice history",
     compose: "Write a notice",
     views: "Notice views",
-    ownOnly: "Only notices you sent are shown.",
     search: "Search by subject",
     from: "From date",
     to: "To date",
@@ -1692,7 +1689,10 @@ export const en = {
     invalid: "Please check the required fields and time range.",
     notFound: "No rental found in this range.",
     loading: "Loading…",
-    thresholdFilter: "Threshold status",
+    thresholdFilter: "Opening conditions",
+    allSports: "All sports",
+    allStatuses: "All status",
+    allOpeningConditions: "All opening conditions",
     refundHint:
       "Refunds are credited as points. The server determines eligibility and amount.",
     recipientPreview: "Review the recipient list before sending.",
@@ -3121,8 +3121,6 @@ export const en = {
     editSession: "Edit affected session",
     removeBlockHint:
       "Select removal of this room block. It will be removed only when you confirm the incident.",
-    intro:
-      "Review affected activities, arrange any schedule changes, then confirm the closure.",
     formTitle: "Incident details",
     formHint:
       "Choose the affected area and period, including outside opening hours or overnight (up to 31 days). Times are shown in Vietnam time (UTC+7).",

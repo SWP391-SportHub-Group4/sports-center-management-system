@@ -238,6 +238,7 @@ export function ManagerSchedule({
         </div>
         <div className={styles.filters}>
           <FilterBar
+            inline
             values={values}
             onChange={update}
             activeCount={

@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, type PointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type PointerEvent,
+} from "react";
 import { CourtIcon } from "@/components/brand/CourtIcon";
 import { buttonClass } from "@/components/primitives/Button";
 import { HOME_BY_ROLE, useAuth } from "@/lib/auth";
@@ -127,9 +132,24 @@ export function PerformanceSections({ language }: { language: Language }) {
         <h1 id="performance-title" aria-label={t.title.replace("\n", " ")}>
           {t.title.split("\n").map((line, index) => (
             <span className={styles.titleLine} key={line}>
-              <span style={{ animationDelay: `${160 + index * 130}ms` }}>
-                {line}
-              </span>
+              {line.split(" ").map((word, wordIndex) => (
+                <span
+                  className={styles.wordMask}
+                  key={`${word}-${wordIndex}`}
+                  aria-hidden="true"
+                >
+                  <span
+                    className={styles.titleWord}
+                    style={
+                      {
+                        "--word-delay": `${100 + index * 130 + wordIndex * 55}ms`,
+                      } as CSSProperties
+                    }
+                  >
+                    {word}
+                  </span>{" "}
+                </span>
+              ))}
             </span>
           ))}
         </h1>
@@ -158,6 +178,20 @@ export function PerformanceSections({ language }: { language: Language }) {
         <span>{t.basketball}</span>
         <span>{t.gym}</span>
       </div>
+      <a
+        className={styles.scrollCue}
+        href="#sporthub"
+        aria-label={
+          language === "vi" ? "Khám phá SportHub" : "Explore SportHub"
+        }
+      >
+        <span>
+          {language === "vi" ? "Khám phá SportHub" : "Explore SportHub"}
+        </span>
+        <span className={styles.scrollIcon} aria-hidden="true">
+          <CourtIcon name="arrow" size={18} />
+        </span>
+      </a>
     </section>
   );
 }

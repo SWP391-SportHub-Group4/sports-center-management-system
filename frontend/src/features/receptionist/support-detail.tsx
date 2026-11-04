@@ -76,6 +76,8 @@ export function SupportDetail({
   const { user } = useAuth();
   const isManager = workspace === "manager";
   const isReceiver = workspace === "coach" || workspace === "admin";
+  const receptionistPayment =
+    workspace === "receptionist" && request.category === "PAYMENT";
   const readRef = useRef<HTMLDivElement>(null);
   useManagerRequestRead("support", request.requestId, isManager, readRef);
   const closed = ["DONE", "REJECTED", "CLOSED"].includes(request.status);
@@ -394,7 +396,7 @@ export function SupportDetail({
       )}
 
       {closed ? (
-        isManager ? null : (
+        isManager || receptionistPayment ? null : (
           <section className={styles.section} aria-label="Final note">
             <h4>
               {request.status === "REJECTED"
@@ -406,7 +408,7 @@ export function SupportDetail({
             </p>
           </section>
         )
-      ) : (
+      ) : receptionistPayment ? null : (
         <>
           {!isReceiver && (
             <section className={styles.box} aria-label="Routing and escalation">
@@ -587,18 +589,6 @@ export function SupportDetail({
                 }}
               />
             </label>
-            {mode === "progress" && (
-              <p className={styles.helper}>
-                Update the request as often as needed. Each saved note is kept
-                in the activity history.
-              </p>
-            )}
-            {isManager && (
-              <p className={styles.helper}>
-                The member will see this text as their latest reply. It replaces
-                the previous reply in My requests.
-              </p>
-            )}
             <div className={styles.actions}>
               {mode !== "progress" && confirming ? (
                 <>

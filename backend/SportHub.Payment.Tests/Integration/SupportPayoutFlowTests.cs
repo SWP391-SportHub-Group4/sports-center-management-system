@@ -296,10 +296,10 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
             - before.GetProperty("bankRefundPaid").GetDecimal());
         Assert.Equal(1, after.GetProperty("bankRefundCount").GetInt32()
             - before.GetProperty("bankRefundCount").GetInt32());
-        // Bank refunds are a separate line: VNPay cash, cash refunds and net revenue do not move.
+        // Recorded transfers increase cash refunds and reduce net; original collections stay intact.
         Assert.Equal(before.GetProperty("totalCollected").GetDecimal(), after.GetProperty("totalCollected").GetDecimal());
-        Assert.Equal(before.GetProperty("totalRefunded").GetDecimal(), after.GetProperty("totalRefunded").GetDecimal());
-        Assert.Equal(before.GetProperty("netRevenue").GetDecimal(), after.GetProperty("netRevenue").GetDecimal());
+        Assert.Equal(before.GetProperty("totalRefunded").GetDecimal() + 50_000m, after.GetProperty("totalRefunded").GetDecimal());
+        Assert.Equal(before.GetProperty("netRevenue").GetDecimal() - 50_000m, after.GetProperty("netRevenue").GetDecimal());
         Assert.Equal(before.GetProperty("pointsRefunded").GetInt64(), after.GetProperty("pointsRefunded").GetInt64());
         await factory.QueryAsync(async db =>
         {
@@ -524,8 +524,10 @@ public sealed class SupportPayoutFlowTests(PaymentApiFactory factory)
         var today = SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.TodayLocal(new SportHub.BuildingBlocks.SharedKernel.Time.SystemClock());
         var report = await mgr.GetFromJsonAsync<JsonElement>($"/api/reports/revenue?fromDate={today:yyyy-MM-dd}&toDate={today:yyyy-MM-dd}&memberId={member.UserId}");
         Assert.Equal(cash, report.GetProperty("bankRefundPaid").GetDecimal());
-        // Every recorded payout counts once, including point-only and mixed refunds.
-        Assert.Equal(1, report.GetProperty("bankRefundCount").GetInt32());
+        Assert.Equal(cash, report.GetProperty("totalRefunded").GetDecimal());
+        // Only payouts with a transferred-money component count as cash refunds.
+        Assert.Equal(cash > 0 ? 1 : 0, report.GetProperty("bankRefundCount").GetInt32());
+        Assert.Equal(cash > 0 ? 1 : 0, report.GetProperty("refundCount").GetInt32());
         Assert.Equal(points, report.GetProperty("pointsRefunded").GetInt64());
     }
 
