@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { AsyncSection } from "@/components/ui";
 import { api } from "@/lib/apiClient";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { useApi, useNow } from "@/lib/useApi";
 import { vietnamLocal } from "@/lib/vietnam-time";
 import { reportsApi, type ReportFilters } from "./api";
@@ -25,7 +25,7 @@ function Metric({
 }: {
   label: string;
   value: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   loading: boolean;
   unavailable: boolean;
 }) {
@@ -42,9 +42,9 @@ function Metric({
           value
         )}
       </div>
-      <div className={styles.metricContext}>
-        {!loading && !unavailable && children}
-      </div>
+      {!loading && !unavailable && children && (
+        <div className={styles.metricContext}>{children}</div>
+      )}
     </section>
   );
 }
@@ -63,13 +63,10 @@ export function MonthlyAnalysis() {
     };
     return {
       filters,
-      monthFilters: {
+      todayFilters: {
         ...filters,
-        toDate: new Date(
-          Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
-        )
-          .toISOString()
-          .slice(0, 10),
+        fromDate: today,
+        toDate: today,
       },
       label: new Intl.DateTimeFormat("en-GB", {
         month: "long",
@@ -103,7 +100,7 @@ export function MonthlyAnalysis() {
   );
   const reviewCount = review.data?.totalCount ?? 0;
   const bookings = useApi(
-    (signal) => reportsApi.courtBookings(period.monthFilters, signal),
+    (signal) => reportsApi.courtBookings(period.todayFilters, signal),
     [period],
   );
   const attendance = useApi(
@@ -116,6 +113,7 @@ export function MonthlyAnalysis() {
   const { reload: reloadBookings } = bookings;
   const { reload: reloadAttendance } = attendance;
   const { reload: reloadClassStatus } = classStatus;
+  const { reload: reloadSupport } = support;
   useEffect(() => {
     let lastRefresh = 0;
     const refreshVisible = () => {
@@ -131,6 +129,7 @@ export function MonthlyAnalysis() {
       reloadBookings();
       reloadAttendance();
       reloadClassStatus();
+      reloadSupport();
     };
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
@@ -147,6 +146,7 @@ export function MonthlyAnalysis() {
     reloadBookings,
     reloadAttendance,
     reloadClassStatus,
+    reloadSupport,
   ]);
   const selectedDate =
     selectedDay?.startsWith(today.slice(0, 7)) && selectedDay <= today
@@ -158,7 +158,8 @@ export function MonthlyAnalysis() {
     membership.error ||
     attendance.error ||
     bookings.error ||
-    classStatus.error;
+    classStatus.error ||
+    support.error;
   return (
     <div className={styles.dashboard}>
       <header className={styles.header}>
@@ -190,6 +191,7 @@ export function MonthlyAnalysis() {
               if (attendance.error) attendance.reload();
               if (bookings.error) bookings.reload();
               if (classStatus.error) classStatus.reload();
+              if (support.error) support.reload();
             }}
           >
             Retry
@@ -234,11 +236,6 @@ export function MonthlyAnalysis() {
           loading={review.loading}
           unavailable={!!review.error}
         >
-          <p>
-            {reviewCount > 0
-              ? "Below opening threshold"
-              : "No classes awaiting review"}
-          </p>
           {reviewCount > 0 && (
             <Link
               href="/manager/classes?status=PUBLISHED&thresholdStatus=AT_RISK"
@@ -253,18 +250,24 @@ export function MonthlyAnalysis() {
           value={formatNumber(membership.data?.membersWithActiveMembership)}
           loading={membership.loading}
           unavailable={!!membership.error}
-        >
-          <p>Valid today · {formatDate(today)}</p>
-        </Metric>
+        />
+        <Metric
+          label="Overdue requests"
+          value={
+            <span
+              className={
+                (support.data?.overdue ?? 0) > 0
+                  ? styles.reviewCount
+                  : undefined
+              }
+            >
+              {formatNumber(support.data?.overdue)}
+            </span>
+          }
+          loading={support.loading}
+          unavailable={!!support.error}
+        />
       </div>
-      <Link
-        href="/manager/requests?type=support&overdue=1"
-        className={styles.reportLink}
-      >
-        Overdue support requests:{" "}
-        {support.data?.overdue ?? (support.loading ? "…" : "—")}
-        <ArrowUpRight size={16} aria-hidden="true" />
-      </Link>
       <section
         className={styles.classSummary}
         aria-labelledby="class-status-title"
@@ -298,7 +301,6 @@ export function MonthlyAnalysis() {
         >
           <header className={styles.panelHeader}>
             <h2 id="daily-collections-title">Daily collections</h2>
-            <p>Money received and retained after cash refunds · VND</p>
           </header>
           <AsyncSection state={revenue}>
             {(report) => (
@@ -328,14 +330,14 @@ export function MonthlyAnalysis() {
             <h2 id="collection-sources-title">Collections by source</h2>
           </header>
           <AsyncSection state={revenue}>
-            {(report) => <RevenueMix report={report} />}
+            {(report) => <RevenueMix report={report} showInsight={false} />}
           </AsyncSection>
           <section
             className={styles.bookingSummary}
             aria-labelledby="court-booking-title"
           >
             <header className={styles.panelHeader}>
-              <h2 id="court-booking-title">Court bookings</h2>
+              <h2 id="court-booking-title">Court hours today</h2>
             </header>
             <AsyncSection state={bookings}>
               {(report) => <CourtBookingSummary report={report} />}

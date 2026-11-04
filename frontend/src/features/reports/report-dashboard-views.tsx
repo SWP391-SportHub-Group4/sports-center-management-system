@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { MemberName } from "@/components/RecordName";
+import { SportLoader } from "@/components/loading/SportLoader";
 import { useApi, type AsyncState } from "@/lib/useApi";
 import { formatDate, formatMoney } from "@/lib/format";
 import { reportsApi, type ReportFilters, type ClassStatusReport } from "./api";
@@ -57,11 +58,7 @@ export function ReportState<T>({
   name?: string;
 }) {
   if (state.loading)
-    return (
-      <p className={s.empty} role="status">
-        Loading {name.toLowerCase()}…
-      </p>
-    );
+    return <SportLoader label={`Loading ${name.toLowerCase()}…`} />;
   if (state.error)
     return (
       <div className={s.error} role="alert">
@@ -94,11 +91,7 @@ export function ComparisonNotice<T>({
         </button>
       </div>
     );
-  return state.loading ? (
-    <p className={s.note} role="status">
-      Loading comparison…
-    </p>
-  ) : null;
+  return state.loading ? <SportLoader label="Loading comparison…" /> : null;
 }
 export function Metric({
   label,
@@ -312,6 +305,17 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
         label="Payment dates & recorded bank-transfer refund dates"
       />
       <ComparisonNotice state={previous} enabled={!!comparison} />
+      {!primary && (
+        <section className={s.panel}>
+          <h2>After refunds by day</h2>
+          <DashboardChart
+            period={selection}
+            rows={[]}
+            label="After refunds by day"
+            unit="VND"
+          />
+        </section>
+      )}
       <ReportState state={state} name="Revenue">
         {(r) =>
           r && (
@@ -344,6 +348,7 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                 <section className={s.panel}>
                   <h2>After refunds by day</h2>
                   <DashboardChart
+                    period={selection}
                     rows={chartRows(r)}
                     comparison={
                       previous.data ? chartRows(previous.data) : undefined
@@ -420,11 +425,11 @@ export function CourtsView({ selection, filters, today }: ViewProps) {
           {(r) => (
             <>
               <Metric
-                label="Confirmed bookings"
+                label="Paid bookings"
                 value={r.totalBookings}
                 previous={previous.data?.totalBookings}
                 equal={equal}
-                hint="Confirmed and completed rentals"
+                hint="All paid rentals, including cancelled and no-shows"
               />
               <Metric
                 label="Booked hours"
@@ -461,6 +466,7 @@ export function CourtsView({ selection, filters, today }: ViewProps) {
               <h2>Booked hours by day</h2>
               {r.daily ? (
                 <DashboardChart
+                  period={selection}
                   rows={r.daily.map((d) => ({
                     date: d.date,
                     value: d.bookedHours,
@@ -732,6 +738,19 @@ export function MembersView({ selection, filters, today }: ViewProps) {
         label="Successful purchases"
       />
       <ComparisonNotice state={previous} enabled={!!comparison} />
+      {!primary && (
+        <section className={s.panel}>
+          <h2>Gym purchases by day</h2>
+          <DashboardChart
+            period={selection}
+            rows={[]}
+            label="Gym purchases by day"
+            unit="people"
+            seriesLabel="Membership buyers"
+            integerValues
+          />
+        </section>
+      )}
       <div className={s.metrics}>
         <ReportState state={active} name="Active Gym members">
           {(r) => (
@@ -779,6 +798,7 @@ export function MembersView({ selection, filters, today }: ViewProps) {
               <h2>Gym purchases by day</h2>
               {r.daily ? (
                 <DashboardChart
+                  period={selection}
                   rows={r.daily.map((d) => ({ date: d.date, value: d.buyers }))}
                   comparison={previous.data?.daily?.map((d) => ({
                     date: d.date,

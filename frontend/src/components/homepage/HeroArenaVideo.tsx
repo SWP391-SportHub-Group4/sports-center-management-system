@@ -188,6 +188,7 @@ function HeroArenaPlayer({ auth }: { auth: boolean }) {
     <div
       ref={root}
       className={`${styles.scene} ${auth ? styles.authScene : ""}`}
+      data-hero-scene
     >
       <div className={styles.depth}>
         <Image

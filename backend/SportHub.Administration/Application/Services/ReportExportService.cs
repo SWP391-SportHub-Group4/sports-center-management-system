@@ -62,7 +62,8 @@ public sealed class ReportExportService(
     IClock clock,
     SportHub.Payment.Application.Interfaces.IRevenueReportService revenue,
     SportHub.Membership.Application.Interfaces.IMembershipReportService membership,
-    SportHub.BuildingBlocks.Abstractions.Reporting.IClassEnrollmentExportReader classes) : IReportExportService
+    SportHub.BuildingBlocks.Abstractions.Reporting.IClassEnrollmentExportReader classes,
+    SportHub.BuildingBlocks.Abstractions.Reporting.IPaidInvoiceReportReader paidInvoices) : IReportExportService
 {
     public const int RetentionMonths = 6;
 
@@ -427,7 +428,7 @@ public sealed class ReportExportService(
     private async Task<IReadOnlyList<IReadOnlyList<string>>> BuildCourtBookingRowsAsync(
         DateOnly from, DateOnly to, IReadOnlyList<string> columns, int? sportId, Guid? memberId, CancellationToken ct)
     {
-        var report = await SportHub.Scheduling.Api.CourtBookingReportReader.ReadAsync(db, from, to, sportId, memberId, ct);
+        var report = await SportHub.Scheduling.Api.CourtBookingReportReader.ReadAsync(db, paidInvoices, from, to, sportId, memberId, ct);
         return report.BySport.Select(r => (IReadOnlyList<string>)columns.Select(c => c switch
         {
             "sportName" => r.SportName, "bookings" => r.Bookings.ToString(CultureInfo.InvariantCulture),

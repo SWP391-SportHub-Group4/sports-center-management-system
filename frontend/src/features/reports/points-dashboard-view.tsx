@@ -131,6 +131,19 @@ export function PointsView({ selection, filters, today }: ViewProps) {
         label="Point activity"
       />
       <ComparisonNotice state={previous} enabled={!!comparison} />
+      {!primary && (
+        <section className={s.panel}>
+          <h2>Daily point activity</h2>
+          <DashboardChart
+            period={selection}
+            rows={[]}
+            label="Daily points used and issued"
+            unit="points"
+            seriesLabel="Points used"
+            integerValues
+          />
+        </section>
+      )}
       <ReportState state={state} name="Points">
         {(report) => {
           if (!report) return null;
@@ -176,6 +189,7 @@ export function PointsView({ selection, filters, today }: ViewProps) {
                 <section className={s.panel}>
                   <h2>Daily point activity</h2>
                   <DashboardChart
+                    period={selection}
                     rows={chartRows(report, "pointsRedeemed")}
                     comparison={
                       previous.data

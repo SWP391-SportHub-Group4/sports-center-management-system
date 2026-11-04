@@ -348,6 +348,7 @@ builder.Services.AddScoped<SportHub.Payment.Application.Services.ICenterCancella
     SportHub.Payment.Application.Services.CenterCancellationRefundService>();
 builder.Services.AddScoped<IInvoiceReceiptService, InvoiceReceiptService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IPaidInvoiceReportReader, PaidInvoiceReportReader>();
 builder.Services.AddScoped<SportHub.Payment.Application.Services.ReportReconciliationService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IRevenueDimensionReader, RevenueDimensionReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();

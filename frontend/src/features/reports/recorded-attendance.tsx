@@ -47,7 +47,6 @@ export function RecordedAttendance({
     <section className={styles.attendance} aria-label="Recorded attendance">
       <header className={styles.attendanceHeader}>
         <h3>Recorded attendance</h3>
-        <span>Volume · unique members / day</span>
       </header>
       <div className={styles.plot}>
         <div className={styles.volumeAxis} aria-hidden="true">

@@ -30,6 +30,8 @@ async function managerFixture(page: Page) {
       return route.fulfill({
         json: path.endsWith("unread-count") ? { count: 0 } : [],
       });
+    if (path === "/api/member-support-requests/stats")
+      return route.fulfill({ json: { overdue: 3 } });
     if (path === "/api/reports/revenue")
       return route.fulfill({
         json: {
@@ -177,7 +179,13 @@ test("manager overview connects collections, class reviews and active Gym member
   await expect(
     page.getByRole("region", { name: "Active Gym members" }),
   ).toContainText("7");
-  await expect(page.getByText(/Valid today ·/)).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Overdue requests", exact: true }),
+  ).toContainText("3");
+  await expect(
+    page.locator('a[href="/manager/requests?type=support&overdue=1"]'),
+  ).toHaveCount(0);
+  await expect(page.getByText(/Valid today ·/)).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Classes needing review" }),
   ).toContainText("2");
@@ -206,6 +214,36 @@ test("manager overview connects collections, class reviews and active Gym member
   ).toBeVisible();
 });
 
+test("overdue requests stay unavailable on errors and recover through the shared retry", async ({
+  page,
+}) => {
+  let failed = true;
+  await page.route("**/api/member-support-requests/stats", (route) =>
+    failed
+      ? route.fulfill({
+          status: 503,
+          json: { error: "unavailable", message: "Unavailable" },
+        })
+      : route.fulfill({ json: { overdue: 0 } }),
+  );
+  await page.goto("/manager");
+  const metric = page.getByRole("region", {
+    name: "Overdue requests",
+    exact: true,
+  });
+  await expect(metric).toContainText("Unavailable");
+  await expect(
+    page.getByRole("region", { name: "Active Gym members", exact: true }),
+  ).toContainText("7");
+  failed = false;
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(metric).toContainText("0");
+  await expect(metric).not.toContainText("Unavailable");
+  await expect(
+    page.locator('a[href="/manager/requests?type=support&overdue=1"]'),
+  ).toHaveCount(0);
+});
+
 test("manager reports keep VND and point units distinct", async ({ page }) => {
   await page.goto("/manager/reports");
   await expect(
@@ -222,6 +260,80 @@ test("manager reports keep VND and point units distinct", async ({ page }) => {
     points.getByRole("heading", { name: "Current balance", exact: true }),
   ).toBeVisible();
   await expect(points).toContainText("525");
+});
+
+test("Overview shows today's paid court hours while Reports keeps the full month", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2030-10-23T03:00:00Z"));
+  const requests: URL[] = [];
+  await page.route("**/api/reports/court-bookings**", (route) => {
+    const url = new URL(route.request().url());
+    requests.push(url);
+    const fromDate = url.searchParams.get("fromDate");
+    const toDate = url.searchParams.get("toDate");
+    const oneDay = fromDate === toDate;
+    return route.fulfill({
+      json: {
+        fromDate,
+        toDate,
+        totalBookings: oneDay ? 1 : 5,
+        totalBookedHours: oneDay ? 2 : 10,
+        bySport: [
+          {
+            sportId: 3,
+            sportName: "Badminton",
+            bookings: oneDay ? 1 : 5,
+            bookedHours: oneDay ? 2 : 10,
+          },
+          ...[
+            [1, "Gym"],
+            [4, "Basketball"],
+            [5, "Pickle ball"],
+            [6, "Volleyball"],
+          ].map(([sportId, sportName]) => ({
+            sportId,
+            sportName,
+            bookings: 0,
+            bookedHours: 0,
+          })),
+        ],
+        daily: [],
+      },
+    });
+  });
+  await page.goto("/manager");
+  const today = page.getByRole("region", {
+    name: "Court hours today",
+    exact: true,
+  });
+  await expect(
+    today.getByRole("row", { name: "Badminton 2", exact: true }),
+  ).toBeVisible();
+  await expect(today.locator("tbody tr")).toHaveCount(5);
+  await expect(
+    today.getByRole("row", { name: "Pickle ball 0", exact: true }),
+  ).toBeVisible();
+  await expect(
+    today.getByRole("row", { name: "Volleyball 0", exact: true }),
+  ).toBeVisible();
+  expect(requests.at(-1)?.searchParams.get("fromDate")).toBe("2030-10-23");
+  expect(requests.at(-1)?.searchParams.get("toDate")).toBe("2030-10-23");
+  await page.goto("/manager/reports?tab=rentals");
+  await expect(
+    page.getByRole("heading", { name: "Paid bookings", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: "Badminton 5 10", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: "Pickle ball 0 0", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: "Volleyball 0 0", exact: true }),
+  ).toBeVisible();
+  expect(requests.at(-1)?.searchParams.get("fromDate")).toBe("2030-10-01");
+  expect(requests.at(-1)?.searchParams.get("toDate")).toBe("2030-10-31");
 });
 
 for (const width of [390, 1440]) {
