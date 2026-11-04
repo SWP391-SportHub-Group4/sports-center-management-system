@@ -206,16 +206,13 @@ export function SelectedMemberPanel({
     }
   }
 
-  const accessTip = vi
-    ? "Cần Membership Gym còn hạn hoặc vé Gym 1 ngày."
-    : "Requires an active Gym membership or Day Pass.";
   const blockReason = deactivated
     ? "This account is deactivated, so check-in and sales are unavailable."
     : activationPending
       ? vi
         ? "Hội viên chưa kích hoạt tài khoản. Không thể check-in, mua gói hoặc gửi yêu cầu hỗ trợ."
         : "Member has not activated the account. Check-in, purchases and support requests are unavailable."
-      : accessTip;
+      : null;
 
   // Ba ô: gói Gym còn hiệu lực (kèm giờ hết hạn), lần check-in gần nhất, yêu cầu hỗ trợ cần xử lý.
   // Day pass ends at 22:00 on purchase day; monthly plans end at EndDate.
@@ -377,12 +374,12 @@ export function SelectedMemberPanel({
       )}
 
       <div className={styles.actions}>
-        <span className={styles.tip} title={blocked ? blockReason : undefined}>
+        <span className={styles.tip} title={blocked ? blockReason ?? undefined : undefined}>
           <button
             type="button"
             className="btn"
             disabled={!ready || mutation.busy || blocked || cooldownSeconds > 0}
-            aria-describedby={blocked ? "checkin-block-reason" : undefined}
+            aria-describedby={blocked && blockReason ? "checkin-block-reason" : undefined}
             onClick={checkIn}
           >
             {cooldownSeconds > 0
@@ -416,7 +413,7 @@ export function SelectedMemberPanel({
         )}
       </div>
 
-      {blocked && (
+      {blocked && blockReason && (
         <p className={styles.block} id="checkin-block-reason">
           {blockReason}
         </p>

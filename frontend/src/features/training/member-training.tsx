@@ -89,10 +89,13 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
       node: (
         <article className={styles.aiPlanCard}>
           <div className={styles.aiPlanAccent}>
-            <span className={styles.aiPlanKind}>
-              <ClipboardList size={15} aria-hidden="true" /> Lesson plan
-              <span className={styles.aiPlanDraftTag}>AI suggestion</span>
-            </span>
+            <div className={styles.aiPlanTop}>
+              <span className={styles.aiPlanKind}>
+                <ClipboardList size={15} aria-hidden="true" /> Lesson plan
+                <span className={styles.aiPlanDraftTag}>AI suggestion</span>
+              </span>
+              <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
+            </div>
             <h3 className={styles.aiPlanTitle}>{plan.sport} workout - {plan.goal}</h3>
             <p className={styles.aiPlanMeta}>
               Individual {" · "} {plan.level} {" · "} Saved {new Date(savedAt).toLocaleDateString("en-GB")} {" · "} Not coach-approved
@@ -105,10 +108,8 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
                   {item.notes ? ` ${String.fromCharCode(183)} ${item.notes}` : ""}
                 </p>
               ))}
-              {plan.rationale && <p className={styles.aiPlanRationale}><strong>Why this workout?</strong> {" · "} {plan.rationale}</p>}
             </div>
           </div>
-          <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
         </article>
       ),
     }));
