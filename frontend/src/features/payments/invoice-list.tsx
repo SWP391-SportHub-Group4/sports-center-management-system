@@ -193,13 +193,11 @@ async function exportInvoiceCsv(invoiceId: string) {
 function invoiceDescription(status: string) {
   switch (status.toUpperCase()) {
     case "VOID":
-      return "This order was cancelled. No payment is currently due for this invoice.";
+    case "PAID":
+    case "PAID_AFTER_RECONCILIATION":
+      return null;
     case "ISSUED":
       return "Payment is pending. Open Details to review this order or continue checkout.";
-    case "PAID":
-      return "Payment confirmed. The receipt and transaction details are available.";
-    case "PAID_AFTER_RECONCILIATION":
-      return "Payment confirmed after reconciliation. Review its final details below.";
     default:
       return "Review this invoice's details and current payment status.";
   }
@@ -218,8 +216,7 @@ export function InvoiceList({
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const hideVoids =
-    user?.role === "CenterManager" || user?.role === "SystemAdministrator";
+  const hideVoids = user?.role === "SystemAdministrator";
 
   const [page, setPage] = useState(1);
 
@@ -270,7 +267,11 @@ export function InvoiceList({
 
     const id = linkedInvoiceId;
     const resetError = setTimeout(() => setLinkError(""), 0);
-    controller.signal.addEventListener("abort", () => clearTimeout(resetError), { once: true });
+    controller.signal.addEventListener(
+      "abort",
+      () => clearTimeout(resetError),
+      { once: true },
+    );
 
     if (id && /^[0-9a-f-]{36}$/i.test(id)) {
       if (staff && memberId) {
@@ -295,10 +296,18 @@ export function InvoiceList({
 
     if (!id && !item) {
       const timer = setTimeout(() => setSelected(null), 0);
-      controller.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+      controller.signal.addEventListener("abort", () => clearTimeout(timer), {
+        once: true,
+      });
     }
     return () => controller.abort();
-  }, [linkedInvoiceId, linkedItemId, staff, memberId, t.operations.invoiceMemberMismatch]);
+  }, [
+    linkedInvoiceId,
+    linkedItemId,
+    staff,
+    memberId,
+    t.operations.invoiceMemberMismatch,
+  ]);
 
   const state = useApi(
     (signal) =>
@@ -358,7 +367,10 @@ export function InvoiceList({
           rental={rental}
           onClose={() => {
             setSelected(null);
-            invoiceLink.setValues({ invoiceId: "", invoiceItemId: "" }, { replace: true });
+            invoiceLink.setValues(
+              { invoiceId: "", invoiceItemId: "" },
+              { replace: true },
+            );
           }}
         />
       )}
@@ -400,6 +412,7 @@ export function InvoiceList({
             i.status.toUpperCase(),
           );
           const isVoid = i.status.toUpperCase() === "VOID";
+          const description = invoiceDescription(i.status);
           return (
             <div className={styles.card} key={i.invoiceId}>
               <div className={styles.top}>
@@ -411,9 +424,9 @@ export function InvoiceList({
                 </div>
                 <StatusChip value={i.status} />
               </div>
-              <p className={styles.description}>
-                {invoiceDescription(i.status)}
-              </p>
+              {description && (
+                <p className={styles.description}>{description}</p>
+              )}
               <dl className={styles.infoGrid}>
                 <div>
                   <dt>Member</dt>
@@ -438,11 +451,6 @@ export function InvoiceList({
                   <dd>{isVoid ? "Cancelled" : formatMoney(i.outstanding)}</dd>
                 </div>
               </dl>
-              <p className={styles.detailHint}>
-                Open Details to view purchased services, their sport (if
-                recorded), quantities, unit prices, and available payment
-                records.
-              </p>
               <div className={styles.actions}>
                 <button
                   type="button"

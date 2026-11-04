@@ -41,6 +41,7 @@ test("room creation defaults to active with rental off", async ({ page }) => {
   const { writes, dialog } = await setup(page);
   await expect(dialog.getByRole("switch")).not.toBeChecked();
   await expect(dialog.getByLabel(/^Price per hour/)).toHaveCount(0);
+  await expect(dialog.getByLabel("Sport", { exact: true })).toHaveCount(0);
   await expect(
     dialog.getByRole("region", { name: "Weekly rental schedule" }),
   ).toHaveCount(0);
@@ -56,6 +57,7 @@ test("rental toggle reveals price and editable weekly hours in the same form", a
 }) => {
   const { writes, dialog } = await setup(page);
   await dialog.getByRole("switch").check();
+  await dialog.getByLabel("Sport", { exact: true }).selectOption("3");
   await expect(dialog.getByLabel(/^Price per hour/)).toHaveValue("");
   await expect(
     dialog.getByRole("region", { name: "Weekly rental schedule" }),
@@ -91,7 +93,7 @@ test("rental toggle reveals price and editable weekly hours in the same form", a
   expect(writes[0]).toMatchObject({
     isActive: true,
     allowRental: true,
-    rentalSetup: { pricePerHour: 120000 },
+    rentalSetup: { sportId: 3, pricePerHour: 120000 },
   });
   const setupBody = writes[0].rentalSetup as {
     hours: Array<{
@@ -132,6 +134,7 @@ test("rental schedule requires a selected day and valid opening range", async ({
 }) => {
   const { dialog } = await setup(page);
   await dialog.getByRole("switch").check();
+  await dialog.getByLabel("Sport", { exact: true }).selectOption("3");
   await expect(dialog.getByRole("checkbox")).toHaveCount(7);
   await dialog.getByLabel(/^Price per hour/).fill("120000");
   for (const checkbox of await dialog.getByRole("checkbox").all())

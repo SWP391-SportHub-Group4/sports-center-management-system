@@ -1,0 +1,153 @@
+.experience,
+.content {
+  display: contents;
+}
+.experience[data-startup-phase="loading"] .content,
+.experience[data-startup-phase="complete"] .content {
+  visibility: hidden;
+}
+.experience {
+  --hero-animation-state: paused;
+  --startup-scene-y: -48px;
+  --startup-scene-scale: 1.04;
+  --startup-object-y: -100px;
+}
+.experience[data-startup-phase="revealing"],
+.experience[data-startup-phase="ready"] {
+  --hero-animation-state: running;
+  --startup-scene-y: 0px;
+  --startup-scene-scale: 1;
+  --startup-object-y: 0px;
+}
+.activity {
+  position: fixed;
+  z-index: var(--z-sticky);
+  top: calc(env(safe-area-inset-top, 0px) + 80px);
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #f1f5e9;
+  color: #163d2c;
+  font-size: 12px;
+  pointer-events: none;
+}
+/* Existing local loaders already explain the pending operation. Avoid duplicates. */
+.experience:not([data-startup-phase="ready"]) .activity,
+.experience:has([data-sport-loader="section"]) .activity,
+.experience:has(button [data-sport-loader]) .activity {
+  display: none;
+}
+.curtain {
+  position: fixed;
+  z-index: var(--z-startup, 1400);
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: clamp(24px, 4vw, 64px);
+  background: #0b231b;
+  color: #fff;
+  overflow: hidden;
+}
+.brand {
+  font-family: var(--font-display, "Barlow Condensed", sans-serif);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+}
+.brand span {
+  color: var(--color-accent, #c7f442);
+}
+.stage {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+}
+.readout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 100%;
+}
+.progress {
+  width: min(62%, 800px);
+}
+.number {
+  display: block;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(72px, 11vw, 150px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+.number > span {
+  font-size: 0.36em;
+  margin-left: 6px;
+  color: var(--color-accent, #c7f442);
+}
+.track {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: #ffffff29;
+  overflow: hidden;
+}
+.track > span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent, #c7f442);
+  transform-origin: left;
+}
+.readout p {
+  margin: 0;
+  color: #edf4e9;
+  font-size: clamp(12px, 1.1vw, 15px);
+}
+.experience[data-startup-phase="revealing"] .curtain {
+  animation: curtainDown 1100ms cubic-bezier(0.76, 0, 0.24, 1) both;
+  pointer-events: none;
+}
+.experience[data-startup-phase="revealing"] [data-home-section="top"] {
+  animation: heroSettle 1300ms cubic-bezier(0.22, 0.61, 0.36, 1) 180ms both;
+}
+@keyframes curtainDown {
+  to {
+    transform: translateY(101%);
+  }
+}
+@keyframes heroSettle {
+  from {
+    transform: translateY(-160px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@media (max-width: 480px) {
+  .readout {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+  .progress {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .experience {
+    --startup-scene-y: 0px;
+    --startup-scene-scale: 1;
+    --startup-object-y: 0px;
+  }
+  .experience[data-startup-phase="revealing"] .curtain {
+    animation: none;
+    opacity: 0;
+  }
+  .experience[data-startup-phase="revealing"] [data-home-section="top"] {
+    animation: none;
+  }
+}

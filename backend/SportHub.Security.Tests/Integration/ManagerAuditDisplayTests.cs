@@ -84,7 +84,7 @@ public class ManagerAuditDisplayTests(SportHubApiFactory factory)
         using var client = factory.CreateApiClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(actor.UserId, UserRole.CenterManager));
         var name = "Snapshot sport " + Guid.NewGuid();
-        object Payload(int capacity) => new { code = "sport_" + actor.UserId.ToString("N")[..12], name, description = "Recorded description", services = new[] { new { serviceType = "GROUP_COURSE", isEnabled = true, defaultSessionMinutes = 90, defaultMaxCapacity = capacity } } };
+        object Payload(int capacity) => new { name, description = "Recorded description", services = new[] { new { serviceType = "GROUP_COURSE", isEnabled = true, defaultSessionMinutes = 90, defaultMaxCapacity = capacity } } };
         var create = await client.PostAsJsonAsync("api/manager/sports", Payload(12));
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var sportId = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sportId").GetInt32();

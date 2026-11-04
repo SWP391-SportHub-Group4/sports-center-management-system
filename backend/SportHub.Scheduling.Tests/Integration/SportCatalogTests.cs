@@ -79,11 +79,11 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         for (var n = 0; n < 3; n++)
         {
             var code = UniqueCode();
-            codes.Add(code);
             var response = await manager.PostAsJsonAsync("api/manager/sports", new
             { code, name = Unique("Order"), sortOrder = -900, services = GroupCourse() });
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             var row = await Json(response);
+            codes.Add(row.GetProperty("code").GetString()!);
             createdIds.Add(Id(row));
             active.Add(Id(row));
             Assert.Equal(active.Count, row.GetProperty("sortOrder").GetInt32());
@@ -206,7 +206,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         Assert.Equal("service_type_invalid", await ErrorOf(badType));
 
         var badCode = await manager.PostAsJsonAsync("api/manager/sports", new { code = "Bad Code!", name = Unique("Y"), services = Array.Empty<object>() });
-        Assert.Equal("sport_code_invalid", await ErrorOf(badCode));
+        Assert.Equal(HttpStatusCode.Created, badCode.StatusCode); // Legacy supplied code is ignored.
 
         // PT is no longer a service type anywhere in the catalog.
         var retiredPt = await manager.PostAsJsonAsync("api/manager/sports", new
@@ -231,7 +231,7 @@ public class SportCatalogTests(SchedulingApiFactory factory)
         var dup = await manager.PostAsJsonAsync("api/manager/sports", new { code = UniqueCode(), name = name.ToUpperInvariant(), services = GroupCourse() });
         Assert.Equal(HttpStatusCode.Conflict, dup.StatusCode);
         Assert.Equal("sport_name_taken", await ErrorOf(dup));
-        var dupCode = await manager.PostAsJsonAsync("api/manager/sports", new { code = code.ToUpperInvariant(), name = Unique("W"), services = GroupCourse() });
+        var dupCode = await manager.PostAsJsonAsync("api/manager/sports", new { name = name.Replace('-', ' '), services = GroupCourse() });
         Assert.Equal("sport_code_taken", await ErrorOf(dupCode));
 
         var change = await manager.PutAsJsonAsync($"api/manager/sports/{id}", new { code = UniqueCode(), name, services = GroupCourse() });

@@ -1,14 +1,10 @@
 "use client";
 import {
   IncidentRefundTable,
-  validRefunds,
   refundEdit,
   type RefundEdits,
 } from "./incident-refund-table";
-import {
-  IncidentDayPassMembers,
-  dayPassRecipients,
-} from "./incident-day-pass-members";
+import { IncidentDayPassMembers } from "./incident-day-pass-members";
 import { createPortal } from "react-dom";
 import styles from "./incidents.module.css";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -19,13 +15,11 @@ import { useAuth } from "@/lib/auth";
 import { useIncidentDraftCleanup } from "./incident-draft-cleanup";
 import { useLanguage } from "@/lib/language";
 import { Card, Field, Dialog } from "@/components/ui";
-import { RoomSelector, catalogApi } from "@/features/catalog";
-import { useApi } from "@/lib/useApi";
+import { RoomSelector } from "@/features/catalog";
 import { MutationFeedback, useMutation } from "@/features/operations";
-import { vietnamUtc } from "@/lib/vietnam-time";
+import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
 import { IncidentDateTime, validIncidentDateTime } from "./incident-date-time";
 import formStyles from "./incident-date-time.module.css";
-import { formatDateTime } from "@/lib/format";
 import type { IncidentPreviewDto } from "@/lib/types";
 import { IncidentImpactReview } from "./incident-impact-review";
 import { validReceiptId } from "@/features/manager";
@@ -35,13 +29,8 @@ import {
   type IncidentRequest,
   type IncidentResolutionSelection,
 } from "./incident-api";
-import { IncidentPlanSummary } from "./incident-plan-summary";
 import { useOperationsCopy } from "@/features/manager";
-import {
-  IncidentProgress,
-  type IncidentStep,
-  type StepStatus,
-} from "./incident-progress";
+import type { StepStatus } from "./incident-progress";
 
 // Navigation timing stays fixed for this document. The server snapshot keeps
 // hydration consistent before the client initializes a fresh form on reload.
@@ -80,16 +69,15 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   );
   const previewRequest = useRef<AbortController | null>(null);
   const mutation = useMutation();
-  const rooms = useApi((signal) => catalogApi.rooms(signal), []);
   const revision = useRef(0);
   const resolvePending = useRef(false);
   const operationId = useRef("");
   const [refundEdits, setRefundEdits] = useState<RefundEdits>({});
-  const [previewChanged, setPreviewChanged] = useState(false);
   const reviewButtonRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [timeError, setTimeError] = useState("");
-  const [steps, setSteps] = useState<IncidentStep[]>([]);
+  const [openedAt] = useState(Date.now);
+  const today = vietnamLocal(new Date(openedAt).toISOString()).slice(0, 10);
   const [scope, setScope] = useState(
     !resetOnReload && params.get("scope") === "CENTER" ? "CENTER" : "ROOM",
   );
@@ -113,7 +101,8 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   } | null>(null);
   const [incidentId, setIncidentId] = useState("");
   const [historyKey, setHistoryKey] = useState("");
-  const [finalReview, setFinalReview] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [hideDraftActivities, setHideDraftActivities] = useState(false);
   const [confirmationUncertain, setUncertain] = useState(
     params.get("incidentUncertain") === "1",
   );
@@ -151,11 +140,13 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   const endMs = hasValidDates ? Date.parse(vietnamUtc(end)) : 0;
   const rangeError = !hasValidDates
     ? null
-    : endMs <= startMs
-      ? t.incidentHistory.invalidRange
-      : endMs - startMs > 31 * 86400000
-        ? t.incidentHistory.rangeTooLong
-        : null;
+    : startMs < openedAt
+      ? t.incidentHistory.startInPast
+      : endMs <= startMs
+        ? t.incidentHistory.invalidRange
+        : endMs - startMs > 31 * 86400000
+          ? t.incidentHistory.rangeTooLong
+          : null;
   const validDraft =
     hasValidDates &&
     !rangeError &&
@@ -163,21 +154,21 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
     reason.trim().length <= 500 &&
     (scope !== "ROOM" || Number(roomId) > 0);
   const refundRows = review?.preview.refunds ?? [];
-  const refundValid = validRefunds(refundRows, refundEdits);
-  function record(
-    type: string,
-    id: string,
-    status: StepStatus,
-    message?: string,
-  ) {
-    const step = { type, id, status, message, at: new Date().toISOString() };
-    setSteps((previous) => [
-      ...previous.filter(
-        (item) => item.type !== type || (type !== "FINAL" && item.id !== id),
+  const canConfirm =
+    !!review &&
+    review.preview.impacts.every((impact) =>
+      review.body.resolutions?.some(
+        (plan) => plan.sourceId === impact.sourceId,
       ),
-      step,
-    ]);
-    if (type !== "FINAL") setFinalReview(false);
+    ) &&
+    refundRows.length === 0 &&
+    review.preview.canResolve &&
+    !mutation.busy &&
+    !resolving &&
+    !editing &&
+    !uncertain &&
+    !incidentId;
+  function record(type: string, status: StepStatus) {
     if (status === "unknown") {
       setUncertain(true);
       const query = new URLSearchParams(window.location.search);
@@ -192,15 +183,12 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
     resolutionPlans.current = [];
     setResolutions([]);
     setRefundEdits({});
-    setPreviewChanged(false);
     setReview(null);
     setIncidentId("");
     mutation.reset();
-    setFinalReview(false);
   }
   function finish() {
     clear();
-    setSteps([]);
     setScope("ROOM");
     setRoom("");
     setStart("");
@@ -215,18 +203,12 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
       plan,
     ];
     setResolutions(resolutionPlans.current);
-    setFinalReview(false);
   }
-  function removeResolution(sourceId: string) {
-    revision.current++;
-    resolutionPlans.current = resolutionPlans.current.filter(
-      (p) => p.sourceId !== sourceId,
-    );
-    setResolutions(resolutionPlans.current);
-    setFinalReview(false);
-    void preview();
-  }
-  async function preview(final = false) {
+  async function preview(hideDrafts = false) {
+    if (hasValidDates && startMs < Date.now()) {
+      setTimeError(t.incidentHistory.startInPast);
+      return;
+    }
     if (!hasValidDates || rangeError) {
       setTimeError(
         !hasValidDates ? t.incidentHistory.invalidTime : rangeError!,
@@ -234,7 +216,7 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
       return;
     }
     if (!formRef.current?.reportValidity()) return;
-    if (!validDraft || (final && !refundValid)) return;
+    if (!validDraft) return;
     if (!operationId.current) operationId.current = crypto.randomUUID();
     const priorToken =
       review?.preview.previewToken || previousPreviewToken.current;
@@ -248,7 +230,6 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
       resolutions: resolutionPlans.current,
     };
     setReview(null);
-    setFinalReview(false);
     await mutation.run(async () => {
       const controller = new AbortController();
       previewRequest.current = controller;
@@ -257,11 +238,67 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
         const changed = !!priorToken && priorToken !== data.previewToken;
         previousPreviewToken.current = data.previewToken ?? "";
         if (changed || !priorToken) setRefundEdits({});
-        setPreviewChanged(changed);
+        setHideDraftActivities(hideDrafts);
         setReview({ body, preview: data });
-        setFinalReview(final && data.canResolve && !changed);
       }
     }, "");
+  }
+  async function confirmIncident() {
+    if (!review || !canConfirm || resolvePending.current) return;
+    if (Date.parse(review.body.startAtUtc) < Date.now()) {
+      setTimeError(t.incidentHistory.startInPast);
+      return;
+    }
+    resolvePending.current = true;
+    drafts.markConfirming(true);
+    setResolving(true);
+    record("FINAL", "pending");
+    let unknown = false;
+    const ok = await mutation.run(async () => {
+      const response = await incidentApi
+        .resolve({
+          ...review.body,
+          previewToken: review.preview.previewToken,
+          operationId: operationId.current,
+          refunds: refundRows.map((row) => ({
+            sourceId: row.sourceId,
+            points: Number(refundEdit(row, refundEdits).points),
+            adjustmentReason:
+              refundEdit(row, refundEdits).reason.trim() || undefined,
+          })),
+        })
+        .then((response) => {
+          if (!validReceiptId(response.incidentId))
+            throw new Error(c.invalidReceipt);
+          return response;
+        })
+        .catch((error) => {
+          unknown =
+            !(error instanceof ApiError) ||
+            error.status === 0 ||
+            error.status >= 500;
+          throw error;
+        });
+      setIncidentId(response.incidentId);
+      setHistoryKey(response.incidentId);
+      setReview(null);
+      drafts.markConfirming(false);
+      previousPreviewToken.current = "";
+      record("FINAL", "succeeded");
+    }, "");
+    resolvePending.current = false;
+    setResolving(false);
+    if (!ok) {
+      if (!unknown) drafts.markConfirming(false);
+      record("FINAL", unknown ? "unknown" : "failed");
+      setReview(null);
+      setUncertain(unknown);
+      if (unknown) {
+        const query = new URLSearchParams(window.location.search);
+        query.set("incidentUncertain", "1");
+        window.history.replaceState(null, "", `?${query}`);
+      }
+    }
   }
   return (
     <div className={styles.page}>
@@ -301,7 +338,6 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
           </Dialog>,
           document.body,
         )}
-      <p className={styles.intro}>{t.incidentHistory.intro}</p>
       {drafts.error && (
         <div className="alert alert--warning" role="alert">
           <p>{t.incidentDraft.cleanupError}</p>
@@ -316,7 +352,17 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
       )}
       <Card
         title={incidentId ? l.resolved : t.incidentHistory.formTitle}
-        hint={!incidentId ? t.incidentHistory.formHint : undefined}
+        actions={
+          <button
+            type="button"
+            className="btn btn--secondary"
+            aria-haspopup="dialog"
+            disabled={mutation.busy || resolving || editing}
+            onClick={() => setShowHistory(true)}
+          >
+            {t.managerOperations.incidentHistory}
+          </button>
+        }
       >
         {!incidentId && (
           <form
@@ -353,6 +399,8 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                 </Field>
                 {scope === "ROOM" && (
                   <RoomSelector
+                    searchable
+                    showHint={false}
                     value={roomId}
                     onChange={(v) => {
                       setRoom(v);
@@ -365,7 +413,14 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                 <IncidentDateTime
                   label={l.start}
                   value={start}
+                  minDate={today}
                   onChange={(value) => {
+                    const date = value.split("T")[0];
+                    if (date && date !== start.split("T")[0]) {
+                      setEnd(
+                        (current) => `${date}T${current.split("T")[1] ?? ""}`,
+                      );
+                    }
                     setStart(value);
                     clear();
                   }}
@@ -373,7 +428,9 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                 <IncidentDateTime
                   label={l.end}
                   value={end}
-                  minDate={start.split("T")[0]}
+                  minDate={
+                    start.split("T")[0] > today ? start.split("T")[0] : today
+                  }
                   onChange={(value) => {
                     setEnd(value);
                     clear();
@@ -408,16 +465,11 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
         )}
         <MutationFeedback mutation={mutation} />
       </Card>
-      {!review && !incidentId && (
-        <IncidentPlanSummary plans={resolutions} onRemove={removeResolution} />
-      )}
       {review &&
-        !finalReview &&
         !incidentId &&
         createPortal(
           <Dialog
-            title={l.impact}
-            description={t.incidentHistory.reviewHint}
+            title={t.incidentHistory.reviewTitle}
             size="lg"
             className={`${styles.dialog} ${styles.impactDialog}`}
             footer={
@@ -441,28 +493,16 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                 <button
                   type="button"
                   className={`btn ${styles.recheck}`}
-                  disabled={
-                    mutation.busy ||
-                    resolving ||
-                    editing ||
-                    uncertain ||
-                    !!incidentId ||
-                    !refundValid
-                  }
-                  onClick={() => preview(true)}
+                  disabled={!canConfirm}
+                  onClick={() => void confirmIncident()}
                 >
-                  {refundRows.length
-                    ? t.incidentRefunds.review
-                    : dayPassRecipients(review.preview).length
-                      ? t.incidentDayPassMembers.review
-                      : t.managerOperations.recheck}
+                  {l.confirm}
                 </button>
               </div>
             }
             onClose={() => {
-              if (!mutation.busy && !resolving && !editing && !finalReview) {
+              if (!mutation.busy && !resolving && !editing) {
                 setReview(null);
-                setFinalReview(false);
                 requestAnimationFrame(() => reviewButtonRef.current?.focus());
               }
             }}
@@ -476,6 +516,13 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                   <IncidentImpactReview
                     preview={{
                       ...review.preview,
+                      impacts: review.preview.impacts.filter(
+                        (impact) =>
+                          !hideDraftActivities ||
+                          !resolutions.some(
+                            (plan) => plan.sourceId === impact.sourceId,
+                          ),
+                      ),
                       members: review.preview.members?.filter(
                         (m) => m.sourceType === "CLASS_SESSION",
                       ),
@@ -483,22 +530,15 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                     incidentRequest={review.body}
                     resolutions={resolutions}
                     onStage={stageResolution}
-                    onRemovePlan={removeResolution}
-                    onRefresh={() => preview()}
-                    onResult={(type, id, status, message) => {
-                      record(type, id, status, message);
+                    onRefresh={() => preview(true)}
+                    onResult={(type, _id, status) => {
+                      record(type, status);
                     }}
                     onEditingChange={(value) => {
                       setEditing(value);
-                      setFinalReview(false);
                     }}
                     disabled={mutation.busy || uncertain || !!incidentId}
                   />
-                )}
-                {previewChanged && (
-                  <p className="alert alert--info" role="status">
-                    {t.incidentRefunds.changed}
-                  </p>
                 )}
                 <IncidentRefundTable
                   rows={refundRows}
@@ -507,153 +547,9 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                   disabled={mutation.busy || resolving || editing}
                 />
                 <IncidentDayPassMembers preview={review.preview} />
-                <IncidentPlanSummary
-                  plans={resolutions}
-                  onRemove={removeResolution}
-                />
               </div>
               <MutationFeedback mutation={mutation} />
             </div>
-          </Dialog>,
-          document.body,
-        )}
-      {review &&
-        !incidentId &&
-        finalReview &&
-        createPortal(
-          <Dialog
-            title={t.managerOperations.resolveReview}
-            description={t.incidentHistory.confirmHint}
-            size="lg"
-            className={`${styles.dialog} ${styles.impactDialog}`}
-            onClose={() => {
-              if (!resolving && !mutation.busy) setFinalReview(false);
-            }}
-            showCloseButton={false}
-            footer={
-              <>
-                <button
-                  type="button"
-                  className={`btn ${styles.back}`}
-                  disabled={resolving || mutation.busy}
-                  onClick={() => setFinalReview(false)}
-                >
-                  {t.incidentHistory.backToImpacts}
-                </button>
-                <button
-                  className={`btn ${styles.confirm}`}
-                  disabled={
-                    mutation.busy ||
-                    resolving ||
-                    editing ||
-                    !review.preview.canResolve ||
-                    !!incidentId ||
-                    uncertain ||
-                    !refundValid
-                  }
-                  onClick={async () => {
-                    if (resolvePending.current || !refundValid) return;
-                    resolvePending.current = true;
-                    drafts.markConfirming(true);
-                    setResolving(true);
-                    record("FINAL", "—", "pending");
-                    let unknown = false;
-                    const ok = await mutation.run(async () => {
-                      const response = await incidentApi
-                        .resolve({
-                          ...review.body,
-                          previewToken: review.preview.previewToken,
-                          operationId: operationId.current,
-                          refunds: refundRows.map((row) => ({
-                            sourceId: row.sourceId,
-                            points: Number(refundEdit(row, refundEdits).points),
-                            adjustmentReason:
-                              refundEdit(row, refundEdits).reason.trim() ||
-                              undefined,
-                          })),
-                        })
-                        .then((response) => {
-                          if (!validReceiptId(response.incidentId))
-                            throw new Error(c.invalidReceipt);
-                          return response;
-                        })
-                        .catch((error) => {
-                          unknown =
-                            !(error instanceof ApiError) ||
-                            error.status === 0 ||
-                            error.status >= 500;
-                          throw error;
-                        });
-                      setIncidentId(response.incidentId);
-                      setHistoryKey(response.incidentId);
-                      setReview(null);
-                      drafts.markConfirming(false);
-                      previousPreviewToken.current = "";
-                      setFinalReview(false);
-                      record("FINAL", response.incidentId, "succeeded");
-                    }, "");
-                    resolvePending.current = false;
-                    setResolving(false);
-                    if (!ok) {
-                      if (!unknown) drafts.markConfirming(false);
-                      record("FINAL", "—", unknown ? "unknown" : "failed");
-                      setReview(null);
-                      setFinalReview(false);
-                      setUncertain(unknown);
-                      if (unknown) {
-                        const query = new URLSearchParams(
-                          window.location.search,
-                        );
-                        query.set("incidentUncertain", "1");
-                        window.history.replaceState(null, "", `?${query}`);
-                      }
-                    }
-                  }}
-                >
-                  {refundRows.length
-                    ? t.incidentRefunds.confirm
-                    : dayPassRecipients(review.preview).length
-                      ? t.incidentDayPassMembers.confirm
-                      : t.managerOperations.finalResolve}
-                </button>
-              </>
-            }
-          >
-            <dl className={styles.summary}>
-              <div>
-                <dt>{l.scope}</dt>
-                <dd>
-                  {review.body.scope === "CENTER"
-                    ? t.incidentHistory.entireCenter
-                    : (rooms.data?.find(
-                        (room) => room.roomId === review.body.roomId,
-                      )?.name ?? l.room)}
-                </dd>
-              </div>
-              <div>
-                <dt>{l.impact}</dt>
-                <dd>{review.preview.impacts.length}</dd>
-              </div>
-              <div>
-                <dt>{l.start}</dt>
-                <dd>{formatDateTime(review.body.startAtUtc)}</dd>
-              </div>
-              <div>
-                <dt>{l.end}</dt>
-                <dd>{formatDateTime(review.body.endAtUtc)}</dd>
-              </div>
-              <div className={styles.wide}>
-                <dt>{l.reason}</dt>
-                <dd>{review.body.reason}</dd>
-              </div>
-            </dl>
-            <IncidentPlanSummary plans={review.body.resolutions ?? []} />
-            <IncidentRefundTable
-              rows={refundRows}
-              edits={refundEdits}
-              readOnly
-            />
-            <IncidentDayPassMembers preview={review.preview} />
           </Dialog>,
           document.body,
         )}
@@ -668,8 +564,18 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
           </Link>
         </div>
       )}
-      {!!steps.length && <IncidentProgress steps={steps} />}
-      <IncidentHistory key={historyKey} refreshKey={historyKey} />
+      {showHistory &&
+        createPortal(
+          <Dialog
+            title={t.managerOperations.incidentHistory}
+            size="lg"
+            className={`${styles.dialog} ${styles.historyDialog}`}
+            onClose={() => setShowHistory(false)}
+          >
+            <IncidentHistory key={historyKey} refreshKey={historyKey} />
+          </Dialog>,
+          document.body,
+        )}
     </div>
   );
 }

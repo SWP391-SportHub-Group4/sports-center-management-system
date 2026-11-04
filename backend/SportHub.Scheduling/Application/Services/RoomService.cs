@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -7,6 +6,7 @@ using SportHub.Scheduling.Application.Commands;
 using SportHub.Scheduling.Application.DTOs;
 using SportHub.Scheduling.Application.Interfaces;
 using SportHub.Scheduling.Catalog.Domain;
+using SportHub.Scheduling.Catalog.Application;
 using SportHub.Scheduling.Occupancy.Domain;
 
 namespace SportHub.Scheduling.Application.Services;
@@ -15,7 +15,7 @@ namespace SportHub.Scheduling.Application.Services;
 /// Danh mục phòng tập — BR-39 (chỉ Center Manager cấu hình), BR-57 (Name unique toàn trung tâm), BR-108 (loại phòng).
 /// Phòng ngừng hoạt động (IsActive=false) chặn booking mới nhưng giữ nguyên lịch đã có.
 /// </summary>
-public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit, IClock clock,
+public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audit,
     SportHub.BuildingBlocks.Abstractions.Configuration.ISystemSettingProvider settings) : IRoomService
 {
     public async Task<RoomResponse> SetRentalAccessAsync(int roomId, bool allowRental, Guid actorUserId, CancellationToken ct = default)
@@ -24,8 +24,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
         var room = await db.Set<Room>().FromSqlInterpolated($"SELECT * FROM rooms WHERE room_id = {roomId} FOR UPDATE")
             .SingleOrDefaultAsync(ct) ?? throw new NotFoundException("room_not_found", "Room not found.");
         var before = Describe(room);
-        if (allowRental && !room.AllowRental && room.RentalBookingOpensAtUtc is null)
-            room.RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1));
+        if (allowRental) room.RentalBookingOpensAtUtc = null;
         if (allowRental) room.RoomTypeId ??= await ResolveSharedRoomTypeAsync(ct);
         room.AllowRental = allowRental;
         audit.Write(new AuditEntry(actorUserId, allowRental ? "ALLOW_ROOM_RENTAL" : "DISABLE_ROOM_RENTAL",
@@ -69,9 +68,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
             Capacity = request.Capacity,
             RoomTypeId = request.RoomTypeId,
             IsActive = request.IsActive ?? true,
-            AllowRental = request.AllowRental ?? false,
-            RentalBookingOpensAtUtc = request.AllowRental == true
-                ? VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)) : null
+            AllowRental = request.AllowRental ?? false
         };
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -82,6 +79,8 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
         foreach (var hour in openingHours) hour.RoomId = room.RoomId;
         db.Set<RoomOpeningHour>().AddRange(openingHours);
         var rentalRates = AddCreationRentalRates(room, request, openingHours);
+        if (room.AllowRental && request.RentalSetup?.SportId is int rentalSportId)
+            await RentalSportOffering.EnableAsync(db, audit, rentalSportId, actorUserId, ct);
         await db.SaveChangesAsync(ct);
 
         audit.Write(new AuditEntry(
@@ -94,7 +93,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
             foreach (var rate in rentalRates)
                 audit.Write(new AuditEntry(actorUserId, "CREATE_COURT_RATE", nameof(CourtRate), rate.RateId.ToString(),
                     NewValue: System.Text.Json.JsonSerializer.Serialize(new {
-                        roomId = room.RoomId, roomName = room.Name, roomTypeId = room.RoomTypeId, sportId = (int?)null,
+                        roomId = room.RoomId, roomName = room.Name, roomTypeId = room.RoomTypeId, sportId = rate.SportId,
                         days = rate.DaysOfWeek, startTimeLocal = rate.StartTimeLocal.ToString("HH:mm"),
                         endTimeLocal = rate.EndTimeLocal.ToString("HH:mm"), price = rate.PricePerHour, active = true
                     })));
@@ -153,8 +152,7 @@ public sealed partial class RoomService(ISportHubDbContext db, IAuditWriter audi
 
         if (request.AllowRental is bool allowRental)
         {
-            if (allowRental && !room.AllowRental && room.RentalBookingOpensAtUtc is null)
-                room.RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1));
+            if (allowRental) room.RentalBookingOpensAtUtc = null;
             room.AllowRental = allowRental;
             if (allowRental) room.RoomTypeId ??= await ResolveSharedRoomTypeAsync(ct);
         }

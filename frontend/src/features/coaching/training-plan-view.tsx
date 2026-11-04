@@ -12,7 +12,7 @@ import {
 import { useNow } from "@/lib/useApi";
 import { sortTeachingSessions } from "@/lib/teaching-order";
 import { StatusChip } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatTime } from "@/lib/format";
 import type { CourseSessionDto } from "@/lib/types";
 import type { TeachingRecord, TeachingMember } from "./teaching-api";
 import styles from "./training-plan-view.module.css";
@@ -74,9 +74,7 @@ export function TrainingPlanView({
     personal: vi ? "Tạo kế hoạch cá nhân" : "New personal plan",
   };
   const descriptions = {
-    course: vi
-      ? "Lộ trình từ buổi đầu đến buổi cuối: mục tiêu toàn khóa và nội dung sẽ học ở từng buổi."
-      : "Your complete roadmap: course goals and what you will learn in each session.",
+    course: "",
     session: vi
       ? "Các bài tập và trình tự thực hiện của từng buổi học."
       : "Exercises and training sequence for each session.",
@@ -151,13 +149,15 @@ export function TrainingPlanView({
           })}
         </div>
       )}
-      <p className={styles.scopeDescription}>
-        {viewMode === "session"
-          ? vi
-            ? "Bài tập và kế hoạch của buổi đang chọn."
-            : "Exercises and plans for the selected session."
-          : descriptions[scope]}
-      </p>
+      {(viewMode === "session" || descriptions[scope]) && (
+        <p className={styles.scopeDescription}>
+          {viewMode === "session"
+            ? vi
+              ? "Bài tập và kế hoạch của buổi đang chọn."
+              : "Exercises and plans for the selected session."
+            : descriptions[scope]}
+        </p>
+      )}
       <div className={styles.toolbar}>
         {onViewCoursePlan && (
           <button
@@ -572,7 +572,9 @@ function CourseRoadmap({
                     {vi ? "Buổi" : "Session"} {s.sessionNo}
                     {s.isMakeup ? (vi ? " · Học bù" : " · Makeup") : ""}
                   </strong>
-                  <small>{formatDateTime(s.startAtUtc)}</small>
+                  <small>
+                    {formatDateTime(s.startAtUtc)} – {formatTime(s.endAtUtc)}
+                  </small>
                   <span className={styles.phaseBadge} data-phase={phase}>
                     {phaseLabel}
                   </span>
@@ -584,18 +586,16 @@ function CourseRoadmap({
                     </p>
                   ))}
                 {lessonPlans.length ? (
-                  lessonPlans.map((plan) => (
-                    <div key={plan.recordId} className={styles.roadmapLesson}>
-                      <h4>{plan.title}</h4>
-                      <details
-                        className={styles.roadmapDetails}
-                        open={phase === "next" || phase === "live"}
-                      >
-                        <summary>
-                          {vi
-                            ? "Xem nội dung buổi học"
-                            : "View session content"}
-                        </summary>
+                  <details
+                    className={styles.roadmapDetails}
+                    open={phase === "next" || phase === "live"}
+                  >
+                    <summary>
+                      {vi ? "Xem nội dung buổi học" : "View session content"}
+                    </summary>
+                    {lessonPlans.map((plan) => (
+                      <div key={plan.recordId} className={styles.roadmapLesson}>
+                        <h4>{plan.title}</h4>
                         <PlanContent content={plan.content} />
                         {onEdit && plan.coachId === editableCoachId && (
                           <button
@@ -607,9 +607,9 @@ function CourseRoadmap({
                             {vi ? "Chỉnh sửa" : "Edit"}
                           </button>
                         )}
-                      </details>
-                    </div>
-                  ))
+                      </div>
+                    ))}
+                  </details>
                 ) : (
                   <>
                     {!courseTopics.has(s.sessionNo) && (

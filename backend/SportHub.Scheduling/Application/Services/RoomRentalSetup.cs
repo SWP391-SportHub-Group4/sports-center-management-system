@@ -91,8 +91,7 @@ public sealed partial class RoomService
                 return rate;
             }).ToList();
 
-        var room = new Room { Name = name, Capacity = request.Capacity, RoomTypeId = request.RoomTypeId, IsActive = true, AllowRental = true,
-            RentalBookingOpensAtUtc = VietnamTime.StartOfDayUtc(VietnamTime.TodayLocal(clock).AddDays(1)) };
+        var room = new Room { Name = name, Capacity = request.Capacity, RoomTypeId = request.RoomTypeId, IsActive = true, AllowRental = true };
         db.Set<Room>().Add(room);
         await db.SaveChangesAsync(ct);
         foreach (var h in hours) h.RoomId = room.RoomId;

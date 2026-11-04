@@ -32,7 +32,7 @@ export function CourtBookingSection({ language }: { language: "en" | "vi" }) {
       className={styles.section}
       aria-labelledby="court-booking-title"
     >
-      <div className={styles.photo}>
+      <div className={styles.photo} data-motion="media">
         <Image
           src={content.image}
           alt={content.imageAlt}
@@ -40,7 +40,7 @@ export function CourtBookingSection({ language }: { language: "en" | "vi" }) {
           sizes="(max-width: 900px) 100vw, 50vw"
         />
       </div>
-      <div className={styles.copy}>
+      <div className={styles.copy} data-motion="copy">
         <p className={styles.eyebrow}>{content.eyebrow}</p>
         <h2 id="court-booking-title">{content.title}</h2>
         <p className={styles.lead}>{content.lead}</p>

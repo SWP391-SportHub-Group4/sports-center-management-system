@@ -147,6 +147,12 @@
     font-weight: var(--weight-medium);
     text-align: left;
   }
+  .cardTable tbody td.loadingCell {
+    display: block;
+  }
+  .cardTable tbody td.loadingCell::before {
+    display: none;
+  }
   .cardTable .hidemd,
   .cardTable .hidelg {
     display: none;

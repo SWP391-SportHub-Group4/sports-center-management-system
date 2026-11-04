@@ -40,5 +40,6 @@ public enum NotificationSourceEventType
     SupportSlaReminder = 34,
     SupportPayoutRecorded = 35,
     SupportPayoutNotReceived = 36,
-    ManagerPointsGifted = 37
+    ManagerPointsGifted = 37,
+    IncidentCreated = 38
 }

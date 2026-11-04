@@ -9,6 +9,7 @@ public sealed record CourtScheduleEntry([property: SportHub.BuildingBlocks.Api.W
     IReadOnlyList<CourtScheduleParticipant> Participants,
     Guid? MemberId = null, string? MemberName = null)
 {
+    public string? CancellationReason { get; init; }
     public Guid? IncidentId { get; init; }
     [SportHub.BuildingBlocks.Api.WireEnum]
     public string? IncidentScope { get; init; }

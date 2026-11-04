@@ -1423,10 +1423,9 @@ test("creating and renaming a sport syncs open Media and landing tabs without lo
     .getByRole("dialog")
     .getByLabel("Name", { exact: true })
     .fill("Tennis");
-  await catalog
-    .getByRole("dialog")
-    .getByLabel("Code", { exact: true })
-    .fill("tennis");
+  await expect(
+    catalog.getByRole("dialog").getByLabel("Code", { exact: true }),
+  ).toHaveCount(0);
   await catalog
     .getByRole("dialog")
     .getByRole("button", { name: "Save", exact: true })

@@ -42,7 +42,7 @@ export function ReportFilterForm({
 }: {
   initial: ReportFilters;
   onApply: (filters: ReportFilters, member?: UserAdminDto | null) => void;
-  scope?: "dimensions" | "rentals" | "classes" | "period";
+  scope?: "dimensions" | "rentals" | "classes" | "period" | "member";
   children?: ReactNode;
   selectedMember?: UserAdminDto | null;
 }) {
@@ -72,7 +72,7 @@ export function ReportFilterForm({
   );
   const sports = useApi(
     (signal) =>
-      scope === "period"
+      scope === "period" || scope === "member"
         ? Promise.resolve([] as SportDto[])
         : api.get<SportDto[]>("/api/manager/sports", { signal }),
     [scope],
@@ -101,9 +101,10 @@ export function ReportFilterForm({
             setError(false);
             const applied = {
               ...draft,
-              sportId: scope === "period" ? "" : draft.sportId,
+              sportId:
+                scope === "period" || scope === "member" ? "" : draft.sportId,
               source: scope === "dimensions" ? draft.source : "",
-              memberId: ["dimensions", "rentals"].includes(scope)
+              memberId: ["dimensions", "rentals", "member"].includes(scope)
                 ? draft.memberId
                 : "",
             };
@@ -160,7 +161,7 @@ export function ReportFilterForm({
                 }
               />
             </Field>
-            {scope !== "period" && (
+            {scope !== "period" && scope !== "member" && (
               <AsyncSection state={sports}>
                 {(rows) => (
                   <Field label={l.sport}>
@@ -204,7 +205,7 @@ export function ReportFilterForm({
                 </select>
               </Field>
             )}
-            {["dimensions", "rentals"].includes(scope) && (
+            {["dimensions", "rentals", "member"].includes(scope) && (
               <MemberPicker
                 scanner={false}
                 placeholder={l.member}
@@ -276,9 +277,11 @@ export function ReportExports() {
       ? "dimensions"
       : type === "COURT_RENTAL_REVENUE"
         ? "rentals"
-        : type === "CLASS_ENROLLMENT"
-          ? "classes"
-          : "period";
+        : type === "POINTS_SUMMARY"
+          ? "member"
+          : type === "CLASS_ENROLLMENT"
+            ? "classes"
+            : "period";
   return (
     <div className={styles.page}>
       <Link className={`btn btn--ghost ${styles.back}`} href="/manager/reports">

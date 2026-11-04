@@ -28,6 +28,7 @@ export function CoachesManager() {
   return (
     <>
       <FilterBar
+        inline
         fields={[
           { id: "keyword", label: l.search, kind: "search" },
           {

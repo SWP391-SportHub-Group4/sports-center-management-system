@@ -21,6 +21,8 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class IncidentRefundTests(PaymentApiFactory factory)
 {
     private static int dateOffset;
+    private sealed class FixedClock(DateTime now) : IClock { public DateTime UtcNow => now; }
+    private IClock incidentClock = null!;
     private sealed record Fixture(Guid Member, Guid Manager, Guid Pass, Guid Rental, Guid PassItem, Guid RentalItem, IncidentRequest Window);
 
     private async Task<Fixture> SeedAsync()
@@ -31,6 +33,9 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         {
             var day = VietnamTime.TodayLocal(new SystemClock()).AddDays(-100 - Interlocked.Increment(ref dateOffset));
             var start = VietnamTime.StartOfDayUtc(day).AddHours(8);
+            // Review historical fixture records from before the incident window,
+            // including the unrelated-day check, without relaxing production validation.
+            incidentClock = new FixedClock(start.AddDays(-6));
             var typeId = await db.Set<SportRoomType>().Join(db.Set<Sport>().Where(s => s.Code == "gym"),
                 l => l.SportId, s => s.SportId, (l, s) => l.RoomTypeId).FirstAsync();
             var room = new Room { Name = "Incident refund " + Guid.NewGuid(), Capacity = 12, RoomTypeId = typeId };
@@ -66,9 +71,9 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
     }
 
     private async Task<IncidentPreviewResponse> Preview(IncidentRequest request)
-    { using var scope = factory.Services.CreateScope(); return await scope.ServiceProvider.GetRequiredService<IncidentService>().PreviewAsync(request); }
+    { using var scope = factory.Services.CreateScope(); return await ActivatorUtilities.CreateInstance<IncidentService>(scope.ServiceProvider, incidentClock).PreviewAsync(request); }
     private async Task<Guid> Resolve(IncidentRequest request, Guid manager)
-    { using var scope = factory.Services.CreateScope(); return await scope.ServiceProvider.GetRequiredService<IncidentService>().ResolveAsync(request, manager); }
+    { using var scope = factory.Services.CreateScope(); return await ActivatorUtilities.CreateInstance<IncidentService>(scope.ServiceProvider, incidentClock).ResolveAsync(request, manager); }
     private static IncidentRequest Confirm(IncidentRequest request, IncidentPreviewResponse preview)
         => request with { OperationId = Guid.NewGuid(), PreviewToken = preview.PreviewToken,
             Refunds = preview.Refunds.Select(r => new IncidentRefundSelection(r.SourceId, r.SuggestedRefundPoints)).ToList() };
@@ -100,7 +105,8 @@ public sealed class IncidentRefundTests(PaymentApiFactory factory)
         Assert.False(await factory.QueryAsync(db => db.PointLedgerEntries.AnyAsync(e => db.PointWallets.Any(w => w.WalletId == e.WalletId && w.OwnerUserId == f.Member))));
         Assert.False(await factory.QueryAsync(db => db.Set<SportHub.Payment.Wallet.Domain.PointGift>().AnyAsync(g => g.IncidentId == id)));
         var notices = await factory.QueryAsync(db => db.Notifications
-            .Where(n => n.UserId == f.Member && n.SourceEntityId == id).ToListAsync());
+            .Where(n => n.UserId == f.Member && n.SourceEntityId == id
+                && n.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.IncidentResolution).ToListAsync());
         Assert.Equal(2, notices.Count);
         var inApp = Assert.Single(notices, n => n.Channel == SportHub.Notification.Domain.Enums.NotificationChannel.InApp);
         Assert.Contains(VietnamTime.ToLocal(expiry).ToString("dd/MM/yyyy HH:mm"), inApp.Message);

@@ -1,6 +1,9 @@
 "use client";
 
 import { BellRing, Mail, Send } from "lucide-react";
+import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
+import { Dialog } from "@/components/ui";
 import { AvatarImage } from "@/components/AvatarImage";
 import { useLanguage } from "@/lib/language";
 import { useOperationsCopy } from "@/features/manager";
@@ -21,6 +24,9 @@ export function NoticeReview({
   sendEmail,
   disabled,
   onSend,
+  onClose,
+  busy,
+  feedback,
 }: {
   recipients: NoticeRecipient[];
   sendToAll: boolean;
@@ -31,6 +37,9 @@ export function NoticeReview({
   sendEmail: boolean;
   disabled: boolean;
   onSend: () => void;
+  onClose: () => void;
+  busy: boolean;
+  feedback: ReactNode;
 }) {
   const { t } = useLanguage();
   const l = t.manualNotices;
@@ -44,7 +53,7 @@ export function NoticeReview({
           : "")
       : l.selectedCount.replace("{n}", String(recipients.length));
   const scope = sendToAll
-    ? l.sendToAllHint
+    ? ""
     : noticeRoles
         .map((role) => ({
           role,
@@ -57,83 +66,95 @@ export function NoticeReview({
             `${l.roles[role]}: ${all ? l.allActiveAccounts : count}`,
         )
         .join(", ");
-  return (
-    <section className={styles.review} aria-label={l.reviewNotice}>
-      <header className={styles.heading}>
-        <h3>{l.reviewNotice}</h3>
-        <p role="note">{c.localReview}</p>
-      </header>
-      <dl className={styles.details}>
-        <div className={styles.row}>
-          <dt>{c.recipientCount}</dt>
-          <dd>
-            <strong className={styles.audience}>{audience}</strong>
-            <p className={styles.scope}>{scope}</p>
-            {!sendToAll && recipients.length > 0 && (
-              <ul
-                className={styles.recipients}
-                tabIndex={0}
-                aria-label={c.recipientCount}
-              >
-                {recipients.map((account) => (
-                  <li key={account.userId}>
-                    <AvatarImage
-                      name={account.name}
-                      avatarUrl={account.avatarUrl}
-                      size={32}
-                    />
-                    <span className={styles.identity}>
-                      <strong>{account.name}</strong>
-                      <span>{account.email}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </dd>
-        </div>
-        <div className={styles.row}>
-          <dt>{c.channels}</dt>
-          <dd className={styles.channels}>
-            {sendInApp && (
-              <span>
-                <BellRing size={16} aria-hidden="true" />
-                {t.operations.sendInApp}
-              </span>
-            )}
-            {sendInApp && sendEmail && (
-              <span className={styles.separator} aria-hidden="true">
-                ·
-              </span>
-            )}
-            {sendEmail && (
-              <span>
-                <Mail size={16} aria-hidden="true" />
-                {t.operations.sendEmail}
-              </span>
-            )}
-          </dd>
-        </div>
-        <div className={styles.row}>
-          <dt>{t.operations.subject}</dt>
-          <dd className={styles.subject}>{subject}</dd>
-        </div>
-        <div className={styles.row}>
-          <dt>{t.operations.message}</dt>
-          <dd className={styles.message}>{message}</dd>
-        </div>
-      </dl>
-      <footer className={styles.footer}>
-        <button
-          type="button"
-          className={`btn ${styles.send}`}
-          disabled={disabled}
-          onClick={onSend}
-        >
-          <Send size={16} aria-hidden="true" />
-          {t.operations.send}
-        </button>
-      </footer>
-    </section>
+  return createPortal(
+    <Dialog
+      title={l.reviewNotice}
+      size="lg"
+      className={styles.dialog}
+      closeIconOnly
+      showCloseButton={!busy}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+    >
+      <section className={styles.review} aria-label={l.reviewNotice}>
+        <header className={styles.heading}>
+          <p role="note">{c.localReview}</p>
+        </header>
+        <dl className={styles.details}>
+          <div className={styles.row}>
+            <dt>{c.recipientCount}</dt>
+            <dd>
+              <strong className={styles.audience}>{audience}</strong>
+              {scope && <p className={styles.scope}>{scope}</p>}
+              {!sendToAll && recipients.length > 0 && (
+                <ul
+                  className={styles.recipients}
+                  tabIndex={0}
+                  aria-label={c.recipientCount}
+                >
+                  {recipients.map((account) => (
+                    <li key={account.userId}>
+                      <AvatarImage
+                        name={account.name}
+                        avatarUrl={account.avatarUrl}
+                        size={32}
+                      />
+                      <span className={styles.identity}>
+                        <strong>{account.name}</strong>
+                        <span>{account.email}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </dd>
+          </div>
+          <div className={styles.row}>
+            <dt>{c.channels}</dt>
+            <dd className={styles.channels}>
+              {sendInApp && (
+                <span>
+                  <BellRing size={16} aria-hidden="true" />
+                  {t.operations.sendInApp}
+                </span>
+              )}
+              {sendInApp && sendEmail && (
+                <span className={styles.separator} aria-hidden="true">
+                  ·
+                </span>
+              )}
+              {sendEmail && (
+                <span>
+                  <Mail size={16} aria-hidden="true" />
+                  {t.operations.sendEmail}
+                </span>
+              )}
+            </dd>
+          </div>
+          <div className={styles.row}>
+            <dt>{t.operations.subject}</dt>
+            <dd className={styles.subject}>{subject}</dd>
+          </div>
+          <div className={styles.row}>
+            <dt>{t.operations.message}</dt>
+            <dd className={styles.message}>{message}</dd>
+          </div>
+        </dl>
+        <footer className={styles.footer}>
+          <button
+            type="button"
+            className={`btn ${styles.send}`}
+            disabled={disabled || busy}
+            onClick={onSend}
+          >
+            <Send size={16} aria-hidden="true" />
+            {t.operations.send}
+          </button>
+        </footer>
+        {feedback}
+      </section>
+    </Dialog>,
+    document.body,
   );
 }

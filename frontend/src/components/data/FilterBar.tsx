@@ -2,7 +2,7 @@
 
 import { TableFilters } from "./TableFilters";
 import { useId } from "react";
-import { Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import type { FilterBarProps } from "@/components/contracts/table";
 import { Field } from "@/components/ui";
 import { Input, Select } from "@/components/primitives/Controls";
@@ -36,7 +36,10 @@ export function FilterBar({
           : !!values[field.id],
     ).length;
   return (
-    <div className={`${styles.wrapper} ${className}`}>
+    <div
+      className={`${styles.wrapper} ${className}`}
+      data-inline={inline || undefined}
+    >
       <TableFilters activeCount={count} inline={inline}>
         {presets}
         <div
@@ -95,6 +98,47 @@ export function FilterBar({
                       </Field>
                     </div>
                   </fieldset>
+                ) : inline &&
+                  !field.render &&
+                  (field.kind === "select" || field.kind === "search") ? (
+                  field.kind === "select" ? (
+                    <Select
+                      id={`${id}-${field.id}`}
+                      name={field.id}
+                      aria-label={field.label}
+                      value={values[field.id] ?? ""}
+                      options={(field.options ?? []).map((option) =>
+                        option.value === "" && /^all$/i.test(option.label)
+                          ? {
+                              ...option,
+                              label: `${field.label}: ${option.label}`,
+                            }
+                          : option,
+                      )}
+                      onChange={(event) =>
+                        setValue(field.id, event.target.value)
+                      }
+                    />
+                  ) : (
+                    <span className={styles.search}>
+                      <Search size={18} aria-hidden="true" />
+                      <Input
+                        id={`${id}-${field.id}`}
+                        name={field.id}
+                        type="search"
+                        aria-label={field.label}
+                        placeholder={field.placeholder ?? field.label}
+                        size={Math.max(
+                          18,
+                          (field.placeholder ?? field.label).length + 4,
+                        )}
+                        value={values[field.id] ?? ""}
+                        onChange={(event) =>
+                          setValue(field.id, event.target.value)
+                        }
+                      />
+                    </span>
+                  )
                 ) : (
                   <Field label={field.label}>
                     {field.render ? (

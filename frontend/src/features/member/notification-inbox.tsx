@@ -248,19 +248,12 @@ export function NotificationInbox() {
   const destination = selected
     ? notificationActionHref(selected, user?.role)
     : null;
-  const isSupportNotice =
-    user?.role === "CenterManager" &&
-    selected &&
-    ["SUPPORT_SLA_REMINDER", "SUPPORT_PAYOUT_NOT_RECEIVED"].includes(
-      selected.sourceEventType,
-    );
   const hasUnread =
     (unread.data?.count ?? 0) > 0 || rows.some((item) => !isRead(item));
 
   return (
     <section className={styles.inbox} aria-label="Notification inbox">
       <header className={styles.toolbar}>
-        <p>Schedule changes, class updates and messages from your center.</p>
         <div className={styles.toolbarActions}>
           <Button
             variant="secondary"
@@ -572,35 +565,17 @@ export function NotificationInbox() {
                       </div>
                     )}
                   <NotificationBody item={selected} />
-                  <footer className={styles.readerFooter}>
-                    {destination ? (
-                      <>
-                        <p>
-                          {isSupportNotice
-                            ? destination.includes("request=")
-                              ? "Review the request’s current status, latest reply and activity."
-                              : "This older notice has no request link. Open the queue to find the request."
-                            : selected.sourceEventType ===
-                                  "PAYMENT_UNACTIVATED" &&
-                                user?.role === "CenterManager"
-                              ? "Open the invoice to review the payment, purchased service and current status."
-                              : "Continue to the related information."}
-                        </p>
-                        <Link
-                          className={buttonClass({ variant: "primary" })}
-                          href={destination}
-                        >
-                          {notificationActionLabel(selected, "en")}
-                          <ArrowRight size={17} aria-hidden="true" />
-                        </Link>
-                      </>
-                    ) : (
-                      <p>
-                        This message is for your information. No further action
-                        is linked.
-                      </p>
-                    )}
-                  </footer>
+                  {destination && (
+                    <footer className={styles.readerFooter}>
+                      <Link
+                        className={buttonClass({ variant: "primary" })}
+                        href={destination}
+                      >
+                        {notificationActionLabel(selected, "en")}
+                        <ArrowRight size={17} aria-hidden="true" />
+                      </Link>
+                    </footer>
+                  )}
                 </article>
               ) : detail.error ? (
                 <div className={styles.readerEmpty} role="alert">

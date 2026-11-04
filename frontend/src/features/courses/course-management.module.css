@@ -76,7 +76,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-4);
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 .openingStatus p {
   margin: 0;
@@ -194,18 +194,6 @@
   font-weight: var(--weight-semibold);
   color: var(--text-strong);
 }
-.cancellationFacts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin-top: var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-.cancellationFacts strong {
-  color: var(--text-strong);
-}
 .cancellationPending {
   font-size: var(--text-sm);
   color: var(--text-muted);
@@ -214,34 +202,6 @@
   display: grid;
   gap: var(--space-4);
   min-width: 0;
-}
-.cancellationPreviewFacts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-  margin: 0;
-  padding-block: var(--space-4);
-  border-block: 1px solid var(--border-subtle);
-}
-.cancellationPreviewFacts dt {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-.cancellationPreviewFacts dd {
-  margin: var(--space-1) 0 0;
-  font-weight: var(--weight-semibold);
-  font-variant-numeric: tabular-nums;
-}
-.cancellationRefund {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-}
-.cancellationRefund strong {
-  font-size: var(--text-xl);
-  font-variant-numeric: tabular-nums;
 }
 .cancellationRefundInputs {
   display: grid;
@@ -351,16 +311,6 @@
   }
   .cancellation > svg {
     display: none;
-  }
-  .cancellationPreviewFacts {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-3);
-  }
-  .cancellationPreviewFacts > div {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: var(--space-4);
   }
   .cancellation :global(.btn) {
     width: 100%;

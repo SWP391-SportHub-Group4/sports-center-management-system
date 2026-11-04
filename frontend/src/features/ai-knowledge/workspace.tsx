@@ -481,10 +481,6 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                 : "Edit knowledge"
               : "AI Knowledge"}
           </h1>
-          <p>
-            Review the system prompts used by the Member and Coach chat
-            assistants.
-          </p>
         </div>
         {!id && loaded && rows.length < 2 && (
           <Link className={s.primary} href="/manager/ai-knowledge/new">
@@ -492,16 +488,6 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
             Add content
           </Link>
         )}
-      </div>
-      <div className={s.notice}>
-        <BookOpen size={20} aria-hidden="true" />
-        <div>
-          <strong>Live system prompts</strong>
-          <p>
-            Publish updates the live chatbot from its next message. Save draft
-            keeps your changes on the server without changing the active prompt.
-          </p>
-        </div>
       </div>
       {legacyContent && (
         <div className={s.notice}>
@@ -914,7 +900,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                   {audienceLabels[visible(panel.article).audience]}
                 </span>
                 <h3>{visible(panel.article).title}</h3>
-                
+
                 <p className={s.helper}>
                   Viewing{" "}
                   {panel.article.draft

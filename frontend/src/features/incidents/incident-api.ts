@@ -51,6 +51,24 @@ export interface IncidentDelivery {
 }
 
 export interface IncidentDetails {
+  recordedByName?: string | null;
+  dayPassMemberEmails?: Record<string, string>;
+  activities?: {
+    stepId: string;
+    sourceType: string;
+    sourceId: string;
+    classId: number | null;
+    sessionNo: number | null;
+    title: string;
+    action:
+      | "RESCHEDULE"
+      | "CANCEL_WITH_MAKEUP"
+      | "REMOVE_ROOM_BLOCK"
+      | "REVIEWED_COMPLETED";
+    originalSchedule: IncidentActivitySchedule;
+    replacementSchedule: IncidentActivitySchedule | null;
+    replacementSessionId: string | null;
+  }[];
   closesGym?: boolean;
   dayPassNoticeSentAtUtc?: string | null;
   dayPassMembers?: {
@@ -85,6 +103,13 @@ export interface IncidentDetails {
         };
       }[]
     | null;
+}
+
+interface IncidentActivitySchedule {
+  startAtUtc: string;
+  endAtUtc: string;
+  roomName: string | null;
+  coachName: string | null;
 }
 
 export interface IncidentFence {
@@ -145,10 +170,10 @@ export const incidentApi = {
     ),
   releaseFence: (id: string) =>
     api.post(`/api/manager/incidents/fences/${id}/release`),
-  list: (page: number, signal?: AbortSignal) =>
+  list: (page: number, signal?: AbortSignal, pageSize = 20) =>
     api.get<Paged<IncidentDetails>>("/api/manager/incidents", {
       signal,
-      query: { page, pageSize: 20 },
+      query: { page, pageSize },
     }),
   get: (id: string, signal?: AbortSignal) =>
     api.get<IncidentDetails>(`/api/manager/incidents/${id}`, { signal }),

@@ -1,3 +1,16 @@
+.page :global([role="tablist"]) {
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.page :global([role="tablist"]::-webkit-scrollbar) {
+  display: none;
+}
+.headerStatus {
+  display: flex;
+  align-self: center;
+  flex-shrink: 0;
+}
 .attendanceTable {
   min-width: 0;
 }

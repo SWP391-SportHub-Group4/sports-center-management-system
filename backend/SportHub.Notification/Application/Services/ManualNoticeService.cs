@@ -66,7 +66,8 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
             || selectedRoles.Contains(x.Role!.RoleName));
         var users = await usersQuery
             .Select(x => new NoticeRecipientSnapshot(x.UserId,
-                x.Profile != null && x.Profile.FullName != "" ? x.Profile.FullName : x.Email, x.Email)).ToListAsync(ct);
+                x.Profile != null && x.Profile.FullName != "" ? x.Profile.FullName : x.Email, x.Email,
+                x.Role != null ? x.Role.RoleName.ToString() : null)).ToListAsync(ct);
         var foundIds = users.Select(u => u.UserId).ToHashSet();
         if (users.Count == 0 || recipients.Any(id => !foundIds.Contains(id)))
             throw new BadRequestException("manual_notice_recipient_invalid", "Manual notice recipient invalid.");
@@ -151,6 +152,10 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
         pageSize = Math.Clamp(pageSize, 1, 50);
         var selected = snapshots.OrderBy(x => x.Name).ThenBy(x => x.UserId).Skip((page - 1) * pageSize).Take(pageSize).ToList();
         var ids = selected.Select(x => x.UserId).ToArray();
+        var currentRoles = await db.Set<UserAccount>().AsNoTracking()
+            .Where(x => ids.Contains(x.UserId))
+            .Select(x => new { x.UserId, Role = x.Role != null ? x.Role.RoleName.ToString() : null })
+            .ToDictionaryAsync(x => x.UserId, x => x.Role, ct);
         var rows = await db.Set<Domain.Entities.Notification>().AsNoTracking()
             .Where(x => x.SourceEventType == NotificationSourceEventType.ManualNotice && x.SourceEntityId == noticeId
                 && x.UserId != null && ids.Contains(x.UserId.Value))
@@ -164,7 +169,8 @@ public sealed class ManualNoticeService(ISportHubDbContext db, INotificationWrit
         {
             Page = page, PageSize = pageSize, TotalCount = snapshots.Count,
             Items = selected.Select(x => new ManualNoticeRecipient(x.UserId, x.Name, x.Email,
-                Status(x.UserId, NotificationChannel.InApp), Status(x.UserId, NotificationChannel.Email))).ToList()
+                Status(x.UserId, NotificationChannel.InApp), Status(x.UserId, NotificationChannel.Email),
+                x.Role ?? currentRoles.GetValueOrDefault(x.UserId))).ToList()
         };
     }
 

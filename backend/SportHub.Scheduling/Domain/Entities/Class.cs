@@ -81,4 +81,13 @@ public class Class
 
     public ICollection<ClassScheduleRule> ScheduleRules { get; set; } = new List<ClassScheduleRule>();
     public ICollection<ClassSession> Sessions { get; set; } = new List<ClassSession>();
+
+    public void Cancel()
+    {
+        if (ClassId <= 0) throw new InvalidOperationException("Persist the class before cancelling it.");
+        var suffix = "_Cancel_" + ClassId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (!Code.EndsWith(suffix, StringComparison.Ordinal)) Code += suffix;
+        Status = ClassStatus.Cancelled;
+        EnrollmentOpen = false;
+    }
 }

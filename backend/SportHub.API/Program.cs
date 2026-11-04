@@ -211,6 +211,7 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 // interface về lý do phải cắt vòng phụ thuộc theo cách này.
 builder.Services.AddScoped<IAuditWriter, AuditWriter>();
 builder.Services.AddScoped<IAuditReader, AuditReader>();
+builder.Services.AddScoped<ICancellationReasonReader, CancellationReasonReader>();
 builder.Services.AddScoped<INotificationWriter, NotificationWriter>();
 builder.Services.AddScoped<INotificationDeliveryReader, NotificationDeliveryReader>();
 builder.Services.AddScoped<SportHub.Notification.Application.Services.EmailDispatchService>();
@@ -347,6 +348,7 @@ builder.Services.AddScoped<SportHub.Payment.Application.Services.ICenterCancella
     SportHub.Payment.Application.Services.CenterCancellationRefundService>();
 builder.Services.AddScoped<IInvoiceReceiptService, InvoiceReceiptService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IPaidInvoiceReportReader, PaidInvoiceReportReader>();
 builder.Services.AddScoped<SportHub.Payment.Application.Services.ReportReconciliationService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Reporting.IRevenueDimensionReader, RevenueDimensionReader>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IPointWalletService, SportHub.Payment.Wallet.Application.PointWalletService>();

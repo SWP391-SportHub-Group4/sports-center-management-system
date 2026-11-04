@@ -34,7 +34,7 @@ export function PersonProfileHeader({
         </div>
       </div>
       <div className={styles.headerControls}>
-        {status}
+        <span className={styles.status}>{status}</span>
         {actions && <div className={styles.actions}>{actions}</div>}
       </div>
     </section>

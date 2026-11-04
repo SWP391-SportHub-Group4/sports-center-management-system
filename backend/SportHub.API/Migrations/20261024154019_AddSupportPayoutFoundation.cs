@@ -230,21 +230,25 @@ namespace SportHub.API.Migrations
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "support.bank_data_retention_days");
 
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "support.payout_confirm_days");
 
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "support.remind_cooldown_hours");
 
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "support.sla_hours");
 
             migrationBuilder.DropColumn(

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/primitives";
 import { Card, Field } from "@/components/ui";
@@ -19,9 +18,7 @@ import {
 } from "@/lib/format";
 import { pagedItems } from "@/lib/paged";
 import type {
-  CourtRentalDto,
   CourtScheduleEntryDto,
-  InvoiceDetailDto,
 } from "@/lib/types";
 import { useApi, useNow } from "@/lib/useApi";
 import { catalogApi } from "@/features/catalog";
@@ -48,14 +45,6 @@ type StatusFilter =
   | "AVAILABLE";
 
 const OPEN_MINUTE = 6 * 60;
-
-function utcStart(localDate: string) {
-  return new Date(`${localDate}T00:00:00+07:00`).toISOString();
-}
-
-function utcEndExclusive(localDate: string) {
-  return new Date(`${addDaysIso(localDate, 1)}T00:00:00+07:00`).toISOString();
-}
 
 function vietnamParts(nowMs: number) {
   const shifted = new Date(nowMs + 7 * 60 * 60 * 1000);
@@ -257,38 +246,6 @@ export function ReceptionistSchedule() {
     (row) => `${row.sourceType}:${row.sourceId}` === selectedId,
   );
 
-  const selectedRentals = useApi(
-    (signal) =>
-      selected?.sourceType === "COURT_RENTAL" && selected.memberId
-        ? api.get<CourtRentalDto[]>(
-            `/api/members/${selected.memberId}/court-rentals`,
-            {
-              signal,
-              query: {
-                fromUtc: utcStart(first),
-                toUtc: utcEndExclusive(last),
-              },
-            },
-          )
-        : Promise.resolve([]),
-    [selected?.sourceId, selected?.memberId, first, last],
-  );
-
-  const selectedRental = (selectedRentals.data ?? []).find(
-    (rental) => rental.courtRentalId === selected?.sourceId,
-  );
-
-  const selectedInvoice = useApi(
-    (signal) =>
-      selectedRental?.invoiceId
-        ? api.get<InvoiceDetailDto>(
-            `/api/invoices/${selectedRental.invoiceId}`,
-            { signal },
-          )
-        : Promise.resolve(null),
-    [selectedRental?.invoiceId],
-  );
-
   function changeDate(next: string) {
     setDate(next);
     setSelectedId("");
@@ -390,6 +347,14 @@ export function ReceptionistSchedule() {
           </div>
         </div>
         <div className={styles.filters}>
+        <div style={{ marginTop: 14 }}>
+          <MemberPicker
+            value={desk.member}
+            onChange={desk.setMember}
+            scanner={false}
+            placeholder="Search by name, phone or email…"
+          />
+        </div>
         <div
           style={{
             display: "grid",
@@ -460,13 +425,6 @@ export function ReceptionistSchedule() {
           </label>
         </div>
 
-        <div style={{ marginTop: 14 }}>
-          <MemberPicker value={desk.member} onChange={desk.setMember} />
-          <small>
-            Selecting a member filters their class/rental schedule and checks
-            court availability against that member&apos;s class conflicts.
-          </small>
-        </div>
         </div>
       </Card>
 
@@ -500,7 +458,9 @@ export function ReceptionistSchedule() {
 
       {selected && (
         <CalendarEventDrawer
+          receptionist
           entry={selected}
+          onChanged={schedule.reload}
           roomName={rooms.data?.find((room) => room.roomId === selected.roomId)?.name}
           showParticipants={false}
           onClose={() => setSelectedId("")}
@@ -522,31 +482,7 @@ export function ReceptionistSchedule() {
                   />
                 </section>
               )}
-              {selected.sourceType === "COURT_RENTAL" && (
-                <section style={{ display: "grid", gap: 10, paddingTop: 12 }}>
-                  <div><strong>Renter:</strong> {selected.memberName || "—"}</div>
-                  <div><strong>Rental status:</strong> {selectedRental?.status || selected.status}</div>
-                  {selectedRentals.loading && <p>Loading rental checkout…</p>}
-                  {selectedRentals.error && <p role="alert">{selectedRentals.error.message}</p>}
-                  {selectedRental?.invoiceId && selectedInvoice.loading && <p>Loading invoice…</p>}
-                  {selectedInvoice.error && <p role="alert">{selectedInvoice.error.message}</p>}
-                  {selectedInvoice.data && (
-                    <>
-                      <div><strong>Invoice:</strong> {selectedInvoice.data.summary.invoiceNumber}</div>
-                      <div><strong>Payment:</strong> {selectedInvoice.data.summary.status} · {selectedInvoice.data.summary.fulfillmentOutcome}</div>
-                      <div><strong>Checkout:</strong> {selectedInvoice.data.summary.outstanding > 0 ? "Awaiting payment" : "No outstanding balance"}</div>
-                      {selectedInvoice.data.summary.reconciliationRequired && (
-                        <p role="alert">Reconciliation required</p>
-                      )}
-                    </>
-                  )}
-                  {selected.memberId && (
-                    <Link href={`/receptionist/members/${selected.memberId}?tab=invoices`} className="btn btn--secondary">
-                      Open member invoices
-                    </Link>
-                  )}
-                </section>
-              )}
+
             </>
           }
         />

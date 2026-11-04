@@ -1,3 +1,29 @@
+.recipientSection {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+.recipientSection h3 {
+  margin: 0 0 var(--space-4);
+}
+.recipientList :global(.table-wrap) {
+  max-height: 24rem;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.recipientList :global(.table-wrap::-webkit-scrollbar) {
+  display: none;
+}
+.recipientList :global(thead) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface-sunken);
+}
+.recipientList :global(th:last-child),
+.recipientList :global(td:last-child) {
+  width: 25%;
+}
 .views {
   display: flex;
   flex-wrap: wrap;
@@ -31,6 +57,41 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
   gap: var(--space-4);
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+.noticeContent {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+}
+.noticeContent dt {
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.noticeContent dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.noticeSubject {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+.noticeChannels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.noticeChannels span {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 .facts dt {
   color: var(--text-muted);

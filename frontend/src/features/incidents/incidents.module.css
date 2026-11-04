@@ -20,7 +20,7 @@
   width: auto;
   margin: 0;
 }
-.recheck:global(.btn),
+.recheck:global(.btn:not(:disabled)),
 .confirm:global(.btn:not(:disabled)) {
   background: var(--color-accent);
   border-color: var(--color-accent);
@@ -30,6 +30,14 @@
 .confirm:global(.btn:hover:not(:disabled)) {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
+}
+.recheck:global(.btn:disabled) {
+  background: var(--bg-surface-sunken);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 .back:global(.btn:not(:disabled)) {
   background: var(--bg-surface);
@@ -64,8 +72,13 @@
   flex-wrap: wrap;
   margin-bottom: var(--space-4);
 }
-.impactSummary p {
+.impactSummary h3 {
   margin: 0;
+}
+.impactEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  text-wrap: pretty;
 }
 .notice {
   padding: var(--space-4);
@@ -121,6 +134,34 @@
   overflow-y: auto;
   min-height: 0;
 }
+.sessionDialog:global(.dialog) {
+  width: min(88rem, 100%);
+  max-height: calc(100dvh - var(--space-4) * 2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sessionDialog :global(.dialog__head) {
+  flex-shrink: 0;
+}
+.sessionDialog :global(.dialog__body) {
+  min-height: 0;
+  overflow-y: auto;
+}
+.historyDialog:global(.dialog) {
+  width: min(80rem, 100%);
+  max-height: calc(100dvh - var(--space-4) * 2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.historyDialog :global(.dialog__head) {
+  flex-shrink: 0;
+}
+.historyDialog :global(.dialog__body) {
+  min-height: 0;
+  overflow-y: auto;
+}
 .refundFooter {
   display: flex;
   align-items: center;
@@ -141,28 +182,79 @@
 .dialog :global(.dialog__foot) .refundFooter > .recheck {
   margin-inline-start: auto;
 }
+.makeupAction {
+  min-height: 44px;
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
+  line-height: 1.4;
+}
+.impactActivity {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.planSummary {
+  margin-top: var(--space-5);
+}
+.planSummary h3 {
+  margin: 0 0 var(--space-3);
+}
+.planList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.planRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
+}
+.planRow p {
+  margin: var(--space-2) 0 0;
+}
+.planRow > button {
+  margin: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+@media (max-width: 640px) {
+  .planRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .planRow > button {
+    justify-self: start;
+  }
+}
 @media (min-width: 768px) {
-  .impactDialog :global(.legacy-table[data-columns="6"]) {
+  .impactDialog :global(.legacy-table[data-columns="5"]) {
     min-width: 0;
     table-layout: fixed;
   }
-  .impactDialog :global(.legacy-table[data-columns="6"] th:first-child) {
-    width: 20%;
+  .impactDialog :global(.legacy-table[data-columns="5"] th:first-child) {
+    width: 25%;
   }
-  .impactDialog :global(.legacy-table[data-columns="6"] th:nth-child(2)),
-  .impactDialog :global(.legacy-table[data-columns="6"] th:nth-child(3)) {
-    width: 12%;
+  .impactDialog :global(.legacy-table[data-columns="5"] th:nth-child(2)) {
+    width: 17%;
   }
-  .impactDialog :global(.legacy-table[data-columns="6"] th:last-child) {
-    width: 20%;
+  .impactDialog :global(.legacy-table[data-columns="5"] th:last-child) {
+    width: 22%;
   }
-  .impactDialog :global(.legacy-table[data-columns="6"] td:last-child .btn) {
+  .impactDialog :global(.legacy-table[data-columns="5"] td:last-child .btn) {
     min-height: 44px;
     max-width: 100%;
     white-space: normal;
     margin: 0;
   }
-  .impactDialog :global(.legacy-table[data-columns="6"] td:last-child > div) {
+  .impactDialog :global(.legacy-table[data-columns="5"] td:last-child > div) {
     width: 100%;
     min-width: 0;
   }

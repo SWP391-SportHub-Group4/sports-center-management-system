@@ -32,7 +32,7 @@ export function SportSelector({
     >
       <AsyncSection state={sports}>
         {(rows) => (
-          <Field label={t.operations.sport}>
+          <Field label={t.operations.sport} required>
             <select
               required
               value={value}

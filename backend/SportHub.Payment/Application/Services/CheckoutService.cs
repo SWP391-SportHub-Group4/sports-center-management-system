@@ -349,7 +349,9 @@ public sealed class CheckoutService(ISportHubDbContext db,
             && item.MemberPackageId != null && db.Set<SportHub.Membership.Domain.Entities.MemberPackage>()
                 .Any(p => p.MemberPackageId == item.MemberPackageId && p.PackageId == SportHub.Membership.Domain.DayPass.PackageId), ct);
         var closesAtUtc = isDayPass
-            ? SportHub.Membership.Domain.Rules.DayPassClock.ClosesAtUtc(invoice.IssuedAt)
+            ? SportHub.Membership.Domain.Rules.DayPassClock.ClosesAtUtc(
+                invoice.IssuedAt,
+                await SportHub.BuildingBlocks.Abstractions.Configuration.CenterOperatingHours.ReadAsync(settings, ct))
             : (DateTime?)null;
         return ToResponse(invoice, session) with
         {
