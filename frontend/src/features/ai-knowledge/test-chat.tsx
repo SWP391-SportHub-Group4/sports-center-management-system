@@ -33,9 +33,6 @@ const empty = (): Conversation => ({ messages: [], draft: "" });
 
 export function PromptTestChat({
   form,
-  article,
-  articles,
-  dirty,
   onClose,
 }: {
   form: Content;
@@ -44,7 +41,6 @@ export function PromptTestChat({
   dirty: boolean;
   onClose: () => void;
 }) {
-  void articles;
   const initial: Mode = form.audience === "Coach" ? "Coach" : "Member";
   const [mode, setMode] = useState<Mode>(initial);
   const [conversations, setConversations] = useState<

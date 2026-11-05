@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { AssistantDrawer } from "@/features/member/assistant";
+import { AssistantDrawer } from "@/features/member";
 import styles from "./coach-ai-assistant.module.css";
 
 // The Coach and Member share the same chat interface, with role-specific context.
