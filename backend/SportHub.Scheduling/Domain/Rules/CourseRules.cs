@@ -90,7 +90,8 @@ public static class CourseRules
         DateOnly startDate,
         int numSessions,
         IReadOnlyCollection<(int DayOfWeek, TimeOnly StartTimeLocal)> rules,
-        int sessionMinutes)
+        int sessionMinutes,
+        DateTime? notBeforeUtc = null)
     {
         ValidateNumSessions(numSessions);
 
@@ -146,10 +147,21 @@ public static class CourseRules
 
                 var startLocal = date.ToDateTime(time);
                 var startUtc = VietnamTime.ToUtc(startLocal);
+                if (notBeforeUtc.HasValue && startUtc < notBeforeUtc.Value) continue;
                 sessions.Add(new GeneratedSession(sessions.Count + 1, startUtc, startUtc.AddMinutes(sessionMinutes)));
             }
         }
 
         return sessions;
+    }
+
+    /// <summary>Apply a new weekly pattern from the earliest remaining session, without asking for a new date.</summary>
+    public static IReadOnlyList<GeneratedSession> GenerateRemainingSessions(DateTime notBeforeUtc, int count,
+        IReadOnlyCollection<(int DayOfWeek, TimeOnly StartTimeLocal)> rules, int minutes)
+    {
+        var date = DateOnly.FromDateTime(VietnamTime.ToLocal(notBeforeUtc));
+        for (var day = 0; day < 7 && !rules.Any(r => r.DayOfWeek == (int)date.DayOfWeek); day++)
+            date = date.AddDays(1);
+        return GenerateSessions(date, count, rules, minutes, notBeforeUtc);
     }
 }

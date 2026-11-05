@@ -17,7 +17,8 @@ import { CourseCancellationAction } from "./course-cancellation-action";
 import { CoursePublishReview } from "./course-publish-review";
 import { SessionEditor } from "./session-editor";
 import { ClassSessionList } from "./class-session-list";
-import { ChangeLeadCoachDialog } from "./change-lead-coach-dialog";
+import { ClassEditDialog } from "./class-edit-dialog";
+import { Pencil } from "lucide-react";
 import { ThresholdPanel } from "./threshold-panel";
 import { CourseOperations, CourseCancellation } from "./course-operations";
 import { CourseHistory } from "./course-history";
@@ -107,8 +108,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
     return () => cancelAnimationFrame(frame);
   }, [values.tab]);
   const [publishing, setPublishing] = useState(false);
-  const [changingLeadCoach, setChangingLeadCoach] = useState(false);
-  const [coachChanged, setCoachChanged] = useState(false);
+  const [editingClass, setEditingClass] = useState(false);
   const [session, setSession] = useState<CourseSessionDto | null>(null);
   const [roster, setRoster] = useState<CourseSessionDto | null>(null);
   const [revision, setRevision] = useState(0);
@@ -148,6 +148,17 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   <span className={detailStyles.headerStatus}>
                     <StatusChip value={c.status} />
                   </span>
+                  {["PUBLISHED", "IN_PROGRESS"].includes(c.status) && (
+                    <button
+                      type="button"
+                      className={`btn btn--secondary ${detailStyles.editButton}`}
+                      aria-label="Edit class"
+                      title="Edit class"
+                      onClick={() => setEditingClass(true)}
+                    >
+                      <Pencil size={20} aria-hidden="true" />
+                    </button>
+                  )}
                   {c.status === "DRAFT" && (
                     <>
                       <Link
@@ -271,28 +282,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                 </div>
               )}
               {values.tab === "sessions" && (
-                <Card
-                  title={m.sessionsTab}
-                  actions={
-                    ["PUBLISHED", "IN_PROGRESS"].includes(c.status) && (
-                      <button
-                        type="button"
-                        className="btn btn--secondary"
-                        onClick={() => {
-                          setCoachChanged(false);
-                          setChangingLeadCoach(true);
-                        }}
-                      >
-                        {t.leadCoach.change}
-                      </button>
-                    )
-                  }
-                >
-                  {coachChanged && (
-                    <p role="status" className={detailStyles.coachSuccess}>
-                      {t.leadCoach.success}
-                    </p>
-                  )}
+                <Card title={m.sessionsTab}>
                   <AsyncSection state={sessions}>
                     {(rows) => (
                       <>
@@ -468,13 +458,12 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                 <CoursePublishReview course={c} onSaved={reload} />
               </Dialog>
             )}
-            {changingLeadCoach && (
-              <ChangeLeadCoachDialog
+            {editingClass && (
+              <ClassEditDialog
                 course={c}
-                onClose={() => setChangingLeadCoach(false)}
+                onClose={() => setEditingClass(false)}
                 onSaved={() => {
-                  setChangingLeadCoach(false);
-                  setCoachChanged(true);
+                  setEditingClass(false);
                   reload();
                 }}
               />

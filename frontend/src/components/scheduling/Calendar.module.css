@@ -289,3 +289,40 @@ button.event:hover {
 .day[data-today="true"] .todayDot {
   display: none;
 }
+.compactGrid.weekGrid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.compactGrid .dayHeader {
+  padding: var(--space-2);
+  font-size: var(--text-sm);
+}
+.compactGrid .dayHeader time {
+  display: grid;
+  gap: var(--space-1);
+  white-space: normal;
+}
+.dayDate {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+}
+.compactGrid .dayBody {
+  min-height: 180px;
+  padding: var(--space-1);
+}
+.compactGrid .event {
+  padding: var(--space-2);
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.compactGrid .eventMeta {
+  font-size: var(--text-xs);
+}
+@media (max-width: 640px) {
+  .compactGrid.weekGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .compactGrid .dayBody {
+    min-height: 0;
+    padding: var(--space-2);
+  }
+}

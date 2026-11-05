@@ -248,6 +248,12 @@ export const en = {
     invalidRange: "Closing time must be later than opening time.",
   },
   courseHistory: {
+    CHANGE_CLASS_SCHEDULE: "Class weekly schedule changed",
+    appliesFrom: "Applies from",
+    sessionDuration: "Session duration",
+    remainingSessions: "Remaining sessions",
+    movedSessions: "Sessions moved",
+    weeklySchedule: "Weekly schedule",
     CHANGE_CLASS_LEAD_COACH: "Lead coach changed",
     coachUnavailable: "Coach unavailable",
     actor: "Performed by",
@@ -616,7 +622,7 @@ export const en = {
     description:
       "Choose a coach for this class and all future scheduled sessions. Session times and rooms stay the same.",
     current: "Current lead coach",
-    eligible: "Eligible coaches",
+    eligible: "Available coaches",
     search: "Search coaches by name",
     available: "Available for all remaining sessions",
     specialty: "Specialty",
@@ -720,8 +726,8 @@ export const en = {
       "The Manager enters refund points for each member. Cancellation notifies members and the teaching coach. Each member chooses the approved points or a refund request for the Manager; without a choice within 2 days, the approved points are credited automatically.",
   },
   classCancellationRefund: {
-    title: "Refund points by member",
-    hint: "Enter points for every member. Enter 0 if no refund is approved. The maximum is the remaining paid value, with 1 point = 1,000 VND.",
+    title: "Class refund points",
+    hint: "This amount applies to each enrolled member. Enter 0 for no refund. The maximum is the lowest remaining paid value among members; 1 point = 1,000 VND.",
     points: "Refund points",
     maximum: "Maximum: {points} points.",
     invalid: "Enter a whole number from 0 to {points} points.",

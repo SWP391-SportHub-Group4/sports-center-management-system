@@ -30,6 +30,10 @@
 .values {
   margin: 0;
 }
+.scheduleRules {
+  display: grid;
+  gap: var(--space-2);
+}
 .values > div {
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border);

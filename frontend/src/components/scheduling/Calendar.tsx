@@ -42,6 +42,7 @@ export function Calendar({
   hideToolbar = false,
   showViewSwitcher = true,
   iconNavigation = false,
+  compact = false,
 }: {
   hideToolbar?: boolean;
   events: CalendarEvent[];
@@ -53,6 +54,7 @@ export function Calendar({
   onSelectEvent?: (event: CalendarEvent) => void;
   showViewSwitcher?: boolean;
   iconNavigation?: boolean;
+  compact?: boolean;
 }) {
   const rangeDays = daysFor(view);
   const EventTag = onSelectEvent ? "button" : "article";
@@ -236,7 +238,7 @@ export function Calendar({
         </div>
       ) : (
         <div
-          className={`${styles.grid} ${view === "day" ? styles.gridDay : ""} ${hideToolbar ? styles.weekGrid : ""}`}
+          className={`${styles.grid} ${view === "day" ? styles.gridDay : ""} ${hideToolbar ? styles.weekGrid : ""} ${compact ? styles.compactGrid : ""}`}
           tabIndex={0}
           aria-label={labels.eventDetails}
         >
@@ -262,16 +264,29 @@ export function Calendar({
                       dateTime={day}
                       aria-current={day === today ? "date" : undefined}
                     >
-                      {labels.weekdays
-                        ? labels.weekdays[
-                            (new Date(day + "T00:00:00Z").getUTCDay() + 6) % 7
-                          ] +
-                          " (" +
-                          day.slice(8) +
-                          "-" +
-                          day.slice(5, 7) +
-                          ")"
-                        : formatDate(day)}
+                      {compact && labels.weekdays ? (
+                        <>
+                          {
+                            labels.weekdays[
+                              (new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7
+                            ]
+                          }
+                          <span className={styles.dayDate}>
+                            {day.slice(8)} / {day.slice(5, 7)}
+                          </span>
+                        </>
+                      ) : labels.weekdays ? (
+                        labels.weekdays[
+                          (new Date(day + "T00:00:00Z").getUTCDay() + 6) % 7
+                        ] +
+                        " (" +
+                        day.slice(8) +
+                        "-" +
+                        day.slice(5, 7) +
+                        ")"
+                      ) : (
+                        formatDate(day)
+                      )}
                     </time>
                   </strong>
 

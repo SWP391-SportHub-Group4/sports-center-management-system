@@ -2,7 +2,16 @@ import { expect, test, type Page } from "@playwright/test";
 import { en } from "../src/locales/en";
 
 const copy = en.classWorkspace;
-async function fixture(page: Page) {
+async function fixture(
+  page: Page,
+  members = [
+    {
+      enrollmentId: "enrollment-1",
+      memberName: "Member Linh",
+      refundPoints: 300,
+    },
+  ],
+) {
   await page.addInitScript(() =>
     localStorage.setItem("sporthub.accessToken", "manager-fixture"),
   );
@@ -76,13 +85,7 @@ async function fixture(page: Page) {
           totalSessions: 8,
           sessionsNotProvided: 8,
           refundPoints: 1200,
-          members: [
-            {
-              enrollmentId: "enrollment-1",
-              memberName: "Member Linh",
-              refundPoints: 300,
-            },
-          ],
+          members,
         },
       });
     }
@@ -154,7 +157,8 @@ test("cancellation opens refund inputs directly and confirms without a preview b
   });
   await expect(confirm).toBeDisabled();
   const points = dialog.getByRole("textbox", {
-    name: /Refund points — Member Linh/,
+    name: en.classCancellationRefund.points,
+    exact: true,
   });
   for (const invalid of [
     "-1",
@@ -179,7 +183,7 @@ test("cancellation opens refund inputs directly and confirms without a preview b
   await expect(points).not.toHaveAttribute("aria-invalid", "true");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   await expect(confirm).toBeEnabled();
-  await expect(dialog).toContainText("250");
+  await expect(points).toHaveValue("250");
   await expect(dialog).not.toContainText("Course interests");
   expect(f.writes).toHaveLength(0);
   for (const width of [1440, 390]) {
@@ -205,6 +209,71 @@ test("cancellation opens refund inputs directly and confirms without a preview b
     page.getByRole("button", { name: copy.cancelAndRefund }),
   ).toHaveCount(0);
 });
+
+for (const hasMembers of [false, true]) {
+  test(`shared refund input ${hasMembers ? "applies to every enrolled member" : "is hidden for an empty class"}`, async ({
+    page,
+  }) => {
+    const members = hasMembers
+      ? [
+          {
+            enrollmentId: "enrollment-1",
+            memberName: "Member Linh",
+            refundPoints: 300,
+          },
+          {
+            enrollmentId: "enrollment-2",
+            memberName: "Member Mai",
+            refundPoints: 200,
+          },
+        ]
+      : [];
+    const f = await fixture(page, members);
+    await page.goto("/manager/classes/22?tab=management");
+    await page
+      .getByRole("button", { name: copy.cancelAndRefund, exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: copy.cancelClass,
+      exact: true,
+    });
+    await dialog
+      .getByLabel(en.operations.reason, { exact: true })
+      .fill("Class cannot continue");
+    const points = dialog.getByRole("textbox", {
+      name: en.classCancellationRefund.points,
+      exact: true,
+    });
+    const confirm = dialog.getByRole("button", {
+      name: en.operations.confirm,
+      exact: true,
+    });
+    await expect(points).toHaveCount(hasMembers ? 1 : 0);
+    if (hasMembers) {
+      await expect(dialog).not.toContainText("Member Linh");
+      await expect(dialog).not.toContainText("Member Mai");
+      await points.fill("201");
+      await expect(confirm).toBeDisabled();
+      await expect(dialog.getByRole("alert")).toHaveText(
+        en.classCancellationRefund.invalid.replace("{points}", "200"),
+      );
+      await points.fill("175");
+    }
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(dialog).toHaveCount(0);
+    expect(f.writes).toEqual([
+      {
+        reason: "Class cannot continue",
+        previewToken: "latest-roster",
+        refunds: members.map((member) => ({
+          enrollmentId: member.enrollmentId,
+          points: 175,
+        })),
+      },
+    ]);
+  });
+}
 
 test("cancellation stays closed while checking and recovers from a failed check", async ({
   page,
@@ -277,7 +346,10 @@ test("cancel dialog loads refund fields automatically and retries without losing
     .getByRole("button", { name: en.common.retry, exact: true })
     .click();
   await expect(
-    dialog.getByRole("textbox", { name: /Refund points — Member Linh/ }),
+    dialog.getByRole("textbox", {
+      name: en.classCancellationRefund.points,
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     dialog.getByLabel(en.operations.reason, { exact: true }),
@@ -335,7 +407,8 @@ test("changed roster refreshes automatically before confirmation can be retried"
     .getByLabel(en.operations.reason, { exact: true })
     .fill("Keep the entered reason");
   const points = dialog.getByRole("textbox", {
-    name: /Refund points — Member Linh/,
+    name: en.classCancellationRefund.points,
+    exact: true,
   });
   await points.fill("250");
   const confirm = dialog.getByRole("button", {

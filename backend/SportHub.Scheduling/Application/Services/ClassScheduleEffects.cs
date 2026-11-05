@@ -14,7 +14,8 @@ public sealed class ClassScheduleEffects(ISportHubDbContext db, IUserAccessReade
 {
     public async Task ApplyAsync(Class cls, ClassSession session, Guid actorId, Guid oldCoachId,
         Guid resultSessionId, Guid nextCoachId, string message, CancellationToken ct,
-        string outcomeAction = "SCHEDULE_UPDATED", string? outcomeReason = null, string? emailBody = null)
+        string outcomeAction = "SCHEDULE_UPDATED", string? outcomeReason = null, string? emailBody = null,
+        bool writeRequestAudit = true, bool notifyRecipients = true)
     {
         var requests = await db.Set<ClassSessionChangeRequest>()
             .Where(r => r.SessionId == session.SessionId && r.Status == "PENDING")
@@ -30,13 +31,13 @@ public sealed class ClassScheduleEffects(ISportHubDbContext db, IUserAccessReade
             request.ResultSessionId = resultSessionId;
             request.OutcomeSnapshotJson = await ClassChangeOutcomeSnapshot.CaptureAsync(db, users,
                 resultSessionId, actorId, outcomeAction, outcomeReason ?? message, ct);
-            audit.Write(new(actorId, "AUTO_CLOSE_CLASS_SESSION_CHANGE_REQUEST", nameof(ClassSessionChangeRequest), request.RequestId.ToString(),
+            if (writeRequestAudit) audit.Write(new(actorId, "AUTO_CLOSE_CLASS_SESSION_CHANGE_REQUEST", nameof(ClassSessionChangeRequest), request.RequestId.ToString(),
                 OldValue: "{\"status\":\"PENDING\"}", NewValue: JsonSerializer.Serialize(new { request.Status, request.ResolutionType, resultSessionId }),
                 Reason: request.ReviewNote));
-            await NotifyAsync(request.RequestedByUserId, NotificationEvents.ClassSessionChangeReviewed, request.RequestId,
+            if (notifyRecipients) await NotifyAsync(request.RequestedByUserId, NotificationEvents.ClassSessionChangeReviewed, request.RequestId,
                 $"{cls.Name} · Session {session.SessionNo}: {request.ReviewNote}", ct);
         }
-        await NotifyCoachesAsync(cls, oldCoachId, nextCoachId, message, ct, emailBody: emailBody);
+        if (notifyRecipients) await NotifyCoachesAsync(cls, oldCoachId, nextCoachId, message, ct, emailBody: emailBody);
     }
 
     // Undo only sends corrections; it must not review unrelated pending requests.

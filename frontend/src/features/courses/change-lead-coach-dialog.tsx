@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState, type ComponentProps } from "react";
 import { AsyncSection, Dialog, Field } from "@/components/ui";
 import { AvatarImage } from "@/components/AvatarImage";
 import { useLanguage } from "@/lib/language";
@@ -16,11 +16,15 @@ export function ChangeLeadCoachDialog({
   session,
   onClose,
   onSaved,
+  embedded = false,
+  onBusyChange,
 }: {
   course: ManagerCourseDto;
   session?: CourseSessionDto;
   onClose: () => void;
   onSaved: () => void;
+  embedded?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const { t } = useLanguage();
   const copy = t.leadCoach;
@@ -29,6 +33,10 @@ export function ChangeLeadCoachDialog({
   const [selected, setSelected] = useState("");
   const [reason, setReason] = useState("");
   const action = useAction();
+  useEffect(() => {
+    onBusyChange?.(action.busy);
+    return () => onBusyChange?.(false);
+  }, [action.busy, onBusyChange]);
   const candidates = useApi(
     async (signal) => {
       if (!session)
@@ -65,12 +73,13 @@ export function ChangeLeadCoachDialog({
     !action.busy;
 
   return (
-    <Dialog
+    <CoachDialogContainer
+      embedded={embedded}
       title={session ? "Select New Session Coach" : copy.title}
       description={
         session
           ? "Choose a qualified coach available for this session. The class lead coach, time and room stay the same."
-          : copy.description
+          : undefined
       }
       size="lg"
       closeIconOnly
@@ -79,7 +88,10 @@ export function ChangeLeadCoachDialog({
         if (!action.busy) onClose();
       }}
       footer={
-        <div className={styles.footer}>
+        <div
+          className={styles.footer}
+          data-class-edit-actions={embedded || undefined}
+        >
           <button
             type="button"
             className="btn btn--secondary"
@@ -131,19 +143,21 @@ export function ChangeLeadCoachDialog({
             });
         }}
       >
-        <div className={styles.context}>
-          <div>
-            <span>{session ? "Current session coach" : copy.current}</span>
-            <strong>
-              {(session ? session.coachName : course.coachName) ??
-                t.managerAudit.nameUnavailable}
-            </strong>
+        {session && (
+          <div className={styles.context}>
+            <div>
+              <span>{session ? "Current session coach" : copy.current}</span>
+              <strong>
+                {(session ? session.coachName : course.coachName) ??
+                  t.managerAudit.nameUnavailable}
+              </strong>
+            </div>
+            <div>
+              <span>{copy.specialty}</span>
+              <strong>{course.sportName}</strong>
+            </div>
           </div>
-          <div>
-            <span>{copy.specialty}</span>
-            <strong>{course.sportName}</strong>
-          </div>
-        </div>
+        )}
         {action.error && (
           <p role="alert" className={styles.error}>
             {action.error}
@@ -152,7 +166,7 @@ export function ChangeLeadCoachDialog({
         <AsyncSection state={candidates}>
           {(data) => (
             <>
-              {data.remainingSessionCount > 0 && (
+              {session && data.remainingSessionCount > 0 && (
                 <p className={styles.sessionCount}>
                   {session ? (
                     `Session ${session.sessionNo} · ${formatDateTime(session.startAtUtc)}`
@@ -165,85 +179,89 @@ export function ChangeLeadCoachDialog({
                 </p>
               )}
               {data.coaches.length > 0 ? (
-                <>
-                  <Field label={copy.search}>
-                    <input
-                      type="search"
-                      value={search}
-                      disabled={action.busy}
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </Field>
-                  <fieldset className={styles.coaches} disabled={action.busy}>
-                    <legend>
-                      {copy.eligible} <span>({data.coaches.length})</span>
-                    </legend>
-                    <div className={styles.list}>
-                      {data.coaches
-                        .filter((coach) =>
+                <div className={styles.selectionLayout}>
+                  <div className={styles.selectionCandidates}>
+                    <Field label={copy.search}>
+                      <input
+                        type="search"
+                        value={search}
+                        disabled={action.busy}
+                        onChange={(event) => setSearch(event.target.value)}
+                      />
+                    </Field>
+                    <fieldset className={styles.coaches} disabled={action.busy}>
+                      <legend>{copy.eligible}</legend>
+                      <div className={styles.list}>
+                        {data.coaches
+                          .filter((coach) =>
+                            coach.fullName
+                              .toLocaleLowerCase()
+                              .includes(search.trim().toLocaleLowerCase()),
+                          )
+                          .map((coach) => (
+                            <label key={coach.coachId} className={styles.coach}>
+                              <input
+                                type="radio"
+                                name="leadCoach"
+                                value={coach.coachId}
+                                checked={selected === coach.coachId}
+                                onChange={() => setSelected(coach.coachId)}
+                              />
+                              <AvatarImage
+                                userId={coach.coachId}
+                                name={coach.fullName}
+                                size={40}
+                              />
+                              <span>
+                                <strong>{coach.fullName}</strong>
+                                {session && (
+                                  <small>
+                                    {course.sportName} ·{" "}
+                                    {session
+                                      ? "Available for this session"
+                                      : copy.available}
+                                  </small>
+                                )}
+                              </span>
+                            </label>
+                          ))}
+                        {!data.coaches.some((coach) =>
                           coach.fullName
                             .toLocaleLowerCase()
                             .includes(search.trim().toLocaleLowerCase()),
-                        )
-                        .map((coach) => (
-                          <label key={coach.coachId} className={styles.coach}>
-                            <input
-                              type="radio"
-                              name="leadCoach"
-                              value={coach.coachId}
-                              checked={selected === coach.coachId}
-                              onChange={() => setSelected(coach.coachId)}
-                            />
-                            <AvatarImage
-                              userId={coach.coachId}
-                              name={coach.fullName}
-                              size={40}
-                            />
-                            <span>
-                              <strong>{coach.fullName}</strong>
-                              <small>
-                                {course.sportName} ·{" "}
-                                {session
-                                  ? "Available for this session"
-                                  : copy.available}
-                              </small>
-                            </span>
-                          </label>
-                        ))}
-                      {!data.coaches.some((coach) =>
-                        coach.fullName
-                          .toLocaleLowerCase()
-                          .includes(search.trim().toLocaleLowerCase()),
-                      ) && (
-                        <p role="status" className={styles.empty}>
-                          {copy.noMatches}
-                        </p>
-                      )}
-                    </div>
-                  </fieldset>
-                  {selectedCoach && (
-                    <p className={styles.selection}>
-                      {session ? "New session coach" : copy.selected}:{" "}
-                      <strong>{selectedCoach.fullName}</strong>
-                    </p>
-                  )}
-                  <Field label={copy.reason} required>
-                    <textarea
-                      value={reason}
-                      required
-                      minLength={3}
-                      maxLength={500}
-                      rows={3}
-                      placeholder={copy.reasonPlaceholder}
-                      aria-describedby={`${formId}-reason-hint`}
-                      disabled={action.busy}
-                      onChange={(event) => setReason(event.target.value)}
-                    />
-                    <small id={`${formId}-reason-hint`} className="muted">
-                      {copy.reasonHint}
-                    </small>
-                  </Field>
-                </>
+                        ) && (
+                          <p role="status" className={styles.empty}>
+                            {copy.noMatches}
+                          </p>
+                        )}
+                      </div>
+                    </fieldset>
+                  </div>
+                  <div className={styles.selectionDetails}>
+                    {selectedCoach && (
+                      <p className={styles.selection}>
+                        {session ? "New session coach" : copy.selected}:{" "}
+                        <strong>{selectedCoach.fullName}</strong>
+                      </p>
+                    )}
+                    <Field label={copy.reason} required>
+                      <textarea
+                        value={reason}
+                        required
+                        minLength={3}
+                        maxLength={500}
+                        rows={3}
+                        placeholder={copy.reasonPlaceholder}
+                        aria-describedby={`${formId}-reason-hint`}
+                        disabled={action.busy}
+                        onChange={(event) => setReason(event.target.value)}
+                      />
+                      <small id={`${formId}-reason-hint`} className="muted">
+                        {copy.reasonHint}
+                      </small>
+                    </Field>
+                  </div>
+                </div>
               ) : (
                 <div className={styles.empty} role="status">
                   <h3>
@@ -264,6 +282,29 @@ export function ChangeLeadCoachDialog({
           )}
         </AsyncSection>
       </form>
+    </CoachDialogContainer>
+  );
+}
+
+function CoachDialogContainer({
+  embedded,
+  children,
+  footer,
+  ...props
+}: ComponentProps<typeof Dialog> & { embedded: boolean }) {
+  return embedded ? (
+    <div className={styles.embedded}>
+      <div className={styles.embeddedContent}>
+        {props.description && (
+          <p className={styles.description}>{props.description}</p>
+        )}
+        {children}
+      </div>
+      {footer}
+    </div>
+  ) : (
+    <Dialog {...props} footer={footer}>
+      {children}
     </Dialog>
   );
 }
