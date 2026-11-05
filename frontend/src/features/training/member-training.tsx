@@ -112,6 +112,7 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
               ))}
             </div>
           </div>
+          <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
         </article>
       ),
     }));
@@ -225,7 +226,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
         <article className={styles.panel}>
           <div className={styles.planHeading}>
             <strong>{plan.sport} · {plan.goal}</strong>
-            <span className={styles.aiBadge}>{vi ? "AI tạo" : "Created by AI"}</span>
+            <span className={styles.aiBadge}>{WORKOUT_SUGGESTION_LABEL}</span>
           </div>
           <small>{new Date(plan.generatedAt).toLocaleString(vi ? "vi-VN" : "en-US")}</small>
           <ol className={styles.aiExercises}>
@@ -278,32 +279,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
           </select></label>
           <label>{vi ? "Ngày tạo" : "Created date"}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       </div>
-      {kind === "plans" && source !== "coach" && !coach &&
-        (scope === "" || scope === "personal") && <AiWorkoutDraft activity={activity} date={date} />}
-      {kind === "plans" && (
-        <div className={styles.aiPlans}>
-          {aiState.loading && source !== "coach" ? <p role="status">{vi ? "Đang tải gợi ý AI…" : "Loading AI suggestions…"}</p>
-            : aiState.error ? null
-            : visibleAi.map((plan) => (
-              <article className={styles.panel} key={plan.id}>
-                <div className={styles.planHeading}>
-                  <strong>{plan.sport} · {plan.goal}</strong>
-                  <span className={styles.aiBadge}>{WORKOUT_SUGGESTION_LABEL}</span>
-                </div>
-                <small>{new Date(plan.generatedAt).toLocaleString(vi ? "vi-VN" : "en-US")}</small>
-                <ol className={styles.aiExercises}>
-                  {plan.items.map((item, index) => (
-                    <li key={`${plan.id}-${index}`}>
-                      <strong>{item.exercise}</strong> · {item.sets} × {item.reps}
-                      {item.notes && <p>{item.notes}</p>}
-                    </li>
-                  ))}
-                </ol>
-                {plan.rationale && <p>{plan.rationale}</p>}
-              </article>
-            ))}
-        </div>
-      )}
+      {kind === "plans" && source !== "coach" && aiState.loading && <p role="status">Loading AI suggestions...</p>}
       {state.loading ? (
         <p role="status">
           {vi ? "Đang tải nội dung tập luyện…" : "Loading training content…"}
