@@ -7,6 +7,15 @@ namespace SportHub.Notification.Infrastructure;
 
 public sealed class NotificationDeliveryReader(ISportHubDbContext db) : INotificationDeliveryReader
 {
+    public async Task<IReadOnlyList<Guid>> RecipientIdsAsync(string eventType, Guid sourceId, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.TryParse<NotificationSourceEventType>(eventType, out var source))
+            throw new ArgumentException("Unknown notification event.", nameof(eventType));
+        return await db.Set<Domain.Entities.Notification>().AsNoTracking()
+            .Where(n => n.SourceEventType == source && n.SourceEntityId == sourceId && n.UserId != null)
+            .Select(n => n.UserId!.Value).Distinct().ToListAsync(cancellationToken);
+    }
+
     public Task<NotificationDelivery> GetAsync(string eventType, Guid sourceId, CancellationToken cancellationToken = default)
         => GetManyAsync(eventType, [sourceId], cancellationToken);
 

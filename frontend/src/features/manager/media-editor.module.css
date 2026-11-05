@@ -327,6 +327,21 @@
   color: var(--text-on-inverse-muted);
   margin-block: var(--space-5);
 }
+.heroCopy {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-5);
+}
+.hero .heroCopy > p {
+  margin: 0;
+}
+.communityIntro {
+  display: grid;
+  gap: var(--space-5);
+}
+.landing .communityIntro > p {
+  margin: 0;
+}
 .hero .sectionTools {
   margin-bottom: var(--space-5);
 }
@@ -752,6 +767,66 @@
 }
 .booking > div:last-child {
   padding-block: var(--space-4);
+}
+.bookingCopy {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.landing .bookingCopy h2 {
+  font-size: clamp(2.75rem, 5vw, 5rem);
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+.landing .bookingCopy > p {
+  max-width: 38ch;
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+}
+.landing .faq {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(40px, 8vw, 120px);
+  padding: clamp(80px, 10vw, 144px) clamp(22px, 6vw, 100px);
+}
+.faqIntro {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  min-width: 0;
+}
+.landing .faqIntro h2 {
+  font-size: clamp(2.7rem, 5vw, 4.75rem);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+.landing .faqIntro > p {
+  max-width: 34ch;
+  margin: var(--space-5) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+}
+@media (max-width: 900px) {
+  .landing .faq {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-7);
+  }
+  .faqIntro {
+    position: static;
+  }
+  .landing .faqIntro h2 {
+    max-width: 14ch;
+  }
+}
+@media (max-width: 600px) {
+  .landing .faq {
+    padding-block: var(--space-9);
+    gap: var(--space-6);
+  }
 }
 .questions {
   margin-top: var(--space-5);

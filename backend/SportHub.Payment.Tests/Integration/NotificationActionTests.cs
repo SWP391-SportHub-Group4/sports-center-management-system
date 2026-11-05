@@ -9,6 +9,72 @@ namespace SportHub.Payment.Tests.Integration;
 [Collection(nameof(PaymentApiCollection))]
 public sealed class NotificationActionTests(PaymentApiFactory factory)
 {
+    [Theory]
+    [InlineData(SportHub.Scheduling.Rental.Domain.IncidentScope.Room)]
+    [InlineData(SportHub.Scheduling.Rental.Domain.IncidentScope.Center)]
+    public async Task Incident_announcement_links_only_owners_with_pending_rental_refunds(
+        SportHub.Scheduling.Rental.Domain.IncidentScope scope)
+    {
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var unaffected = await factory.SeedUserAsync(UserRole.Member);
+        var invoice = await factory.SeedInvoiceAsync(member.UserId, member.UserId, 100000);
+        var incidentId = Guid.NewGuid();
+        // The collection shares a database. A center-wide incident must not cover
+        // tomorrow's bookings used by the incident review and fence scenarios.
+        var incidentStart = DateTime.UtcNow.AddDays(-10);
+        var rentalStart = incidentStart.AddDays(1);
+        await factory.QueryAsync(async db => {
+            var room = new SportHub.Scheduling.Domain.Entities.Room { Name = "Refund court " + Guid.NewGuid(), Capacity = 4,
+                RoomTypeId = await db.Set<SportHub.Scheduling.Catalog.Domain.RoomType>().Select(r => r.RoomTypeId).FirstAsync() };
+            db.Rooms.Add(room);
+            await db.SaveChangesAsync();
+            db.Set<SportHub.Scheduling.Rental.Domain.IncidentNotice>().Add(new() {
+                IncidentId = incidentId, Scope = scope,
+                RoomId = scope == SportHub.Scheduling.Rental.Domain.IncidentScope.Room ? room.RoomId : null,
+                StartAtUtc = incidentStart, EndAtUtc = incidentStart.AddDays(2),
+                CreatedAtUtc = DateTime.UtcNow, CreatedByUserId = member.UserId, Reason = "Maintenance" });
+            await db.SaveChangesAsync();
+            var paid = await db.Invoices.SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            paid.Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Paid;
+            paid.PaidVia = "Cash";
+            paid.CashAmount = 100000;
+            paid.PaidAtUtc = DateTime.UtcNow;
+            db.Payments.Add(new SportHub.Payment.Domain.Entities.Payment { PaymentId = Guid.NewGuid(), InvoiceId = invoice.InvoiceId,
+                Amount = 100000, Method = SportHub.Payment.Domain.Enums.PaymentMethod.Cash,
+                Status = SportHub.Payment.Domain.Enums.PaymentStatus.Success, ReceivedByUserId = member.UserId,
+                ReferenceCode = Guid.NewGuid().ToString("N"), PaidAt = DateTime.UtcNow });
+            var item = await db.InvoiceItems.SingleAsync(i => i.InvoiceId == invoice.InvoiceId);
+            item.ItemType = SportHub.Payment.Domain.Enums.InvoiceItemType.Rental;
+            var rentalId = Guid.NewGuid();
+            item.RelatedEntityId = rentalId;
+            db.Set<SportHub.Scheduling.Rental.Domain.CourtRental>().Add(new() {
+                CourtRentalId = rentalId, MemberId = member.UserId, SportId = 3, RoomId = room.RoomId,
+                InvoiceId = invoice.InvoiceId, InvoiceItemId = item.ItemId, TotalPrice = 100000,
+                StartAtUtc = rentalStart, EndAtUtc = rentalStart.AddHours(1),
+                CreatedAtUtc = DateTime.UtcNow, CancelledAtUtc = DateTime.UtcNow, CancellationIncidentId = incidentId,
+                Status = SportHub.Scheduling.Rental.Domain.CourtRentalStatus.Cancelled, CancelReason = "CenterFault:Maintenance" });
+            foreach (var userId in new[] { member.UserId, unaffected.UserId })
+                foreach (var type in new[] { NotificationSourceEventType.IncidentCreated, NotificationSourceEventType.IncidentCancelled })
+                    db.Notifications.Add(new() { NotificationId = Guid.NewGuid(), UserId = userId,
+                        SourceEventType = type, SourceEntityId = incidentId, Message = "Center update",
+                        Channel = NotificationChannel.InApp, Status = NotificationStatus.Sent, SentAt = DateTime.UtcNow });
+            return await db.SaveChangesAsync();
+        });
+        using var ownerClient = factory.CreateApiClient(member.UserId, UserRole.Member);
+        using var otherClient = factory.CreateApiClient(unaffected.UserId, UserRole.Member);
+        var ownerNotices = (await ownerClient.GetFromJsonAsync<List<SupportNotice>>("/api/notifications"))!;
+        Assert.Single(ownerNotices, n => n.ActionUrl == "/member/finance?tab=refunds#center-cancellation-refunds");
+        Assert.All((await otherClient.GetFromJsonAsync<List<SupportNotice>>("/api/notifications"))!, n => Assert.Null(n.ActionUrl));
+        var actionable = ownerNotices.Single(n => n.ActionUrl != null);
+        Assert.Equal(actionable.ActionUrl, (await ownerClient.GetFromJsonAsync<SupportNotice>($"/api/notifications/{actionable.NotificationId}"))!.ActionUrl);
+        // Once no refundable value remains, the announcement must no longer offer a choice.
+        await factory.QueryAsync(async db => {
+            (await db.Invoices.SingleAsync(i => i.InvoiceId == invoice.InvoiceId)).Status = SportHub.Payment.Domain.Enums.InvoiceStatus.Void;
+            return await db.SaveChangesAsync();
+        });
+        Assert.All((await ownerClient.GetFromJsonAsync<List<SupportNotice>>("/api/notifications"))!, n => Assert.Null(n.ActionUrl));
+    }
+
     [Fact]
     public async Task Invoice_notice_links_to_owned_invoice_and_rejects_foreign_or_missing_sources()
     {

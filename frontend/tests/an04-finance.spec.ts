@@ -220,12 +220,11 @@ test("reports use one period filter with tabs, and exports live on their own pag
     page.getByRole("heading", { name: "Active Gym members", exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Export", exact: true }).click();
-  await expect(page).toHaveURL(/\/manager\/reports\/exports$/);
+  await expect(page).toHaveURL(/\/manager\/reports\/exports\?tab=members&/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Report exports",
   );
   await expect(page.getByText("No exports yet.")).toBeVisible();
-  await page.getByLabel(en.common.filter, { exact: true }).click();
   await page
     .getByLabel("Report type", { exact: true })
     .selectOption("POINTS_SUMMARY");
@@ -282,7 +281,6 @@ test("Manager exports identify members by name for revenue and rental reports", 
 }) => {
   const calls = await managerFixture(page);
   await page.goto("/manager/reports/exports");
-  await page.getByLabel(en.common.filter, { exact: true }).click();
   for (const type of ["REVENUE_DIMENSIONS", "COURT_RENTAL_REVENUE"]) {
     await page
       .getByLabel(en.staffWork.exportType, { exact: true })

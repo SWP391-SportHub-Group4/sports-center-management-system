@@ -7,6 +7,17 @@ import type { IncidentRefundRowDto } from "@/lib/types";
 import styles from "./incident-refund-table.module.css";
 
 export type RefundEdits = Record<string, { points: string; reason: string }>;
+export function retainRefundEdits(
+  rows: IncidentRefundRowDto[],
+  edits: RefundEdits,
+): RefundEdits {
+  return Object.fromEntries(
+    rows
+      .filter((row) => Object.hasOwn(edits, row.sourceId))
+      .map((row) => [row.sourceId, edits[row.sourceId]]),
+  );
+}
+
 export const refundEdit = (row: IncidentRefundRowDto, edits: RefundEdits) =>
   edits[row.sourceId] ?? {
     points: String(row.suggestedRefundPoints),
@@ -20,8 +31,7 @@ export function validRefunds(rows: IncidentRefundRowDto[], edits: RefundEdits) {
       /^\d+$/.test(edit.points) &&
       Number.isSafeInteger(points) &&
       points <= row.maximumRefundPoints &&
-      (points === row.suggestedRefundPoints ||
-        (edit.reason.trim().length >= 3 && edit.reason.trim().length <= 500))
+      (row.isPaid || points === 0)
     );
   });
 }
@@ -88,7 +98,6 @@ export function IncidentRefundTable({
             {rows.map((row) => {
               const edit = refundEdit(row, edits);
               const points = Number(edit.points);
-              const changed = points !== row.suggestedRefundPoints;
               const invalid =
                 !/^\d+$/.test(edit.points) ||
                 !Number.isSafeInteger(points) ||
@@ -144,10 +153,16 @@ export function IncidentRefundTable({
                           max={row.maximumRefundPoints}
                           step={1}
                           inputMode="numeric"
+                          placeholder={c.maximumPlaceholder.replace(
+                            "{points}",
+                            formatPoints(row.maximumRefundPoints),
+                          )}
                           value={edit.points}
                           disabled={disabled || locked}
                           aria-invalid={invalid}
-                          aria-describedby={`${inputId}-hint`}
+                          aria-describedby={
+                            !row.isPaid ? `${inputId}-hint` : undefined
+                          }
                           onChange={(event) =>
                             onChange?.({
                               ...edits,
@@ -160,69 +175,22 @@ export function IncidentRefundTable({
                         />
                       </>
                     )}
-                    <small id={`${inputId}-hint`}>
-                      {!row.isPaid
-                        ? readOnly
-                          ? c.releaseReceipt
-                          : c.released
-                        : row.refundedPoints > 0
-                          ? (readOnly ? c.previousOnly : c.previous)
-                              .replace(
-                                "{points}",
-                                formatPoints(row.refundedPoints),
-                              )
-                              .replace(
-                                "{max}",
-                                formatPoints(row.maximumRefundPoints),
-                              )
-                          : !readOnly
-                            ? c.maximum.replace(
-                                "{points}",
-                                formatPoints(row.maximumRefundPoints),
-                              )
-                            : null}
-                    </small>
+                    {(!row.isPaid || (readOnly && row.refundedPoints > 0)) && (
+                      <small id={`${inputId}-hint`}>
+                        {!row.isPaid
+                          ? readOnly
+                            ? c.releaseReceipt
+                            : c.released
+                          : c.previousOnly.replace(
+                              "{points}",
+                              formatPoints(row.refundedPoints),
+                            )}
+                      </small>
+                    )}
                     {!readOnly && invalid && (
                       <small className={styles.error} role="alert">
                         {c.invalid}
                       </small>
-                    )}
-                    {!readOnly && changed && (
-                      <div className={styles.reason}>
-                        {readOnly ? (
-                          <small>{edit.reason}</small>
-                        ) : (
-                          <>
-                            <label htmlFor={`${inputId}-reason`}>
-                              {c.reason}
-                            </label>
-                            <textarea
-                              id={`${inputId}-reason`}
-                              rows={2}
-                              minLength={3}
-                              maxLength={500}
-                              value={edit.reason}
-                              disabled={disabled}
-                              aria-invalid={edit.reason.trim().length < 3}
-                              placeholder={c.reasonHint}
-                              onChange={(event) =>
-                                onChange?.({
-                                  ...edits,
-                                  [row.sourceId]: {
-                                    ...edit,
-                                    reason: event.target.value,
-                                  },
-                                })
-                              }
-                            />
-                            {edit.reason.trim().length < 3 && (
-                              <small className={styles.error}>
-                                {c.reasonHint}
-                              </small>
-                            )}
-                          </>
-                        )}
-                      </div>
                     )}
                   </td>
                 </tr>

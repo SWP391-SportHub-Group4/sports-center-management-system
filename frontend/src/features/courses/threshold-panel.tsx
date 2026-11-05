@@ -118,9 +118,7 @@ export function ThresholdPanel({
                 ? copy.editPricing
                 : copy.approveBelowThreshold
             }
-            description={
-              action === "pricing" ? l.thresholdHint : copy.approveBelowHint
-            }
+            description={action === "pricing" ? l.thresholdHint : undefined}
             size={action === "pricing" ? "lg" : "md"}
             className={styles.actionDialog}
             onClose={() => !mutation.busy && setAction(null)}

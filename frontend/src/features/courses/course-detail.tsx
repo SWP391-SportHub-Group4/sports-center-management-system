@@ -387,13 +387,14 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                                 ? m.enrollmentOpen
                                 : m.enrollmentClosed}
                           </strong>
-                          <p className="small muted">
-                            {c.status === "DRAFT"
-                              ? m.enrollmentOpensOnPublish
-                              : c.confirmedCount >= c.capacity
-                                ? m.enrollmentFullHint
-                                : m.enrollmentAutomaticHint}
-                          </p>
+                          {(c.status === "DRAFT" ||
+                            c.confirmedCount >= c.capacity) && (
+                            <p className="small muted">
+                              {c.status === "DRAFT"
+                                ? m.enrollmentOpensOnPublish
+                                : m.enrollmentFullHint}
+                            </p>
+                          )}
                         </div>
                       </section>
                     </Card>

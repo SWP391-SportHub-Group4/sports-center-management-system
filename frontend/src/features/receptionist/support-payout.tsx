@@ -89,9 +89,11 @@ export function SupportPayout({
     items.find((row) => row.invoiceItemId === itemId) ??
     (items.length === 1 ? items[0] : null);
   const activeDraft = draft?.itemId === item?.invoiceItemId ? draft : null;
-  const cash =
-    activeDraft?.cash ??
-    (item ? String(Math.floor(item.refundableVnpayVnd / 1000) * 1000) : "");
+  const pointsOnly = !!item && item.vnpayVnd === 0 && item.pointsApplied > 0;
+  const cash = pointsOnly
+    ? "0"
+    : (activeDraft?.cash ??
+      (item ? String(Math.floor(item.refundableVnpayVnd / 1000) * 1000) : ""));
   const points =
     activeDraft?.points ?? (item ? String(item.refundablePoints) : "");
   const cashAmount = Number(cash);
@@ -319,12 +321,6 @@ export function SupportPayout({
           ) : (
             !closed && (
               <div className={styles.box}>
-                <p className={styles.helper}>
-                  Review the selected service, then enter the cash and points to
-                  refund. Cash can be refunded as wallet points at 1 point =
-                  1,000 VND. The combined refund cannot exceed the remaining
-                  refundable service value.
-                </p>
                 {quote.loading && (
                   <p role="status">Loading refund breakdown…</p>
                 )}
@@ -408,9 +404,6 @@ export function SupportPayout({
                               <Coins size={18} aria-hidden="true" />
                               Wallet points
                             </span>
-                            <span className={styles.refundMethodHint}>
-                              Points used by the member (1 point = 1,000 VND)
-                            </span>
                           </dt>
                           <dd>
                             {formatPoints(item.pointsApplied)}
@@ -423,37 +416,41 @@ export function SupportPayout({
                     </dl>
                   </div>
                 )}
-                <label className={styles.field}>
-                  Cash amount transferred (VND)
-                  <input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={cash}
-                    disabled={busy || !item}
-                    aria-invalid={!!cashError}
-                    aria-describedby={
-                      cashError ? "payout-cash-error" : undefined
-                    }
-                    onChange={(event) => {
-                      setDraft({
-                        itemId: item!.invoiceItemId,
-                        cash: event.target.value,
-                        points,
-                      });
-                      setFieldServerError(null);
-                      setTransferConfirmed(false);
-                    }}
-                  />
-                </label>
-                {cashError && (
-                  <p
-                    id="payout-cash-error"
-                    role="alert"
-                    className={styles.fieldError}
-                  >
-                    {cashError}
-                  </p>
+                {!pointsOnly && (
+                  <>
+                    <label className={styles.field}>
+                      Cash amount transferred (VND)
+                      <input
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={cash}
+                        disabled={busy || !item}
+                        aria-invalid={!!cashError}
+                        aria-describedby={
+                          cashError ? "payout-cash-error" : undefined
+                        }
+                        onChange={(event) => {
+                          setDraft({
+                            itemId: item!.invoiceItemId,
+                            cash: event.target.value,
+                            points,
+                          });
+                          setFieldServerError(null);
+                          setTransferConfirmed(false);
+                        }}
+                      />
+                    </label>
+                    {cashError && (
+                      <p
+                        id="payout-cash-error"
+                        role="alert"
+                        className={styles.fieldError}
+                      >
+                        {cashError}
+                      </p>
+                    )}
+                  </>
                 )}
                 <label className={styles.field}>
                   Point amount transferred

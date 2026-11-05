@@ -2,6 +2,8 @@
 import {
   IncidentRefundTable,
   refundEdit,
+  retainRefundEdits,
+  validRefunds,
   type RefundEdits,
 } from "./incident-refund-table";
 import { IncidentDayPassMembers } from "./incident-day-pass-members";
@@ -62,7 +64,6 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   const params = useSearchParams();
   const { user } = useAuth();
   const drafts = useIncidentDraftCleanup(user?.userId);
-  const previousPreviewToken = useRef("");
   const resolutionPlans = useRef<IncidentResolutionSelection[]>([]);
   const [resolutions, setResolutions] = useState<IncidentResolutionSelection[]>(
     [],
@@ -156,12 +157,18 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   const refundRows = review?.preview.refunds ?? [];
   const canConfirm =
     !!review &&
-    review.preview.impacts.every((impact) =>
-      review.body.resolutions?.some(
-        (plan) => plan.sourceId === impact.sourceId,
-      ),
-    ) &&
-    refundRows.length === 0 &&
+    review.preview.impacts
+      .filter(
+        (impact) =>
+          impact.sourceType === "CLASS_SESSION" ||
+          impact.sourceType === "ROOM_BLOCK",
+      )
+      .every((impact) =>
+        review.body.resolutions?.some(
+          (plan) => plan.sourceId === impact.sourceId,
+        ),
+      ) &&
+    validRefunds(refundRows, refundEdits) &&
     review.preview.canResolve &&
     !mutation.busy &&
     !resolving &&
@@ -179,7 +186,6 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
   function clear() {
     revision.current++;
     operationId.current = "";
-    previousPreviewToken.current = "";
     resolutionPlans.current = [];
     setResolutions([]);
     setRefundEdits({});
@@ -218,8 +224,6 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
     if (!formRef.current?.reportValidity()) return;
     if (!validDraft) return;
     if (!operationId.current) operationId.current = crypto.randomUUID();
-    const priorToken =
-      review?.preview.previewToken || previousPreviewToken.current;
     const expectedRevision = revision.current;
     const body = {
       scope,
@@ -235,9 +239,9 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
       previewRequest.current = controller;
       const data = await incidentApi.preview(body, controller.signal);
       if (revision.current === expectedRevision) {
-        const changed = !!priorToken && priorToken !== data.previewToken;
-        previousPreviewToken.current = data.previewToken ?? "";
-        if (changed || !priorToken) setRefundEdits({});
+        setRefundEdits((current) =>
+          retainRefundEdits(data.refunds ?? [], current),
+        );
         setHideDraftActivities(hideDrafts);
         setReview({ body, preview: data });
       }
@@ -264,7 +268,10 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
             sourceId: row.sourceId,
             points: Number(refundEdit(row, refundEdits).points),
             adjustmentReason:
-              refundEdit(row, refundEdits).reason.trim() || undefined,
+              row.suggestedRefundPoints !==
+              Number(refundEdit(row, refundEdits).points)
+                ? review.body.reason.trim()
+                : undefined,
           })),
         })
         .then((response) => {
@@ -283,7 +290,6 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
       setHistoryKey(response.incidentId);
       setReview(null);
       drafts.markConfirming(false);
-      previousPreviewToken.current = "";
       record("FINAL", "succeeded");
     }, "");
     resolvePending.current = false;
@@ -510,7 +516,7 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
             <div className="stack">
               <div>
                 {(review.preview.impacts.some(
-                  (i) => i.sourceType !== "COURT_RENTAL",
+                  (i) => i.sourceType === "CLASS_SESSION",
                 ) ||
                   refundRows.length === 0) && (
                   <IncidentImpactReview
@@ -518,13 +524,11 @@ function IncidentFormContent({ resetOnReload }: { resetOnReload: boolean }) {
                       ...review.preview,
                       impacts: review.preview.impacts.filter(
                         (impact) =>
-                          !hideDraftActivities ||
-                          !resolutions.some(
-                            (plan) => plan.sourceId === impact.sourceId,
-                          ),
-                      ),
-                      members: review.preview.members?.filter(
-                        (m) => m.sourceType === "CLASS_SESSION",
+                          impact.sourceType === "CLASS_SESSION" &&
+                          (!hideDraftActivities ||
+                            !resolutions.some(
+                              (plan) => plan.sourceId === impact.sourceId,
+                            )),
                       ),
                     }}
                     incidentRequest={review.body}

@@ -1,9 +1,11 @@
 "use client";
 import { IncidentRefundTable } from "./incident-refund-table";
 import { IncidentDayPassSupport } from "./incident-day-pass-support";
-import { AsyncSection, Card } from "@/components/ui";
+import { AsyncSection, Card, Dialog, Feedback } from "@/components/ui";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useApi } from "@/lib/useApi";
+import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime, formatDate, formatTime } from "@/lib/format";
 import {
@@ -26,11 +28,62 @@ export function IncidentDetailsView({ id }: { id: string }) {
   };
   const l = t.managerOperations;
   const state = useApi((signal) => incidentApi.get(id, signal), [id]);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const cancelling = useRef(false);
+  const action = useAction();
+  const now = useNow(1000);
+  const ended = !!state.data && new Date(state.data.endAtUtc).getTime() <= now;
+  async function cancelIncident() {
+    if (cancelling.current || ended) return;
+    cancelling.current = true;
+    const result = await action.run(
+      async () => {
+        await incidentApi.cancel(id);
+        return true;
+      },
+      vi
+        ? "Đã hủy sự cố và gửi thông báo mở lại."
+        : "Incident cancelled and reopening notifications queued.",
+    );
+    cancelling.current = false;
+    if (result) {
+      setConfirmCancel(false);
+      state.reload();
+    }
+  }
   return (
     <AsyncSection state={state}>
       {(incident) => (
         <>
-          <Card title={vi ? "Chi tiết sự cố" : "Incident details"}>
+          <Feedback success={action.success} />
+          <Card
+            title={vi ? "Chi tiết sự cố" : "Incident details"}
+            actions={
+              incident.cancelledAtUtc ? (
+                <span role="status">
+                  {vi ? "Đã hủy sự cố" : "Incident cancelled"}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className={`btn btn--danger ${styles.cancelIncident}`}
+                  disabled={action.busy || ended}
+                  onClick={() => {
+                    action.reset();
+                    setConfirmCancel(true);
+                  }}
+                >
+                  {vi ? "Hủy sự cố" : "Cancel incident"}
+                </button>
+              )
+            }
+          >
+            {incident.cancelledAtUtc && (
+              <p className="muted">
+                {vi ? "Đã hủy lúc" : "Cancelled at"}{" "}
+                {formatDateTime(incident.cancelledAtUtc)}
+              </p>
+            )}
             <div className={styles.incidentReason}>
               <span>{vi ? "Lý do" : "Reason"}</span>
               <p>{incident.reason}</p>
@@ -221,6 +274,50 @@ export function IncidentDetailsView({ id }: { id: string }) {
               </section>
             )}
           </Card>
+          {confirmCancel &&
+            createPortal(
+              <Dialog
+                title={vi ? "Hủy sự cố" : "Cancel incident"}
+                size="sm"
+                onClose={() => {
+                  if (!cancelling.current) setConfirmCancel(false);
+                }}
+                showCloseButton={!action.busy}
+                footer={
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn--danger"
+                      disabled={action.busy || ended}
+                      onClick={cancelIncident}
+                    >
+                      {action.busy ? (vi ? "Đang hủy…" : "Cancelling…") : "Yes"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={action.busy}
+                      onClick={() => setConfirmCancel(false)}
+                    >
+                      No
+                    </button>
+                  </>
+                }
+              >
+                <p>
+                  {vi
+                    ? "Bạn có chắc muốn hủy sự cố này không?"
+                    : "Are you sure you want to cancel this incident?"}
+                </p>
+                <p>
+                  {vi
+                    ? "Các khung giờ bị chặn bởi sự cố này sẽ được mở lại và người dùng liên quan sẽ được thông báo. Các booking đã hủy sẽ không được tự động khôi phục."
+                    : "Time slots blocked by this incident will reopen and relevant users will be notified. Cancelled bookings will not be restored automatically."}
+                </p>
+                <Feedback error={action.error} />
+              </Dialog>,
+              document.body,
+            )}
         </>
       )}
     </AsyncSection>

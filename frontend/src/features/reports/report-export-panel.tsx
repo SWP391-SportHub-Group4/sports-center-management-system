@@ -13,6 +13,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { financeStyles as fin } from "@/features/finance";
 import { useEffect } from "react";
 import styles from "./reports.module.css";
+import { filterFields, exportScope } from "./report-filter-config";
 const columnsByType: Record<string, string[]> = {
   REVENUE_DIMENSIONS: [
     "source",
@@ -59,6 +60,7 @@ const columnsByType: Record<string, string[]> = {
     "activeMembersAtPeriodEnd",
   ],
 };
+export const reportExportTypes = Object.keys(columnsByType);
 export function ReportTypeSelect({
   value,
   onChange,
@@ -94,9 +96,11 @@ export function ReportTypeSelect({
 export function ReportExportPanel({
   filters,
   type,
+  blockedReason,
 }: {
   filters: ReportFilters;
   type: string;
+  blockedReason?: string;
 }) {
   const { t } = useLanguage();
   const l = t.staffWork;
@@ -122,8 +126,7 @@ export function ReportExportPanel({
     const id = window.setInterval(state.reload, 5000);
     return () => window.clearInterval(id);
   }, [state.data, state.reload]);
-  const dimensional =
-    type === "REVENUE_DIMENSIONS" || type === "COURT_RENTAL_REVENUE";
+  const fields = filterFields[exportScope(type)];
   const labels: Record<string, string> = {
     REVENUE_DIMENSIONS: l.dimensions,
     COURT_RENTAL_REVENUE: l.rentals,
@@ -169,6 +172,7 @@ export function ReportExportPanel({
         className={`form ${styles.exportForm}`}
         onSubmit={async (e) => {
           e.preventDefault();
+          if (blockedReason) return;
           if (
             await mutation.run(() =>
               api.post("/api/reports/exports", {
@@ -177,21 +181,18 @@ export function ReportExportPanel({
                 toDate: filters.toDate,
                 columns,
                 format,
-                sportId:
-                  dimensional || type === "CLASS_ENROLLMENT"
-                    ? filters.sportId
-                      ? Number(filters.sportId)
-                      : null
-                    : null,
-                source: dimensional
-                  ? type === "COURT_RENTAL_REVENUE"
-                    ? "RENTAL"
-                    : filters.source || null
+                sportId: fields.sport
+                  ? filters.sportId
+                    ? Number(filters.sportId)
+                    : null
                   : null,
-                memberId:
-                  dimensional || type === "POINTS_SUMMARY"
-                    ? filters.memberId || null
+                source:
+                  fields.source || type === "COURT_RENTAL_REVENUE"
+                    ? type === "COURT_RENTAL_REVENUE"
+                      ? "RENTAL"
+                      : filters.source || null
                     : null,
+                memberId: fields.member ? filters.memberId || null : null,
               }),
             )
           )
@@ -243,7 +244,11 @@ export function ReportExportPanel({
             <option value="Pdf">PDF</option>
           </select>
         </Field>
-        <button className="btn" disabled={mutation.busy || !columns.length}>
+        {blockedReason && <p role="status">{blockedReason}</p>}
+        <button
+          className="btn"
+          disabled={mutation.busy || !columns.length || !!blockedReason}
+        >
           {l.export}
         </button>
       </form>

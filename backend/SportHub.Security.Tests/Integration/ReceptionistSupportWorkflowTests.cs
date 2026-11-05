@@ -245,8 +245,13 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
             new { memberId = member.UserId, category = "OTHER", subject = "Rejected request", description = "Cannot be fulfilled" });
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();
-        (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign",
-            new { assigneeUserId = desk.UserId })).EnsureSuccessStatusCode();
+        if (actorRole == UserRole.Receptionist)
+        {
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(
+                $"/api/member-support-requests/{id}/reject", new { reason = "Before assignment" })).StatusCode);
+            (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign",
+                new { assigneeUserId = desk.UserId })).EnsureSuccessStatusCode();
+        }
 
         var rejected = await client.PostAsJsonAsync($"/api/member-support-requests/{id}/reject",
             new { reason = "Request cannot be approved" });
@@ -269,6 +274,7 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
         var row = await db.MemberSupportRequests.SingleAsync(x => x.RequestId == id);
         Assert.Equal("REJECTED", row.Status);
         Assert.Equal("Request cannot be approved", row.ProgressNote);
+        Assert.Equal(desk.UserId, row.AssignedToUserId);
         Assert.NotNull(row.ClosedAt);
         Assert.Equal(1, await db.AuditLogs.CountAsync(x => x.TargetId == id.ToString() && x.Action == "REJECT_SUPPORT_REQUEST"));
     }
@@ -293,7 +299,6 @@ public sealed class ReceptionistSupportWorkflowTests(SportHubApiFactory factory)
             ids.Add(id);
             Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/progress", new { note = "Before assignment" })).StatusCode);
             Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/done", new { reason = "Before assignment" })).StatusCode);
-            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/reject", new { reason = "Before assignment" })).StatusCode);
             Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = inactive.UserId })).StatusCode);
             (await client.PostAsJsonAsync($"/api/member-support-requests/{id}/assign", new { assigneeUserId = handler.UserId })).EnsureSuccessStatusCode();
         }

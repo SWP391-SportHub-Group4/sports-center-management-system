@@ -482,9 +482,9 @@ export const en = {
     enrollmentOpensOnPublish:
       "Enrollment opens automatically when this class is published.",
     enrollmentAutomaticHint:
-      "Enrollment is managed automatically and closes when the class is full or starts.",
+      "Enrollment is managed automatically and closes when the class is full or cancelled.",
     enrollmentFullHint:
-      "Enrollment is closed because all places are filled. A place released before the class starts reopens automatically.",
+      "Enrollment is closed because all places are filled. Enrollment reopens automatically when a place is released.",
     enrollmentOpen: "Enrollment is open",
     enrollmentClosed: "Enrollment is closed",
     enrollmentClosedVisibilityHint:
@@ -709,8 +709,6 @@ export const en = {
     noStudents: "No students enrolled yet.",
     editPricing: "Edit pricing",
     approveBelowThreshold: "Approve below threshold",
-    approveBelowHint:
-      "Allow this class to run without meeting its break-even threshold. Confirmed members will be notified. Provide a reason for this decision.",
     pricingLocked:
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
@@ -749,6 +747,7 @@ export const en = {
     rentalHoursLoading:
       "Wait for the center opening hours to load, or retry if loading failed.",
     searchRooms: "Search rooms…",
+    searchCoaches: "Search coaches…",
     allRoomStatuses: "All statuses",
     allRentalStatuses: "All rental statuses",
     manageRooms: "Manage rooms",
@@ -3081,7 +3080,7 @@ export const en = {
     confirm: "Confirm incident",
   },
   incidentRefunds: {
-    title: "Affected services & refunds",
+    title: "Affected court rentals",
     hint: "Review each rental. Refund points are prefilled with the remaining paid value. Adjusting them requires a reason.",
     empty: "No court rental is affected by this incident.",
     member: "Member",
@@ -3106,6 +3105,7 @@ export const en = {
     releaseReceipt: "Booking and any held points released; no refund credit.",
     summary: "Refund summary",
     maximum: "Up to {points} points remaining.",
+    maximumPlaceholder: "Maximum: {points}",
     released: "Release the booking and any held points; no refund credit.",
     reason: "Reason for adjustment",
     reasonColumn: "Reason",
@@ -3128,7 +3128,7 @@ export const en = {
     arrangeMakeup: "Arrange a makeup session",
     makeupHint:
       "For a serious incident, replace the missed session in full. Members keep their enrollment and pay no extra fee. The coach and members receive the updated schedule.",
-    noImpacts: "No activities are affected during this period.",
+    noImpacts: "No classes are affected during this period.",
     editSession: "Edit affected session",
     removeBlockHint:
       "Select removal of this room block. It will be removed only when you confirm the incident.",

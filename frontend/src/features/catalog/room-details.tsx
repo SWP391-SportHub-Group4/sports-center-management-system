@@ -101,7 +101,6 @@ export function RoomDetails({
         >
           <header className={styles.sectionHeading}>
             <h2 id="room-rental-title">{copy.roomRentalSettings}</h2>
-            <p>{copy.roomRentalDescription}</p>
           </header>
           <div className={styles.rentalForm}>
             <fieldset
@@ -111,7 +110,7 @@ export function RoomDetails({
               <legend className="sr-only">{copy.rentalAccess}</legend>
               <ActivitySwitch
                 label={copy.allowRental}
-                hint={copy.roomRentalAccessHint}
+                hint=""
                 checked={rental}
                 onChange={async (value) => {
                   let updated: RoomDto | undefined;
@@ -132,7 +131,6 @@ export function RoomDetails({
           </div>
           {rental && (
             <div className={styles.pricing}>
-              <p className={styles.explanation}>{copy.roomPriceWindowsHint}</p>
               <CourtRateEditor
                 key={`${current.roomId}-${current.allowRental}`}
                 roomId={current.roomId}
@@ -156,7 +154,6 @@ export function RoomDetails({
         >
           <header className={styles.sectionHeading}>
             <h2 id="room-blocks-title">{copy.blockTimes}</h2>
-            <p>{copy.roomBlockedDescription}</p>
           </header>
           <RoomBlocks roomId={current.roomId} showHeading={false} />
         </section>
