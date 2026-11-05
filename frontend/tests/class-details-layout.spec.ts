@@ -293,7 +293,7 @@ test("class details keeps capacity readable and groups management actions", asyn
       "Enrollment is managed automatically and closes when the class is full or starts.",
       { exact: true },
     ),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Cancel class", exact: true }),
   ).toHaveCount(0);

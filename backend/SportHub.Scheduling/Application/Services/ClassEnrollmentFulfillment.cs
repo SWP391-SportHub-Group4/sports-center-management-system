@@ -300,7 +300,7 @@ public sealed class ClassEnrollmentFulfillment(
             throw new InvalidOperationException("Seat counter mismatch while ending an enrollment.");
         }
 
-        await AutomaticClassEnrollment.ReopenAfterWithdrawalAsync(db, enrollment.ClassId, clock.UtcNow, cancellationToken);
+        await AutomaticClassEnrollment.ReopenAfterWithdrawalAsync(db, enrollment.ClassId, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         // A transfer confirms its destination before reconciling, so a same-coach transfer

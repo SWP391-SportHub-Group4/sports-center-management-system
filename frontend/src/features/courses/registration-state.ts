@@ -3,7 +3,7 @@ import type { CourseDto } from "@/lib/types";
 export function courseRegistrationState(
   course: CourseDto,
   enrolled: boolean,
-  now: number,
+  _now: number,
 ) {
   if (enrolled) return "registered";
   if (course.status !== "PUBLISHED" && course.status !== "IN_PROGRESS")
@@ -12,9 +12,8 @@ export function courseRegistrationState(
   if (!Number.isFinite(Date.parse(course.firstSessionStartUtc)))
     return "unscheduled";
   // Khóa đang học vẫn nhận ghi danh giữa chừng; chỉ đóng khi không còn buổi sắp tới.
-  if (course.status === "IN_PROGRESS") {
-    if ((course.sessionsRemaining ?? 0) <= 0) return "started";
-  } else if (Date.parse(course.firstSessionStartUtc) <= now) return "started";
+  if (course.sessionsRemaining !== undefined && course.sessionsRemaining <= 0)
+    return "started";
   if (course.thresholdResponseClosed) return "thresholdClosed";
   // Closed by the manager (e.g. an incident). Checkouts that already hold a seat can still finish,
   // but nobody new can start one, so this is not the same as "full".

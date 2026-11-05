@@ -75,7 +75,6 @@ export function ClassSessionList({
     l.session.replace("{number}", String(session.sessionNo));
   return (
     <div className={styles.schedule}>
-      <p className={styles.hint}>{l.groupingHint}</p>
       <ol
         className={styles.groups}
         aria-label={t.managerOperations.sessionsTab}

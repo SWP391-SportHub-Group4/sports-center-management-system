@@ -67,7 +67,6 @@ export function CourseHistory({ classId }: { classId: number }) {
   );
   return (
     <>
-      <p className="small muted">{t.managerOperations.historyHint}</p>
       <ApiTable
         state={state}
         caption={t.managerOperations.history}

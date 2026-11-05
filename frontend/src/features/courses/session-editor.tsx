@@ -384,11 +384,13 @@ export function SessionEditor({
                 sportId={sportId}
                 value={roomId}
                 onChange={setRoom}
+                searchable={incidentMode}
               />
               <CoachSelector
                 sportId={sportId}
                 value={coachId}
                 onChange={setCoach}
+                searchable={incidentMode}
               />
             </div>
             <Field label={l.reason}>
