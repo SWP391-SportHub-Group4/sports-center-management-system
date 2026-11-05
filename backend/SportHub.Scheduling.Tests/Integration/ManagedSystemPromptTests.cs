@@ -31,12 +31,11 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         var otherManager = await factory.SeedUserAsync(UserRole.CenterManager);
         var member = await factory.SeedUserAsync(UserRole.Member);
-        var coach = await factory.SeedUserAsync(UserRole.Coach);
         using var api = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
         using var otherClient = factory.CreateApiClient(otherManager.UserId, UserRole.CenterManager);
         using var memberClient = factory.CreateApiClient(member.UserId, UserRole.Member);
         var initialList = (await api.GetFromJsonAsync<List<ManagedPromptResponse>>("/api/ai/system-prompts"))!;
-        var initial = initialList.Single(p => p.Id == "member-system-prompt");
+        var initial = initialList.Single(p => p.Id == "member-general-prompt");
         var original = initial.Active!;
         var spy = new Provider();
         async Task<AiChatResponse> Ask(Guid id, string role, string? previous = null)
@@ -50,50 +49,64 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
         {
             Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.GetAsync("/api/ai/system-prompts")).StatusCode);
             var unauthorizedPublish = new SaveSystemPromptRequest("Member system prompt", "Member", "General", "Do not publish", initial.Revision);
-            Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.PostAsJsonAsync("/api/ai/system-prompts/member-system-prompt/publish", unauthorizedPublish)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await memberClient.PostAsJsonAsync("/api/ai/system-prompts/member-general-prompt/publish", unauthorizedPublish)).StatusCode);
 
-            var draftResponse = await api.PutAsJsonAsync("/api/ai/system-prompts/member-system-prompt/draft",
+            var draftResponse = await api.PutAsJsonAsync("/api/ai/system-prompts/member-general-prompt/draft",
                 new SaveSystemPromptRequest("Member system prompt", "Member", "General", draftText, initial.Revision));
             draftResponse.EnsureSuccessStatusCode();
             var drafted = (await draftResponse.Content.ReadFromJsonAsync<ManagedPromptResponse>())!;
             var before = await Ask(member.UserId, "Member");
             Assert.Contains(original.Content, spy.Prompt);
             Assert.DoesNotContain(draftText, spy.Prompt);
-            var publishResponse = await api.PostAsJsonAsync("/api/ai/system-prompts/member-system-prompt/publish",
+            var publishResponse = await api.PostAsJsonAsync("/api/ai/system-prompts/member-general-prompt/publish",
                 new SaveSystemPromptRequest("Member system prompt", "Member", "General", draftText, drafted.Revision));
             publishResponse.EnsureSuccessStatusCode();
             var published = (await publishResponse.Content.ReadFromJsonAsync<ManagedPromptResponse>())!;
 
             var after = await Ask(member.UserId, "Member", before.InteractionId);
             Assert.Contains(draftText, spy.Prompt);
-            Assert.Contains("CURRENT RESPONSE LANGUAGE: English", spy.Prompt);
+            Assert.Contains("MEMBER V26 RESPONSE RULES", spy.Prompt);
             Assert.Null(spy.Previous); // A prior interaction cannot carry the old prompt forward.
-            Assert.Equal(published.SourceVersion, after.PromptVersion);
+            using (var scope = factory.Services.CreateScope())
+            {
+                var currentPrompt = await scope.ServiceProvider.GetRequiredService<SystemPromptService>()
+                    .GetPublishedAsync("Member");
+                Assert.Equal(currentPrompt.Version, after.PromptVersion);
+            }
             var freshView = (await otherClient.GetFromJsonAsync<List<ManagedPromptResponse>>("/api/ai/system-prompts"))!;
             Assert.Equal(draftText, freshView.Single(p => p.Id == initial.Id).Active!.Content);
-            await Ask(coach.UserId, "Coach");
-            Assert.DoesNotContain(draftText, spy.Prompt);
+            using (var scope = factory.Services.CreateScope())
+            {
+                var coachPrompt = await scope.ServiceProvider.GetRequiredService<SystemPromptService>()
+                    .GetPublishedAsync("Coach");
+                Assert.DoesNotContain(draftText, coachPrompt.Content);
+            }
 
-            var stale = await api.PostAsJsonAsync("/api/ai/system-prompts/member-system-prompt/publish",
+            var stale = await api.PostAsJsonAsync("/api/ai/system-prompts/member-general-prompt/publish",
                 new SaveSystemPromptRequest("Stale update", "Member", "General", "Stale prompt", initial.Revision));
             Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
             await Ask(member.UserId, "Member");
             Assert.Contains(draftText, spy.Prompt);
 
-            var restoreResponse = await api.PostAsJsonAsync("/api/ai/system-prompts/member-system-prompt/restore", new RestoreSystemPromptRequest(original.Version, published.Revision));
+            var restoreResponse = await api.PostAsJsonAsync("/api/ai/system-prompts/member-general-prompt/restore", new RestoreSystemPromptRequest(original.Version, published.Revision));
             restoreResponse.EnsureSuccessStatusCode();
             var restored = (await restoreResponse.Content.ReadFromJsonAsync<ManagedPromptResponse>())!;
             await Ask(member.UserId, "Member");
             Assert.Contains(original.Content, spy.Prompt);
-            Assert.Equal(HttpStatusCode.NoContent, (await api.DeleteAsync($"/api/ai/system-prompts/member-system-prompt?expectedRevision={restored.Revision}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await api.DeleteAsync($"/api/ai/system-prompts/member-general-prompt?expectedRevision={restored.Revision}")).StatusCode);
             var fallback = await Ask(member.UserId, "Member");
-            Assert.Equal(SportHubAssistantSystemPrompt.Version, fallback.PromptVersion);
+            using (var scope = factory.Services.CreateScope())
+            {
+                var currentPrompt = await scope.ServiceProvider.GetRequiredService<SystemPromptService>()
+                    .GetPublishedAsync("Member");
+                Assert.Equal(currentPrompt.Version, fallback.PromptVersion);
+            }
             Assert.Contains(SportHubAssistantSystemPrompt.Content, spy.Prompt);
         }
         finally
         {
             var current = (await api.GetFromJsonAsync<List<ManagedPromptResponse>>("/api/ai/system-prompts"))!.SingleOrDefault(p => p.Id == initial.Id);
-            var reset = await api.PostAsJsonAsync("/api/ai/system-prompts/member-system-prompt/publish",
+            var reset = await api.PostAsJsonAsync("/api/ai/system-prompts/member-general-prompt/publish",
                 new SaveSystemPromptRequest(original.Title, "Member", original.Category, original.Content, current?.Revision ?? 0));
             reset.EnsureSuccessStatusCode();
         }
@@ -104,7 +117,7 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         using var api = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        const string id = "member-system-prompt";
+        const string id = "member-general-prompt";
         var initial = (await api.GetFromJsonAsync<List<ManagedPromptResponse>>("/api/ai/system-prompts"))!.Single(p => p.Id == id);
         var current = initial;
         async Task<ManagedPromptResponse> Save(string content, bool publish)
@@ -150,10 +163,10 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         using var api = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
-        var initial = (await api.GetFromJsonAsync<List<ManagedPromptResponse>>("/api/ai/system-prompts"))!.Single(p => p.Id == "coach-system-prompt");
+        var initial = (await api.GetFromJsonAsync<List<ManagedPromptResponse>>("/api/ai/system-prompts"))!.Single(p => p.Id == "coach-general-prompt");
         try
         {
-            var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(i => api.PostAsJsonAsync("/api/ai/system-prompts/coach-system-prompt/publish",
+            var responses = await Task.WhenAll(Enumerable.Range(0, 2).Select(i => api.PostAsJsonAsync("/api/ai/system-prompts/coach-general-prompt/publish",
                 new SaveSystemPromptRequest("Coach system prompt", "Coach", "General", "Concurrent prompt " + i, initial.Revision))));
             Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
             Assert.Single(responses, r => r.StatusCode == HttpStatusCode.Conflict);
@@ -161,19 +174,19 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
             Assert.Equal(initial.Revision + 1, current.Revision);
             Assert.Single(current.History);
             Assert.Equal(initial.Active!.Version, current.History[0].Version);
-            var coach = await factory.SeedUserAsync(UserRole.Coach);
-            var spy = new Provider();
+            // Prompt composition is role-scoped. Coach chat may short-circuit to a
+            // verified local response, so check its active prompt at the reader boundary.
             using var scope = factory.Services.CreateScope();
-            var chat = ActivatorUtilities.CreateInstance<AiChatService>(scope.ServiceProvider, spy, new Context("Coach"));
-            var reply = await chat.AskAsync(coach.UserId, "What can you help me with?");
-            Assert.Equal(current.Active!.Content, spy.Prompt);
-            Assert.Equal(current.SourceVersion, reply.PromptVersion);
+            var coachPrompt = await scope.ServiceProvider.GetRequiredService<SystemPromptService>()
+                .GetPublishedAsync("Coach");
+            Assert.Contains(current.Active!.Content, coachPrompt.Content);
+            Assert.StartsWith("managed-coach-", coachPrompt.Version);
         }
         finally
         {
             var current = (await api.GetFromJsonAsync<List<ManagedPromptResponse>>("/api/ai/system-prompts"))!.Single(p => p.Id == initial.Id);
             var original = initial.Active!;
-            (await api.PostAsJsonAsync("/api/ai/system-prompts/coach-system-prompt/publish", new SaveSystemPromptRequest(original.Title, "Coach", original.Category, original.Content, current.Revision))).EnsureSuccessStatusCode();
+            (await api.PostAsJsonAsync("/api/ai/system-prompts/coach-general-prompt/publish", new SaveSystemPromptRequest(original.Title, "Coach", original.Category, original.Content, current.Revision))).EnsureSuccessStatusCode();
         }
     }
 }

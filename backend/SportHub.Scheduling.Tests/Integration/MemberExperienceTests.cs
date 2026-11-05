@@ -34,7 +34,7 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Chat_continuation_requires_the_same_member_and_current_enrollment_scope()
+    public async Task Member_data_hub_never_forwards_unverified_provider_history_across_enrollment_scopes()
     {
         var c = await CourseTestData.CreateAsync(factory);
         var member = await factory.SeedUserAsync(UserRole.Member);
@@ -48,7 +48,9 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
         }
         var first = await Ask(member.UserId);
         var second = await Ask(member.UserId, first);
-        Assert.Equal(first, provider.Continuations.Last());
+        // V26 reloads authorized Member evidence on every question. A previous
+        // provider interaction must not be forwarded without an authorization fingerprint.
+        Assert.Null(provider.Continuations.Last());
         await Ask(stranger.UserId, first);
         Assert.Null(provider.Continuations.Last());
         await factory.QueryAsync(async db => {

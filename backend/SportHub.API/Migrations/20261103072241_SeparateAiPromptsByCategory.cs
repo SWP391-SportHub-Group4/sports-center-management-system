@@ -62,6 +62,28 @@ namespace SportHub.API.Migrations
                 name: "ck_ai_system_prompt_role",
                 table: "ai_system_prompts");
 
+            // The pre-category schema permits one General prompt per audience only.
+            // Never silently discard independently published category content on downgrade.
+            migrationBuilder.Sql("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM ai_system_prompts
+                        WHERE id NOT IN ('member-general-prompt', 'coach-general-prompt')
+                    ) THEN
+                        RAISE EXCEPTION 'Cannot downgrade AI prompt categories while non-General prompts exist. Export or migrate their content first.';
+                    END IF;
+                END $$;
+
+                UPDATE ai_system_prompts
+                SET id = CASE audience
+                    WHEN 'Member' THEN 'member-system-prompt'
+                    WHEN 'Coach' THEN 'coach-system-prompt'
+                    ELSE id
+                END
+                WHERE id IN ('member-general-prompt', 'coach-general-prompt');
+                """);
+
             migrationBuilder.CreateIndex(
                 name: "ix_ai_system_prompts_audience",
                 table: "ai_system_prompts",
