@@ -13,6 +13,198 @@
   min-width: 0;
 }
 
+.adminFilters {
+  display: grid;
+  gap: var(--space-4);
+}
+.root > :global(.card):has(.adminFilters) {
+  padding: 0;
+  gap: 0;
+}
+.adminToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-4);
+}
+.adminPrimary {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(200px, 1.2fr) minmax(
+      140px,
+      0.7fr
+    );
+  gap: var(--space-3);
+  min-width: 0;
+  align-items: end;
+}
+.adminFilters :global(.field) {
+  min-width: 0;
+  margin: 0;
+}
+.adminFilters input,
+.adminFilters select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+.actorSearch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.actorSearch > svg {
+  position: absolute;
+  inset-inline-start: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.actorSearch input {
+  padding-inline-start: 38px;
+}
+.adminActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.adminActions :global(.btn) {
+  min-height: 44px;
+  margin: 0;
+  white-space: nowrap;
+}
+.adminMore {
+  gap: 7px;
+}
+.adminMore[aria-expanded="true"] {
+  background: var(--bg-surface-sunken);
+  border-color: var(--border-control);
+}
+.adminMore > svg:last-child {
+  transition: transform 160ms ease-out;
+}
+.adminMore[aria-expanded="true"] > svg:last-child {
+  transform: rotate(180deg);
+}
+.filterCount {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding-inline: 4px;
+  border-radius: 4px;
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.adminActions .adminClear {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  color: var(--danger-text);
+  border: 1px solid transparent;
+  background: var(--danger-bg);
+}
+.adminActions .adminClear:hover:not(:disabled) {
+  color: var(--danger-text);
+  border-color: var(--danger-text);
+  background: var(--danger-bg);
+}
+.adminDates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+}
+.adminDates > :global(.field) {
+  flex: 0 1 200px;
+}
+.adminDateHint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  padding-bottom: 12px;
+}
+.adminAdvanced {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.adminAdvanced[hidden] {
+  display: none;
+}
+.adminFilterStatus,
+.appliedFilters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+}
+.adminFilterStatus {
+  justify-content: space-between;
+}
+.appliedFilters > span:first-child {
+  color: var(--text-muted);
+  margin-inline-end: 4px;
+}
+.appliedFilter {
+  max-width: 100%;
+  padding: 5px 8px;
+  background: var(--bg-surface-sunken);
+  border-radius: 5px;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+.appliedFilter > span {
+  color: var(--text-body);
+}
+.pendingFilters {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+@media (max-width: 1100px) {
+  .adminToolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adminPrimary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 639px) {
+  .root > :global(.card):has(.adminFilters) > :global(.card__head),
+  .root > :global(.card):has(.adminFilters) > :global(.card__body) {
+    padding: var(--space-4);
+  }
+  .adminPrimary,
+  .adminAdvanced {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adminActions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+  .adminMore {
+    grid-column: 1 / -1;
+  }
+  .adminDates > :global(.field) {
+    flex: 1 1 140px;
+  }
+  .adminDateHint {
+    padding: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adminMore > svg:last-child {
+    transition: none;
+  }
+}
+
 .filters .managerFilterBar {
   position: relative;
   display: block;
@@ -123,60 +315,6 @@
 
   .managerFilterBar [data-filter-field="date"] fieldset > div {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.advancedFilters {
-  margin-top: var(--space-1);
-}
-
-.advancedBody {
-  padding: var(--space-4);
-  margin-bottom: var(--space-3);
-  background: var(--bg-surface-sunken);
-  border-radius: var(--radius-sm);
-}
-
-.advancedBody > p {
-  max-width: 70ch;
-  margin: 0 0 var(--space-4);
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  line-height: 1.6;
-}
-
-.datePresets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.datePresets .preset {
-  margin: 0;
-  transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out,
-    border-color 160ms ease-out;
-}
-
-.datePresets .preset[aria-pressed="true"] {
-  color: var(--color-on-primary);
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-}
-
-.dateHint {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  max-width: 75ch;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .datePresets .preset {
-    transition: none;
   }
 }
 

@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { CalendarClock, Send, X } from "lucide-react";
-import { AsyncSection, Feedback } from "@/components/ui";
+import { AsyncSection, Dialog, Feedback } from "@/components/ui";
 import { useApi, useAction, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { ApiError } from "@/lib/apiClient";
@@ -43,6 +44,7 @@ export function CoachClassChanges({
   const now = useNow(1000);
   const [form, setForm] = useState(false);
   const [reason, setReason] = useState("");
+  const [confirmSend, setConfirmSend] = useState(false);
   const pending = state.data?.items.find((r) => r.status === "PENDING");
   const dirty = form && !pending && reason !== "";
   useEffect(() => {
@@ -74,9 +76,34 @@ export function CoachClassChanges({
   const resetRetry = () => {
     requestId.current = null;
   };
-  async function submit(event: FormEvent) {
+  function reviewRequest(event: FormEvent) {
     event.preventDefault();
-    if (!session || !eligible || !absenceOpen || pending || lock.current)
+    if (
+      !session ||
+      !eligible ||
+      !absenceOpen ||
+      pending ||
+      lock.current ||
+      reason.trim().length < 3 ||
+      reason.trim().length > 500
+    )
+      return;
+    action.reset();
+    setConfirmSend(true);
+  }
+  function closeConfirmation() {
+    if (!lock.current) setConfirmSend(false);
+  }
+  async function sendRequest() {
+    if (
+      !session ||
+      !eligible ||
+      !absenceOpen ||
+      pending ||
+      lock.current ||
+      reason.trim().length < 3 ||
+      reason.trim().length > 500
+    )
       return;
     lock.current = true;
     try {
@@ -102,6 +129,7 @@ export function CoachClassChanges({
                 "session_not_editable",
               ].includes(error.code)
             ) {
+              setConfirmSend(false);
               setForm(false);
               state.reload();
               onChanged?.();
@@ -114,6 +142,7 @@ export function CoachClassChanges({
           : "Request sent to your Center Manager.",
       );
       if (saved) {
+        setConfirmSend(false);
         setForm(false);
         setReason("");
         resetRetry();
@@ -190,7 +219,7 @@ export function CoachClassChanges({
         </p>
       )}
       {form && eligible && !pending && (
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} onSubmit={reviewRequest}>
           <label>
             {vi ? "Lý do" : "Reason"}
             <textarea
@@ -241,6 +270,84 @@ export function CoachClassChanges({
           </div>
         </form>
       )}
+      {confirmSend &&
+        session &&
+        form &&
+        !pending &&
+        createPortal(
+          <Dialog
+            title={vi ? "Xác nhận gửi yêu cầu vắng?" : "Send absence request?"}
+            description={
+              vi
+                ? "Center Manager sẽ xem xét yêu cầu. Lịch dạy hiện tại vẫn có hiệu lực cho đến khi được xử lý."
+                : "Your Center Manager will review this request. Your current teaching schedule remains in effect until it is resolved."
+            }
+            size="sm"
+            onClose={closeConfirmation}
+            closeIconOnly
+            footer={
+              <div className={styles.confirmActions}>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  disabled={action.busy}
+                  onClick={closeConfirmation}
+                >
+                  {vi ? "Quay lại" : "Back"}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={action.busy || !eligible || !absenceOpen}
+                  onClick={sendRequest}
+                >
+                  <Send size={16} aria-hidden="true" />
+                  {action.busy
+                    ? vi
+                      ? "Đang gửi…"
+                      : "Sending…"
+                    : vi
+                      ? "Xác nhận gửi"
+                      : "Confirm & send"}
+                </button>
+              </div>
+            }
+          >
+            <div className={styles.confirmContent} aria-busy={action.busy}>
+              <dl className={styles.confirmSession}>
+                {session.className && (
+                  <div>
+                    <dt>{vi ? "Lớp" : "Class"}</dt>
+                    <dd>{session.className}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>{vi ? "Buổi học" : "Session"}</dt>
+                  <dd>
+                    {vi ? "Buổi" : "Session"} {session.sessionNo}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{vi ? "Thời gian" : "Scheduled for"}</dt>
+                  <dd>{formatDateTime(session.startAtUtc)}</dd>
+                </div>
+              </dl>
+              <div className={styles.requestReason}>
+                <strong>{vi ? "Lý do vắng" : "Reason for absence"}</strong>
+                <p className={styles.confirmReason}>{reason.trim()}</p>
+              </div>
+              {!absenceOpen && (
+                <p className={styles.hint} role="alert">
+                  {vi
+                    ? "Đã quá hạn báo vắng. Liên hệ trực tiếp Center Manager để được hỗ trợ."
+                    : "The 6-hour request deadline has passed. Contact your Center Manager directly."}
+                </p>
+              )}
+              <Feedback error={action.error} />
+            </div>
+          </Dialog>,
+          document.body,
+        )}
       {eligible && !absenceOpen && (
         <p className={styles.hint} role="status">
           Absence requests close 6 hours before class. Contact your Manager
