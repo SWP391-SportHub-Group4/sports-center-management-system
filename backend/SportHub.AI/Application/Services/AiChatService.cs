@@ -21,6 +21,7 @@ public sealed class AiChatService(
     IAiChatProvider provider,
     IClock clock,
     ISystemPromptReader promptReader,
+    SportHub.AI.Infrastructure.Python.PythonCoachChatProvider coachProvider,
     Microsoft.Extensions.Logging.ILogger<AiChatService> logger) : IAiChatService
 {
     public const int MaxQuestionLength = 2000;
@@ -75,7 +76,7 @@ public sealed class AiChatService(
         {
             var coachAnalysisTimerV10 = System.Diagnostics.Stopwatch.StartNew();
             var coachAnalysisV10 = await CoachIntentOrchestrator.TryAnswerAsync(
-                db, userId, question, clock.UtcNow, provider, promptReader, cancellationToken);
+                db, userId, question, clock.UtcNow, coachProvider, promptReader, cancellationToken);
             if (coachAnalysisV10 is not null)
             {
                 coachAnalysisTimerV10.Stop();
@@ -220,7 +221,7 @@ public sealed class AiChatService(
 // MEMBER_DATAHUB_V12_V13_ENTRYPOINT
 // Coach and AI Plan calls return null after an authenticated Member role check.
 var memberDataHubAnswer = await MemberIntentOrchestrator.TryAnswerAsync(
-    db, clock, userId, question, provider, promptReader, cancellationToken);
+    db, clock, userId, question, provider, promptReader, logger, cancellationToken);
 if (memberDataHubAnswer is not null)
     return memberDataHubAnswer;
 
@@ -313,7 +314,9 @@ var context =
         {
             providerResponse = localAnswer is not null
                 ? new AiProviderResponse(Guid.NewGuid().ToString("N"), localAnswer, "SportHub Navigation Knowledge", "local")
-                : await provider.AskAsync(systemPrompt, isCoach ? await CoachChatRuntime.BuildContextAsync(db, userId, clock.UtcNow, cancellationToken) : context, question, previousInteractionId, cancellationToken);
+                : await (isCoach ? (IAiChatProvider)coachProvider : provider).AskAsync(systemPrompt,
+                    isCoach ? await CoachChatRuntime.BuildContextAsync(db, userId, clock.UtcNow, cancellationToken) : context,
+                    question, previousInteractionId, cancellationToken);
         }
         catch (Exception ex)
             when (ex is not OperationCanceledException)

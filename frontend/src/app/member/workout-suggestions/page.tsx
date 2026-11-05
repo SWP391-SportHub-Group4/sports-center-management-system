@@ -19,7 +19,13 @@ import {
   Target,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/apiClient";
-import type { WorkoutSuggestionDto, SportDto } from "@/lib/types";
+import {
+  WORKOUT_SUGGESTION_TYPE,
+  WORKOUT_SUGGESTION_LABEL,
+  type WorkoutSuggestionSourceType,
+  type WorkoutSuggestionDto,
+  type SportDto,
+} from "@/lib/types";
 import styles from "./workout-suggestions.module.css";
 
 export default function MemberWorkoutSuggestionsPage() {
@@ -71,8 +77,13 @@ export default function MemberWorkoutSuggestionsPage() {
       const legacyKey = "sporthub:member:ai-workout-draft:v1";
       const previous = localStorage.getItem(storageKey);
       const parsed: unknown = previous ? JSON.parse(previous) : [];
-      const plans: Array<{id: string; suggestion: WorkoutSuggestionDto; savedAt: string}> =
-        Array.isArray(parsed) ? parsed : [];
+      const plans: Array<{id: string; type?: WorkoutSuggestionSourceType; suggestion: WorkoutSuggestionDto; savedAt: string}> =
+        Array.isArray(parsed)
+          ? parsed.map((plan) =>
+              plan && typeof plan === "object" && plan.suggestion && !plan.type
+                ? { ...plan, type: WORKOUT_SUGGESTION_TYPE }
+                : plan)
+          : [];
 
       // Migrate the old single draft so it isn't lost during upgrade.
       const old = sessionStorage.getItem(legacyKey);
@@ -80,13 +91,14 @@ export default function MemberWorkoutSuggestionsPage() {
         try {
           const legacy = JSON.parse(old) as {suggestion?: WorkoutSuggestionDto; savedAt?: string};
           if (legacy.suggestion && Array.isArray(legacy.suggestion.items)) {
-            plans.push({ id: crypto.randomUUID(), suggestion: legacy.suggestion,
+            plans.push({ id: crypto.randomUUID(), type: WORKOUT_SUGGESTION_TYPE, suggestion: legacy.suggestion,
               savedAt: legacy.savedAt ?? new Date().toISOString() });
           }
         } catch { /* Ignore invalid legacy data. */ }
       }
       plans.unshift({
         id: crypto.randomUUID(),
+        type: WORKOUT_SUGGESTION_TYPE,
         suggestion: result,
         savedAt: new Date().toISOString(),
       });
@@ -143,7 +155,7 @@ export default function MemberWorkoutSuggestionsPage() {
             {busy ? "Generating workout..." : result ? "Regenerate workout" : "Generate workout"}
           </button>
         </div>
-        <p className={styles.setupDisclaimer}><Info size={15} aria-hidden="true" /> Generated suggestions are saved under Training → Plans with a “Created by AI” label. They are guidance only.</p>
+        <p className={styles.setupDisclaimer}><Info size={15} aria-hidden="true" /> Generated suggestions appear under Training → Plans with the “{WORKOUT_SUGGESTION_LABEL}” type. They are guidance only.</p>
         {error && (
           <div role="alert" className={styles.error}>
             <Info size={18} aria-hidden="true" />

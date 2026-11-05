@@ -35,7 +35,8 @@ public sealed record MemberWorkoutSuggestionHistoryItem(
     string Goal,
     string Level,
     IReadOnlyList<WorkoutSuggestedExercise> Items,
-    string Rationale);
+    string Rationale,
+    string Type = AiQueryTypes.WorkoutSuggestionSourceType);
 
 [ApiController]
 [Authorize]

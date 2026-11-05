@@ -26,6 +26,31 @@ interface Turn {
 
 const MAX = 2000;
 
+/** Display the backend's actual failure category, never speculate from HTTP 503 alone. */
+function chatFailure(cause: unknown, failed: string): string {
+  if (!(cause instanceof ApiError)) return failed;
+  const { code, status } = cause;
+  switch (code) {
+    case "ai_service_unavailable":
+      return "SportHub could not establish a connection to its AI service (HTTP 503). Please contact support if this continues.";
+    case "ai_service_timeout":
+      return "SportHub's AI service did not respond before the configured timeout (HTTP 504).";
+    case "ai_service_error":
+      return "SportHub's AI service returned an unsuccessful response (HTTP 502). Check the AI service logs for the precise upstream failure.";
+    case "member_ai_answer_failed":
+      return "Member AI failed while generating the answer (HTTP 502). Check the backend AI logs.";
+    case "member_ai_answer_empty":
+      return "Member AI completed its request but returned no answer (HTTP 502).";
+    case "member_gemini_data_hub_unavailable":
+      return "The Member AI pipeline reported a failure (HTTP 503, legacy error). Its backend logs identify the failing stage.";
+  }
+  if (status === 401 || status === 403)
+    return `Your session is not authorized for AI chat (HTTP ${status}). Please sign in again.`;
+  if (status === 502 || status === 503 || status === 504)
+    return `The backend returned HTTP ${status} (${code}). This response does not specify a verified root cause; inspect server logs.`;
+  return status ? `${failed} (HTTP ${status}, ${code})` : failed;
+}
+
 export function AssistantDrawer({ onClose, audience = "member" }: { onClose: () => void; audience?: "member" | "coach" }) {
   const { t } = useLanguage();
   const l = t.assistant;
@@ -99,17 +124,7 @@ export function AssistantDrawer({ onClose, audience = "member" }: { onClose: () 
       ]);
     } catch (cause) {
       if (controller.signal.aborted) return;
-      // Show a safe HTTP code for diagnosis without exposing server secrets.
-      const status = cause instanceof ApiError ? cause.status : null;
-      setError(
-        status === 401 || status === 403
-          ? `Your session is not authorized for AI chat (HTTP ${status}). Please sign in again.`
-          : status === 502 || status === 503
-            ? `${l.unavailable} (HTTP ${status})`
-            : status != null
-              ? `${l.failed} (HTTP ${status})`
-              : l.failed,
-      );
+      setError(chatFailure(cause, l.failed));
     } finally {
       if (abort.current === controller) {
         abort.current = null;

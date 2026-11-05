@@ -98,9 +98,20 @@ internal static class MemberScheduleServicesEvidenceV21
                 .Select(r => new { r.CourtRentalId, r.RoomId, r.SportId, r.StartAtUtc, r.EndAtUtc,
                     status = r.Status.ToString(), r.TotalPrice }).ToListAsync(ct);
             if (topic == Topic.MySchedule)
-                return new { enrolledClasses = owned, sessions, courtBookings = myRentals,
-                    timeZone = "Asia/Ho_Chi_Minh", periodUtc = new { start = nowStart, end = futureEnd },
-                    note = "Session dates are UTC; convert to Vietnam time. Status of the class and status of a session are different. Booking history is not public court availability." };
+            {
+                // Expose exactly the same Member-scoped session/attendance timeline as other AI topics.
+                // Keep UTC fields for reference, but provide canonical Vietnam display times.
+                var timeline = await MemberSessionTimelineV28.LoadAsync(db, memberId, nowUtc, ct);
+                return new { enrolledClasses = owned, sessions = timeline.Sessions,
+                    attendanceSummary = new { timeline.PresentRecords, timeline.AbsentRecords,
+                        timeline.UnrecordedSessions, timeline.PastTruncated, timeline.FutureTruncated },
+                    courtBookings = myRentals.Select(r => new { r.CourtRentalId, r.RoomId, r.SportId,
+                        r.StartAtUtc, r.EndAtUtc, r.status, r.TotalPrice,
+                        startsAtVietnam = SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(r.StartAtUtc).ToString("yyyy-MM-dd HH:mm"),
+                        endsAtVietnam = SportHub.BuildingBlocks.SharedKernel.Time.VietnamTime.ToLocal(r.EndAtUtc).ToString("yyyy-MM-dd HH:mm") }),
+                    timeline.TimeZone, timeline.CurrentVietnamTime, periodUtc = new { start = nowStart, end = futureEnd },
+                    note = "Use startsAtVietnam/endsAtVietnam, NOT UTC clock hours. Absent requires a recorded Absent attendance; a null attendance is Unrecorded. Do not leak class rosters." };
+            }
 
             var records = await db.Set<ClassTeachingRecord>().AsNoTracking()
                 .Where(r => myClassIds.Contains(r.ClassId) && (r.MemberId == null || r.MemberId == memberId))

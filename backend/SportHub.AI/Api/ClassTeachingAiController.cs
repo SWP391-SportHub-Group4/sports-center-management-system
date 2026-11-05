@@ -21,7 +21,7 @@ public sealed record ClassSuggestionRequest(Guid? MemberId, string Goal, string 
 [ApiController]
 [Authorize(Policy = SportHubPolicies.Coach)]
 [Route("api/coaches/me/teaching/classes/{classId:int}/suggestion")]
-public sealed class ClassTeachingAiController(ClassTeachingService teaching, ISportHubDbContext db, IAiChatProvider provider, IClock clock) : ControllerBase
+public sealed class ClassTeachingAiController(ClassTeachingService teaching, ISportHubDbContext db, SportHub.AI.Infrastructure.Python.PythonCoachPlanProvider provider, IClock clock) : ControllerBase
 {
     // Semantic assessment is three-state. A broad but relevant objective is not invalid.
     private static (string Status, string Reason, string NormalizedGoal) ParseGoalVerdict(string answer)

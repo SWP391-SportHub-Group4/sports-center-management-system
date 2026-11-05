@@ -85,21 +85,7 @@ internal static class MemberDataHub
             }
             case MemberEvidenceDomain.Schedule:
             {
-                var enrolledClassIds = db.Set<Enrollment>().AsNoTracking()
-                    .Where(e => e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed)
-                    .Select(e => e.ClassId);
-                var q = db.Set<ClassSession>().AsNoTracking()
-                    .Where(s => enrolledClassIds.Contains(s.ClassId) &&
-                        s.StartAtUtc >= nowUtc.AddDays(-30) && s.StartAtUtc <= nowUtc.AddDays(90));
-                var total = await q.CountAsync(ct);
-                var sessions = await q.OrderBy(s => s.StartAtUtc).Take(75)
-                    .Select(s => new { className = s.Class != null ? s.Class.Name : null,
-                        s.SessionNo, s.StartAtUtc, s.EndAtUtc, s.Status,
-                        roomName = s.Room != null ? s.Room.Name : null })
-                    .ToListAsync(ct);
-                return new { totalInWindow = total, sessions, truncated = total > sessions.Count,
-                    windowStartUtc = nowUtc.AddDays(-30), windowEndUtc = nowUtc.AddDays(90),
-                    note = "Class sessions from confirmed enrollments only. Court rental schedule is a separate domain." };
+                return await MemberSessionTimelineV28.LoadAsync(db, memberId, nowUtc, ct);
             }
             case MemberEvidenceDomain.CourtBookings:
             {
@@ -155,18 +141,9 @@ internal static class MemberDataHub
             }
             case MemberEvidenceDomain.Attendance:
             {
-                var ownEnrollments = db.Set<Enrollment>().AsNoTracking()
-                    .Where(e => e.MemberId == memberId).Select(e => e.EnrollmentId);
-                var q = db.Set<Attendance>().AsNoTracking()
-                    .Where(a => ownEnrollments.Contains(a.EnrollmentId));
-                var total = await q.CountAsync(ct);
-                var records = await q.OrderByDescending(a => a.RecordedAt).Take(60)
-                    .Select(a => new { a.Status, a.RecordedAt,
-                        className = a.Session != null && a.Session.Class != null ? a.Session.Class.Name : null,
-                        sessionDateUtc = a.Session != null ? (DateTime?)a.Session.StartAtUtc : null })
-                    .ToListAsync(ct);
-                return new { total, records, truncated = total > records.Count,
-                    note = "Own course attendance recorded by Receptionist. Gym check-ins are separate." };
+                // The official Member schedule joins sessions to own enrollment AND attendance;
+                // querying Attendance alone silently drops every unmarked session.
+                return await MemberSessionTimelineV28.LoadAsync(db, memberId, nowUtc, ct);
             }
             case MemberEvidenceDomain.GymCheckIns:
             {

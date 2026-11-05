@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
+using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
 using SportHub.Identity.Domain.Enums;
 using SportHub.Scheduling.Catalog.Domain;
@@ -71,10 +72,14 @@ internal static class MemberCenterFactsV27
         return new {
             exactSavedCoachPlanCount = total, savedPlans = recent.Select(p => new {
                 p.PlanId, p.Goal, p.Level, status = p.Status.ToString(), p.Version,
-                p.CreatedAt, p.UpdatedAt, p.coachName,
+                p.CreatedAt, p.UpdatedAt,
+                createdAtVietnam = VietnamTime.ToLocal(p.CreatedAt).ToString("yyyy-MM-dd HH:mm"),
+                updatedAtVietnam = VietnamTime.ToLocal(p.UpdatedAt).ToString("yyyy-MM-dd HH:mm"),
+                p.coachName,
                 exercises = items.Where(i => i.PlanId == p.PlanId).Select(i => new { i.Exercise, i.Sets, i.Reps, i.Notes }).ToList()
             }).ToList(), plansTruncated = total > recent.Count,
             recentMemberWorkoutSuggestionPreviews = previews,
+            timeZone = "Asia/Ho_Chi_Minh (UTC+07:00)",
             note = "Coach-authored plans and generated AI workout suggestions are different sources. Only plans and logs for the authenticated member are included. Older preview formats may lack details; do not invent missing exercises."
         };
     }

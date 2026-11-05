@@ -42,7 +42,8 @@ public sealed record WorkoutSuggestionResponse(
     DateTime GeneratedAt,
     IReadOnlyList<WorkoutSuggestedExercise>? Items = null,
     string Sport = "Gym",
-    NutritionGuidance? Nutrition = null);
+    NutritionGuidance? Nutrition = null,
+    string Type = AiQueryTypes.WorkoutSuggestionSourceType);
 
 /// <summary>
 /// Gợi ý bài tập cho HLV — BR-26 (bắt buộc đủ ba đầu vào: mục tiêu, trình độ, lịch sử tập

@@ -7,10 +7,13 @@ using SportHub.BuildingBlocks.SharedKernel.Errors;
 
 namespace SportHub.AI.Infrastructure.Python;
 
-public sealed class PythonAiChatProvider(
+public class PythonAiChatProvider(
     IHttpClientFactory httpClientFactory)
     : IAiChatProvider
 {
+    // The concrete service type selects a trusted endpoint. User input cannot change roles.
+    protected virtual string ChatEndpoint => "/member/chat";
+
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web)
         {
@@ -61,7 +64,7 @@ public sealed class PythonAiChatProvider(
         {
             response =
                 await client.PostAsJsonAsync(
-                    "/member/chat",
+                    ChatEndpoint,
                     request,
                     JsonOptions,
                     cancellationToken);
@@ -84,14 +87,11 @@ public sealed class PythonAiChatProvider(
 
         if (!response.IsSuccessStatusCode)
         {
-            var body =
-                await response.Content.ReadAsStringAsync(
-                    cancellationToken);
-
+            // Do not echo arbitrary provider payload into API responses; it may contain secrets.
             throw new AppException(
                 StatusCodes.Status502BadGateway,
                 "ai_service_error",
-                $"AI service returned {(int)response.StatusCode}: {body}");
+                $"AI service {ChatEndpoint} returned HTTP {(int)response.StatusCode}.");
         }
 
         var result =

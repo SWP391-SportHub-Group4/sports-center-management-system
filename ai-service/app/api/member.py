@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -18,6 +20,7 @@ router = APIRouter(
 )
 
 service = MemberChatService()
+logger = logging.getLogger("sporthub.ai.member")
 
 
 @router.post(
@@ -33,6 +36,7 @@ def chat(
         )
 
     except Exception as exc:
+        logger.exception("Member AI Gemini generation failed")
         raise HTTPException(
             status_code=502,
             detail="AI chat generation failed.",

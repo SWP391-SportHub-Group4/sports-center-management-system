@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SportHub.AI.Application.DTOs.Chat;
 using SportHub.AI.Application.Interfaces;
 using SportHub.AI.Domain.Constants;
@@ -88,12 +89,18 @@ internal static class MemberIntentOrchestrator
 
     internal static async Task<AiChatResponse?> TryAnswerAsync(
         ISportHubDbContext db, IClock clock, Guid authenticatedUserId, string question,
-        IAiChatProvider provider, ISystemPromptReader prompts, CancellationToken ct)
+        IAiChatProvider provider, ISystemPromptReader prompts, ILogger logger, CancellationToken ct)
     {
+        // MEMBER_VERIFIED_V28: privacy, exact local-time schedule, per-session attendance,
+        // and safe workload comparison work without a Gemini request (including provider outages).
+        var verifiedV28 = await MemberVerifiedQueryV28.TryAnswerAsync(
+            db, clock, authenticatedUserId, question, ct);
+        if (verifiedV28 is not null) return verifiedV28;
+
         // MEMBER_GEMINI_DATAHUB_V26
         // Gemini planner -> authenticated evidence -> Gemini answer. Legacy early handlers bypassed for Member.
         var v26 = await MemberGeminiDataHubV26.TryAnswerAsync(
-            db, clock, authenticatedUserId, question, provider, prompts, ct);
+            db, clock, authenticatedUserId, question, provider, prompts, logger, ct);
         if (v26 is not null) return v26;
 
         // MEMBER_SPORTS_V24: verified active sports and mapped rental services.
