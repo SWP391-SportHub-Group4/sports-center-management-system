@@ -1,241 +1,231 @@
-# SportHub — Hệ thống quản lý trung tâm thể thao đa môn (SWP391)
+# SportHub — Hệ thống quản lý trung tâm thể thao đa môn
 
-SportHub là **hệ thống quản lý trung tâm thể thao với ba môn Gym, cầu lông và bóng rổ; có thể mở rộng thêm môn trong tương lai**. Gym chỉ bán Membership có thời hạn và vé Gym 1 ngày.
+**Đồ án SWP391** · Gym, cầu lông và bóng rổ · Giao diện tiếng Việt và tiếng Anh
 
-Monorepo cho hệ thống quản lý **trung tâm thể thao đa môn**: nhiều bộ môn (phạm vi: Gym, Cầu lông, Bóng rổ — Manager quản lý danh mục; mỗi môn có nhiều dịch vụ cấu hình được, xem CAT-01 trong thiết kế), nhiều sân/phòng, **khóa học cố định theo lớp** (ví dụ Cầu lông 01, 02), huấn luyện viên của trung tâm; mọi Member thuê sân theo giờ. Thanh toán bằng tiền (VNPay-QR) kết hợp **ví điểm** (1 điểm = 1.000 VND). Thiết kế đầy đủ: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md).
+[![CI Develop](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml)
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white) ![Next.js 16](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&logoColor=white) ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
-> **Trước khi code:** đọc [SSOT](docs/00-Source-of-Truth.md) và [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md). 
-## Sản phẩm
+SportHub kết nối những công việc thường bị tách rời ở một trung tâm thể thao: khách đăng ký dịch vụ, lễ tân bán hàng và check-in, huấn luyện viên theo dõi lớp, quản lý điều hành và quản trị viên kiểm soát tài khoản. Tùy dịch vụ, hóa đơn có thể thanh toán bằng ví điểm, VNPay hoặc kết hợp cả hai; lịch sân và lớp được kiểm soát để tránh đặt trùng hay vượt sức chứa.
 
-### 5 vai trò
+**Xem nhanh:** [Màn hình](#màn-hình) · [Luồng nghiệp vụ](#luồng-nghiệp-vụ-nổi-bật) · [Kiến trúc](#kiến-trúc-hệ-thống) · [Chạy local](#chạy-local) · [Tài liệu](#tài-liệu)
 
-| Vai trò | Làm gì |
-|---|---|
-| System Administrator (role bổ sung so với requirement gốc, nhận phần quản trị tài khoản từ Manager) | Tạo tài khoản nhân sự (Admin/Manager/Receptionist/Coach kèm chuyên môn; nhân sự nhận email kích hoạt), đổi vai trò giữa các role staff (không chuyển Member ↔ staff), khóa/mở khóa, gửi lại link kích hoạt/sửa email chưa kích hoạt, Audit Log thao tác tài khoản |
-| Center Manager (chia việc với Admin, không giống 100% requirement gốc) | CRUD môn, phòng/sân, giá thuê sân, Membership; tạo lớp + xếp lịch (AI gợi ý xếp lịch còn là phần chưa triển khai), phân công Coach theo chuyên môn, sửa hồ sơ Coach (không tạo Coach), duyệt hoàn điểm, sự cố/thông báo, báo cáo, Audit Log |
-| Coach (của trung tâm) | Chuyên môn theo môn (`CoachSpecialty`); xem lịch dạy và roster lớp mình; Coach cầu lông/bóng rổ lập kế hoạch tập, ghi kết quả, đánh giá từng học viên của lớp (phần Training đang được làm lại theo lớp) |
-| Member | Đăng ký Membership Gym hoặc mua vé Gym 1 ngày (50.000đ, chỉ trong ngày, mã check-in chỉ trong ngày); xem lớp/khóa học, ghi danh có giữ chỗ, ví điểm, lịch hôm nay/tuần, thông báo, chatbot |
-| Receptionist | Tìm/xem Member, quản lý đăng ký/gia hạn gói, kiểm tra gói và hạn, Gym check-in với cooldown 10 giây mỗi Member, điểm danh lớp nhóm, đăng ký lớp hoặc hỗ trợ hủy lớp, checkout thanh toán thay Member (dùng điểm cần OTP email của Member), ghi nhận thanh toán và hóa đơn, Court Schedule, hỗ trợ đối soát. Đăng ký Member mới tại quầy (email nhập hai lần, Member nhận email kích hoạt; gửi lại link/sửa email khi chờ kích hoạt). Bán vé Gym 1 ngày và check-in hộ. Yêu cầu chưa triển khai: tiếp nhận yêu cầu hỗ trợ |
+![Trang chủ SportHub](docs/screenshots/home.webp)
 
-Guest (chưa đăng nhập) xem được landing page và nội dung công khai; Guest không phải role lưu trong database.
+## SportHub làm được gì?
 
-### Các Flow
+| Vai trò | Công việc chính |
+| --- | --- |
+| **Hội viên** | Khám phá dịch vụ, mua gói Gym hoặc vé ngày, đăng ký lớp, thuê sân, xem lịch và hóa đơn, quản lý ví điểm và hồ sơ tập luyện. |
+| **Lễ tân** | Tìm và đăng ký hội viên, bán gói, hỗ trợ checkout, check-in Gym, điểm danh, theo dõi lịch sân và đối soát thanh toán. |
+| **Huấn luyện viên** | Xem lịch dạy, danh sách học viên, điểm danh, quản lý quan hệ huấn luyện và kế hoạch tập. |
+| **Quản lý trung tâm** | Quản lý môn thể thao, phòng/sân, lớp, huấn luyện viên, chính sách vận hành, báo cáo và yêu cầu hỗ trợ. |
+| **Quản trị hệ thống** | Tạo và quản lý tài khoản nhân sự, phân quyền, kích hoạt/vô hiệu hóa tài khoản và xem nhật ký thao tác. |
 
-| Flow | Loại | Nội dung |
-|---|---|---|
-| 1 — User & Membership | Bắt buộc | 5 vai trò, Coach + chuyên môn, Membership Gym, Gym check-in, mật khẩu mạnh, quên mật khẩu bằng link email (không hỏi mật khẩu cũ, phản hồi trung tính) |
-| 2 — Class booking & schedule | Bắt buộc | Môn/Phòng/Sân, lớp theo khóa, ghi danh + giữ chỗ chống bán vượt sĩ số, ngưỡng hoàn vốn, Court Schedule, thuê sân, điểm danh lớp nhóm |
-| 3 — Payment & report | Bắt buộc | Invoice nhiều loại item, VNPay-QR, ví điểm + split payment, hoàn trả **chỉ bằng điểm**, báo cáo theo môn/nguồn |
-| 4 — Training & attendance | Optional (nhóm vẫn làm) | Kế hoạch, kết quả, đánh giá theo lớp; điểm danh |
-| 5 — AI workout recommendation | Optional (nhóm vẫn làm) | Gợi ý bài tập cho Coach theo học viên của lớp |
-| 6 — AI assistant | Nhóm làm | Member assistant theo context đã có mã; Manager AI xếp lịch/function calling chưa triển khai |
+Khách chưa đăng nhập có thể xem trang chủ và nội dung công khai. Các trang nghiệp vụ yêu cầu đăng nhập đúng vai trò.
 
-### Quy tắc chính cần nhớ
+## Màn hình
 
-- **Điểm:** 1 điểm = 1.000 VND, không hết hạn, không rút tiền mặt. **Mọi hoàn trả chỉ bằng điểm — không có hoàn tiền mặt/chuyển khoản, không gọi VNPay Refund API.**
-- **Split payment:** một Invoice trả bằng điểm + VNPay-QR (ví dụ 300.000đ = 200 điểm + 100.000đ). Receptionist thanh toán thay Member **bắt buộc** có OTP 6 số gửi email Member (hiệu lực 5 phút, sai tối đa 5 lần).
-- **Giữ chỗ:** checkout lớp giữ chỗ 15 phút; không bán vượt sĩ số (ràng buộc ở DB).
-- **Ngưỡng hoàn vốn:** lớp chốt trước khai giảng N ngày; dưới ngưỡng thì học viên chọn chuyển lớp hoặc hoàn điểm.
-- **Chống trùng lịch:** sân/Coach dùng exclusion constraint PostgreSQL (`btree_gist`).
+Ảnh dưới đây chụp từ **ứng dụng local** (frontend cổng `3000`). Trang theo vai trò chỉ mở được khi đăng nhập đúng tài khoản.
 
-## Cấu trúc
+### Khách
 
+Trang chủ công khai giới thiệu các môn, sơ đồ khu tập và câu hỏi thường gặp. Khách đăng nhập hoặc đăng ký hội viên bằng email hay Google.
+
+| | |
+| --- | --- |
+| ![Khám phá SportHub](docs/screenshots/home-community.webp) | ![Các môn thể thao](docs/screenshots/home-disciplines.webp) |
+| ![Tham quan khu tập](docs/screenshots/home-tour-arena.webp) | ![Đặt sân](docs/screenshots/home-book-court.webp) |
+| ![Câu hỏi thường gặp](docs/screenshots/home-contact.webp) | |
+
+| Đăng nhập | Đăng ký hội viên |
+| --- | --- |
+| ![Đăng nhập](docs/screenshots/login.png) | ![Đăng ký hội viên](docs/screenshots/register.png) |
+
+### Hội viên
+
+**Tổng quan** · [`/member`](http://localhost:3000/member): hóa đơn chờ thanh toán, lối tắt, lịch sắp tới và gói đang dùng.
+
+![Tổng quan hội viên](docs/screenshots/member-overview.png)
+
+**Dịch vụ** · [`/member/services`](http://localhost:3000/member/services): khám phá gói Gym, lớp nhóm và thuê sân; tab *My services* hiển thị dịch vụ đang sở hữu.
+
+![Khám phá gói Gym](docs/screenshots/member-services.png)
+![Lớp nhóm và thuê sân](docs/screenshots/member-services-classes-courts.png)
+![Dịch vụ của tôi](docs/screenshots/member-my-services.png)
+
+**Lịch cá nhân** · [`/member/schedule`](http://localhost:3000/member/schedule): lịch lớp và lượt thuê sân theo tháng, bấm vào buổi để xem chi tiết.
+
+![Lịch cá nhân](docs/screenshots/member-schedule.png)
+![Chi tiết buổi học](docs/screenshots/member-schedule-detail.png)
+
+**Tài chính** · [`/member/finance`](http://localhost:3000/member/finance): ví điểm, lịch sử điểm và hóa đơn.
+
+![Ví điểm](docs/screenshots/member-finance.png)
+![Hóa đơn](docs/screenshots/member-invoices.png)
+
+**Hỗ trợ** · theo dõi yêu cầu đã gửi và mốc phản hồi.
+
+![Yêu cầu hỗ trợ](docs/screenshots/member-support.png)
+
+### Lễ tân
+
+**Quầy hôm nay** · [`/receptionist`](http://localhost:3000/receptionist): tìm hội viên hoặc quét mã QR check-in, xem lớp và lượt thuê sân sắp tới.
+
+![Quầy lễ tân](docs/screenshots/receptionist-overview.png)
+![Hồ sơ hội viên tại quầy](docs/screenshots/receptionist-member.png)
+
+**Check-in Gym** · [`/receptionist/gym-checkin`](http://localhost:3000/receptionist/gym-checkin)
+
+![Check-in Gym](docs/screenshots/gym-checkin.png)
+
+**AI tập luyện** · [`/member/workout-suggestions`](http://localhost:3000/member/workout-suggestions) và trợ lý AI trong khu vực hội viên.
+
+<!-- TODO: thêm ảnh docs/screenshots/member-ai.png -->
+
+### Huấn luyện viên
+
+**Lớp được phân công** · [`/coach/classes`](http://localhost:3000/coach/classes): lớp sắp dạy, sĩ số, buổi học kế tiếp.
+
+![Lớp của huấn luyện viên](docs/screenshots/coach-classes.png)
+
+**Chi tiết lớp** · học viên, giáo án từng buổi, kế hoạch cá nhân và thông báo.
+
+![Chi tiết lớp](docs/screenshots/coach-class-detail.png)
+
+**Trợ lý AI** cho huấn luyện viên.
+
+<!-- TODO: thêm ảnh docs/screenshots/coach-ai.png -->
+
+### Quản lý
+
+**Tổng quan** · [`/manager`](http://localhost:3000/manager): doanh thu thu được, lớp cần xem xét, hội viên Gym đang hoạt động, biểu đồ thu theo ngày và nguồn thu, đặt sân.
+
+![Tổng quan quản lý](docs/screenshots/manager-overview.jpg)
+![Biểu đồ doanh thu và đặt sân](docs/screenshots/manager-overview-charts.jpg)
+
+### Quản trị
+
+Ảnh [`/admin/users`](http://localhost:3000/admin/users) sẽ được bổ sung.
+
+> Trang theo vai trò sẽ chuyển về đăng nhập hoặc từ chối truy cập nếu tài khoản không có quyền tương ứng.
+
+## Luồng nghiệp vụ nổi bật
+
+1. **Từ dịch vụ đến lịch tập:** hội viên chọn gói Gym, lớp hoặc sân; hệ thống kiểm tra điều kiện và giữ chỗ trong lúc checkout. Lịch lớp, huấn luyện viên và sân được kiểm tra trùng trước khi xác nhận.
+2. **Từ hóa đơn đến quyền sử dụng:** checkout tạo hóa đơn; ví điểm và VNPay có thể cùng thanh toán một hóa đơn. Backend xác minh kết quả cổng thanh toán trước khi cấp gói, chỗ học hoặc lượt thuê sân. Các giao dịch chưa rõ kết quả đi qua luồng đối soát.
+3. **Vận hành sau bán:** lễ tân check-in và hỗ trợ hội viên; huấn luyện viên theo dõi buổi học; quản lý xem báo cáo, cấu hình danh mục và xử lý yêu cầu phát sinh.
+
+Quy tắc nghiệp vụ đầy đủ, bao gồm giữ chỗ, hoàn/bù điểm, phân quyền và điều kiện kích hoạt dịch vụ, nằm trong [Business Rules](docs/SportManagement_BusinessRules_v2.0_updated.docx) và [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md).
+
+## Kiến trúc hệ thống
+
+```mermaid
+flowchart LR
+    U[Trình duyệt] --> F[Next.js 16 · React 19]
+    F --> A[ASP.NET Core 10 API]
+    A --> P[(PostgreSQL 16)]
+    A --> V[VNPay]
+    A --> E[SMTP / Brevo]
+    A --> AI[AI service · FastAPI]
+    AI --> G[Gemini]
 ```
+
+Backend là **modular monolith**: `SportHub.API` lắp ghép các module `Identity`, `Membership`, `Scheduling`, `Training`, `Payment`, `Notification`, `AI`, `Audit` và `Administration`. Các module dùng hợp đồng ở `BuildingBlocks` để giữ ranh giới nghiệp vụ. PostgreSQL lưu dữ liệu vận hành; các tác vụ nền trong API xử lý giữ chỗ, hết hạn, thông báo và đối soát.
+
+```text
 sports-center-management-system/
-├── backend/     # ASP.NET Core Web API (feature-based modular monolith, 11 project) — mở bằng Rider
-├── frontend/    # Next.js — mở bằng VS Code
-├── docs/        # Thiết kế hệ thống, yêu cầu, API và RUNBOOK
+├── backend/          ASP.NET Core API, module nghiệp vụ và test
+├── frontend/         Next.js, giao diện theo vai trò và Playwright
+├── ai-service/       FastAPI cho tác vụ AI
+├── docs/             đặc tả, hướng dẫn vận hành và API contract
+├── scripts/          tiện ích phát triển và kiểm tra
 └── docker-compose.yml
 ```
 
-**Không thêm project backend mới**: ví điểm nằm trong `SportHub.Payment/Wallet`, catalog môn/phòng/giá sân nằm trong `SportHub.Scheduling/Catalog` nằm trong module tương ứng; các module chỉ gọi nhau qua interface ở `BuildingBlocks`.
-
-## Tài liệu
-
-| Tài liệu | Vai trò |
-|---|---|
-| [`docs/SportManagement_BusinessRules_v2.0_updated.docx`](docs/SportManagement_BusinessRules_v2.0_updated.docx) | Business Rules v2.0 — nguồn nghiệp vụ hiện hành (thắng khi mâu thuẫn) |
-| [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md) | Thiết kế độc lập (gồm từ điển dữ liệu, kiến trúc mã nguồn, điều hướng Member): phạm vi, module, dữ liệu, luồng, payment, bảo mật, kiểm thử và danh sách phần chưa hoàn thành |
-| [`docs/00-Source-of-Truth.md`](docs/00-Source-of-Truth.md) | Phạm vi, thuật ngữ, quy ước và thứ tự nguồn |
-| [`docs/Functional-and-Nonfunctional-Spec.md`](docs/Functional-and-Nonfunctional-Spec.md), [`docs/SWP391_Report_SRS.docx`](docs/SWP391_Report_SRS.docx) | Yêu cầu và báo cáo SRS |
-| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Khởi động local (PostgreSQL, backend, frontend) và bàn giao triển khai |
-| [`docs/README.md`](docs/README.md) | Mục lục tài liệu hệ thống |
-| [`PRODUCT.md`](PRODUCT.md), [`DESIGN-TOKENS.md`](DESIGN-TOKENS.md) | Sản phẩm và bộ token duy nhất |
-
-## Chạy thử nhanh
-
-Xem [`docs/RUNBOOK.md`](docs/RUNBOOK.md) để khởi động backend và frontend.
-
-> Đây là đặc tả đích; code và kiểm thử đã được chuyển theo đặc tả này. VNPay/mock và checkout mới đã có; sandbox merchant thật, SMTP và Google thật vẫn cần xác minh trong môi trường tích hợp riêng.
-
-## Backend — Feature-based Modular Monolith (11 project)
-
-```
-backend/
-├── SportHub.API/                  # Composition root — Program.cs, DbContext, Migrations, controller
-│   ├── Controllers/
-│   │   └── HealthController.cs
-│   ├── Persistence/
-│   │   └── SportHubDbContext.cs
-│   ├── Migrations/
-│   ├── Extensions/
-│   │   ├── CorsExtensions.cs
-│   │   ├── SwaggerExtensions.cs
-│   │   └── AuthorizationPolicyExtensions.cs
-│   └── Program.cs / appsettings*.json
-├── SportHub.BuildingBlocks/       # Hạ tầng dùng chung — KHÔNG phụ thuộc bất kỳ module nghiệp vụ nào
-│   ├── Abstractions/Persistence/ISportHubDbContext.cs
-│   └── Infrastructure/Authentication/{JwtOptions,JwtService,JwtBearerExtensions}.cs
-├── SportHub.Identity/             # Role (5 vai trò), UserAccount, UserCredential, UserProfile, UserExternalLogin, UserSportSpecialty, EmailOtp
-├── SportHub.Membership/           # MembershipPackage, MemberPackage, MemberTrainingProfile
-├── SportHub.Scheduling/           # Catalog/ (Sport, RoomType, Room, CourtRate), Class, ClassSession, Enrollment, SeatHold, CourtRental, Occupancy, Attendance
-├── SportHub.Training/             # CoachMemberRelationship, WorkoutPlan, WorkoutPlanItem, WorkoutResult
-├── SportHub.Payment/              # Invoice, InvoiceItem, Payment, PaymentAdjustment (hoàn = điểm), Wallet/ (ví điểm), VnPay/ (IPaymentGateway: VnPay + Mock)
-├── SportHub.Notification/         # Notification
-├── SportHub.AI/                   # AiLog, gợi ý tập luyện (BR-26/27), chatbot function calling (ChatToolRegistry)
-├── SportHub.Audit/                # AuditLog — module riêng vì có FK thật sang UserAccount (Identity)
-└── SportHub.Administration/       # SystemSetting, ReportExport + thao tác quản trị tài khoản
-                                   #   Tách riêng vì khoá/mở khoá (BR-6) bắt buộc ghi Audit trong
-                                   #   cùng transaction (BR-7): Audit đã phụ thuộc Identity, nên để
-                                   #   Identity gọi ngược Audit sẽ thành vòng phụ thuộc.
-```
-
-Mỗi module (trừ `API`/`BuildingBlocks`) dùng chung 1 cấu trúc nội bộ:
-
-```
-SportHub.<Module>/
-├── <Module>ModuleMarker.cs
-├── Domain/
-│   ├── Entities/        # Entity thật, di chuyển nguyên trạng từ SportHub.Repository cũ
-│   └── Enums/           # Enum thật
-├── Domain/Rules/         # Bất biến nghiệp vụ dùng chung giữa các use case (vd MemberPackageRules)
-├── Application/          # use case của module — Interface/Service tách riêng, DTO/Command tách theo request-response
-│   ├── Interfaces/       # IFooService — hợp đồng, Controller inject qua đây (BẮT BUỘC, không khai báo trong Services/)
-│   ├── Services/         # FooService — cài đặt interface, chứa logic thật
-│   ├── DTOs/             # Response — kết quả trả ra, gom theo tính năng (vd DTOs/Packages/)
-│   ├── Commands/         # Request — dữ liệu nhận vào, gom theo tính năng (vd Commands/Packages/)
-│   └── Queries/          # Reserved — tham số đọc hiện truyền thẳng qua method argument, chưa dùng
-├── Api/                  # Controller của module (nạp vào MVC qua AddApplicationPart ở SportHub.API)
-└── Infrastructure/Persistence/Configurations/   # IEntityTypeConfiguration<T>, 1 file / entity
-```
-
-Dependency giữa các module (không có vòng lặp — sơ đồ đầy đủ + lý do từng mũi tên xem trong plan):
-
-```
-SportHub.API   → BuildingBlocks + tất cả module
-Administration → Identity, Audit, Membership, Payment, BuildingBlocks
-AI             → Identity, Membership, Scheduling, Training, BuildingBlocks
-Training       → Identity, Scheduling, BuildingBlocks
-Scheduling     → Identity, Membership, BuildingBlocks
-Payment        → Identity, Membership, BuildingBlocks
-Membership / Notification / Audit → Identity, BuildingBlocks
-Identity       → BuildingBlocks
-BuildingBlocks → (không phụ thuộc module nào)
-```
-
-Khi hai module cần gọi nhau theo chiều sẽ tạo vòng, seam được khai báo ở `BuildingBlocks` và cài
-đặt ở module sở hữu dữ liệu — mỗi interface đều ghi rõ vòng phụ thuộc nào đang được cắt:
-
-| Seam (ở `BuildingBlocks/Abstractions`) | Cài đặt ở | Ai gọi |
-|---|---|---|
-| `IAuditWriter` (BR-7) | `Audit` | Membership, Scheduling, Payment, Training, Administration |
-| `INotificationWriter` (BR-33/34) | `Notification` | Scheduling, Payment |
-| `ISystemSettingProvider` (BR-39/50) | `Administration` | Scheduling |
-| `ICoachRelationshipRegistrar` | `Training` | Scheduling |
-| `IPointWalletService` | `Payment` | Scheduling |
-| `IOccupancyService`, `ISportCatalogReader` | `Scheduling` | Payment, AI, Training |
-| `IClassEnrollmentFulfillment` | `Scheduling` | Payment (khi Invoice Paid) |
-
-Các seam mới (dòng đánh dấu "mới") là dự kiến theo thiết kế hệ thống, chưa có trong mã.
-
-Target framework: **net10.0** (cả 11 project). Entity/enum/state cho từng module: xem
-[SSOT](docs/00-Source-of-Truth.md)–4 trước khi code.
-
-## Cấu hình tích hợp
-
-Backend đọc cấu hình qua biến môi trường (`__` = cấp lồng nhau, ví dụ `VnPay__TmnCode` → `VnPay:TmnCode`). Mẫu ở `.env.example`. Các tích hợp ngoài có hành vi fallback khác nhau; bảng dưới mô tả đúng runtime hiện tại:
-
-| Biến | Bắt buộc | Thiếu thì |
-|---|---|---|
-| `POSTGRES_*`, `ConnectionStrings__Default` | Có | Không chạy được |
-| `JwtOptions__SecretKey` (≥ 32 ký tự) | Có | API không khởi động |
-| `Google__ClientId` | Không | `/api/auth/google` trả `503 google_login_not_configured` |
-| `VnPay__TmnCode`, `VnPay__HashSecret`, `VnPay__PaymentUrl`, `VnPay__ReturnUrl`, `VnPay__QueryUrl` | Có khi dùng gateway thật | Ứng dụng luôn dùng VNPay thật (sandbox hoặc production); thiếu credential không tự fallback. Ngoài Development, startup yêu cầu credential và URL HTTPS. |
-| `Email__Smtp__Host/Username/Password` (Gmail App Password) | Không | Dùng `LoggingEmailSender`: nội dung email (kể cả **OTP**) ghi vào log backend |
-| `Gemini__ApiKey` (+ `Gemini__Model`, `Gemini__BaseUrl`, `Gemini__TimeoutSeconds`) | Không | Endpoint Gemini trả `503 gemini_not_configured`; gợi ý workout rule-based vẫn độc lập |
-| `Reports__StorageRoot` | Không | `<thư mục chạy>/App_Data/reports` |
-
-> `docker-compose.yml` hiện map `ConnectionStrings__Default`, JWT, Google, `VnPay__*`, SMTP/DataProtection và `Gemini__*` vào backend. Ứng dụng dùng VNPay thật và SMTP thật ở cả local lẫn deploy. Dữ liệu mô phỏng chỉ thuộc project test, không được đăng ký trong ứng dụng.
-
-## Ghi chú kỹ thuật
-
-- **Stack:** ASP.NET Core (net10.0, modular monolith) + PostgreSQL 16 (bật `btree_gist`) + Next.js; không Redis/RabbitMQ.
-- **Chống trùng lịch/bán vượt:** `room_occupancies`, `coach_occupancies` với exclusion constraint; `classes.reserved_count` cập nhật có điều kiện trong transaction.
-- **Job nền** chạy trong tiến trình API: giữ chỗ, thuê sân, ngưỡng hoàn vốn, trạng thái lớp, điểm danh, hạn Membership (không nhắc hết hạn vé Gym 1 ngày), gửi outbox.
-- **AI assistant:** endpoint backend lấy `userId` từ JWT, build context chỉ-đọc từ dữ liệu SportHub rồi gọi provider Gemini; API key chỉ ở backend. Các action nghiệp vụ vẫn đi qua API/authorization riêng, không để model tự ghi DB.
-- **Múi giờ:** `Asia/Ho_Chi_Minh` cho mọi hiển thị lịch.
+Chi tiết API và quy ước dữ liệu: [API contract](docs/api-contract.md) · [Source of Truth](docs/00-Source-of-Truth.md).
 
 ## Chạy local
 
-Xem [RUNBOOK](docs/RUNBOOK.md) để cấu hình môi trường Development, migration và dữ liệu khởi tạo.
+### Yêu cầu
 
-### PostgreSQL và AI bằng Docker Compose
+- Docker Desktop cho PostgreSQL và AI service.
+- .NET SDK **10**.
+- Node.js **24** và npm **11**.
 
-```bash
-cp .env.example .env          # lần đầu — xem giá trị mẫu trong .env.example
-docker compose up -d --build
-```
+### 1. Cấu hình
 
-Compose local chỉ chạy `sporthub-postgres` và `sporthub-ai`. PostgreSQL dùng named volume hiện có, cổng lấy từ `POSTGRES_PORT` (local hiện tại: `5435`); AI được mở tại `http://localhost:8001` để backend trên máy host gọi được. API key AI nằm trong `ai-service/.env`, không commit.
-
-Backend và frontend chạy trực tiếp theo hướng dẫn bên dưới. Frontend dùng `npm run dev` nên tự nhận thay đổi mã nguồn. Khi chuyển từ Compose cũ có backend/frontend, dùng `docker compose up -d --remove-orphans` để bỏ hai container cũ; named volumes được giữ nguyên.
-
-| Thành phần | Link |
-|---|---|
-| Backend — Swagger UI | http://localhost:5000/swagger |
-| Frontend | http://localhost:3000 |
-
-### Gate frontend / P2.12–P2.16
-
-Frontend yêu cầu **Node 24 + npm 11**. Từ `frontend/` chạy:
-
-```bash
-npm ci
-npm run typecheck
-npm run lint
-npm run check:i18n
-npm run build
-npm run test:e2e
-```
-
-CI trên PR vào `develop` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Hợp đồng API: `docs/api-contract.md`.
-
-### Backend và frontend trên máy host (Rider/VS Code)
-
-Sau khi PostgreSQL và AI đã chạy, mở hai terminal. Terminal thứ nhất, từ thư mục gốc dự án:
+Tại thư mục gốc repository, tạo `.env` từ file mẫu và điền mật khẩu PostgreSQL, chuỗi kết nối cùng `JwtOptions__SecretKey`:
 
 ```powershell
-dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release -- --DataProtection:KeysPath="$PWD/.tmp/local-api-keys"
+Copy-Item .env.example .env
 ```
 
-Terminal thứ hai:
+CI trên PR vào `main` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Merge `main` chỉ phát hành backend/AI sau khi CI đạt; máy AWS tự cập nhật sau khi kích hoạt CD một lần theo [deploy/aws/CD.md](deploy/aws/CD.md). Hợp đồng API: `docs/api-contract.md`.
+
+### 2. Khởi động dịch vụ nền
+
+```powershell
+docker compose up -d postgres ai-service
+```
+
+PostgreSQL mặc định mở ở `localhost:5435`, AI service ở `localhost:8001`. Port có thể đổi qua `.env`.
+
+### 3. Chạy backend
+
+Mở terminal tại gốc repository. Nếu container `backend` đang chiếm cổng `5000`, dừng container đó trước bằng `docker compose stop backend`:
+
+```powershell
+dotnet run --project backend/SportHub.API/SportHub.API.csproj -c Release -- --environment=Development --urls=http://localhost:5000 --DataProtection:KeysPath="$PWD/.tmp/local-api-keys"
+```
+
+Chạy `Release` là lựa chọn đã được kiểm tra trên máy Windows có chính sách chặn một số DLL Debug. API: [http://localhost:5000/api/health](http://localhost:5000/api/health) · Swagger: [http://localhost:5000/swagger](http://localhost:5000/swagger).
+
+### 4. Chạy frontend
+
+Mở terminal thứ hai:
 
 ```powershell
 cd frontend
+npm ci
 npm run dev
 ```
 
-Backend đọc chuỗi kết nối local từ `.env` ở gốc dự án và mặc định gọi AI tại `http://localhost:8001`. Nếu cấu hình `AiService__BaseUrl`, dùng địa chỉ localhost này khi chạy backend trên host.
+Truy cập [http://localhost:3000](http://localhost:3000). Nếu API không chạy ở cổng `5000`, đặt `NEXT_PUBLIC_API_BASE_URL` trong `frontend/.env.local` rồi khởi động lại frontend. Hướng dẫn migration, seed dữ liệu, email và triển khai nằm trong [RUNBOOK](docs/RUNBOOK.md).
 
-| Thành phần | Link |
-|---|---|
-| Backend — Swagger UI (http) | http://localhost:5000/swagger |
-| Backend — Swagger UI (https) | https://localhost:7100/swagger |
-| Frontend | http://localhost:3000 |
+> Compose cũng có thể build toàn bộ stack bằng `docker compose up -d --build`. Khi sửa backend hoặc frontend chạy trong container, cần build lại image tương ứng để thấy mã mới.
 
-Xem chi tiết thiết kế: [`docs/Center-Management-System-Design-v3.md`](docs/Center-Management-System-Design-v3.md)
+## Kiểm tra chất lượng
+
+CI trên `develop` build và test backend, chạy lint/typecheck/build frontend, sau đó chạy Playwright E2E với API và PostgreSQL. Có thể kiểm tra nhanh tại máy:
+
+```powershell
+dotnet test backend/SportHub.sln
+cd frontend
+npm run lint
+npm run typecheck
+npm run check:i18n
+```
+
+Backend integration test dùng Docker/Testcontainers; hãy mở Docker Desktop trước khi chạy toàn bộ test.
+
+## Tài liệu
+
+| Tài liệu | Nội dung |
+| --- | --- |
+| [RUNBOOK](docs/RUNBOOK.md) | Cài đặt local, cấu hình tích hợp, migration và triển khai. |
+| [Thiết kế hệ thống](docs/Center-Management-System-Design-v3.md) | Phạm vi, kiến trúc, dữ liệu và luồng nghiệp vụ. |
+| [Source of Truth](docs/00-Source-of-Truth.md) | Thuật ngữ, quy ước và thứ tự ưu tiên tài liệu. |
+| [Business Rules](docs/SportManagement_BusinessRules_v2.0_updated.docx) | Quy tắc nghiệp vụ của đồ án. |
+| [API contract](docs/api-contract.md) | Hợp đồng API giữa frontend và backend. |
+| [Mục lục tài liệu](docs/README.md) | Điểm vào các tài liệu còn lại. |
+
+## Đóng góp
+
+Tạo nhánh từ `develop`, mô tả thay đổi và cách kiểm tra trong Pull Request. Trước khi sửa nghiệp vụ, đọc [Source of Truth](docs/00-Source-of-Truth.md) cùng [Business Rules](docs/SportManagement_BusinessRules_v2.0_updated.docx). Không đưa `.env`, khóa bí mật, dữ liệu thật hoặc ảnh chứa thông tin cá nhân vào repository.
 
 ---
+
+**SportHub · SWP391**
 
 ---
 
@@ -245,4 +235,3 @@ Xem chi tiết thiết kế: [`docs/Center-Management-System-Design-v3.md`](docs
 - Coach AI suggestion hỗ trợ bản nháp kế hoạch theo buổi và Personal Plan theo học viên được phân công, với bước validation Goal và Coach review trước Save (theo bản vá mới; cần kiểm chứng runtime sau merge).
 - Hướng dẫn nút/page từ AI cần đối chiếu Navigation Knowledge của Member/Coach với frontend thật; contract API không tự cho biết vị trí button.
 - System prompt có thể được xuất bản qua `ISystemPromptReader`, và phiên bản prompt được gắn với continuation scope. Xem [`docs/AI-Member-Coach-Implementation-Verification.md`](docs/AI-Member-Coach-Implementation-Verification.md).
-

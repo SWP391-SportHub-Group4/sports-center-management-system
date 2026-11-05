@@ -71,12 +71,7 @@ export function ManagerClassChangeRequests({
           {vi ? "Yêu cầu thay đổi lịch lớp" : "Class schedule change requests"}
         </h2>
       </header>
-      <p className={styles.hint}>
-        {vi
-          ? "Xem lý do từ Coach và xác nhận phương án phù hợp. Học viên chỉ nhận thay đổi lịch sau khi xử lý thành công."
-          : "Review the Coach’s absence request and choose a substitute, reschedule or makeup, or reject it. Students receive schedule changes only after the operation succeeds."}
-      </p>
-      <TableFilters>
+      <TableFilters inline>
         <div className={styles.filters}>
           <label>
             {vi ? "Trạng thái" : "Status"}
@@ -148,7 +143,7 @@ export function ManagerClassChangeRequests({
                 {data.items.map((r) => (
                   <button
                     type="button"
-                    className={styles.row}
+                    className={`${styles.row} ${managerStyles.requestRow}`}
                     key={r.requestId}
                     onClick={() => setSelected(r)}
                   >
@@ -165,7 +160,10 @@ export function ManagerClassChangeRequests({
                         {formatDateTime(r.createdAtUtc)}
                       </small>
                     </span>
-                    <span className={styles.status} data-status={r.status}>
+                    <span
+                      className={`${styles.status} ${managerStyles.requestStatus}`}
+                      data-status={r.status}
+                    >
                       {changeRequestStatusLabel(r, vi)}{" "}
                       <ArrowRight size={14} aria-hidden="true" />
                     </span>

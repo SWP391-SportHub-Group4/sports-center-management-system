@@ -6,6 +6,7 @@ import { useApi } from "@/lib/useApi";
 import { catalogApi } from "./api";
 import type { RoomDto } from "@/lib/types";
 import { InlineCreate } from "./inline-create";
+import { RoomSearch } from "./room-search";
 export function RoomSelector({
   value,
   onChange,
@@ -13,13 +14,19 @@ export function RoomSelector({
   allowCreate = false,
   onCatalogChanged,
   onCourtCreated,
+  required = false,
+  showHint = true,
+  searchable = false,
 }: {
+  searchable?: boolean;
+  showHint?: boolean;
   allowCreate?: boolean;
   onCatalogChanged?: () => void;
   onCourtCreated?: (court: RoomDto) => void;
   value: string;
   onChange: (value: string) => void;
   sportId?: number;
+  required?: boolean;
 }) {
   const { t } = useLanguage();
   const data = useApi(async (signal) => {
@@ -42,23 +49,39 @@ export function RoomSelector({
         {(rooms) => (
           <Field
             label={t.operations.room}
+            required={required}
             hint={
-              <>
-                {t.managerCatalog.roomPickerHint}{" "}
-                <Link href="/manager/facilities">
-                  {t.managerCatalog.manageRooms}
-                </Link>
-              </>
+              showHint ? (
+                <>
+                  {t.managerCatalog.roomPickerHint}{" "}
+                  <Link href="/manager/facilities">
+                    {t.managerCatalog.manageRooms}
+                  </Link>
+                </>
+              ) : undefined
             }
           >
-            <select value={value} onChange={(e) => onChange(e.target.value)}>
-              <option value="">—</option>
-              {rooms.map((r) => (
-                <option key={r.roomId} value={r.roomId}>
-                  {r.name} · {r.capacity}
-                </option>
-              ))}
-            </select>
+            {searchable ? (
+              <RoomSearch
+                rooms={rooms}
+                value={value}
+                onChange={onChange}
+                required={required}
+              />
+            ) : (
+              <select
+                required={required}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+              >
+                <option value="">—</option>
+                {rooms.map((r) => (
+                  <option key={r.roomId} value={r.roomId}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </Field>
         )}
       </AsyncSection>

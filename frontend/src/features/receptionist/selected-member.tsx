@@ -147,7 +147,10 @@ export function SelectedMemberPanel({
   const latestCheckIn = pagedItems(visits.data)[0];
   const cooldownUntil = Math.max(
     localCooldown.memberId === memberId ? localCooldown.until : 0,
-    latestCheckIn ? Date.parse(latestCheckIn.checkInTime) + 10_000 : 0,
+    latestCheckIn
+      ? Date.parse(latestCheckIn.checkInTime) +
+          latestCheckIn.cooldownSeconds * 1000
+      : 0,
   );
   const cooldownSeconds = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const ready = !packages.loading && !visits.loading;
@@ -171,9 +174,13 @@ export function SelectedMemberPanel({
     )
       return;
 
+    let cooldownMs = 0;
     const ok = await mutation.run(async () => {
       try {
-        await api.post("/api/gym-checkins", { targetMemberId: memberId });
+        const created = await api.post<GymCheckInDto>("/api/gym-checkins", {
+          targetMemberId: memberId,
+        });
+        cooldownMs = created.cooldownSeconds * 1000;
       } catch (error) {
         if (
           error instanceof ApiError &&
@@ -184,8 +191,8 @@ export function SelectedMemberPanel({
             error.status,
             error.code,
             vi
-              ? "Vui lòng chờ 10 giây trước khi check-in lại hội viên này."
-              : "Wait 10 seconds before checking in this member again.",
+              ? "Vui lòng chờ một lúc trước khi check-in lại hội viên này."
+              : "Wait a moment before checking in this member again.",
             error.details,
           );
         }
@@ -194,21 +201,18 @@ export function SelectedMemberPanel({
     });
 
     if (ok) {
-      setLocalCooldown({ memberId, until: Date.now() + 10_000 });
+      setLocalCooldown({ memberId, until: Date.now() + cooldownMs });
       visits.reload();
     }
   }
 
-  const accessTip = vi
-    ? "Cần Membership Gym còn hạn hoặc vé Gym 1 ngày."
-    : "Requires an active Gym membership or Day Pass.";
   const blockReason = deactivated
     ? "This account is deactivated, so check-in and sales are unavailable."
     : activationPending
       ? vi
         ? "Hội viên chưa kích hoạt tài khoản. Không thể check-in, mua gói hoặc gửi yêu cầu hỗ trợ."
         : "Member has not activated the account. Check-in, purchases and support requests are unavailable."
-      : accessTip;
+      : null;
 
   // Ba ô: gói Gym còn hiệu lực (kèm giờ hết hạn), lần check-in gần nhất, yêu cầu hỗ trợ cần xử lý.
   // Day pass ends at 22:00 on purchase day; monthly plans end at EndDate.
@@ -370,12 +374,12 @@ export function SelectedMemberPanel({
       )}
 
       <div className={styles.actions}>
-        <span className={styles.tip} title={blocked ? blockReason : undefined}>
+        <span className={styles.tip} title={blocked ? blockReason ?? undefined : undefined}>
           <button
             type="button"
             className="btn"
             disabled={!ready || mutation.busy || blocked || cooldownSeconds > 0}
-            aria-describedby={blocked ? "checkin-block-reason" : undefined}
+            aria-describedby={blocked && blockReason ? "checkin-block-reason" : undefined}
             onClick={checkIn}
           >
             {cooldownSeconds > 0
@@ -409,7 +413,7 @@ export function SelectedMemberPanel({
         )}
       </div>
 
-      {blocked && (
+      {blocked && blockReason && (
         <p className={styles.block} id="checkin-block-reason">
           {blockReason}
         </p>

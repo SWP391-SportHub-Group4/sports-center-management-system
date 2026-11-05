@@ -55,12 +55,46 @@ public sealed class PointRefundService(
         }
         if (invoiceId is not null) query = query.Where(x => x.InvoiceId == invoiceId);
         if (invoiceItemId is not null) query = query.Where(x => x.InvoiceItemId == invoiceItemId);
+        if (memberUserId is not null && invoiceId is null && invoiceItemId is null
+            && (string.IsNullOrWhiteSpace(status) || status.Equals("COMPLETED", StringComparison.OrdinalIgnoreCase)))
+            return await SearchMineWithSystemCreditsAsync(query, memberUserId.Value, page, pageSize, cancellationToken);
         var total = await query.CountAsync(cancellationToken);
         var items = await query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize)
             .Select(InvoiceQueryService.AdjustmentProjection()).ToListAsync(cancellationToken);
         return new PagedResult<PaymentAdjustmentResponse>
         {
             Items = items, Page = page, PageSize = pageSize, TotalCount = total
+        };
+    }
+
+    /// <summary>
+    /// Automatic refunds (center cancellations, threshold cancellations) only write a SystemEvent ledger entry and no
+    /// PaymentAdjustment, so they are merged in as completed refunds to keep the member's refund history complete.
+    /// </summary>
+    private async Task<PagedResult<PaymentAdjustmentResponse>> SearchMineWithSystemCreditsAsync(
+        IQueryable<PaymentAdjustment> adjustments, Guid memberUserId, int page, int pageSize, CancellationToken ct)
+    {
+        var rows = await adjustments.Select(InvoiceQueryService.AdjustmentProjection()).ToListAsync(ct);
+        var credits = await (
+            from entry in db.Set<PointLedgerEntry>().AsNoTracking()
+            join wallet in db.Set<PointWallet>().AsNoTracking() on entry.WalletId equals wallet.WalletId
+            join item in db.Set<InvoiceItem>().AsNoTracking() on entry.InvoiceItemId equals item.ItemId
+            join invoice in db.Set<Invoice>().AsNoTracking() on item.InvoiceId equals invoice.InvoiceId
+            where wallet.OwnerUserId == memberUserId && entry.ReferenceType == "SystemEvent"
+                && entry.EntryType == PointEntryType.Earn
+            select new { entry, invoice.InvoiceId, invoice.InvoiceNumber }).ToListAsync(ct);
+        rows.AddRange(credits.Select(c => new PaymentAdjustmentResponse(
+            c.entry.LedgerEntryId, c.InvoiceId, c.InvoiceNumber, null, nameof(PaymentAdjustmentType.Refund),
+            c.entry.Points * (decimal)RefundCalculator.VndPerPoint, c.entry.Points * (decimal)RefundCalculator.VndPerPoint,
+            (c.entry.Note ?? "Automatic points refund").Replace("CenterCancel:", "").Trim(),
+            nameof(PaymentAdjustmentStatus.Completed), memberUserId, string.Empty, null, null, null, null, null, null,
+            c.entry.CreatedAtUtc, c.entry.CreatedAtUtc, c.entry.CreatedAtUtc, false, c.entry.CreatedAtUtc,
+            c.entry.InvoiceItemId, c.entry.Points, c.entry.Points, c.entry.LedgerEntryId, false)));
+        var ordered = rows.OrderByDescending(x => x.CreatedAt).ToList();
+        return new PagedResult<PaymentAdjustmentResponse>
+        {
+            Items = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList(),
+            Page = page, PageSize = pageSize, TotalCount = ordered.Count
         };
     }
 

@@ -6,6 +6,8 @@ namespace SportHub.Payment.Tests.Unit;
 
 public sealed class DayPassClockTests
 {
+    private static readonly CenterOperatingHours Default = new(360, 1320);
+
     [Theory]
     [InlineData(8, 29, false)]
     [InlineData(8, 30, true)]
@@ -37,12 +39,24 @@ public sealed class DayPassClockTests
     [InlineData(22, 0, false)]
     [InlineData(22, 3, false)]
     public void Checkout_hours_follow_vietnam_local_time(int hour, int minute, bool expected)
-        => Assert.Equal(expected, DayPassClock.IsOpen(Local(hour, minute)));
+        => Assert.Equal(expected, DayPassClock.IsOpen(Local(hour, minute), Default));
 
     [Fact]
     public void Paid_at_2203_cannot_activate_a_2158_checkout()
     {
-        Assert.False(DayPassClock.CanActivate(Local(21, 58), Local(22, 3), Local(22, 3)));
-        Assert.Equal(Local(22, 0), DayPassClock.ClosesAtUtc(Local(14, 0)));
+        Assert.False(DayPassClock.CanActivate(Local(21, 58), Local(22, 3), Local(22, 3), Default));
+        Assert.Equal(Local(22, 0), DayPassClock.ClosesAtUtc(Local(14, 0), Default));
+    }
+
+    [Theory]
+    [InlineData(7, 59, false)]
+    [InlineData(8, 0, true)]
+    [InlineData(20, 29, true)]
+    [InlineData(20, 30, false)]
+    public void Sale_window_follows_configured_center_hours(int hour, int minute, bool expected)
+    {
+        var custom = new CenterOperatingHours(8 * 60, 20 * 60 + 30);
+        Assert.Equal(expected, DayPassClock.IsOpen(Local(hour, minute), custom));
+        Assert.Equal(Local(20, 30), DayPassClock.ClosesAtUtc(Local(10, 0), custom));
     }
 }

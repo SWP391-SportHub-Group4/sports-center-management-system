@@ -55,7 +55,7 @@ async function setup(page: Page) {
         json: {
           slotMinutes: 60,
           maxHours: 4,
-          advanceDays: 2,
+          advanceDays: 3,
           cancelFreeHours: 24,
           serverNowUtc: "2030-10-02T00:00:00Z",
         },
@@ -139,6 +139,42 @@ test("any active member prices a 2-hour rental from the server and sends no owne
   expect(requests[0].body).toMatchObject({ sportId: 3, roomId: 7 });
 });
 
+for (const [serverNowUtc, lastDay] of [
+  ["2030-10-02T00:00:00Z", "05/10/2030"],
+  ["2030-10-01T22:00:00Z", "05/10/2030"],
+] as const) {
+  test(`rental dates allow three days ahead at ${serverNowUtc}`, async ({
+    page,
+  }) => {
+    await setup(page);
+    await page.route("**/api/court-rentals/policy", (route) =>
+      route.fulfill({
+        json: {
+          slotMinutes: 60,
+          maxHours: 4,
+          advanceDays: 3,
+          cancelFreeHours: 24,
+          serverNowUtc,
+        },
+      }),
+    );
+    await page.goto("/member/courts/book");
+    await page
+      .getByRole("group", { name: "Sport" })
+      .getByRole("button", { name: "Badminton" })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "02/10/2030", exact: true }),
+    ).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: lastDay, exact: true }),
+    ).toBeEnabled();
+    await expect(
+      page.getByRole("button", { name: "06/10/2030", exact: true }),
+    ).toBeDisabled();
+  });
+}
+
 test("rental selection follows the server limit and refreshes it on focus", async ({
   page,
 }) => {
@@ -149,7 +185,7 @@ test("rental selection follows the server limit and refreshes it on focus", asyn
       json: {
         slotMinutes: 60,
         maxHours,
-        advanceDays: 2,
+        advanceDays: 3,
         cancelFreeHours: 24,
         serverNowUtc: "2030-10-02T00:00:00Z",
       },

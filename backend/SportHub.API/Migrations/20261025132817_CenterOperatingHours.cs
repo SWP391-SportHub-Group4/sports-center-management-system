@@ -29,11 +29,13 @@ namespace SportHub.API.Migrations
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "center.closing_minutes");
 
             migrationBuilder.DeleteData(
                 table: "system_settings",
                 keyColumn: "key",
+                keyColumnType: "text",
                 keyValue: "center.opening_minutes");
         }
     }

@@ -110,13 +110,13 @@ for (const mode of ["manager", "queue", "handover"] as const) {
     await chooseMember(page);
     const dialog = page.getByRole("dialog");
     const category = dialog.getByRole("combobox", {
-      name: manager ? "What is your request about? *" : "Request type",
+      name: "Request type",
       exact: true,
     });
     await category.selectOption("PAYMENT");
     await dialog
       .getByRole("textbox", {
-        name: manager ? /^Your message/ : /^Description/,
+        name: /^Description/,
       })
       .fill("Please refund the gym day pass.");
     const create = dialog.getByRole("button", {
@@ -193,16 +193,15 @@ test("manager member history prefills the shared form and keeps recent requests"
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByRole("textbox", { name: "Email", exact: true }),
-  ).toHaveValue("an@example.com");
-  await expect(dialog.getByRole("textbox", { name: /Subject/ })).toHaveCount(0);
+  ).toHaveCount(0);
   await dialog
     .getByRole("combobox", {
-      name: "What is your request about? *",
+      name: "Request type",
       exact: true,
     })
     .selectOption("FACILITY");
   await dialog
-    .getByRole("textbox", { name: /^Your message/ })
+    .getByRole("textbox", { name: /^Description/ })
     .fill("Please check the gym equipment.");
   await dialog
     .getByRole("button", { name: "Create & handle myself", exact: true })

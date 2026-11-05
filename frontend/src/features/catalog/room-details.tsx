@@ -115,9 +115,16 @@ export function RoomDetails({
                 checked={rental}
                 onChange={async (value) => {
                   let updated: RoomDto | undefined;
-                  if (await rentalMutation.run(async () => {
-                    updated = await catalogApi.setRoomRental(current.roomId, value);
-                  }) && updated) setCurrent(updated);
+                  if (
+                    (await rentalMutation.run(async () => {
+                      updated = await catalogApi.setRoomRental(
+                        current.roomId,
+                        value,
+                      );
+                    })) &&
+                    updated
+                  )
+                    setCurrent(updated);
                 }}
               />
             </fieldset>
@@ -139,10 +146,7 @@ export function RoomDetails({
           className={styles.section}
           aria-labelledby="room-hours-title"
         >
-          <header className={styles.sectionHeading}>
-            <h2 id="room-hours-title">{t.operations.openingHours}</h2>
-          </header>
-          <OpeningHoursEditor roomId={current.roomId} showHeading={false} showInstructions={false} showTimezone={false} />
+          <OpeningHoursEditor key={current.roomId} roomId={current.roomId} />
         </section>
 
         <section

@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Identity;
+using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.Scheduling.Application.Services;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -13,7 +15,7 @@ using SportHub.Scheduling.Domain.Enums;
 namespace SportHub.Scheduling.Rental.Application;
 
 public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReader users,
-    IClassSessionService sessions)
+    IClassSessionService sessions, ICancellationReasonReader cancellations)
 {
     public async Task<IReadOnlyList<CourtScheduleEntry>> GetAsync(DateOnly fromDate, DateOnly toDate,
         int? roomId, Guid actorId, CancellationToken ct = default, Guid? memberId = null)
@@ -32,7 +34,12 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
                 && (memberId == null || db.Set<Enrollment>().Any(e => e.ClassId == x.ClassId
                     && e.MemberId == memberId && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null)))
             .Select(x => new { x.SessionId, x.ClassId, x.RoomId, x.StartAtUtc, x.EndAtUtc,
-                x.CoachId, x.Status, x.Class!.Name }).ToListAsync(ct);
+                x.CoachId, x.Status, x.Class!.Name, x.IncidentReportJson }).ToListAsync(ct);
+        var cancelledRows = rows.Where(row => row.Status == ClassSessionStatus.Cancelled).ToList();
+        var sessionReasons = await cancellations.ReadAsync(nameof(ClassSession),
+            cancelledRows.Select(row => row.SessionId.ToString()).Distinct().ToArray(), ct);
+        var classReasons = await cancellations.ReadAsync(nameof(Class),
+            cancelledRows.Select(row => row.ClassId.ToString()).Distinct().ToArray(), ct);
         var result = new List<CourtScheduleEntry>();
         var names = new Dictionary<Guid, string>();
         async Task<string> Name(Guid id)
@@ -47,7 +54,12 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
                 row.CoachId, await Name(row.CoachId), row.Name, row.Status.ToString(), row.ClassId,
                 roster.Entries.Where(x => memberId == null || x.MemberId == memberId)
                     .Select(x => new CourtScheduleParticipant(x.MemberId, x.MemberName, x.EnrollmentId,
-                    x.AttendanceStatus, x.AttendanceRecordedAt)).ToList()));
+                    x.AttendanceStatus, x.AttendanceRecordedAt)).ToList()) {
+                CancellationReason = row.Status == ClassSessionStatus.Cancelled
+                    ? sessionReasons.GetValueOrDefault(row.SessionId.ToString())
+                      ?? ClassSessionService.ReadIncidentReport(row.IncidentReportJson)?.Reason
+                      ?? classReasons.GetValueOrDefault(row.ClassId.ToString()) : null
+            });
         }
         // Coaches receive only their assigned classes.
         if (coachScope is not null) return result.OrderBy(x => x.StartAtUtc).ThenBy(x => x.SourceId).ToList();
@@ -57,7 +69,12 @@ public sealed class CourtScheduleService(ISportHubDbContext db, IUserAccessReade
         foreach (var rental in rentals)
             result.Add(new("CourtRental", rental.CourtRentalId, rental.RoomId, rental.StartAtUtc, rental.EndAtUtc,
                 null, null, "Court rental", rental.Status.ToString(),
-                null, [], rental.MemberId, await Name(rental.MemberId)));
+                null, [], rental.MemberId, await Name(rental.MemberId)) {
+                CancellationReason = rental.Status == CourtRentalStatus.Cancelled
+                    ? rental.CancelReason?.StartsWith("CenterFault:", StringComparison.Ordinal) == true
+                        ? rental.CancelReason["CenterFault:".Length..] : rental.CancelReason
+                    : null
+            });
         if (memberId is not null) return result.OrderBy(x => x.StartAtUtc).ThenBy(x => x.SourceId).ToList();
         var blocks = await db.Set<RoomBlock>().AsNoTracking().Where(x => x.StartAtUtc < to && x.EndAtUtc > from
             && (roomId == null || x.RoomId == roomId)).ToListAsync(ct);

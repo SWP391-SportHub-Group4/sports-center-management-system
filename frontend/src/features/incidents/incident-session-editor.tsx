@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Field, Feedback } from "@/components/ui";
 import { CoachSelector } from "@/features/coaches";
 import { RoomSelector, catalogApi } from "@/features/catalog";
+import { SessionWeekSchedule } from "@/features/courses";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { useLanguage } from "@/lib/language";
-import { api } from "@/lib/apiClient";
+import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDateTime } from "@/lib/format";
 import { vietnamLocal, vietnamUtc } from "@/lib/vietnam-time";
@@ -22,6 +23,9 @@ export function IncidentSessionEditor({
   incident,
   onSaved,
   onStage,
+  onConfirm,
+  onOutcome,
+  initialPlan,
 }: {
   session: CourseSessionDto;
   confirmedCount: number;
@@ -30,27 +34,38 @@ export function IncidentSessionEditor({
   onSaved: () => void;
   onOutcome: (status: StepStatus, message?: string) => void;
   onStage: (plan: IncidentResolutionSelection) => void;
+  onConfirm?: (plan: IncidentResolutionSelection) => Promise<void>;
+  initialPlan?: IncidentResolutionSelection;
 }) {
   const { language, t } = useLanguage();
   const vi = language === "vi";
   const mutation = useMutation();
   const [openedAt] = useState(Date.now);
-  const [outcome, setOutcome] = useState("INTERRUPTED");
+  const [outcome, setOutcome] = useState(initialPlan?.outcome ?? "INTERRUPTED");
   const [occurred, setOccurred] = useState(
-    vietnamLocal(
-      new Date(
-        Math.max(
-          Date.parse(session.startAtUtc),
-          Date.parse(incident.startAtUtc),
+    initialPlan?.occurredAtUtc
+      ? vietnamLocal(initialPlan.occurredAtUtc)
+      : vietnamLocal(
+          new Date(
+            Math.max(
+              Date.parse(session.startAtUtc),
+              Date.parse(incident.startAtUtc),
+            ),
+          ).toISOString(),
         ),
-      ).toISOString(),
-    ),
   );
-  const [reason, setReason] = useState(incident.reason);
-  const [start, setStart] = useState("");
-  const [room, setRoom] = useState(String(session.roomId));
-  const [coach, setCoach] = useState(session.coachId);
+  const [reason, setReason] = useState(initialPlan?.reason ?? incident.reason);
+  const [start, setStart] = useState(
+    initialPlan?.startAtUtc ? vietnamLocal(initialPlan.startAtUtc) : "",
+  );
+  const [room, setRoom] = useState(
+    String(initialPlan?.roomId ?? session.roomId),
+  );
+  const [coach, setCoach] = useState(initialPlan?.coachId ?? session.coachId);
   const [review, setReview] = useState(false);
+  const confirming = useRef(false);
+  const [unknown, setUnknown] = useState(false);
+  const busy = mutation.busy || unknown;
   const options = useApi(
     async (signal) => {
       const [rooms, coaches] = await Promise.all([
@@ -78,12 +93,61 @@ export function IncidentSessionEditor({
     reason.trim().length <= 500 &&
     !!occurred &&
     (full || (!!start && !!room && !!coach));
+  async function saveOutcome() {
+    if (!valid || busy || confirming.current) return;
+    const plan: IncidentResolutionSelection = {
+      sourceId: session.sessionId,
+      action: "SESSION_OUTCOME",
+      outcome,
+      occurredAtUtc: vietnamUtc(occurred),
+      reason: reason.trim(),
+      ...(full
+        ? {}
+        : {
+            startAtUtc: vietnamUtc(start),
+            roomId: Number(room),
+            coachId: coach,
+          }),
+      label: session.className + " · " + session.sessionNo,
+    };
+    if (!onConfirm) {
+      onStage(plan);
+      onSaved();
+      return;
+    }
+    confirming.current = true;
+    onOutcome("pending");
+    const success = await mutation.run(async () => {
+      try {
+        await onConfirm(plan);
+      } catch (error) {
+        const uncertain =
+          !(error instanceof ApiError) ||
+          error.status === 0 ||
+          error.status >= 500;
+        setUnknown(uncertain);
+        onOutcome(
+          uncertain ? "unknown" : "failed",
+          error instanceof Error ? error.message : undefined,
+        );
+        throw error;
+      }
+    });
+    confirming.current = false;
+    if (success) {
+      onOutcome("succeeded");
+      onSaved();
+    }
+  }
   return (
     <form
       className="stack"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid) setReview(true);
+        if (valid) {
+          if (onConfirm) void saveOutcome();
+          else setReview(true);
+        }
       }}
     >
       <p>
@@ -99,7 +163,7 @@ export function IncidentSessionEditor({
           ? "Giữ nguyên giờ học, điểm danh và đánh giá của buổi gốc để truy vết. Buổi không diễn ra hoặc bị gián đoạn được học lại nguyên thời lượng, không tính phần phút còn thiếu."
           : "Original times, attendance and assessments are retained. A missed or interrupted session is repeated in full; no partial-duration calculation."}
       </p>
-      <fieldset disabled={mutation.busy} hidden={review}>
+      <fieldset disabled={busy} hidden={review}>
         <Field
           label={vi ? "Thực tế buổi học" : "Actual session outcome"}
           required
@@ -162,6 +226,14 @@ export function IncidentSessionEditor({
           </>
         )}
       </fieldset>
+      {!review && !full && (
+        <SessionWeekSchedule
+          session={session}
+          start={start}
+          roomId={room}
+          coachId={coach}
+        />
+      )}
       {review && (
         <section
           className="stack"
@@ -218,24 +290,7 @@ export function IncidentSessionEditor({
                 !valid ||
                 (!full && (options.loading || !!options.error))
               }
-              onClick={() => {
-                onStage({
-                  sourceId: session.sessionId,
-                  action: "SESSION_OUTCOME",
-                  outcome,
-                  occurredAtUtc: vietnamUtc(occurred),
-                  reason: reason.trim(),
-                  ...(full
-                    ? {}
-                    : {
-                        startAtUtc: vietnamUtc(start),
-                        roomId: Number(room),
-                        coachId: coach,
-                      }),
-                  label: session.className + " · " + session.sessionNo,
-                });
-                onSaved();
-              }}
+              onClick={() => void saveOutcome()}
             >
               {t.incidentPlans.usePlan}
             </button>
@@ -246,9 +301,15 @@ export function IncidentSessionEditor({
         <button
           type="submit"
           className="btn"
-          disabled={!valid || mutation.busy}
+          disabled={
+            !valid || busy || (!full && (options.loading || !!options.error))
+          }
         >
-          {vi ? "Xem lại phương án" : "Review outcome"}
+          {onConfirm
+            ? t.operations.confirm
+            : vi
+              ? "Xem lại phương án"
+              : "Review outcome"}
         </button>
       )}
       <MutationFeedback mutation={mutation} />

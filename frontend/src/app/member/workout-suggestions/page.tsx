@@ -112,6 +112,12 @@ export default function MemberWorkoutSuggestionsPage() {
   }
 
   const items = result?.items ?? [];
+  const rationaleItems = result?.rationale
+    .split(/\.\s+(?=[A-Z])/)
+    .map((sentence, index, sentences) =>
+      index < sentences.length - 1 ? `${sentence}.` : sentence,
+    )
+    .filter(Boolean) ?? [];
 
   return (
     <main className={styles.page}>
@@ -223,27 +229,23 @@ export default function MemberWorkoutSuggestionsPage() {
             </ol>
           )}
 
+          <button
+            className={styles.saveButton}
+            type="button"
+            onClick={sendToPlans}
+            disabled={items.length === 0}
+          >
+            Save suggestion to Plans
+            <ArrowRight size={17} aria-hidden="true" />
+          </button>
+
           <section className={styles.explanation} aria-labelledby="why-this-workout">
             <div className={styles.explanationTitle}><Info size={19} aria-hidden="true" /><h3 id="why-this-workout">Why this workout?</h3></div>
-            <p>{result.rationale}</p>
+            <ul className={styles.explanationList}>
+              {rationaleItems.map((sentence, index) => <li key={index}>{sentence}</li>)}
+            </ul>
           </section>
           <p className={styles.bottomNote}><ShieldCheck size={17} aria-hidden="true" /> This is an automated, rule-based suggestion—not a coach-approved training plan or medical advice.</p>
-<div className={styles.bottomActions}>
-  <a
-    href="/member/training?tab=plans"
-    aria-disabled={items.length === 0}
-    onClick={(event) => {
-      event.preventDefault();
-
-      if (items.length > 0) {
-        sendToPlans();
-      }
-    }}
-  >
-    Save suggestion to Plans
-    <ArrowRight size={16} aria-hidden="true" />
-  </a>
-</div>
         </section>
       )}
     </main>

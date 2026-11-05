@@ -7,6 +7,20 @@
   display: grid;
   gap: var(--space-4);
 }
+.cancellation {
+  margin-block: var(--space-5);
+  color: var(--text-strong);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.cancellation p {
+  display: inline;
+  margin: 0;
+  color: var(--text-strong);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 .summaryRow {
   display: grid;
@@ -22,6 +36,49 @@
 }
 
 .summaryRow dd {
+  margin: 0;
+  text-align: right;
+}
+.paymentStatus {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+.rentalInvoice {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+.invoiceDetails {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+.invoiceRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.invoiceRow dt {
+  font-weight: var(--weight-semibold);
+}
+.invoiceRow dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rentalReason {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.rentalReason strong {
+  font-weight: var(--weight-regular);
+}
+.rentalReason p {
+  display: block;
   text-align: right;
 }
 

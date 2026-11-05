@@ -103,7 +103,7 @@
   min-width: 0;
 }
 .classSummary header {
-  flex: 0 1 190px;
+  flex: 0 1 160px;
 }
 .classSummary h2 {
   margin: 0;
@@ -127,8 +127,12 @@
 .classCounts > div {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  column-gap: 12px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: 2.5rem;
+  padding-inline: var(--space-3);
+  border-inline-start: 1px solid var(--border-subtle);
   min-width: 0;
 }
 .classCounts dt {
@@ -703,6 +707,14 @@
   .classCounts {
     margin-top: 12px;
     gap: 12px;
+  }
+  .classCounts > div {
+    flex-direction: column;
+    padding-inline: 0;
+    text-align: center;
+  }
+  .classCounts > div:first-child {
+    border-inline-start: 0;
   }
   .chartGrid {
     grid-template-columns: minmax(0, 1fr);

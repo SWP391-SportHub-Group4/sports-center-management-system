@@ -14,7 +14,6 @@ export type SaveSport = Pick<
   SportDto,
   "name" | "description" | "imageUrl" | "services"
 > & {
-  code?: string;
   createRoomType?: boolean;
   roomTypeName?: string;
   isActive?: boolean;
@@ -27,6 +26,15 @@ export type SaveRate = Omit<CourtRateDto, "rateId" | "daysOfWeek"> & {
   daysOfWeek: string[];
 };
 export const catalogApi = {
+  sportNameAvailability: (
+    name: string,
+    excludeSportId: number | undefined,
+    signal?: AbortSignal,
+  ) =>
+    api.get<{ name: string; isValid: boolean; isAvailable: boolean }>(
+      "/api/manager/sports/name-availability",
+      { signal, query: { name, excludeSportId } },
+    ),
   sportDeactivationImpact: (id: number, signal?: AbortSignal) =>
     api.get<
       { classId: number; code: string; name: string; confirmedCount: number }[]

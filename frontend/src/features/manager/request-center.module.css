@@ -7,6 +7,9 @@
   min-width: 0;
   max-width: 100%;
 }
+.page :global([role="tablist"]) {
+  overflow-y: hidden;
+}
 .body {
   padding-block: var(--space-6, 1.5rem);
   min-width: 0;

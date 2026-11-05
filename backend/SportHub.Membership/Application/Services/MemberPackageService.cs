@@ -35,7 +35,7 @@ public sealed class MemberPackageService(
         string? keyword,
         int page,
         int pageSize,
-        CancellationToken ct = default, int? packageId = null)
+        CancellationToken ct = default, int? packageId = null, bool currentMembersOnly = false)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
@@ -61,10 +61,29 @@ public sealed class MemberPackageService(
                 || (mp.Member.Profile != null && mp.Member.Profile.FullName.ToLower().Contains(term)));
         }
 
+        if (currentMembersOnly)
+        {
+            var nowUtc = clock.UtcNow;
+            var current = query.Where(mp => mp.Status == MemberPackageStatus.Active
+                && mp.StartDate <= today && today <= mp.EndDate
+                && (mp.ExpiresAtUtc == null || mp.ExpiresAtUtc > nowUtc));
+
+            // A roster has one row per member, even when stacking was approved.
+            // Select the latest current purchase before counting and paging.
+            query = current.Where(mp => mp.MemberPackageId == current
+                .Where(other => other.MemberId == mp.MemberId)
+                .OrderByDescending(other => other.StartDate)
+                .ThenByDescending(other => other.EndDate)
+                .ThenBy(other => other.MemberPackageId)
+                .Select(other => other.MemberPackageId)
+                .First());
+        }
+
         var total = await query.CountAsync(ct);
 
         var items = await query
             .OrderByDescending(mp => mp.StartDate)
+            .ThenBy(mp => mp.MemberPackageId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(Projection(today, clock.UtcNow))

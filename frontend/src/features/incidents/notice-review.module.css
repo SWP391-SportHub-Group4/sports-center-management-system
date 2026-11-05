@@ -1,7 +1,19 @@
 .review {
   min-width: 0;
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--border-subtle);
+}
+.dialog:global(.dialog) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--space-4) * 2);
+  overflow: hidden;
+}
+.dialog :global(.dialog__head),
+.dialog :global(.dialog__foot) {
+  flex-shrink: 0;
+}
+.dialog :global(.dialog__body) {
+  min-height: 0;
+  overflow-y: auto;
 }
 .heading {
   margin-bottom: var(--space-4);
@@ -114,7 +126,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding-top: var(--space-4);
 }
 .footer .send {
   display: inline-flex;

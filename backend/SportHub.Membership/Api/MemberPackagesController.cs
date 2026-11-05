@@ -41,6 +41,7 @@ public class MemberPackagesController(IMemberPackageService memberPackages, ICoa
         [FromQuery] string? keyword,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        CancellationToken ct = default, [FromQuery] int? packageId = null)
-        => Ok(await memberPackages.SearchAsync(status, keyword, page, pageSize, ct, packageId));
+        CancellationToken ct = default, [FromQuery] int? packageId = null,
+        [FromQuery] bool currentMembersOnly = false)
+        => Ok(await memberPackages.SearchAsync(status, keyword, page, pageSize, ct, packageId, currentMembersOnly));
 }

@@ -102,6 +102,30 @@ test("Sports service filter combines with status/search and survives reload and 
 });
 
 const invoiceId = "11111111-1111-4111-8111-111111111111";
+test("manager filters void invoices and views details without PDF or CSV exports", async ({
+  page,
+}) => {
+  await invoiceFixture(page, "VOID");
+  await page.goto("/manager/finance");
+  const status = page.getByRole("combobox");
+  await status.selectOption("VOID");
+  await expect(status).toHaveValue("VOID");
+  await expect(
+    page.getByRole("button", { name: "Details", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Print PDF|Export CSV/ }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Details", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Invoice", exact: true });
+  await expect(
+    dialog.getByText("This invoice is void.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: /Download PDF|Export CSV/ }),
+  ).toHaveCount(0);
+});
+
 async function invoiceFixture(page: Page, status = "PAID") {
   await managerLayoutFixture(page);
   const summary = {

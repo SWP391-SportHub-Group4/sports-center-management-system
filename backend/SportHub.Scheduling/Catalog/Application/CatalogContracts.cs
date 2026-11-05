@@ -28,6 +28,8 @@ public sealed record ServiceReadinessResponse(
     bool Ready,
     IReadOnlyList<string> Missing);
 
+public sealed record SportNameAvailabilityResponse(string Name, bool IsValid, bool IsAvailable);
+
 public sealed class SaveSportRequest
 {
     public bool? IsActive { get; set; }
@@ -37,7 +39,7 @@ public sealed class SaveSportRequest
     [MaxLength(100)]
     public string? RoomTypeName { get; set; }
 
-    /// <summary>Bắt buộc khi tạo (a-z, 0-9, _; 2-32 ký tự). Không đổi được sau khi tạo; PUT chỉ được gửi cùng mã hiện có hoặc bỏ trống.</summary>
+    /// <summary>Legacy input, ignored on create: code is generated from Name. PUT may omit it or send the unchanged existing code.</summary>
     [MaxLength(32)]
     public string? Code { get; set; }
 

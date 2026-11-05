@@ -1,0 +1,14 @@
+.dialog :global(.dialog__body) {
+  max-height: min(32rem, 65dvh);
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.dialog :global(.dialog__body::-webkit-scrollbar),
+.dialog :global(.table-wrap::-webkit-scrollbar) {
+  display: none;
+}
+.dialog :global(.table-wrap) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}

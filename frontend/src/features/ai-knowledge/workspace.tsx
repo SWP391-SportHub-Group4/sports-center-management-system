@@ -490,16 +490,6 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
           </Link>
         )}
       </div>
-      <div className={s.notice}>
-        <BookOpen size={20} aria-hidden="true" />
-        <div>
-          <strong>Live system prompts</strong>
-          <p>
-            Publish updates the live chatbot from its next message. Save draft
-            keeps your changes on the server without changing the active prompt.
-          </p>
-        </div>
-      </div>
       {legacyContent && (
         <div className={s.notice}>
           <div>
@@ -912,7 +902,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                   {audienceLabels[visible(panel.article).audience]}
                 </span>
                 <h3>{visible(panel.article).title}</h3>
-                
+
                 <p className={s.helper}>
                   Viewing{" "}
                   {panel.article.draft

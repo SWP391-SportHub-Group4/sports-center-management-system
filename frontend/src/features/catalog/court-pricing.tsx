@@ -2,6 +2,7 @@
 import { ActivitySwitch } from "@/components/ActivitySwitch";
 
 import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   loadCenterHours,
   minutesToTime,
@@ -56,6 +57,8 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
     form: RateForm;
   } | null>(null);
   const [timesEdited, setTimesEdited] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const center = useApi((signal) => loadCenterHours(signal), []);
   const selectedRoomId = Number(editor?.form.roomId) || null;
   const openingHours = useApi(
@@ -124,6 +127,30 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
     Number.isFinite(editor.form.pricePerHour) &&
     editor.form.pricePerHour >= 2000 &&
     editor.form.pricePerHour % 2000 === 0;
+  const validationError = !editor
+    ? null
+    : !editor.form.sportId
+      ? vi
+        ? "Vui lòng chọn môn thể thao."
+        : "Select a sport."
+      : !editor.form.roomTypeId
+        ? vi
+          ? "Vui lòng chọn phòng hoặc nhóm phòng hợp lệ."
+          : "Select a valid room or pricing group."
+        : !editor.form.daysOfWeek.length
+          ? t.managerCatalog.daysRequired
+          : !validPrice
+            ? t.managerCatalog.rentalPriceHint
+            : !hoursReady
+              ? hoursMessage ||
+                (vi
+                  ? "Đang tải giờ hoạt động. Vui lòng thử lại."
+                  : "Opening hours are loading. Please try again.")
+              : !validWindow
+                ? vi
+                  ? "Chọn giờ bắt đầu và kết thúc hợp lệ trong khung giờ cho thuê."
+                  : "Choose valid start and end times within the allowed rental hours."
+                : null;
   const creating = editor?.id === null;
   useEffect(() => {
     if (!hoursReady) return;
@@ -169,6 +196,8 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
   function edit(rate?: CourtRateDto) {
     action.reset();
     setTimesEdited(false);
+    setHasChanges(false);
+    setSubmitAttempted(false);
     setEditor({
       id: rate?.rateId ?? null,
       form: {
@@ -184,6 +213,8 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
     });
   }
   const update = (patch: Partial<RateForm>) => {
+    setHasChanges(true);
+    action.reset();
     if ("startTimeLocal" in patch || "endTimeLocal" in patch)
       setTimesEdited(true);
     setEditor((e) => (e ? { ...e, form: { ...e.form, ...patch } } : e));
@@ -201,7 +232,6 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
           Create court rate
         </button>
       </div>
-      {action.error && <p role="alert">{action.error}</p>}
       <AsyncSection state={rooms}>{() => null}</AsyncSection>
       <AsyncSection state={types}>
         {(rows) =>
@@ -298,15 +328,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                 type="submit"
                 form={formId}
                 className="btn"
-                disabled={
-                  action.busy ||
-                  !validWindow ||
-                  !validPrice ||
-                  (!editor.id && !editor.form.sportId) ||
-                  editor.form.endTimeLocal <= editor.form.startTimeLocal ||
-                  !editor.form.roomTypeId ||
-                  !editor.form.daysOfWeek.length
-                }
+                disabled={action.busy || !hasChanges}
               >
                 {action.busy ? t.common.loading : t.operations.save}
               </button>
@@ -319,15 +341,21 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
           <form
             id={formId}
             className={styles.form}
+            noValidate
             onSubmit={(e) => {
               e.preventDefault();
+              if (action.busy || !hasChanges) return;
+              setSubmitAttempted(true);
+              if (validationError) {
+                action.setError(validationError);
+                return;
+              }
               void action.run(async () => {
                 const f = editor.form;
-                if (!validWindow || !validPrice || !f.daysOfWeek.length) return;
                 const body: SaveRate = {
                   ...f,
                   pricePerHour: Number(f.pricePerHour),
-                  sportId: f.sportId ? Number(f.sportId) : null,
+                  sportId: Number(f.sportId),
                   roomId: f.roomId ? Number(f.roomId) : null,
                 };
                 await catalogApi.saveRate(editor.id, body);
@@ -341,30 +369,32 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                 checked={editor.form.isActive}
                 onChange={(isActive) => update({ isActive })}
               />
-              <div className={styles.grid}>
-                <Field label="Sport" required={!editor.id}>
+              <div className={styles.grid} data-room-scoped={!!roomId}>
+                <Field label="Sport" required>
                   <select
-                    disabled={!!editor.id}
-                    required={!editor.id}
+                    required
                     value={editor.form.sportId}
                     onChange={(e) =>
                       update({
                         sportId: e.target.value,
-                        roomId: roomId ? String(roomId) : "",
-                        roomTypeId:
-                          court?.roomTypeId ??
-                          types.data?.find((t) =>
-                            t.sportIds.includes(Number(e.target.value)),
-                          )?.roomTypeId ??
-                          0,
+                        roomTypeId: editor.form.roomId
+                          ? editor.form.roomTypeId
+                          : (types.data?.find((t) =>
+                              t.sportIds.includes(Number(e.target.value)),
+                            )?.roomTypeId ?? editor.form.roomTypeId),
                       })
                     }
                   >
-                    <option value="">
-                      {editor.id ? "All compatible sports" : "Select sport"}
+                    <option value="" disabled>
+                      Select sport
                     </option>
                     {sports.data
-                      ?.filter((s) => s.code !== "gym")
+                      ?.filter(
+                        (s) =>
+                          s.code !== "gym" &&
+                          (s.isActive ||
+                            s.sportId === Number(editor.form.sportId)),
+                      )
                       .map((s) => (
                         <option key={s.sportId} value={s.sportId}>
                           {s.name}
@@ -372,38 +402,40 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                       ))}
                   </select>
                 </Field>
-                <Field label="Applies to">
-                  <select
-                    disabled={!!roomId || !!editor.id}
-                    value={editor.form.roomId}
-                    onChange={(e) =>
-                      update({
-                        roomId: e.target.value,
-                        roomTypeId:
-                          rooms.data?.find(
-                            (r) => r.roomId === Number(e.target.value),
-                          )?.roomTypeId ??
-                          types.data?.find((t) =>
-                            t.sportIds.includes(Number(editor.form.sportId)),
-                          )?.roomTypeId ??
-                          0,
-                      })
-                    }
-                  >
-                    <option value="">Shared price</option>
-                    {rooms.data
-                      ?.filter(
-                        (r) =>
-                          r.roomId === Number(editor.form.roomId) ||
-                          (r.isActive && r.allowRental),
-                      )
-                      .map((r) => (
-                        <option key={r.roomId} value={r.roomId}>
-                          {r.name}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
+                {!roomId && (
+                  <Field label="Applies to">
+                    <select
+                      disabled={!!roomId || !!editor.id}
+                      value={editor.form.roomId}
+                      onChange={(e) =>
+                        update({
+                          roomId: e.target.value,
+                          roomTypeId:
+                            rooms.data?.find(
+                              (r) => r.roomId === Number(e.target.value),
+                            )?.roomTypeId ??
+                            types.data?.find((t) =>
+                              t.sportIds.includes(Number(editor.form.sportId)),
+                            )?.roomTypeId ??
+                            0,
+                        })
+                      }
+                    >
+                      <option value="">Shared price</option>
+                      {rooms.data
+                        ?.filter(
+                          (r) =>
+                            r.roomId === Number(editor.form.roomId) ||
+                            (r.isActive && r.allowRental),
+                        )
+                        .map((r) => (
+                          <option key={r.roomId} value={r.roomId}>
+                            {r.name}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                )}
                 <Field label="Start" required>
                   <input
                     type="time"
@@ -472,7 +504,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                     </label>
                   ))}
                 </div>
-                {!editor.form.daysOfWeek.length && (
+                {!submitAttempted && !editor.form.daysOfWeek.length && (
                   <p className={styles.error} role="alert">
                     {t.managerCatalog.daysRequired}
                   </p>
@@ -491,7 +523,8 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                   {t.common.retry}
                 </button>
               )}
-              {hoursReady &&
+              {!submitAttempted &&
+                hoursReady &&
                 editor.form.startTimeLocal &&
                 editor.form.endTimeLocal &&
                 !validWindow && (
@@ -501,20 +534,42 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                       : "The price window must be entirely within the allowed rental hours."}
                   </p>
                 )}
-              {editor.form.endTimeLocal <= editor.form.startTimeLocal && (
-                <p className={styles.error} role="alert">
-                  End time must be after start time.
-                </p>
-              )}
-              {action.error && (
-                <p className={styles.error} role="alert">
-                  {action.error}
-                </p>
-              )}
+              {!submitAttempted &&
+                editor.form.endTimeLocal <= editor.form.startTimeLocal && (
+                  <p className={styles.error} role="alert">
+                    End time must be after start time.
+                  </p>
+                )}
             </fieldset>
           </form>
         </Dialog>
       )}
+      {editor &&
+        action.error &&
+        createPortal(
+          <Dialog
+            title={
+              vi ? "Không thể lưu giá thuê" : "Could not save rental price"
+            }
+            size="sm"
+            onClose={action.reset}
+            showCloseButton={false}
+            footer={
+              <button
+                type="button"
+                className={`btn ${styles.errorClose}`}
+                onClick={action.reset}
+              >
+                {t.common.close}
+              </button>
+            }
+          >
+            <p className={styles.error} role="alert">
+              {action.error}
+            </p>
+          </Dialog>,
+          document.body,
+        )}
     </section>
   );
 }

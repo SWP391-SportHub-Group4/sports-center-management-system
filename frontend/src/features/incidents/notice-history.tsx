@@ -7,7 +7,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDateTime } from "@/lib/format";
 import type { Paged } from "@/lib/types";
-import { Card, Field, AsyncSection, StatusChip, Table } from "@/components/ui";
+import { Card, Field, AsyncSection, Table } from "@/components/ui";
 import { ApiTable } from "@/components/data";
 import styles from "./notice-history.module.css";
 
@@ -21,30 +21,79 @@ type NoticeSummary = {
   sendEmail: boolean;
   isLegacy: boolean;
 };
-type ChannelStatus = {
-  status: string;
-  retryCount: number;
-  sentAt: string | null;
-  lastAttemptAt: string | null;
-};
-type Recipient = {
+type NoticeDetails = NoticeSummary & { message: string | null };
+type NoticeRecipientRow = {
   userId: string;
   name: string;
   email: string;
-  inApp: ChannelStatus | null;
-  emailDelivery: ChannelStatus | null;
+  role?: string | null;
 };
-type NoticeDetails = NoticeSummary & {
-  message: string | null;
-  delivery: {
-    total: number;
-    pending: number;
-    sending: number;
-    sent: number;
-    failed: number;
-    read: number;
+
+function NoticeRecipientList({ id }: { id: string }) {
+  const { t, language } = useLanguage();
+  const state = useApi(
+    async (signal) => {
+      const items: NoticeRecipientRow[] = [];
+      let page = 1;
+      while (true) {
+        const result = await api.get<Paged<NoticeRecipientRow>>(
+          `/api/manager/notices/${id}/recipients`,
+          { signal, query: { page, pageSize: 50 } },
+        );
+        items.push(...result.items);
+        if (!result.items.length || page * result.pageSize >= result.totalCount)
+          break;
+        page++;
+      }
+      return items;
+    },
+    [id],
+  );
+  const roles: Record<string, string> = {
+    SYSTEM_ADMINISTRATOR: t.manualNotices.roles.SYSTEM_ADMINISTRATOR,
+    SystemAdministrator: t.manualNotices.roles.SYSTEM_ADMINISTRATOR,
+    CENTER_MANAGER: t.manualNotices.roles.CENTER_MANAGER,
+    CenterManager: t.manualNotices.roles.CENTER_MANAGER,
+    RECEPTIONIST: t.manualNotices.roles.RECEPTIONIST,
+    Receptionist: t.manualNotices.roles.RECEPTIONIST,
+    COACH: t.manualNotices.roles.COACH,
+    Coach: t.manualNotices.roles.COACH,
+    MEMBER: t.manualNotices.roles.MEMBER,
+    Member: t.manualNotices.roles.MEMBER,
   };
-};
+  return (
+    <section className={styles.recipientSection}>
+      <h3>{language === "vi" ? "Người nhận" : "Recipients"}</h3>
+      <AsyncSection state={state}>
+        {(items) =>
+          items.length ? (
+            <div className={styles.recipientList}>
+              <Table
+                headers={[
+                  language === "vi" ? "Người nhận" : "Recipient",
+                  language === "vi" ? "Vai trò" : "Role",
+                ]}
+              >
+                {items.map((person) => (
+                  <tr key={person.userId}>
+                    <td>
+                      {person.name || person.email}
+                      <br />
+                      <small>{person.email}</small>
+                    </td>
+                    <td>{roles[person.role ?? ""] ?? "—"}</td>
+                  </tr>
+                ))}
+              </Table>
+            </div>
+          ) : (
+            <p>{t.manualNotices.noRecipients}</p>
+          )
+        }
+      </AsyncSection>
+    </section>
+  );
+}
 
 export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
   const { t } = useLanguage();
@@ -69,8 +118,7 @@ export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
   );
   return (
     <Card title={l.history}>
-      <p>{l.ownOnly}</p>
-      <TableFilters>
+      <TableFilters inline>
         <form
           className={`${styles.filters} form-grid`}
           onSubmit={(e) => {
@@ -103,7 +151,7 @@ export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
               onChange={(e) => setTo(e.target.value)}
             />
           </Field>
-          <button className="btn btn--secondary" disabled={invalidRange}>
+          <button className="btn" disabled={invalidRange}>
             {l.apply}
           </button>
         </form>
@@ -161,140 +209,52 @@ export function NoticeHistory({ refreshKey = 0 }: { refreshKey?: number }) {
 export function NoticeDetailsView({ id }: { id: string }) {
   const { t } = useLanguage();
   const l = t.manualNotices;
-  const [page, setPage] = useState(1);
   const state = useApi(
     (signal) =>
       api.get<NoticeDetails>(`/api/manager/notices/${id}`, { signal }),
     [id],
   );
-  const recipients = useApi(
-    (signal) =>
-      api.get<Paged<Recipient>>(`/api/manager/notices/${id}/recipients`, {
-        signal,
-        query: { page, pageSize: 20 },
-      }),
-    [id, page],
-  );
-  function channel(status: ChannelStatus | null, selected: boolean) {
-    if (!status) return <span>{selected ? l.unavailable : l.notSelected}</span>;
-    return (
-      <div className={styles.channel}>
-        <StatusChip value={status.status} />
-        {status.sentAt ? (
-          <small>
-            {l.sentAt.replace("{date}", formatDateTime(status.sentAt))}
-          </small>
-        ) : (
-          status.lastAttemptAt && (
-            <small>
-              {l.lastAttempt.replace(
-                "{date}",
-                formatDateTime(status.lastAttemptAt),
-              )}
-            </small>
-          )
-        )}
-        {status.retryCount > 0 && (
-          <small>{l.attempts.replace("{n}", String(status.retryCount))}</small>
-        )}
-      </div>
-    );
-  }
   return (
     <AsyncSection state={state}>
       {(notice) => (
-        <>
-          <Card title={notice.subject}>
-            <dl className={styles.facts}>
-              <div>
-                <dt>{l.sender}</dt>
-                <dd>{notice.senderName}</dd>
-              </div>
-              <div>
-                <dt>{l.recorded}</dt>
-                <dd>{formatDateTime(notice.createdAtUtc)}</dd>
-              </div>
-              <div>
-                <dt>{l.recipientCount}</dt>
-                <dd>{notice.recipientCount}</dd>
-              </div>
-              <div>
-                <dt>{l.channels}</dt>
-                <dd>
-                  {[
-                    notice.sendInApp ? l.inApp : "",
-                    notice.sendEmail ? l.email : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </dd>
-              </div>
-            </dl>
-            <p className={styles.message}>
-              {notice.message ?? l.contentUnavailable}
-            </p>
-            {notice.isLegacy && <p className="muted">{l.legacyHint}</p>}
-          </Card>
-          <Card title={t.operations.delivery}>
-            <p>{l.channelCountHint}</p>
-            <Table
-              headers={[
-                t.wireStatus.PENDING,
-                t.wireStatus.SENDING,
-                t.wireStatus.SENT,
-                t.wireStatus.FAILED,
-                t.wireStatus.READ,
-              ]}
-            >
-              <tr>
-                <td>{notice.delivery.pending}</td>
-                <td>{notice.delivery.sending}</td>
-                <td>{notice.delivery.sent}</td>
-                <td>{notice.delivery.failed}</td>
-                <td>{notice.delivery.read}</td>
-              </tr>
-            </Table>
-          </Card>
-          <Card title={l.recipients}>
-            <div className={styles.table}>
-              <ApiTable
-                caption={l.recipients}
-                state={recipients}
-                page={page}
-                pageSize={20}
-                onPageChange={setPage}
-                getRowId={(row) => row.userId}
-                mobile="scroll"
-                empty={{ title: l.noRecipients }}
-                columns={[
-                  {
-                    id: "name",
-                    header: l.name,
-                    rowHeader: true,
-                    cell: (row) => row.name,
-                  },
-                  {
-                    id: "email",
-                    header: l.email,
-                    cell: (row) => (
-                      <span className={styles.address}>{row.email}</span>
-                    ),
-                  },
-                  {
-                    id: "inApp",
-                    header: l.inApp,
-                    cell: (row) => channel(row.inApp, notice.sendInApp),
-                  },
-                  {
-                    id: "emailStatus",
-                    header: l.emailStatus,
-                    cell: (row) => channel(row.emailDelivery, notice.sendEmail),
-                  },
-                ]}
-              />
+        <Card>
+          <dl className={styles.noticeContent}>
+            <div>
+              <dt>{t.operations.subject}</dt>
+              <dd className={styles.noticeSubject}>{notice.subject}</dd>
             </div>
-          </Card>
-        </>
+            <div>
+              <dt>{t.operations.message}</dt>
+              <dd className={styles.message}>
+                {notice.message ?? l.contentUnavailable}
+              </dd>
+            </div>
+          </dl>
+          <dl className={styles.facts}>
+            <div>
+              <dt>{l.sender}</dt>
+              <dd>{notice.senderName}</dd>
+            </div>
+            <div>
+              <dt>{l.recorded}</dt>
+              <dd>{formatDateTime(notice.createdAtUtc)}</dd>
+            </div>
+            <div>
+              <dt>{l.recipientCount}</dt>
+              <dd>{notice.recipientCount}</dd>
+            </div>
+            <div>
+              <dt>{l.channels}</dt>
+              <dd className={styles.noticeChannels}>
+                {notice.sendInApp && <span>{l.inApp}</span>}
+                {notice.sendEmail && <span>{l.email}</span>}
+                {!notice.sendInApp && !notice.sendEmail && "—"}
+              </dd>
+            </div>
+          </dl>
+          {notice.isLegacy && <p className="muted">{l.legacyHint}</p>}
+          <NoticeRecipientList id={id} />
+        </Card>
       )}
     </AsyncSection>
   );

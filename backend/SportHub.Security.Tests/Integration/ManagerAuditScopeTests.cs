@@ -16,6 +16,37 @@ namespace SportHub.Security.Tests.Integration;
 public class ManagerAuditScopeTests(SportHubApiFactory factory)
 {
     [Fact]
+    public async Task Wallet_view_events_are_hidden_from_history_and_action_choices_without_deleting_records()
+    {
+        var actor = await factory.SeedUserAsync($"wallet-audit-{Guid.NewGuid():N}@example.com", null,
+            role: UserRole.CenterManager);
+        var targetId = Guid.NewGuid().ToString();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+            db.AuditLogs.Add(new AuditLog
+            {
+                AuditId = Guid.NewGuid(), UserId = actor.UserId, ActorRole = "CENTER_MANAGER",
+                Action = "VIEW_MEMBER_WALLET", TargetEntity = "PointWallet", TargetId = targetId,
+                Timestamp = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+        }
+        using var client = factory.CreateApiClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            factory.IssueToken(actor.UserId, UserRole.CenterManager));
+        var history = (await client.GetFromJsonAsync<PagedResult<AuditLogResponse>>(
+            $"api/audit-logs?targetId={targetId}"))!;
+        Assert.Empty(history.Items);
+        Assert.Equal(0, history.TotalCount);
+        var actions = (await client.GetFromJsonAsync<List<string>>("api/audit-logs/actions"))!;
+        Assert.DoesNotContain("VIEW_MEMBER_WALLET", actions);
+        using var verifyScope = factory.Services.CreateScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+        Assert.True(await verifyDb.AuditLogs.AnyAsync(a => a.TargetId == targetId && a.Action == "VIEW_MEMBER_WALLET"));
+    }
+
+    [Fact]
     public async Task Admin_action_choices_include_unrecorded_account_actions()
     {
         var isolated = new SportHubApiFactory();

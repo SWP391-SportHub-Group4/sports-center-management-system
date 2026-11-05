@@ -59,6 +59,24 @@
 .headerControls {
   justify-content: flex-end;
 }
+.status {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+}
+/* Same-height cells so the status chip and the action buttons share one centre line. */
+.headerControls {
+  align-items: stretch;
+}
+.headerControls > .status,
+.headerControls > .actions {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+}
+.status > :global(.chip) {
+  margin: 0;
+}
 .actions :global(.btn) {
   margin: 0;
 }

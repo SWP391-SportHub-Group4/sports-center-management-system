@@ -80,6 +80,7 @@ export function CatalogFilters({
   const { t } = useLanguage();
   return (
     <FilterBar
+      inline
       fields={[
         { id: "q", label: t.common.search, kind: "search" },
         {

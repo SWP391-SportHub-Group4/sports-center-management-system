@@ -95,16 +95,16 @@ async function setup(page: Page) {
   return writes;
 }
 
-async function saveSport(page: Page, name: string, code: string) {
+async function saveSport(page: Page, name: string) {
   const dialog = page.getByRole("dialog", {
     name: "Create sport",
     exact: true,
   });
-  await dialog.getByLabel("Code", { exact: true }).fill(code);
+  await expect(dialog.getByLabel("Code", { exact: true })).toHaveCount(0);
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
-  await dialog.getByLabel("Code", { exact: true }).fill(`${code}_new`);
+  await dialog.getByLabel("Name", { exact: true }).fill(`${name} new`);
   await dialog.getByRole("button", { name: "Save", exact: true }).click();
   await expect(dialog).toHaveCount(0);
 }
@@ -133,7 +133,7 @@ test("class creates a sport inline and selects an existing shared room", async (
   await page.getByLabel("Code", { exact: true }).fill("CLASS-NEW");
   await page.getByLabel("Name", { exact: true }).fill("Class draft");
   await page.getByRole("button", { name: "Create sport", exact: true }).click();
-  await saveSport(page, "Tennis", "tennis");
+  await saveSport(page, "Tennis");
   await expect(page.getByLabel("Sport", { exact: true })).toHaveValue("2");
   await page
     .getByLabel("Session duration (minutes)", { exact: true })

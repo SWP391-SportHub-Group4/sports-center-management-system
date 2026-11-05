@@ -186,15 +186,6 @@
   }
 }
 
-.emailIdentity {
-  display: grid;
-  gap: var(--space-1);
-  overflow-wrap: anywhere;
-}
-.emailIdentity > span {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
 .formFeedback {
   grid-column: 1 / -1;
 }
