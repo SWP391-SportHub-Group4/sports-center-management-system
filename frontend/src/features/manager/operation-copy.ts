@@ -21,7 +21,7 @@ const copy = {
       "Each step is independent. A later failure does not undo earlier confirmed steps.",
     emptyImpacts:
       "No affected activities were returned for this preview. Recheck before confirming the final operation.",
-    impactCount: "Affected activities",
+    impactCount: "Affected class",
     detailsUnavailable:
       "Display details are unavailable; the source ID and preview times remain below.",
     finalStep: "Final incident operation",
@@ -131,7 +131,7 @@ const copy = {
       "Mỗi bước là thao tác riêng. Bước sau lỗi không hoàn tác bước đã được xác nhận.",
     emptyImpacts:
       "Preview không trả về hoạt động bị ảnh hưởng. Kiểm tra lại trước khi xác nhận thao tác cuối.",
-    impactCount: "Hoạt động bị ảnh hưởng",
+    impactCount: "Lớp bị ảnh hưởng",
     detailsUnavailable:
       "Chưa tải được tên hiển thị; mã nguồn và thời gian từ preview vẫn được giữ bên dưới.",
     finalStep: "Thao tác xử lý sự cố cuối",

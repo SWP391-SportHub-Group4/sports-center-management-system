@@ -4191,6 +4191,14 @@ namespace SportHub.API.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("day_pass_members_json");
 
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at_utc");
+
+                    b.Property<Guid?>("CancelledByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelled_by_user_id");
+
                     b.Property<DateTime?>("DayPassNoticeSentAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("day_pass_notice_sent_at_utc");

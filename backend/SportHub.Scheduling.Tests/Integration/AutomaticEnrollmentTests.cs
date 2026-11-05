@@ -1,5 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Reflection;
+using SportHub.API.Jobs;
 using SportHub.API.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.Abstractions.Wallet;
@@ -75,16 +78,22 @@ public sealed class AutomaticEnrollmentTests(SchedulingApiFactory factory)
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Withdrawal_reopens_a_full_class_only_before_it_starts(bool started)
+    public async Task Withdrawal_reopens_a_full_class_even_after_it_starts(bool started)
     {
         var c = await CourseTestData.CreateAsync(factory, capacity: 1);
         var member = await BuyAsync(c.Id);
         var item = await factory.QueryAsync(db => db.Enrollments.Where(e => e.ClassId == c.Id && e.MemberId == member)
             .Select(e => e.InvoiceItemId).SingleAsync());
         if (started)
+        {
+            await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
+                .ExecuteUpdateAsync(x => x.SetProperty(c => c.Status, ClassStatus.InProgress)));
+            var first = (await CourseTestData.SessionsAsync(factory, c.Id))[0];
             await factory.QueryAsync(db => db.ClassSessions.Where(s => s.ClassId == c.Id)
+                .Where(s => s.SessionId == first.SessionId)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.StartAtUtc, DateTime.UtcNow.AddHours(-2))
                     .SetProperty(x => x.EndAtUtc, DateTime.UtcNow.AddHours(-1))));
+        }
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -95,14 +104,38 @@ public sealed class AutomaticEnrollmentTests(SchedulingApiFactory factory)
         var row = await factory.QueryAsync(db => db.Classes.AsNoTracking().SingleAsync(x => x.ClassId == c.Id));
         Assert.Equal(0, row.ConfirmedCount);
         Assert.Equal(0, row.ReservedCount);
-        Assert.Equal(!started, row.EnrollmentOpen);
-        if (!started)
+        Assert.True(row.EnrollmentOpen);
+        Assert.Null(row.EnrollmentClosedReason);
+        Assert.Null(row.EnrollmentClosedAtUtc);
+        await BuyAsync(c.Id);
+        Assert.False(await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id).Select(x => x.EnrollmentOpen).SingleAsync()));
+    }
+
+    [Fact]
+    public async Task First_session_start_keeps_enrollment_open_and_allows_purchase_until_full()
+    {
+        var c = await CourseTestData.CreateAsync(factory, capacity: 1);
+        var first = (await CourseTestData.SessionsAsync(factory, c.Id))[0];
+        await factory.QueryAsync(db => db.ClassSessions.Where(s => s.SessionId == first.SessionId)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.StartAtUtc, DateTime.UtcNow.AddMinutes(-10))
+                .SetProperty(x => x.EndAtUtc, DateTime.UtcNow.AddMinutes(80))));
+
+        using (var scope = factory.Services.CreateScope())
         {
-            Assert.Null(row.EnrollmentClosedReason);
-            Assert.Null(row.EnrollmentClosedAtUtc);
-            await BuyAsync(c.Id);
-            Assert.False(await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id).Select(x => x.EnrollmentOpen).SingleAsync()));
+            var job = new ClassStatusJob(factory.Services, NullLogger<ClassStatusJob>.Instance);
+            await (Task)typeof(ClassStatusJob).GetMethod("RunOnceAsync", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(job, [scope.ServiceProvider, CancellationToken.None])!;
+            var classes = scope.ServiceProvider.GetRequiredService<IClassService>();
+            var manager = await classes.GetManagerAsync(c.Id);
+            Assert.Equal("InProgress", manager.Status);
+            Assert.True(manager.EnrollmentOpen);
+            Assert.True((await classes.GetPublicAsync(c.Id)).EnrollmentOpen);
         }
+
+        await BuyAsync(c.Id);
+        var row = await factory.QueryAsync(db => db.Classes.AsNoTracking().SingleAsync(x => x.ClassId == c.Id));
+        Assert.False(row.EnrollmentOpen);
+        Assert.Equal("Class is full.", row.EnrollmentClosedReason);
     }
 
     [Fact]

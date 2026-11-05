@@ -47,6 +47,7 @@ export function CenterCancellationOffers() {
 
   return (
     <section
+      id="center-cancellation-refunds"
       className={styles.panel}
       aria-label="Refunds for cancellations by the center"
     >

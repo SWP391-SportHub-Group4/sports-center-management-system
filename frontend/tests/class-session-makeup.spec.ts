@@ -261,7 +261,7 @@ test("incident schedule selections stay pending until the affected-activities Co
       return route.fulfill({
         json: [
           { userId: "coach-a", fullName: "Alex Nguyen" },
-          { userId: "coach-b", fullName: "Linh Tran" },
+          { userId: "coach-b", fullName: "Linh Trần" },
         ],
       });
     if (path === "/api/manager/court-schedule") {
@@ -404,11 +404,29 @@ test("incident schedule selections stay pending until the affected-activities Co
     calendar.getByText("Original session excluded", { exact: true }),
   ).toHaveCount(0);
   await dialog
-    .getByLabel(en.operations.room, { exact: true })
-    .selectOption("2");
+    .getByRole("combobox", { name: en.operations.room, exact: true })
+    .fill("court b");
+  await expect(
+    dialog.getByRole("option", { name: "Court B", exact: true }),
+  ).toBeVisible();
   await dialog
-    .getByLabel(en.operations.coach, { exact: true })
-    .selectOption("coach-b");
+    .getByRole("combobox", { name: en.operations.room, exact: true })
+    .press("Enter");
+  await expect(
+    dialog.getByRole("combobox", { name: en.operations.room, exact: true }),
+  ).toHaveValue("Court B");
+  await dialog
+    .getByRole("combobox", { name: en.operations.coach, exact: true })
+    .fill("linh tran");
+  await expect(
+    dialog.getByRole("option", { name: "Linh Trần", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("combobox", { name: en.operations.coach, exact: true })
+    .press("Enter");
+  await expect(
+    dialog.getByRole("combobox", { name: en.operations.coach, exact: true }),
+  ).toHaveValue("Linh Trần");
   await expect(
     calendar.getByText("Other resources activity", { exact: true }),
   ).toBeVisible();
@@ -434,11 +452,29 @@ test("incident schedule selections stay pending until the affected-activities Co
     .getByRole("button", { name: en.mSchedule.currentWeek, exact: true })
     .click();
   await dialog
-    .getByLabel(en.operations.room, { exact: true })
-    .selectOption("1");
+    .getByRole("combobox", { name: en.operations.room, exact: true })
+    .fill("court a");
+  await expect(
+    dialog.getByRole("option", { name: "Court A", exact: true }),
+  ).toBeVisible();
   await dialog
-    .getByLabel(en.operations.coach, { exact: true })
-    .selectOption("coach-a");
+    .getByRole("combobox", { name: en.operations.room, exact: true })
+    .press("Enter");
+  await expect(
+    dialog.getByRole("combobox", { name: en.operations.room, exact: true }),
+  ).toHaveValue("Court A");
+  await dialog
+    .getByRole("combobox", { name: en.operations.coach, exact: true })
+    .fill("alex");
+  await expect(
+    dialog.getByRole("option", { name: "Alex Nguyen", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("combobox", { name: en.operations.coach, exact: true })
+    .press("Enter");
+  await expect(
+    dialog.getByRole("combobox", { name: en.operations.coach, exact: true }),
+  ).toHaveValue("Alex Nguyen");
   await expect(
     dialog.getByText(en.classSessions.incidentMakeupTitle, { exact: true }),
   ).toHaveCount(0);

@@ -217,11 +217,17 @@ export function IncidentSessionEditor({
                 onChange={(e) => setStart(e.target.value)}
               />
             </Field>
-            <RoomSelector sportId={sportId} value={room} onChange={setRoom} />
+            <RoomSelector
+              sportId={sportId}
+              value={room}
+              onChange={setRoom}
+              searchable
+            />
             <CoachSelector
               sportId={sportId}
               value={coach}
               onChange={setCoach}
+              searchable
             />
           </>
         )}

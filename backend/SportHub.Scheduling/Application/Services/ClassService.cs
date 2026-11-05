@@ -676,7 +676,7 @@ public sealed class ClassService(
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.Price,
             r.Class.Status.ToString(),
-            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > now && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
+            r.Class.EnrollmentOpen && r.Class.Status is (ClassStatus.Published or ClassStatus.InProgress) && r.Class.ConfirmedCount < r.Class.Capacity && !(r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now),
             r.Class.ThresholdStatus == ThresholdStatus.AtRisk
                 && r.Class.ThresholdResponseDeadlineUtc <= now,
@@ -719,7 +719,7 @@ public sealed class ClassService(
             r.ActiveHolds,
             Math.Max(0, r.Class.Capacity - r.Class.ReservedCount),
             r.Class.CreatedByAi,
-            r.Class.EnrollmentOpen && r.Class.Status == ClassStatus.Published && r.Class.ConfirmedCount < r.Class.Capacity && r.FirstStart > clock.UtcNow,
+            r.Class.EnrollmentOpen && r.Class.Status is (ClassStatus.Published or ClassStatus.InProgress) && r.Class.ConfirmedCount < r.Class.Capacity,
             r.Class.EnrollmentClosedReason,
             r.Class.EnrollmentClosedAtUtc,
             r.Class.Version,

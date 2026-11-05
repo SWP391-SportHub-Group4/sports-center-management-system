@@ -51,6 +51,7 @@ export function notificationActionHref(
   item: NotificationDto,
   role?: string,
 ): string | null {
+  if (item.sourceEventType === "INCIDENT_CANCELLED") return null;
   const roots: Record<string, string> = {
     Member: "/member/",
     Coach: "/coach/",
@@ -160,6 +161,10 @@ export function notificationPresentation(item: NotificationDto): {
   } else if (/PACKAGE/.test(source)) {
     label = "Membership";
     title = "Your membership update";
+  } else if (source === "INCIDENT_CANCELLED") {
+    label = "Center update";
+    title = item.message.split("\n")[0];
+    return { category, label, title };
   } else if (/INCIDENT/.test(source)) {
     label = "Center update";
     title = "An update about a center disruption";
@@ -197,6 +202,8 @@ export function notificationActionLabel(
 ) {
   const vi = language === "vi";
   switch (item.sourceEventType) {
+    case "INCIDENT_CREATED":
+      return vi ? "Chọn phương thức hoàn" : "Choose refund method";
     case "SUPPORT_SLA_REMINDER":
       return item.actionUrl?.includes("request=")
         ? "Review overdue request"

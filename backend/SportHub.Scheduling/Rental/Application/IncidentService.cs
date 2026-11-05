@@ -110,7 +110,8 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
            from room in rooms.DefaultIfEmpty()
            select new IncidentDetailsResponse(incident.IncidentId, incident.Scope.ToString(), incident.RoomId,
                room == null ? null : room.Name, incident.StartAtUtc, incident.EndAtUtc,
-               incident.Reason, incident.ResolutionSummary, incident.CreatedAtUtc, null);
+               incident.Reason, incident.ResolutionSummary, incident.CreatedAtUtc, null)
+               { CancelledAtUtc = incident.CancelledAtUtc };
 
     public async Task<NotificationDelivery> DeliveryAsync(Guid incidentId, CancellationToken ct = default)
     {
@@ -123,9 +124,10 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         ids.AddRange((System.Text.Json.JsonSerializer.Deserialize<List<IncidentRefundReceipt>>(receiptJson) ?? []).Select(r => r.NotificationSourceId));
         var resolution = await delivery.GetManyAsync(NotificationEvents.IncidentResolution, ids, ct);
         var announcement = await delivery.GetAsync(NotificationEvents.IncidentCreated, incidentId, ct);
-        return new(resolution.Total + announcement.Total, resolution.Pending + announcement.Pending,
-            resolution.Sending + announcement.Sending, resolution.Sent + announcement.Sent,
-            resolution.Failed + announcement.Failed, resolution.Read + announcement.Read);
+        var reopening = await delivery.GetAsync(NotificationEvents.IncidentCancelled, incidentId, ct);
+        return new(resolution.Total + announcement.Total + reopening.Total, resolution.Pending + announcement.Pending + reopening.Pending,
+            resolution.Sending + announcement.Sending + reopening.Sending, resolution.Sent + announcement.Sent + reopening.Sent,
+            resolution.Failed + announcement.Failed + reopening.Failed, resolution.Read + announcement.Read + reopening.Read);
     }
 
     /// <summary>Review is read-only. No incident or temporary hold exists until confirmation.</summary>
@@ -394,7 +396,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
     {
         var now = clock.UtcNow;
         var noticeOverlap = await db.Set<IncidentNotice>().AsNoTracking().AnyAsync(i =>
-            i.StartAtUtc < shape.EndUtc && i.EndAtUtc > shape.StartUtc
+            i.CancelledAtUtc == null && i.StartAtUtc < shape.EndUtc && i.EndAtUtc > shape.StartUtc
             && (shape.Scope == IncidentScope.Center || i.Scope == IncidentScope.Center || i.RoomId == shape.RoomId), ct);
         var fenceOverlap = includeFences && await db.Set<IncidentFence>().AsNoTracking().AnyAsync(f =>
             f.Status == IncidentFenceStatus.Open && f.ExpiresAtUtc > now
@@ -694,6 +696,7 @@ public sealed record IncidentDetailsResponse(Guid IncidentId,
     DateTime StartAtUtc, DateTime EndAtUtc, string Reason, string ResolutionSummary, DateTime CreatedAtUtc,
     IReadOnlyList<IncidentSessionHistory>? SessionReports = null, IReadOnlyList<IncidentRefundReceipt>? Refunds = null)
 {
+    public DateTime? CancelledAtUtc { get; init; }
     public string? RecordedByName { get; init; }
     public IReadOnlyDictionary<Guid, string> DayPassMemberEmails { get; init; } = new Dictionary<Guid, string>();
     public bool ClosesGym { get; init; }

@@ -16,6 +16,11 @@
 .members {
   min-width: 0;
 }
+ul.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
 .members :global(.table-wrap) {
   max-height: min(15rem, 40dvh);
   overflow-y: auto;

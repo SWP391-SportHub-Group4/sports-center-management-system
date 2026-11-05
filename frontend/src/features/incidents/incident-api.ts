@@ -51,6 +51,7 @@ export interface IncidentDelivery {
 }
 
 export interface IncidentDetails {
+  cancelledAtUtc?: string | null;
   recordedByName?: string | null;
   dayPassMemberEmails?: Record<string, string>;
   activities?: {
@@ -177,6 +178,7 @@ export const incidentApi = {
     }),
   get: (id: string, signal?: AbortSignal) =>
     api.get<IncidentDetails>(`/api/manager/incidents/${id}`, { signal }),
+  cancel: (id: string) => api.post(`/api/manager/incidents/${id}/cancel`),
   preview: (request: IncidentRequest, signal?: AbortSignal) =>
     api.post<IncidentPreviewDto>("/api/manager/incidents/preview", request, {
       signal,
