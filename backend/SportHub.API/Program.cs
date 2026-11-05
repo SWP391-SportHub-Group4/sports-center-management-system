@@ -60,6 +60,7 @@ using System.Threading.RateLimiting;
 LoadRootEnvIfPresent();
 
 var builder = WebApplication.CreateBuilder(args);
+var sharedDatabaseEnabled = builder.Configuration.GetValue<bool>("SharedDatabase:Enabled");
 
 var bootstrapInitialAdmin = args.Contains("--bootstrap-initial-admin", StringComparer.Ordinal);
 if (bootstrapInitialAdmin && args.Length != 1)
@@ -232,7 +233,8 @@ builder.Services.AddScoped<CoachCredentialService>();
 builder.Services.AddSingleton<CoachCredentialPdfCache>();
 builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(120));
-builder.Services.AddHostedService<CoachCredentialCleanupJob>();
+if (!sharedDatabaseEnabled)
+    builder.Services.AddHostedService<CoachCredentialCleanupJob>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
@@ -446,27 +448,30 @@ builder.Services.AddHttpClient(
 
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-34 (phát thông báo).
 builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();
-builder.Services.AddHostedService<MemberPackageExpiryJob>();
 builder.Services.AddScoped<MemberCourseNotificationService>();
-builder.Services.AddHostedService<MemberCourseNotificationsJob>();
-builder.Services.AddHostedService<CoachAttendanceReminderJob>();
-builder.Services.AddHostedService<StaffInvitationExpiryJob>();
-builder.Services.AddHostedService<MemberInvitationExpiryJob>();
-builder.Services.AddHostedService<ClassStatusJob>();
-builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
-builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
-builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
-builder.Services.AddHostedService<RentalStatusJob>();
-builder.Services.AddHostedService<SeatHoldExpiryJob>();
-builder.Services.AddHostedService<CheckoutExpiryJob>();
-builder.Services.AddHostedService<DayPassClosingJob>();
-builder.Services.AddHostedService<PaymentReconciliationJob>();
-builder.Services.AddHostedService<SupportSlaReminderJob>();
 builder.Services.AddScoped<SupportPayoutMaintenance>();
-builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
-builder.Services.AddHostedService<PointHoldExpiryJob>();
-builder.Services.AddHostedService<NotificationDispatchJob>();
-builder.Services.AddHostedService<AvatarDeletionJob>();
+if (!sharedDatabaseEnabled)
+{
+    builder.Services.AddHostedService<MemberPackageExpiryJob>();
+    builder.Services.AddHostedService<MemberCourseNotificationsJob>();
+    builder.Services.AddHostedService<CoachAttendanceReminderJob>();
+    builder.Services.AddHostedService<StaffInvitationExpiryJob>();
+    builder.Services.AddHostedService<MemberInvitationExpiryJob>();
+    builder.Services.AddHostedService<ClassStatusJob>();
+    builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
+    builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
+    builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
+    builder.Services.AddHostedService<RentalStatusJob>();
+    builder.Services.AddHostedService<SeatHoldExpiryJob>();
+    builder.Services.AddHostedService<CheckoutExpiryJob>();
+    builder.Services.AddHostedService<DayPassClosingJob>();
+    builder.Services.AddHostedService<PaymentReconciliationJob>();
+    builder.Services.AddHostedService<SupportSlaReminderJob>();
+    builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
+    builder.Services.AddHostedService<PointHoldExpiryJob>();
+    builder.Services.AddHostedService<NotificationDispatchJob>();
+    builder.Services.AddHostedService<AvatarDeletionJob>();
+}
 
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
@@ -567,8 +572,8 @@ if (seedCommands.Length > 0)
     return;
 }
 
-// Development migrates the schema. Keep the local demo catalog stable after replacing BR-141 fixtures.
-if (app.Environment.IsDevelopment())
+// A shared deployment database is managed separately; local startup must not change its schema or seed demo data.
+if (app.Environment.IsDevelopment() && !sharedDatabaseEnabled)
 {
     await using var startupScope = app.Services.CreateAsyncScope();
     var startupDb = startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>();
