@@ -97,16 +97,12 @@ internal static class MemberIntentOrchestrator
             db, clock, authenticatedUserId, question, ct);
         if (verifiedV28 is not null) return verifiedV28;
 
-        // MEMBER_GEMINI_DATAHUB_V26
-        // Gemini planner -> authenticated evidence -> Gemini answer. Legacy early handlers bypassed for Member.
-        var v26 = await MemberGeminiDataHubV26.TryAnswerAsync(
-            db, clock, authenticatedUserId, question, provider, prompts, logger, ct);
-        if (v26 is not null) return v26;
-
         // MEMBER_SPORTS_V24: verified active sports and mapped rental services.
         var sportsV24 = await MemberSportsCatalogV24.TryAnswerAsync(
             db, clock, authenticatedUserId, question, ct);
         if (sportsV24 is not null) return sportsV24;
+        // Keep exact, verified Member answers ahead of Gemini. In particular,
+        // center sport counts must never depend on a two-call model pipeline.
         // MEMBER_SERVICE_TRUTH_V23: catalog/class navigation before generic membership/overview shortcuts.
         var memberCatalogV23 = await MemberServiceCatalogV23.TryAnswerAsync(
             db, clock, authenticatedUserId, question, provider, prompts, ct);
@@ -131,6 +127,12 @@ internal static class MemberIntentOrchestrator
         if (ownClass != null) return ownClass;
         var detail = await MemberDetailKnowledge.TryAnswerAsync(db, clock, authenticatedUserId, question, ct);
         if (detail != null) return detail;
+        // Unknown and analytical questions use the scoped Gemini DataHub only after
+        // verified UI/account answers had a chance to respond without provider latency.
+        var v26 = await MemberGeminiDataHubV26.TryAnswerAsync(
+            db, clock, authenticatedUserId, question, provider, prompts, logger, ct);
+        if (v26 is not null) return v26;
+
         var domain = Route(question);
         if (!domain.HasValue) return null;
         // Role is determined exclusively from server-side authenticated identity.

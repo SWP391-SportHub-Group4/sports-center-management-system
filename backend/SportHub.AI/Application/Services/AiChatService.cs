@@ -74,6 +74,28 @@ public sealed class AiChatService(
                 u.Role.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, cancellationToken);
         if (coachIntentV10)
         {
+            // Block peer-Coach questions before any DB evidence or Gemini prompt is prepared.
+            // Do not disclose staff identities, schedules, profiles or contacts via AI.
+            var peerRefusal = CoachPeerPrivacyV29.TryRefuse(question);
+            if (peerRefusal is not null)
+            {
+                var peerLogId = Guid.NewGuid();
+                var peerInteractionId = Guid.NewGuid().ToString("N");
+                var peerNow = clock.UtcNow;
+                db.Set<AiLog>().Add(new AiLog
+                {
+                    LogId = peerLogId, UserId = userId, QueryType = AiQueryTypes.Chat,
+                    CreatedAt = peerNow, ResponseTimeMs = 0,
+                    // A third-party name from the refused question is never persisted here.
+                    InputPayload = JsonSerializer.Serialize(new { intent = "COACH_PEER_PRIVACY_DENIED", version = "coach-privacy-v29" }),
+                    ResponsePayload = JsonSerializer.Serialize(new { interactionId = peerInteractionId,
+                        answer = "[REDACTED]", provider = "SportHub Coach Privacy", model = "local", success = true })
+                });
+                await db.SaveChangesAsync(cancellationToken);
+                return new AiChatResponse(peerLogId, peerInteractionId, question, peerRefusal,
+                    "SportHub Coach Privacy", "local", "coach-privacy-v29", 0, peerNow);
+            }
+
             var coachAnalysisTimerV10 = System.Diagnostics.Stopwatch.StartNew();
             var coachAnalysisV10 = await CoachIntentOrchestrator.TryAnswerAsync(
                 db, userId, question, clock.UtcNow, coachProvider, promptReader, cancellationToken);

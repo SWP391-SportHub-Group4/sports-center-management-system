@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Save, Send, Sparkles, X } from "lucide-react";
 import { Feedback } from "@/components/ui";
 import { useAction, useApi, useNow } from "@/lib/useApi";
+import { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { sortTeachingSessions } from "@/lib/teaching-order";
 import type { CourseSessionDto } from "@/lib/types";
@@ -52,6 +53,7 @@ export function TeachingEditor({
   const vi = language === "vi";
   const action = useAction();
   const ai = useAction();
+  const [planIssue, setPlanIssue] = useState<string | null>(null);
   const now = useNow();
   const lock = useRef(false);
   const [id] = useState(() => existing?.recordId ?? crypto.randomUUID());
@@ -393,6 +395,7 @@ export function TeachingEditor({
                   !session || !homeworkSession || /completed|cancelled/i.test(homeworkSession.status) ||
                   Date.parse(homeworkSession.startAtUtc) <= now)}
                 onClick={async () => {
+                  setPlanIssue(null);
                   const data = await ai.run(() =>
                     teachingApi.suggest(
                       classId,
@@ -402,7 +405,19 @@ export function TeachingEditor({
                       language,
                       scope === "personal" ? "personal" : "session",
                       scope === "personal" ? null : (session || null),
-                    ),
+                    ).catch((cause: unknown) => {
+                      if (cause instanceof ApiError) {
+                        if (cause.code === "ai_provider_rate_limited")
+                          setPlanIssue("I can't generate this lesson plan now because the AI provider is rate limited. Please try again later.");
+                        else if (cause.code === "ai_provider_auth_failed" || cause.code === "ai_model_unavailable")
+                          setPlanIssue("I can't generate a plan because the AI service configuration is unavailable. Please contact support.");
+                        else if (cause.status === 504)
+                          setPlanIssue("I couldn't finish generating and validating the plan before the AI service timeout. No plan was saved. Please retry later.");
+                        else if (cause.status === 502 || cause.status === 503)
+                          setPlanIssue("I can't generate a verified lesson plan because the AI service failed. No plan was saved. Please retry later.");
+                      }
+                      throw cause;
+                    }),
                   );
                   if (data) setSuggestion(formatPlanContent(data.content));
                 }}
@@ -419,7 +434,7 @@ export function TeachingEditor({
                 Date.parse(homeworkSession.startAtUtc) <= now) && (
                 <small>AI session suggestions are available only before a scheduled session begins. You can still edit this saved plan manually.</small>
               )}
-              <Feedback error={ai.error} />
+              <Feedback error={planIssue ?? ai.error} />
               {existing && <small>AI generates a new draft. Your saved plan stays unchanged until you apply the suggestion and save your edits.</small>}
               {suggestion && (
                 <div className={styles.suggestion}>

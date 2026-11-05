@@ -87,11 +87,34 @@ public class PythonAiChatProvider(
 
         if (!response.IsSuccessStatusCode)
         {
-            // Do not echo arbitrary provider payload into API responses; it may contain secrets.
-            throw new AppException(
-                StatusCodes.Status502BadGateway,
-                "ai_service_error",
-                $"AI service {ChatEndpoint} returned HTTP {(int)response.StatusCode}.");
+            // Only allowlisted, server-owned provider error codes may cross the API boundary.
+            // Never pass the raw upstream response body or exception message to clients.
+            var status = (int)response.StatusCode;
+            string? upstreamCode = null;
+            try
+            {
+                using var details = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(cancellationToken),
+                    cancellationToken: cancellationToken);
+                if (details.RootElement.TryGetProperty("detail", out var detail) &&
+                    detail.ValueKind == JsonValueKind.Object &&
+                    detail.TryGetProperty("code", out var codeElement) &&
+                    codeElement.ValueKind == JsonValueKind.String)
+                    upstreamCode = codeElement.GetString();
+            }
+            catch (JsonException) { /* The server might return plain text on an infrastructure failure. */ }
+
+            var (httpStatus, errorCode, message) = (status, upstreamCode) switch
+            {
+                (429, _) => (503, "ai_provider_rate_limited", "The AI provider is rate limited. Please try again later."),
+                (_, "ai_provider_auth_failed") => (503, "ai_provider_auth_failed", "AI provider credentials are unavailable. Contact support."),
+                (_, "ai_model_unavailable") => (503, "ai_model_unavailable", "The configured AI model is unavailable. Contact support."),
+                (504, _) or (_, "ai_provider_timeout") => (504, "ai_provider_timeout", "The AI provider did not respond in time."),
+                (503, _) => (503, "ai_provider_unavailable", "The AI provider is temporarily unavailable."),
+                (_, "ai_provider_empty_answer") => (502, "ai_provider_empty_answer", "The AI provider returned no usable answer."),
+                _ => (502, "ai_service_error", "The AI service could not complete this request.")
+            };
+            throw new AppException(httpStatus, errorCode, message);
         }
 
         var result =

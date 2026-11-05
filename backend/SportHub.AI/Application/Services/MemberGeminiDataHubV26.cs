@@ -83,13 +83,15 @@ internal static class MemberGeminiDataHubV26
             if (topics.Count == 0) throw new JsonException("No allowed topics.");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (AppException ex)
+        catch (AppException ex) when (ex.StatusCode is
+            StatusCodes.Status502BadGateway or StatusCodes.Status503ServiceUnavailable or StatusCodes.Status504GatewayTimeout)
         {
-            // An unreachable upstream service will not recover through an immediate second call.
-            // Preserve the original HTTP/error code; local verified Member answers have already run.
-            logger.LogError(ex, "Member AI planner upstream failure: {Code}", ex.ErrorCode);
-            throw;
+            // The planner is an optional optimization. A backend-owned allowlist can
+            // still select evidence safely, without a second identity or SQL surface.
+            logger.LogWarning("Member planner unavailable ({Code}); using deterministic authorized topics.", ex.ErrorCode);
+            topics = MemberTopicFallbackV28.Select(question).ToList();
         }
+        catch (AppException) { throw; }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Member AI planner returned invalid or unusable output; applying deterministic allowed-topic fallback.");
