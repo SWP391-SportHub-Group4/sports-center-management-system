@@ -17,7 +17,15 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
         public string Prompt { get; private set; } = "";
         public string? Previous { get; private set; }
         public Task<AiProviderResponse> AskAsync(string systemPrompt, string context, string question, string? previousInteractionId = null, CancellationToken cancellationToken = default)
-        { Prompt = systemPrompt; Previous = previousInteractionId; return Task.FromResult(new AiProviderResponse(Guid.NewGuid().ToString(), "Test reply", "Test", "Test")); }
+        {
+            // The Member DataHub first asks the provider to select evidence topics.
+            // Give it a valid plan so this test reaches the actual answer request.
+            if (systemPrompt.Contains("SportHub MEMBER read-only evidence planner", StringComparison.Ordinal))
+                return Task.FromResult(new AiProviderResponse(Guid.NewGuid().ToString(), "{\"topics\":[\"overview\"],\"reason\":\"Integration test\"}", "Test", "Test"));
+            Prompt = systemPrompt;
+            Previous = previousInteractionId;
+            return Task.FromResult(new AiProviderResponse(Guid.NewGuid().ToString(), "Test reply", "Test", "Test"));
+        }
     }
     private sealed class Context(string role) : IAiContextBuilder
     {
@@ -42,7 +50,9 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
         {
             using var scope = factory.Services.CreateScope();
             var chat = ActivatorUtilities.CreateInstance<AiChatService>(scope.ServiceProvider, spy, new Context(role));
-            return await chat.AskAsync(id, "What can you help me with?", previous);
+            // The help/navigation question may be answered entirely by a verified local handler.
+            // Use a safe, open-ended sport question that reaches the published provider prompt.
+            return await chat.AskAsync(id, "Explain why repetition and rest matter for motor learning.", previous);
         }
         var draftText = "Published integration marker " + Guid.NewGuid();
         try
