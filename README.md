@@ -1,15 +1,17 @@
 # SportHub — Hệ thống quản lý trung tâm thể thao đa môn
 
-**Đồ án SWP391** · Gym, cầu lông và bóng rổ · Giao diện tiếng Việt và tiếng Anh
+**Đồ án SWP391** · Gym, cầu lông và bóng rổ · Giao diện tiếng Anh
 
 [![CI Develop](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white) ![Next.js 16](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&logoColor=white) ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
 SportHub kết nối những công việc thường bị tách rời ở một trung tâm thể thao: khách đăng ký dịch vụ, lễ tân bán hàng và check-in, huấn luyện viên theo dõi lớp, quản lý điều hành và quản trị viên kiểm soát tài khoản. Tùy dịch vụ, hóa đơn có thể thanh toán bằng ví điểm, VNPay hoặc kết hợp cả hai; lịch sân và lớp được kiểm soát để tránh đặt trùng hay vượt sức chứa.
 
-**Xem nhanh:** [Màn hình](#màn-hình) · [Luồng nghiệp vụ](#luồng-nghiệp-vụ-nổi-bật) · [Kiến trúc](#kiến-trúc-hệ-thống) · [Chạy local](#chạy-local) · [Tài liệu](#tài-liệu)
+**Trải nghiệm web:** [SportHub](https://sports-center-management-system-tawny.vercel.app/)
 
-![Trang chủ SportHub](docs/screenshots/home.webp)
+**Xem nhanh:** [Màn hình](#màn-hình) · [6 flow chính](#6-flow-chính) · [Các flow khác](#các-flow-khác) · [Kiến trúc](#kiến-trúc-hệ-thống) · [Chạy local](#chạy-local) · [Tài liệu](#tài-liệu)
+
+![Trang chủ SportHub với không gian thể thao và ba môn Gym, cầu lông, bóng rổ](docs/screenshots/home-cover.png)
 
 ## SportHub làm được gì?
 
@@ -105,17 +107,30 @@ Trang chủ công khai giới thiệu các môn, sơ đồ khu tập và câu h�
 
 ### Quản trị
 
-Ảnh [`/admin/users`](http://localhost:3000/admin/users) sẽ được bổ sung.
+**Tổng quan** · [`/admin`](http://localhost:3000/admin): theo dõi lời mời kích hoạt nhân sự, tài khoản đang hoạt động hoặc bị vô hiệu hóa, hoạt động gần đây và số tài khoản theo vai trò.
+
+![Tổng quan quản trị hệ thống](docs/screenshots/admin-overview.png)
 
 > Trang theo vai trò sẽ chuyển về đăng nhập hoặc từ chối truy cập nếu tài khoản không có quyền tương ứng.
 
-## Luồng nghiệp vụ nổi bật
+## 6 flow chính
 
-1. **Từ dịch vụ đến lịch tập:** hội viên chọn gói Gym, lớp hoặc sân; hệ thống kiểm tra điều kiện và giữ chỗ trong lúc checkout. Lịch lớp, huấn luyện viên và sân được kiểm tra trùng trước khi xác nhận.
-2. **Từ hóa đơn đến quyền sử dụng:** checkout tạo hóa đơn; ví điểm và VNPay có thể cùng thanh toán một hóa đơn. Backend xác minh kết quả cổng thanh toán trước khi cấp gói, chỗ học hoặc lượt thuê sân. Các giao dịch chưa rõ kết quả đi qua luồng đối soát.
-3. **Vận hành sau bán:** lễ tân check-in và hỗ trợ hội viên; huấn luyện viên theo dõi buổi học; quản lý xem báo cáo, cấu hình danh mục và xử lý yêu cầu phát sinh.
+| Flow | Mục đích và thao tác chính |
+| --- | --- |
+| **1. Tài khoản, phân quyền và Membership Gym** | Khách đăng ký, xác thực và đăng nhập; Admin quản lý tài khoản nhân sự và vai trò; hội viên mua/gia hạn Membership Gym hoặc vé ngày và dùng quyền lợi tại quầy. |
+| **2. Lớp học, giữ chỗ và lịch sân** | Quản lý tạo lớp, phân công Coach và xếp phòng/sân; hội viên đăng ký lớp hoặc thuê sân. Hệ thống kiểm tra sức chứa, lịch trống và giữ chỗ trong lúc checkout. |
+| **3. Hóa đơn, ví điểm, thanh toán và báo cáo** | Tạo hóa đơn, thanh toán bằng điểm, VNPay hoặc kết hợp; xác minh giao dịch trước khi cấp dịch vụ, đối soát và xử lý hoàn điểm. Quản lý theo dõi doanh thu và báo cáo. |
+| **4. Coach lập kế hoạch, điểm danh và kết quả** | Coach xem lớp được phân công, lập giáo án/kế hoạch tập, giao bài tập, điểm danh và ghi kết quả cho học viên; hội viên xem nội dung thuộc lớp mình có quyền truy cập. |
+| **5. Gợi ý bài tập AI** | Hội viên nhận gợi ý tập luyện dựa trên thông tin và lịch sử được phép sử dụng; Coach có thể nhận bản nháp gợi ý theo buổi hoặc cho học viên được phân công rồi tự xem, sửa trước khi lưu. Gợi ý AI không tự trở thành giáo án đã duyệt. |
+| **6. Trợ lý AI theo ngữ cảnh tài khoản** | Member và Coach hỏi về chức năng, lịch và dữ liệu nghiệp vụ thuộc phạm vi quyền của mình; trợ lý trả lời theo ngữ cảnh được cấp, không tự thực hiện thay đổi dữ liệu. |
 
-Quy tắc nghiệp vụ đầy đủ, bao gồm giữ chỗ, hoàn/bù điểm, phân quyền và điều kiện kích hoạt dịch vụ, nằm trong [Business Rules](docs/SportManagement_BusinessRules_v2.0_updated.docx) và [thiết kế hệ thống](docs/Center-Management-System-Design-v3.md).
+## Các flow khác
+
+- **Vận hành tại quầy:** lễ tân đăng ký hội viên, bán dịch vụ, check-in Gym, hỗ trợ đặt sân/điểm danh và xử lý thanh toán cần đối soát.
+- **Xử lý lớp và lịch phát sinh:** quản lý xử lý lớp dưới ngưỡng, Coach báo vắng, dạy thay, dời/hủy buổi và sự cố phòng/sân; các thay đổi lịch được kiểm tra lại trước khi lưu.
+- **Hỗ trợ và thông báo:** hội viên gửi yêu cầu hỗ trợ; nhân viên theo dõi, phản hồi, xử lý hoàn/chi trả theo quyền; hệ thống gửi thông báo và email theo sự kiện.
+- **Quản trị và kiểm toán:** Admin kích hoạt/vô hiệu hóa tài khoản nhân sự, quản lý quyền truy cập; Admin và Manager xem nhật ký thao tác theo phạm vi của mình.
+- **Danh mục và nội dung công khai:** quản lý môn thể thao, phòng/sân, giá, gói dịch vụ, Coach và nội dung trang giới thiệu để khách khám phá trước khi đăng nhập.
 
 ## Kiến trúc hệ thống
 
@@ -141,8 +156,6 @@ sports-center-management-system/
 ├── scripts/          tiện ích phát triển và kiểm tra
 └── docker-compose.yml
 ```
-
-Chi tiết API và quy ước dữ liệu: [API contract](docs/api-contract.md) · [Source of Truth](docs/00-Source-of-Truth.md).
 
 ## Chạy local
 
@@ -210,14 +223,19 @@ Backend integration test dùng Docker/Testcontainers; hãy mở Docker Desktop t
 
 ## Tài liệu
 
-| Tài liệu | Nội dung |
+Các tài liệu sau được dùng để xác định phạm vi, thiết kế và kiểm chứng hệ thống:
+
+| Tài liệu | Vai trò trong quá trình thiết kế |
 | --- | --- |
+| [Source of Truth](docs/00-Source-of-Truth.md) | Chốt phạm vi, thuật ngữ, quyết định nghiệp vụ và thứ tự ưu tiên khi các tài liệu khác nhau. |
+| [Business Rules](docs/SportManagement_BusinessRules_v2.0_updated.docx) | Các quy tắc nghiệp vụ làm cơ sở cho 6 flow và các tình huống phát sinh. |
+| [Functional & Nonfunctional Specification](docs/Functional-and-Nonfunctional-Spec.md) | Yêu cầu chức năng, phân quyền, ràng buộc chất lượng và khoảng trống triển khai. |
+| [Thiết kế hệ thống](docs/Center-Management-System-Design-v3.md) | Kiến trúc, mô hình dữ liệu, luồng xử lý và ranh giới module. |
+| [API contract](docs/api-contract.md) | Endpoint, dữ liệu trao đổi và quy tắc tích hợp frontend–backend. |
+| [Design Tokens](DESIGN-TOKENS.md) | Màu sắc, chữ, khoảng cách và quy ước giao diện SportHub. |
+| [AI Member/Coach — Implementation & Verification](docs/AI-Member-Coach-Implementation-Verification.md) | Đối chiếu thiết kế với phần triển khai và kiểm chứng Flow 5–6. |
 | [RUNBOOK](docs/RUNBOOK.md) | Cài đặt local, cấu hình tích hợp, migration và triển khai. |
-| [Thiết kế hệ thống](docs/Center-Management-System-Design-v3.md) | Phạm vi, kiến trúc, dữ liệu và luồng nghiệp vụ. |
-| [Source of Truth](docs/00-Source-of-Truth.md) | Thuật ngữ, quy ước và thứ tự ưu tiên tài liệu. |
-| [Business Rules](docs/SportManagement_BusinessRules_v2.0_updated.docx) | Quy tắc nghiệp vụ của đồ án. |
-| [API contract](docs/api-contract.md) | Hợp đồng API giữa frontend và backend. |
-| [Mục lục tài liệu](docs/README.md) | Điểm vào các tài liệu còn lại. |
+| [Mục lục tài liệu](docs/README.md) | Điểm vào các tài liệu chi tiết khác. |
 
 ## Đóng góp
 
@@ -226,12 +244,3 @@ Tạo nhánh từ `develop`, mô tả thay đổi và cách kiểm tra trong Pul
 ---
 
 **SportHub · SWP391**
-
----
-
-## AI Coach/Member — cập nhật triển khai 02/11/2026
-
-- Chatbox ở UI hiện chỉ nằm trong phạm vi **Member** và **Coach**; không suy ra chatbot cho ba role còn lại từ sự tồn tại của các service backend.
-- Coach AI suggestion hỗ trợ bản nháp kế hoạch theo buổi và Personal Plan theo học viên được phân công, với bước validation Goal và Coach review trước Save (theo bản vá mới; cần kiểm chứng runtime sau merge).
-- Hướng dẫn nút/page từ AI cần đối chiếu Navigation Knowledge của Member/Coach với frontend thật; contract API không tự cho biết vị trí button.
-- System prompt có thể được xuất bản qua `ISystemPromptReader`, và phiên bản prompt được gắn với continuation scope. Xem [`docs/AI-Member-Coach-Implementation-Verification.md`](docs/AI-Member-Coach-Implementation-Verification.md).
