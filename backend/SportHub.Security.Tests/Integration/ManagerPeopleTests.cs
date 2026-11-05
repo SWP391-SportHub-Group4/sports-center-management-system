@@ -31,6 +31,10 @@ public sealed class ManagerPeopleTests(SportHubApiFactory factory)
         var coaches = await client.GetFromJsonAsync<JsonElement>(path + "&role=Coach");
         Assert.Equal(1, coaches.GetProperty("totalCount").GetInt32());
         Assert.Equal(coach.UserId, Assert.Single(coaches.GetProperty("items").EnumerateArray()).GetProperty("userId").GetGuid());
+        var pending = await client.GetFromJsonAsync<JsonElement>(path + "&status=PENDING_ACTIVATION");
+        Assert.Equal(2, pending.GetProperty("totalCount").GetInt32());
+        var active = await client.GetFromJsonAsync<JsonElement>(path + "&status=ACTIVE");
+        Assert.Equal(0, active.GetProperty("totalCount").GetInt32());
         var staff = await client.GetFromJsonAsync<JsonElement>(path + "&role=Receptionist");
         Assert.Equal(0, staff.GetProperty("totalCount").GetInt32());
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", factory.IssueToken(member.UserId, UserRole.Member));

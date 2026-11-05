@@ -588,7 +588,13 @@ public sealed class ClassService(
         return rules;
     }
 
-    private static string NormalizeCode(string code) => code.Trim().ToUpperInvariant();
+    private static string NormalizeCode(string code)
+    {
+        var normalized = code.Trim().ToUpperInvariant();
+        if (System.Text.RegularExpressions.Regex.IsMatch(normalized, "_CANCEL_[0-9]+$"))
+            throw new BadRequestException("class_code_reserved", "The _Cancel_<class ID> suffix is reserved for cancelled classes.");
+        return normalized;
+    }
 
     private static (int Page, int PageSize) Normalize(int page, int pageSize)
         => (page < 1 ? 1 : page, Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, MaxPageSize));

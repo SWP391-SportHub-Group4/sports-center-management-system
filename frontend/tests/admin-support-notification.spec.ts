@@ -74,5 +74,5 @@ test("admin reads a manager support assignment from the notification bell", asyn
       "This message is for your information. No further action is linked.",
       { exact: true },
     ),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });

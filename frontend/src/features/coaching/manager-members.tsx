@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
+import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { pagedItems } from "@/lib/paged";
 import { formatDate } from "@/lib/format";
 import { AsyncSection, Card, Field, StatusChip, Table } from "@/components/ui";
@@ -166,7 +167,11 @@ export function ManagerMemberList() {
 /** Hồ sơ vận hành của hội viên (Q12): Membership, quan hệ Coach, hóa đơn. Không có thao tác sửa kế hoạch tập. */
 export function ManagerMemberProfile({ memberId }: { memberId: string }) {
   const { t } = useLanguage();
-  const [tab, setTab] = useState("packages");
+  const { values: profileQuery, setValues: setProfileQuery } = useUrlQuery(
+    { tab: "packages", invoiceId: "", invoiceItemId: "" },
+    { tab: choiceQuery(["packages", "classes", "rentals", "invoices"], "packages") },
+  );
+  const tab = profileQuery.tab;
   const [page, setPage] = useState(1);
   const member = useApi(
     (signal) => api.get<UserAdminDto>(`/api/users/${memberId}`, { signal }),
@@ -224,7 +229,9 @@ export function ManagerMemberProfile({ memberId }: { memberId: string }) {
       <div className={profileStyles.tabs}>
         <Tabs
           value={tab}
-          onChange={setTab}
+          onChange={(next) =>
+            setProfileQuery({ tab: next, invoiceId: "", invoiceItemId: "" })
+          }
           ariaLabel="Member details"
           tabs={[
             { id: "packages", label: "Memberships" },

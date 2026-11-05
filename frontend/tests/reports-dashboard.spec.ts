@@ -4,6 +4,7 @@ import {
   reportPeriods,
   changeLabel,
   validPeriod,
+  periodDates,
   type PeriodSelection,
 } from "../src/features/reports/report-periods";
 
@@ -18,6 +19,10 @@ const selection = (date = today): PeriodSelection => ({
 test("report periods handle leap years, elapsed days, custom lengths and zero baselines", () => {
   expect(monthPeriod("2024-02-12").toDate).toBe("2024-02-29");
   expect(monthPeriod("2025-02-12").toDate).toBe("2025-02-28");
+  expect(periodDates(monthPeriod("2024-02-12"))).toHaveLength(29);
+  expect(periodDates({ fromDate: "2026-04-29", toDate: "2026-05-01" })).toEqual(
+    ["2026-04-29", "2026-04-30", "2026-05-01"],
+  );
   expect(reportPeriods(selection(), today, true).comparison?.toDate).toBe(
     "2026-09-23",
   );
@@ -71,6 +76,21 @@ async function fixture(page: Page, failComparison = false) {
           { sportId: 4, name: "Basketball" },
         ],
       });
+    if (path === "/api/manager/point-gifts/filters")
+      return route.fulfill({ json: { sports: [], classes: [] } });
+    if (path === "/api/manager/point-gifts/limits")
+      return route.fulfill({
+        json: {
+          fromDate: "2026-10-01",
+          toDate: today,
+          vndPerPoint: 1000,
+          maxPoints: 100,
+        },
+      });
+    if (path.startsWith("/api/manager/point-gifts"))
+      return route.fulfill({
+        json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
+      });
     if (path === "/api/users")
       return route.fulfill({
         json: {
@@ -123,6 +143,8 @@ async function fixture(page: Page, failComparison = false) {
           netRevenue: value * days.length - 200000,
           pointsRedeemed: 200,
           pointsRefunded: 25,
+          pointsIssued: 75,
+          managerPointAdjustment: 5,
           outstandingPoints: 525,
           bySource: [
             {
@@ -146,6 +168,10 @@ async function fixture(page: Page, failComparison = false) {
             collected: value,
             refunded: i === 1 ? 200000 : 0,
             net: value - (i === 1 ? 200000 : 0),
+            pointsRedeemed: i === 0 ? 200 : 0,
+            pointsIssued: i === 0 ? 75 : 0,
+            pointsRefunded: i === 0 ? 25 : 0,
+            managerPointAdjustment: i === 0 ? 5 : 0,
           })),
         },
       });
@@ -263,7 +289,7 @@ test("Apply updates all report data and keeps filters scoped to each bookmark", 
     .at(-1)!;
   expect(court.searchParams.get("toDate")).toBe("2026-10-31");
   expect(court.searchParams.has("memberId")).toBe(false);
-  await page.getByRole("tab", { name: "Revenue", exact: true }).click();
+  await page.getByRole("tab", { name: "Cash", exact: true }).click();
   await page.getByText(/More filters/).click();
   await expect(page.getByLabel("Sport", { exact: true })).toHaveValue("3");
 });
@@ -281,7 +307,7 @@ test("comparison errors retain the primary data and current Gym count has no com
   expect(
     requests.some((u) => u.searchParams.get("toDate") === "2026-09-23"),
   ).toBe(true);
-  await page.getByRole("tab", { name: "Members", exact: true }).click();
+  await page.getByRole("tab", { name: "Gyms", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Active Gym members" }),
   ).toBeVisible();
@@ -313,6 +339,149 @@ test("Export navigates to the dedicated export page", async ({ page }) => {
     0,
   );
 });
+
+test("Points has its own dashboard and member-only filters; Point Management keeps operations", async ({
+  page,
+}) => {
+  const requests = await fixture(page);
+  await page.goto("/manager/reports?tab=points");
+  await expect(
+    page.getByRole("tab", { name: "Points", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("heading", { name: "Current balance", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Daily point activity", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "After refunds", exact: true }),
+  ).toHaveCount(0);
+  await page.getByText("More filters", { exact: true }).click();
+  await expect(page.getByLabel("Sport", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Source", { exact: true })).toHaveCount(0);
+  await page.getByPlaceholder("Find a member").fill("Alex");
+  await page.getByRole("button", { name: /Alex Member/ }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect
+    .poll(() =>
+      requests
+        .filter((u) => u.pathname === "/api/reports/revenue")
+        .at(-1)
+        ?.searchParams.get("memberId"),
+    )
+    .toBe(memberId);
+  const request = requests
+    .filter((u) => u.pathname === "/api/reports/revenue")
+    .at(-1)!;
+  expect(request.searchParams.has("sportId")).toBe(false);
+  expect(request.searchParams.has("source")).toBe(false);
+  await page.getByRole("link", { name: "Open Point Management" }).click();
+  await expect(page).toHaveURL(/\/manager\/points$/);
+  await expect(
+    page.getByRole("heading", { name: "Current balance", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Reports · Points", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("View balances and point activity in", { exact: false }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Gift points (0)", exact: true }),
+  ).toBeVisible();
+});
+test("daily charts span the full selected month without inventing future financial activity", async ({
+  page,
+}) => {
+  const requests = await fixture(page);
+  await page.goto("/manager/reports");
+  for (const name of ["Cash", "Points", "Courts", "Gyms"]) {
+    await page.getByRole("tab", { name, exact: true }).click();
+    const slider = page.getByRole("slider").first();
+    await expect(slider).toHaveAttribute("max", "30");
+    await slider.focus();
+    await slider.press("End");
+    await expect(slider).toHaveValue("30");
+    await expect(slider).toHaveAttribute("aria-valuetext", /31\/10\/2026/);
+    if (name === "Courts") {
+      await expect(slider).toHaveAttribute("aria-valuetext", /3 hours/);
+    } else {
+      await expect(slider).toHaveAttribute("aria-valuetext", /No data yet/);
+    }
+  }
+  for (const url of requests.filter(
+    (url) =>
+      url.pathname === "/api/reports/revenue" ||
+      url.pathname === "/api/reports/membership-period",
+  )) {
+    expect(url.searchParams.get("toDate")).toBe(today);
+  }
+});
+
+test("full calendar charts preserve elapsed comparison data and custom cross-month periods", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await fixture(page);
+  await page.goto("/manager/reports");
+  await page
+    .getByLabel("Compare with", { exact: true })
+    .selectOption("previous");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  const chart = page.getByRole("img", {
+    name: "After refunds by day",
+    exact: true,
+  });
+  await expect(chart.locator('path[stroke-dasharray="6 5"]')).toHaveCount(1);
+  const slider = page.getByRole("slider").first();
+  await slider.focus();
+  await slider.press("End");
+  await expect(slider).toHaveAttribute(
+    "aria-valuetext",
+    /31\/10\/2026.*No data yet/,
+  );
+  await page
+    .getByLabel("Report period", { exact: true })
+    .selectOption("custom");
+  await page.getByLabel("From", { exact: true }).fill("2026-04-29");
+  await page.getByLabel("To", { exact: true }).fill("2026-05-04");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(slider).toHaveAttribute("max", "5");
+  await slider.focus();
+  await slider.press("Home");
+  await expect(slider).toHaveAttribute("aria-valuetext", /29\/04\/2026/);
+  await slider.press("End");
+  await expect(slider).toHaveAttribute("aria-valuetext", /04\/05\/2026/);
+  await expect(slider).not.toHaveAttribute("aria-valuetext", /No data yet/);
+  expect(errors).toEqual([]);
+});
+
+test("an entirely future reporting period still has a complete blank daily chart", async ({
+  page,
+}) => {
+  await fixture(page);
+  await page.goto("/manager/reports");
+  await page
+    .getByLabel("Report period", { exact: true })
+    .selectOption("custom");
+  await page.getByLabel("From", { exact: true }).fill("2026-11-01");
+  await page.getByLabel("To", { exact: true }).fill("2026-11-30");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  for (const name of ["Cash", "Points", "Gyms"]) {
+    await page.getByRole("tab", { name, exact: true }).click();
+    const slider = page.getByRole("slider").first();
+    await expect(slider).toHaveAttribute("max", "29");
+    await slider.focus();
+    await slider.press("End");
+    await expect(slider).toHaveAttribute(
+      "aria-valuetext",
+      /30\/11\/2026.*No data yet/,
+    );
+  }
+});
+
 for (const [width, height] of [
   [1440, 900],
   [1366, 768],
@@ -325,7 +494,7 @@ for (const [width, height] of [
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/manager/reports");
-    for (const name of ["Revenue", "Courts", "Classes", "Members"]) {
+    for (const name of ["Cash", "Points", "Courts", "Classes", "Gyms"]) {
       await page.getByRole("tab", { name, exact: true }).click();
       await expect(
         page.getByText(

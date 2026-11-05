@@ -112,6 +112,83 @@
   flex: 1;
   min-width: 0;
 }
+/* Inline bars: compact controls packed to the left, no stretching. */
+.wrapper[data-inline] .root {
+  margin-bottom: 0;
+}
+.wrapper[data-inline] .field {
+  flex: 1 1 160px;
+  max-width: 240px;
+}
+.wrapper[data-inline] .field[data-kind="search"] {
+  flex: 2 1 220px;
+  max-width: 340px;
+}
+.wrapper[data-inline] .field[data-kind="dateRange"] {
+  flex: 2 1 300px;
+  max-width: 340px;
+}
+/* Selects hug their text; only the search box stretches. Reset button matches control height. */
+.wrapper[data-inline] .root {
+  align-items: center;
+}
+.wrapper[data-inline] .fields {
+  align-items: center;
+}
+.wrapper[data-inline] .field:not([data-kind="search"]) {
+  flex: 0 0 auto;
+  max-width: none;
+}
+.wrapper[data-inline] .field select {
+  width: auto;
+}
+.wrapper[data-inline] .actions :global(.btn) {
+  min-height: 44px;
+  height: 44px;
+}
+/* Keep every control and the reset button on a single row when there is room. */
+@media (min-width: 900px) {
+  .wrapper[data-inline] .root,
+  .wrapper[data-inline] .fields {
+    flex-wrap: nowrap;
+  }
+  .wrapper[data-inline] .fields {
+    flex: 0 1 auto;
+  }
+  .wrapper[data-inline] .field {
+    flex: 0 1 220px;
+    min-width: 110px;
+  }
+  .wrapper[data-inline] .field[data-kind="search"] {
+    flex: 0 1 320px;
+    min-width: 160px;
+  }
+}
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.search > svg {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.search input {
+  padding-left: 2.5rem;
+}
+/* Search box sizes to its placeholder (size attr) so the hint is never clipped. */
+.wrapper[data-inline] .field[data-kind="search"] {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.wrapper[data-inline] .field[data-kind="search"] input {
+  width: auto;
+  max-width: 100%;
+}
 .outerActions {
   display: flex;
   flex-wrap: wrap;

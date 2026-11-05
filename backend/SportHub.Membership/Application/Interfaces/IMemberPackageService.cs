@@ -14,7 +14,8 @@ public interface IMemberPackageService
     Task<IReadOnlyList<MemberPackageResponse>> GetByMemberAsync(Guid memberId, CancellationToken ct = default);
 
     Task<PagedResult<MemberPackageResponse>> SearchAsync(
-        string? status, string? keyword, int page, int pageSize, CancellationToken ct = default, int? packageId = null);
+        string? status, string? keyword, int page, int pageSize, CancellationToken ct = default, int? packageId = null,
+        bool currentMembersOnly = false);
 
     /// <summary>Số gói đang dùng được — dùng cho dashboard, không phải điều kiện nghiệp vụ.</summary>
     Task<int> CountUsableAsync(Guid memberId, CancellationToken ct = default);

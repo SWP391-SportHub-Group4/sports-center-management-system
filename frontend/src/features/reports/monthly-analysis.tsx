@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { AsyncSection } from "@/components/ui";
 import { api } from "@/lib/apiClient";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { useApi, useNow } from "@/lib/useApi";
 import { vietnamLocal } from "@/lib/vietnam-time";
 import { reportsApi, type ReportFilters } from "./api";
@@ -25,7 +25,7 @@ function Metric({
 }: {
   label: string;
   value: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   loading: boolean;
   unavailable: boolean;
 }) {
@@ -42,9 +42,9 @@ function Metric({
           value
         )}
       </div>
-      <div className={styles.metricContext}>
-        {!loading && !unavailable && children}
-      </div>
+      {!loading && !unavailable && children && (
+        <div className={styles.metricContext}>{children}</div>
+      )}
     </section>
   );
 }
@@ -63,13 +63,10 @@ export function MonthlyAnalysis() {
     };
     return {
       filters,
-      monthFilters: {
+      todayFilters: {
         ...filters,
-        toDate: new Date(
-          Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0),
-        )
-          .toISOString()
-          .slice(0, 10),
+        fromDate: today,
+        toDate: today,
       },
       label: new Intl.DateTimeFormat("en-GB", {
         month: "long",
@@ -95,12 +92,15 @@ export function MonthlyAnalysis() {
     [today],
   );
   const support = useApi(
-    (signal) => api.get<{ overdue: number }>("/api/member-support-requests/stats", { signal }),
+    (signal) =>
+      api.get<{ overdue: number }>("/api/member-support-requests/stats", {
+        signal,
+      }),
     [],
   );
   const reviewCount = review.data?.totalCount ?? 0;
   const bookings = useApi(
-    (signal) => reportsApi.courtBookings(period.monthFilters, signal),
+    (signal) => reportsApi.courtBookings(period.todayFilters, signal),
     [period],
   );
   const attendance = useApi(
@@ -113,6 +113,7 @@ export function MonthlyAnalysis() {
   const { reload: reloadBookings } = bookings;
   const { reload: reloadAttendance } = attendance;
   const { reload: reloadClassStatus } = classStatus;
+  const { reload: reloadSupport } = support;
   useEffect(() => {
     let lastRefresh = 0;
     const refreshVisible = () => {
@@ -128,6 +129,7 @@ export function MonthlyAnalysis() {
       reloadBookings();
       reloadAttendance();
       reloadClassStatus();
+      reloadSupport();
     };
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
@@ -144,6 +146,7 @@ export function MonthlyAnalysis() {
     reloadBookings,
     reloadAttendance,
     reloadClassStatus,
+    reloadSupport,
   ]);
   const selectedDate =
     selectedDay?.startsWith(today.slice(0, 7)) && selectedDay <= today
@@ -155,16 +158,13 @@ export function MonthlyAnalysis() {
     membership.error ||
     attendance.error ||
     bookings.error ||
-    classStatus.error;
+    classStatus.error ||
+    support.error;
   return (
     <div className={styles.dashboard}>
       <header className={styles.header}>
         <div>
           <h1>Overview</h1>
-          <p>
-            Collections & attendance · {formatDate(period.filters.fromDate)} –{" "}
-            {formatDate(today)} · Vietnam time
-          </p>
         </div>
         <div className={styles.headerActions}>
           <span className={styles.period}>
@@ -191,6 +191,7 @@ export function MonthlyAnalysis() {
               if (attendance.error) attendance.reload();
               if (bookings.error) bookings.reload();
               if (classStatus.error) classStatus.reload();
+              if (support.error) support.reload();
             }}
           >
             Retry
@@ -235,12 +236,6 @@ export function MonthlyAnalysis() {
           loading={review.loading}
           unavailable={!!review.error}
         >
-          <p>
-            {reviewCount > 0
-              ? "Below opening threshold · decision needed"
-              : "No classes awaiting review"}
-          </p>
-          <small>Published classes flagged at risk · all dates</small>
           {reviewCount > 0 && (
             <Link
               href="/manager/classes?status=PUBLISHED&thresholdStatus=AT_RISK"
@@ -255,31 +250,30 @@ export function MonthlyAnalysis() {
           value={formatNumber(membership.data?.membersWithActiveMembership)}
           loading={membership.loading}
           unavailable={!!membership.error}
-        >
-          <p>Valid today · {formatDate(today)}</p>
-          <small>Each member counted once · excludes day passes</small>
-        </Metric>
+        />
         <Metric
-          label="Bank payouts recorded"
-          value={<><ExactMoney amount={revenue.data?.bankRefundPaid ?? 0} /><span className={styles.valueUnit}>VND</span></>}
-          loading={revenue.loading}
-          unavailable={!!revenue.error}
-        >
-          <p>{revenue.data?.bankRefundCount ?? 0} payout(s) this month</p>
-          <small>Shown separately from cash refunds</small>
-        </Metric>
+          label="Overdue requests"
+          value={
+            <span
+              className={
+                (support.data?.overdue ?? 0) > 0
+                  ? styles.reviewCount
+                  : undefined
+              }
+            >
+              {formatNumber(support.data?.overdue)}
+            </span>
+          }
+          loading={support.loading}
+          unavailable={!!support.error}
+        />
       </div>
-      <Link href="/manager/requests?type=support&overdue=1" className={styles.reportLink}>
-        Overdue support requests: {support.data?.overdue ?? (support.loading ? "…" : "—")}
-        <ArrowUpRight size={16} aria-hidden="true" />
-      </Link>
       <section
         className={styles.classSummary}
         aria-labelledby="class-status-title"
       >
         <header>
           <h2 id="class-status-title">Classes</h2>
-          <p>Current status · all classes · cancelled excluded</p>
         </header>
         <AsyncSection state={classStatus}>
           {(report) => (
@@ -287,19 +281,14 @@ export function MonthlyAnalysis() {
               <div data-status="open">
                 <dt>Open</dt>
                 <dd>{formatNumber(report.open)}</dd>
-                <dd className={styles.classDescription}>
-                  Published or in progress
-                </dd>
               </div>
               <div data-status="completed">
                 <dt>Completed</dt>
                 <dd>{formatNumber(report.completed)}</dd>
-                <dd className={styles.classDescription}>Finished classes</dd>
               </div>
               <div data-status="unpublished">
                 <dt>Unpublished</dt>
                 <dd>{formatNumber(report.unpublished)}</dd>
-                <dd className={styles.classDescription}>Draft classes</dd>
               </div>
             </dl>
           )}
@@ -312,7 +301,6 @@ export function MonthlyAnalysis() {
         >
           <header className={styles.panelHeader}>
             <h2 id="daily-collections-title">Daily collections</h2>
-            <p>Money received and retained after cash refunds · VND</p>
           </header>
           <AsyncSection state={revenue}>
             {(report) => (
@@ -340,18 +328,16 @@ export function MonthlyAnalysis() {
         >
           <header className={styles.panelHeader}>
             <h2 id="collection-sources-title">Collections by source</h2>
-            <p>Share of total collected · VND</p>
           </header>
           <AsyncSection state={revenue}>
-            {(report) => <RevenueMix report={report} />}
+            {(report) => <RevenueMix report={report} showInsight={false} />}
           </AsyncSection>
           <section
             className={styles.bookingSummary}
             aria-labelledby="court-booking-title"
           >
             <header className={styles.panelHeader}>
-              <h2 id="court-booking-title">Court bookings</h2>
-              <p>Full month · Bookings and booked hours by sport</p>
+              <h2 id="court-booking-title">Court hours today</h2>
             </header>
             <AsyncSection state={bookings}>
               {(report) => <CourtBookingSummary report={report} />}
@@ -359,10 +345,6 @@ export function MonthlyAnalysis() {
           </section>
         </section>
       </div>
-      <p className={styles.footnote}>
-        Recorded bank payouts are shown separately and do not reverse VNPay
-        collections. Point refunds are tracked separately. Operating costs are not deducted.
-      </p>
     </div>
   );
 }

@@ -131,4 +131,3 @@
 **Flow 6, Member:** hỏi “Xem hóa đơn ở đâu?”, “Xem bài tập AI đã lưu ở đâu?” và “Quản lý tài khoản như thế nào?”; chỉ hướng dẫn chức năng Member. Các câu hỏi về thao tác của Manager/Receptionist/Admin không được hướng dẫn như thể Member có quyền.
 
 **Kiểm tra đa ngôn ngữ:** thử có dấu, không dấu, tiếng Anh và pha trộn. Phải giữ nhãn nút tiếng Anh như frontend. Nếu catalog chưa kiểm chứng được button cụ thể, bot phải nói rõ giới hạn; không bịa route.
-

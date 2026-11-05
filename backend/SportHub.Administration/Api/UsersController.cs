@@ -42,8 +42,9 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
     [Authorize(Policy = SportHubPolicies.CenterManager)]
     [HttpGet("/api/manager/people")]
     public async Task<IActionResult> People([FromQuery] string? keyword, [FromQuery] string? role,
+        [FromQuery] string? status,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
-        => Ok(await users.SearchAsync(keyword, role, null, page, pageSize, ct, peopleOnly: true));
+        => Ok(await users.SearchAsync(keyword, role, status, page, pageSize, ct, peopleOnly: true));
 
     [Authorize(Policy = SportHubPolicies.SystemAdministrator)]
     [HttpGet("admin")]

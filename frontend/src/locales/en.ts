@@ -2,7 +2,7 @@ export const en = {
   rentalCourtSetup: {
     title: "Create a rental court",
     intro:
-      "Set up your court, opening hours and rental prices together. Member bookings open on the day after this court is created.",
+      "Set up your court, opening hours and rental prices together. Members can book as soon as the court is created.",
     details: "Court details",
     hours: "Opening hours",
     opens: "Opens",
@@ -29,7 +29,7 @@ export const en = {
     fromPrice: "From",
     priceSync: "Prices are also saved to Court Rental Pricing.",
     bookingHint:
-      "Member bookings open tomorrow, at 00:00 Vietnam time. Court details, hours and prices are saved together.",
+      "Members can book immediately after creation, up to 3 days ahead. Court details, hours and prices are saved together.",
     saveHint: "Court details, hours and prices are saved together.",
     submit: "Create rental court",
     daysRequired: "Choose at least one opening day.",
@@ -40,7 +40,7 @@ export const en = {
     noTypes:
       "Add an active room type linked to an active sport before creating a rental court.",
     created:
-      "has been created. Member bookings open on the following day (Vietnam time). Opening hours and prices have been saved.",
+      "has been created and is ready for member bookings. Opening hours and prices have been saved.",
     viewPrices: "View rental prices",
     create: "Create rental court",
     basicRoom: "Add room only",
@@ -271,14 +271,14 @@ export const en = {
   },
   manualNotices: {
     sentSuccess: "Notice sent successfully.",
+    successHint: "Close this message to write another notice.",
+    newNotice: "New notice",
     chooseRecipients: "Choose recipients",
-    recipientHint: "Choose recipients by role or send to the entire system.",
     sendToAll: "Send to entire system",
     reviewNotice: "Review notice",
     sendToRole: "Send to all {role}",
     selectedRoleAudience: "All active accounts in selected roles",
     selectedIndividuals: "{n} individually selected",
-    sendToAllHint: "Include every active account across all roles.",
     allActiveAccounts: "All active accounts",
     selectedCount: "{n} selected",
     noSelection: "No recipients selected",
@@ -306,7 +306,6 @@ export const en = {
     history: "Sent notice history",
     compose: "Write a notice",
     views: "Notice views",
-    ownOnly: "Only notices you sent are shown.",
     search: "Search by subject",
     from: "From date",
     to: "To date",
@@ -373,7 +372,7 @@ export const en = {
       cost: "Enter a class cost of 0 VND or more.",
     },
     scheduleStep: "Coach, room & schedule",
-    pricingStep: "Tuition, cost & capacity",
+    pricingStep: "Tuition & cost",
     reviewStep: "Review generated sessions",
     saveDraft: "Save draft",
     draftHint:
@@ -475,7 +474,7 @@ export const en = {
     historyHint:
       "Audit history for this class. Related session actions may appear under their own session IDs.",
     created: "Created",
-    published: "Published",
+    published: "Published time",
     version: "Version",
     backToList: "Back to list",
     enrollmentTitle: "Enrollment",
@@ -690,6 +689,8 @@ export const en = {
     information: "Class information",
     schedule: "Activity schedule",
     viewSchedule: "View class schedule",
+    originalSchedule: "Original schedule",
+    updatedSchedule: "Updated schedule",
     matched: "{count} classes",
     setupProgress: "Class setup progress",
     listFilters: "Filter classes",
@@ -708,8 +709,6 @@ export const en = {
     noStudents: "No students enrolled yet.",
     editPricing: "Edit pricing",
     approveBelowThreshold: "Approve below threshold",
-    approveBelowHint:
-      "Allow this class to run without meeting its break-even threshold. Confirmed members will be notified. Provide a reason for this decision.",
     pricingLocked:
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
@@ -733,6 +732,11 @@ export const en = {
     createRoomRentalHint:
       "Turn on to set an hourly price and weekly rental schedule. New rooms are active by default.",
     rentalSchedule: "Weekly rental schedule",
+    editOpeningHours: "Edit opening hours",
+    rentalSportRequired: "Select a sport",
+    rentalSportHint:
+      "Choose which sport members can play when renting this court.",
+    noRentalSports: "Create or activate a sport before enabling rental.",
     rentalDay: "Day",
     rentalOpens: "Opens",
     rentalCloses: "Closes",
@@ -868,6 +872,8 @@ export const en = {
     invalidReference:
       "The selected reference is no longer valid. Reload the list and check the selection.",
     duplicateName: "This name is already in use. Enter another name.",
+    duplicateSport: "This sport already exists.",
+    invalidSportName: "Enter a sport name containing letters or numbers.",
     duplicateSportCode:
       "This sport code is already in use. Enter another code.",
     forbidden: "You do not have permission to make this change.",
@@ -998,6 +1004,8 @@ export const en = {
       "Weekly frequency determines the package quota; it is not a weekly booking limit.",
   },
   calendar: {
+    cancellationReason: "Cancellation reason",
+    noCancellationReason: "No cancellation reason was recorded.",
     day: "Day",
     week: "Week",
     list: "List",
@@ -1365,12 +1373,22 @@ export const en = {
     invalidHours: "Opening time must be earlier than closing time.",
     unavailable: "Some settings are unavailable. Reload the page to try again.",
     rentalBlock: "Court rentals use {minutes}-minute blocks.",
-    units: { minutes: "minutes", hours: "hours", days: "days" },
+    units: {
+      seconds: "seconds",
+      minutes: "minutes",
+      hours: "hours",
+      days: "days",
+    },
     groups: {
       hours: {
         title: "Center hours",
         description:
           "Opening and closing times in Vietnam (UTC+7). Applies to classes, courts and incidents.",
+      },
+      gym: {
+        title: "Gym check-in",
+        description:
+          "Set the wait time before the same member can be checked in again.",
       },
       classes: {
         title: "Classes",
@@ -1405,6 +1423,10 @@ export const en = {
     centerClosingTime: {
       label: "Center closing time",
       hint: "Vietnam time (UTC+7). Classes and court opening hours must end at or before this time.",
+    },
+    gymCheckInCooldownSeconds: {
+      label: "Check-in cooldown (seconds)",
+      hint: "Minimum wait between two Gym check-ins of the same member. Choose 1–300 seconds (default 10).",
     },
     supportSlaHours: {
       label: "Support response deadline (hours)",
@@ -1675,7 +1697,10 @@ export const en = {
     invalid: "Please check the required fields and time range.",
     notFound: "No rental found in this range.",
     loading: "Loading…",
-    thresholdFilter: "Threshold status",
+    thresholdFilter: "Opening conditions",
+    allSports: "All sports",
+    allStatuses: "All status",
+    allOpeningConditions: "All opening conditions",
     refundHint:
       "Refunds are credited as points. The server determines eligibility and amount.",
     recipientPreview: "Review the recipient list before sending.",
@@ -3081,6 +3106,7 @@ export const en = {
     maximum: "Up to {points} points remaining.",
     released: "Release the booking and any held points; no refund credit.",
     reason: "Reason for adjustment",
+    reasonColumn: "Reason",
     reasonHint: "Explain the adjusted amount (3-500 characters).",
     invalid: "Enter whole points from 0 to the remaining balance.",
     total: "Total refund",
@@ -3096,7 +3122,7 @@ export const en = {
   incidentHistory: {
     successTitle: "Incident created successfully",
     successMessage:
-      "The incident has been saved. Notifications to affected members are queued for automatic delivery.",
+      "The incident has been saved. In-app and email notifications to all active accounts are queued for automatic delivery.",
     arrangeMakeup: "Arrange a makeup session",
     makeupHint:
       "For a serious incident, replace the missed session in full. Members keep their enrollment and pay no extra fee. The coach and members receive the updated schedule.",
@@ -3104,9 +3130,11 @@ export const en = {
     editSession: "Edit affected session",
     removeBlockHint:
       "Select removal of this room block. It will be removed only when you confirm the incident.",
-    intro:
-      "Review affected activities, arrange any schedule changes, then confirm the closure.",
-    formTitle: "Incident details",
+    formTitle: "Create incident",
+    reviewTitle: "Incident review",
+    allScopes: "All scopes",
+    wholeCenter: "Whole center",
+    viewSchedule: "View class schedule",
     formHint:
       "Choose the affected area and period, including outside opening hours or overnight (up to 31 days). Times are shown in Vietnam time (UTC+7).",
     reviewHint:
@@ -3126,6 +3154,7 @@ export const en = {
     affectedRooms: "Affected rooms",
     time24: "Time (24h)",
     invalidTime: "Enter a time from 00:00 to 23:59.",
+    startInPast: "Incident start must not be in the past.",
     invalidRange: "The end must be after the start.",
     rangeTooLong: "An incident can cover at most 31 days.",
     endInPast: "The incident must end in the future.",
@@ -3142,7 +3171,7 @@ export const en = {
     noRentals: "No court rentals were affected.",
     blockedRooms: "Blocked rooms",
     blockedPeriod: "Blocked for the affected period above.",
-    notifications: "Notifications to affected customers",
+    notifications: "Incident notifications",
     noNotifications: "No customer notifications have been recorded.",
     deliverySending: "Notifications are being sent.",
     deliverySent: "Notifications have been sent.",

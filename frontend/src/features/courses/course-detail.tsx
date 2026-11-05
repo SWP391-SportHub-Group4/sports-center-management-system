@@ -145,7 +145,9 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
               hint={c.code}
               actions={
                 <>
-                  <StatusChip value={c.status} />
+                  <span className={detailStyles.headerStatus}>
+                    <StatusChip value={c.status} />
+                  </span>
                   {c.status === "DRAFT" && (
                     <>
                       <Link

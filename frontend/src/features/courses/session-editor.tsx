@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApi } from "@/lib/useApi";
 import { api, ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
@@ -16,7 +16,7 @@ import { formatDateTime } from "@/lib/format";
 import { checkClassSlot, availabilityReason } from "./slot-availability";
 import styles from "./session-editor.module.css";
 
-function SessionWeekSchedule({
+export function SessionWeekSchedule({
   session,
   start,
   roomId,
@@ -28,6 +28,7 @@ function SessionWeekSchedule({
   coachId: string;
 }) {
   const rooms = useApi((signal) => catalogApi.rooms(signal), []);
+  if (!roomId && !coachId) return null;
   const selectedStart = start || vietnamLocal(session.startAtUtc);
   const startAtUtc = vietnamUtc(selectedStart);
   const endAtUtc = new Date(
@@ -220,6 +221,8 @@ export function SessionEditor({
   incidentFence,
   initialMode = "reschedule",
   onStageIncident,
+  onConfirmIncident,
+  initialIncidentPlan,
 }: {
   session: CourseSessionDto;
   sportId: number;
@@ -235,6 +238,10 @@ export function SessionEditor({
   onStageIncident?: (
     plan: import("@/features/incidents/incident-api").IncidentResolutionSelection,
   ) => void;
+  onConfirmIncident?: (
+    plan: import("@/features/incidents/incident-api").IncidentResolutionSelection,
+  ) => Promise<void>;
+  initialIncidentPlan?: import("@/features/incidents/incident-api").IncidentResolutionSelection;
   initialMode?: "reschedule" | "cancel";
   beforeSave?: () => Promise<void>;
   onOutcome?: (
@@ -246,19 +253,83 @@ export function SessionEditor({
   const l = t.operations;
   const mutation = useMutation();
   const [requestedMode, setMode] = useState<string>(initialMode);
-  const incidentMode = !!incidentFence || !!onStageIncident;
+  const incidentMode =
+    !!incidentFence || !!onStageIncident || !!onConfirmIncident;
   const mode = incidentMode
     ? "cancel"
     : confirmedCount > 0
       ? "reschedule"
       : requestedMode;
-  const [start, setStart] = useState(vietnamLocal(session.startAtUtc));
-  const [roomId, setRoom] = useState(String(session.roomId));
-  const [coachId, setCoach] = useState(session.coachId);
-  const [reason, setReason] = useState("");
+  const [start, setStart] = useState(
+    vietnamLocal(initialIncidentPlan?.startAtUtc ?? session.startAtUtc),
+  );
+  const [roomId, setRoom] = useState(
+    String(initialIncidentPlan?.roomId ?? session.roomId),
+  );
+  const [coachId, setCoach] = useState(
+    initialIncidentPlan?.coachId ?? session.coachId,
+  );
+  const [reason, setReason] = useState(initialIncidentPlan?.reason ?? "");
   const [review, setReview] = useState(false);
   const [unknown, setUnknown] = useState(false);
   const busy = mutation.busy || (unknown && !!onOutcome);
+  const confirming = useRef(false);
+  async function confirmIncident() {
+    if (!onConfirmIncident || confirming.current || busy) return;
+    confirming.current = true;
+    onOutcome?.("pending");
+    const success = await mutation.run(async () => {
+      try {
+        const startUtc = vietnamUtc(start);
+        const result = await checkClassSlot({
+          sportId,
+          capacity,
+          roomId: Number(roomId),
+          coachId,
+          startUtc,
+          endUtc: new Date(
+            Date.parse(startUtc) +
+              Date.parse(session.endAtUtc) -
+              Date.parse(session.startAtUtc),
+          ).toISOString(),
+          excludeSessionId: session.sessionId,
+        });
+        if (!result.available)
+          throw new ApiError(
+            409,
+            "schedule_conflict",
+            result.reasons
+              .map((code) => availabilityReason(code, t))
+              .join(" ") || l.conflict,
+          );
+        await onConfirmIncident({
+          sourceId: session.sessionId,
+          action: "CANCEL_WITH_MAKEUP",
+          startAtUtc: startUtc,
+          roomId: Number(roomId),
+          coachId,
+          reason: reason.trim(),
+          label: `${session.className} · ${session.sessionNo}`,
+        });
+      } catch (error) {
+        const uncertain =
+          !(error instanceof ApiError) ||
+          error.status === 0 ||
+          error.status >= 500;
+        setUnknown(uncertain);
+        onOutcome?.(
+          uncertain ? "unknown" : "failed",
+          error instanceof Error ? error.message : undefined,
+        );
+        throw error;
+      }
+    });
+    confirming.current = false;
+    if (success) {
+      onOutcome?.("succeeded");
+      onSaved();
+    }
+  }
   const content = (
     <>
       {!embedded && <p>{l.notifyHint}</p>}
@@ -266,6 +337,10 @@ export function SessionEditor({
         className={embedded ? styles.form : undefined}
         onSubmit={(e) => {
           e.preventDefault();
+          if (onConfirmIncident) {
+            void confirmIncident();
+            return;
+          }
           if (!review) {
             setReview(true);
           }
@@ -282,7 +357,7 @@ export function SessionEditor({
             hidden={review}
             className={embedded ? styles.fields : undefined}
           >
-            {incidentMode && (
+            {incidentMode && !onConfirmIncident && (
               <div className={styles.incidentMakeup}>
                 <strong>{t.classSessions.incidentMakeupTitle}</strong>
                 <p>{t.classSessions.incidentMakeupHint}</p>
@@ -417,7 +492,9 @@ export function SessionEditor({
                   reason.trim().length < 3
                 }
               >
-                {t.managerOperations.reviewChange}
+                {onConfirmIncident
+                  ? l.confirm
+                  : t.managerOperations.reviewChange}
               </button>
             )}
             {showCloseButton && (

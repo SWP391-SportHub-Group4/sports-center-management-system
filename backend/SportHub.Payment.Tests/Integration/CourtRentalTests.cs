@@ -215,7 +215,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
                     DaysOfWeek = "MON,TUE,WED,THU,FRI,SAT,SUN", StartTimeLocal = new(6, 0),
                     EndTimeLocal = new(22, 0), PricePerHour = 100_000 });
             await db.SaveChangesAsync();
-            // Cửa sổ thuê là hôm nay + 2 ngày tính từ mốc đổi ngày 06:00; ngày mai luôn nằm trong cửa sổ, kể cả khi test chạy trước 06:00.
+            // Tomorrow is inside the current Vietnam date plus 3-day booking window.
             var start = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(1)).AddHours(10);
             return new CourtRentalRequest(member.UserId, 3, room.RoomId, start, start.AddHours(1));
         });
@@ -303,13 +303,22 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Rental_beyond_today_plus_two_days_is_rejected_for_both_member_and_receptionist()
+    public async Task Rental_allows_three_days_ahead_and_rejects_four_days_for_member_and_receptionist()
     {
         var rental = await SetupAsync();
         var receptionist = await factory.SeedUserAsync(UserRole.Receptionist);
         using var member = factory.CreateApiClient(rental.MemberId, UserRole.Member);
         using var desk = factory.CreateApiClient(receptionist.UserId, UserRole.Receptionist);
-        var farDay = VietnamTime.StartOfDayUtc(DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow)).AddDays(3));
+        var today = DateOnly.FromDateTime(VietnamTime.ToLocal(DateTime.UtcNow));
+        using (var scope = factory.Services.CreateScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<ICourtRentalFulfillment>();
+            var allowed = new DateTimeOffset(VietnamTime.StartOfDayUtc(today.AddDays(3)).AddHours(10));
+            Assert.NotNull(await service.QuoteAsync(new(rental.MemberId, rental.SportId, rental.RoomId, allowed, allowed.AddHours(1))));
+        }
+        var lastDayCalendar = await member.GetAsync($"/api/court-rentals/calendar?sportId={rental.SportId}&date={today.AddDays(3):yyyy-MM-dd}");
+        lastDayCalendar.EnsureSuccessStatusCode();
+        var farDay = VietnamTime.StartOfDayUtc(today.AddDays(4));
         var start = new DateTimeOffset(farDay.AddHours(10));
         var end = start.AddHours(1);
 
@@ -321,7 +330,7 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Contains("court_outside_window", await byDesk.Content.ReadAsStringAsync());
 
         var policy = await member.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/court-rentals/policy");
-        Assert.Equal(2, policy.GetProperty("advanceDays").GetInt32());
+        Assert.Equal(3, policy.GetProperty("advanceDays").GetInt32());
         var calendar = await member.GetAsync($"/api/court-rentals/calendar?sportId={rental.SportId}&date={DateOnly.FromDateTime(VietnamTime.ToLocal(farDay.AddHours(10))):yyyy-MM-dd}");
         Assert.Equal(HttpStatusCode.BadRequest, calendar.StatusCode);
     }
@@ -405,8 +414,15 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal(0, preview.ExpectedRefundPointsTotal);
         var incidentId = await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
         var delivery = await incidents.DeliveryAsync(incidentId);
-        Assert.Equal(2, delivery.Total);
-        Assert.Equal(2, delivery.Pending);
+        // Resolution notifies the renter through both channels; the incident
+        // announcement also notifies every active user through both channels.
+        var activeUsers = await factory.QueryAsync(db => db.UserAccounts.CountAsync(u => u.Status == UserStatus.Active));
+        Assert.Equal(2 + activeUsers * 2, delivery.Total);
+        Assert.Equal(delivery.Total, delivery.Pending);
+        var renterResolution = await factory.QueryAsync(db => db.Notifications.Where(n =>
+            n.UserId == request.MemberId
+            && n.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.IncidentResolution).ToListAsync());
+        Assert.Equal(2, renterResolution.Count);
         var rental = await factory.QueryAsync(db => db.Set<CourtRental>().AsNoTracking()
             .SingleAsync(x => x.InvoiceId == checkout.InvoiceId));
         Assert.Equal(CourtRentalStatus.Cancelled, rental.Status);

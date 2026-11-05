@@ -7,10 +7,12 @@ export function CoachSelector({
   sportId,
   value,
   onChange,
+  required = false,
 }: {
   sportId: number;
   value: string;
   onChange: (value: string) => void;
+  required?: boolean;
 }) {
   const { t } = useLanguage();
   const state = useApi(
@@ -26,8 +28,12 @@ export function CoachSelector({
   return (
     <AsyncSection state={state}>
       {(rows) => (
-        <Field label={t.operations.coach}>
-          <select value={value} onChange={(e) => onChange(e.target.value)}>
+        <Field label={t.operations.coach} required={required}>
+          <select
+            required={required}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          >
             <option value="">—</option>
             {rows.map((c) => (
               <option key={c.userId} value={c.userId}>

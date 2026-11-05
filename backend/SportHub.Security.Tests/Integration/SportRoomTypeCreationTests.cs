@@ -57,10 +57,13 @@ public sealed class SportRoomTypeCreationTests(SportHubApiFactory factory)
         var beforeTypes = await db.RoomTypes.CountAsync();
         var beforeLinks = await db.SportRoomTypes.CountAsync();
         var input = Request(false, "Ignored type " + Guid.NewGuid());
-        Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/api/manager/sports", input)).StatusCode);
+        var response = await client.PostAsJsonAsync("/api/manager/sports", input);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var sport = (await response.Content.ReadFromJsonAsync<SportResponse>())!;
+        Assert.Equal(SportCode.FromName(input.Name), sport.Code);
         Assert.Equal(beforeTypes, await db.RoomTypes.CountAsync());
         Assert.Equal(beforeLinks, await db.SportRoomTypes.CountAsync());
-        Assert.True(await db.Sports.AnyAsync(s => s.Code == input.Code));
+        Assert.True(await db.Sports.AnyAsync(s => s.SportId == sport.SportId && s.Name == input.Name && s.Code == sport.Code));
     }
 
     [Theory]
@@ -73,7 +76,7 @@ public sealed class SportRoomTypeCreationTests(SportHubApiFactory factory)
         var input = Request(true, name);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/manager/sports", input)).StatusCode);
         using var scope = factory.Services.CreateScope();
-        Assert.False(await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Sports.AnyAsync(s => s.Code == input.Code));
+        Assert.False(await scope.ServiceProvider.GetRequiredService<SportHubDbContext>().Sports.AnyAsync(s => s.Name == input.Name));
     }
 
     [Fact]
@@ -88,7 +91,7 @@ public sealed class SportRoomTypeCreationTests(SportHubApiFactory factory)
         var response = await client.PostAsJsonAsync("/api/manager/sports", input);
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains("room_type_name_taken", await response.Content.ReadAsStringAsync());
-        Assert.False(await db.Sports.AnyAsync(s => s.Code == input.Code));
+        Assert.False(await db.Sports.AnyAsync(s => s.Name == input.Name));
         Assert.False(await db.SportRoomTypes.AnyAsync(l => l.RoomTypeId == type.RoomTypeId));
     }
 }

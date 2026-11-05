@@ -450,7 +450,7 @@ export interface RevenueReportDto {
   legacyCashCollected: number;
   reconciliationCashCollected: number;
   reconciliationCashCount: number;
-  /** Bank transfers a Manager recorded as paid out; a separate line, never deducted from VNPay cash. */
+  /** Compatibility alias of totalRefunded; do not add it again. */
   bankRefundPaid?: number;
   bankRefundCount?: number;
   pointsRedeemed: number;
@@ -486,6 +486,10 @@ export interface RevenueReportDto {
     refunded: number;
     obligationReduction: number;
     net: number;
+    pointsRedeemed?: number;
+    pointsIssued?: number;
+    pointsRefunded?: number;
+    managerPointAdjustment?: number;
   }[];
 }
 
@@ -692,6 +696,7 @@ export interface GymCheckInDto {
   memberId: string;
   checkedInByUserId: string;
   checkInTime: string;
+  cooldownSeconds: number;
 }
 
 export interface CourseMemberSessionDto {
@@ -903,6 +908,7 @@ export interface CoachAdminDto {
   createdAt: string;
 }
 export interface CourtScheduleEntryDto {
+  cancellationReason?: string | null;
   incidentId?: string | null;
   incidentScope?: "ROOM" | "CENTER" | null;
   affectedRoomIds?: number[];

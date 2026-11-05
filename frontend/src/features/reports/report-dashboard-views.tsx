@@ -2,8 +2,9 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { MemberName } from "@/components/RecordName";
+import { SportLoader } from "@/components/loading/SportLoader";
 import { useApi, type AsyncState } from "@/lib/useApi";
-import { formatDate, formatMoney, formatPoints } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { reportsApi, type ReportFilters, type ClassStatusReport } from "./api";
 import type { RevenueReportDto } from "@/lib/types";
 import { DashboardChart } from "./dashboard-chart";
@@ -16,7 +17,8 @@ import {
 } from "./report-periods";
 import s from "./reports-dashboard.module.css";
 
-export type DashboardTab = "revenue" | "rentals" | "classes" | "members";
+export type DashboardTab =
+  "revenue" | "points" | "rentals" | "classes" | "members";
 export interface ViewProps {
   selection: PeriodSelection;
   filters: ReportFilters;
@@ -56,11 +58,7 @@ export function ReportState<T>({
   name?: string;
 }) {
   if (state.loading)
-    return (
-      <p className={s.empty} role="status">
-        Loading {name.toLowerCase()}…
-      </p>
-    );
+    return <SportLoader label={`Loading ${name.toLowerCase()}…`} />;
   if (state.error)
     return (
       <div className={s.error} role="alert">
@@ -76,7 +74,7 @@ export function ReportState<T>({
     children(state.data)
   );
 }
-function ComparisonNotice<T>({
+export function ComparisonNotice<T>({
   state,
   enabled,
 }: {
@@ -93,13 +91,9 @@ function ComparisonNotice<T>({
         </button>
       </div>
     );
-  return state.loading ? (
-    <p className={s.note} role="status">
-      Loading comparison…
-    </p>
-  ) : null;
+  return state.loading ? <SportLoader label="Loading comparison…" /> : null;
 }
-function Metric({
+export function Metric({
   label,
   value,
   money,
@@ -147,7 +141,7 @@ function Metric({
     </div>
   );
 }
-function PeriodNote({
+export function PeriodNote({
   primary,
   comparison,
   label,
@@ -164,12 +158,11 @@ function PeriodNote({
           {" "}
           <span>vs {rangeText(comparison)}</span>
         </>
-      )}{" "}
-      · Vietnam time
+      )}
     </p>
   );
 }
-function Details({
+export function Details({
   children,
   title = "View details",
 }: {
@@ -189,22 +182,18 @@ function Details({
 }
 function CollectionRows({ report }: { report: RevenueReportDto }) {
   const [page, setPage] = useState(0),
-    rows = report.bySportAndSource;
+    rows = report.bySportAndSource.filter((r) => r.cashCollected !== 0);
   return (
     <>
       <div className={s.tableScroll}>
         <table>
           <thead>
             <tr>
-              {[
-                "Source",
-                "Sport",
-                "Member",
-                "Money received (VND)",
-                "Points used",
-              ].map((h) => (
-                <th key={h}>{h}</th>
-              ))}
+              {["Source", "Sport", "Member", "Money received (VND)"].map(
+                (h) => (
+                  <th key={h}>{h}</th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -216,7 +205,6 @@ function CollectionRows({ report }: { report: RevenueReportDto }) {
                   {r.memberId ? <MemberName id={r.memberId} /> : "Unclassified"}
                 </td>
                 <td>{number(r.cashCollected)}</td>
-                <td>{formatPoints(r.pointsRedeemed)}</td>
               </tr>
             ))}
           </tbody>
@@ -224,9 +212,6 @@ function CollectionRows({ report }: { report: RevenueReportDto }) {
             <tr>
               <th colSpan={3}>Total</th>
               <td>{number(rows.reduce((a, r) => a + r.cashCollected, 0))}</td>
-              <td>
-                {formatPoints(rows.reduce((a, r) => a + r.pointsRedeemed, 0))}
-              </td>
             </tr>
           </tfoot>
         </table>
@@ -259,7 +244,6 @@ function SourceBars({ report }: { report: RevenueReportDto }) {
   return (
     <section className={s.panel}>
       <h2>Money received by source</h2>
-      <p className={s.note}>Share of total money received</p>
       <div className={s.bars}>
         {rows.map((r) => (
           <div key={r.source}>
@@ -283,13 +267,7 @@ function SourceBars({ report }: { report: RevenueReportDto }) {
           </div>
         ))}
       </div>
-      {rows[0] ? (
-        <p className={s.insight}>
-          {sourceName(rows[0].source)} accounts for{" "}
-          {((rows[0].cashCollected / report.totalCollected) * 100).toFixed(1)}%
-          of collections.
-        </p>
-      ) : (
+      {!rows.length && (
         <p className={s.empty}>No money received in this period.</p>
       )}
     </section>
@@ -324,9 +302,20 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
       <PeriodNote
         primary={primary}
         comparison={comparison}
-        label="Payments & completed cash refunds"
+        label="Payment dates & recorded bank-transfer refund dates"
       />
       <ComparisonNotice state={previous} enabled={!!comparison} />
+      {!primary && (
+        <section className={s.panel}>
+          <h2>After refunds by day</h2>
+          <DashboardChart
+            period={selection}
+            rows={[]}
+            label="After refunds by day"
+            unit="VND"
+          />
+        </section>
+      )}
       <ReportState state={state} name="Revenue">
         {(r) =>
           r && (
@@ -338,7 +327,6 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   money
                   previous={previous.data?.totalCollected}
                   equal={equal}
-                  hint="Successful collections"
                 />
                 <Metric
                   label="Cash refunded"
@@ -346,7 +334,6 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   money
                   previous={previous.data?.totalRefunded}
                   equal={equal}
-                  hint="Completed cash payouts"
                 />
                 <Metric
                   label="After refunds"
@@ -355,18 +342,13 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   previous={previous.data?.netRevenue}
                   equal={equal}
                   emphasis
-                  hint="Money received − cash refunded"
                 />
               </div>
-              <p>
-                Recorded bank payouts: {formatMoney(r.bankRefundPaid ?? 0)} VND
-                ({r.bankRefundCount ?? 0} payout(s)). This amount is shown separately
-                from cash refunds and does not reduce money received.
-              </p>
               <div className={s.charts}>
                 <section className={s.panel}>
                   <h2>After refunds by day</h2>
                   <DashboardChart
+                    period={selection}
                     rows={chartRows(r)}
                     comparison={
                       previous.data ? chartRows(previous.data) : undefined
@@ -385,33 +367,6 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   </Details>
                 )}
               </Details>
-              <Details title="Points activity">
-                <dl className={s.points}>
-                  <div>
-                    <dt>Points used</dt>
-                    <dd>{formatPoints(r.pointsRedeemed)}</dd>
-                  </div>
-                  <div>
-                    <dt>Points refunded</dt>
-                    <dd>{formatPoints(r.pointsRefunded)}</dd>
-                  </div>
-                  <div>
-                    <dt>Current balance</dt>
-                    <dd>{formatPoints(r.outstandingPoints)}</dd>
-                  </div>
-                </dl>
-                <p className={s.note}>
-                  Current balance includes available and held points{" "}
-                  {filters.memberId
-                    ? "for the selected member"
-                    : "across all wallets"}
-                  ; it is not limited by period, sport or source.
-                </p>
-              </Details>
-              <p className={s.note}>
-                Refunds in points do not reduce After refunds. Operating costs
-                are not deducted.
-              </p>
             </>
           )
         }
@@ -470,11 +425,11 @@ export function CourtsView({ selection, filters, today }: ViewProps) {
           {(r) => (
             <>
               <Metric
-                label="Confirmed bookings"
+                label="Paid bookings"
                 value={r.totalBookings}
                 previous={previous.data?.totalBookings}
                 equal={equal}
-                hint="Confirmed and completed rentals"
+                hint="All paid rentals, including cancelled and no-shows"
               />
               <Metric
                 label="Booked hours"
@@ -511,6 +466,7 @@ export function CourtsView({ selection, filters, today }: ViewProps) {
               <h2>Booked hours by day</h2>
               {r.daily ? (
                 <DashboardChart
+                  period={selection}
                   rows={r.daily.map((d) => ({
                     date: d.date,
                     value: d.bookedHours,
@@ -782,6 +738,19 @@ export function MembersView({ selection, filters, today }: ViewProps) {
         label="Successful purchases"
       />
       <ComparisonNotice state={previous} enabled={!!comparison} />
+      {!primary && (
+        <section className={s.panel}>
+          <h2>Gym purchases by day</h2>
+          <DashboardChart
+            period={selection}
+            rows={[]}
+            label="Gym purchases by day"
+            unit="people"
+            seriesLabel="Membership buyers"
+            integerValues
+          />
+        </section>
+      )}
       <div className={s.metrics}>
         <ReportState state={active} name="Active Gym members">
           {(r) => (
@@ -829,6 +798,7 @@ export function MembersView({ selection, filters, today }: ViewProps) {
               <h2>Gym purchases by day</h2>
               {r.daily ? (
                 <DashboardChart
+                  period={selection}
                   rows={r.daily.map((d) => ({ date: d.date, value: d.buyers }))}
                   comparison={previous.data?.daily?.map((d) => ({
                     date: d.date,

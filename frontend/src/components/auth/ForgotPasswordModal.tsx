@@ -1,4 +1,5 @@
 "use client";
+import { SportLoader } from "@/components/loading/SportLoader";
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/apiClient";
@@ -184,7 +185,7 @@ export function ForgotPasswordModal({
               >
                 {action.busy ? (
                   <span className="btn__busy">
-                    <span className="spinner" aria-hidden="true" />
+                    <SportLoader size="inline" decorative />
                     <span>{t.identity.sendLink}</span>
                   </span>
                 ) : (

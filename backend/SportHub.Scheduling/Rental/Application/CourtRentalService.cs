@@ -38,8 +38,6 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             r.RoomId == request.RoomId && r.IsActive && r.AllowRental
             && db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive), cancellationToken)
             ?? throw new ConflictException("rental_room_incompatible", "Rental room incompatible.");
-        if (room.RentalBookingOpensAtUtc > clock.UtcNow)
-            throw new ConflictException("rental_court_not_open_yet", "This new court opens for member bookings on the following day (Vietnam time).");
         if (room.RoomTypeId is not int roomTypeId)
             throw new ConflictException("rental_room_unclassified", "Rental room unclassified.");
 
@@ -273,8 +271,8 @@ public sealed partial class CourtRentalService(ISportHubDbContext db, IUserAcces
             || duration.TotalMinutes % slotMinutes != 0 || request.StartUtc.Minute % slotMinutes != 0
             || request.StartUtc.Second != 0 || request.StartUtc.Millisecond != 0)
             throw new BadRequestException("invalid_rental_window", $"Rental must use {slotMinutes}-minute slots and last from 1 to {maxHours} hours.");
-        // BR-126: hôm nay + 2 ngày, cửa sổ đổi ngày lúc 06:00; áp dụng cho Member tự thuê và Receptionist đặt hộ.
+        // Today plus 3 Vietnam calendar days, for members and receptionist-assisted bookings.
         if (request.StartUtc.UtcDateTime >= VietnamTime.EndOfDayExclusiveUtc(CourtRentalWindow.LastBookableDate(clock.UtcNow)))
-            throw new ConflictException("court_outside_window", "Courts can only be rented from today and the next 2 days; the window rolls at 06:00.");
+            throw new ConflictException("court_outside_window", "Courts can only be rented up to 3 days ahead, based on the current Vietnam date.");
     }
 }

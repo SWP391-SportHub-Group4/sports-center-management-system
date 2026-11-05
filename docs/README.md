@@ -24,4 +24,3 @@ Các tài liệu Flow và hướng dẫn kiểm thử cũ đã được gỡ kh�
 
 - [AI Member/Coach — Implementation & Verification](AI-Member-Coach-Implementation-Verification.md): mapping chức năng, validation, merge notes, runtime/CI checklist và giới hạn nghiệm thu.
 - Các cập nhật của Flow 5 và Flow 6 được bổ sung vào `00-Source-of-Truth.md`, `api-contract.md`, `Functional-and-Nonfunctional-Spec.md`, `Center-Management-System-Design-v3.md` và `LOCAL-DEMO-SCRIPT-6-FLOWS.md`.
-

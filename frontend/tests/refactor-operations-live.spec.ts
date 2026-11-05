@@ -355,12 +355,12 @@ test("paid enrolled class can be cancelled with reviewed refunds without duplica
   await cancellation
     .getByLabel(en.operations.reason, { exact: true })
     .fill(reason);
-  await cancellation
-    .getByRole("button", {
+  await expect(
+    cancellation.getByRole("button", {
       name: en.operations.cancellationPreview,
       exact: true,
-    })
-    .click();
+    }),
+  ).toHaveCount(0);
   const confirm = cancellation.getByRole("button", {
     name: en.operations.confirm,
     exact: true,

@@ -1,0 +1,50 @@
+.control {
+  position: relative;
+  min-width: 0;
+}
+.control input {
+  width: 100%;
+}
+.panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: var(--z-dropdown);
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+.panel ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.panel li {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.panel li[data-active="true"] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-soft-text);
+}
+.panel li[aria-selected="true"] {
+  font-weight: var(--weight-semibold);
+}
+.panel p {
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  color: var(--text-muted);
+}
+.control:has(input:disabled) .panel,
+:global(fieldset:disabled) .panel {
+  display: none;
+}
