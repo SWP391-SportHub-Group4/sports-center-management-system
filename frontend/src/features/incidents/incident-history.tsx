@@ -14,9 +14,10 @@ import { catalogApi } from "@/features/catalog";
 import styles from "./incident-history.module.css";
 
 export function IncidentHistory({ refreshKey }: { refreshKey: string }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.managerOperations;
   const [scope, setScope] = useState("");
+  const [status, setStatus] = useState("CONFIRMED");
   const scopeListId = useId();
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopeSearching, setScopeSearching] = useState(false);
@@ -68,6 +69,9 @@ export function IncidentHistory({ refreshKey }: { refreshKey: string }) {
   );
   const rows = (state.data ?? []).filter(
     (incident) =>
+      (status === "CANCELLED"
+        ? !!incident.cancelledAtUtc
+        : !incident.cancelledAtUtc) &&
       (!query ||
         (selectedRoom
           ? incident.scope.toUpperCase() !== "CENTER" &&
@@ -88,6 +92,19 @@ export function IncidentHistory({ refreshKey }: { refreshKey: string }) {
   return (
     <div className={styles.history}>
       <div className={styles.filters}>
+        <Field label={language === "vi" ? "Trạng thái" : "Status"}>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="CONFIRMED">
+              {language === "vi" ? "Đã xác nhận" : "Confirmed"}
+            </option>
+            <option value="CANCELLED">
+              {language === "vi" ? "Đã hủy" : "Cancelled"}
+            </option>
+          </select>
+        </Field>
         <div className={styles.scopeControl}>
           <Field label={l.incidentScope}>
             <input
