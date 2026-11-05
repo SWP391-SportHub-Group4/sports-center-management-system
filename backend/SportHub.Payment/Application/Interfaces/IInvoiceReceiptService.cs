@@ -8,9 +8,6 @@ public interface IInvoiceReceiptService
 
     byte[] RenderPdf(
         InvoiceReceiptModel model);
-
-    string RenderHtml(
-        InvoiceReceiptModel model);
 }
 
 public sealed record InvoiceReceiptItem(
