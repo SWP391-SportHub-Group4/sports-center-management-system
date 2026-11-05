@@ -65,7 +65,7 @@ export function IncidentRefundTable({
   );
   return (
     <section
-      className={styles.root}
+      className={`${styles.root} ${readOnly ? styles.summary : ""}`}
       aria-label={readOnly ? c.summary : c.title}
     >
       <div className={styles.heading}>
@@ -81,6 +81,7 @@ export function IncidentRefundTable({
               c.service,
               c.schedule,
               c.status,
+              ...(readOnly ? [c.reasonColumn] : []),
               { text: c.points, numeric: true },
             ]}
           >
@@ -120,6 +121,11 @@ export function IncidentRefundTable({
                           : (state[row.status] ?? row.status)}
                     </span>
                   </td>
+                  {readOnly && (
+                    <td className={styles.summaryReason}>
+                      {edit.reason || "—"}
+                    </td>
+                  )}
                   <td className="num">
                     {readOnly ? (
                       <strong className={styles.amount}>
@@ -181,7 +187,7 @@ export function IncidentRefundTable({
                         {c.invalid}
                       </small>
                     )}
-                    {(changed || (readOnly && edit.reason)) && (
+                    {!readOnly && changed && (
                       <div className={styles.reason}>
                         {readOnly ? (
                           <small>{edit.reason}</small>
@@ -224,10 +230,6 @@ export function IncidentRefundTable({
             })}
           </Table>
           <div className={styles.total}>
-            <span>
-              {new Set(rows.map((r) => r.memberId)).size} {c.members} ·{" "}
-              {rows.length} {c.services}
-            </span>
             <span>
               {c.total}{" "}
               <strong aria-live="polite" aria-atomic="true">

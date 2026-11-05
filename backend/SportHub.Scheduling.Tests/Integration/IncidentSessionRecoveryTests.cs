@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -71,8 +72,18 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         first = (await CourseTestData.SessionsAsync(factory, course.Id))[0];
         var incident = new IncidentRequest("Room", course.RoomId, first.StartAtUtc,
             ongoing ? first.EndAtUtc : first.EndAtUtc.AddMinutes(10), "Power failure during session");
-        var fence = await Incidents(s => s.OpenFenceAsync(incident, course.ManagerId));
-        return new(course, first, member.UserId, incident, fence.FenceId);
+        // Existing incidents can have past windows; new incident creation cannot.
+        var fenceId = Guid.NewGuid();
+        await factory.QueryAsync(async db => {
+            db.Set<IncidentFence>().Add(new IncidentFence {
+                FenceId = fenceId, Scope = IncidentScope.Room, RoomId = course.RoomId,
+                StartAtUtc = incident.StartAtUtc, EndAtUtc = incident.EndAtUtc, Reason = incident.Reason,
+                Status = IncidentFenceStatus.Open, CreatedByUserId = course.ManagerId,
+                CreatedAtUtc = incident.StartAtUtc.AddMinutes(-1), ExpiresAtUtc = clock.UtcNow.AddHours(1)
+            });
+            await db.SaveChangesAsync(); return true;
+        });
+        return new(course, first, member.UserId, incident, fenceId);
     }
 
     [Theory]
@@ -111,7 +122,8 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         Assert.Null(result.IncidentReport!.ReplacementSessionId);
         Assert.Equal("Completed", result.Status);
         Assert.Equal(3, (await CourseTestData.SessionsAsync(factory, f.Course.Id)).Count);
-        Assert.True((await Incidents(s => s.PreviewAsync(f.Incident))).CanResolve);
+        var pastReview = await Assert.ThrowsAsync<BadRequestException>(() => Incidents(s => s.PreviewAsync(f.Incident)));
+        Assert.Equal("incident_start_in_past", pastReview.ErrorCode);
         Assert.True(await factory.QueryAsync(db => db.Attendances.AnyAsync(a => a.SessionId == f.Session.SessionId)));
         var step = Assert.Single(await Incidents(s => s.ListFenceStepsAsync(f.FenceId)));
         Assert.Equal("ReviewedCompleted", step.Kind);
@@ -181,8 +193,11 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         Assert.Equal(3, (await CourseTestData.SessionsAsync(factory, f.Course.Id)).Count);
     }
 
-    [Fact]
-    public async Task Future_incident_makeup_requires_a_matching_fence_and_retries_return_one_replacement()
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1)]
+    [InlineData(21)]
+    public async Task Future_incident_makeup_requires_a_matching_fence_and_retries_return_one_replacement(int dayOffset)
     {
         var course = await CourseTestData.CreateAsync(factory);
         var member = await factory.SeedUserAsync(UserRole.Member);
@@ -190,20 +205,51 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         var sessions = await CourseTestData.SessionsAsync(factory, course.Id);
         var source = sessions[0];
         var incident = new IncidentRequest("Room", course.RoomId, source.StartAtUtc, source.EndAtUtc, "Court needs repair");
-        var fence = await Incidents(s => s.OpenFenceAsync(incident, course.ManagerId));
+        using var client = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var fenceResponse = await client.PostAsJsonAsync("/api/manager/incidents/fences", incident);
+        fenceResponse.EnsureSuccessStatusCode();
+        var fence = (await fenceResponse.Content.ReadFromJsonAsync<IncidentFenceResponse>())!;
         var request = new IncidentMakeupRequest { FenceId = Guid.NewGuid(), Reason = incident.Reason,
-            Makeup = new() {StartAtUtc = sessions.Max(s => s.StartAtUtc).AddDays(7), RoomId = source.RoomId, CoachId = source.CoachId} };
+            Makeup = new() {StartAtUtc = source.StartAtUtc.AddDays(dayOffset), RoomId = source.RoomId, CoachId = source.CoachId} };
         var blocked = await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId)));
         Assert.Equal("incident_window_required", blocked.ErrorCode);
         var ordinary = await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.CancelWithMakeupAsync(source.SessionId, request, course.ManagerId)));
         Assert.Equal("class_has_enrollments", ordinary.ErrorCode);
         request.FenceId = fence.FenceId;
-        var first = await Run(s => s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId));
-        var retry = await Run(s => s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId));
+        var firstResponse = await client.PostAsJsonAsync($"/api/class-sessions/{source.SessionId}/incident-makeup", request);
+        firstResponse.EnsureSuccessStatusCode();
+        var first = (await firstResponse.Content.ReadFromJsonAsync<ClassSessionResponse>())!;
+        var retryResponse = await client.PostAsJsonAsync($"/api/class-sessions/{source.SessionId}/incident-makeup", request);
+        retryResponse.EnsureSuccessStatusCode();
+        var retry = (await retryResponse.Content.ReadFromJsonAsync<ClassSessionResponse>())!;
         Assert.Equal(first.SessionId, retry.SessionId);
         Assert.Equal(source.EndAtUtc - source.StartAtUtc, first.EndAtUtc - first.StartAtUtc);
-        Assert.Equal(sessions.Count + 1, (await CourseTestData.SessionsAsync(factory, course.Id)).Count);
+        var updatedSessions = await CourseTestData.SessionsAsync(factory, course.Id);
+        Assert.Equal(sessions.Count + 1, updatedSessions.Count);
+        var firstActiveStart = updatedSessions.Where(s => s.Status != ClassSessionStatus.Cancelled).Min(s => s.StartAtUtc);
+        Assert.Equal(DateOnly.FromDateTime(VietnamTime.ToLocal(firstActiveStart)),
+            await factory.QueryAsync(db => db.Classes.Where(c => c.ClassId == course.Id).Select(c => c.StartDate).SingleAsync()));
         Assert.True(await factory.QueryAsync(db => db.Enrollments.AnyAsync(e => e.MemberId == member.UserId && e.ClassId == course.Id && e.Status == EnrollmentStatus.Confirmed)));
+    }
+
+    [Theory]
+    [InlineData(-30)]
+    [InlineData(0)]
+    [InlineData(30)]
+    public async Task Future_incident_replacement_cannot_overlap_any_part_of_the_incident(int minuteOffset)
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var source = (await CourseTestData.SessionsAsync(factory, course.Id))[0];
+        var incident = new IncidentRequest("Room", course.RoomId, source.StartAtUtc, source.EndAtUtc, "Court needs repair");
+        var fence = await Incidents(s => s.OpenFenceAsync(incident, course.ManagerId));
+        var error = await Assert.ThrowsAsync<BadRequestException>(() => Run(s => s.CreateIncidentMakeupAsync(source.SessionId,
+            new() { FenceId = fence.FenceId, Reason = incident.Reason, Makeup = new() {
+                StartAtUtc = source.StartAtUtc.AddMinutes(minuteOffset), RoomId = source.RoomId, CoachId = source.CoachId
+            } }, course.ManagerId)));
+        Assert.Equal("replacement_during_incident", error.ErrorCode);
+        var sessions = await CourseTestData.SessionsAsync(factory, course.Id);
+        Assert.Equal(3, sessions.Count);
+        Assert.Equal(ClassSessionStatus.Scheduled, sessions.Single(s => s.SessionId == source.SessionId).Status);
     }
 
     [Fact]
@@ -212,5 +258,22 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         var f = await Setup();
         await Assert.ThrowsAsync<ConflictException>(() => Run(s => s.ReportIncidentAsync(f.Session.SessionId,
             new() { FenceId = Guid.NewGuid(), Outcome = "COMPLETED_AS_PLANNED", OccurredAtUtc = f.Session.StartAtUtc.AddMinutes(5), Reason = "Unrelated incident" }, f.Course.ManagerId)));
+    }
+
+    [Theory]
+    [InlineData("preview")]
+    [InlineData("fences")]
+    [InlineData("resolve")]
+    public async Task New_incidents_cannot_start_in_the_past(string endpoint)
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        using var client = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var request = new IncidentRequest("Room", course.RoomId, DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddHours(1), "Court repair");
+        var response = await client.PostAsJsonAsync($"/api/manager/incidents/{endpoint}", request);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        var error = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("incident_start_in_past", error.GetProperty("error").GetString());
+        Assert.False(await factory.QueryAsync(db => db.Set<IncidentFence>().AnyAsync(f => f.RoomId == course.RoomId)));
+        Assert.False(await factory.QueryAsync(db => db.Set<IncidentNotice>().AnyAsync(f => f.RoomId == course.RoomId)));
     }
 }

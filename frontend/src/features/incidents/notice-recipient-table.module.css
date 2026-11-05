@@ -1,0 +1,103 @@
+.workspace {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.filters :global(.field) {
+  min-width: 0;
+  margin: 0;
+}
+.table :global(.table-wrap) {
+  max-height: min(28rem, 55dvh);
+  overflow: auto;
+  scrollbar-width: none;
+}
+.table :global(.table-wrap::-webkit-scrollbar) {
+  display: none;
+}
+.table :global(th:first-child),
+.table :global(td:first-child) {
+  width: 3.5rem;
+  text-align: center;
+}
+.table :global(thead) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface-sunken);
+}
+.table input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-5);
+}
+.dialog :global(.dialog__body) {
+  max-height: 75dvh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.dialog :global(.dialog__body::-webkit-scrollbar) {
+  display: none;
+}
+.dialog form {
+  display: grid;
+  gap: var(--space-4);
+}
+.dialog form > button {
+  justify-self: end;
+}
+.dialog form > div > label {
+  white-space: nowrap;
+}
+.dialog input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+@media (max-width: 767px) {
+  .table :global(.table-wrap[data-management-table] thead) {
+    display: block;
+  }
+  .table :global(thead tr) {
+    display: flex;
+  }
+  .table :global(thead th:not(:first-child)) {
+    display: none;
+  }
+  .table :global(.table-wrap[data-management-table] tbody tr) {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    align-items: center;
+  }
+  .table :global(.table-wrap[data-management-table] tbody td) {
+    display: block;
+    min-width: 0;
+    width: auto;
+    overflow-wrap: anywhere;
+  }
+  .table :global(td[data-label]::before) {
+    display: none;
+  }
+  .table :global(td:first-child) {
+    grid-row: 1 / 3;
+  }
+  .table :global(td:last-child) {
+    grid-column: 2;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+}

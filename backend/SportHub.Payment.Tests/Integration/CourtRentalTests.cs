@@ -414,8 +414,15 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         Assert.Equal(0, preview.ExpectedRefundPointsTotal);
         var incidentId = await incidents.ResolveAsync(await IncidentTestRequests.ReviewAsync(incidents, incident), manager.UserId);
         var delivery = await incidents.DeliveryAsync(incidentId);
-        Assert.Equal(2, delivery.Total);
-        Assert.Equal(2, delivery.Pending);
+        // Resolution notifies the renter through both channels; the incident
+        // announcement also notifies every active user through both channels.
+        var activeUsers = await factory.QueryAsync(db => db.UserAccounts.CountAsync(u => u.Status == UserStatus.Active));
+        Assert.Equal(2 + activeUsers * 2, delivery.Total);
+        Assert.Equal(delivery.Total, delivery.Pending);
+        var renterResolution = await factory.QueryAsync(db => db.Notifications.Where(n =>
+            n.UserId == request.MemberId
+            && n.SourceEventType == SportHub.Notification.Domain.Enums.NotificationSourceEventType.IncidentResolution).ToListAsync());
+        Assert.Equal(2, renterResolution.Count);
         var rental = await factory.QueryAsync(db => db.Set<CourtRental>().AsNoTracking()
             .SingleAsync(x => x.InvoiceId == checkout.InvoiceId));
         Assert.Equal(CourtRentalStatus.Cancelled, rental.Status);

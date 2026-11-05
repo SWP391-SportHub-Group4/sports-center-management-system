@@ -6,9 +6,11 @@ import styles from "./wallet-balance.module.css";
 export function WalletBalance({
   balance,
   compact = false,
+  showHints = true,
 }: {
   balance: WalletBalanceDto;
   compact?: boolean;
+  showHints?: boolean;
 }) {
   const { t } = useLanguage();
   return (
@@ -19,11 +21,13 @@ export function WalletBalance({
           <span className={styles.value}>
             {formatPoints(balance.availablePoints)}
           </span>
-          <span className={styles.hint}>
-            {t.finance.walletValue}:{" "}
-            {formatMoney(balance.availablePoints * balance.vndPerPoint)}
-            {!compact && <> · {t.wallet.availableHint}</>}
-          </span>
+          {showHints && (
+            <span className={styles.hint}>
+              {t.finance.walletValue}:{" "}
+              {formatMoney(balance.availablePoints * balance.vndPerPoint)}
+              {!compact && <> · {t.wallet.availableHint}</>}
+            </span>
+          )}
         </dd>
       </div>
       <div>
@@ -32,7 +36,9 @@ export function WalletBalance({
           <span className={styles.value}>
             {formatPoints(balance.heldPoints)}
           </span>
-          {!compact && <span className={styles.hint}>{t.wallet.heldHint}</span>}
+          {!compact && showHints && (
+            <span className={styles.hint}>{t.wallet.heldHint}</span>
+          )}
         </dd>
       </div>
       {!compact && (
@@ -42,7 +48,9 @@ export function WalletBalance({
             <span className={styles.value}>
               {formatPoints(balance.availablePoints + balance.heldPoints)}
             </span>
-            <span className={styles.hint}>{t.wallet.totalHint}</span>
+            {showHints && (
+              <span className={styles.hint}>{t.wallet.totalHint}</span>
+            )}
           </dd>
         </div>
       )}

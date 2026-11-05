@@ -1,21 +1,15 @@
 "use client";
-import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { formatDate } from "@/lib/format";
-import {
-  AsyncSection,
-  Dialog,
-  Pager,
-  StatusChip,
-  Table,
-} from "@/components/ui";
+import { AsyncSection, Dialog, StatusChip, Table } from "@/components/ui";
 import type {
   MemberPackageDto,
   MembershipPackageDto,
   Paged,
 } from "@/lib/types";
+import styles from "./package-members.module.css";
 type Buyer = MemberPackageDto & {
   memberId: string;
   memberName: string;
@@ -28,28 +22,41 @@ export function PackageMembers({
   plan: MembershipPackageDto;
   onClose: () => void;
 }) {
-  const [page, setPage] = useState(1);
   const state = useApi(
-    (signal) =>
-      api.get<Paged<Buyer>>("/api/member-packages", {
-        signal,
-        query: {
-          packageId: plan.packageId,
-          currentMembersOnly: true,
-          page,
-          pageSize: 20,
-        },
-      }),
-    [plan.packageId, page],
+    async (signal) => {
+      const items: Buyer[] = [];
+      let page = 1;
+      while (true) {
+        const result = await api.get<Paged<Buyer>>("/api/member-packages", {
+          signal,
+          query: {
+            packageId: plan.packageId,
+            currentMembersOnly: true,
+            page,
+            pageSize: 100,
+          },
+        });
+        items.push(...result.items);
+        if (!result.items.length || items.length >= result.totalCount) break;
+        page++;
+      }
+      return items;
+    },
+    [plan.packageId],
   );
   return (
-    <Dialog title={`${plan.name} · Members`} onClose={onClose} size="lg">
+    <Dialog
+      title={`${plan.name} · Members`}
+      onClose={onClose}
+      size="lg"
+      className={styles.dialog}
+    >
       <AsyncSection state={state}>
         {(data) => (
           <>
-            {data.items.length ? (
+            {data.length ? (
               <Table headers={["Member", "Start", "End", "Status"]}>
-                {data.items.map((p) => (
+                {data.map((p) => (
                   <tr key={p.memberPackageId}>
                     <td>
                       <Link href={`/manager/members/${p.memberId}`}>
@@ -67,12 +74,6 @@ export function PackageMembers({
             ) : (
               <p>No members currently have an active package.</p>
             )}
-            <Pager
-              page={page}
-              pageSize={data.pageSize}
-              totalCount={data.totalCount}
-              onChange={setPage}
-            />
           </>
         )}
       </AsyncSection>

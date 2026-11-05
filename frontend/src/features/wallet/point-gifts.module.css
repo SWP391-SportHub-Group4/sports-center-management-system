@@ -163,6 +163,14 @@
   height: 20px;
   cursor: pointer;
 }
+.recipientPoints {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.recipientTable :global(th:nth-child(3)) {
+  width: 10rem;
+  text-align: right;
+}
 .recipientTable :global(thead) {
   position: sticky;
   top: 0;
@@ -188,6 +196,7 @@
   max-height: min(20rem, 30dvh);
 }
 .historyDialog:global(.dialog) {
+  width: min(860px, 100%);
   display: flex;
   flex-direction: column;
   max-height: calc(100dvh - var(--space-4) * 2);
@@ -202,9 +211,6 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
-}
-.historyFilterActions {
-  justify-content: flex-end;
 }
 .historyFilterGrid :global(.field) {
   min-width: 0;
@@ -231,6 +237,21 @@
   display: none;
 }
 @media (max-width: 767px) {
+  .recipientTable :global(.table-wrap[data-management-table] thead) {
+    display: block;
+    position: sticky;
+    width: 100%;
+    height: auto;
+    clip-path: none;
+    overflow: visible;
+  }
+  .recipientTable :global(thead tr) {
+    display: flex;
+    align-items: center;
+  }
+  .recipientTable :global(thead th:not(:first-child)) {
+    display: none;
+  }
   .recipientTable :global(.table-wrap[data-management-table] tbody tr) {
     display: grid;
     grid-template-columns: 2.75rem minmax(0, 1fr);
@@ -245,7 +266,15 @@
     display: none;
   }
   .recipientTable :global(td:first-child) {
-    grid-row: 1 / 3;
+    grid-row: 1 / 4;
+  }
+  .recipientTable .recipientPoints {
+    grid-column: 2;
+    text-align: left;
+  }
+  .recipientTable .recipientPoints::before {
+    display: inline;
+    content: attr(data-label) ": ";
   }
   .recipientTable :global(td:last-child) {
     grid-column: 2;

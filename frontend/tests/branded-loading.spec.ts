@@ -181,8 +181,11 @@ test("the entry curtain does not hide the page when JavaScript is disabled", asy
 }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  await page.goto(`${baseURL}/login`);
+  // Check the server-rendered shell: streamed route content can stay inside
+  // Next's Suspense fallback without JavaScript, independently of the curtain.
+  await page.goto(`${baseURL}/`);
   await expect(page.locator("[data-startup-loader]")).toBeHidden();
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.locator("[data-startup-content]")).toBeVisible();
+  await expect(page.getByRole("contentinfo", { name: "Footer" })).toBeVisible();
   await context.close();
 });

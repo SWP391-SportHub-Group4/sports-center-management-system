@@ -5,7 +5,7 @@ import { ArrowRight, Check } from "lucide-react";
 import successStyles from "./notice-success.module.css";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/apiClient";
-import { NoticeReview } from "./notice-review";
+import styles from "./notice-recipient-table.module.css";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { useOperationsCopy, validReceiptId } from "@/features/manager";
@@ -18,7 +18,7 @@ import {
   type NoticeRole,
 } from "./notice-recipient-picker";
 export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const l = t.operations;
   const c = useOperationsCopy();
   const mutation = useMutation();
@@ -27,10 +27,11 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
   const [message, setMessage] = useState("");
   const [sendEmail, setEmail] = useState(true);
   const [sendInApp, setInApp] = useState(true);
+  const sending = useRef(false);
   const [chosen, setChosen] = useState<NoticeSelection>({});
   const [sendToAll, setSendToAll] = useState(false);
   const [sendToRoles, setSendToRoles] = useState<NoticeRole[]>([]);
-  const [review, setReview] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [savedId, setSentId] = useState(() => {
     if (typeof window === "undefined") return "";
     const id = new URLSearchParams(window.location.search).get("noticeId");
@@ -71,8 +72,14 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
     };
   } | null>(null);
   async function send() {
-    if (mutation.busy || sentId || (!uncertain && (!review || !validSelection)))
+    if (
+      sending.current ||
+      mutation.busy ||
+      sentId ||
+      (!uncertain && !validSelection)
+    )
       return;
+    sending.current = true;
     request.current ??= {
       key: recoveryKey || crypto.randomUUID(),
       body: {
@@ -122,12 +129,13 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
         });
       if (!validReceiptId(response.noticeId)) throw new Error(c.invalidReceipt);
       setSentId(response.noticeId);
-      setReview(false);
+      setComposerOpen(false);
       onSent?.();
       setRecoveryKey("");
       setUncertain(false);
       window.history.replaceState(null, "", `?noticeId=${response.noticeId}`);
     }, t.manualNotices.sentSuccess);
+    sending.current = false;
     if (!ok) setUncertain(request.current !== null);
   }
   const validSelection =
@@ -139,14 +147,14 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
     (sendEmail || sendInApp);
   const locked = mutation.busy || !!sentId || uncertain || !!recoveryKey;
   function change() {
-    setReview(false);
+    mutation.reset();
   }
   function resetAfterSuccess() {
     if (mutation.busy) return;
     setSentId("");
     setRecoveryKey("");
     setUncertain(false);
-    setReview(false);
+    setComposerOpen(false);
     setSubject("");
     setMessage("");
     setEmail(true);
@@ -207,7 +215,7 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
                 onClick={() => {
                   setRecoveryKey("");
                   setUncertain(false);
-                  setReview(false);
+                  setComposerOpen(false);
                   setChosen({});
                   request.current = null;
                   mutation.reset();
@@ -224,141 +232,144 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
           )}
         </Card>
       )}
-      <NoticeRecipients
-        value={chosen}
-        disabled={locked}
-        sendToAll={sendToAll}
-        sendToRoles={sendToRoles}
-        onSendToRoleChange={(role, checked) => {
-          setSendToRoles((current) =>
-            checked
-              ? [...current, role]
-              : current.filter((selected) => selected !== role),
-          );
-          change();
-        }}
-        onSendToAllChange={(checked) => {
-          setSendToAll(checked);
-          change();
-        }}
-        onChange={(next) => {
-          setChosen(next);
-          change();
-        }}
-      />
-      <Card title={l.notices}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!locked && validSelection) {
-              mutation.reset();
-              setReview(true);
-            }
+      <Card title={t.operations.recipients}>
+        <NoticeRecipients
+          value={chosen}
+          disabled={locked}
+          onChange={(next) => {
+            setChosen(next);
+            mutation.reset();
           }}
-        >
-          <Field label={l.subject}>
-            <input
-              ref={subjectInput}
-              required
-              minLength={3}
-              maxLength={150}
-              disabled={locked}
-              value={subject}
-              onChange={(e) => {
-                setSubject(e.target.value);
-                change();
-              }}
-            />
-          </Field>
-          <Field label={l.message}>
-            <textarea
-              required
-              minLength={3}
-              maxLength={3000}
-              disabled={locked}
-              value={message}
-              onChange={(e) => {
-                setMessage(e.target.value);
-                change();
-              }}
-            />
-          </Field>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "var(--space-2) var(--space-5)",
-            }}
-          >
-            <label
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "var(--space-2)",
-                margin: 0,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={sendEmail}
-                disabled={locked}
-                onChange={(e) => {
-                  setEmail(e.target.checked);
-                  change();
-                }}
-              />
-              {l.sendEmail}
-            </label>
-            <label
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "var(--space-2)",
-                margin: 0,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={sendInApp}
-                disabled={locked}
-                onChange={(e) => {
-                  setInApp(e.target.checked);
-                  change();
-                }}
-              />
-              {l.sendInApp}
-            </label>
-          </div>
+        />
+        <div className={styles.actions}>
           <button
-            className="btn btn--secondary"
+            type="button"
+            className="btn"
+            disabled={
+              locked ||
+              !individualRecipients.length ||
+              individualRecipients.length > 200
+            }
             aria-haspopup="dialog"
-            aria-expanded={review}
-            disabled={locked || !validSelection}
-          >
-            {l.review}
-          </button>
-        </form>
-        {review && (
-          <NoticeReview
-            recipients={individualRecipients}
-            sendToAll={sendToAll}
-            sendToRoles={sendToRoles}
-            subject={subject}
-            message={message}
-            sendInApp={sendInApp}
-            sendEmail={sendEmail}
-            disabled={locked || !validSelection}
-            onSend={() => void send()}
-            onClose={() => {
-              if (!mutation.busy) setReview(false);
+            onClick={() => {
+              mutation.reset();
+              setComposerOpen(true);
             }}
-            busy={mutation.busy}
-            feedback={deliveryFeedback}
-          />
-        )}
-        {!review && deliveryFeedback}
+          >
+            {language === "vi" ? "Gửi thông báo" : "Send notice"} (
+            {individualRecipients.length})
+          </button>
+        </div>
+        {!composerOpen && deliveryFeedback}
       </Card>
+      {composerOpen &&
+        createPortal(
+          <Dialog
+            title={l.notices}
+            size="lg"
+            className={styles.dialog}
+            closeIconOnly
+            showCloseButton={!mutation.busy}
+            onClose={() => {
+              if (!mutation.busy && !uncertain) setComposerOpen(false);
+            }}
+          >
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!locked && validSelection) void send();
+              }}
+            >
+              <Field label={l.subject}>
+                <input
+                  ref={subjectInput}
+                  required
+                  minLength={3}
+                  maxLength={150}
+                  disabled={locked}
+                  value={subject}
+                  onChange={(e) => {
+                    setSubject(e.target.value);
+                    change();
+                  }}
+                />
+              </Field>
+              <Field label={l.message}>
+                <textarea
+                  required
+                  minLength={3}
+                  maxLength={3000}
+                  disabled={locked}
+                  value={message}
+                  onChange={(e) => {
+                    setMessage(e.target.value);
+                    change();
+                  }}
+                />
+              </Field>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "var(--space-2) var(--space-5)",
+                }}
+              >
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    margin: 0,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={sendEmail}
+                    disabled={locked}
+                    onChange={(e) => {
+                      setEmail(e.target.checked);
+                      change();
+                    }}
+                  />
+                  {l.sendEmail}
+                </label>
+                <label
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    margin: 0,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={sendInApp}
+                    disabled={locked}
+                    onChange={(e) => {
+                      setInApp(e.target.checked);
+                      change();
+                    }}
+                  />
+                  {l.sendInApp}
+                </label>
+              </div>
+              <button
+                className="btn"
+                type="submit"
+                disabled={locked || !validSelection}
+              >
+                {mutation.busy
+                  ? t.common.loading
+                  : language === "vi"
+                    ? "Gửi"
+                    : "Send"}
+              </button>
+            </form>
+            {deliveryFeedback}
+          </Dialog>,
+          document.body,
+        )}
       {sentId &&
         createPortal(
           <Dialog

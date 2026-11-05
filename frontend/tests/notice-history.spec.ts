@@ -101,6 +101,7 @@ async function fixture(page: Page) {
           {
             userId: next ? "recipient-2" : "recipient-1",
             name: next ? "Bob" : "Alice",
+            role: next ? "Coach" : "Member",
             email: next ? "bob@example.com" : "alice@example.com",
             inApp: state.legacy
               ? null
@@ -165,7 +166,7 @@ test("sent history filters and pages results and opens a notice without an ID lo
     .click();
   await expect(page).toHaveURL(new RegExp(`/manager/notices/${id}$`));
   await expect(
-    page.getByText("alice@example.com", { exact: true }),
+    page.getByText("Schedule update", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: en.managerOperations.backToList, exact: true })
@@ -175,46 +176,52 @@ test("sent history filters and pages results and opens a notice without an ID lo
   ).toHaveAttribute("aria-pressed", "true");
 });
 
-test("notice details show separate channel states, refresh them, and fit mobile", async ({
+test("notice details show Subject, Message and channels without delivery tables", async ({
   page,
 }, testInfo) => {
-  const { state } = await fixture(page);
+  await fixture(page);
   await page.goto(`/manager/notices/${id}`);
+  await expect(page.getByText("Subject", { exact: true })).toBeVisible();
+  await expect(page.getByText("Message", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Schedule update", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByText("Please read this.\n<img src=x onerror=alert(1)>", {
       exact: true,
     }),
   ).toBeVisible();
-  expect(await page.locator('img[src="x"]').count()).toBe(0);
-  const alice = page.getByRole("row").filter({ hasText: "alice@example.com" });
+  await expect(page.locator('img[src="x"]')).toHaveCount(0);
+  await expect(page.getByText(l.inApp, { exact: true })).toBeVisible();
   await expect(
-    alice.getByText(en.wireStatus.READ, { exact: true }),
+    page.getByRole("main").getByText(l.email, { exact: true }),
   ).toBeVisible();
   await expect(
-    alice.getByText(en.wireStatus.FAILED, { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText(l.channelCountHint)).toBeVisible();
-  state.delivered = true;
-  await page.reload();
+    page.getByRole("heading", { name: "Notification delivery", exact: true }),
+  ).toHaveCount(0);
   await expect(
-    alice.getByText(en.wireStatus.SENT, { exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: en.common.nextPage, exact: true })
-    .click();
+    page.getByRole("heading", { name: "Recipient delivery", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("table").locator("th")).toHaveText([
+    "Recipient",
+    "Role",
+  ]);
   await expect(
-    page.getByText("bob@example.com", { exact: true }),
+    page.getByRole("cell", { name: "Alice alice@example.com", exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("Member", { exact: true })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("notice-desktop.png"),
+    animations: "disabled",
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
-  ).toBeLessThanOrEqual(391);
+  ).toBeLessThanOrEqual(390);
   await page.screenshot({
     path: testInfo.outputPath("notice-mobile.png"),
+    animations: "disabled",
     fullPage: true,
   });
   const accessibility = await new AxeBuilder({ page }).analyze();
@@ -234,11 +241,9 @@ test("older email-only notices explain missing content and do not invent an in-a
   await expect(page.getByText(l.contentUnavailable)).toBeVisible();
   await expect(page.getByText(l.legacyHint)).toBeVisible();
   await expect(
-    page
-      .getByRole("row")
-      .filter({ hasText: "alice@example.com" })
-      .getByText(l.notSelected),
+    page.getByRole("main").getByText(l.email, { exact: true }),
   ).toBeVisible();
+  await expect(page.getByText(l.inApp, { exact: true })).toHaveCount(0);
 });
 
 test("history can retry a failed load and displays an empty filtered result", async ({

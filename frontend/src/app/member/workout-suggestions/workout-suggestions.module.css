@@ -15,3 +15,11 @@
 @media(max-width:720px){.page{padding:15px 12px 55px}.hero{padding:24px 20px;border-radius:14px}.heroEmblem{display:none}.setupCard{padding:21px 17px}.setupIntro{flex-direction:column}.profileLink{white-space:normal}.setupControls{flex-direction:column;align-items:stretch}.generateButton{width:100%}.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:16px 13px}.stat:last-child{grid-column:span 2}.resultHeader{flex-direction:column}.sectionHeading{align-items:flex-start}.exerciseCard{align-items:flex-start;padding:16px;gap:12px;flex-wrap:wrap}.exerciseMain{flex-basis:calc(100% - 55px)}.exerciseMetrics{margin-left:51px}.explanation{padding:19px 17px}}
 @media(max-width:420px){.stats{grid-template-columns:1fr}.stat:last-child{grid-column:span 1}.countLabel{display:none}.exerciseMetrics{width:calc(100% - 51px);justify-content:center}}
 @media(prefers-reduced-motion:reduce){.spinning{animation:none}.generateButton,.exerciseCard{transition:none}}
+
+.saveButton{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:48px;margin-top:26px;padding:11px 18px;border:0;border-radius:10px;background:#0c7772;color:#fff;font:inherit;font-size:14px;font-weight:750;cursor:pointer}
+.saveButton:hover:not(:disabled){background:#095d59}
+.saveButton:disabled{opacity:.55;cursor:not-allowed}
+.saveButton:focus-visible{outline:3px solid #7ccfbb;outline-offset:3px}
+.explanation{margin-top:18px}
+.explanationList{margin:13px 0 0;padding-left:22px;display:grid;gap:8px;color:#455e51;font-size:14px;line-height:1.7}
+.explanationList li{padding-left:3px;white-space:pre-wrap}

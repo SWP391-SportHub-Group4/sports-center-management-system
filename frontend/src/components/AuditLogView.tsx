@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Card } from "@/components/ui";
 import {
   ApiTable,
@@ -139,6 +139,149 @@ function auditDateTime(value: string): string {
   }).format(new Date(value));
 }
 
+function LiveAuditFilters({
+  values,
+  fields,
+  actions,
+  onApply,
+}: {
+  values: AuditFilters;
+  fields: FilterField[];
+  actions: AsyncState<string[]>;
+  onApply: (values: AuditFilters) => void;
+}) {
+  const { t } = useLanguage();
+  const [draft, setDraft] = useState<Record<string, string>>(values);
+  const [invalidAction, setInvalidAction] = useState(false);
+  const rangeError = dateRangeError(draft.dateFrom, draft.dateTo);
+  const rangeErrorId = useId();
+  const actionErrorId = useId();
+  const latest = useRef({ values, onApply });
+  const appliedKey = useRef(JSON.stringify(values));
+  const valuesKey = JSON.stringify(values);
+  useEffect(() => {
+    latest.current = { values, onApply };
+  });
+  useEffect(() => {
+    if (appliedKey.current === valuesKey) return;
+    appliedKey.current = valuesKey;
+    const timer = setTimeout(() => {
+      setDraft(JSON.parse(valuesKey));
+      setInvalidAction(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [valuesKey]);
+  useEffect(() => {
+    if (rangeError || actions.loading) return;
+    const timer = setTimeout(() => {
+      const actionText = draft.action.trim();
+      const action = actionText
+        ? actions.data?.find(
+            (value) => value.toLowerCase() === actionText.toLowerCase(),
+          )
+        : "";
+      setInvalidAction(action === undefined);
+      if (action === undefined) return;
+      const next: AuditFilters = {
+        action,
+        targetEntity: "",
+        targetId: draft.targetId.trim(),
+        dateFrom: draft.dateFrom,
+        dateTo: draft.dateTo,
+        actorRole: draft.actorRole,
+        actorId:
+          draft.actor !== latest.current.values.actor ? "" : draft.actorId,
+        actor: draft.actor.trim(),
+      };
+      if (
+        Object.entries(next).every(
+          ([key, value]) =>
+            latest.current.values[key as keyof AuditFilters] === value,
+        )
+      )
+        return;
+      appliedKey.current = JSON.stringify(next);
+      latest.current.onApply(next);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [draft, rangeError, actions.loading, actions.data]);
+  return (
+    <form
+      className={styles.filters}
+      onSubmit={(event) => event.preventDefault()}
+    >
+      <FilterBar
+        inline
+        className={styles.managerFilterBar}
+        fields={fields
+          .filter((field) => field.id !== "targetEntity")
+          .flatMap((field): FilterField[] =>
+            field.kind === "dateRange"
+              ? [
+                  { id: "dateFrom", label: t.filterBar.from, kind: "date" },
+                  { id: "dateTo", label: t.filterBar.to, kind: "date" },
+                ]
+              : [field],
+          )
+          .map((field) =>
+            field.id === "action"
+              ? {
+                  ...field,
+                  render: (props) => (
+                    <AuditActionPicker
+                      {...props}
+                      actions={actions}
+                      errorId={invalidAction ? actionErrorId : undefined}
+                    />
+                  ),
+                }
+              : field.kind === "select" || field.kind === "search"
+                ? {
+                    ...field,
+                    render: ({ id, value, onChange }) =>
+                      field.kind === "select" ? (
+                        <select
+                          id={id}
+                          value={value}
+                          onChange={(event) => onChange(event.target.value)}
+                        >
+                          {field.options?.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          id={id}
+                          type="search"
+                          value={value}
+                          onChange={(event) => onChange(event.target.value)}
+                        />
+                      ),
+                  }
+                : field,
+          )}
+        values={draft}
+        onChange={(next) => {
+          setDraft(next);
+          setInvalidAction(false);
+        }}
+      />
+      {rangeError && (
+        <p id={rangeErrorId} className="field-error" role="alert">
+          {rangeError}
+        </p>
+      )}
+      {invalidAction && (
+        <p id={actionErrorId} className="field-error" role="alert">
+          {t.filterBar.selectAction}
+        </p>
+      )}
+    </form>
+  );
+}
+
 function AuditFilterForm({
   values,
   administrator,
@@ -251,6 +394,15 @@ function AuditFilterForm({
     },
     { id: "actor", label: "Actor name or email", kind: "search" },
   ];
+  if (!administrator)
+    return (
+      <LiveAuditFilters
+        values={values}
+        fields={fields}
+        actions={actions}
+        onApply={onApply}
+      />
+    );
   return (
     <form
       className={styles.filters}
@@ -443,12 +595,6 @@ function AuditFilterForm({
           </div>
         </section>
       )}
-      {!administrator && (
-        <p className={styles.dateHint}>
-          Dates include the entire selected day in Vietnam time (UTC+7). Choose
-          a preset or custom dates, then select Apply.
-        </p>
-      )}
       {rangeError && (
         <p id={rangeErrorId} className="field-error" role="alert">
           {rangeError}
@@ -640,17 +786,7 @@ export function AuditLogView({
   return (
     <div className={`${styles.root} ${styles.compact}`}>
       <Card
-        title={
-          administrator ? (
-            l.audit
-          ) : (
-            <p className="card__hint">
-              Events by Managers, Receptionists, Coaches and Members.
-              Administrator and system events are excluded. Open an event to
-              see its recorded values.
-            </p>
-          )
-        }
+        title={administrator ? l.audit : undefined}
         hint={
           administrator
             ? "Events by Managers, Administrators and Coaches, automatic system events, and Member profile photo, support and payment resolution events. Visibility uses the role recorded at event time."
@@ -658,13 +794,13 @@ export function AuditLogView({
         }
       >
         <AuditFilterForm
-          key={JSON.stringify(filters)}
+          key={administrator ? JSON.stringify(filters) : "manager"}
           values={filters}
           administrator={administrator}
           actions={actions}
           onApply={(next) => {
             query.setValues({ ...next, page: "1" });
-            state.reload();
+            if (administrator) state.reload();
           }}
           onReset={clearFilters}
         />

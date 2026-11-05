@@ -21,6 +21,26 @@ namespace SportHub.Payment.Tests.Integration;
 public sealed class ManagerPointGiftTests(PaymentApiFactory factory)
 {
     [Fact]
+    public async Task Recipients_include_current_available_points_and_zero_for_members_without_a_wallet()
+    {
+        var manager = await factory.SeedUserAsync(UserRole.CenterManager);
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        var emptyMember = await factory.SeedUserAsync(UserRole.Member);
+        using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
+        async Task<int> AvailablePoints(string email)
+        {
+            var result = await client.GetFromJsonAsync<JsonElement>(
+                $"/api/manager/point-gifts/recipients?keyword={Uri.EscapeDataString(email)}");
+            return result.GetProperty("items").EnumerateArray().Single().GetProperty("availablePoints").GetInt32();
+        }
+        Assert.Equal(0, await AvailablePoints(emptyMember.Email));
+        (await client.PostAsJsonAsync("/api/manager/point-gifts", new SendPointGifts {
+            BatchId = Guid.NewGuid(), Reason = "Recipient balance test", Recipients = [new(member.UserId, 25)]
+        })).EnsureSuccessStatusCode();
+        Assert.Equal(25, await AvailablePoints(member.Email));
+    }
+
+    [Fact]
     public async Task Class_filter_keeps_available_classes_and_excludes_cancelled_classes()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);

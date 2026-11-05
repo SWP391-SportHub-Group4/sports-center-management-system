@@ -1,0 +1,11 @@
+[Unit]
+Description=Check SportHub main releases every five minutes
+
+[Timer]
+OnActiveSec=30s
+OnUnitInactiveSec=5min
+RandomizedDelaySec=15s
+Unit=sporthub-cd.service
+
+[Install]
+WantedBy=timers.target

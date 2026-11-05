@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -7,18 +6,18 @@ using SportHub.Payment.Wallet.Domain;
 
 namespace SportHub.Payment.Wallet.Application;
 
-public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader users, IAuditWriter audit)
+public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader users)
 {
     public async Task<WalletBalanceResponse> BalanceAsync(Guid ownerId, Guid? staffActorId, CancellationToken ct, bool manager = false)
     {
-        await ValidateOwnerAsync(ownerId, staffActorId, ct, manager);
+        await ValidateOwnerAsync(ownerId, ct);
         var wallet = await db.Set<PointWallet>().AsNoTracking().SingleOrDefaultAsync(x => x.OwnerUserId == ownerId, ct);
         return new(ownerId, wallet?.AvailablePoints ?? 0, wallet?.HeldPoints ?? 0, PointWalletService.VndPerPoint);
     }
 
     public async Task<IReadOnlyList<WalletLedgerResponse>> LedgerAsync(Guid ownerId, Guid? staffActorId, int page, int pageSize, CancellationToken ct, string? entryType = null, bool manager = false)
     {
-        await ValidateOwnerAsync(ownerId, staffActorId, ct, manager);
+        await ValidateOwnerAsync(ownerId, ct);
         page = Math.Clamp(page, 1, 100000);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var query = from entry in db.Set<PointLedgerEntry>().AsNoTracking()
@@ -47,19 +46,10 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
             x.InvoiceItemId is Guid invoiceItemId && sources.TryGetValue(invoiceItemId, out var invoiceSource) ? invoiceSource.InvoiceId : null)).ToList();
     }
 
-    private async Task ValidateOwnerAsync(Guid ownerId, Guid? staffActorId, CancellationToken ct, bool manager)
+    private async Task ValidateOwnerAsync(Guid ownerId, CancellationToken ct)
     {
         var owner = await users.GetAsync(ownerId, ct);
         if (owner is null || owner.Role != "Member")
             throw new NotFoundException("wallet_owner_not_found", "Wallet owner not found.");
-        // Manager wallet views are read-only: audit the committed adjustment instead.
-        // Shared /members/{id}/points routes also skip audits for Manager actors.
-        // Receptionist retains the access audit required by the counter workflow.
-        if (staffActorId is Guid actor && !manager
-            && (await users.GetAsync(actor, ct))?.Role == "Receptionist")
-        {
-            audit.Write(new AuditEntry(actor, "VIEW_MEMBER_WALLET", nameof(PointWallet), ownerId.ToString()));
-            await db.SaveChangesAsync(ct);
-        }
     }
 }

@@ -58,7 +58,6 @@ function readSettings(rows: SystemSettingDto[]): SystemSettings {
 type SettingField = {
   name: keyof SystemSettings;
   label: string;
-  helper: string;
   type: "time" | "number";
   unit?: "days" | "hours" | "minutes";
   min?: number;
@@ -74,7 +73,6 @@ type SectionName =
 type SectionDefinition = {
   name: SectionName;
   title: string;
-  description: string;
   fields: SettingField[];
 };
 type SectionData = Partial<SystemSettings>;
@@ -83,30 +81,22 @@ const sections: SectionDefinition[] = [
   {
     name: "centerHours",
     title: "Center hours",
-    description:
-      "Opening and closing times in Vietnam (UTC+7). Applies to classes, courts and incidents.",
     fields: [
       {
         name: "centerOpeningTime",
         label: "Center opening time",
         type: "time",
-        helper:
-          "Vietnam time (UTC+7). Classes and court opening hours must start at or after this time.",
       },
       {
         name: "centerClosingTime",
         label: "Center closing time",
         type: "time",
-        helper:
-          "Vietnam time (UTC+7). Classes and court opening hours must end at or before this time.",
       },
     ],
   },
   {
     name: "classes",
     title: "Classes",
-    description:
-      "Choose when to review enrollment against the class opening threshold.",
     fields: [
       {
         name: "thresholdCheckDays",
@@ -115,16 +105,12 @@ const sections: SectionDefinition[] = [
         unit: "days",
         min: 3,
         max: 30,
-        helper:
-          "Evaluate paid enrollments against the break-even threshold before the first session. Used when publishing a class; existing review deadlines are preserved.",
       },
     ],
   },
   {
     name: "checkoutAndPoints",
     title: "Checkout & points",
-    description:
-      "Set checkout hold times and point confirmation security at the counter.",
     fields: [
       {
         name: "checkoutHoldMinutes",
@@ -133,8 +119,6 @@ const sections: SectionDefinition[] = [
         unit: "minutes",
         min: 10,
         max: 30,
-        helper:
-          "Set 10-30 minutes (default 15). New checkouts only; the exact expiry may be earlier near a class or court start.",
       },
       {
         name: "counterPointOtpValidityMinutes",
@@ -143,15 +127,12 @@ const sections: SectionDefinition[] = [
         unit: "minutes",
         min: 1,
         max: 15,
-        helper:
-          "Time allowed to verify the member's email OTP when using points at the counter.",
       },
     ],
   },
   {
     name: "courtRentals",
     title: "Court rentals",
-    description: "Limit how long a court can be rented in one booking.",
     fields: [
       {
         name: "maximumRentalDurationHours",
@@ -160,15 +141,12 @@ const sections: SectionDefinition[] = [
         unit: "hours",
         min: 1,
         max: 4,
-        helper:
-          "Maximum duration of a single court rental. Court rentals use 60-minute blocks.",
       },
     ],
   },
   {
     name: "membership",
     title: "Membership",
-    description: "Let members know before their membership expires.",
     fields: [
       {
         name: "membershipExpiryNoticeDays",
@@ -177,16 +155,12 @@ const sections: SectionDefinition[] = [
         unit: "days",
         min: 1,
         max: 90,
-        helper:
-          "Notify members this many days before their membership expires.",
       },
     ],
   },
   {
     name: "supportRequests",
     title: "Support requests",
-    description:
-      "Set response deadlines, reminder intervals and payout confirmation periods.",
     fields: [
       {
         name: "supportResponseDeadlineHours",
@@ -195,8 +169,6 @@ const sections: SectionDefinition[] = [
         unit: "hours",
         min: 1,
         max: 168,
-        helper:
-          "Time allowed before a support request is overdue. Existing deadlines are preserved. Choose 1-168 hours.",
       },
       {
         name: "supportReminderIntervalHours",
@@ -205,8 +177,6 @@ const sections: SectionDefinition[] = [
         unit: "hours",
         min: 1,
         max: 168,
-        helper:
-          "Minimum interval between reminders for a support request. Choose 1-168 hours.",
       },
       {
         name: "payoutConfirmationPeriodDays",
@@ -215,8 +185,6 @@ const sections: SectionDefinition[] = [
         unit: "days",
         min: 1,
         max: 30,
-        helper:
-          "Automatically confirm receipt after this period if the member has not responded. Choose 1-30 days.",
       },
     ],
   },
@@ -260,7 +228,7 @@ function SettingInput({
           max={field.max}
           step={field.type === "time" ? 60 : 1}
           required
-          aria-describedby={`${id}-hint${field.unit ? ` ${id}-unit` : ""}`}
+          aria-describedby={field.unit ? `${id}-unit` : undefined}
           onChange={(event) => onChange(event.target.value)}
         />
         {field.unit && (
@@ -269,9 +237,6 @@ function SettingInput({
           </span>
         )}
       </div>
-      <p id={`${id}-hint`} className="operating-setting-hint">
-        {field.helper}
-      </p>
     </div>
   );
 }
@@ -333,7 +298,10 @@ function SettingSection({
     <section className="operating-setting-section" aria-labelledby={headingId}>
       <header className="operating-setting-heading">
         <h2 id={headingId}>{section.title}</h2>
-        <p>{section.description}</p>
+        <span className="operating-setting-updated">
+          Last updated{" "}
+          <time dateTime={updatedAt}>{formatUpdatedAt(updatedAt)}</time>
+        </span>
       </header>
       <form onSubmit={handleSubmit} aria-busy={saving}>
         <fieldset disabled={saving} className="operating-setting-fields">
@@ -369,10 +337,6 @@ function SettingSection({
           </p>
         )}
         <footer className="operating-setting-footer">
-          <span className="operating-setting-updated">
-            Last updated{" "}
-            <time dateTime={updatedAt}>{formatUpdatedAt(updatedAt)}</time>
-          </span>
           <div className="operating-setting-actions">
             <span
               role="status"
@@ -452,9 +416,6 @@ function SettingsForm({ rows }: { rows: SystemSettingDto[] }) {
   return (
     <>
       <div className="operating-settings-page">
-        <p className="operating-settings-intro">
-          Manage daily operations. Save changes separately for each section.
-        </p>
         <div className="operating-settings-list">
           {sections.map((section) => (
             <SettingSection
@@ -478,42 +439,44 @@ function SettingsForm({ rows }: { rows: SystemSettingDto[] }) {
       <style jsx global>{`
         .operating-settings-page {
           min-width: 0;
-        }
-        .operating-settings-intro {
-          margin: 0 0 var(--space-5);
-          max-width: 70ch;
-          color: var(--text-muted);
-          line-height: 1.6;
+          width: 100%;
+          max-width: 80rem;
+          margin-inline: auto;
         }
         .operating-settings-list {
           min-width: 0;
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-lg);
           background: var(--bg-surface);
+          overflow: hidden;
         }
         .operating-setting-section {
-          padding: var(--space-6);
+          display: grid;
+          grid-template-columns: 13rem minmax(0, 1fr);
+          gap: var(--space-6);
+          align-items: start;
+          padding: var(--space-5) var(--space-6);
         }
         .operating-setting-section + .operating-setting-section {
           border-top: 1px solid var(--border-subtle);
         }
         .operating-setting-heading {
-          margin-bottom: var(--space-5);
+          padding-top: var(--space-1);
+          min-width: 0;
         }
         .operating-setting-heading h2 {
-          margin: 0 0 var(--space-1);
-          font: var(--weight-semibold) var(--text-lg)/1.4 var(--font-body);
+          margin: 0 0 var(--space-2);
+          font: var(--weight-semibold) var(--text-base)/1.4 var(--font-body);
           text-wrap: balance;
         }
-        .operating-setting-heading p {
-          max-width: 70ch;
-          margin: 0;
-          color: var(--text-muted);
-          font-size: var(--text-sm);
-          line-height: 1.6;
-        }
         .operating-settings-page .operating-setting-section form {
-          gap: 0;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          align-items: start;
+          column-gap: var(--space-5);
+          row-gap: var(--space-2);
+          min-width: 0;
+          margin: 0;
         }
         .operating-settings-page .operating-setting-fields {
           border: 0;
@@ -524,68 +487,79 @@ function SettingsForm({ rows }: { rows: SystemSettingDto[] }) {
         .operating-setting-grid {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: var(--space-5) var(--space-6);
+          gap: var(--space-4);
           align-items: start;
         }
         .operating-setting-input {
           min-width: 0;
+          max-width: 22rem;
         }
         .operating-settings-page .operating-setting-input label {
           display: block;
           margin-bottom: var(--space-2);
           font-size: var(--text-sm);
           font-weight: var(--weight-medium);
+          line-height: 1.5;
         }
         .operating-setting-control {
+          position: relative;
           display: flex;
           align-items: center;
-          gap: var(--space-3);
-        }
-        .operating-setting-control input {
-          width: 100%;
-          max-width: 18rem;
           min-width: 0;
+        }
+        .operating-settings-page .operating-setting-control input {
+          width: 100%;
+          min-width: 0;
+          min-height: 2.75rem;
+          height: 2.75rem;
+          margin: 0;
+          font-size: var(--text-sm);
           font-variant-numeric: tabular-nums;
+        }
+        .operating-setting-control:has(.operating-setting-unit) input {
+          padding-inline-end: 5.5rem;
         }
         .operating-setting-unit {
-          flex-shrink: 0;
-          color: var(--text-muted);
-          font-size: var(--text-sm);
-        }
-        .operating-setting-hint {
-          max-width: 65ch;
-          margin: var(--space-2) 0 0;
-          color: var(--text-muted);
-          font-size: var(--text-sm);
-          line-height: 1.6;
-        }
-        .operating-setting-footer {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-3);
-          margin-top: var(--space-5);
-        }
-        .operating-setting-updated {
+          position: absolute;
+          inset-inline-end: var(--space-6);
+          pointer-events: none;
           color: var(--text-muted);
           font-size: var(--text-xs);
+        }
+        .operating-setting-footer {
+          padding-top: calc(var(--text-sm) * 1.5 + var(--space-2));
+        }
+        .operating-setting-updated {
+          display: block;
+          color: var(--text-muted);
+          font-size: var(--text-xs);
+          line-height: 1.6;
           font-variant-numeric: tabular-nums;
+        }
+        .operating-setting-updated time {
+          display: block;
         }
         .operating-setting-actions {
           display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: flex-end;
-          gap: var(--space-3);
-          margin-left: auto;
+          flex-direction: column-reverse;
+          align-items: flex-end;
+          gap: var(--space-2);
         }
         .operating-setting-status {
+          max-width: 12rem;
           color: var(--text-muted);
-          font-size: var(--text-sm);
+          font-size: var(--text-xs);
+          text-align: end;
         }
         .operating-setting-actions .btn {
           min-width: 5rem;
+          min-height: 2.75rem;
+          padding: var(--space-2) var(--space-4);
+          font-size: var(--text-sm);
+        }
+        .operating-setting-section .field__error {
+          grid-column: 1 / -1;
+          margin: 0;
         }
         .operating-settings-sr-only {
           position: absolute;
@@ -598,14 +572,42 @@ function SettingsForm({ rows }: { rows: SystemSettingDto[] }) {
           white-space: nowrap;
           border: 0;
         }
+        @media (max-width: 1100px) {
+          .operating-setting-section {
+            grid-template-columns: 10rem minmax(0, 1fr);
+            gap: var(--space-5);
+          }
+          .operating-settings-page .operating-setting-section form {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .operating-setting-footer {
+            padding-top: var(--space-1);
+          }
+          .operating-setting-actions {
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
+          }
+        }
         @media (max-width: 640px) {
           .operating-setting-section {
+            grid-template-columns: minmax(0, 1fr);
             padding: var(--space-5) var(--space-4);
+            gap: var(--space-4);
+          }
+          .operating-setting-heading {
+            padding-top: 0;
+          }
+          .operating-setting-heading h2 {
+            margin-bottom: var(--space-1);
+          }
+          .operating-setting-updated time {
+            display: inline;
           }
           .operating-setting-grid {
             grid-template-columns: minmax(0, 1fr);
           }
-          .operating-setting-control input {
+          .operating-setting-input {
             max-width: none;
           }
         }

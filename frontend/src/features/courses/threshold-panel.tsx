@@ -57,7 +57,6 @@ export function ThresholdPanel({
       <Card title={t.managerOperations.thresholdTab}>
         <div className={styles.openingContent}>
           <div className={styles.openingStatus}>
-            <StatusChip value={course.thresholdStatus} />
             <p>
               {l.confirmed}:{" "}
               <strong>
@@ -68,6 +67,7 @@ export function ThresholdPanel({
                     : 0)}
               </strong>
             </p>
+            <StatusChip value={course.thresholdStatus} />
           </div>
           <dl className={styles.facts}>
             <div>
@@ -93,16 +93,6 @@ export function ThresholdPanel({
                   : "Approve running below threshold before this deadline if needed. If still below threshold without a waiver when it expires, the system cancels the class and refunds remaining enrollments."}
               </p>
             )}
-          {course.status === "PUBLISHED" &&
-            openingPassed &&
-            !["MET", "WAIVED_BY_MANAGER"].includes(course.thresholdStatus) && (
-              <p role="alert" className={styles.openingNotice}>
-                {vi
-                  ? "Đã qua giờ dự kiến nhưng lớp chưa được xác nhận. Dời lịch hoặc hủy lớp; không ghi nhận đã khai giảng."
-                  : "The planned opening has passed without confirmation. Move the schedule or cancel; teaching has not been started."}
-              </p>
-            )}
-
           <div className={styles.actions}>
             {editable && (
               <button
@@ -128,9 +118,7 @@ export function ThresholdPanel({
                 ? copy.editPricing
                 : copy.approveBelowThreshold
             }
-            description={
-              action === "pricing" ? l.thresholdHint : copy.approveBelowHint
-            }
+            description={action === "pricing" ? l.thresholdHint : undefined}
             size={action === "pricing" ? "lg" : "md"}
             className={styles.actionDialog}
             onClose={() => !mutation.busy && setAction(null)}

@@ -221,7 +221,6 @@ export default function AccountPage() {
   return (
     <Shell
       title={t.account.title}
-      description={t.account.description}
       allow={[
         "Member",
         "Receptionist",
@@ -271,12 +270,7 @@ export default function AccountPage() {
                         </div>
                         <StatusChip value={data.status} />
                       </div>
-                    ) : (
-                      <div className={styles.emailIdentity}>
-                        <span>{t.account.email}</span>
-                        <strong>{data.email}</strong>
-                      </div>
-                    )}
+                    ) : null}
 
                     {(user?.role === "Member" ||
                       user?.role === "Coach" ||
@@ -302,7 +296,6 @@ export default function AccountPage() {
                         label={t.account.fullName}
                         required
                         error={profileErrors.fullName}
-                        reserveErrorSpace
                       >
                         <input
                           ref={fullNameRef}
@@ -325,7 +318,13 @@ export default function AccountPage() {
                         />
                       </Field>
 
-                      <Field label={t.account.phone} hint={t.account.phoneHint}>
+                      {!isCoach && (
+                        <Field label={t.account.email}>
+                          <input type="email" value={data.email} readOnly />
+                        </Field>
+                      )}
+
+                      <Field label={t.account.phone}>
                         <input
                           value={profileForm.phone}
                           onChange={(event) =>

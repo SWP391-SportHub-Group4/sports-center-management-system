@@ -98,10 +98,14 @@ public sealed class PointGiftsController(ISportHubDbContext db, IPointWalletServ
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(u => new { u.UserId, Name = u.Profile != null ? u.Profile.FullName : u.Email, u.Email }).ToListAsync(ct);
         var dayPassIds = DayPassMembers(incident);
+        var memberIds = rows.Select(u => u.UserId).ToArray();
+        var balances = await db.Set<PointWallet>().AsNoTracking()
+            .Where(w => memberIds.Contains(w.OwnerUserId))
+            .ToDictionaryAsync(w => w.OwnerUserId, w => w.AvailablePoints, ct);
         var gifted = incidentId is null ? [] : await db.Set<PointGift>().AsNoTracking()
             .Where(g => g.IncidentId == incidentId).Select(g => g.MemberId).ToListAsync(ct);
         return Ok(new PagedResult<object> { Page = page, PageSize = pageSize, TotalCount = total,
-            Items = rows.Select(u => (object)new { memberId = u.UserId, u.Name, u.Email,
+            Items = rows.Select(u => (object)new { memberId = u.UserId, u.Name, u.Email, availablePoints = balances.GetValueOrDefault(u.UserId),
                 requiresAgreement = dayPassIds.Contains(u.UserId), alreadyGifted = gifted.Contains(u.UserId) }).ToList() });
     }
 

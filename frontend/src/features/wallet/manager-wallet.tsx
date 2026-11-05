@@ -30,7 +30,7 @@ function OwnerWallet({ owner }: { owner: WalletOwner }) {
         <p className="small muted">{owner.email}</p>
       </div>
       <AsyncSection state={state}>
-        {(data) => <WalletBalance balance={data} />}
+        {(data) => <WalletBalance balance={data} showHints={false} />}
       </AsyncSection>
       <WalletLedger key={owner.userId} ownerId={owner.userId} />
     </div>

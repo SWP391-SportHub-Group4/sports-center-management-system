@@ -1,19 +1,32 @@
-name: CI Develop
+name: CI and AWS CD
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [main, develop]
   push:
-    branches: [develop]
+    branches: [main, develop]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep main release publication ordered; only superseded PR runs may be cancelled.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  deployment-checks:
+    name: AWS Deployment Checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment scripts
+        run: |
+          bash -n deploy/aws/setup-cd.sh
+          python3 -m unittest discover -s deploy/aws/tests -v
+
   backend:
     name: Backend Build
     runs-on: ubuntu-24.04
@@ -282,3 +295,49 @@ jobs:
       - name: Stop E2E services
         if: always()
         run: docker compose -f docker-compose.yml down -v
+
+  release:
+    name: Build AWS Release
+    needs: [backend, frontend, e2e, deployment-checks]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build immutable application images on GitHub
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker build --label "org.opencontainers.image.revision=$RELEASE_SHA" \
+            -t "sporthub-backend:$RELEASE_SHA" -f backend/SportHub.API/Dockerfile backend
+          docker build --label "org.opencontainers.image.revision=$RELEASE_SHA" \
+            -t "sporthub-ai:$RELEASE_SHA" ai-service
+          mkdir release-bundle
+          docker image save "sporthub-backend:$RELEASE_SHA" "sporthub-ai:$RELEASE_SHA" |
+            gzip -1 > release-bundle/images.tar.gz
+          git archive --format=tar.gz "$RELEASE_SHA" > release-bundle/source.tar.gz
+          printf '%s\n' "$RELEASE_SHA" > release-bundle/REVISION
+          cd release-bundle
+          sha256sum images.tar.gz source.tar.gz REVISION > SHA256SUMS
+      - name: Publish the immutable AWS release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag="aws-$RELEASE_SHA"
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$tag" --jq \
+            '.target_commitish + " " + .author.login' > release-existing.txt 2>/dev/null; then
+            test "$(cat release-existing.txt)" = "$RELEASE_SHA github-actions[bot]"
+            echo 'Release already exists; immutable assets are kept.'
+          else
+            gh release create "$tag" \
+              release-bundle/images.tar.gz release-bundle/source.tar.gz \
+              release-bundle/REVISION release-bundle/SHA256SUMS \
+              --target "$RELEASE_SHA" --prerelease --latest=false \
+              --title "AWS $RELEASE_SHA" \
+              --notes 'Backend/AI release built after main CI. No production configuration or data.'
+          fi

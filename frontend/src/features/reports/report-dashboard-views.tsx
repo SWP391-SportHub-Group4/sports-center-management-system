@@ -148,8 +148,7 @@ export function PeriodNote({
           {" "}
           <span>vs {rangeText(comparison)}</span>
         </>
-      )}{" "}
-      · Vietnam time
+      )}
     </p>
   );
 }
@@ -235,7 +234,6 @@ function SourceBars({ report }: { report: RevenueReportDto }) {
   return (
     <section className={s.panel}>
       <h2>Money received by source</h2>
-      <p className={s.note}>Share of total money received</p>
       <div className={s.bars}>
         {rows.map((r) => (
           <div key={r.source}>
@@ -259,13 +257,7 @@ function SourceBars({ report }: { report: RevenueReportDto }) {
           </div>
         ))}
       </div>
-      {rows[0] ? (
-        <p className={s.insight}>
-          {sourceName(rows[0].source)} accounts for{" "}
-          {((rows[0].cashCollected / report.totalCollected) * 100).toFixed(1)}%
-          of collections.
-        </p>
-      ) : (
+      {!rows.length && (
         <p className={s.empty}>No money received in this period.</p>
       )}
     </section>
@@ -325,7 +317,6 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   money
                   previous={previous.data?.totalCollected}
                   equal={equal}
-                  hint="Successful collections"
                 />
                 <Metric
                   label="Cash refunded"
@@ -333,7 +324,6 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   money
                   previous={previous.data?.totalRefunded}
                   equal={equal}
-                  hint="Recorded bank-transfer refunds"
                 />
                 <Metric
                   label="After refunds"
@@ -342,13 +332,8 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   previous={previous.data?.netRevenue}
                   equal={equal}
                   emphasis
-                  hint="Money received − cash refunded"
                 />
               </div>
-              <p>
-                Cash refunded includes recorded bank transfers. Point refunds
-                are tracked separately.
-              </p>
               <div className={s.charts}>
                 <section className={s.panel}>
                   <h2>After refunds by day</h2>
@@ -372,10 +357,6 @@ export function RevenueView({ selection, filters, today }: ViewProps) {
                   </Details>
                 )}
               </Details>
-              <p className={s.note}>
-                Refunds in points do not reduce After refunds. Operating costs
-                are not deducted.
-              </p>
             </>
           )
         }

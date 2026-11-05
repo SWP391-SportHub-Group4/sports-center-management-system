@@ -899,6 +899,7 @@ export interface CoachAdminDto {
   createdAt: string;
 }
 export interface CourtScheduleEntryDto {
+  cancellationReason?: string | null;
   incidentId?: string | null;
   incidentScope?: "ROOM" | "CENTER" | null;
   affectedRoomIds?: number[];
