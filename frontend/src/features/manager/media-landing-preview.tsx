@@ -14,6 +14,7 @@ import {
 } from "@/components/homepage/InteractiveArenaTour";
 import { bookingCopy } from "@/components/homepage/CourtBookingSection";
 import { faqCopy } from "@/components/homepage/HomepageFAQ";
+import faqStyles from "@/components/homepage/homepage-faq.module.css";
 import {
   useLandingCopy,
   useLandingValues,
@@ -219,12 +220,14 @@ export function MediaLandingPreview({
         </button>
       </div>
       <section id="media-hero" className={styles.hero} aria-label="Hero">
-        {text("hero.title", "Hero title", hero.title, "h2")}
-        {text("hero.lead", "Hero description", hero.lead, "p")}
-        <span className={styles.mockCta}>
-          {text("hero.start", "Hero button label", hero.start)}
-          <ArrowRight size={17} aria-hidden="true" />
-        </span>
+        <div className={styles.heroCopy}>
+          {text("hero.title", "Hero title", hero.title, "h2")}
+          {text("hero.lead", "Hero description", hero.lead, "p")}
+          <span className={styles.mockCta}>
+            {text("hero.start", "Hero button label", hero.start)}
+            <ArrowRight size={17} aria-hidden="true" />
+          </span>
+        </div>
         <div className={styles.disciplines}>
           {text("hero.badminton", "Badminton label", hero.badminton)}
           {text("hero.basketball", "Basketball label", hero.basketball)}
@@ -237,14 +240,21 @@ export function MediaLandingPreview({
         className={styles.section}
         aria-labelledby="media-community-title"
       >
-        {text(
-          "bookmarks.intro.title",
-          "Community title",
-          intro.title,
-          "h2",
-          "media-community-title",
-        )}
-        {text("bookmarks.intro.lead", "Community description", intro.lead, "p")}
+        <div className={styles.communityIntro}>
+          {text(
+            "bookmarks.intro.title",
+            "Community title",
+            intro.title,
+            "h2",
+            "media-community-title",
+          )}
+          {text(
+            "bookmarks.intro.lead",
+            "Community description",
+            intro.lead,
+            "p",
+          )}
+        </div>
         <div
           className={styles.categoryTabs}
           role="group"
@@ -454,7 +464,7 @@ export function MediaLandingPreview({
           alt: booking.imageAlt,
           label: "Court booking",
         })}
-        <div>
+        <div className={styles.bookingCopy}>
           {text(
             "booking.title",
             "Booking title",
@@ -473,29 +483,32 @@ export function MediaLandingPreview({
 
       <section
         id="media-faq"
-        className={styles.section}
+        className={`${styles.section} ${styles.faq}`}
         aria-labelledby="media-faq-title"
       >
-        <div className={styles.headingRow}>
+        <div className={styles.faqIntro}>
           {text("faq.title", "FAQ title", faq.title, "h2", "media-faq-title")}
+          {text("faq.lead", "FAQ description", faq.lead, "p")}
         </div>
-        {text("faq.lead", "FAQ description", faq.lead, "p")}
-        <div className={styles.questions}>
+        <div className={faqStyles.questions}>
           {faq.questions.map((question, index) => (
-            <details key={index}>
+            <details key={index} className={faqStyles.item}>
               <summary>
                 {text(
                   `faq.questions.${index}.question`,
                   `FAQ question ${index + 1}`,
                   question.question,
                 )}
+                <span className={faqStyles.indicator} aria-hidden="true" />
               </summary>
-              {text(
-                `faq.questions.${index}.answer`,
-                `FAQ answer ${index + 1}`,
-                question.answer,
-                "p",
-              )}
+              <div className={faqStyles.answer}>
+                {text(
+                  `faq.questions.${index}.answer`,
+                  `FAQ answer ${index + 1}`,
+                  question.answer,
+                  "p",
+                )}
+              </div>
             </details>
           ))}
         </div>
