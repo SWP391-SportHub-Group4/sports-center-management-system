@@ -217,6 +217,13 @@ public sealed class AiChatService(
 
 // Member-only verified UI/data response, before shared context or Gemini.
 // Coach and AI Plan are not routed through this handler.
+// MEMBER_DATAHUB_V12_V13_ENTRYPOINT
+// Coach and AI Plan calls return null after an authenticated Member role check.
+var memberDataHubAnswer = await MemberIntentOrchestrator.TryAnswerAsync(
+    db, clock, userId, question, provider, promptReader, cancellationToken);
+if (memberDataHubAnswer is not null)
+    return memberDataHubAnswer;
+
 var memberPortalResponse = await MemberPortalChat.TryAnswerAsync(
     db, clock, userId, question, cancellationToken);
 if (memberPortalResponse is not null)

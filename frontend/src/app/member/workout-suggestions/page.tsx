@@ -46,9 +46,15 @@ export default function MemberWorkoutSuggestionsPage() {
       );
       setResult(data);
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
-        setError("Your fitness profile needs more information. Complete it before generating suggestions.");
+      if (cause instanceof ApiError && (cause.status === 409 || cause.status === 400)) {
+        // MEMBER_WORKOUT_ERROR_V22: show the backend's concrete field/semantic reason.
+        // React escapes this message; never render it as HTML.
+        const detail = cause.message?.trim();
+        setError(detail ? detail.slice(0, 500) : "Review and save your Fitness profile, then retry.");
+      } else if (cause instanceof ApiError && cause.status === 503) {
+        setError("Workout semantic validation is temporarily unavailable. No new workout was generated. Please retry later.");
       } else if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
+
         setError("Your session does not have access to this feature. Please sign in as a member.");
       } else {
         setError("We couldn't generate your workout right now. Please try again.");

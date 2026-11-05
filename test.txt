@@ -28,7 +28,13 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 # Terminal 3 - Frontend
 cd "C:\Users\ACER\OneDrive\Desktop\swp\sports-center-management-system\frontend"
 
-pnpm run dev
+npm run dev
 
 
-python tools\sync_ai_navigation.py --repo . --out .\ai-navigation-output
+---------------
+mã test vnpaY:
+Ngân hàng: NCB
+Số thẻ: 9704198526191432198
+Tên chủ thẻ: NGUYEN VAN A
+Ngày phát hành: 07/15 (hoặc tháng/năm hiện tại)
+Mã OTP: 123456

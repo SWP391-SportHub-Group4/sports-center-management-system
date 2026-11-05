@@ -100,9 +100,11 @@ public class AiController(
     // Member identity always comes from the authenticated JWT, never from a request parameter.
     [Authorize(Roles = "Member")]
     [HttpPost("workout-suggestions/me")]
-    public async Task<IActionResult> SuggestForSelf(CancellationToken ct, [FromQuery] string sport = "Gym")
+    public async Task<IActionResult> SuggestForSelf([FromServices] IAiChatProvider semanticProvider, CancellationToken ct, [FromQuery] string sport = "Gym")
     {
         var memberId = User.RequireUserId();
+        // MEMBER_WORKOUT_GEMINI_V20: semantic analysis and backend gate before generation.
+        await MemberWorkoutContextV26.EnsureValidAsync(db, semanticProvider, memberId, sport, ct);
         return Ok(await recommendations.SuggestAsync(memberId, memberId, ct, sport));
     }
 
