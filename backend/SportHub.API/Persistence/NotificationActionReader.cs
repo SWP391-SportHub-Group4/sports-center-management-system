@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
 using SportHub.Payment.Domain.Entities;
 using SportHub.Payment.Domain.Enums;
+using SportHub.Payment.Application.Services;
 using SportHub.Notification.Application.Interfaces;
 using SportHub.Notification.Application.Services;
 
@@ -9,7 +10,8 @@ namespace SportHub.API.Persistence;
 
 // Resolve polymorphic source IDs in the host, where all business modules are available.
 // Only return destinations backed by records owned by this notification's recipient.
-public sealed class NotificationActionReader(SportHubDbContext db, SportHub.BuildingBlocks.SharedKernel.Time.IClock clock) : INotificationActionReader
+public sealed class NotificationActionReader(SportHubDbContext db, SportHub.BuildingBlocks.SharedKernel.Time.IClock clock,
+    ICenterCancellationRefundService cancellationRefunds) : INotificationActionReader
 {
     public async Task<IReadOnlyDictionary<Guid, string>> GetInvoiceNoticeMessagesAsync(
         Guid userId, IReadOnlyList<NotificationResponse> notifications, CancellationToken ct)
@@ -59,6 +61,18 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
             var links = new Dictionary<Guid, string>();
             switch (group.Key)
             {
+                case "IncidentCreated":
+                    var pendingItems = (await cancellationRefunds.ListMineAsync(userId, ct))
+                        .Where(o => o.Kind == "CourtRental" && o.Status == CenterCancellationRefundService.StatusOffer)
+                        .Select(o => o.InvoiceItemId).ToArray();
+                    if (pendingItems.Length > 0)
+                        foreach (var incidentId in await db.CourtRentals.AsNoTracking()
+                            .Where(r => r.MemberId == userId && r.CancellationIncidentId != null
+                                && ids.Contains(r.CancellationIncidentId.Value) && r.InvoiceItemId != null
+                                && pendingItems.Contains(r.InvoiceItemId.Value))
+                            .Select(r => r.CancellationIncidentId!.Value).Distinct().ToListAsync(ct))
+                            links[incidentId] = "/member/finance?tab=refunds#center-cancellation-refunds";
+                    break;
                 case "SupportSlaReminder":
                     if (isSupportManager)
                         foreach (var reminder in await db.Set<SportHub.Identity.Domain.Entities.MemberSupportEvent>()

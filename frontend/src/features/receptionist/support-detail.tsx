@@ -224,7 +224,9 @@ export function SupportDetail({
   const noteReady = note.trim().length >= 3;
   const unassigned = !request.assignedToUserId;
   const actionBlock =
-    unassigned && !(payoutReview && mode !== "progress")
+    unassigned &&
+    !(isManager && mode === "reject") &&
+    !(payoutReview && mode !== "progress")
       ? "Assign this request to someone before updating it."
       : !noteReady
         ? "Write at least 3 characters."
@@ -386,9 +388,6 @@ export function SupportDetail({
           aria-label="Reply visible to member"
         >
           <h4>Reply</h4>
-          <p className={styles.helper}>
-            This is the latest reply shown in the member’s My requests history.
-          </p>
           <p className={styles.message}>
             {request.progressNote || "No reply yet."}
           </p>
@@ -590,7 +589,7 @@ export function SupportDetail({
               />
             </label>
             <div className={styles.actions}>
-              {mode !== "progress" && confirming ? (
+              {mode === "done" && confirming ? (
                 <>
                   <button
                     type="button"
@@ -602,13 +601,11 @@ export function SupportDetail({
                         { reason: note.trim() },
                         payoutReview
                           ? "Payout review finalized. The original payout is unchanged."
-                          : mode === "done"
-                            ? "Request marked as done."
-                            : "Request rejected.",
+                          : "Request marked as done.",
                       )
                     }
                   >
-                    {mode === "done" ? "Confirm done" : "Confirm rejection"}
+                    Confirm done
                   </button>
                   <button
                     type="button"
@@ -631,7 +628,15 @@ export function SupportDetail({
                           { note: note.trim() },
                           "Progress updated.",
                         )
-                      : setConfirming(true)
+                      : mode === "reject"
+                        ? run(
+                            "reject",
+                            { reason: note.trim() },
+                            payoutReview
+                              ? "Payout review finalized. The original payout is unchanged."
+                              : "Request rejected.",
+                          )
+                        : setConfirming(true)
                   }
                 >
                   {copy.submit}

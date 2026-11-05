@@ -17,6 +17,13 @@ export function gymClosureDetails(item: NotificationDto) {
 }
 
 export function NotificationBody({ item }: { item: NotificationDto }) {
+  if (item.sourceEventType === "INCIDENT_CANCELLED") {
+    return (
+      <div className={styles.body}>
+        {item.message.split("\n\n").slice(1).join("\n\n") || item.message}
+      </div>
+    );
+  }
   const closure = gymClosureDetails(item);
   if (!closure) return <div className={styles.body}>{item.message}</div>;
   return (

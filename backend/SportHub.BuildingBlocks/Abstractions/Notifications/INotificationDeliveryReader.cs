@@ -2,6 +2,7 @@ namespace SportHub.BuildingBlocks.Abstractions.Notifications;
 
 public interface INotificationDeliveryReader
 {
+    Task<IReadOnlyList<Guid>> RecipientIdsAsync(string eventType, Guid sourceId, CancellationToken cancellationToken = default);
     Task<NotificationDelivery> GetAsync(string eventType, Guid sourceId, CancellationToken cancellationToken = default);
     Task<NotificationDelivery> GetManyAsync(string eventType, IReadOnlyList<Guid> sourceIds, CancellationToken cancellationToken = default);
 }

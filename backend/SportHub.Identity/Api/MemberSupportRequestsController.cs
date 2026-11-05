@@ -566,12 +566,14 @@ public sealed class MemberSupportRequestsController(
             && await db.Set<MemberSupportPayout>().AnyAsync(p => p.RequestId == requestId, ct)
             && await db.Set<MemberSupportEvent>().AnyAsync(e => e.RequestId == requestId
                 && e.Type == "MEMBER_REPORTED_NOT_RECEIVED", ct);
-        // Reporting non-receipt clears the assignee. A manager may finish the review
-        // directly; preserve ownership and history in the same locked transaction.
-        if (row.AssignedToUserId is null && payoutReview)
+        var managerReject = target == "REJECTED" && User.IsInRole(nameof(UserRole.CenterManager));
+        // Preserve ownership and history when a manager handles an unassigned request directly.
+        if (row.AssignedToUserId is null && (managerReject || payoutReview))
         {
             row.AssignedToUserId = User.RequireUserId();
-            AddEvent(requestId, "ASSIGNED", "Taken for payout receipt review.", User.RequireUserId());
+            AddEvent(requestId, "ASSIGNED", managerReject
+                ? "Taken for direct rejection."
+                : "Taken for payout receipt review.", User.RequireUserId());
         }
         if (row.AssignedToUserId is null)
             throw new ConflictException("support_request_unassigned", "Assign the request before finalizing it.");

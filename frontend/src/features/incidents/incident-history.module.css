@@ -1,6 +1,10 @@
 .history {
   min-width: 0;
 }
+.cancelIncident:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

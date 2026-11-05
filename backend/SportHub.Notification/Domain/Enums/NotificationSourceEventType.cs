@@ -41,5 +41,6 @@ public enum NotificationSourceEventType
     SupportPayoutRecorded = 35,
     SupportPayoutNotReceived = 36,
     ManagerPointsGifted = 37,
-    IncidentCreated = 38
+    IncidentCreated = 38,
+    IncidentCancelled = 39
 }
