@@ -178,3 +178,7 @@
 .aiPlanRemove:hover { color:#0b504b; }
 .aiPlanRemove:focus-visible { outline:2px solid #0b7770; outline-offset:4px; }
 @media(max-width:600px) { .aiPlanCard { padding:16px; } .aiPlanAccent { padding-left:12px; } }
+.aiPlanTop { display:flex;align-items:flex-start;justify-content:space-between;gap:12px; }
+.aiPlanRemove { flex-shrink:0;margin-top:0;color:#b42318; }
+.aiPlanRemove:hover { color:#8f1d14; }
+.aiPlanRemove:focus-visible { outline-color:#b42318; }

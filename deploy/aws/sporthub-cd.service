@@ -1,0 +1,17 @@
+[Unit]
+Description=SportHub verified-main release check and deployment
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/sporthub-cd/poll-cd.py
+# Do not automatically terminate a database migration halfway through.
+TimeoutStartSec=infinity
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+NoNewPrivileges=true

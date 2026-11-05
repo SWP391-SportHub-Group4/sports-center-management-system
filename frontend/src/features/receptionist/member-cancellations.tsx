@@ -109,7 +109,7 @@ export function MemberCancellations({
           `First session ${formatDate(e.firstSessionStartUtc)}`,
         ),
 
-        label: tx("Hủy lớp (không hoàn)", "Cancel class (no refund)"),
+        label: tx("Hủy", "Cancel"),
 
         target: {
           kind: "class" as const,
@@ -182,11 +182,7 @@ export function MemberCancellations({
 
                 <button
                   type="button"
-                  className={
-                    row.target.kind === "class" && row.target.started
-                      ? "btn btn--secondary btn--sm"
-                      : "btn btn--danger btn--sm"
-                  }
+                  className="btn btn--danger btn--sm"
                   onClick={() => {
                     setNotice(null);
                     setPicked(row);
