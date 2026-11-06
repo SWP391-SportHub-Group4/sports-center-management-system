@@ -67,6 +67,10 @@ export function TeachingEditor({
   );
   const [score, setScore] = useState(String(existing?.score ?? ""));
   const homeworkSession = sessions.find((item) => item.sessionId === session);
+  const canSuggestForSelectedSession =
+    !!homeworkSession &&
+    !/complet|cancel/i.test(homeworkSession.status) &&
+    Date.parse(homeworkSession.startAtUtc) > now;
   const homeworkAllowed =
     kind !== "HOMEWORK" ||
     (!!homeworkSession &&
@@ -347,7 +351,9 @@ export function TeachingEditor({
         </label>
         {kind === "PLAN" &&
           !sessionOnly &&
-          (scope === "personal" || scope === "session") && (
+          (scope === "personal"
+            ? (!session || canSuggestForSelectedSession)
+            : scope === "session" && canSuggestForSelectedSession) && (
             <details className={styles.aiTools}>
               <summary>
                 <Sparkles size={16} aria-hidden="true" />
