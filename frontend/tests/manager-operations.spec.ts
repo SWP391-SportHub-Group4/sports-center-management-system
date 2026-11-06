@@ -2500,7 +2500,8 @@ test(
   "class weekly schedule shows Coach or room bookings without AI or changing the draft",
   { tag: "@class-management" },
   async ({ page }) => {
-    await page.clock.setFixedTime(new Date("2030-10-16T05:00:00Z"));
+    // Keep the draft start date in the future and its week distinct from the current week.
+    await page.clock.setFixedTime(new Date("2030-09-25T05:00:00Z"));
     const requests: string[] = [];
     let writes = 0;
     page.on("request", (r) => {
@@ -2600,7 +2601,7 @@ test(
         exact: true,
       })
       .click();
-    await expect.poll(() => requests.at(-1)).toBe("2030-10-14");
+    await expect.poll(() => requests.at(-1)).toBe("2030-09-23");
     await expect(panel).toBeVisible();
     await expect(
       page.getByLabel(en.operations.coach, { exact: true }),

@@ -171,8 +171,6 @@ function Snapshot({
     roomId: `${l.room} (ID)`,
     startDate: scheduleChange ? h.appliesFrom : l.startDate,
     sessionMinutes: h.sessionDuration,
-    remainingSessionCount: h.remainingSessions,
-    movedSessionCount: h.movedSessions,
     scheduleRules: h.weeklySchedule,
     numSessions: l.numSessions,
     capacity: l.capacity,

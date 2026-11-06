@@ -20,6 +20,7 @@ async function fixture(
     empty?: boolean;
     conflict?: boolean;
     many?: boolean;
+    confirmedCount?: number;
   } = {},
 ) {
   let changed = false;
@@ -97,7 +98,7 @@ async function fixture(
           coachId: changed ? "new-coach" : "old-coach",
           coachName: changed ? "Jamie Tran" : "Alex Nguyen",
           capacity: 20,
-          confirmedCount: 12,
+          confirmedCount: options.confirmedCount ?? 12,
           reservedCount: 12,
           activeHoldCount: 0,
           availableSeats: 8,
@@ -154,6 +155,16 @@ test("header pencil opens class settings and changes the lead coach in its tab",
   await expect(
     dialog.getByRole("tab", { name: "Weekly schedule" }),
   ).toBeVisible();
+  await dialog.getByRole("tab", { name: "Weekly schedule" }).click();
+  await expect(
+    dialog.getByText(
+      "The weekly schedule can only be changed before students enroll.",
+    ),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Confirm change" }),
+  ).toHaveCount(0);
+  await dialog.getByRole("tab", { name: "Change Lead Coach" }).click();
   await dialog.getByRole("radio").first().check();
   await dialog
     .getByRole("textbox", { name: "Reason for change" })
@@ -210,7 +221,7 @@ test("weekly schedule changes only after Yes and keeps edits after No or a confl
   page,
 }) => {
   await page.clock.install({ time: new Date("2032-10-01T02:00:00Z") });
-  await fixture(page);
+  await fixture(page, { confirmedCount: 0 });
   await page.route("**/api/manager/court-schedule**", (route) =>
     route.fulfill({
       json: [
@@ -601,7 +612,12 @@ test("one class schedule log shows readable before and after values in details",
   await expect(after).toContainText(
     `${en.operations.weekdays[4]} · 09:00–11:00`,
   );
-  await expect(after).toContainText(en.courseHistory.movedSessions);
+  await expect(
+    dialog.getByText("Sessions moved", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    dialog.getByText("Remaining sessions", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     dialog.getByText(en.courseHistory.appliesFrom, { exact: true }),
   ).toHaveCount(2);

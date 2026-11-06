@@ -28,7 +28,7 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
     }
 
     [Fact]
-    public async Task Missed_opening_stays_unstarted_and_can_be_deferred_without_rewriting_teaching_history()
+    public async Task Manager_can_defer_an_unconfirmed_opening_before_the_lifecycle_starts_it()
     {
         var c = await CourseTestData.CreateAsync(factory);
         var s = (await CourseTestData.SessionsAsync(factory, c.Id))[0];
@@ -42,8 +42,8 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
                 .SetProperty(x => x.StartAtUtc, oldStart).SetProperty(x => x.EndAtUtc, oldStart.AddMinutes(90)));
             return 0;
         });
-        await RunLifecycle();
-        await RunLifecycle();
+        using (var scope = factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<IClassThresholdService>().EvaluateDueAsync();
         var course = await factory.QueryAsync(db => db.Classes.AsNoTracking().SingleAsync(x => x.ClassId == c.Id));
         Assert.Equal(ClassStatus.Published, course.Status);
         Assert.Equal(ThresholdStatus.AtRisk, course.ThresholdStatus);
@@ -130,21 +130,30 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Only_met_or_waived_classes_start_when_the_first_session_arrives(bool waive)
+    [InlineData(ThresholdStatus.Met, false)]
+    [InlineData(ThresholdStatus.WaivedByManager, false)]
+    [InlineData(ThresholdStatus.NotEvaluated, false)]
+    [InlineData(ThresholdStatus.AtRisk, true)]
+    public async Task Published_classes_start_when_due_and_catch_up_ended_sessions(ThresholdStatus status, bool ended)
     {
         var c = await CourseTestData.CreateAsync(factory);
-        var status = waive ? ThresholdStatus.WaivedByManager : ThresholdStatus.Met;
+        var now = DateTime.UtcNow;
+        var end = now.AddMinutes(ended ? -5 : 60);
         await factory.QueryAsync(async db => {
-            await db.Classes.Where(x => x.ClassId == c.Id).ExecuteUpdateAsync(u => u.SetProperty(x => x.ThresholdStatus, status));
+            await db.Classes.Where(x => x.ClassId == c.Id).ExecuteUpdateAsync(u => u
+                .SetProperty(x => x.ThresholdStatus, status)
+                .SetProperty(x => x.BreakEvenThreshold, 2)
+                .SetProperty(x => x.ThresholdResponseDeadlineUtc, ended ? now.AddMinutes(-10) : (DateTime?)null));
             await db.ClassSessions.Where(x => x.ClassId == c.Id && x.SessionNo == 1).ExecuteUpdateAsync(u => u
-                .SetProperty(x => x.StartAtUtc, DateTime.UtcNow.AddMinutes(-30))
-                .SetProperty(x => x.EndAtUtc, DateTime.UtcNow.AddMinutes(60)));
+                .SetProperty(x => x.StartAtUtc, now.AddMinutes(-30))
+                .SetProperty(x => x.EndAtUtc, end));
             return 0;
         });
         await RunLifecycle();
         Assert.Equal(ClassStatus.InProgress, await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
             .Select(x => x.Status).SingleAsync()));
+        var sessions = await CourseTestData.SessionsAsync(factory, c.Id);
+        Assert.Equal(ended ? ClassSessionStatus.Completed : ClassSessionStatus.Scheduled, sessions[0].Status);
+        Assert.All(sessions.Skip(1), session => Assert.Equal(ClassSessionStatus.Scheduled, session.Status));
     }
 }

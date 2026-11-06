@@ -29,6 +29,9 @@ public sealed partial class ClassSessionService
             ?? throw new NotFoundException("class_not_found", "Class not found.");
         if (cls.Status is not (ClassStatus.Published or ClassStatus.InProgress))
             throw new ConflictException("class_not_editable", "Only published or in-progress classes can change their recurring schedule.");
+        if (await db.Set<Enrollment>().AnyAsync(e => e.ClassId == classId
+            && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null, ct))
+            throw new ConflictException("class_has_enrolled_students", "The weekly schedule can only be changed before students enroll.");
         if (cls.Version != request.ExpectedVersion)
             throw new ConflictException("class_schedule_changed", "The class has changed. Refresh class details and try again.");
 
@@ -75,7 +78,7 @@ public sealed partial class ClassSessionService
         if (!previewOnly && request.PreviewToken != token)
             throw new ConflictException("class_schedule_changed", "The remaining sessions have changed. Check the new schedule again before saving.");
 
-        // Exclude the entire moving batch, while still checking unchanged sessions and other member bookings.
+        // Exclude the moving batch while checking unchanged sessions.
         foreach (var target in proposed)
         {
             var session = remaining.Single(s => s.SessionId == target.SessionId);
@@ -83,7 +86,6 @@ public sealed partial class ClassSessionService
                 && s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc < target.EndAtUtc && s.EndAtUtc > target.StartAtUtc, ct))
                 throw new ConflictException("class_session_overlap", "The new timetable overlaps a session that is already underway or completed.");
             await ValidateTargetAsync(cls, session.RoomId, session.CoachId, target.StartAtUtc, target.EndAtUtc, ct);
-            await EnsureNoMemberConflictAsync(classId, target.StartAtUtc, target.EndAtUtc, ct, excludedSessionIds: ids);
         }
         var previousFirst = await db.Set<ClassSession>().Where(s => s.ClassId == classId && s.Status != ClassSessionStatus.Cancelled)
             .MinAsync(s => s.StartAtUtc, ct);
@@ -200,10 +202,8 @@ public sealed partial class ClassSessionService
         var note = $"The new schedule applies to the remaining {sessions.Count} {(sessions.Count == 1 ? "session" : "sessions")}. Completed sessions remain unchanged.";
         var message = title + "\n\n" + string.Join("\n", fields.Select(f => $"{f.Label}: {f.Value}")) + "\n\n" + note;
         var emailBody = EmailContent.Paragraph(title) + EmailContent.Details(fields) + EmailContent.Paragraph(note);
-        var memberIds = await db.Set<Enrollment>().Where(e => e.ClassId == cls.ClassId
-            && e.Status == EnrollmentStatus.Confirmed && e.EndedAt == null).Select(e => e.MemberId).ToArrayAsync(ct);
         var eventId = Guid.NewGuid();
-        foreach (var recipientId in memberIds.Concat(coachIds).Concat(requesters).Distinct())
+        foreach (var recipientId in coachIds.Concat(requesters).Distinct())
         {
             notifications.Queue(new(recipientId, NotificationEvents.ScheduleChanged, message, eventId));
             var recipient = await users.GetAsync(recipientId, ct);

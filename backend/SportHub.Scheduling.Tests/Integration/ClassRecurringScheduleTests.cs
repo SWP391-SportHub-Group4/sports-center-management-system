@@ -27,8 +27,6 @@ public sealed class ClassRecurringScheduleTests(SchedulingApiFactory factory)
     public async Task Preview_is_readonly_and_save_without_a_reason_replaces_remaining_slots_and_rules()
     {
         var c = await CourseTestData.CreateAsync(factory);
-        var member = await factory.SeedUserAsync(UserRole.Member);
-        await CourseTestData.EnrollmentAsync(factory, c.Id, member.UserId);
         var before = await CourseTestData.SessionsAsync(factory, c.Id);
         using var manager = factory.CreateApiClient(c.ManagerId, UserRole.CenterManager);
         using var coach = factory.CreateApiClient(c.CoachId, UserRole.Coach);
@@ -37,7 +35,7 @@ public sealed class ClassRecurringScheduleTests(SchedulingApiFactory factory)
             new SportHub.Scheduling.Application.Services.CreateClassChangeRequest(pendingRequestId, "ABSENCE", "Cannot teach this session")))
             .EnsureSuccessStatusCode();
         var auditCount = await factory.QueryAsync(db => db.AuditLogs.CountAsync(a => a.UserId == c.ManagerId));
-        var recipients = new[] { member.UserId, c.CoachId };
+        var recipients = new[] { c.CoachId };
         var existingNotices = await factory.QueryAsync(db => db.Notifications.Where(n => n.UserId.HasValue
             && recipients.Contains(n.UserId.Value)).Select(n => n.NotificationId).ToArrayAsync());
         var request = await RequestAsync(c);
@@ -63,7 +61,7 @@ public sealed class ClassRecurringScheduleTests(SchedulingApiFactory factory)
         {
             var notices = await db.Notifications.Where(n => n.UserId.HasValue && recipients.Contains(n.UserId.Value)
                 && !existingNotices.Contains(n.NotificationId)).ToListAsync();
-            Assert.Equal(4, notices.Count);
+            Assert.Equal(2, notices.Count);
             Assert.Single(notices.Select(n => n.SourceEntityId).Distinct());
             Assert.All(notices, n => Assert.Equal(NotificationSourceEventType.ScheduleChanged, n.SourceEventType));
             var protector = factory.Services.GetRequiredService<IDataProtectionProvider>()
@@ -88,7 +86,7 @@ public sealed class ClassRecurringScheduleTests(SchedulingApiFactory factory)
                 Assert.DoesNotContain("View new schedule", html);
                 Assert.DoesNotContain("View new schedule", inApp.Message);
                 using var recipientClient = factory.CreateApiClient(recipientId,
-                    recipientId == c.CoachId ? UserRole.Coach : UserRole.Member);
+                    UserRole.Coach);
                 var detail = await recipientClient.GetFromJsonAsync<SportHub.Notification.Application.Services.NotificationResponse>(
                     $"/api/notifications/{inApp.NotificationId}");
                 Assert.NotNull(detail);
@@ -120,6 +118,30 @@ public sealed class ClassRecurringScheduleTests(SchedulingApiFactory factory)
             }
             return 0;
         });
+    }
+
+    [Fact]
+    public async Task Enrollment_after_preview_blocks_both_preview_and_save()
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var before = await CourseTestData.SessionsAsync(factory, course.Id);
+        using var manager = factory.CreateApiClient(course.ManagerId, UserRole.CenterManager);
+        var request = await RequestAsync(course);
+        var previewResponse = await manager.PostAsJsonAsync(Url(course.Id) + "/preview", request);
+        previewResponse.EnsureSuccessStatusCode();
+        request.PreviewToken = (await previewResponse.Content.ReadFromJsonAsync<ClassScheduleChangePreview>())!.PreviewToken;
+
+        var member = await factory.SeedUserAsync(UserRole.Member);
+        await CourseTestData.EnrollmentAsync(factory, course.Id, member.UserId);
+
+        foreach (var url in new[] { Url(course.Id) + "/preview", Url(course.Id) })
+        {
+            var response = await manager.PostAsJsonAsync(url, request);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Contains("class_has_enrolled_students", await response.Content.ReadAsStringAsync());
+        }
+        var after = await CourseTestData.SessionsAsync(factory, course.Id);
+        Assert.Equal(before.Select(s => s.StartAtUtc), after.Select(s => s.StartAtUtc));
     }
 
     [Fact]

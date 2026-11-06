@@ -251,8 +251,6 @@ export const en = {
     CHANGE_CLASS_SCHEDULE: "Class weekly schedule changed",
     appliesFrom: "Applies from",
     sessionDuration: "Session duration",
-    remainingSessions: "Remaining sessions",
-    movedSessions: "Sessions moved",
     weeklySchedule: "Weekly schedule",
     CHANGE_CLASS_LEAD_COACH: "Lead coach changed",
     coachUnavailable: "Coach unavailable",
@@ -719,7 +717,7 @@ export const en = {
       "Pricing changes are available for published classes before the review deadline.",
     openingRules: "How opening conditions work",
     openingRulesHint:
-      "Review enrollment at least 72 hours before opening. If below threshold, the Manager can approve running, defer opening, or cancel. When cancelling, the Manager enters refund points for each member. The Coach and members are notified; each member chooses the approved points or a refund request for the Manager. Without a choice within 2 days, the approved points are credited automatically.",
+      "Review enrollment at least 72 hours before opening. If below threshold, the class starts as scheduled unless the Manager defers or cancels it. When cancelling, the Manager enters refund points for each member. The Coach and members are notified; each member chooses the approved points or a refund request for the Manager. Without a choice within 2 days, the approved points are credited automatically.",
     cancelClassHint:
       "Review affected sessions and refund points before confirming cancellation.",
     cancelBelowThresholdHint:

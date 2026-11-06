@@ -71,6 +71,10 @@ export function ClassEditDialog({
               onClose={onClose}
               onSaved={onSaved}
             />
+          ) : course.confirmedCount > 0 ? (
+            <p role="status" className={styles.unavailable}>
+              The weekly schedule can only be changed before students enroll.
+            </p>
           ) : (
             <ScheduleSettings
               course={course}

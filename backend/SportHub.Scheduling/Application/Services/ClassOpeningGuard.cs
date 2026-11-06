@@ -15,6 +15,6 @@ internal static class ClassOpeningGuard
             && e.Status == EnrollmentStatus.Confirmed, ct);
         if (course.BreakEvenThreshold is int minimum && confirmed >= minimum) return;
         throw new ConflictException("class_opening_not_confirmed",
-            "This class has not been confirmed to run. Manager must resolve its enrollment threshold before teaching starts.");
+            "This class is awaiting its scheduled opening or Manager approval.");
     }
 }
