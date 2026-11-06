@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { Card } from "@/components/ui";
+import { Search, SlidersHorizontal, ChevronDown, Trash2 } from "lucide-react";
+import { Card, Field } from "@/components/ui";
+import { Input, Select } from "@/components/primitives/Controls";
+import { formatDate } from "@/lib/format";
 import {
   ApiTable,
   FilterBar,
@@ -300,6 +303,7 @@ function AuditFilterForm({
   const [draft, setDraft] = useState<Record<string, string>>(values);
   const [invalidAction, setInvalidAction] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [customDates, setCustomDates] = useState(false);
   const [rangeError, setRangeError] = useState<string | null>(
     dateRangeError(values.dateFrom, values.dateTo),
   );
@@ -316,14 +320,53 @@ function AuditFilterForm({
   const selectedPeriod = presets.findIndex(
     (preset) => preset.from === draft.dateFrom && preset.to === draft.dateTo,
   );
-  const advancedCount = [
-    values.action,
-    values.targetEntity,
-    values.targetId,
-    values.actorRole,
-    values.actorId,
-  ].filter(Boolean).length;
+  const advancedCount = [values.targetEntity, values.actorRole].filter(
+    Boolean,
+  ).length;
+  const hasChanges = Object.entries(values).some(
+    ([key, value]) => draft[key] !== value,
+  );
+  const appliedPeriod =
+    presets.find(
+      (preset) =>
+        preset.from === values.dateFrom && preset.to === values.dateTo,
+    )?.label ??
+    `${values.dateFrom ? formatDate(values.dateFrom) : "Any date"} – ${values.dateTo ? formatDate(values.dateTo) : "Any date"}`;
+  const roleNames: Record<string, string> = {
+    CENTER_MANAGER: t.navigation.roleLabel.CenterManager,
+    SYSTEM_ADMINISTRATOR: t.navigation.roleLabel.SystemAdministrator,
+    COACH: t.navigation.roleLabel.Coach,
+    MEMBER: t.navigation.roleLabel.Member,
+    RECEPTIONIST: t.navigation.roleLabel.Receptionist,
+    SYSTEM: "System",
+  };
   const entityLabels: Record<string, string> = t.managerAudit.entities;
+  const appliedFilters = [
+    { name: "Actor", value: values.actor },
+    {
+      name: "Action",
+      value: values.action ? auditActionLabel(values.action) : "",
+    },
+    {
+      name: "Period",
+      value: values.dateFrom || values.dateTo ? appliedPeriod : "",
+    },
+    {
+      name: "Record type",
+      value: values.targetEntity
+        ? (entityLabels[values.targetEntity] ??
+          readableAuditLabel(values.targetEntity))
+        : "",
+    },
+    {
+      name: "Role",
+      value: values.actorRole
+        ? roleNames[values.actorRole] || readableAuditLabel(values.actorRole)
+        : "",
+    },
+    { name: "Record", value: values.targetId },
+    { name: "Account", value: values.actorId ? "Selected account" : "" },
+  ].filter((item) => item.value);
   const entities: { value: string; label: string }[] = [
     ...new Set([...auditTargetEntities, ...Object.keys(entityLabels)]),
   ].map((value) => ({
@@ -405,14 +448,15 @@ function AuditFilterForm({
     );
   return (
     <form
-      className={styles.filters}
+      className={`${styles.filters} ${styles.adminFilters}`}
+      aria-label="Audit log filters"
       aria-describedby={rangeError ? rangeErrorId : undefined}
       onSubmit={(event) => {
         event.preventDefault();
         const error = dateRangeError(draft.dateFrom ?? "", draft.dateTo ?? "");
         setRangeError(error);
         if (error) {
-          setMoreOpen(true);
+          setCustomDates(true);
           return;
         }
         const actionText = (draft.action ?? "").trim();
@@ -433,7 +477,6 @@ function AuditFilterForm({
           : "";
         if (action === undefined) {
           setInvalidAction(true);
-          setMoreOpen(true);
           return;
         }
         setInvalidAction(false);
@@ -449,151 +492,207 @@ function AuditFilterForm({
         });
       }}
     >
-      {!administrator && (
-        <div
-          className={styles.datePresets}
-          role="group"
-          aria-label="Date presets"
-        >
-          {presets.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              className={`btn btn--secondary btn--sm ${styles.preset}`}
-              aria-pressed={
-                draft.dateFrom === preset.from && draft.dateTo === preset.to
+      <div className={styles.adminToolbar}>
+        <div className={styles.adminPrimary}>
+          <Field label="Actor name or email">
+            <span className={styles.actorSearch}>
+              <Search size={17} aria-hidden="true" />
+              <Input
+                name="actor"
+                type="search"
+                placeholder="Search a person"
+                value={draft.actor}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    actor: event.target.value,
+                  }))
+                }
+              />
+            </span>
+          </Field>
+          <Field label={l.action}>
+            <AuditActionPicker
+              id={`${moreFiltersId}-action`}
+              value={draft.action}
+              actions={actions}
+              humanReadable
+              errorId={invalidAction ? actionErrorId : undefined}
+              onChange={(value) => {
+                setDraft((current) => ({ ...current, action: value }));
+                setInvalidAction(false);
+              }}
+            />
+          </Field>
+          <Field label="Period">
+            <select
+              value={
+                customDates || selectedPeriod < 0
+                  ? "custom"
+                  : String(selectedPeriod)
               }
-              onClick={() => {
-                setDraft((current) => ({
-                  ...current,
-                  dateFrom: preset.from,
-                  dateTo: preset.to,
-                }));
+              onChange={(event) => {
+                const custom = event.target.value === "custom";
+                setCustomDates(custom);
+                if (!custom) {
+                  const preset = presets[Number(event.target.value)];
+                  setDraft((current) => ({
+                    ...current,
+                    dateFrom: preset.from,
+                    dateTo: preset.to,
+                  }));
+                }
                 setRangeError(null);
               }}
             >
-              {preset.label}
-            </button>
-          ))}
+              {presets.map((preset, index) => (
+                <option key={preset.label} value={String(index)}>
+                  {preset.label}
+                </option>
+              ))}
+              <option value="custom">Custom dates</option>
+            </select>
+          </Field>
         </div>
-      )}
-      <FilterBar
-        className={!administrator ? styles.managerFilterBar : undefined}
-        inline={administrator}
-        resetStyle={administrator ? "icon" : "text"}
-        fields={
-          administrator
-            ? [
-                fields.find((field) => field.id === "actor")!,
-                {
-                  id: "period",
-                  label: "Period",
-                  kind: "select" as const,
-                  render: ({ id }: { id: string }) => (
-                    <select
-                      id={id}
-                      value={
-                        selectedPeriod < 0 ? "custom" : String(selectedPeriod)
-                      }
-                      onChange={(event) => {
-                        if (event.target.value === "custom") {
-                          setMoreOpen(true);
-                          return;
-                        }
-                        const preset = presets[Number(event.target.value)];
-                        setDraft((current) => ({
-                          ...current,
-                          dateFrom: preset.from,
-                          dateTo: preset.to,
-                        }));
-                        setRangeError(null);
-                      }}
-                    >
-                      {presets.map((preset, index) => (
-                        <option key={preset.label} value={String(index)}>
-                          {preset.label}
-                        </option>
-                      ))}
-                      <option value="custom">Custom dates…</option>
-                    </select>
-                  ),
-                },
-              ]
-            : fields
-        }
-        values={draft}
-        onChange={(next) => {
-          setDraft(next);
-          setInvalidAction(false);
-          setRangeError(null);
-        }}
-        activeCount={
-          [
-            values.action,
-            values.targetEntity,
-            values.targetId,
-            values.dateFrom || values.dateTo,
-            values.actorRole,
-            values.actorId,
-            values.actor,
-          ].filter(Boolean).length
-        }
-        onReset={() => {
-          setDraft({
-            action: "",
-            targetEntity: "",
-            targetId: "",
-            dateFrom: "",
-            dateTo: "",
-            actorId: "",
-            actor: "",
-            actorRole: "",
-          });
-          setInvalidAction(false);
-          setRangeError(null);
-          setMoreOpen(false);
-          onReset();
-        }}
-        actions={
-          <>
-            {administrator && (
-              <button
-                type="button"
-                className="btn btn--secondary"
-                aria-expanded={moreOpen}
-                aria-controls={moreFiltersId}
-                onClick={() => setMoreOpen((open) => !open)}
-              >
-                More filters
-                {advancedCount > 0 && <span> ({advancedCount} applied)</span>}
-              </button>
+        <div className={styles.adminActions}>
+          <button
+            type="button"
+            className={`btn btn--ghost ${styles.adminMore}`}
+            aria-expanded={moreOpen}
+            aria-controls={moreFiltersId}
+            onClick={() => setMoreOpen((open) => !open)}
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            More filters
+            {advancedCount > 0 && (
+              <span className={styles.filterCount}>{advancedCount}</span>
             )}
-            <button type="submit" className="btn">
-              {l.apply}
-            </button>
-          </>
-        }
-      />
-      {administrator && (
-        <section
-          id={moreFiltersId}
-          className={styles.advancedFilters}
-          hidden={!moreOpen}
-          aria-label="Additional audit filters"
-        >
-          <div className={styles.advancedBody}>
-            <FilterBar
-              inline
-              fields={fields.filter((field) => field.id !== "actor")}
-              values={draft}
-              onChange={(next) => {
-                setDraft(next);
-                setInvalidAction(false);
+            <ChevronDown size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="submit"
+            className="btn"
+            disabled={actions.loading && !!draft.action}
+          >
+            {l.apply}
+          </button>
+          <button
+            type="button"
+            className={`btn btn--ghost ${styles.adminClear}`}
+            title={t.dataTable.clearFilters}
+            aria-label={t.dataTable.clearFilters}
+            onClick={() => {
+              setDraft({
+                action: "",
+                targetEntity: "",
+                targetId: "",
+                dateFrom: "",
+                dateTo: "",
+                actorId: "",
+                actor: "",
+                actorRole: "",
+              });
+              setInvalidAction(false);
+              setRangeError(null);
+              setCustomDates(false);
+              setMoreOpen(false);
+              onReset();
+            }}
+          >
+            <Trash2 size={18} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+      {(customDates || selectedPeriod < 0) && (
+        <div className={styles.adminDates}>
+          <Field label={t.filterBar.from}>
+            <Input
+              type="date"
+              name="dateFrom"
+              value={draft.dateFrom}
+              aria-invalid={!!rangeError}
+              aria-describedby={rangeError ? rangeErrorId : undefined}
+              onChange={(event) => {
+                setDraft((current) => ({
+                  ...current,
+                  dateFrom: event.target.value,
+                }));
                 setRangeError(null);
               }}
             />
-          </div>
-        </section>
+          </Field>
+          <Field label={t.filterBar.to}>
+            <Input
+              type="date"
+              name="dateTo"
+              value={draft.dateTo}
+              aria-invalid={!!rangeError}
+              aria-describedby={rangeError ? rangeErrorId : undefined}
+              onChange={(event) => {
+                setDraft((current) => ({
+                  ...current,
+                  dateTo: event.target.value,
+                }));
+                setRangeError(null);
+              }}
+            />
+          </Field>
+          <span className={styles.adminDateHint}>
+            Event dates · Vietnam (UTC+7)
+          </span>
+        </div>
+      )}
+      <section
+        id={moreFiltersId}
+        className={styles.adminAdvanced}
+        hidden={!moreOpen}
+        aria-label="Additional audit filters"
+      >
+        {fields
+          .filter(
+            (field) => field.id === "targetEntity" || field.id === "actorRole",
+          )
+          .map((field) => (
+            <Field label={field.label} key={field.id}>
+              <Select
+                name={field.id}
+                value={draft[field.id]}
+                options={field.options ?? []}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    [field.id]: event.target.value,
+                  }))
+                }
+              />
+            </Field>
+          ))}
+      </section>
+      {(appliedFilters.length > 0 || hasChanges) && (
+        <div className={styles.adminFilterStatus}>
+          {appliedFilters.length > 0 && (
+            <div
+              className={styles.appliedFilters}
+              aria-label="Applied audit filters"
+            >
+              <span>Applied</span>
+              {appliedFilters.map((item) => (
+                <span
+                  className={styles.appliedFilter}
+                  key={item.name}
+                  title={`${item.name}: ${item.value}`}
+                >
+                  <span>{item.name}:</span> {item.value}
+                </span>
+              ))}
+            </div>
+          )}
+          {hasChanges && (
+            <span className={styles.pendingFilters} role="status">
+              Changes not applied
+            </span>
+          )}
+        </div>
       )}
       {rangeError && (
         <p id={rangeErrorId} className="field-error" role="alert">

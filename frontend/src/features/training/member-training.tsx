@@ -20,10 +20,13 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import type {
-  CourseEnrollmentDto,
-  WorkoutSuggestionDto,
-  SavedWorkoutSuggestionDto,
+import {
+  WORKOUT_SUGGESTION_LABEL,
+  WORKOUT_SUGGESTION_TYPE,
+  type CourseEnrollmentDto,
+  type WorkoutSuggestionDto,
+  type SavedWorkoutSuggestionDto,
+  type WorkoutSuggestionSourceType,
 } from "@/lib/types";
 import { TrainingProfile } from "./training-profile";
 import styles from "./training.module.css";
@@ -31,7 +34,8 @@ import styles from "./training.module.css";
 const AI_PLANS_KEY = "sporthub:member:ai-workout-plans:v1";
 const AI_PLANS_EVENT = "sporthub:ai-plans-changed";
 type AiDraft = { suggestion: WorkoutSuggestionDto; savedAt: string };
-type SavedAiPlan = AiDraft & { id: string };
+// The legacy browser drafts had no type field; treat them as AI suggestions.
+type SavedAiPlan = AiDraft & { id: string; type?: WorkoutSuggestionSourceType };
 
 function subscribeToPlans(onChange: () => void) {
   window.addEventListener(AI_PLANS_EVENT, onChange);
@@ -64,6 +68,7 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
       saved = parsed.filter((p): p is SavedAiPlan =>
         p !== null && typeof p === "object" &&
         typeof p.id === "string" &&
+        (!("type" in p) || p.type === WORKOUT_SUGGESTION_TYPE) &&
         p.suggestion !== null && typeof p.suggestion === "object" &&
         Array.isArray(p.suggestion.items));
     }
@@ -89,13 +94,10 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
       node: (
         <article className={styles.aiPlanCard}>
           <div className={styles.aiPlanAccent}>
-            <div className={styles.aiPlanTop}>
-              <span className={styles.aiPlanKind}>
-                <ClipboardList size={15} aria-hidden="true" /> Lesson plan
-                <span className={styles.aiPlanDraftTag}>AI suggestion</span>
-              </span>
-              <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
-            </div>
+            <span className={styles.aiPlanKind}>
+              <ClipboardList size={15} aria-hidden="true" />
+              <span className={styles.aiPlanDraftTag}>{WORKOUT_SUGGESTION_LABEL}</span>
+            </span>
             <h3 className={styles.aiPlanTitle}>{plan.sport} workout - {plan.goal}</h3>
             <p className={styles.aiPlanMeta}>
               Individual {" · "} {plan.level} {" · "} Saved {new Date(savedAt).toLocaleDateString("en-GB")} {" · "} Not coach-approved
@@ -110,6 +112,7 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
               ))}
             </div>
           </div>
+          <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
         </article>
       ),
     }));
@@ -200,7 +203,8 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
   ].filter(Boolean))].sort();
   const visibleAi = kind === "plans" && source !== "coach" && !coach &&
     (scope === "" || scope === "personal")
-    ? aiPlans.filter((plan) => (!activity || plan.sport === activity) &&
+    ? aiPlans.filter((plan) => (plan.type == null || plan.type === WORKOUT_SUGGESTION_TYPE) &&
+      (!activity || plan.sport === activity) &&
       (!date || vietnamDate(plan.generatedAt) === date))
     : [];
   const visibleRows = rows.filter(({ enrollment, record }) =>
@@ -222,7 +226,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
         <article className={styles.panel}>
           <div className={styles.planHeading}>
             <strong>{plan.sport} · {plan.goal}</strong>
-            <span className={styles.aiBadge}>{vi ? "AI tạo" : "Created by AI"}</span>
+            <span className={styles.aiBadge}>{WORKOUT_SUGGESTION_LABEL}</span>
           </div>
           <small>{new Date(plan.generatedAt).toLocaleString(vi ? "vi-VN" : "en-US")}</small>
           <ol className={styles.aiExercises}>
@@ -258,7 +262,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
       <div className={styles.filters} data-kind={kind} aria-label={kind === "plans" ? "Plan filters" : "Result filters"}>
           {kind === "plans" && <label><span className={styles.visuallyHidden}>{vi ? "Nguồn" : "Source"}</span><select value={source} onChange={(e) => setSource(e.target.value)}>
             <option value="">{vi ? "Tất cả" : "All sources"}</option>
-            <option value="ai">AI suggestion</option><option value="coach">Coach</option>
+            <option value="ai">{WORKOUT_SUGGESTION_LABEL}</option><option value="coach">Coach</option>
           </select></label>}
           <label>Coach<select value={coach} onChange={(e) => setCoach(e.target.value)}>
             <option value="">{vi ? "Tất cả Coach" : "All coaches"}</option>
@@ -275,9 +279,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
           </select></label>
           <label>{vi ? "Ngày tạo" : "Created date"}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       </div>
-      {kind === "plans" && aiState.loading && source !== "coach" && (
-        <p role="status">{vi ? "Đang tải gợi ý AI…" : "Loading AI suggestions…"}</p>
-      )}
+      {kind === "plans" && source !== "coach" && aiState.loading && <p role="status">Loading AI suggestions...</p>}
       {state.loading ? (
         <p role="status">
           {vi ? "Đang tải nội dung tập luyện…" : "Loading training content…"}

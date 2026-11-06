@@ -100,13 +100,14 @@ export function MemberList() {
                       </td>
                       <td className={styles.statusCell}>
                         <span className={styles.statusStack}>
-                          <StatusChip value={m.status} />
-                          {m.activationPending && (
+                          {m.activationPending ? (
                             <StatusChip
                               value="PENDING_ACTIVATION"
                               tone="warning"
                               label={l.pendingActivation}
                             />
+                          ) : (
+                            <StatusChip value={m.status} />
                           )}
                         </span>
                       </td>

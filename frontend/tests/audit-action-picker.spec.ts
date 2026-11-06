@@ -18,7 +18,6 @@ async function setup(
   manager = false,
   mode: "normal" | "empty" | "retry" = "normal",
 ) {
-  let actionRequests = 0;
   const queries: URL[] = [];
   await page.addInitScript(() =>
     localStorage.setItem("sporthub.accessToken", "fixture-token"),
@@ -36,8 +35,7 @@ async function setup(
         },
       });
     if (url.pathname === "/api/audit-logs/actions") {
-      actionRequests++;
-      if (mode === "retry" && actionRequests === 1)
+      if (mode === "retry")
         return route.fulfill({
           status: 500,
           json: { error: "unavailable", message: "Unavailable" },
@@ -71,7 +69,7 @@ test("Admin opens scoped actions, searches multiple words without case sensitivi
     page.getByRole("option", { name: "Class created", exact: true }),
   ).toHaveCount(0);
   await input.fill("  StAfF   CrEaTe  ");
-  await expect(page.getByRole("option")).toHaveCount(1);
+  await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(1);
   await page
     .getByRole("option", { name: "Staff account created", exact: true })
     .click();
@@ -192,6 +190,9 @@ test("Missing choices and load failures show useful states and retry succeeds", 
   const input = page.getByRole("combobox", { name: "Action", exact: true });
   await input.click();
   await expect(page.getByText("Unable to load actions.")).toBeVisible();
+  await page.route("**/api/audit-logs/actions", (route) =>
+    route.fulfill({ json: accountActions }),
+  );
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(
     page.getByRole("option", { name: "Staff account created", exact: true }),
@@ -207,6 +208,116 @@ test("Missing choices and load failures show useful states and retry succeeds", 
       .filter({ hasText: "Select an action from the list" }),
   ).toContainText("Select an action from the list");
 });
+
+test("Admin applies custom dates and secondary filters together, explains drafts and clears the full scope", async ({
+  page,
+}) => {
+  const queries = await setup(page);
+  await page.goto("/admin/audit-log?keep=1");
+  const filters = page.getByRole("form", { name: "Audit log filters" });
+  const period = filters.getByLabel("Period", { exact: true });
+  await expect(
+    filters.getByLabel("Actor name or email", { exact: true }),
+  ).toBeVisible();
+  await expect(filters.getByLabel("Action", { exact: true })).toBeVisible();
+  await expect(filters.getByLabel("Record type", { exact: true })).toBeHidden();
+  await period.selectOption("custom");
+  await expect(period).toHaveValue("custom");
+  await filters.getByLabel("From date", { exact: true }).fill("2026-11-04");
+  await filters.getByLabel("To date", { exact: true }).fill("2026-11-03");
+  await filters
+    .getByRole("button", { name: "Apply filters", exact: true })
+    .click();
+  await expect(filters.getByRole("alert")).toContainText(
+    "The end date must be on or after the start date.",
+  );
+  expect(queries.at(-1)?.searchParams.has("fromUtc")).toBe(false);
+  await filters.getByLabel("To date", { exact: true }).fill("2026-11-05");
+  await filters.getByRole("button", { name: /^More filters/ }).click();
+  await filters
+    .getByLabel("Role at event time", { exact: true })
+    .selectOption("COACH");
+  await filters
+    .getByLabel("Record type", { exact: true })
+    .selectOption("UserAccount");
+  await filters.getByRole("button", { name: /^More filters/ }).click();
+  await expect(
+    filters.getByText("Changes not applied", { exact: true }),
+  ).toBeVisible();
+  expect(queries.at(-1)?.searchParams.has("actorRole")).toBe(false);
+  await filters
+    .getByRole("button", { name: "Apply filters", exact: true })
+    .click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("actorRole"))
+    .toBe("COACH");
+  expect(queries.at(-1)?.searchParams.get("targetEntity")).toBe("UserAccount");
+  expect(queries.at(-1)?.searchParams.get("fromUtc")).toBe(
+    "2026-11-03T17:00:00.000Z",
+  );
+  expect(queries.at(-1)?.searchParams.get("toUtc")).toBe(
+    "2026-11-05T17:00:00.000Z",
+  );
+  await expect(filters.getByLabel("Record type", { exact: true })).toBeHidden();
+  await expect(filters.getByLabel("Applied audit filters")).toContainText(
+    "Role: Coach",
+  );
+  await expect(
+    filters.getByText("Changes not applied", { exact: true }),
+  ).toHaveCount(0);
+  await filters
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("actorRole"))
+    .toBeNull();
+  await expect(period).toHaveValue("0");
+  await expect(filters.getByLabel("From date", { exact: true })).toHaveCount(0);
+  await expect(filters.getByLabel("Applied audit filters")).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
+});
+
+for (const width of [1440, 1366, 320]) {
+  test(`Admin audit filters fit at ${width}px with applied scopes and expanded controls`, async ({
+    page,
+  }, testInfo) => {
+    await setup(page);
+    await page.setViewportSize({ width, height: width === 1366 ? 768 : 900 });
+    await page.goto(
+      "/admin/audit-log?actor=coach.long.email%40sporthub.example&actorRole=COACH&targetEntity=UserAccount&dateFrom=2026-11-01&dateTo=2026-11-03",
+    );
+    await expect(page.locator('[data-startup-phase="ready"]')).toBeVisible();
+    const filters = page.getByRole("form", { name: "Audit log filters" });
+    await expect(
+      filters.getByLabel("Actor name or email", { exact: true }),
+    ).toHaveValue("coach.long.email@sporthub.example");
+    await page.screenshot({
+      path: testInfo.outputPath(`admin-audit-${width}.png`),
+      fullPage: true,
+    });
+    await filters.getByRole("button", { name: /^More filters/ }).click();
+    await expect(
+      filters.getByLabel("Role at event time", { exact: true }),
+    ).toBeVisible();
+    await filters.getByLabel("Action", { exact: true }).click();
+    await expect(page.getByRole("listbox")).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    for (const control of await filters
+      .locator("input, select, button")
+      .all()) {
+      if (!(await control.isVisible())) continue;
+      const box = await control.boundingBox();
+      expect(box?.x).toBeGreaterThanOrEqual(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
+    }
+    await page.screenshot({
+      path: testInfo.outputPath(`admin-audit-expanded-${width}.png`),
+      fullPage: true,
+    });
+  });
+}
 
 test("Empty history and the mobile popup fit without horizontal overflow", async ({
   page,

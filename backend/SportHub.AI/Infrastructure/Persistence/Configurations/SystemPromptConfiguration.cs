@@ -9,13 +9,14 @@ public sealed class SystemPromptConfiguration : IEntityTypeConfiguration<SystemP
     {
         builder.ToTable("ai_system_prompts", table => {
             table.HasCheckConstraint("ck_ai_system_prompt_role",
-                "(id = 'member-system-prompt' AND audience = 'Member') OR (id = 'coach-system-prompt' AND audience = 'Coach')");
+                "(audience = 'Member' AND id IN ('member-rules-prompt','member-policies-prompt','member-procedures-prompt','member-general-prompt','member-api-prompt')) OR " +
+                "(audience = 'Coach' AND id IN ('coach-rules-prompt','coach-policies-prompt','coach-procedures-prompt','coach-general-prompt','coach-api-prompt'))");
             table.HasCheckConstraint("ck_ai_system_prompt_history_limit", "jsonb_array_length(history_payload) <= 1");
         });
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Id).HasColumnName("id").HasMaxLength(64);
         builder.Property(p => p.Audience).HasColumnName("audience").HasMaxLength(16).IsRequired();
-        builder.HasIndex(p => p.Audience).IsUnique();
+        builder.HasIndex(p => p.Audience);
         builder.Property(p => p.ActivePayload).HasColumnName("active_payload").HasColumnType("jsonb");
         builder.Property(p => p.DraftPayload).HasColumnName("draft_payload").HasColumnType("jsonb");
         builder.Property(p => p.HistoryPayload).HasColumnName("history_payload").HasColumnType("jsonb").IsRequired();

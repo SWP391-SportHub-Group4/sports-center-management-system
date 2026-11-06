@@ -20,16 +20,31 @@ public sealed record RestoreSystemPromptRequest(int Version, int ExpectedRevisio
 public sealed class SystemPromptService(ISportHubDbContext db, IClock clock) : ISystemPromptReader
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private static string RoleFor(string id) => id switch {
-        "member-system-prompt" => "Member", "coach-system-prompt" => "Coach",
-        _ => throw new BadRequestException("system_prompt_id_invalid", "Only the Member and Coach system prompts can be managed.")
-    };
-    public static PublishedSystemPrompt DefaultFor(string role) => role switch {
+    public static readonly string[] Categories = ["Rules", "Policies", "Procedures", "General", "Api"];
+    public static readonly string[] Roles = ["Coach", "Member"];
+
+    public static string PromptId(string role, string category)
+        => $"{role.ToLowerInvariant()}-{category.ToLowerInvariant()}-prompt";
+
+    private static (string Role, string Category) IdentityFor(string id)
+    {
+        foreach (var role in Roles)
+        foreach (var category in Categories)
+            if (id == PromptId(role, category)) return (role, category);
+        throw new BadRequestException("system_prompt_id_invalid",
+            "Choose an existing Coach or Member prompt category.");
+    }
+
+    public static PublishedSystemPrompt DefaultFor(string role) => role switch
+    {
         "Member" => new(SportHubAssistantSystemPrompt.Content, SportHubAssistantSystemPrompt.Version),
         "Coach" => new(CoachAiSystemPrompt.Content, CoachAiSystemPrompt.Version),
         _ => throw new BadRequestException("system_prompt_role_invalid", "Choose Member or Coach.")
     };
-    private static PromptRevision? ReadRevision(string? payload) => payload is null ? null : JsonSerializer.Deserialize<PromptRevision>(payload, Json);
+
+    private static PromptRevision? ReadRevision(string? payload) =>
+        payload is null ? null : JsonSerializer.Deserialize<PromptRevision>(payload, Json);
+
     private static List<PromptRevision> History(SystemPrompt row)
     {
         var active = ReadRevision(row.ActivePayload);
@@ -38,30 +53,60 @@ public sealed class SystemPromptService(ISportHubDbContext db, IClock clock) : I
             .Where(r => r.Version < active.Version && r.Action is "Initial" or "Publish" or "Restore")
             .OrderByDescending(r => r.Version).Take(1).ToList();
     }
-    private static string ManagedVersion(string role, int version) => $"managed-{role.ToLowerInvariant()}-v{version}";
 
-    // Deliberately not cached: the next chat request sees the last committed publication.
+    // The next chat request sees all committed publications, in a deterministic order.
+    // Built-in rules remain present even if a Manager publishes only one category.
     public async Task<PublishedSystemPrompt> GetPublishedAsync(string role, CancellationToken ct = default)
     {
+        if (!Roles.Contains(role)) throw new BadRequestException("system_prompt_role_invalid", "Choose Member or Coach.");
         var fallback = DefaultFor(role);
-        var payload = await db.Set<SystemPrompt>().AsNoTracking().Where(p => p.Audience == role)
-            .Select(p => p.ActivePayload).SingleOrDefaultAsync(ct);
-        var active = ReadRevision(payload);
-        return active is null ? fallback : new(active.Content, ManagedVersion(role, active.Version));
+        var rows = await db.Set<SystemPrompt>().AsNoTracking().Where(p => p.Audience == role)
+            .Select(p => new { p.Id, p.ActivePayload }).ToListAsync(ct);
+        var parts = new List<string> { fallback.Content };
+        var versions = new List<string> { fallback.Version };
+        foreach (var category in Categories)
+        {
+            var row = rows.SingleOrDefault(p => p.Id == PromptId(role, category));
+            var active = ReadRevision(row?.ActivePayload);
+            if (active is null || string.IsNullOrWhiteSpace(active.Content)) continue;
+            parts.Add($"\n\n=== {category.ToUpperInvariant()} : {role.ToUpperInvariant()} ===\n{active.Content}");
+            versions.Add($"{category}:{active.Version}:{row!.Id}");
+        }
+        var digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(string.Join("|", versions))))[..16];
+        return new PublishedSystemPrompt(string.Join("\n", parts), $"managed-{role.ToLowerInvariant()}-{digest}");
     }
 
+    // The editor displays 10 independent slots, even when a category is not yet saved.
     public async Task<IReadOnlyList<ManagedPromptResponse>> ListAsync(CancellationToken ct = default)
-        => (await db.Set<SystemPrompt>().AsNoTracking().OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Id).ToListAsync(ct)).Select(Response).ToList();
-
-    public async Task<ManagedPromptResponse> SaveAsync(string id, SaveSystemPromptRequest request, bool publish, Guid managerId, string author, CancellationToken ct = default)
     {
-        var role = RoleFor(id);
-        if (request.Audience != role)
-            throw new BadRequestException("system_prompt_role_mismatch", "The prompt audience cannot be changed. Edit the other role's prompt instead.");
+        var rows = await db.Set<SystemPrompt>().AsNoTracking().ToListAsync(ct);
+        var result = new List<ManagedPromptResponse>();
+        foreach (var role in Roles)
+        foreach (var category in Categories)
+        {
+            var id = PromptId(role, category);
+            var row = rows.SingleOrDefault(x => x.Id == id);
+            if (row is not null) result.Add(Response(row));
+            else result.Add(new ManagedPromptResponse(id, DefaultFor(role).Version,
+                "Manager AI Knowledge", new PromptContent($"{role} {category} prompt", role, category, ""),
+                null, [], DateTime.UnixEpoch, DateTime.UnixEpoch, 0));
+        }
+        return result;
+    }
+
+    public async Task<ManagedPromptResponse> SaveAsync(string id, SaveSystemPromptRequest request, bool publish,
+        Guid managerId, string author, CancellationToken ct = default)
+    {
+        var (role, category) = IdentityFor(id);
+        if (request.Audience != role || request.Category != category)
+            throw new BadRequestException("system_prompt_category_mismatch",
+                "The role and category are fixed. Open the corresponding prompt instead.");
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 180 ||
             string.IsNullOrWhiteSpace(request.Content) || request.Content.Length > PromptTestChatService.MaxPromptLength ||
-            request.Category is not ("Rules" or "Policies" or "Procedures" or "General") || request.ExpectedRevision < 0)
-            throw new BadRequestException("system_prompt_invalid", "Provide a title (up to 180 characters), a valid category and prompt content (up to 30,000 characters).");
+            request.ExpectedRevision < 0)
+            throw new BadRequestException("system_prompt_invalid",
+                "Provide a title and prompt content up to 30,000 characters.");
         var row = await db.Set<SystemPrompt>().SingleOrDefaultAsync(p => p.Id == id, ct);
         if (row is null)
         {
@@ -70,24 +115,26 @@ public sealed class SystemPromptService(ISportHubDbContext db, IClock clock) : I
             db.Set<SystemPrompt>().Add(row);
         }
         else if (row.Revision != request.ExpectedRevision) throw Conflict();
-        var revision = new PromptRevision(request.Title.Trim(), role, request.Category, request.Content,
+        var revision = new PromptRevision(request.Title.Trim(), role, category, request.Content,
             row.Revision + 1, clock.UtcNow, author, managerId, publish ? "Publish" : "Draft");
         RecordChange(row, revision, managerId, publish);
         if (publish) { row.ActivePayload = JsonSerializer.Serialize(revision, Json); row.DraftPayload = null; }
-        else row.DraftPayload = JsonSerializer.Serialize(new PromptContent(revision.Title, role, revision.Category, revision.Content), Json);
+        else row.DraftPayload = JsonSerializer.Serialize(new PromptContent(revision.Title, role, category, revision.Content), Json);
         await SaveChangesAsync(ct);
         return Response(row);
     }
 
-    public async Task<ManagedPromptResponse> RestoreAsync(string id, RestoreSystemPromptRequest request, Guid managerId, string author, CancellationToken ct = default)
+    public async Task<ManagedPromptResponse> RestoreAsync(string id, RestoreSystemPromptRequest request,
+        Guid managerId, string author, CancellationToken ct = default)
     {
-        RoleFor(id);
+        IdentityFor(id);
         var row = await db.Set<SystemPrompt>().SingleOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new NotFoundException("system_prompt_not_found", "This prompt no longer exists. Reload the list.");
         if (row.Revision != request.ExpectedRevision) throw Conflict();
         var source = History(row).SingleOrDefault(r => r.Version == request.Version)
             ?? throw new NotFoundException("system_prompt_version_not_found", "This prompt version does not exist.");
-        var revision = source with { Version = row.Revision + 1, SavedAt = clock.UtcNow, Author = author, AuthorId = managerId, Action = "Restore" };
+        var revision = source with { Version = row.Revision + 1, SavedAt = clock.UtcNow,
+            Author = author, AuthorId = managerId, Action = "Restore" };
         RecordChange(row, revision, managerId, true);
         row.ActivePayload = JsonSerializer.Serialize(revision, Json);
         await SaveChangesAsync(ct);
@@ -96,29 +143,38 @@ public sealed class SystemPromptService(ISportHubDbContext db, IClock clock) : I
 
     public async Task DeleteAsync(string id, int expectedRevision, CancellationToken ct = default)
     {
-        RoleFor(id);
+        IdentityFor(id);
         var row = await db.Set<SystemPrompt>().SingleOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new NotFoundException("system_prompt_not_found", "This prompt no longer exists. Reload the list.");
         if (row.Revision != expectedRevision) throw Conflict();
         db.Set<SystemPrompt>().Remove(row);
         await SaveChangesAsync(ct);
     }
+
     private static void RecordChange(SystemPrompt row, PromptRevision revision, Guid managerId, bool publish)
     {
         var previous = ReadRevision(row.ActivePayload);
         var history = publish ? previous is null ? new List<PromptRevision>() : [previous] : History(row);
         row.HistoryPayload = JsonSerializer.Serialize(history, Json);
-        row.Revision = revision.Version; row.UpdatedAt = revision.SavedAt; row.UpdatedBy = managerId;
+        row.Revision = revision.Version;
+        row.UpdatedAt = revision.SavedAt;
+        row.UpdatedBy = managerId;
     }
+
     private static ManagedPromptResponse Response(SystemPrompt row)
     {
+        var (role, _) = IdentityFor(row.Id);
         var active = ReadRevision(row.ActivePayload);
-        var source = row.Audience == "Coach" ? "CoachAiSystemPrompt.cs" : "SportHubAssistantSystemPrompt.cs";
-        return new(row.Id, active is null ? DefaultFor(row.Audience).Version : ManagedVersion(row.Audience, active.Version),
-            $"backend/SportHub.AI/Prompts/{source}", row.DraftPayload is null ? null : JsonSerializer.Deserialize<PromptContent>(row.DraftPayload, Json),
+        return new ManagedPromptResponse(row.Id,
+            active is null ? DefaultFor(role).Version : $"{row.Id}-v{active.Version}",
+            "Manager AI Knowledge", row.DraftPayload is null ? null :
+            JsonSerializer.Deserialize<PromptContent>(row.DraftPayload, Json),
             active, History(row), row.CreatedAt, row.UpdatedAt, row.Revision);
     }
-    private static ConflictException Conflict() => new("system_prompt_conflict", "Another manager changed this prompt. Keep your edits, reload the latest version and review before saving again.");
+
+    private static ConflictException Conflict() => new("system_prompt_conflict",
+        "Another manager changed this prompt. Reload the latest version before saving again.");
+
     private async Task SaveChangesAsync(CancellationToken ct)
     {
         try { await db.SaveChangesAsync(ct); }
