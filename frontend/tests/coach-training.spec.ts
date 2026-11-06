@@ -666,6 +666,13 @@ for (const width of [1440, 320]) {
     await expect(dialog).toContainText("Session 3");
     await expect(dialog).toContainText("I have an urgent family appointment.");
     expect(posts).toHaveLength(0);
+    // Visibility does not wait for the opening translateY animation to settle.
+    await dialog.evaluate(async (element) => {
+      await document.fonts.ready;
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      );
+    });
     const box = await dialog.boundingBox();
     expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThan(2);
     expect(Math.abs(box!.y + box!.height / 2 - 450)).toBeLessThan(2);
