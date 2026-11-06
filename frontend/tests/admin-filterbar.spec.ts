@@ -176,7 +176,7 @@ test("Audit FilterBar applies name/email drafts only on submit and preserves leg
     `/admin/audit-log?action=LOCK_USER&actorId=${actorId}&page=2&sortBy=action&keep=1&targetEntity=PointWallet`,
   );
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "Account deactivated",
+    "Account deactivated (legacy)",
   );
   await page.getByRole("button", { name: /^More filters/ }).click();
   await expect(
@@ -207,11 +207,11 @@ test("Audit FilterBar applies name/email drafts only on submit and preserves leg
   expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
   await page.reload();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "Account activated",
+    "Account activated (legacy)",
   );
   await page.goBack();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue(
-    "Account deactivated",
+    "Account deactivated (legacy)",
   );
   await page.getByRole("button", { name: /Clear filters/ }).click();
   await expect(page.getByLabel("Action", { exact: true })).toHaveValue("");
@@ -233,7 +233,7 @@ test("Audit FilterBar applies name/email drafts only on submit and preserves leg
 
 test("FilterBar stays English with legacy language preferences and fits both Admin pages on mobile", async ({
   page,
-}) => {
+}, testInfo) => {
   await setup(page);
   await page.addInitScript(() => localStorage.setItem("sporthub_lang", "vi"));
   for (const path of ["users", "audit-log"]) {
@@ -248,7 +248,7 @@ test("FilterBar stays English with legacy language preferences and fits both Adm
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width);
       await page.screenshot({
-        path: `test-results/filterbar-${path}-${width}.png`,
+        path: testInfo.outputPath(`filterbar-${path}-${width}.png`),
         fullPage: true,
       });
     }

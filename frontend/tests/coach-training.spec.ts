@@ -538,6 +538,247 @@ async function coachFixture(
   });
 }
 
+async function absenceConfirmationFixture(
+  page: Page,
+  options: { failFirst?: boolean; waitForSend?: Promise<void> } = {},
+) {
+  await coachFixture(page, [3]);
+  await page.clock.setFixedTime(new Date("2026-11-05T03:00:00Z"));
+  const session = {
+    sessionId: "22222222-2222-4222-8222-222222222222",
+    classId: 1,
+    className: "Badminton group",
+    sessionNo: 3,
+    coachId,
+    coachName: "Coach",
+    roomId: 1,
+    roomName: "Court 1",
+    startAtUtc: "2026-11-06T02:00:00Z",
+    endAtUtc: "2026-11-06T03:30:00Z",
+    status: "SCHEDULED",
+  };
+  const posts: Record<string, unknown>[] = [];
+  let saved: Record<string, unknown> | null = null;
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/coaches/me/classes")
+      return route.fulfill({
+        json: [
+          {
+            classId: 1,
+            name: "Badminton group",
+            code: "BAD-01",
+            coachId,
+            coachName: "Coach",
+            sportId: 3,
+            sportName: "Badminton",
+            startDate: "2026-11-01",
+            numSessions: 8,
+            capacity: 12,
+            price: 900000,
+            roomName: "Court 1",
+            defaultRoomId: 1,
+            status: "IN_PROGRESS",
+          },
+        ],
+      });
+    if (path === "/api/classes/1/sessions")
+      return route.fulfill({ json: [session] });
+    if (path.endsWith("/members")) return route.fulfill({ json: [] });
+    if (path.endsWith("/records"))
+      return route.fulfill({
+        json: { items: [], totalCount: 0, page: 1, pageSize: 20 },
+      });
+    if (path.endsWith("/roster"))
+      return route.fulfill({
+        json: {
+          session,
+          entries: [],
+          attendanceOpensAtUtc: "2026-11-06T01:55:00Z",
+          attendanceClosesAtUtc: "2026-11-07T03:30:00Z",
+        },
+      });
+    if (
+      path ===
+        `/api/coaches/me/teaching/sessions/${session.sessionId}/change-requests` &&
+      route.request().method() === "POST"
+    ) {
+      const body = route.request().postDataJSON();
+      posts.push(body);
+      if (options.waitForSend) await options.waitForSend;
+      if (options.failFirst && posts.length === 1)
+        return route.fulfill({
+          status: 500,
+          json: {
+            error: "temporarily_unavailable",
+            message: "Please try again.",
+          },
+        });
+      saved = {
+        ...pendingRequest(),
+        ...body,
+        type: "ABSENCE",
+        sessionNo: 3,
+        originalStartAtUtc: session.startAtUtc,
+        originalEndAtUtc: session.endAtUtc,
+      };
+      return route.fulfill({ json: saved });
+    }
+    if (path === "/api/coaches/me/teaching/change-requests")
+      return route.fulfill({
+        json: {
+          items: saved ? [saved] : [],
+          totalCount: saved ? 1 : 0,
+          page: 1,
+          pageSize: 50,
+        },
+      });
+    return route.fallback();
+  });
+  await page.goto("/coach/schedule");
+  await page
+    .getByRole("button", { name: /Badminton group/ })
+    .first()
+    .click();
+  await page.getByRole("tab", { name: "Request", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Request absence", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Reason", exact: true })
+    .fill("I have an urgent family appointment.");
+  await page.getByRole("button", { name: "Send request", exact: true }).click();
+  return posts;
+}
+
+for (const width of [1440, 320]) {
+  test(`absence request confirmation is centered, cancellable and keyboard accessible at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const posts = await absenceConfirmationFixture(page);
+    const dialog = page.getByRole("dialog", {
+      name: "Send absence request?",
+      exact: true,
+    });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Badminton group");
+    await expect(dialog).toContainText("Session 3");
+    await expect(dialog).toContainText("I have an urgent family appointment.");
+    expect(posts).toHaveLength(0);
+    // Visibility does not wait for the opening translateY animation to settle.
+    await dialog.evaluate(async (element) => {
+      await document.fonts.ready;
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      );
+    });
+    const box = await dialog.boundingBox();
+    expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThan(2);
+    expect(Math.abs(box!.y + box!.height / 2 - 450)).toBeLessThan(2);
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    await page.screenshot({
+      path: testInfo.outputPath(`absence-confirm-${width}.png`),
+    });
+    await dialog.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const send = page.getByRole("button", {
+      name: "Send request",
+      exact: true,
+    });
+    await expect(send).toBeFocused();
+    await expect(
+      page.getByRole("textbox", { name: "Reason", exact: true }),
+    ).toHaveValue("I have an urgent family appointment.");
+    await send.click();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("dialog", { name: "Badminton group", exact: true }),
+    ).toBeVisible();
+    expect(posts).toHaveLength(0);
+  });
+}
+
+test("absence request sends only once after confirmation and cannot close while sending", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const waitForSend = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const posts = await absenceConfirmationFixture(page, { waitForSend });
+  const dialog = page.getByRole("dialog", {
+    name: "Send absence request?",
+    exact: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Confirm & send", exact: true })
+    .evaluate((button) => {
+      (button as HTMLButtonElement).click();
+      (button as HTMLButtonElement).click();
+    });
+  await expect.poll(() => posts.length).toBe(1);
+  await expect(
+    dialog.getByRole("button", { name: "Sending…", exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+  release();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByText("Your request is awaiting Manager review.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  expect(posts[0]).toMatchObject({
+    type: "ABSENCE",
+    reason: "I have an urgent family appointment.",
+  });
+  expect(posts).toHaveLength(1);
+});
+
+test("absence request confirmation keeps errors and reuses the request ID when retrying", async ({
+  page,
+}) => {
+  const posts = await absenceConfirmationFixture(page, { failFirst: true });
+  const dialog = page.getByRole("dialog", {
+    name: "Send absence request?",
+    exact: true,
+  });
+  await dialog
+    .getByRole("button", { name: "Confirm & send", exact: true })
+    .click();
+  await expect(
+    dialog.getByText("Please try again.", { exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Confirm & send", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(posts).toHaveLength(2);
+  expect(posts[1].requestId).toBe(posts[0].requestId);
+});
+
+test("absence confirmation rechecks the six-hour deadline before sending", async ({
+  page,
+}) => {
+  const posts = await absenceConfirmationFixture(page);
+  await page.clock.setFixedTime(new Date("2026-11-05T20:00:01Z"));
+  const dialog = page.getByRole("dialog", {
+    name: "Send absence request?",
+    exact: true,
+  });
+  await expect(
+    dialog.getByRole("button", { name: "Confirm & send", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    dialog.getByText(/6-hour request deadline has passed/),
+  ).toBeVisible();
+  expect(posts).toHaveLength(0);
+});
+
 test("group-only coach uses a single navbar for teaching, classes and students", async ({
   page,
 }) => {
