@@ -17,6 +17,30 @@ const sameResource = (a: CourtScheduleEntryDto, b: CourtScheduleEntryDto) =>
   b.incidentScope === "CENTER" ||
   (!!a.coachId && a.coachId === b.coachId) ||
   roomsOf(a).some((room) => roomsOf(b).includes(room));
+const matchesResource = (
+  entry: CourtScheduleEntryDto,
+  coachId: string,
+  roomId: number,
+) =>
+  entry.incidentScope === "CENTER" ||
+  (!!coachId && entry.coachId === coachId) ||
+  (!!roomId && roomsOf(entry).includes(roomId));
+
+export function draftScheduleConflictFlags(
+  entries: CourtScheduleEntryDto[],
+  draft: Slot[],
+  coachId: string,
+  roomId: number,
+): boolean[] {
+  return draft.map((slot) =>
+    entries.some(
+      (entry) =>
+        active(entry) &&
+        matchesResource(entry, coachId, roomId) &&
+        overlaps(entry, slot),
+    ),
+  );
+}
 
 export function scheduleConflictFlags(
   entries: CourtScheduleEntryDto[],
@@ -27,9 +51,7 @@ export function scheduleConflictFlags(
   return entries.map(
     (entry, index) =>
       active(entry) &&
-      (((entry.incidentScope === "CENTER" ||
-        (!!coachId && entry.coachId === coachId) ||
-        (!!roomId && roomsOf(entry).includes(roomId))) &&
+      ((matchesResource(entry, coachId, roomId) &&
         draft.some((slot) => overlaps(entry, slot))) ||
         entries.some(
           (other, otherIndex) =>

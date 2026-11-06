@@ -139,7 +139,7 @@ export function MembershipManager() {
             }
           }}
         >
-          {editor.id !== null && editor.id !== DAY_PASS_PACKAGE_ID && (
+          {editor.id !== null && (
             <ActivitySwitch
               checked={form.isActive ?? true}
               onChange={(isActive) => setForm({ ...form, isActive })}
@@ -171,7 +171,10 @@ export function MembershipManager() {
                 }
               />
             </Field>
-            <Field label={t.refactor.days} required>
+            <Field
+              label={t.refactor.days.charAt(0).toUpperCase() + t.refactor.days.slice(1)}
+              required
+            >
               <input
                 required
                 type="number"

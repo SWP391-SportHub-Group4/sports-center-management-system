@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { InvoiceDetailDto } from "../src/lib/types";
 
 test("class details keeps capacity readable and groups management actions", async ({
   page,
@@ -34,22 +35,59 @@ test("class details keeps capacity readable and groups management actions", asyn
           summary: {
             invoiceId: "invoice-42",
             invoiceNumber: "INV-042",
+            memberId: "member-1",
+            memberName: "Enrolled member",
+            memberEmail: "member@example.com",
             status: "PAID",
             fulfillmentOutcome: "FULFILLED",
             totalAmount: 1200000,
             cashAmount: 1200000,
             pointsSpent: 0,
+            reconciliationRequired: false,
+            grossCollected: 1200000,
+            obligationReduction: 0,
+            refundedAmount: 0,
+            netCollected: 1200000,
+            netPayable: 1200000,
+            outstanding: 0,
+            refundDue: 0,
+            issuedAt: "2026-10-01T01:00:00Z",
           },
           items: [
             {
               itemId: "item-42",
               description: "Badminton foundations",
               itemType: "CLASS_ENROLLMENT",
+              classId: 42,
+              courtRentalId: null,
+              ptEntitlementId: null,
+              memberPackageId: null,
+              sportId: 1,
+              sportName: "Badminton",
+              ptFrequencyPerWeek: null,
+              sourceInvoiceItemId: null,
+              unitPrice: 1200000,
+              quantity: 1,
               lineAmount: 1200000,
+              relatedEntityId: "42",
             },
           ],
           adjustments: [],
-        },
+          memberPackageId: null,
+          payments: [
+            {
+              paymentId: "payment-42",
+              amount: 1200000,
+              method: "BANK_TRANSFER",
+              status: "SUCCESS",
+              referenceCode: "INV-042",
+              receivedByUserId: "manager",
+              receivedByName: "Manager",
+              paidAt: "2026-10-01T01:00:00Z",
+            },
+          ],
+          suggestedRefundAmount: 1200000,
+        } satisfies InvoiceDetailDto,
       });
     if (path === "/api/class-sessions/session-42/roster")
       return route.fulfill({

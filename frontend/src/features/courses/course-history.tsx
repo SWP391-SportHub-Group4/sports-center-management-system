@@ -7,6 +7,7 @@ import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { pageQuery, useUrlQuery } from "@/lib/useUrlQuery";
 import { formatDate, formatMoney, formatDateTime } from "@/lib/format";
+import { minutesToTime, timeToMinutes } from "@/lib/center-hours";
 import { ApiTable } from "@/components/data";
 import type { AuditLogDto, CoachAdminDto, Paged } from "@/lib/types";
 export function CourseHistory({ classId }: { classId: number }) {
@@ -129,12 +130,14 @@ export function CourseHistory({ classId }: { classId: number }) {
               raw={selected.oldValue}
               coachNames={coaches.data ?? {}}
               coachesLoading={coaches.loading}
+              scheduleChange={selected.action === "CHANGE_CLASS_SCHEDULE"}
             />
             <Snapshot
               title={h.after}
               raw={selected.newValue}
               coachNames={coaches.data ?? {}}
               coachesLoading={coaches.loading}
+              scheduleChange={selected.action === "CHANGE_CLASS_SCHEDULE"}
             />
           </div>
         </Dialog>
@@ -148,11 +151,13 @@ function Snapshot({
   raw,
   coachNames,
   coachesLoading,
+  scheduleChange = false,
 }: {
   title: string;
   raw: string | null;
   coachNames: Record<string, string | null>;
   coachesLoading: boolean;
+  scheduleChange?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -164,7 +169,9 @@ function Snapshot({
     sportId: `${l.sports} (ID)`,
     coachId: l.coach,
     roomId: `${l.room} (ID)`,
-    startDate: l.startDate,
+    startDate: scheduleChange ? h.appliesFrom : l.startDate,
+    sessionMinutes: h.sessionDuration,
+    scheduleRules: h.weeklySchedule,
     numSessions: l.numSessions,
     capacity: l.capacity,
     price: t.classWorkspace.price,
@@ -205,7 +212,8 @@ function Snapshot({
           ([key, value]) =>
             key in labels &&
             (value === null ||
-              ["string", "number", "boolean"].includes(typeof value)),
+              ["string", "number", "boolean"].includes(typeof value) ||
+              (key === "scheduleRules" && Array.isArray(value))),
         );
     }
   } catch {
@@ -213,6 +221,41 @@ function Snapshot({
   }
   const display = (key: string, value: unknown) => {
     if (value === null) return "\u2014";
+    if (key === "scheduleRules" && Array.isArray(value)) {
+      const duration = entries.find(([name]) => name === "sessionMinutes")?.[1];
+      const rules = value.flatMap((rule) => {
+        if (!rule || typeof rule !== "object") return [];
+        const day = rule.dayOfWeek ?? rule.DayOfWeek;
+        const start = rule.startTimeLocal ?? rule.StartTimeLocal;
+        if (
+          !Number.isInteger(day) ||
+          day < 0 ||
+          day > 6 ||
+          typeof start !== "string"
+        )
+          return [];
+        const startMinutes = timeToMinutes(start.slice(0, 5));
+        if (!Number.isFinite(startMinutes)) return [];
+        const end =
+          typeof duration === "number" && duration > 0
+            ? minutesToTime((startMinutes + duration) % 1440)
+            : null;
+        return [
+          `${l.weekdays[day]} · ${start.slice(0, 5)}${end ? `–${end}` : ""}`,
+        ];
+      });
+      return rules.length ? (
+        <div className={styles.scheduleRules}>
+          {rules.map((rule, index) => (
+            <span key={index}>{rule}</span>
+          ))}
+        </div>
+      ) : (
+        h.empty
+      );
+    }
+    if (key === "sessionMinutes" && typeof value === "number")
+      return `${value} min`;
     if (key === "coachId" && typeof value === "string") {
       if (!value) return "\u2014";
       return (

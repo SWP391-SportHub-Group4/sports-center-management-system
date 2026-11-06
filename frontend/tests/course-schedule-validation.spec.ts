@@ -1,8 +1,26 @@
 import { expect, test } from "@playwright/test";
 import { scheduleInputIssue } from "../src/features/courses/schedule-validation";
+import { previewRemainingSessions } from "../src/features/courses/preview";
 import type { ScheduleDraft } from "../src/features/courses/schedule-review";
 
 const now = Date.parse("2030-10-03T10:00:00Z"); // 17:00 in Vietnam.
+test("remaining timetable infers the first date and skips earlier times on the same day", () => {
+  const slots = previewRemainingSessions(
+    "2032-03-01T02:00:00Z",
+    3,
+    [
+      { dayOfWeek: 1, startTimeLocal: "08:00" },
+      { dayOfWeek: 1, startTimeLocal: "10:00" },
+      { dayOfWeek: 3, startTimeLocal: "08:00" },
+    ],
+    60,
+  );
+  expect(slots.map((slot) => slot.startAtUtc)).toEqual([
+    "2032-03-01T03:00:00.000Z",
+    "2032-03-03T01:00:00.000Z",
+    "2032-03-08T01:00:00.000Z",
+  ]);
+});
 const valid: ScheduleDraft = {
   sportId: 3,
   defaultRoomId: 7,

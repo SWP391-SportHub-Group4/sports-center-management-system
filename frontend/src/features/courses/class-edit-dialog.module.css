@@ -1,0 +1,215 @@
+.dialog.dialog {
+  position: relative;
+  width: min(1440px, 100%);
+  height: min(960px, 94dvh);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  resize: none;
+}
+.dialog :global(.dialog__head) {
+  flex: none;
+  border-bottom: 0;
+}
+.dialog :global(.dialog__body) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.tabWorkspace,
+.tabWorkspace > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.tabWorkspace :global([role="tablist"]) {
+  flex: none;
+  padding-inline: var(--space-5);
+}
+.tabWorkspace :global([role="tabpanel"]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  padding: 0 0 calc(var(--control-height) + 2 * var(--space-4) + 1px);
+  overflow: hidden;
+}
+.dialog [data-class-edit-actions] {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1;
+  min-height: calc(var(--control-height) + 2 * var(--space-4) + 1px);
+  align-items: center;
+}
+.tabWorkspace :global([role="tabpanel"]) > * {
+  flex: 1;
+  min-height: 0;
+}
+.form {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.duration {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: stretch;
+  padding: var(--space-5);
+  padding-block: var(--space-3);
+  min-height: 0;
+  overflow: hidden;
+}
+.form .fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.fields > * {
+  flex-shrink: 0;
+}
+.fields .ruleScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ruleScroll::-webkit-scrollbar {
+  display: none;
+}
+.ruleScroll .weeklyRules > div {
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 1fr) 44px;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+}
+.ruleScroll .weeklyRules > div > button {
+  grid-column: auto;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ruleScroll .weeklyRules {
+  gap: var(--space-3);
+}
+.calendar,
+.calendarColumn {
+  min-width: 0;
+  min-height: 0;
+}
+.calendarColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.calendar {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.calendar > section {
+  border-top: 0;
+  padding-top: 0;
+}
+.unavailable {
+  margin: 0;
+  padding: var(--space-5);
+  color: var(--text-muted);
+}
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 70ch;
+}
+.error {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-radius: var(--radius-sm);
+}
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.confirmationActions {
+  display: flex;
+  flex: 1;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.confirmationActions button {
+  min-width: 88px;
+}
+.confirmationQuestion {
+  margin: 0;
+  color: var(--text-strong);
+}
+.dialog textarea {
+  resize: none;
+}
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+  .calendarColumn {
+    padding-left: 0;
+    padding-top: var(--space-3);
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+@media (max-width: 600px) {
+  .dialog.dialog {
+    height: calc(100dvh - 32px);
+  }
+  .layout,
+  .footer {
+    padding-inline: var(--space-4);
+  }
+  .tabWorkspace :global([role="tablist"]) {
+    padding-inline: var(--space-4);
+  }
+  .footer > button {
+    flex: 1;
+  }
+  .form .fields {
+    gap: var(--space-2);
+  }
+}

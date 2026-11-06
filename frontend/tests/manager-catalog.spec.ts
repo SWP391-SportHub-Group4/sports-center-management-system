@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { SportDto } from "../src/lib/types";
+import { DAY_PASS_PACKAGE_ID } from "../src/lib/day-pass";
 
 const sport: SportDto = {
   sportId: 41,
@@ -430,8 +431,40 @@ test("Gym edits preserve inactive status and reactivate through the edit switch"
     .getByRole("button", { name: "Create Gym package", exact: true })
     .click();
   await dialog(page).getByLabel("Name", { exact: true }).fill("Gym 60 days");
+  await dialog(page).getByLabel("Price (VND)", { exact: true }).fill("600000");
   await dialog(page).getByRole("button", { name: "Save", exact: true }).click();
   await expect(row(page, "Gym 60 days")).toBeVisible();
+});
+
+test("Gym day pass can be deactivated and reactivated through the edit switch", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  Object.assign(fixture.data.packages[0], {
+    packageId: DAY_PASS_PACKAGE_ID,
+    name: "Gym day pass",
+    durationDays: 1,
+    isActive: true,
+  });
+  await page.goto("/manager/membership-plans");
+  for (const isActive of [false, true]) {
+    await row(page, "Gym day pass")
+      .getByRole("button", { name: "Edit", exact: true })
+      .click();
+    await dialog(page).getByRole("switch").setChecked(isActive);
+    await dialog(page)
+      .getByRole("button", { name: "Save", exact: true })
+      .click();
+    await expect(dialog(page)).toHaveCount(0);
+    expect(fixture.writes.at(-1)).toMatchObject({
+      path: `/api/membership-packages/${DAY_PASS_PACKAGE_ID}`,
+      method: "PUT",
+      body: { isActive, durationDays: 1 },
+    });
+    await expect(row(page, "Gym day pass")).toContainText(
+      isActive ? "Active" : "Inactive",
+    );
+  }
 });
 
 test("court-rate creation validates days/window and uses actual compatible IDs", async ({

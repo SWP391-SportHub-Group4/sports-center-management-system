@@ -477,8 +477,10 @@ public sealed partial class ClassSessionService(
     }
 
     /// <summary>Dời/bù có thể làm học viên đã ghi danh bị trùng buổi của khóa khác — báo Manager, không tự xử lý.</summary>
-    private async Task EnsureNoMemberConflictAsync(int classId, DateTime start, DateTime end, CancellationToken ct, Guid? excludeSessionId = null)
+    private async Task EnsureNoMemberConflictAsync(int classId, DateTime start, DateTime end, CancellationToken ct,
+        Guid? excludeSessionId = null, Guid[]? excludedSessionIds = null)
     {
+        excludedSessionIds ??= [];
         var now = clock.UtcNow;
         var bookings = db.Set<Enrollment>().Where(e => e.Status == EnrollmentStatus.Confirmed)
             .Select(e => new { e.ClassId, e.MemberId })
@@ -489,7 +491,8 @@ public sealed partial class ClassSessionService(
         var affected = await (from e in bookings
                               where members.Contains(e.MemberId)
                               join s in db.Set<ClassSession>().AsNoTracking() on e.ClassId equals s.ClassId
-                              where s.SessionId != excludeSessionId && s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc < end && s.EndAtUtc > start
+                              where s.SessionId != excludeSessionId && !excludedSessionIds.Contains(s.SessionId)
+                                  && s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc < end && s.EndAtUtc > start
                               select e.MemberId).Distinct().CountAsync(ct);
 
         var rentalConflict = await db.Set<CourtRental>().AnyAsync(r => members.Contains(r.MemberId)
@@ -511,7 +514,12 @@ public sealed partial class ClassSessionService(
             .MinAsync(s => (DateTime?)s.StartAtUtc, ct);
         var before = otherFirst.HasValue && otherFirst < oldStart ? otherFirst.Value : oldStart;
         var after = otherFirst.HasValue && otherFirst < newStart ? otherFirst.Value : newStart;
-        if (before == after) return;
+        UpdateOpeningWindow(cls, before, after);
+    }
+
+    private static void UpdateOpeningWindow(Class cls, DateTime before, DateTime after)
+    {
+        if (cls.Status != ClassStatus.Published || before == after) return;
         if (cls.ThresholdStatus == SportHub.Scheduling.Threshold.Domain.ThresholdStatus.AtRisk
             && cls.ThresholdResponseDeadlineUtc is DateTime responseEnd && after < responseEnd.AddHours(24))
             throw new ConflictException("threshold_response_window_conflict", "The first session must remain at least 24 hours after the member response deadline.");

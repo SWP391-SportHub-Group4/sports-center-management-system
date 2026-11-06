@@ -102,11 +102,13 @@ public sealed class NotificationService(ISportHubDbContext db, IClock clock, INo
             .Select(m => new { m.NoticeId, m.Subject, m.SenderName }).ToDictionaryAsync(m => m.NoticeId, ct);
         return rows.Select(n =>
         {
+            var classScheduleUpdate = n.SourceEventType == nameof(NotificationSourceEventType.ScheduleChanged)
+                && n.Message.StartsWith("Class schedule updated: ", StringComparison.Ordinal);
             var manual = n.SourceEventType == nameof(NotificationSourceEventType.ManualNotice)
                 && n.SourceEntityId.HasValue ? notices.GetValueOrDefault(n.SourceEntityId.Value) : null;
-            return n with { ActionUrl = destinations.GetValueOrDefault(n.NotificationId),
+            return n with { ActionUrl = classScheduleUpdate ? null : destinations.GetValueOrDefault(n.NotificationId),
                 Message = invoiceMessages.GetValueOrDefault(n.NotificationId) ?? n.Message,
-                Title = manual?.Subject, SenderName = manual?.SenderName };
+                Title = classScheduleUpdate ? n.Message.Split('\n')[0] : manual?.Subject, SenderName = manual?.SenderName };
         }).ToList();
     }
 

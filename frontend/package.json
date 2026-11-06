@@ -14,6 +14,8 @@
     "typecheck": "tsc --noEmit",
     "check:i18n": "node scripts/check-i18n.mjs",
     "test:e2e": "playwright test",
+    "test:class-management": "playwright test --workers=1 --output=test-results/class-management tests/class-lead-coach.spec.ts tests/class-cancellation-action.spec.ts tests/class-details-layout.spec.ts tests/class-input-validation.spec.ts tests/course-schedule-validation.spec.ts tests/schedule-conflicts.spec.ts tests/locked-coach-overview.spec.ts",
+    "test:manager-class-operations": "playwright test --workers=1 --output=test-results/manager-class-operations tests/manager-operations.spec.ts --grep @class-management",
     "media:hero": "node scripts/render-hero-video.mjs",
     "format": "prettier --write src tests playwright.config.ts",
     "format:check": "prettier --check src tests playwright.config.ts"

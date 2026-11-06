@@ -139,7 +139,7 @@ public sealed class ClassThresholdService(ISportHubDbContext db,
                 entity.Version++;
                 changed++;
                 await NotifyStaffAsync(entity,
-                    $"Course {entity.Name} has {confirmed}/{entity.BreakEvenThreshold} confirmed enrollments. Review the class and either waive the threshold, defer the start date, or cancel it. Cancellation immediately returns points to enrolled members and notifies the teaching Coach.",
+                    $"Course {entity.Name} has {confirmed}/{entity.BreakEvenThreshold} confirmed enrollments. The class starts as scheduled unless the Manager defers or cancels it before opening. Cancellation immediately returns points to enrolled members and notifies the teaching Coach.",
                     NotificationEvents.ClassThresholdAtRisk, cancellationToken);
             }
             await db.SaveChangesAsync(cancellationToken);

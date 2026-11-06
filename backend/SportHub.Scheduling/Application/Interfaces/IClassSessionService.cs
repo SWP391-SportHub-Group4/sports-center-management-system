@@ -5,6 +5,8 @@ namespace SportHub.Scheduling.Application.Interfaces;
 
 public interface IClassSessionService
 {
+    Task<ClassScheduleChangePreview> ChangeScheduleAsync(int classId, ChangeClassScheduleRequest request,
+        Guid actorUserId, bool previewOnly, CancellationToken ct = default);
     Task<ClassSessionResponse> CreateIncidentMakeupAsync(Guid sessionId, IncidentMakeupRequest request, Guid actorUserId, CancellationToken ct = default);
     Task<ClassSessionResponse> ReportIncidentAsync(Guid sessionId, ReportSessionIncidentRequest request, Guid actorUserId, CancellationToken ct = default);
     /// <summary>Toàn bộ buổi của khóa theo SessionNo. Coach chỉ xem khóa mình phụ trách (kiểm ở caller qua <paramref name="restrictToCoachId"/>).</summary>

@@ -85,8 +85,6 @@ public sealed class MembershipPackageService(
         if (isDayPass && request.DurationDays != DayPass.DurationDays)
             throw new ConflictException("day_pass_duration_fixed", "The Gym day pass lasts exactly one day.");
 
-        if (isDayPass && request.IsActive == false)
-            throw new ConflictException("day_pass_fixed", "The Gym day pass must remain available.");
         Validate(request, allowDayPassDuration: isDayPass);
 
         var before = Describe(package);
@@ -118,9 +116,6 @@ public sealed class MembershipPackageService(
     {
         var package = await db.Set<MembershipPackage>().SingleOrDefaultAsync(p => p.PackageId == packageId, ct)
             ?? throw new NotFoundException("membership_package_not_found", "Membership package not found.");
-
-        if (packageId == DayPass.PackageId)
-            throw new ConflictException("day_pass_fixed", "The Gym day pass must remain available at its fixed price.");
 
         var before = Describe(package);
         package.IsActive = isActive;

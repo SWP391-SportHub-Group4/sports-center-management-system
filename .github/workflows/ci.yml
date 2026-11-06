@@ -278,6 +278,12 @@ jobs:
           tests/refactor-live.spec.ts
           tests/refactor-operations-live.spec.ts
 
+      - name: Run class management regressions
+        working-directory: frontend
+        run: |
+          npm run test:class-management
+          npm run test:manager-class-operations
+
       - name: Upload Playwright evidence
         if: always()
         uses: actions/upload-artifact@v4
