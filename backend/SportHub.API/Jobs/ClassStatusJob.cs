@@ -5,6 +5,7 @@ using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
 using SportHub.Scheduling.Threshold.Application;
+using SportHub.Scheduling.Threshold.Domain;
 
 namespace SportHub.API.Jobs;
 
@@ -33,7 +34,14 @@ public sealed class ClassStatusJob(IServiceProvider services, ILogger<ClassStatu
         var started = await db.Classes
             .Where(c => c.Status == ClassStatus.Published
                         && c.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.InProgress), ct);
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Status, ClassStatus.InProgress)
+                .SetProperty(x => x.ThresholdStatus, x =>
+                    x.ThresholdStatus == ThresholdStatus.Met || x.ThresholdStatus == ThresholdStatus.WaivedByManager
+                        ? x.ThresholdStatus
+                        : x.ConfirmedCount >= x.BreakEvenThreshold
+                            ? ThresholdStatus.Met
+                            : ThresholdStatus.WaivedByManager), ct);
 
         var completedSessions = await db.ClassSessions
             .Where(s => s.Status == ClassSessionStatus.Scheduled && s.EndAtUtc <= now

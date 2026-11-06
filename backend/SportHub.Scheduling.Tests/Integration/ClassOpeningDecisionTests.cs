@@ -150,8 +150,11 @@ public sealed class ClassOpeningDecisionTests(SchedulingApiFactory factory)
             return 0;
         });
         await RunLifecycle();
-        Assert.Equal(ClassStatus.InProgress, await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
-            .Select(x => x.Status).SingleAsync()));
+        var opened = await factory.QueryAsync(db => db.Classes.Where(x => x.ClassId == c.Id)
+            .Select(x => new { x.Status, x.ThresholdStatus }).SingleAsync());
+        Assert.Equal(ClassStatus.InProgress, opened.Status);
+        Assert.Equal(status == ThresholdStatus.Met ? ThresholdStatus.Met : ThresholdStatus.WaivedByManager,
+            opened.ThresholdStatus);
         var sessions = await CourseTestData.SessionsAsync(factory, c.Id);
         Assert.Equal(ended ? ClassSessionStatus.Completed : ClassSessionStatus.Scheduled, sessions[0].Status);
         Assert.All(sessions.Skip(1), session => Assert.Equal(ClassSessionStatus.Scheduled, session.Status));
