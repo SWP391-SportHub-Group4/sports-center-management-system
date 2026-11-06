@@ -32,7 +32,7 @@
 .sessionCount {
   margin: 0;
 }
-.dialog .coaches {
+.form .coaches {
   border: 0;
   padding: 0;
   margin: 0;
@@ -54,7 +54,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
-.dialog .coach {
+.form .coach {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -128,7 +128,101 @@
 .footer button {
   min-height: 44px;
 }
+.embedded {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+.embeddedContent {
+  padding: var(--space-5);
+  min-height: 0;
+  overflow: hidden;
+}
+.embeddedContent > .form {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.description {
+  color: var(--text-muted);
+  margin: 0 0 var(--space-4);
+  max-width: 75ch;
+}
+.selectionLayout,
+.selectionCandidates,
+.selectionDetails {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  align-content: start;
+}
+.embedded .selectionLayout {
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: var(--space-6);
+  flex: 1;
+  min-height: 0;
+  align-content: stretch;
+}
+.embedded .selectionCandidates {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  align-content: stretch;
+}
+.embedded .coaches {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.embedded .selectionDetails {
+  padding-left: var(--space-5);
+  border-left: 1px solid var(--border-subtle);
+}
+.embedded .context {
+  background: transparent;
+  padding: 0 0 var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+.embedded .list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.embedded .list::-webkit-scrollbar {
+  display: none;
+}
+.embedded .coach {
+  min-height: 64px;
+}
+.embedded > .footer {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
 @media (max-width: 600px) {
+  .embedded .selectionLayout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(120px, 1fr) auto;
+    gap: var(--space-4);
+  }
+  .embedded .selectionDetails {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+@media (max-width: 600px) {
+  .embeddedContent,
+  .embedded > .footer {
+    padding-inline: var(--space-4);
+  }
   .context {
     grid-template-columns: minmax(0, 1fr);
   }

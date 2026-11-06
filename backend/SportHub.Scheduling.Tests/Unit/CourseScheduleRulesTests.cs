@@ -5,6 +5,23 @@ namespace SportHub.Scheduling.Tests.Unit;
 
 public sealed class CourseScheduleRulesTests
 {
+    [Fact]
+    public void Remaining_pattern_chooses_next_matching_time_without_pulling_sessions_before_the_anchor()
+    {
+        var anchor = new DateTime(2032, 3, 1, 2, 0, 0, DateTimeKind.Utc); // Monday, 09:00 Vietnam.
+        var sessions = CourseRules.GenerateRemainingSessions(anchor, 3,
+            [(1, new(8, 0)), (1, new(10, 0)), (3, new(8, 0))], 60);
+        Assert.Equal(new[] {
+            new DateTime(2032, 3, 1, 3, 0, 0, DateTimeKind.Utc),
+            new DateTime(2032, 3, 3, 1, 0, 0, DateTimeKind.Utc),
+            new DateTime(2032, 3, 8, 1, 0, 0, DateTimeKind.Utc)
+        }, sessions.Select(s => s.StartAtUtc));
+        var earlierTime = CourseRules.GenerateRemainingSessions(anchor, 1, [(1, new(8, 0))], 60);
+        Assert.Equal(new DateTime(2032, 3, 8, 1, 0, 0, DateTimeKind.Utc), earlierTime[0].StartAtUtc);
+        var differentDay = CourseRules.GenerateRemainingSessions(anchor, 1, [(2, new(8, 0))], 60);
+        Assert.Equal(new DateTime(2032, 3, 2, 1, 0, 0, DateTimeKind.Utc), differentDay[0].StartAtUtc);
+    }
+
     [Theory]
     [InlineData(2026, 10, 25)]
     [InlineData(2028, 2, 29)]

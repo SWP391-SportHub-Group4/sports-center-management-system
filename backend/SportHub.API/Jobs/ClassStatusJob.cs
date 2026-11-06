@@ -31,19 +31,22 @@ public sealed class ClassStatusJob(IServiceProvider services, ILogger<ClassStatu
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(105, 1)", ct);
 
-        var completedSessions = await db.ClassSessions
-            .Where(s => s.Status == ClassSessionStatus.Scheduled && s.EndAtUtc <= now
-                && (s.Class!.Status == ClassStatus.InProgress
-                    || s.Class.Status == ClassStatus.Published
-                        && (s.Class.ThresholdStatus == ThresholdStatus.Met
-                            || s.Class.ThresholdStatus == ThresholdStatus.WaivedByManager)))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassSessionStatus.Completed), ct);
-
         var started = await db.Classes
             .Where(c => c.Status == ClassStatus.Published
-                        && (c.ThresholdStatus == ThresholdStatus.Met || c.ThresholdStatus == ThresholdStatus.WaivedByManager)
                         && c.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now))
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.InProgress), ct);
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Status, ClassStatus.InProgress)
+                .SetProperty(x => x.ThresholdStatus, x =>
+                    x.ThresholdStatus == ThresholdStatus.Met || x.ThresholdStatus == ThresholdStatus.WaivedByManager
+                        ? x.ThresholdStatus
+                        : x.ConfirmedCount >= x.BreakEvenThreshold
+                            ? ThresholdStatus.Met
+                            : ThresholdStatus.WaivedByManager), ct);
+
+        var completedSessions = await db.ClassSessions
+            .Where(s => s.Status == ClassSessionStatus.Scheduled && s.EndAtUtc <= now
+                && s.Class!.Status == ClassStatus.InProgress)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassSessionStatus.Completed), ct);
 
         var finished = await db.Classes
             .Where(c => c.Status == ClassStatus.InProgress

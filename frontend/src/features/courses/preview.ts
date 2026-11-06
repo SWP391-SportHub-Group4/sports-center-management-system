@@ -1,9 +1,10 @@
-import { vietnamUtc } from "@/lib/vietnam-time";
+import { vietnamUtc, vietnamLocal } from "@/lib/vietnam-time";
 import { addDaysIso } from "@/lib/format";
 import type { ManagerCourseDto } from "@/lib/types";
 export function previewSessions(
   course: Pick<ManagerCourseDto, "startDate" | "numSessions" | "scheduleRules">,
   duration: number,
+  notBeforeUtc?: string,
 ) {
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(course.startDate) ||
@@ -38,6 +39,8 @@ export function previewSessions(
       .filter((r) => r.dayOfWeek === weekday)
       .sort((a, b) => a.startTimeLocal.localeCompare(b.startTimeLocal))) {
       const startAtUtc = vietnamUtc(`${date}T${r.startTimeLocal}`);
+      if (notBeforeUtc && Date.parse(startAtUtc) < Date.parse(notBeforeUtc))
+        continue;
       result.push({
         startAtUtc,
         endAtUtc: new Date(
@@ -48,4 +51,28 @@ export function previewSessions(
     }
   }
   return result;
+}
+
+export function previewRemainingSessions(
+  notBeforeUtc: string | undefined,
+  count: number,
+  scheduleRules: ManagerCourseDto["scheduleRules"],
+  duration: number,
+) {
+  if (!notBeforeUtc) return [];
+  let date = vietnamLocal(notBeforeUtc).slice(0, 10);
+  for (
+    let day = 0;
+    day < 7 &&
+    !scheduleRules.some(
+      (rule) => rule.dayOfWeek === new Date(`${date}T12:00:00Z`).getUTCDay(),
+    );
+    day++
+  )
+    date = addDaysIso(date, 1);
+  return previewSessions(
+    { startDate: date, numSessions: count, scheduleRules },
+    duration,
+    notBeforeUtc,
+  );
 }

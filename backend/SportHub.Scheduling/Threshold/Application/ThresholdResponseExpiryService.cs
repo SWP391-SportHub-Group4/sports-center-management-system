@@ -23,8 +23,10 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
     public async Task<int> ExpireAsync(CancellationToken ct = default)
     {
         var now = clock.UtcNow;
-        var classIds = await db.Set<Class>().AsNoTracking().Where(x => (x.Status == ClassStatus.Published || x.Status == ClassStatus.Cancelled)
+        var classIds = await db.Set<Class>().AsNoTracking().Where(x => (x.Status == ClassStatus.Published
+                || x.Status == ClassStatus.Cancelled || x.Status == ClassStatus.InProgress || x.Status == ClassStatus.Completed)
             && x.ThresholdResponseDeadlineUtc <= now
+            && (x.Status != ClassStatus.Published || !x.Sessions.Any(s => s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= now))
             && (db.Set<ThresholdResponse>().Any(r => r.ClassId == x.ClassId
                     && (r.ResolutionStatus == ThresholdResolutionStatus.Pending
                         || r.ResolutionStatus == ThresholdResolutionStatus.AwaitingPayment))
@@ -55,8 +57,10 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             await tx.CommitAsync(ct);
             return settled;
         }
-        if (entity is null || entity.Status != ClassStatus.Published
-            || entity.ThresholdResponseDeadlineUtc is null || entity.ThresholdResponseDeadlineUtc > clock.UtcNow)
+        if (entity is null || entity.Status is not (ClassStatus.Published or ClassStatus.InProgress or ClassStatus.Completed)
+            || entity.ThresholdResponseDeadlineUtc is null || entity.ThresholdResponseDeadlineUtc > clock.UtcNow
+            || entity.Status == ClassStatus.Published && await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId
+                && s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= clock.UtcNow, ct))
         {
             await tx.RollbackAsync(ct);
             return false;
@@ -71,10 +75,11 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
         foreach (var response in pending.Where(x => x.ResolutionStatus == ThresholdResolutionStatus.AwaitingPayment
             && x.AdditionalInvoiceId.HasValue))
             await checkouts.ReleaseForSystemAsync(response.AdditionalInvoiceId!.Value, "Expired", ct);
-        if (entity.ThresholdStatus == ThresholdStatus.Met
+        var hasOpened = entity.Status is ClassStatus.InProgress or ClassStatus.Completed;
+        if (hasOpened || entity.ThresholdStatus is ThresholdStatus.Met or ThresholdStatus.WaivedByManager
             || entity.BreakEvenThreshold is null || active.Count >= entity.BreakEvenThreshold.Value)
         {
-            if (entity.BreakEvenThreshold is not null && entity.ThresholdStatus != ThresholdStatus.WaivedByManager)
+            if (!hasOpened && entity.BreakEvenThreshold is not null && entity.ThresholdStatus != ThresholdStatus.WaivedByManager)
                 entity.ThresholdStatus = ThresholdStatus.Met;
             foreach (var response in pending)
             {
@@ -86,19 +91,6 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             await tx.CommitAsync(ct);
             return false;
         }
-        if (entity.ThresholdStatus == ThresholdStatus.WaivedByManager)
-        {
-            foreach (var response in pending)
-            {
-                response.ResolutionStatus = response.Choice == ThresholdResponseChoice.Transfer
-                    ? ThresholdResolutionStatus.Expired : ThresholdResolutionStatus.Completed;
-                response.ResolvedAtUtc = clock.UtcNow;
-            }
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-            return false;
-        }
-
         var holds = await db.Set<SeatHold>().Where(h => h.ClassId == classId && h.Status == SeatHoldStatus.Active)
             .OrderBy(h => h.HoldId).ToListAsync(ct);
         foreach (var invoiceId in holds.Where(h => h.InvoiceId.HasValue).Select(h => h.InvoiceId!.Value).Distinct().Order())
@@ -159,6 +151,8 @@ public sealed class ThresholdResponseExpiryService(ISportHubDbContext db, IRefun
             $"SELECT class_id FROM classes WHERE class_id = {classId} FOR UPDATE", ct);
         await db.Entry(entity).ReloadAsync(ct);
         if (entity.Status != ClassStatus.Published || entity.ThresholdStatus == ThresholdStatus.WaivedByManager
+            || await db.Set<ClassSession>().AnyAsync(s => s.ClassId == classId
+                && s.Status != ClassSessionStatus.Cancelled && s.StartAtUtc <= clock.UtcNow, ct)
             || await db.Set<Enrollment>().AnyAsync(x => x.ClassId == classId && x.Status == EnrollmentStatus.Confirmed, ct))
         {
             await tx.RollbackAsync(ct);

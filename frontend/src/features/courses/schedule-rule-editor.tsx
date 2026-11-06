@@ -1,5 +1,6 @@
 "use client";
 import { Field } from "@/components/ui";
+import { Trash2 } from "lucide-react";
 import { useOperatingHoursPopup } from "@/components/OperatingHoursPopup";
 import { useLanguage } from "@/lib/language";
 import { managerWorkspaceStyles as styles } from "@/features/manager";
@@ -11,6 +12,7 @@ export function ScheduleRuleEditor({
   maxStart,
   timeError,
   className = "",
+  compact = false,
 }: {
   value: ScheduleRule[];
   onChange: (value: ScheduleRule[]) => void;
@@ -18,6 +20,7 @@ export function ScheduleRuleEditor({
   maxStart?: string;
   timeError?: string;
   className?: string;
+  compact?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.operations;
@@ -25,6 +28,8 @@ export function ScheduleRuleEditor({
   return (
     <fieldset
       className={`${styles.scheduleRules} ${className}`}
+      data-compact={compact || undefined}
+      aria-label={compact ? l.scheduleRules : undefined}
       onChangeCapture={(event) => {
         if (timeError) notice.checkTime(event, timeError);
       }}
@@ -33,7 +38,7 @@ export function ScheduleRuleEditor({
       }}
     >
       {notice.popup}
-      <legend>{l.scheduleRules}</legend>
+      {!compact && <legend>{l.scheduleRules}</legend>}
       {value.map((r, i) => (
         <div className={styles.scheduleRule} key={i}>
           <Field label={l.day}>
@@ -73,10 +78,16 @@ export function ScheduleRuleEditor({
           <button
             type="button"
             className="btn btn--ghost"
+            aria-label={
+              compact ? `${l.remove} ${l.weekdays[r.dayOfWeek]}` : undefined
+            }
+            title={
+              compact ? `${l.remove} ${l.weekdays[r.dayOfWeek]}` : undefined
+            }
             disabled={value.length <= 1}
             onClick={() => onChange(value.filter((_, j) => j !== i))}
           >
-            {l.remove}
+            {compact ? <Trash2 size={17} aria-hidden="true" /> : l.remove}
           </button>
         </div>
       ))}
