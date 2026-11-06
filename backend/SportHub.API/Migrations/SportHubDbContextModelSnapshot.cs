@@ -116,14 +116,13 @@ namespace SportHub.API.Migrations
                         .HasName("pk_ai_system_prompts");
 
                     b.HasIndex("Audience")
-                        .IsUnique()
                         .HasDatabaseName("ix_ai_system_prompts_audience");
 
                     b.ToTable("ai_system_prompts", null, t =>
                         {
                             t.HasCheckConstraint("ck_ai_system_prompt_history_limit", "jsonb_array_length(history_payload) <= 1");
 
-                            t.HasCheckConstraint("ck_ai_system_prompt_role", "(id = 'member-system-prompt' AND audience = 'Member') OR (id = 'coach-system-prompt' AND audience = 'Coach')");
+                            t.HasCheckConstraint("ck_ai_system_prompt_role", "(audience = 'Member' AND id IN ('member-rules-prompt','member-policies-prompt','member-procedures-prompt','member-general-prompt','member-api-prompt')) OR (audience = 'Coach' AND id IN ('coach-rules-prompt','coach-policies-prompt','coach-procedures-prompt','coach-general-prompt','coach-api-prompt'))");
                         });
                 });
 

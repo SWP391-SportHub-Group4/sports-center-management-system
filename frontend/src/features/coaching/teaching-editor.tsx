@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Save, Send, Sparkles, X } from "lucide-react";
 import { Feedback } from "@/components/ui";
 import { useAction, useApi, useNow } from "@/lib/useApi";
+import { ApiError } from "@/lib/apiClient";
 import { useLanguage } from "@/lib/language";
 import { sortTeachingSessions } from "@/lib/teaching-order";
 import type { CourseSessionDto } from "@/lib/types";
@@ -52,6 +53,7 @@ export function TeachingEditor({
   const vi = language === "vi";
   const action = useAction();
   const ai = useAction();
+  const [planIssue, setPlanIssue] = useState<string | null>(null);
   const now = useNow();
   const lock = useRef(false);
   const [id] = useState(() => existing?.recordId ?? crypto.randomUUID());
@@ -65,6 +67,10 @@ export function TeachingEditor({
   );
   const [score, setScore] = useState(String(existing?.score ?? ""));
   const homeworkSession = sessions.find((item) => item.sessionId === session);
+  const canSuggestForSelectedSession =
+    !!homeworkSession &&
+    !/complet|cancel/i.test(homeworkSession.status) &&
+    Date.parse(homeworkSession.startAtUtc) > now;
   const homeworkAllowed =
     kind !== "HOMEWORK" ||
     (!!homeworkSession &&
@@ -344,12 +350,10 @@ export function TeachingEditor({
           />
         </label>
         {kind === "PLAN" &&
-          !existing &&
           !sessionOnly &&
-          (scope === "personal" || (scope === "session" &&
-          homeworkSession &&
-          !/completed|cancelled/i.test(homeworkSession.status) &&
-          Date.parse(homeworkSession.startAtUtc) > now)) && (
+          (scope === "personal"
+            ? (!session || canSuggestForSelectedSession)
+            : scope === "session" && canSuggestForSelectedSession) && (
             <details className={styles.aiTools}>
               <summary>
                 <Sparkles size={16} aria-hidden="true" />
@@ -393,8 +397,11 @@ export function TeachingEditor({
               <button
                 type="button"
                 className="btn btn--secondary btn--sm"
-                disabled={busy || goal.trim().length < 12 || (scope === "personal" ? !student : !session)}
+                disabled={busy || goal.trim().length < 5 || (scope === "personal" ? !student :
+                  !session || !homeworkSession || /completed|cancelled/i.test(homeworkSession.status) ||
+                  Date.parse(homeworkSession.startAtUtc) <= now)}
                 onClick={async () => {
+                  setPlanIssue(null);
                   const data = await ai.run(() =>
                     teachingApi.suggest(
                       classId,
@@ -404,7 +411,19 @@ export function TeachingEditor({
                       language,
                       scope === "personal" ? "personal" : "session",
                       scope === "personal" ? null : (session || null),
-                    ),
+                    ).catch((cause: unknown) => {
+                      if (cause instanceof ApiError) {
+                        if (cause.code === "ai_provider_rate_limited")
+                          setPlanIssue("I can't generate this lesson plan now because the AI provider is rate limited. Please try again later.");
+                        else if (cause.code === "ai_provider_auth_failed" || cause.code === "ai_model_unavailable")
+                          setPlanIssue("I can't generate a plan because the AI service configuration is unavailable. Please contact support.");
+                        else if (cause.status === 504)
+                          setPlanIssue("I couldn't finish generating and validating the plan before the AI service timeout. No plan was saved. Please retry later.");
+                        else if (cause.status === 502 || cause.status === 503)
+                          setPlanIssue("I can't generate a verified lesson plan because the AI service failed. No plan was saved. Please retry later.");
+                      }
+                      throw cause;
+                    }),
                   );
                   if (data) setSuggestion(formatPlanContent(data.content));
                 }}
@@ -417,7 +436,12 @@ export function TeachingEditor({
                     ? "Tạo gợi ý"
                     : "Generate suggestion"}
               </button>
-              <Feedback error={ai.error} />
+              {scope === "session" && (!homeworkSession || /completed|cancelled/i.test(homeworkSession.status) ||
+                Date.parse(homeworkSession.startAtUtc) <= now) && (
+                <small>AI session suggestions are available only before a scheduled session begins. You can still edit this saved plan manually.</small>
+              )}
+              <Feedback error={planIssue ?? ai.error} />
+              {existing && <small>AI generates a new draft. Your saved plan stays unchanged until you apply the suggestion and save your edits.</small>}
               {suggestion && (
                 <div className={styles.suggestion}>
                   <PlanContent content={suggestion} />
@@ -561,3 +585,4 @@ export function TeachingEditor({
     </section>
   );
 }
+

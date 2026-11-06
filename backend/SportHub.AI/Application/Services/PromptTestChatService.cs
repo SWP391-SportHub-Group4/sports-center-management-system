@@ -38,8 +38,8 @@ public sealed class PromptTestChatService(IAiChatProvider provider, IMemoryCache
         if (question.Length is 0 or > AiChatService.MaxQuestionLength)
             throw new BadRequestException("prompt_test_question_invalid", "Enter a question of 1–2,000 characters.");
         var prompt = request.SystemPrompt ?? (await promptReader.GetPublishedAsync(request.Role, ct)).Content;
-        if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > MaxPromptLength)
-            throw new BadRequestException("prompt_test_content_invalid", "The test prompt must contain 1–30,000 characters.");
+        if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > 120000)
+            throw new BadRequestException("prompt_test_content_invalid", "The assembled test prompt must contain 1–120,000 characters.");
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(prompt)));
         var now = clock.UtcNow;
         Session session;

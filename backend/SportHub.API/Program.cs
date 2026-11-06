@@ -433,6 +433,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IAiChatProvider,
     PythonAiChatProvider>();
+// Keep Member Chat, Coach Chat and Coach teaching-plan AI on separate trusted routes.
+// The authenticated .NET policy selects the service; never accept a role from chat text.
+builder.Services.AddScoped<PythonCoachChatProvider>();
+builder.Services.AddScoped<PythonCoachPlanProvider>();
 
 builder.Services.AddScoped<
     IManagerScheduleSuggestionService,
