@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { ArrowLeft, CalendarDays, Clock, MapPin } from "lucide-react";
 import { AsyncSection, StatusChip } from "@/components/ui";
@@ -16,6 +15,10 @@ import { rentalApi } from "../rentals/api";
 import { RentalPriceBreakdown } from "../rentals/rental-price-breakdown";
 import { CalendarSticker } from "./calendar-sticker";
 import styles from "./schedule-course-page.module.css";
+import {
+  ServicePhotoGallery,
+  useServiceGallery,
+} from "@/features/service-media";
 
 export function ScheduleRentalPage({
   rentalId,
@@ -31,6 +34,7 @@ export function ScheduleRentalPage({
     (signal) => rentalApi.detail(rentalId, signal),
     [rentalId],
   );
+  const gallery = useServiceGallery("room", state.data?.rental.roomId);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       backButton.current?.focus({ preventScroll: true });
@@ -69,30 +73,16 @@ export function ScheduleRentalPage({
           {(detail) => (
             <>
               <div className={styles.overview}>
-                <figure className={styles.coach}>
-                  <Image
-                    src={
-                      /basketball|bóng\s*rổ/i.test(detail.sportName)
-                        ? "/sporthub/court-volt/course-basketball.png"
-                        : "/sporthub/court-volt/course-badminton.png"
-                    }
-                    width={1024}
-                    height={1024}
-                    alt={
-                      vi
-                        ? `Ảnh minh họa sân ${detail.sportName}`
-                        : `Illustrative ${detail.sportName} court image`
-                    }
+                <div className={styles.courseGallery}>
+                  <ServicePhotoGallery
+                    gallery={gallery.data}
+                    loading={gallery.loading}
+                    sportName={detail.sportName}
+                    kind="court"
+                    alt={detail.roomName}
                     priority
                   />
-                  <figcaption className={styles.coachCaption}>
-                    <span>
-                      {vi ? "Không gian tập luyện" : "Training space"}
-                    </span>
-                    <strong>{detail.sportName}</strong>
-                    <small>{vi ? "Ảnh minh họa" : "Illustrative image"}</small>
-                  </figcaption>
-                </figure>
+                </div>
                 <div className={styles.summary}>
                   <div className={styles.sport}>
                     <CalendarSticker sport={detail.sportName} kind="rental" />

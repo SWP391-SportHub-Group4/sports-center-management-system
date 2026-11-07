@@ -346,6 +346,7 @@ builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
 builder.Services.AddScoped<IInvoiceQueryService, InvoiceQueryService>();
 builder.Services.AddScoped<IInvoiceClassNameReader, InvoiceClassNameReader>();
+builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Payment.IInvoiceServiceImageReader, InvoiceServiceImageReader>();
 builder.Services.AddScoped<IPackagePurchaseService, PackagePurchaseService>();
 builder.Services.AddScoped<IPaymentRecordingService, PaymentRecordingService>();
 builder.Services.AddScoped<IPackageActivationService, PackageActivationService>();
@@ -453,6 +454,7 @@ builder.Services.AddHttpClient(
         client.Timeout =
             TimeSpan.FromSeconds(35);
     });
+builder.Services.AddServiceImageAdministration(builder.Configuration);
 
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-34 (phát thông báo).
 builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();

@@ -148,6 +148,12 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                   <span className={detailStyles.headerStatus}>
                     <StatusChip value={c.status} />
                   </span>
+                  <Link
+                    className="btn btn--secondary"
+                    href={`/manager/service-images/class/${classId}`}
+                  >
+                    Images
+                  </Link>
                   {c.status === "DRAFT" && (
                     <>
                       <Link

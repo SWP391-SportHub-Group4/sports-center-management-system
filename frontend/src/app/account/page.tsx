@@ -231,7 +231,9 @@ export default function AccountPage() {
     >
       <AsyncSection state={account} emptyMessage={t.apiErrors.notFound}>
         {(data) => (
-          <div className={styles.content}>
+          <div
+            className={`${styles.content} ${user?.role === "Member" ? styles.memberContent : ""}`}
+          >
             {!isCoach && (
               <>
                 <header className={styles.profileHero}>

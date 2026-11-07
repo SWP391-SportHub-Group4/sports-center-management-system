@@ -29,63 +29,64 @@ export function MemberRefunds() {
   );
 
   return (
-    <>
-    <CenterCancellationOffers />
-    <section className={styles.panel} aria-label={l.tabRefunds}>
-      <header className={styles.head}>
-        <p className={styles.caption}>{l.refundFlow}</p>
-      </header>
-      <AsyncSection
-        state={state}
-        isEmpty={(data) => !pagedItems(data).length}
-        emptyMessage={
-          <EmptyPanel
-            icon={<RotateCcw size={22} />}
-            title={l.refundEmptyTitle}
-            body={l.refundEmptyBody}
-          />
-        }
-      >
-        {(data) => (
-          <>
-            <ol className={styles.timeline}>
-              {pagedItems(data).map((refund) => (
-                <li key={refund.adjustmentId} data-status={refund.status}>
-                  <div className={styles.timelineHead}>
-                    <strong>{refund.invoiceNumber}</strong>
-                    <StatusChip value={refund.status} />
-                  </div>
-                  <p className={styles.reason}>{refund.reason}</p>
-                  <p className={styles.timelineMeta}>
-                    <time dateTime={refund.createdAt}>
-                      {formatDateTime(refund.createdAt)}
-                    </time>
-                    <span>
-                      {refund.status === "COMPLETED"
-                        ? `${l.refundPoints}: ${formatPoints(refund.approvedPoints ?? 0)}`
-                        : refund.status === "REQUESTED"
-                          ? `${l.refundEstimate}: ${formatPoints(refund.systemCalculatedPoints)}`
-                          : l.refundNoCredit}
-                    </span>
-                  </p>
-                  <a
-                    className={styles.quietAction}
-                    href={`/member/finance?tab=invoices&invoice=${refund.invoiceId}`}
-                  >
-                    {l.refundInvoice}
-                  </a>
-                </li>
-              ))}
-            </ol>
-            <PageNav
-              page={data.page}
-              totalPages={Math.ceil(data.totalCount / data.pageSize)}
-              onChange={setPage}
+    <div className={styles.refundPage}>
+      <CenterCancellationOffers />
+      <section className={styles.panel} aria-label={l.tabRefunds}>
+        <header className={styles.head}>
+          <h2>Refund history</h2>
+          <p className={styles.caption}>{l.refundFlow}</p>
+        </header>
+        <AsyncSection
+          state={state}
+          isEmpty={(data) => !pagedItems(data).length}
+          emptyMessage={
+            <EmptyPanel
+              icon={<RotateCcw size={22} />}
+              title={l.refundEmptyTitle}
+              body={l.refundEmptyBody}
             />
-          </>
-        )}
-      </AsyncSection>
-    </section>
-    </>
+          }
+        >
+          {(data) => (
+            <>
+              <ol className={styles.timeline}>
+                {pagedItems(data).map((refund) => (
+                  <li key={refund.adjustmentId} data-status={refund.status}>
+                    <div className={styles.timelineHead}>
+                      <strong>{refund.invoiceNumber}</strong>
+                      <StatusChip value={refund.status} />
+                    </div>
+                    <p className={styles.reason}>{refund.reason}</p>
+                    <p className={styles.timelineMeta}>
+                      <time dateTime={refund.createdAt}>
+                        {formatDateTime(refund.createdAt)}
+                      </time>
+                      <span>
+                        {refund.status === "COMPLETED"
+                          ? `${l.refundPoints}: ${formatPoints(refund.approvedPoints ?? 0)}`
+                          : refund.status === "REQUESTED"
+                            ? `${l.refundEstimate}: ${formatPoints(refund.systemCalculatedPoints)}`
+                            : l.refundNoCredit}
+                      </span>
+                    </p>
+                    <a
+                      className={styles.quietAction}
+                      href={`/member/finance?tab=invoices&invoice=${refund.invoiceId}`}
+                    >
+                      {l.refundInvoice}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+              <PageNav
+                page={data.page}
+                totalPages={Math.ceil(data.totalCount / data.pageSize)}
+                onChange={setPage}
+              />
+            </>
+          )}
+        </AsyncSection>
+      </section>
+    </div>
   );
 }

@@ -17,6 +17,7 @@ const TYPES = ["", "all", ...SERVICE_KINDS] as const;
 const LEGACY_TYPE: Record<string, FilterValue> = {
   courses: "class",
   gym: "gym",
+  courts: "court",
 };
 const RESET = {
   type: "",
@@ -79,7 +80,7 @@ export function MemberServiceHub() {
   }, [detailDestination, router]);
   if (detailDestination) return <Loading />;
 
-  const booking = values.section === "courts";
+  const booking = values.section === "courts" && view === "explore";
   const exploreCourse = view === "explore" && /^[1-9]\d*$/.test(values.course);
 
   const goView = (next: HubView) => setValues({ ...RESET, view: next });
@@ -106,14 +107,14 @@ export function MemberServiceHub() {
                   "Choose a sport, date and time to find a court.",
                 )
               : view === "owned"
-                  ? tx(
-                      "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
-                      "What you own, when it expires and how you used it.",
-                    )
-                  : tx(
-                      "Chọn gói phù hợp, thanh toán xong dùng ngay.",
-                      "Pick a package, pay and start right away.",
-                    )}
+                ? tx(
+                    "Các gói bạn đang sở hữu, hạn dùng và lịch sử sử dụng.",
+                    "What you own, when it expires and how you used it.",
+                  )
+                : tx(
+                    "Chọn gói phù hợp, thanh toán xong dùng ngay.",
+                    "Find your next class, court or Gym plan.",
+                  )}
           </p>
         </div>
         <div className={styles.introActions}>

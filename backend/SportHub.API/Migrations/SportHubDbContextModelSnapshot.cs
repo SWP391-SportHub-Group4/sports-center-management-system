@@ -258,6 +258,170 @@ namespace SportHub.API.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SportHub.Administration.Domain.Entities.ServiceImageAsset", b =>
+                {
+                    b.Property<Guid>("ImageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("image_id");
+
+                    b.Property<string>("AltText")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("alt_text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_published");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("integer")
+                        .HasColumnName("service_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("uploaded_by_user_id");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("url");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("ImageId")
+                        .HasName("pk_service_image_assets");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_service_image_assets_public_id");
+
+                    b.HasIndex("UploadedByUserId")
+                        .HasDatabaseName("ix_service_image_assets_uploaded_by_user_id");
+
+                    b.HasIndex("IsPublished", "CreatedAtUtc")
+                        .HasDatabaseName("ix_service_image_assets_is_published_created_at_utc");
+
+                    b.HasIndex("Kind", "ServiceId", "IsPublished")
+                        .HasDatabaseName("ix_service_image_assets_kind_service_id_is_published");
+
+                    b.ToTable("service_image_assets", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_service_image_assets_dimensions", "width > 0 AND height > 0");
+
+                            t.HasCheckConstraint("ck_service_image_assets_order", "sort_order BETWEEN 0 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("SportHub.Administration.Domain.Entities.ServiceImageDeletion", b =>
+                {
+                    b.Property<Guid>("DeletionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("deletion_id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTime>("NextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at_utc");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("url");
+
+                    b.HasKey("DeletionId")
+                        .HasName("pk_service_image_deletions");
+
+                    b.HasIndex("NextAttemptAtUtc")
+                        .HasDatabaseName("ix_service_image_deletions_next_attempt_at_utc");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_service_image_deletions_public_id");
+
+                    b.ToTable("service_image_deletions", (string)null);
+                });
+
+            modelBuilder.Entity("SportHub.Administration.Domain.Entities.ServiceImageGallery", b =>
+                {
+                    b.Property<string>("Kind")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<int>("ServiceId")
+                        .HasColumnType("integer")
+                        .HasColumnName("service_id");
+
+                    b.Property<Guid?>("CoverImageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cover_image_id");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Kind", "ServiceId")
+                        .HasName("pk_service_image_galleries");
+
+                    b.ToTable("service_image_galleries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_service_image_galleries_id", "service_id > 0");
+
+                            t.HasCheckConstraint("ck_service_image_galleries_kind", "kind IN ('membership', 'class', 'room')");
+
+                            t.HasCheckConstraint("ck_service_image_galleries_version", "version >= 0");
+                        });
+                });
+
             modelBuilder.Entity("SportHub.Administration.Domain.Entities.SystemSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -4174,6 +4338,14 @@ namespace SportHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("incident_id");
 
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at_utc");
+
+                    b.Property<Guid?>("CancelledByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelled_by_user_id");
+
                     b.Property<bool>("ClosesGym")
                         .HasColumnType("boolean")
                         .HasColumnName("closes_gym");
@@ -4190,14 +4362,6 @@ namespace SportHub.API.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("day_pass_members_json");
-
-                    b.Property<DateTime?>("CancelledAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cancelled_at_utc");
-
-                    b.Property<Guid?>("CancelledByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("cancelled_by_user_id");
 
                     b.Property<DateTime?>("DayPassNoticeSentAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -4545,6 +4709,23 @@ namespace SportHub.API.Migrations
                         .HasConstraintName("fk_report_exports_user_accounts_requested_by_user_id");
 
                     b.Navigation("RequestedByUser");
+                });
+
+            modelBuilder.Entity("SportHub.Administration.Domain.Entities.ServiceImageAsset", b =>
+                {
+                    b.HasOne("SportHub.Identity.Domain.Entities.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_image_assets_user_accounts_uploaded_by_user_id");
+
+                    b.HasOne("SportHub.Administration.Domain.Entities.ServiceImageGallery", null)
+                        .WithMany()
+                        .HasForeignKey("Kind", "ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_image_assets_service_image_galleries_kind_service_id");
                 });
 
             modelBuilder.Entity("SportHub.Administration.Domain.Entities.SystemSetting", b =>

@@ -11,6 +11,10 @@ import type {
   Paged,
 } from "@/lib/types";
 import styles from "./gym-package-details.module.css";
+import {
+  ServicePhotoGallery,
+  useServiceGallery,
+} from "@/features/service-media";
 
 const zone = "Asia/Ho_Chi_Minh";
 
@@ -42,6 +46,7 @@ export function GymPackageDetails({ pkg }: { pkg: MemberPackageDto }) {
   const { language } = useLanguage();
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
+  const gallery = useServiceGallery("membership", pkg.packageId);
   const invoice = useApi(
     (signal) =>
       pkg.invoiceItemId
@@ -97,6 +102,14 @@ export function GymPackageDetails({ pkg }: { pkg: MemberPackageDto }) {
       className={styles.detail}
       aria-label={tx("Chi tiết gói Gym", "Gym membership details")}
     >
+      <ServicePhotoGallery
+        kind="gym"
+        gallery={gallery.data}
+        loading={gallery.loading}
+        error={gallery.error?.message}
+        onRetry={gallery.reload}
+        alt={pkg.packageName}
+      />
       <div className={styles.summary}>
         <div>
           <span className={styles.label}>

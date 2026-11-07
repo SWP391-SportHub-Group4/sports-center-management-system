@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Api;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Media;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.Identity.Domain.Entities;
@@ -18,7 +19,8 @@ public sealed record LandingPageDocument(Guid Revision, Dictionary<string, strin
 
 [ApiController]
 [Route("api/landing-page")]
-public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter audit, IClock clock) : ControllerBase
+public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter audit, IClock clock,
+    IMediaImageReferenceGuard mediaReferences) : ControllerBase
 {
     private static readonly Regex KeyPattern = new(@"^((hero|gallery|bookmarks|arena|booking|faq)\.[a-zA-Z0-9_.]{1,120}|brand\.logo\.image)$", RegexOptions.Compiled);
     private static readonly Regex LegacyGalleryCaption = new(@"^gallery\.photos\.[0-9]+\.(en|vi)$", RegexOptions.Compiled);
@@ -80,6 +82,8 @@ public sealed class LandingPageController(ISportHubDbContext db, IAuditWriter au
         var row = await db.Set<LandingPageContent>().SingleOrDefaultAsync(ct);
         if ((row?.Revision ?? Guid.Empty) != request.Revision)
             throw new ConflictException("landing_content_changed", "Another Manager updated this page. Reload the latest content before saving.");
+        var previousValues = JsonSerializer.Deserialize<Dictionary<string, string>>(row?.ValuesJson ?? "{}") ?? [];
+        await mediaReferences.ProtectAttachmentsAsync(values.Values, previousValues.Values, ct);
         var eligibleCount = await db.Set<UserAccount>().AsNoTracking().CountAsync(user => featuredIds.Contains(user.UserId)
             && user.Status == UserStatus.Active && user.Role != null && user.Role.RoleName == UserRole.Coach && user.Profile != null, ct);
         if (eligibleCount != 3)

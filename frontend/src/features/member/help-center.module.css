@@ -14,7 +14,7 @@
 .card {
   display: grid;
   gap: var(--space-5);
-  padding: var(--space-6);
+  padding: 24px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
@@ -26,7 +26,7 @@
 }
 .form {
   display: grid;
-  gap: var(--space-5);
+  gap: 20px;
 }
 .field {
   display: grid;
@@ -55,7 +55,7 @@
 }
 .field textarea {
   width: 100%;
-  min-height: 140px;
+  min-height: 112px;
   border-color: var(--border-control);
   resize: vertical;
 }
@@ -80,6 +80,9 @@
 .upload {
   display: grid;
   gap: var(--space-2);
+  padding: 16px;
+  border: 1px dashed var(--border-control);
+  border-radius: 8px;
 }
 .uploadNote {
   margin: 0;
@@ -219,7 +222,7 @@
 }
 .actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 .success {
   display: grid;
@@ -277,8 +280,7 @@
 .page {
   display: grid;
   gap: var(--space-5);
-  max-width: 1100px;
-  margin-inline: auto;
+  min-width: 0;
 }
 .tabs {
   display: flex;
@@ -305,7 +307,7 @@
 }
 .tab[aria-selected="true"] {
   border-bottom-color: var(--color-primary);
-  color: var(--text-body);
+  color: var(--color-primary);
 }
 .tab:focus-visible {
   outline: 2px solid var(--color-primary);
@@ -324,7 +326,33 @@
   font-variant-numeric: tabular-nums;
 }
 .formWrap {
-  max-width: 720px;
+  min-width: 0;
+}
+.newRequest {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(260px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.reviewNote {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  color: var(--color-primary-soft-text);
+  background: var(--color-primary-soft);
+}
+.reviewNote > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.reviewNote p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 45ch;
 }
 .successActions {
   display: flex;
@@ -335,16 +363,46 @@
   display: grid;
   gap: var(--space-4);
   margin: 0;
-  padding: var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-subtle, #f4f6f5);
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
 }
 .paymentBox legend {
-  padding: 0 var(--space-2);
+  padding: 0 12px 0 0;
   color: var(--text-body);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+}
+.paymentBox dl {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  border-radius: 7px;
+  background: var(--bg-surface-sunken);
+}
+.paymentBox dl > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1.3fr);
+  align-items: start;
+  gap: 10px 20px;
+  padding: 12px;
+}
+.paymentBox dl > div + div {
+  border-top: 1px solid var(--border-subtle);
+}
+.paymentBox dl dt {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.paymentBox dl dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
 }
 .paymentBox .hint {
   margin: 0;
@@ -409,7 +467,9 @@
 }
 .listTitle {
   margin: 0;
-  font-size: var(--text-lg);
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 800;
 }
 .requestItem {
   display: grid;
@@ -417,7 +477,6 @@
   width: 100%;
   padding: var(--space-4);
   border: 0;
-  border-left: 4px solid transparent;
   background: var(--bg-surface);
   color: inherit;
   font: inherit;
@@ -428,11 +487,12 @@
   background: var(--bg-subtle, #f4f6f5);
 }
 .requestItem[data-selected="true"] {
-  border-left-color: var(--color-primary);
+  outline: 1px solid var(--color-primary);
+  outline-offset: -1px;
   background: var(--color-primary-soft);
 }
 .requestItem[data-action="true"] {
-  border-left-color: var(--danger-solid);
+  background: var(--danger-bg);
 }
 .requestItem:focus-visible {
   outline: 2px solid var(--color-primary);
@@ -544,7 +604,9 @@
 }
 .detailHead h3 {
   margin: 0;
-  font-size: var(--text-lg);
+  font-family: var(--font-display);
+  font-size: 29px;
+  font-weight: 800;
 }
 .stageHint {
   margin: 0;
@@ -711,6 +773,12 @@
   .requests {
     grid-template-columns: minmax(0, 1fr);
   }
+  .newRequest {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reviewNote {
+    order: -1;
+  }
   .requests[data-detail="open"] > :first-child {
     display: none;
   }
@@ -719,5 +787,23 @@
   }
   .back {
     display: inline-flex;
+  }
+}
+@media (max-width: 560px) {
+  .tab {
+    padding-inline: 12px;
+    font-size: 13px;
+  }
+  .paymentBox dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+  .upload {
+    padding: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fileActions {
+    transition: none;
   }
 }

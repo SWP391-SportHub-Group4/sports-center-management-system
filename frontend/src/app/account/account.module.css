@@ -192,3 +192,35 @@
 .formFeedback:empty {
   display: none;
 }
+
+.memberContent {
+  max-width: none;
+  gap: 24px;
+}
+.memberContent .profileHero {
+  padding: 0 0 24px;
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+.memberContent .panels {
+  gap: 24px;
+  align-items: stretch;
+}
+.memberContent .accountPanel > :global(.card),
+.memberContent .securityPanel > :global(.card) {
+  height: 100%;
+  border-radius: 12px;
+  box-shadow: none;
+}
+.memberContent :global(.card__head h2) {
+  color: var(--text-strong);
+  font: 700 var(--text-2xl)/1.2 var(--font-display);
+}
+.memberContent .form input {
+  min-height: 44px;
+}
+.memberContent .form button[type="submit"] {
+  min-height: 44px;
+}

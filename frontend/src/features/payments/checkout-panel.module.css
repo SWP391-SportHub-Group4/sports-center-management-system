@@ -22,7 +22,7 @@
 /* ---- Checkout hai cột: trái = các bước, phải = tóm tắt đơn (sticky trên desktop) ---- */
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
   gap: var(--space-6);
   align-items: start;
 }
@@ -57,8 +57,9 @@
   align-items: center;
   gap: var(--space-3);
   margin: 0;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
   color: var(--text-strong);
 }
 
@@ -83,11 +84,29 @@
 }
 
 .items li {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) auto;
+  align-items: center;
   gap: var(--space-4);
-  padding-block: var(--space-2);
+  padding-block: 16px;
   border-bottom: 1px solid var(--border-subtle);
+}
+.orderPhoto {
+  width: 140px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.orderDescription {
+  min-width: 0;
+  color: var(--text-strong);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.items li > .orderDescription:first-child {
+  grid-column: 1 / 3;
 }
 
 .items li:last-child {
@@ -95,7 +114,8 @@
 }
 
 .money {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -107,18 +127,16 @@
   gap: var(--space-4);
   padding: var(--space-5);
   background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
 }
 
 .summaryTitle {
   margin: 0;
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  color: var(--text-muted);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-strong);
 }
 
 .who {
@@ -145,6 +163,9 @@
   justify-content: space-between;
   align-items: baseline;
   gap: var(--space-3);
+  padding-block: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13px;
 }
 
 .rows dt {
@@ -153,9 +174,12 @@
 
 .rows dd {
   margin: 0;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .rowsTotal {
@@ -179,7 +203,7 @@
   display: grid;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  background: var(--bg-surface-sunken);
+  background: var(--color-primary-soft);
   border-radius: var(--radius-md);
 }
 
@@ -194,7 +218,7 @@
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
   font-variant-numeric: tabular-nums;
-  color: var(--text-strong);
+  color: var(--color-primary);
 }
 
 .timerLow {
@@ -287,9 +311,7 @@
 .balance > div {
   display: grid;
   gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-sunken);
+  padding-block: 12px;
 }
 
 .balance dd {
@@ -363,6 +385,58 @@
   padding: var(--space-4);
   background: var(--bg-surface-sunken);
   border-radius: var(--radius-md);
+}
+.invoiceColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-block: 22px;
+}
+.invoiceColumns > * {
+  min-width: 0;
+  margin: 0;
+}
+.invoiceColumns th,
+.invoiceColumns td {
+  font-size: 13px;
+}
+.invoiceColumns :global(.num) {
+  white-space: nowrap;
+}
+@media (max-width: 1000px) {
+  .invoiceColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .items li {
+    grid-template-columns: 80px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .orderPhoto {
+    width: 80px;
+    height: 76px;
+  }
+  .items li > .money {
+    grid-column: 2;
+  }
+  .items li > .orderDescription:first-child {
+    grid-column: 1 / -1;
+  }
+  .items li > .orderDescription:first-child + .money {
+    grid-column: 1 / -1;
+  }
+  .step {
+    padding: 18px;
+  }
+  .summary {
+    padding: 18px;
+  }
+  .stepTitle,
+  .summaryTitle {
+    font-size: 25px;
+  }
 }
 
 @media (max-width: 480px) {

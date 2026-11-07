@@ -1035,5 +1035,22 @@ Tất cả route sau yêu cầu CenterManager.
 
 ### Shared database development mode
 
-- `SharedDatabase__Enabled=true` is an opt-in Development mode for a local API connected to a shared server database. It skips automatic migrations/startup seeds and does not register any of the 20 API background jobs; the deployed server remains responsible for notifications/email, reconciliation, expiry, reminders, refunds and cleanup. The default is false; normal server and isolated-local behavior is unchanged. Production rejects this mode before opening a database, as do seed/bootstrap commands when it is enabled.
+- `SharedDatabase__Enabled=true` is an opt-in Development mode for a local API connected to a shared server database. It skips automatic migrations/startup seeds and does not register API background jobs (including service-image cleanup); the deployed server remains responsible for notifications/email, reconciliation, expiry, reminders, refunds and cleanup. The default is false; normal server and isolated-local behavior is unchanged. Production rejects this mode before opening a database, as do seed/bootstrap commands when it is enabled.
 - This mode is not read-only: authenticated API requests still apply their normal writes to the shared database. A running server worker is required for automatic processing. Email payloads created by either API still require compatible Data Protection keys/application configuration for the worker to decrypt them. It does not alter VNPay signature verification or disable the explicit checkout verification endpoints. No schema or migration change.
+
+
+### Service cover and gallery images
+
+- Gallery owners: `membership` (MembershipPackage), `class` (Class), `room` (physical Room; independent of sport). One cover and up to five additional images.
+- `GET /api/service-images?kind=class&ids=1,2`: up to 100 positive IDs per request; returns `{items: ServiceGallery[]}` for publicly visible services.
+- `GET /api/service-images/{kind}/{id}`: published gallery for an eligible service. Existing services without photos return an empty gallery. Private/draft services are not exposed.
+- `GET /api/coaches/me/class-images?ids=1,2`: Coach-only batch read, up to 100 positive class IDs. Uses the same Published/InProgress class assignment scope as `/api/coaches/me/classes`, including non-cancelled substitute assignments. Returns only published photos; unrelated, Draft and Completed classes are omitted. This grants no student-data or image-editing permission. Coach and Member reuse the Manager's saved cover/order, with image reads refreshed when returning to the browser window.
+- `GET /api/manager/service-images/{kind}/{id}`: CenterManager-only published gallery, including draft/inactive owners.
+- `POST /api/manager/service-images/{kind}/{id}`: multipart `file`, optional `altText`; stages an image without changing the Member gallery. JPG/PNG/WebP, at most 10 MB, 3:2 landscape frame. Returns `ServiceImage`.
+- `PUT /api/manager/service-images/{kind}/{id}`: `{version, imageIds, coverImageId, altTexts?}` publishes the ordered selection atomically. Nonempty galleries require one selected cover; empty galleries require a null cover. Returns the saved gallery. Stale versions return 409 `service_image_version_conflict`.
+- `DELETE /api/manager/service-images/{kind}/{id}/{imageId}`: discards the requesting manager's staged upload. Published photos are removed through PUT.
+- `ServiceGallery`: `{kind, id, version, coverImageId, images}`. Version is a decimal string starting at `"0"`. `ServiceImage`: `{imageId, url, altText, sortOrder, width, height}`.
+- Stage limit: 12 per owner; unused uploads expire after 24 hours. Referenced/removed assets use durable cleanup with retries; shared sport/landing references are protected. SharedDatabase mode disables the cleanup worker.
+- Gallery changes do not modify class lifecycle, schedules, capacities or prices. Manager may edit photos on published classes.
+- Authorized invoice item responses append nullable `serviceImageKind` and `serviceImageId`; membership/room links are resolved in bulk and restricted to the invoice beneficiary. These fields do not alter stored financial snapshots.
+- Apply the additive EF migrations before using these endpoints. No seed or shared database reset is required.

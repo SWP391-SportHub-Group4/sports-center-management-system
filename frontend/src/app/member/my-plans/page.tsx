@@ -9,5 +9,6 @@ export default async function Page({
     if (Array.isArray(value)) value.forEach((item) => query.append(key, item));
     else if (value !== undefined) query.set(key, value);
   }
-  redirect(`/member/services${query.size ? `?${query}` : ""}`);
+  query.set("view", "owned");
+  redirect(`/member/services?${query}`);
 }
