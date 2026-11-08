@@ -5,7 +5,7 @@
 [![CI Develop](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/actions/workflows/ci.yml)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white) ![Next.js 16](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&logoColor=white) ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
-**Tài liệu kỹ thuật:** [sportHub-docs](https://github.com/SWP391-SportHub-Group4/sportHub-docs) · [Mục lục tài liệu](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/README.md).
+**Tài liệu kỹ thuật:** [sportHub-docs](https://github.com/SWP391-SportHub-Group4/sportHub-docs) · [Mục lục tài liệu](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/README.md).
 
 SportHub kết nối những công việc thường bị tách rời ở một trung tâm thể thao: khách đăng ký dịch vụ, lễ tân bán hàng và check-in, huấn luyện viên theo dõi lớp, quản lý điều hành và quản trị viên kiểm soát tài khoản. Tùy dịch vụ, hóa đơn có thể thanh toán bằng ví điểm, VNPay hoặc kết hợp cả hai; lịch sân và lớp được kiểm soát để tránh đặt trùng hay vượt sức chứa.
 
@@ -117,7 +117,7 @@ Trang chủ công khai giới thiệu các môn, sơ đồ khu tập và câu h�
 2. **Từ hóa đơn đến quyền sử dụng:** checkout tạo hóa đơn; ví điểm và VNPay có thể cùng thanh toán một hóa đơn. Backend xác minh kết quả cổng thanh toán trước khi cấp gói, chỗ học hoặc lượt thuê sân. Các giao dịch chưa rõ kết quả đi qua luồng đối soát.
 3. **Vận hành sau bán:** lễ tân check-in và hỗ trợ hội viên; huấn luyện viên theo dõi buổi học; quản lý xem báo cáo, cấu hình danh mục và xử lý yêu cầu phát sinh.
 
-Quy tắc nghiệp vụ đầy đủ, bao gồm giữ chỗ, hoàn/bù điểm, phân quyền và điều kiện kích hoạt dịch vụ, nằm trong [Business Rules](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/SportManagement_BusinessRules_v2.0_updated.docx) và [thiết kế hệ thống](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/Center-Management-System-Design-v3.md).
+Quy tắc nghiệp vụ đầy đủ, bao gồm giữ chỗ, hoàn/bù điểm, phân quyền và điều kiện kích hoạt dịch vụ, nằm trong [Business Rules](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/SportManagement_BusinessRules_v2.0_updated.docx) và [thiết kế hệ thống](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/architecture/Center-Management-System-Design-v3.md).
 
 ## Kiến trúc hệ thống
 
@@ -144,7 +144,7 @@ sports-center-management-system/
 └── docker-compose.yml
 ```
 
-Chi tiết API và quy ước dữ liệu: [API contract](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/api-contract.md) · [Source of Truth](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/00-Source-of-Truth.md).
+Chi tiết API và quy ước dữ liệu: [API contract](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/api/api-contract.md) · [Source of Truth](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/00-Source-of-Truth.md).
 
 ## Chạy local
 
@@ -162,7 +162,7 @@ Tại thư mục gốc repository, tạo `.env` từ file mẫu và điền mậ
 Copy-Item .env.example .env
 ```
 
-CI trên PR vào `main` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Merge `main` chỉ phát hành backend/AI sau khi CI đạt; máy AWS tự cập nhật sau khi kích hoạt CD một lần theo [deploy/aws/CD.md](deploy/aws/CD.md). Hợp đồng API: [API contract](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/api-contract.md).
+CI trên PR vào `main` chạy thêm Playwright với PostgreSQL + backend Development thật và upload report/trace khi fail. Merge `main` chỉ phát hành backend/AI sau khi CI đạt; máy AWS tự cập nhật sau khi kích hoạt CD một lần theo [deploy/aws/CD.md](deploy/aws/CD.md). Hợp đồng API: [API contract](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/api/api-contract.md).
 
 ### 2. Khởi động dịch vụ nền
 
@@ -192,7 +192,7 @@ npm ci
 npm run dev
 ```
 
-Truy cập [http://localhost:3000](http://localhost:3000). Nếu API không chạy ở cổng `5000`, đặt `NEXT_PUBLIC_API_BASE_URL` trong `frontend/.env.local` rồi khởi động lại frontend. Hướng dẫn migration, seed dữ liệu, email và triển khai nằm trong [RUNBOOK](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/RUNBOOK.md).
+Truy cập [http://localhost:3000](http://localhost:3000). Nếu API không chạy ở cổng `5000`, đặt `NEXT_PUBLIC_API_BASE_URL` trong `frontend/.env.local` rồi khởi động lại frontend. Hướng dẫn migration, seed dữ liệu, email và triển khai nằm trong [RUNBOOK](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/operations/RUNBOOK.md).
 
 > Compose cũng có thể build toàn bộ stack bằng `docker compose up -d --build`. Khi sửa backend hoặc frontend chạy trong container, cần build lại image tương ứng để thấy mã mới.
 
@@ -214,16 +214,16 @@ Backend integration test dùng Docker/Testcontainers; hãy mở Docker Desktop t
 
 | Tài liệu | Nội dung |
 | --- | --- |
-| [RUNBOOK](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/RUNBOOK.md) | Cài đặt local, cấu hình tích hợp, migration và triển khai. |
-| [Thiết kế hệ thống](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/Center-Management-System-Design-v3.md) | Phạm vi, kiến trúc, dữ liệu và luồng nghiệp vụ. |
-| [Source of Truth](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/00-Source-of-Truth.md) | Thuật ngữ, quy ước và thứ tự ưu tiên tài liệu. |
-| [Business Rules](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/SportManagement_BusinessRules_v2.0_updated.docx) | Quy tắc nghiệp vụ của đồ án. |
-| [API contract](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/api-contract.md) | Hợp đồng API giữa frontend và backend. |
-| [Mục lục tài liệu](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/README.md) | Điểm vào các tài liệu còn lại. |
+| [RUNBOOK](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/operations/RUNBOOK.md) | Cài đặt local, cấu hình tích hợp, migration và triển khai. |
+| [Thiết kế hệ thống](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/architecture/Center-Management-System-Design-v3.md) | Phạm vi, kiến trúc, dữ liệu và luồng nghiệp vụ. |
+| [Source of Truth](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/00-Source-of-Truth.md) | Thuật ngữ, quy ước và thứ tự ưu tiên tài liệu. |
+| [Business Rules](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/SportManagement_BusinessRules_v2.0_updated.docx) | Quy tắc nghiệp vụ của đồ án. |
+| [API contract](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/api/api-contract.md) | Hợp đồng API giữa frontend và backend. |
+| [Mục lục tài liệu](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/README.md) | Điểm vào các tài liệu còn lại. |
 
 ## Đóng góp
 
-Tạo nhánh từ `develop`, mô tả thay đổi và cách kiểm tra trong Pull Request. Trước khi sửa nghiệp vụ, đọc [Source of Truth](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/00-Source-of-Truth.md) cùng [Business Rules](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/SportManagement_BusinessRules_v2.0_updated.docx). Không đưa `.env`, khóa bí mật, dữ liệu thật hoặc ảnh chứa thông tin cá nhân vào repository.
+Tạo nhánh từ `develop`, mô tả thay đổi và cách kiểm tra trong Pull Request. Trước khi sửa nghiệp vụ, đọc [Source of Truth](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/00-Source-of-Truth.md) cùng [Business Rules](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/SportManagement_BusinessRules_v2.0_updated.docx). Không đưa `.env`, khóa bí mật, dữ liệu thật hoặc ảnh chứa thông tin cá nhân vào repository.
 
 ---
 
@@ -236,4 +236,4 @@ Tạo nhánh từ `develop`, mô tả thay đổi và cách kiểm tra trong Pul
 - Chatbox ở UI hiện chỉ nằm trong phạm vi **Member** và **Coach**; không suy ra chatbot cho ba role còn lại từ sự tồn tại của các service backend.
 - Coach AI suggestion hỗ trợ bản nháp kế hoạch theo buổi và Personal Plan theo học viên được phân công, với bước validation Goal và Coach review trước Save (theo bản vá mới; cần kiểm chứng runtime sau merge).
 - Hướng dẫn nút/page từ AI cần đối chiếu Navigation Knowledge của Member/Coach với frontend thật; contract API không tự cho biết vị trí button.
-- System prompt có thể được xuất bản qua `ISystemPromptReader`, và phiên bản prompt được gắn với continuation scope. Xem [`docs/AI-Member-Coach-Implementation-Verification.md`](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/AI-Member-Coach-Implementation-Verification.md).
+- System prompt có thể được xuất bản qua `ISystemPromptReader`, và phiên bản prompt được gắn với continuation scope. Xem [AI implementation verification](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/verification/AI-Member-Coach-Implementation-Verification.md).

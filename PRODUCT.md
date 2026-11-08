@@ -52,7 +52,7 @@ Nền tảng đa môn khép kín cho trung tâm thể thao: khác với phần m
 
 ## Implementation và phần còn thiếu
 
-Payment/checkout/wallet và VNPay adapter đã có mã; sandbox thật cần nghiệm thu riêng. Member assistant/workout AI đã có nền tảng, Manager AI chưa triển khai. Danh sách evidence, khoảng trống và tiêu chí nghiệm thu nằm ở mục 13 của [thiết kế hệ thống](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/docs/Center-Management-System-Design-v3.md).
+Payment/checkout/wallet và VNPay adapter đã có mã; sandbox thật cần nghiệm thu riêng. Member assistant/workout AI đã có nền tảng, Manager AI chưa triển khai. Danh sách evidence, khoảng trống và tiêu chí nghiệm thu nằm ở mục 13 của [thiết kế hệ thống](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/architecture/Center-Management-System-Design-v3.md).
 
 ## Room workflow — 26/10/2026
 
