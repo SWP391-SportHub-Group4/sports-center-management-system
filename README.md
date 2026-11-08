@@ -219,6 +219,7 @@ Backend integration test dùng Docker/Testcontainers; hãy mở Docker Desktop t
 | [Source of Truth](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/00-Source-of-Truth.md) | Thuật ngữ, quy ước và thứ tự ưu tiên tài liệu. |
 | [Business Rules](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/requirements/SportManagement_BusinessRules_v2.0_updated.docx) | Quy tắc nghiệp vụ của đồ án. |
 | [API contract](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/api/api-contract.md) | Hợp đồng API giữa frontend và backend. |
+| [Use Cases theo flow](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/usecases/README.md) | Một tài liệu triển khai và kiểm thử cho mỗi Flow 1–6. |
 | [Mục lục tài liệu](https://github.com/SWP391-SportHub-Group4/sportHub-docs/blob/main/README.md) | Điểm vào các tài liệu còn lại. |
 
 ## Đóng góp
