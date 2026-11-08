@@ -56,7 +56,7 @@ Payment/checkout/wallet và VNPay adapter đã có mã; sandbox thật cần ngh
 
 ## Room workflow — 26/10/2026
 
-Rooms are physical facilities created and named independently of sports at `/manager/facilities`. Classes select from all active rooms. Create room asks for name and capacity, always creates an active room, and includes an **Allow rental** toggle, off by default. Turning it on reveals hourly pricing and a weekly schedule, saved atomically with the room. Disabling rental preserves existing classes and bookings. This replaces older descriptions of assigning a room to one sport. See [the room workflow](https://github.com/SWP391-SportsCenter-Group4/sports-center-management-system/blob/0fb80ae20787baeb926ba175b48fe4060d16ab73/docs/Independent-Rooms-Workflow.md).
+Rooms are physical facilities created and named independently of sports at `/manager/facilities`. Classes select from all active rooms. Create room asks for name and capacity, always creates an active room, and includes an **Allow rental** toggle, off by default. Turning it on reveals hourly pricing and a weekly schedule, saved atomically with the room. Disabling rental preserves existing classes and bookings. This replaces older descriptions of assigning a room to one sport. See [the room workflow](https://github.com/SWP391-SportHub-Group4/sports-center-management-system/blob/0fb80ae20787baeb926ba175b48fe4060d16ab73/docs/Independent-Rooms-Workflow.md).
 
 ## Product Principles
 
