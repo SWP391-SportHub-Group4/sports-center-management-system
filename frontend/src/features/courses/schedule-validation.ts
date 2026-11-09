@@ -7,6 +7,7 @@ export function scheduleInputIssue(
   course: ScheduleDraft,
   minutes: number,
   now: number,
+  notBeforeUtc?: string,
 ) {
   if (!course.coachId) return "coach";
   if (!course.defaultRoomId) return "room";
@@ -19,7 +20,8 @@ export function scheduleInputIssue(
     return "date";
   if (course.startDate < vietnamLocal(new Date(now).toISOString()).slice(0, 10))
     return "pastDate";
-  if (course.startDate > oneYearFromToday(now)) return "futureDate";
+  if (!notBeforeUtc && course.startDate > oneYearFromToday(now))
+    return "futureDate";
   if (
     !Number.isInteger(course.numSessions) ||
     course.numSessions < 1 ||
@@ -50,7 +52,7 @@ export function scheduleInputIssue(
   const weekday = new Date(`${course.startDate}T12:00:00Z`).getUTCDay();
   if (!course.scheduleRules.some((rule) => rule.dayOfWeek === weekday))
     return "weekday";
-  const slots = previewSessions(course, minutes);
+  const slots = previewSessions(course, minutes, notBeforeUtc);
   if (slots.length !== course.numSessions) return "incomplete";
   if (slots.some((slot) => Date.parse(slot.startAtUtc) <= now))
     return "pastTime";

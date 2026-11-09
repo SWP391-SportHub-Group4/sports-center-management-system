@@ -19,7 +19,13 @@ import {
   Target,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/apiClient";
-import type { WorkoutSuggestionDto, SportDto } from "@/lib/types";
+import {
+  WORKOUT_SUGGESTION_TYPE,
+  WORKOUT_SUGGESTION_LABEL,
+  type WorkoutSuggestionSourceType,
+  type WorkoutSuggestionDto,
+  type SportDto,
+} from "@/lib/types";
 import styles from "./workout-suggestions.module.css";
 
 export default function MemberWorkoutSuggestionsPage() {
@@ -51,9 +57,19 @@ export default function MemberWorkoutSuggestionsPage() {
       );
       setResult(data);
     } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 409) {
+      if (
+        cause instanceof ApiError &&
+        (cause.status === 409 || cause.status === 400)
+      ) {
+        const detail = cause.message?.trim();
         setError(
-          "Your fitness profile needs more information. Complete it before generating suggestions.",
+          detail
+            ? detail.slice(0, 500)
+            : "Review and save your Fitness profile, then retry.",
+        );
+      } else if (cause instanceof ApiError && cause.status === 503) {
+        setError(
+          "Workout semantic validation is temporarily unavailable. No new workout was generated. Please retry later.",
         );
       } else if (
         cause instanceof ApiError &&
@@ -81,9 +97,16 @@ export default function MemberWorkoutSuggestionsPage() {
       const parsed: unknown = previous ? JSON.parse(previous) : [];
       const plans: Array<{
         id: string;
+        type?: WorkoutSuggestionSourceType;
         suggestion: WorkoutSuggestionDto;
         savedAt: string;
-      }> = Array.isArray(parsed) ? parsed : [];
+      }> = Array.isArray(parsed)
+        ? parsed.map((plan) =>
+            plan && typeof plan === "object" && plan.suggestion && !plan.type
+              ? { ...plan, type: WORKOUT_SUGGESTION_TYPE }
+              : plan,
+          )
+        : [];
 
       // Migrate the old single draft so it isn't lost during upgrade.
       const old = sessionStorage.getItem(legacyKey);
@@ -96,6 +119,7 @@ export default function MemberWorkoutSuggestionsPage() {
           if (legacy.suggestion && Array.isArray(legacy.suggestion.items)) {
             plans.push({
               id: crypto.randomUUID(),
+              type: WORKOUT_SUGGESTION_TYPE,
               suggestion: legacy.suggestion,
               savedAt: legacy.savedAt ?? new Date().toISOString(),
             });
@@ -106,6 +130,7 @@ export default function MemberWorkoutSuggestionsPage() {
       }
       plans.unshift({
         id: crypto.randomUUID(),
+        type: WORKOUT_SUGGESTION_TYPE,
         suggestion: result,
         savedAt: new Date().toISOString(),
       });
@@ -202,8 +227,8 @@ export default function MemberWorkoutSuggestionsPage() {
         </div>
         <p className={styles.setupDisclaimer}>
           <Info size={15} aria-hidden="true" /> Generated suggestions are saved
-          under Training → Plans with a “Created by AI” label. They are guidance
-          only.
+          under Training → Plans with a “{WORKOUT_SUGGESTION_LABEL}” label. They
+          are guidance only.
         </p>
         {error && (
           <div role="alert" className={styles.error}>

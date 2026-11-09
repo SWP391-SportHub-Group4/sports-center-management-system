@@ -341,13 +341,11 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
     if (!validate()) return;
     const key =
       id === "new"
-        ? form.audience === "Coach"
-          ? "coach-system-prompt"
-          : "member-system-prompt"
+        ? `${form.audience.toLowerCase()}-${form.category.toLowerCase()}-prompt`
         : id!;
     if (id === "new" && rows.some((a) => a.id === key)) {
       setError(
-        "This role already has a system prompt. Edit the existing prompt instead.",
+        "This role and category already have a prompt. Edit it instead.",
       );
       return;
     }
@@ -481,8 +479,11 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                 : "Edit knowledge"
               : "AI Knowledge"}
           </h1>
+          <p>
+            Manage five independent prompt categories for each of the Member and Coach chat assistants.
+          </p>
         </div>
-        {!id && loaded && rows.length < 2 && (
+        {!id && loaded && rows.length < 10 && (
           <Link className={s.primary} href="/manager/ai-knowledge/new">
             <Plus size={18} />
             Add content
@@ -584,6 +585,7 @@ export function KnowledgeWorkspace({ id }: { id?: string }) {
                     id="knowledge-category"
                     value={form.category}
                     onChange={(e) => update("category", e.target.value)}
+                    disabled={id !== "new"}
                   >
                     {Object.entries(categoryLabels).map(([key, label]) => (
                       <option key={key} value={key}>

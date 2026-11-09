@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import {
+  Sparkles,
   BookOpen,
   CalendarDays,
   UserRound,
@@ -12,7 +13,7 @@ import {
 import { useNow } from "@/lib/useApi";
 import { sortTeachingSessions } from "@/lib/teaching-order";
 import { StatusChip } from "@/components/ui";
-import { formatDateTime, formatTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import type { CourseSessionDto } from "@/lib/types";
 import type { TeachingRecord, TeachingMember } from "./teaching-api";
 import styles from "./training-plan-view.module.css";
@@ -24,8 +25,6 @@ export const planScopeOf = (record: TeachingRecord): PlanScope =>
 const planOrder = (a: TeachingRecord, b: TeachingRecord) =>
   a.createdAtUtc.localeCompare(b.createdAtUtc) ||
   a.recordId.localeCompare(b.recordId);
-/** Newest plan first, so a plan saved just now is the first thing a member sees. */
-const newestFirst = (a: TeachingRecord, b: TeachingRecord) => planOrder(b, a);
 
 export function TrainingPlanView({
   records,
@@ -92,16 +91,14 @@ export function TrainingPlanView({
       ? r.sessionId === sessionId
       : planScopeOf(r) === scope,
   );
-  const visible = scoped
-    .filter((r) =>
-      scope === "personal"
-        ? (!student || r.memberId === student) &&
-          (!sessionId || !r.sessionId || r.sessionId === sessionId)
-        : scope === "session"
-          ? !session || r.sessionId === session
-          : true,
-    )
-    .sort(newestFirst);
+  const visible = scoped.filter((r) =>
+    scope === "personal"
+      ? (!student || r.memberId === student) &&
+        (!sessionId || !r.sessionId || r.sessionId === sessionId)
+      : scope === "session"
+        ? !session || r.sessionId === session
+        : true,
+  );
   const now = useNow();
   const usedSessions = sortTeachingSessions(sessions, now);
   const shownSessions = usedSessions.filter(
@@ -457,6 +454,7 @@ function PlanList({
                   {formatDateTime(record.updatedAtUtc)}
                 </small>
                 {onEdit && record.coachId === editableCoachId && (
+                  <>
                   <button
                     type="button"
                     className="btn btn--quiet btn--sm"
@@ -465,6 +463,14 @@ function PlanList({
                     <Pencil size={15} aria-hidden="true" />
                     {vi ? "Chỉnh sửa" : "Edit"}
                   </button>
+                  {onEdit && record.coachId === editableCoachId && (
+                    <button type="button" className="btn btn--secondary btn--sm"
+                      onClick={() => onEdit(record)}>
+                      <Sparkles size={15} aria-hidden="true" />
+                      Regenerate with AI
+                    </button>
+                  )}
+                  </>
                 )}
               </footer>
             </div>
@@ -572,9 +578,7 @@ function CourseRoadmap({
                     {vi ? "Buổi" : "Session"} {s.sessionNo}
                     {s.isMakeup ? (vi ? " · Học bù" : " · Makeup") : ""}
                   </strong>
-                  <small>
-                    {formatDateTime(s.startAtUtc)} – {formatTime(s.endAtUtc)}
-                  </small>
+                  <small>{formatDateTime(s.startAtUtc)}</small>
                   <span className={styles.phaseBadge} data-phase={phase}>
                     {phaseLabel}
                   </span>
@@ -598,6 +602,7 @@ function CourseRoadmap({
                         <h4>{plan.title}</h4>
                         <PlanContent content={plan.content} />
                         {onEdit && plan.coachId === editableCoachId && (
+                          <>
                           <button
                             type="button"
                             className="btn btn--quiet btn--sm"
@@ -606,6 +611,14 @@ function CourseRoadmap({
                             <Pencil size={15} aria-hidden="true" />
                             {vi ? "Chỉnh sửa" : "Edit"}
                           </button>
+                          {onEdit && plan.coachId === editableCoachId && (
+                            <button type="button" className="btn btn--secondary btn--sm"
+                              onClick={() => onEdit(plan)}>
+                              <Sparkles size={15} aria-hidden="true" />
+                              Regenerate with AI
+                            </button>
+                          )}
+                          </>
                         )}
                       </div>
                     ))}

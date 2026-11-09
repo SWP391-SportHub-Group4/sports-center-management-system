@@ -372,11 +372,12 @@ test("paid enrolled class can be cancelled with reviewed refunds without duplica
     }),
   ).toBeVisible();
   await expect(confirm).toBeDisabled();
-  await cancellation
-    .getByRole("textbox", {
-      name: new RegExp(en.classCancellationRefund.points),
-    })
-    .fill("100");
+  const refundPoints = cancellation.getByRole("textbox", {
+    name: en.classCancellationRefund.points,
+    exact: true,
+  });
+  await expect(refundPoints).toHaveCount(1);
+  await refundPoints.fill("100");
   await expect(confirm).toBeEnabled();
   await confirm.click();
   await expect(cancellation).toHaveCount(0);

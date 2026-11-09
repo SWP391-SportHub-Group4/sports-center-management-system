@@ -1,3 +1,4 @@
+using System.Net;
 using SportHub.BuildingBlocks.Abstractions.Identity;
 using SportHub.BuildingBlocks.Abstractions.Notifications;
 using SportHub.Payment.Application.Interfaces;
@@ -89,8 +90,10 @@ public sealed class PaymentNoticeService(
         var pdf =
             receipts.RenderPdf(receipt);
 
+        // The receipt is delivered only as the PDF attachment; the body is a short note.
         var html =
-            receipts.RenderHtml(receipt);
+            "<p>Thank you for your payment. " +
+            $"Your receipt for invoice {WebUtility.HtmlEncode(invoice.InvoiceNumber)} is attached as a PDF.</p>";
 
         notifications.QueueEmail(
             new EmailNotificationRequest(

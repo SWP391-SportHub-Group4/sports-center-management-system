@@ -325,47 +325,6 @@ public sealed class InvoiceReceiptService(
         return document.GeneratePdf();
     }
 
-    public string RenderHtml(InvoiceReceiptModel model)
-    {
-        static string E(string? v) => WebUtility.HtmlEncode(v ?? "");
-        var rows = string.Join("", model.Items.Select(x =>
-            $"<tr><td>{E(x.Description)}</td><td class='number'>{x.Quantity}</td><td class='number'>{Money(x.UnitPrice)}</td><td class='number'>{Money(x.LineAmount)}</td></tr>"));
-        var paid = IsPaid(model);
-        var contact = string.Join(" · ", new[] { model.CenterAddress, model.CenterPhone, model.CenterEmail }
-            .Where(x => !string.IsNullOrWhiteSpace(x)).Select(E));
-        var fields = $"<p><b>Issued:</b> {FormatDate(model.IssuedAt)}</p>" +
-            (paid && model.PaidAtUtc.HasValue ? $"<p><b>Paid:</b> {FormatDate(model.PaidAtUtc.Value)}</p>" : "") +
-            (model.ShowCashier ? $"<p><b>Processed by:</b> {E(model.CashierName)}</p>" : "");
-        var settlement = IsVoid(model) ? "<p><b>Payment:</b> Canceled</p>" :
-            $"<p><b>Points applied:</b> {model.PointsApplied:N0} ({Money(model.PointsValue)})</p>" +
-            $"<p><b>Cash payable:</b> {Money(model.CashAmount)}</p>" +
-            (!paid ? $"<p><b>Amount outstanding:</b> {Money(model.Outstanding)}</p>" :
-                $"<p><b>Payment method:</b> {E(FriendlyMethod(model.PaymentMethod))}</p>" +
-                (string.IsNullOrWhiteSpace(model.TransactionReference) ? "" : $"<p><b>Transaction reference:</b> {E(model.TransactionReference)}</p>")) +
-            (model.RefundedPoints > 0 ? $"<p><b>Points refunded:</b> {model.RefundedPoints:N0}</p>" : "");
-        return $$"""
-            <!doctype html><html><head><meta charset="utf-8"><style>
-            body{font:14px Arial,sans-serif;background:#f4f7f6;padding:24px;color:#172b28}
-            .receipt{max-width:760px;margin:auto;background:white;border:1px solid #d8e2dd;border-radius:10px;padding:26px}
-            .heading{display:flex;justify-content:space-between;gap:25px;border-bottom:2px solid #1d6d61;padding-bottom:14px}
-            .heading h1{margin:0;color:#1d6d61}.status{font-weight:bold;text-align:right}
-            .meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
-            table{border-collapse:collapse;width:100%} th,td{padding:9px;border-bottom:1px solid #ddd;text-align:left}
-            th{background:#eaf2ef}.number{text-align:right}.totals{margin:18px 0 0 auto;max-width:320px}
-            .totals p{display:flex;justify-content:space-between;gap:15px}
-            footer{border-top:1px solid #ddd;margin-top:25px;padding-top:12px;color:#52615c;font-size:12px}
-            </style></head><body><div class="receipt">
-            <div class="heading"><div><h1>SPORTHUB</h1><div>{{contact}}</div></div>
-            <div class="status">{{E(ReceiptTitle(model))}}<p>{{E(ReceiptBadge(model))}}</p><div>{{E(model.InvoiceNumber)}}</div></div></div>
-            <div class="meta"><div><h3>Member</h3><p>{{E(model.MemberName)}}</p><p>{{E(model.MemberEmail)}}</p><p>{{E(model.MemberPhone)}}</p></div>
-            <div><h3>Invoice details</h3><p><b>Invoice:</b> {{E(model.InvoiceNumber)}}</p>{{fields}}</div></div>
-            <table><thead><tr><th>Service / item</th><th class="number">Qty</th><th class="number">Unit price</th><th class="number">Amount</th></tr></thead>
-            <tbody>{{rows}}</tbody></table>
-            <div class="totals"><p><b>Subtotal:</b><b>{{Money(model.TotalAmount)}}</b></p>{{settlement}}<p><b>Status:</b><b>{{E(ReceiptBadge(model))}}</b></p></div>
-            <footer>SportHub{{(contact.Length > 0 ? " · " + contact : "")}}</footer></div></body></html>
-            """;
-    }
-
     private static string Money(
         decimal value)
         =>

@@ -12,7 +12,10 @@ import { useLanguage } from "@/lib/language";
 import type { RoomDto } from "@/lib/types";
 import styles from "./class-week-schedule.module.css";
 import arrowStyles from "./course-editor.module.css";
-import { scheduleConflictFlags } from "./schedule-conflicts";
+import {
+  draftScheduleConflictFlags,
+  scheduleConflictFlags,
+} from "./schedule-conflicts";
 
 export function ClassWeekSchedule({
   startDate,
@@ -21,7 +24,9 @@ export function ClassWeekSchedule({
   rooms,
   classId,
   excludeSessionId,
+  excludeSessionIds,
   draftSessions,
+  showDraftSessions = false,
 }: {
   startDate: string;
   coachId: string;
@@ -29,7 +34,9 @@ export function ClassWeekSchedule({
   rooms: RoomDto[];
   classId?: number;
   excludeSessionId?: string;
+  excludeSessionIds?: string[];
   draftSessions: { startAtUtc: string; endAtUtc: string }[];
+  showDraftSessions?: boolean;
 }) {
   const { t } = useLanguage();
   const l = t.classScheduleLookup;
@@ -44,7 +51,11 @@ export function ClassWeekSchedule({
   const entries = groupCenterIncidents(
     (state.data ?? []).filter(
       (entry) =>
-        (!classId || entry.classId !== classId) &&
+        (excludeSessionIds
+          ? !excludeSessionIds.includes(entry.sourceId)
+          : !classId || entry.classId !== classId) &&
+        (!showDraftSessions ||
+          !/CANCEL|EXPIRED|REJECTED/i.test(entry.status ?? "")) &&
         (!excludeSessionId ||
           entry.sourceType !== "CLASS_SESSION" ||
           entry.sourceId !== excludeSessionId) &&
@@ -76,15 +87,37 @@ export function ClassWeekSchedule({
     coachName: entry.coachName,
     status: entry.status,
   }));
+  if (showDraftSessions) {
+    const draftConflicts = draftScheduleConflictFlags(
+      entries,
+      draftSessions,
+      coachId,
+      roomId,
+    );
+    events.push(
+      ...draftSessions.map((session, index) => ({
+        ...session,
+        id: `proposed-${index}`,
+        title: `Proposed session ${index + 1}`,
+        type: "CLASS_SESSION",
+        status: "DRAFT",
+        roomName: rooms.find((room) => room.roomId === roomId)?.name,
+        conflict: draftConflicts[index],
+      })),
+    );
+  }
   function move(next: string) {
     setDate(mondayOfIso(next));
   }
 
   return (
-    <section className={styles.panel} aria-label={l.title}>
+    <section
+      className={styles.panel}
+      aria-label={showDraftSessions ? "Weekly timetable" : l.title}
+    >
       <div className={styles.heading}>
         <div className={styles.caption}>
-          <h3>{l.title}</h3>
+          <h3>{showDraftSessions ? "Weekly timetable" : l.title}</h3>
           <p className={styles.range}>
             {formatDate(date)} &ndash; {formatDate(end)}
           </p>
@@ -136,10 +169,11 @@ export function ClassWeekSchedule({
               view="week"
               events={events}
               hideToolbar
+              compact={showDraftSessions}
               labels={{
                 ...t.calendar,
                 weekdays: t.mSchedule.weekdays,
-                empty: l.emptyDay,
+                empty: showDraftSessions ? "Free" : l.emptyDay,
                 conflict: l.conflict,
               }}
               onDateChange={move}

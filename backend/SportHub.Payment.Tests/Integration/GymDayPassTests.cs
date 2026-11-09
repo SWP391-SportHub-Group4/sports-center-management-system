@@ -192,7 +192,7 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
     }
 
     [Fact]
-    public async Task Manager_can_change_day_pass_price_but_not_duration_or_availability()
+    public async Task Manager_can_change_day_pass_price_and_availability_but_not_duration()
     {
         var manager = await factory.SeedUserAsync(UserRole.CenterManager);
         using var client = factory.CreateApiClient(manager.UserId, UserRole.CenterManager);
@@ -212,8 +212,50 @@ public sealed class GymDayPassTests(PaymentApiFactory factory)
         {
             name = DayPass.Name, price = (int)DayPass.PriceVnd, durationDays = 1
         });
-        Assert.Equal(HttpStatusCode.Conflict,
+        Assert.Equal(HttpStatusCode.OK,
             (await client.PostAsync($"/api/membership-packages/{DayPass.PackageId}/discontinue", null)).StatusCode);
+        try
+        {
+            using var app = AtTime(TodayAtLocalHour(14));
+            var member = await factory.SeedUserAsync(UserRole.Member);
+            using var buyer = Client(app, member.UserId, UserRole.Member);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/checkouts/membership")
+            {
+                Content = JsonContent.Create(new { packageId = DayPass.PackageId })
+            };
+            request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
+            var rejected = await buyer.SendAsync(request);
+            Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
+            Assert.Contains("membership_package_discontinued", await rejected.Content.ReadAsStringAsync());
+
+            var today = DateOnly.FromDateTime(VietnamTime.ToLocal(TodayAtLocalHour(14)));
+            var pass = await SeedActiveDayPassAsync(factory, member.UserId, today);
+            using var scope = app.Services.CreateScope();
+            var access = await scope.ServiceProvider.GetRequiredService<IMembershipAccessReader>()
+                .GetActiveAsync(member.UserId, new DateTimeOffset(TodayAtLocalHour(14)));
+            Assert.Equal(pass.MemberPackageId, access?.MemberPackageId);
+
+            Assert.Equal(HttpStatusCode.OK,
+                (await client.PostAsync($"/api/membership-packages/{DayPass.PackageId}/reactivate", null)).StatusCode);
+            Assert.True(await factory.QueryAsync(db => db.MembershipPackages
+                .Where(x => x.PackageId == DayPass.PackageId).Select(x => x.IsActive).SingleAsync()));
+
+            foreach (var isActive in new[] { false, true })
+            {
+                var edited = await client.PutAsJsonAsync($"/api/membership-packages/{DayPass.PackageId}", new
+                {
+                    name = DayPass.Name, price = (int)DayPass.PriceVnd, durationDays = 1, isActive
+                });
+                Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+                Assert.Equal(isActive, await factory.QueryAsync(db => db.MembershipPackages
+                    .Where(x => x.PackageId == DayPass.PackageId).Select(x => x.IsActive).SingleAsync()));
+            }
+        }
+        finally
+        {
+            (await client.PostAsync($"/api/membership-packages/{DayPass.PackageId}/reactivate", null))
+                .EnsureSuccessStatusCode();
+        }
     }
 
     private static async Task<MemberPackage> SeedActiveDayPassAsync(PaymentApiFactory factory, Guid memberId, DateOnly today)

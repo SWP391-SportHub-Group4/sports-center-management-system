@@ -261,8 +261,11 @@ export function CourseCancellation({
     [classId],
   );
   const review = preview.data;
-  const [refunds, setRefunds] = useState<Record<string, string>>({});
+  const [refundPoints, setRefundPoints] = useState<string>();
   const c = t.classCancellationRefund;
+  const maximumPoints = review?.members.length
+    ? Math.min(...review.members.map((member) => member.refundPoints))
+    : 0;
   const validPoints = (value: string | undefined, maximum: number) =>
     value !== undefined &&
     /^\d+$/.test(value) &&
@@ -270,9 +273,7 @@ export function CourseCancellation({
     Number(value) <= maximum;
   const validRefunds =
     !!review &&
-    review.members.every((m) =>
-      validPoints(refunds[m.enrollmentId], m.refundPoints),
-    );
+    (review.members.length === 0 || validPoints(refundPoints, maximumPoints));
   const mutation = useMutation();
   return (
     <CancellationContainer embedded={embedded} title={l.cancel}>
@@ -308,47 +309,26 @@ export function CourseCancellation({
               className={managementStyles.cancellationRefundInputs}
               aria-label={c.title}
             >
-              <h3>{c.title}</h3>
-              {review.members.map((member) => {
-                const value = refunds[member.enrollmentId];
-                const invalid =
-                  value !== undefined &&
-                  !validPoints(value, member.refundPoints);
-                return (
-                  <Field
-                    key={member.enrollmentId}
-                    label={`${c.points} — ${member.memberName}`}
-                    hint={c.maximum.replace(
-                      "{points}",
-                      String(member.refundPoints),
-                    )}
-                    error={
-                      invalid
-                        ? c.invalid.replace(
-                            "{points}",
-                            String(member.refundPoints),
-                          )
-                        : undefined
-                    }
-                    required
-                    reserveErrorSpace
-                  >
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      value={value ?? ""}
-                      disabled={mutation.busy}
-                      onChange={(e) =>
-                        setRefunds((previous) => ({
-                          ...previous,
-                          [member.enrollmentId]: e.target.value,
-                        }))
-                      }
-                    />
-                  </Field>
-                );
-              })}
+              <Field
+                label={c.points}
+                error={
+                  refundPoints !== undefined &&
+                  !validPoints(refundPoints, maximumPoints)
+                    ? c.invalid.replace("{points}", String(maximumPoints))
+                    : undefined
+                }
+                required
+                reserveErrorSpace
+              >
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={refundPoints ?? ""}
+                  disabled={mutation.busy}
+                  onChange={(e) => setRefundPoints(e.target.value)}
+                />
+              </Field>
             </section>
           )}
           {!review.canCancel && (
@@ -374,7 +354,7 @@ export function CourseCancellation({
                     previewToken: review.previewToken,
                     refunds: review.members.map((m) => ({
                       enrollmentId: m.enrollmentId,
-                      points: Number(refunds[m.enrollmentId]),
+                      points: Number(refundPoints),
                     })),
                   });
                 } catch (cause) {

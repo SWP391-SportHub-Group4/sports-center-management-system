@@ -596,7 +596,14 @@ export interface NutritionGuidanceDto {
   tips: string[];
 }
 
+// Canonical classification of Member workout suggestions, not a Coach lesson plan.
+export const WORKOUT_SUGGESTION_TYPE = "AI_SUGGESTION" as const;
+export const WORKOUT_SUGGESTION_LABEL = "AI suggestion" as const;
+export type WorkoutSuggestionSourceType = typeof WORKOUT_SUGGESTION_TYPE;
+
 export interface WorkoutSuggestionDto {
+  /** UI source classification; optional for responses from older backend versions. */
+  type?: WorkoutSuggestionSourceType;
   sport?: "Gym" | "Badminton" | "Basketball";
   memberId: string;
   memberName: string;
@@ -622,6 +629,8 @@ export interface WorkoutSuggestionDto {
 }
 
 export interface SavedWorkoutSuggestionDto {
+  /** Backend history entries use the AI_SUGGESTION type. */
+  type?: WorkoutSuggestionSourceType;
   id: string;
   generatedAt: string;
   sport: string;

@@ -6,6 +6,7 @@ from app.api.manager import (
 from app.api.member import (
     router as member_router,
 )
+from app.api.coach import router as coach_router
 
 
 app = FastAPI(
@@ -28,3 +29,5 @@ app.include_router(
 app.include_router(
     member_router
 )
+
+app.include_router(coach_router)

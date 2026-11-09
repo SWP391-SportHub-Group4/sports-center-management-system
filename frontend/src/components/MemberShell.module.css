@@ -777,13 +777,7 @@
   scroll-margin-top: 80px;
 }
 
-@media (min-width: 1024px) {
-  .shell:has(:global(.backdrop--nonmodal)) .main {
-    width: calc(100% - min(40vw, 440px));
-    margin-left: 0;
-    margin-right: min(40vw, 440px);
-  }
-}
+/* Member AI drawer overlays content; do not shrink or shift the page. */
 
 .pageHeader {
   margin-bottom: 24px;

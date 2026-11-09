@@ -16,10 +16,13 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { choiceQuery, useUrlQuery } from "@/lib/useUrlQuery";
-import type {
-  CourseEnrollmentDto,
-  WorkoutSuggestionDto,
-  SavedWorkoutSuggestionDto,
+import {
+  WORKOUT_SUGGESTION_LABEL,
+  WORKOUT_SUGGESTION_TYPE,
+  type CourseEnrollmentDto,
+  type WorkoutSuggestionDto,
+  type SavedWorkoutSuggestionDto,
+  type WorkoutSuggestionSourceType,
 } from "@/lib/types";
 import { TrainingProfile } from "./training-profile";
 import { formatDate } from "@/lib/format";
@@ -33,7 +36,8 @@ import styles from "./training.module.css";
 const AI_PLANS_KEY = "sporthub:member:ai-workout-plans:v1";
 const AI_PLANS_EVENT = "sporthub:ai-plans-changed";
 type AiDraft = { suggestion: WorkoutSuggestionDto; savedAt: string };
-type SavedAiPlan = AiDraft & { id: string };
+// The legacy browser drafts had no type field; treat them as AI suggestions.
+type SavedAiPlan = AiDraft & { id: string; type?: WorkoutSuggestionSourceType };
 
 function subscribeToPlans(onChange: () => void) {
   window.addEventListener(AI_PLANS_EVENT, onChange);
@@ -135,6 +139,7 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
           p !== null &&
           typeof p === "object" &&
           typeof p.id === "string" &&
+          (!("type" in p) || p.type === WORKOUT_SUGGESTION_TYPE) &&
           p.suggestion !== null &&
           typeof p.suggestion === "object" &&
           Array.isArray(p.suggestion.items),
@@ -351,6 +356,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
     (scope === "" || scope === "personal")
       ? aiPlans.filter(
           (plan) =>
+            (plan.type == null || plan.type === WORKOUT_SUGGESTION_TYPE) &&
             (!activity || plan.sport === activity) &&
             (!date || vietnamDate(plan.generatedAt) === date),
         )
@@ -392,9 +398,7 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
               <strong>
                 {plan.sport} · {plan.goal}
               </strong>
-              <span className={styles.aiBadge}>
-                {vi ? "AI tạo" : "Created by AI"}
-              </span>
+              <span className={styles.aiBadge}>{WORKOUT_SUGGESTION_LABEL}</span>
               <span className={styles.scopeBadge}>
                 Individual · Not coach-approved
               </span>

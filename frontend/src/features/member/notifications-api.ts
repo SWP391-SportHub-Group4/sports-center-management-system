@@ -51,6 +51,10 @@ export function notificationActionHref(
   item: NotificationDto,
   role?: string,
 ): string | null {
+  if (
+    item.sourceEventType === "SCHEDULE_CHANGED" &&
+    item.message.startsWith("Class schedule updated: ")
+  ) return null;
   if (item.sourceEventType === "INCIDENT_CANCELLED") return null;
   const roots: Record<string, string> = {
     Member: "/member/",
