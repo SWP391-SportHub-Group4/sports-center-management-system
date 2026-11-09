@@ -17,7 +17,7 @@ namespace SportHub.API.Jobs;
 public sealed class NotificationDispatchJob(
     IServiceProvider services,
     ILogger<NotificationDispatchJob> logger)
-    : PeriodicJob(services, logger, TimeSpan.FromSeconds(30))
+    : PeriodicJob(services, logger, TimeSpan.FromSeconds(5))
 {
     protected override string JobName => nameof(NotificationDispatchJob);
 

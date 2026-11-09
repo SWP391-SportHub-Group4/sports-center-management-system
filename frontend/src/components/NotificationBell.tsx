@@ -20,8 +20,8 @@ import styles from "./NotificationBell.module.css";
  * In-app preview shared by all roles. Every message opens the inbox reader;
  * the reader persists read receipts and offers any related business action separately.
  *
- * Poll 60 giây thay vì SignalR: thông báo ở đây là nhắc hạn gói và báo đổi lịch — chậm một
- * phút không ảnh hưởng gì, và một kết nối realtime chỉ để làm việc đó là chi phí thừa.
+ * Poll định kỳ 5 giây khi tab đang hiển thị (Smart Polling) để cập nhật thông báo nhanh chóng
+ * mà không lãng phí tài nguyên khi người dùng ẩn tab.
  */
 export function NotificationBell() {
   const { t } = useLanguage();
@@ -49,18 +49,31 @@ export function NotificationBell() {
   );
 
   useEffect(() => {
-    const timer = window.setInterval(() => unread.reload(), 60_000);
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        unread.reload();
+      }
+    };
+    const timer = window.setInterval(tick, 5_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        unread.reload();
+        if (open) items.reload();
+      }
+    };
     const refresh = () => {
       unread.reload();
       items.reload();
     };
+    window.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("sporthub:notifications-read", refresh);
     return () => {
       window.clearInterval(timer);
+      window.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("sporthub:notifications-read", refresh);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [open]);
 
   // Bấm ra ngoài thì đóng panel.
   useEffect(() => {
