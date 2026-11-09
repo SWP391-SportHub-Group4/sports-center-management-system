@@ -2,11 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import {
-  ArrowLeft,
-  CalendarDays,
-  MapPin,
-} from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin } from "lucide-react";
 import { StatusChip } from "@/components/ui";
 import { CoachProfilePreview } from "@/components/CoachProfilePreview";
 import { api } from "@/lib/apiClient";
@@ -21,6 +17,10 @@ import { MemberTeachingFeed } from "@/features/coaching";
 import { memberEnrollments } from "./api";
 import { CalendarSticker } from "./calendar-sticker";
 import styles from "./schedule-course-page.module.css";
+import {
+  ServicePhotoGallery,
+  useServiceGallery,
+} from "@/features/service-media";
 
 export function ScheduleCoursePage({
   classId,
@@ -66,6 +66,7 @@ export function ScheduleCoursePage({
     courseApi.sessions(classId, true, signal),
   );
   const enrollment = state.data?.enrollment;
+  const gallery = useServiceGallery("class", classId);
   const name =
     enrollment?.className ??
     event?.title ??
@@ -140,19 +141,15 @@ export function ScheduleCoursePage({
           {enrollment && <StatusChip value={enrollment.status} />}
         </header>
         <div className={styles.overview}>
-          <div className={styles.coach}>
-            {coachId && coach ? (
-              <CoachProfilePreview
-                coachId={coachId}
-                name={coach}
-                sport={sport}
-                className={styles.coachTrigger}
-              >
-                {coachPortrait}
-              </CoachProfilePreview>
-            ) : (
-              coachPortrait
-            )}
+          <div className={styles.courseGallery}>
+            <ServicePhotoGallery
+              gallery={gallery.data}
+              loading={gallery.loading}
+              sportName={sport}
+              kind="class"
+              alt={name}
+              priority
+            />
           </div>
           <div className={styles.summary}>
             <div className={styles.sport}>
@@ -162,6 +159,20 @@ export function ScheduleCoursePage({
             <h2 ref={heading} tabIndex={-1} id="schedule-course-title">
               {name}
             </h2>
+            <div className={styles.coach}>
+              {coachId && coach ? (
+                <CoachProfilePreview
+                  coachId={coachId}
+                  name={coach}
+                  sport={sport}
+                  className={styles.coachTrigger}
+                >
+                  {coachPortrait}
+                </CoachProfilePreview>
+              ) : (
+                coachPortrait
+              )}
+            </div>
             <dl className={styles.facts}>
               <div>
                 <dt>
@@ -194,7 +205,7 @@ export function ScheduleCoursePage({
                 </dd>
               </div>
               {event && (
-                <div>
+                <div className={styles.selectedSession}>
                   <dt>
                     <CalendarDays size={17} aria-hidden="true" />
                     {vi ? "Buổi đang xem" : "Selected session"}
@@ -208,10 +219,12 @@ export function ScheduleCoursePage({
             </dl>
           </div>
         </div>
-        <MemberTeachingFeed
-          classId={classId}
-          sessions={state.data?.sessions ?? []}
-        />
+        <div className={styles.teaching}>
+          <MemberTeachingFeed
+            classId={classId}
+            sessions={state.data?.sessions ?? []}
+          />
+        </div>
       </article>
     </div>
   );

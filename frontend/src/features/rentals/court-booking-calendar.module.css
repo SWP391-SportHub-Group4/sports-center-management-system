@@ -319,3 +319,266 @@
 .review .reviewHeading > strong {
   font-size: 28px;
 }
+
+.pageTitle {
+  color: var(--chalk-950);
+  font-size: 44px !important;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+.booking h2 {
+  color: var(--chalk-950);
+}
+.sports button {
+  min-height: 44px;
+  padding-block: 10px;
+  border-radius: var(--radius-sm);
+}
+.sports button[aria-pressed="true"],
+.dates button[aria-pressed="true"] {
+  background: var(--court-600);
+  border-color: var(--court-600);
+}
+.layout {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: "calendar review" "slots review";
+  gap: 20px;
+}
+.layout:not(:has(.review)) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "calendar" "slots";
+}
+.side {
+  display: contents;
+}
+.calendar {
+  grid-area: calendar;
+  width: 100%;
+  max-width: none;
+  padding: 16px 20px;
+}
+.calendar > h2 {
+  font-size: 24px;
+}
+.monthNav {
+  margin-block: 8px;
+}
+.dates {
+  gap: 3px;
+}
+.dates button {
+  min-height: 44px;
+}
+.weekdays,
+.dates {
+  max-width: 450px;
+  margin-inline: auto;
+}
+.calendar .policy {
+  text-align: center;
+}
+.review {
+  grid-area: review;
+  align-content: start;
+  background: var(--white);
+  border-color: var(--border-subtle);
+  padding: 18px;
+}
+.reviewHeading h2 {
+  font-size: 28px;
+}
+.reviewHeading p {
+  display: none;
+}
+.reviewHeading {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.review .reviewHeading > strong {
+  color: var(--chalk-950);
+  font-size: 32px;
+}
+.bookingFacts {
+  display: grid;
+  margin: 0;
+  font-size: 13px;
+}
+.bookingFacts > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.bookingFacts dt {
+  color: var(--text-muted);
+}
+.bookingFacts dd {
+  margin: 0;
+  font-weight: 600;
+}
+.review :global(.btn) {
+  width: 100%;
+  background: var(--court-600);
+  border-color: var(--court-600);
+  color: var(--white);
+}
+.slotsPanel {
+  grid-area: slots;
+  padding: 18px;
+  background: var(--white);
+}
+.rooms {
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+.room,
+.timeHeader {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 12px;
+  min-width: calc(182px + var(--slot-count) * 100px);
+}
+.timeHeader {
+  align-items: center;
+  padding: 10px;
+  background: var(--bg-surface-sunken);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.timeHeader > div {
+  display: grid;
+  grid-template-columns: repeat(var(--slot-count), minmax(0, 1fr));
+  gap: 6px;
+  text-align: center;
+  font-weight: 600;
+}
+.room {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.roomPreview {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--chalk-950);
+  cursor: pointer;
+  text-align: left;
+}
+.roomPreview > div {
+  aspect-ratio: 1;
+}
+.roomPreview > span {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.roomPreview > span svg {
+  display: none;
+}
+.roomPreview :global([data-service-photo="category"]) > span {
+  font-size: 8px;
+  padding: 2px 3px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  max-width: calc(100% - 8px);
+}
+.slots {
+  grid-template-columns: repeat(var(--slot-count), minmax(0, 1fr));
+  gap: 6px;
+}
+.slots button {
+  min-height: 88px;
+  padding: 8px 5px;
+  border: 0;
+  background: var(--court-100);
+  color: var(--court-800);
+  text-align: center;
+  align-content: center;
+}
+.slots strong {
+  font-size: 11px;
+}
+.slots button[data-state="BOOKED"],
+.slots button[data-state="SCHEDULED"],
+.slots button[data-state="BLOCKED"],
+.slots button[data-state="UNAVAILABLE"],
+.slots button[data-state="NO_RATE"],
+.unavailableSlot {
+  background: var(--chalk-100);
+  color: var(--chalk-700);
+}
+.slots button[aria-pressed="true"] {
+  background: var(--court-600);
+  color: var(--white);
+}
+.unavailableSlot {
+  display: grid;
+  place-content: center;
+  min-height: 88px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  text-align: center;
+}
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "calendar" "slots" "review";
+  }
+  .review {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 12px 24px;
+  }
+  .review > div:first-child {
+    grid-row: 1 / span 3;
+  }
+  .review .bookingFacts {
+    grid-column: 2;
+  }
+  .review .policy {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 540px) {
+  .review {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .review > div:first-child {
+    grid-row: auto;
+  }
+  .review .bookingFacts {
+    grid-column: 1;
+  }
+  .pageTitle {
+    font-size: 36px !important;
+  }
+  .room,
+  .timeHeader {
+    grid-template-columns: 130px minmax(0, 1fr);
+    min-width: calc(142px + var(--slot-count) * 94px);
+  }
+  .roomPreview {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+  .roomPreview > span {
+    font-size: 19px;
+  }
+  .calendar,
+  .slotsPanel,
+  .review {
+    padding: 14px;
+  }
+  .dates button {
+    min-height: 40px;
+  }
+}

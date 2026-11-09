@@ -14,7 +14,7 @@ public sealed class HeroPlaylistValidationTests
     [InlineData(0, "https://example.com/clip.webm", "https://example.com/poster.jpg")]
     public async Task Invalid_playlists_are_rejected_before_any_database_write(int count, string url, string poster)
     {
-        var controller = new LandingPageController(null!, null!, null!);
+        var controller = new LandingPageController(null!, null!, null!, null!);
         var values = new Dictionary<string, string> {
             ["bookmarks.coachIds"] = string.Join(',', Enumerable.Range(0, 3).Select(_ => Guid.NewGuid())),
             ["hero.background.playlist"] = JsonSerializer.Serialize(Enumerable.Range(0, count).Select(index => new { url, poster, name = $"Video {index + 1}" })),

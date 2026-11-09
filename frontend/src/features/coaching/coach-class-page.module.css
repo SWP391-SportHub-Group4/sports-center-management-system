@@ -37,13 +37,53 @@
   border-radius: var(--radius-lg);
   min-width: 0;
 }
+.mediaLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--space-5);
+  padding: var(--space-5);
+  align-items: start;
+}
+.gallery,
+.overviewContent {
+  min-width: 0;
+}
+.overviewContent .identity {
+  padding: 0 0 var(--space-4);
+}
+.overviewContent .classFacts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: var(--space-4) 0;
+}
+.overviewContent .enrollment summary,
+.overviewContent .enrollmentFacts {
+  padding-inline: 0;
+}
+.classOverview[data-sport] {
+  --sport-bg: var(--court-50);
+  --sport-ink: var(--court-700);
+  background: var(--white);
+}
+@media (max-width: 1000px) {
+  .mediaLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .mediaLayout {
+    padding: var(--space-4);
+  }
+  .overviewContent .classFacts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .classOverview[data-sport="badminton"] {
-  --sport-bg: var(--info-bg);
-  --sport-ink: var(--info-text);
+  --sport-bg: var(--court-50);
+  --sport-ink: var(--court-700);
 }
 .classOverview[data-sport="basketball"] {
-  --sport-bg: var(--warning-bg);
-  --sport-ink: var(--warning-text);
+  --sport-bg: var(--court-50);
+  --sport-ink: var(--court-700);
 }
 .sportMark {
   width: 68px;
@@ -92,10 +132,12 @@
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
 .classFacts > div {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
   min-width: 0;
+}
+.classFacts dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .classFacts svg {
   flex-shrink: 0;

@@ -26,10 +26,11 @@ import {
   IconLogout,
   IconQrCode,
   IconMenu,
-  IconClose,
 } from "./icons";
 import styles from "./MemberShell.module.css";
 import { AvatarImage } from "./AvatarImage";
+import { Dialog } from "./ui";
+import { useUrlQuery } from "@/lib/useUrlQuery";
 
 export interface NavItem {
   href: string;
@@ -126,7 +127,10 @@ export function MemberFrame({
     label: t.finance.title,
     also: ["/member/invoices", "/member/wallet"],
   });
-  const fitnessProfileActive = pathname === "/member/profile";
+  const query = useUrlQuery({ tab: "" });
+  const fitnessProfileActive =
+    pathname === "/member/profile" ||
+    (pathname === "/member/training" && query.values.tab === "profile");
   const helpActive = pathname === "/member/help";
 
   // Authentication & Role check
@@ -336,6 +340,7 @@ export function MemberFrame({
               className={styles.mobileMenuBtn}
               onClick={() => setMobileMenuOpen(true)}
               aria-label={t.nav.openNav}
+              aria-expanded={mobileMenuOpen}
             >
               <IconMenu size={20} />
             </button>
@@ -345,112 +350,94 @@ export function MemberFrame({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div
-          className={styles.mobileDrawerOverlay}
-          onClick={() => setMobileMenuOpen(false)}
+        <Dialog
+          title="Member navigation"
+          className={styles.mobileDialog}
+          onClose={() => setMobileMenuOpen(false)}
         >
-          <div
-            className={styles.mobileDrawer}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.mobileDrawerHeader}>
-              <span className={styles.brandLogo}>
-                Sport<span className={styles.brandLogoAccent}>Hub</span>
-              </span>
-              <button
-                type="button"
-                className={styles.mobileDrawerClose}
-                onClick={() => setMobileMenuOpen(false)}
-                aria-label={t.nav.closeNav}
-              >
-                <IconClose size={20} />
-              </button>
-            </div>
+          <div className={styles.mobileNavLinks}>
+            {memberNavItems.map((item) => {
+              const active = isActive(pathname, item);
 
-            <div className={styles.mobileNavLinks}>
-              {memberNavItems.map((item) => {
-                const active = isActive(pathname, item);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`${styles.mobileNavLink} ${active ? styles.mobileNavLinkActive : ""}`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-              <button
-                type="button"
-                className={styles.mobileNavLink}
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setCodeOpen(true);
-                }}
-              >
-                <IconQrCode size={16} style={{ marginRight: 8 }} />
-                <span>{language === "en" ? "Member code" : "Mã hội viên"}</span>
-              </button>
-              <Link
-                href="/member/profile"
-                className={`${styles.mobileNavLink} ${fitnessProfileActive ? styles.mobileNavLinkActive : ""}`}
-                aria-current={fitnessProfileActive ? "page" : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <IconHeartbeat size={16} style={{ marginRight: 8 }} />
-                <span>{t.common.fitnessProfile}</span>
-              </Link>
-              <Link
-                href="/account"
-                className={styles.mobileNavLink}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <IconSettings size={16} style={{ marginRight: 8 }} />
-                <span>{t.common.myAccount}</span>
-              </Link>
-              <Link
-                href="/member/finance"
-                className={`${styles.mobileNavLink} ${billingActive ? styles.mobileNavLinkActive : ""}`}
-                aria-current={billingActive ? "page" : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <ReceiptText
-                  size={16}
-                  style={{ marginRight: 8 }}
-                  aria-hidden="true"
-                />
-                <span>{t.finance.title}</span>
-              </Link>
-              <Link
-                href="/member/help"
-                className={`${styles.mobileNavLink} ${helpActive ? styles.mobileNavLinkActive : ""}`}
-                aria-current={helpActive ? "page" : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <LifeBuoy
-                  size={16}
-                  style={{ marginRight: 8 }}
-                  aria-hidden="true"
-                />
-                <span>Help</span>
-              </Link>
-              <button
-                type="button"
-                className={`${styles.mobileNavLink} ${styles.logoutItem}`}
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  logout();
-                }}
-              >
-                <IconLogout size={16} style={{ marginRight: 8 }} />
-                <span>{t.common.logout}</span>
-              </button>
-            </div>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`${styles.mobileNavLink} ${active ? styles.mobileNavLinkActive : ""}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+            <button
+              type="button"
+              className={styles.mobileNavLink}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setCodeOpen(true);
+              }}
+            >
+              <IconQrCode size={16} style={{ marginRight: 8 }} />
+              <span>{language === "en" ? "Member code" : "Mã hội viên"}</span>
+            </button>
+            <Link
+              href="/member/training?tab=profile"
+              className={`${styles.mobileNavLink} ${fitnessProfileActive ? styles.mobileNavLinkActive : ""}`}
+              aria-current={fitnessProfileActive ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <IconHeartbeat size={16} style={{ marginRight: 8 }} />
+              <span>{t.common.fitnessProfile}</span>
+            </Link>
+            <Link
+              href="/account"
+              className={styles.mobileNavLink}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <IconSettings size={16} style={{ marginRight: 8 }} />
+              <span>{t.common.myAccount}</span>
+            </Link>
+            <Link
+              href="/member/finance"
+              className={`${styles.mobileNavLink} ${billingActive ? styles.mobileNavLinkActive : ""}`}
+              aria-current={billingActive ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <ReceiptText
+                size={16}
+                style={{ marginRight: 8 }}
+                aria-hidden="true"
+              />
+              <span>{t.finance.title}</span>
+            </Link>
+            <Link
+              href="/member/help"
+              className={`${styles.mobileNavLink} ${helpActive ? styles.mobileNavLinkActive : ""}`}
+              aria-current={helpActive ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <LifeBuoy
+                size={16}
+                style={{ marginRight: 8 }}
+                aria-hidden="true"
+              />
+              <span>Help</span>
+            </Link>
+            <button
+              type="button"
+              className={`${styles.mobileNavLink} ${styles.logoutItem}`}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                logout();
+              }}
+            >
+              <IconLogout size={16} style={{ marginRight: 8 }} />
+              <span>{t.common.logout}</span>
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Main Page Content */}

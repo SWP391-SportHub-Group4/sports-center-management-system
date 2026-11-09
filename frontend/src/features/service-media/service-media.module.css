@@ -1,0 +1,120 @@
+.cover {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: var(--court-100);
+  border-radius: var(--radius-md);
+}
+.cover img {
+  object-fit: cover;
+}
+.placeholder {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  width: fit-content;
+  max-width: calc(100% - 16px);
+  padding: 4px 7px;
+  background: var(--chalk-950);
+  color: var(--white);
+  font-size: 10px;
+  line-height: 1.45;
+  border-radius: 4px;
+}
+.gallery {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.mainPhoto {
+  display: block;
+  position: relative;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: zoom-in;
+  text-align: left;
+  border-radius: var(--radius-md);
+}
+.mainPhoto:focus-visible,
+.thumbnails button:focus-visible {
+  outline: 3px solid var(--court-600);
+  outline-offset: 3px;
+}
+.enlarge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  background: var(--white);
+  color: var(--court-700);
+  padding: 7px 12px;
+  border-radius: 5px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+.thumbnails {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 3px;
+}
+.thumbnails button {
+  position: relative;
+  flex: 0 0 calc(20% - 8px);
+  min-width: 72px;
+  min-height: 48px;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: var(--bg-surface-sunken);
+  cursor: pointer;
+}
+.thumbnails button[aria-pressed="true"] {
+  border-color: var(--court-600);
+}
+.thumbnails img {
+  object-fit: cover;
+}
+.fullPhoto {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+}
+.fullPhoto img {
+  object-fit: contain;
+}
+.dialogControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.photoError {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.photoError button {
+  padding: 4px;
+  border: 0;
+  color: var(--court-700);
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+@media (max-width: 520px) {
+  .dialogControls {
+    flex-wrap: wrap;
+  }
+  .dialogControls button {
+    flex: 1;
+  }
+}

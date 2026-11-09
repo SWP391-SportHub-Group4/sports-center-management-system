@@ -10,4 +10,5 @@ public sealed record InvoiceItemResponse(
     Guid? RelatedEntityId,
     int? ClassId = null, Guid? CourtRentalId = null,
     Guid? MemberPackageId = null, int? SportId = null, string? SportName = null,
-    Guid? SourceInvoiceItemId = null);
+    Guid? SourceInvoiceItemId = null,
+    string? ServiceImageKind = null, int? ServiceImageId = null);

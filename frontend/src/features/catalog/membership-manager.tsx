@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { PackageMembers } from "./package-members";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
@@ -98,6 +99,12 @@ export function MembershipManager() {
           ]}
           actions={(p) => (
             <>
+              <Link
+                className="btn btn--secondary btn--sm"
+                href={`/manager/service-images/membership/${p.packageId}`}
+              >
+                Images
+              </Link>
               <button
                 type="button"
                 className="btn btn--secondary btn--sm"

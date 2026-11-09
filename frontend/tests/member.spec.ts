@@ -801,7 +801,8 @@ for (const width of [320, 768, 1024, 1280, 1360, 1440])
           page.getByRole("tab", { name: "Fitness profile" }),
         ).toHaveAttribute("aria-selected", "true");
       }
-      if (width >= 960) {
+      // The redesigned header uses its drawer below 1120px to keep account actions spacious.
+      if (width >= 1120) {
         const nav = page.getByRole("navigation", { name: "Member Navigation" });
         await expect(nav).toBeVisible();
         await expect(nav.getByRole("link")).toHaveText([

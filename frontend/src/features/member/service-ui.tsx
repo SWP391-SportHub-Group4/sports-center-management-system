@@ -98,16 +98,16 @@ export function SubNav({
 }) {
   const items: { id: HubView; text: string; extra?: ReactNode }[] = [
     {
+      id: "explore",
+      text: labels?.explore ?? (vi ? "Khám phá gói" : "Explore packages"),
+    },
+    {
       id: "owned",
       text: labels?.owned ?? (vi ? "Dịch vụ của tôi" : "My services"),
       extra:
         ownedCount === undefined ? null : (
           <span className={styles.count}>{ownedCount}</span>
         ),
-    },
-    {
-      id: "explore",
-      text: labels?.explore ?? (vi ? "Khám phá gói" : "Explore packages"),
     },
   ];
   return (

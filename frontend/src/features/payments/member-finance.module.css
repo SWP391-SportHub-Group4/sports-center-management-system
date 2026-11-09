@@ -1,7 +1,7 @@
 .panel {
   display: grid;
   gap: var(--space-4);
-  max-width: 960px;
+  min-width: 0;
 }
 .head {
   display: flex;
@@ -12,7 +12,9 @@
 }
 .head h2 {
   margin: 0;
-  font-size: var(--text-xl);
+  font-family: var(--font-display);
+  font-size: 29px;
+  font-weight: 800;
 }
 .head select {
   min-height: 44px;
@@ -26,8 +28,10 @@
 }
 .count {
   margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 .quietAction {
@@ -46,25 +50,58 @@
 }
 
 /* Hóa đơn: một danh sách liền, mỗi dòng ngày + số tiền + trạng thái; cả dòng bấm được. */
+.invoiceTable {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+.invoiceColumns {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(130px, 1fr) minmax(
+      130px,
+      0.9fr
+    ) minmax(140px, 1fr) minmax(110px, auto);
+  align-items: center;
+  gap: 20px;
+  padding: 16px 22px;
+  background: var(--bg-surface-sunken);
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+.invoiceColumns > :nth-last-child(-n + 2) {
+  text-align: right;
+}
+.invoiceDate {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+.invoiceStatus {
+  justify-self: start;
+  white-space: nowrap;
+}
+.invoiceStatus > * {
+  white-space: nowrap;
+}
 .invoices {
   margin: 0;
   padding: 0;
   list-style: none;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface);
 }
 .invoices li {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) auto minmax(110px, auto) minmax(
-      18px,
-      auto
-    );
+  grid-template-columns: minmax(180px, 1.35fr) minmax(130px, 1fr) minmax(
+      130px,
+      0.9fr
+    ) minmax(140px, 1fr) minmax(110px, auto);
   align-items: center;
-  gap: var(--space-4);
-  min-height: 72px;
-  padding: var(--space-3) var(--space-5);
+  gap: 20px;
+  min-height: 88px;
+  padding: 18px 22px;
 }
 .invoices li + li {
   border-top: 1px solid var(--border-subtle);
@@ -79,7 +116,7 @@
 }
 .invoiceLink {
   color: var(--text-strong);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   text-decoration: none;
@@ -110,9 +147,10 @@
 }
 .invoiceMoney strong {
   color: var(--text-strong);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: var(--text-md);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .invoiceMoney small {
   color: var(--warning-text);
@@ -146,21 +184,29 @@
 .invoices li:hover .chevron {
   color: var(--color-primary);
 }
-@media (max-width: 640px) {
+@media (max-width: 1050px) {
+  .invoiceColumns {
+    display: none;
+  }
   .invoices li {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       "main status"
-      "money money";
+      "date date"
+      "money money"
+      "action action";
     gap: var(--space-2) var(--space-3);
     padding: var(--space-4);
   }
   .invoices .invoiceMain {
     grid-area: main;
   }
-  .invoices li > :nth-child(2) {
+  .invoices .invoiceStatus {
     grid-area: status;
     justify-self: end;
+  }
+  .invoices .invoiceDate {
+    grid-area: date;
   }
   .invoices .invoiceMoney {
     grid-area: money;
@@ -173,9 +219,39 @@
     display: none;
   }
   .payAction {
-    grid-column: 1 / -1;
+    grid-area: action;
     justify-self: stretch;
     justify-content: center;
+  }
+}
+.refundPage {
+  display: grid;
+  gap: 26px;
+  min-width: 0;
+}
+.timeline {
+  padding: 22px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-surface);
+}
+.timeline::before {
+  left: 27px;
+  top: 30px;
+  bottom: 30px;
+}
+.timeline li:last-child {
+  padding-bottom: 0;
+}
+@media (max-width: 380px) {
+  .invoices li {
+    grid-template-areas: "main main" "status status" "date date" "money money" "action action";
+  }
+  .invoices .invoiceStatus {
+    justify-self: start;
+  }
+  .invoiceMoney small {
+    font-size: 11px;
   }
 }
 

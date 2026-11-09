@@ -17,6 +17,7 @@ import { rentalApi } from "@/features/rentals";
 import { GOAL_TYPES } from "@/features/training";
 import { memberSchedule } from "./api";
 import styles from "./overview-widgets.module.css";
+import { ServiceCover, useServiceGalleries } from "@/features/service-media";
 
 function useTx() {
   const { language } = useLanguage();
@@ -292,6 +293,10 @@ export function RecommendedSection({
       );
     })
     .slice(0, 2);
+  const galleries = useServiceGalleries(
+    "class",
+    picks.map((course) => course.classId),
+  );
 
   if (courses.loading || courses.error || picks.length === 0) return null;
   return (
@@ -307,25 +312,35 @@ export function RecommendedSection({
       <ul className={styles.recoList}>
         {picks.map((c) => (
           <li key={c.classId} className={styles.reco}>
-            <span className={styles.sportTag}>{c.sportName}</span>
-            <h3>{c.name}</h3>
-            <p className={styles.muted}>
-              {tx("Khai giảng", "Starts")}{" "}
-              {formatDate(c.firstSessionStartUtc ?? c.startDate)} ·{" "}
-              {c.numSessions} {tx("buổi", "sessions")}
-              {c.coachName ? ` · ${c.coachName}` : ""}
-            </p>
-            <p className={styles.muted}>
-              {tx("Còn", "")} {c.availableSeats} {tx("chỗ", "seats left")}
-            </p>
-            <div className={styles.recoFoot}>
-              <strong>{formatMoney(c.price)}</strong>
-              <Link
-                className={styles.cta}
-                href="/member/services?section=courses&view=explore"
-              >
-                {tx("Đăng ký ngay", "Register now")}
-              </Link>
+            <ServiceCover
+              gallery={galleries.galleries.get(c.classId)}
+              sportName={c.sportName}
+              kind="class"
+              alt={c.name}
+              className={styles.recoPhoto}
+              sizes="(max-width: 640px) 100vw, 180px"
+            />
+            <div className={styles.recoContent}>
+              <span className={styles.sportTag}>{c.sportName}</span>
+              <h3>{c.name}</h3>
+              <p className={styles.muted}>
+                {tx("Khai giảng", "Starts")}{" "}
+                {formatDate(c.firstSessionStartUtc ?? c.startDate)} ·{" "}
+                {c.numSessions} {tx("buổi", "sessions")}
+                {c.coachName ? ` · ${c.coachName}` : ""}
+              </p>
+              <p className={styles.muted}>
+                {tx("Còn", "")} {c.availableSeats} {tx("chỗ", "seats left")}
+              </p>
+              <div className={styles.recoFoot}>
+                <strong>{formatMoney(c.price)}</strong>
+                <Link
+                  className={styles.cta}
+                  href={`/member/services/courses/${c.classId}`}
+                >
+                  {tx("Đăng ký ngay", "Register now")}
+                </Link>
+              </div>
             </div>
           </li>
         ))}
