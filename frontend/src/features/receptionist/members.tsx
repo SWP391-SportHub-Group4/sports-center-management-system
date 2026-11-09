@@ -99,16 +99,15 @@ export function MemberList() {
                         {m.phone ? ` · ${m.phone}` : ""}
                       </td>
                       <td className={styles.statusCell}>
-                        <span className={styles.statusStack}>
+                        {m.status === "ACTIVE" && m.activationPending ? (
+                          <StatusChip
+                            value="PENDING_ACTIVATION"
+                            tone="warning"
+                            label={l.pendingActivation}
+                          />
+                        ) : (
                           <StatusChip value={m.status} />
-                          {m.activationPending && (
-                            <StatusChip
-                              value="PENDING_ACTIVATION"
-                              tone="warning"
-                              label={l.pendingActivation}
-                            />
-                          )}
-                        </span>
+                        )}
                       </td>
                       <td className={styles.actionsCell}>
                         <span className={styles.rowActions}>

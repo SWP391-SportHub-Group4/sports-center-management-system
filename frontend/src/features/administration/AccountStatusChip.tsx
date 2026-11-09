@@ -12,6 +12,19 @@ const statusTones: Partial<Record<string, StatusTone>> = {
 
 export function AccountStatusChip({ account }: { account: UserAdminDto }) {
   const { t } = useLanguage();
+  if (
+    account.role === "MEMBER" &&
+    account.status === "ACTIVE" &&
+    account.activationPending
+  ) {
+    return (
+      <StatusChip
+        value="PENDING_ACTIVATION"
+        tone="warning"
+        label={t.frontDesk.pendingActivation}
+      />
+    );
+  }
   const status = account.status === "ACTIVE" ? "ACTIVE" : "DEACTIVATED";
   const labels: Record<string, string> = {
     ACTIVE: t.staffWork.accountActive,
