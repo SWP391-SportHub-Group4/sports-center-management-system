@@ -177,10 +177,23 @@ export function NotificationInbox() {
       )
         refreshList();
     };
-    const timer = window.setInterval(refreshUnread, 60_000);
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        refreshUnread();
+      }
+    };
+    const timer = window.setInterval(tick, 5_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshUnread();
+        refreshList();
+      }
+    };
+    window.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("sporthub:notifications-read", changed);
     return () => {
       window.clearInterval(timer);
+      window.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("sporthub:notifications-read", changed);
     };
   }, [refreshList, refreshUnread]);
