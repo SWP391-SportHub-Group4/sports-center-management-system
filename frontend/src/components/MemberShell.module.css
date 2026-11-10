@@ -37,15 +37,15 @@
   /* Navbar tối "Court & Volt" dùng chung cho mọi vai trò (Member, Coach,
      Receptionist, Manager, Admin) — một bộ token, không palette riêng theo role. */
   --bg-app: #20382b;
-  --bg-surface: #13251e;
-  --bg-surface-sunken: #20382b;
+  --bg-surface: var(--court-900);
+  --bg-surface-sunken: var(--court-800);
   --text-strong: #f0f2e8;
   --text-body: #e5eada;
   --text-muted: #c4d0c0;
   --text-link: var(--volt-400);
   --color-primary: var(--volt-400);
   --color-primary-hover: var(--volt-300);
-  --color-primary-soft: #2d4321;
+  --color-primary-soft: var(--court-800);
   --color-on-primary: #13251e;
   --border-subtle: #425247;
   --border-strong: #718275;
@@ -101,7 +101,7 @@
   padding-inline: 16px;
 }
 
-@media (min-width: 960px) {
+@media (min-width: 1120px) {
   .header .headerInner {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -234,7 +234,7 @@
 }
 
 /* Nav nằm cùng một hàng với logo và nhóm hành động; dưới 1360px chuyển vào drawer. */
-@media (min-width: 1360px) {
+@media (min-width: 1120px) {
   .desktopNav {
     display: flex;
   }
@@ -651,7 +651,7 @@
   flex-shrink: 0;
 }
 
-@media (min-width: 1360px) {
+@media (min-width: 1120px) {
   .mobileMenuBtn {
     display: none;
   }
@@ -771,9 +771,9 @@
   min-width: 0;
   box-sizing: border-box;
   width: 100%;
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 24px 112px;
+  padding: 36px 48px 96px;
   scroll-margin-top: 80px;
 }
 
@@ -977,5 +977,37 @@
 
   .mobileDrawer {
     width: min(290px, 86vw);
+  }
+}
+
+.mobileDialog:global(.dialog) {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(380px, 100%);
+  max-height: 100dvh;
+  height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+}
+.mobileDialog :global(.dialog__body) {
+  padding: 16px;
+  overflow-y: auto;
+}
+.pageTitle {
+  font-weight: var(--weight-bold);
+  font-size: var(--text-4xl);
+  letter-spacing: -0.02em;
+}
+@media (max-width: 700px) {
+  .main {
+    padding: 24px 20px 96px;
+  }
+  .pageTitle {
+    font-size: var(--text-3xl);
+  }
+}
+@media (max-width: 359px) {
+  .main {
+    padding-inline: 16px;
   }
 }

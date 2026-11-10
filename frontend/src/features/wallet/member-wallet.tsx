@@ -66,24 +66,22 @@ export function MemberWallet() {
                 Add points
               </Link>
             </div>
-            {b.heldPoints > 0 && (
-              <dl className={styles.secondary}>
-                <div>
-                  <dt>{w.held}</dt>
-                  <dd>
-                    {formatPoints(b.heldPoints)}
-                    <small>{l.heldNote}</small>
-                  </dd>
-                </div>
-                <div>
-                  <dt>{w.total}</dt>
-                  <dd>
-                    {formatPoints(b.availablePoints + b.heldPoints)}
-                    <small>{l.totalNote}</small>
-                  </dd>
-                </div>
-              </dl>
-            )}
+            <dl className={styles.secondary}>
+              <div>
+                <dt>{w.held}</dt>
+                <dd>
+                  {formatPoints(b.heldPoints)}
+                  <small>{l.heldNote}</small>
+                </dd>
+              </div>
+              <div>
+                <dt>{w.total}</dt>
+                <dd>
+                  {formatPoints(b.availablePoints + b.heldPoints)}
+                  <small>{l.totalNote}</small>
+                </dd>
+              </div>
+            </dl>
           </section>
         )}
       </AsyncSection>
@@ -139,83 +137,93 @@ export function MemberWallet() {
         >
           {(rows) => (
             <>
-              <ul className={styles.list}>
-                {rows.slice(0, PAGE_SIZE).map((row) => {
-                  const topUp = row.referenceType === "WalletTopUp";
-                  const label = topUp
-                    ? "Points top-up via VNPay"
-                    : row.entryType === "EARN" &&
-                        row.referenceType === "PaymentAdjustment"
-                      ? w.refundEarn
-                      : (events[row.entryType] ?? row.entryType);
-                  const delta = row.availableDelta || row.heldDelta;
-                  return (
-                    <li key={row.id}>
-                      <div className={styles.what}>
-                        <strong>{label}</strong>
-                        {topUp && (
-                          <p>
-                            Paid {formatMoney(row.points * 1000)} · +
-                            {formatPoints(row.points)} points
-                            {row.sourceInvoiceId && (
-                              <>
-                                {" · "}
-                                <Link
-                                  href={`/member/finance?tab=invoices&invoice=${row.sourceInvoiceId}`}
-                                >
-                                  {l.refundInvoice}
-                                </Link>
-                              </>
-                            )}
-                          </p>
-                        )}
-                        {!topUp && row.note && (
-                          <p>
-                            {row.referenceType === "SystemEvent" &&
-                            row.entryType === "EARN"
-                              ? `${l.refundReason}: `
-                              : ""}
-                            {row.note}
-                          </p>
-                        )}
-                        {!topUp && row.sourceDescription && (
-                          <p>
-                            {l.refundSource}: {row.sourceDescription}
-                            {row.sourceInvoiceId && (
-                              <>
-                                {" · "}
-                                <Link
-                                  href={`/member/finance?tab=invoices&invoice=${row.sourceInvoiceId}`}
-                                >
-                                  {l.refundInvoice}
-                                </Link>
-                              </>
-                            )}
-                          </p>
-                        )}
-                        <time dateTime={row.createdAtUtc}>
+              <div className={styles.ledgerTable}>
+                <div className={styles.ledgerHead} aria-hidden="true">
+                  <span>Event</span>
+                  <span>Date</span>
+                  <span>Points / balance</span>
+                </div>
+                <ul className={styles.list}>
+                  {rows.slice(0, PAGE_SIZE).map((row) => {
+                    const topUp = row.referenceType === "WalletTopUp";
+                    const label = topUp
+                      ? "Points top-up via VNPay"
+                      : row.entryType === "EARN" &&
+                          row.referenceType === "PaymentAdjustment"
+                        ? w.refundEarn
+                        : (events[row.entryType] ?? row.entryType);
+                    const delta = row.availableDelta || row.heldDelta;
+                    return (
+                      <li key={row.id}>
+                        <div className={styles.what}>
+                          <strong>{label}</strong>
+                          {topUp && (
+                            <p>
+                              Paid {formatMoney(row.points * 1000)} · +
+                              {formatPoints(row.points)} points
+                              {row.sourceInvoiceId && (
+                                <>
+                                  {" · "}
+                                  <Link
+                                    href={`/member/finance?tab=invoices&invoice=${row.sourceInvoiceId}`}
+                                  >
+                                    {l.refundInvoice}
+                                  </Link>
+                                </>
+                              )}
+                            </p>
+                          )}
+                          {!topUp && row.note && (
+                            <p>
+                              {row.referenceType === "SystemEvent" &&
+                              row.entryType === "EARN"
+                                ? `${l.refundReason}: `
+                                : ""}
+                              {row.note}
+                            </p>
+                          )}
+                          {!topUp && row.sourceDescription && (
+                            <p>
+                              {l.refundSource}: {row.sourceDescription}
+                              {row.sourceInvoiceId && (
+                                <>
+                                  {" · "}
+                                  <Link
+                                    href={`/member/finance?tab=invoices&invoice=${row.sourceInvoiceId}`}
+                                  >
+                                    {l.refundInvoice}
+                                  </Link>
+                                </>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                        <time
+                          className={styles.ledgerDate}
+                          dateTime={row.createdAtUtc}
+                        >
                           {formatDateTime(row.createdAtUtc)}
                         </time>
-                      </div>
-                      <div className={styles.amount}>
-                        <span
-                          className={delta < 0 ? styles.out : styles.in}
-                          data-held={row.availableDelta === 0}
-                        >
-                          {delta > 0 ? "+" : ""}
-                          {formatPoints(delta)}
-                        </span>
-                        <small>
-                          {l.balanceAfter.replace(
-                            "{n}",
-                            formatPoints(row.availableAfter),
-                          )}
-                        </small>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+                        <div className={styles.amount}>
+                          <span
+                            className={delta < 0 ? styles.out : styles.in}
+                            data-held={row.availableDelta === 0}
+                          >
+                            {delta > 0 ? "+" : ""}
+                            {formatPoints(delta)}
+                          </span>
+                          <small>
+                            {l.balanceAfter.replace(
+                              "{n}",
+                              formatPoints(row.availableAfter),
+                            )}
+                          </small>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
               <PageNav
                 page={page}
                 hasNext={rows.length >= PAGE_SIZE}

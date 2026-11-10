@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Audit;
+using SportHub.BuildingBlocks.Abstractions.Media;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
 using SportHub.BuildingBlocks.Abstractions.Scheduling;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
@@ -14,7 +15,7 @@ namespace SportHub.Scheduling.Catalog.Application;
 /// Membership chỉ bật được ở môn tham chiếu Gym (<see cref="SportCodes.Gym"/>), kiểm ở backend.
 /// </summary>
 public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWriter audit,
-    SportHub.Scheduling.Application.Services.CourseCancellationService cancellations)
+    SportHub.Scheduling.Application.Services.CourseCancellationService cancellations, IMediaImageReferenceGuard mediaReferences)
 {
     public async Task<IReadOnlyList<SportGalleryResponse>> ListGalleryAsync(CancellationToken ct = default)
         => await db.Set<Sport>().AsNoTracking()
@@ -65,6 +66,7 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var ordered = await LockAndListSportsAsync(ct);
+        await mediaReferences.ProtectAttachmentsAsync([sport.ImageUrl], [], ct);
         // Check after the catalog lock so concurrent creates cannot pass together.
         if (await db.Set<Sport>().AnyAsync(s => s.Name == name, ct))
             throw new ConflictException("sport_name_taken", "This sport already exists.");
@@ -123,6 +125,8 @@ public sealed partial class SportCatalogService(ISportHubDbContext db, IAuditWri
         }
 
         var before = Describe(sport);
+
+        await mediaReferences.ProtectAttachmentsAsync([Clean(request.ImageUrl)], [sport.ImageUrl], ct);
 
         sport.Name = name;
         sport.Description = Clean(request.Description);

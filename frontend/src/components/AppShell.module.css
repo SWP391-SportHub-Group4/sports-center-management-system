@@ -260,8 +260,24 @@
   scrollbar-color: var(--border-strong) var(--bg-surface);
 }
 
-/* Coach panels use the same forest ink as the manager's selected controls. */
+/* Coach uses the same Court & Volt surfaces and controls as the Member workspace. */
 .coachShell {
+  --bg-app: var(--chalk-50);
+  --bg-surface: var(--white);
+  --bg-surface-sunken: var(--chalk-100);
+  --text-strong: var(--chalk-950);
+  --text-body: var(--chalk-700);
+  --text-muted: var(--chalk-600);
+  --color-primary: var(--court-600);
+  --color-primary-hover: var(--court-700);
+  --color-primary-active: var(--court-800);
+  --color-primary-soft: var(--court-50);
+  --color-primary-soft-text: var(--court-800);
+  --border-subtle: var(--chalk-200);
+  --border-control: var(--chalk-500);
+  --border-strong: var(--chalk-400);
+  --focus-ring: var(--court-600);
+  --brand-900: var(--court-900);
   --bg-brand-deep: var(--brand-900);
   --bg-inverse: var(--brand-900);
   --bg-inverse-raised: var(--color-primary-active);
@@ -283,6 +299,16 @@
   --danger-bg: #3c2424;
   box-shadow: none;
   border-bottom: 1px solid var(--border-subtle);
+}
+.coachShell > header {
+  --bg-surface: var(--court-900);
+  --bg-surface-sunken: var(--court-800);
+  --text-strong: var(--white);
+  --text-body: var(--chalk-100);
+  --text-muted: var(--chalk-200);
+  --color-primary: var(--volt-400);
+  --color-primary-soft: var(--court-800);
+  --border-subtle: var(--court-700);
 }
 
 .managerShell > header > div {

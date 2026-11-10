@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { MemberShell } from "@/components/MemberShell";
 import { AsyncSection, StatusChip } from "@/components/ui";
 import { buttonClass } from "@/components/primitives";
@@ -45,6 +46,43 @@ import {
   TrainingSummaryCard,
 } from "@/features/member/overview-widgets";
 import styles from "./dashboard.module.css";
+import { ServiceCover, useServiceGallery } from "@/features/service-media";
+
+function ActivityPhoto({ session }: { session: MemberEvent }) {
+  const gallery = useServiceGallery(
+    "class",
+    session.type === "CLASS_SESSION" ? session.classId : null,
+  );
+  return (
+    <ServiceCover
+      gallery={gallery.data}
+      sportName={session.sportName}
+      kind={session.type === "COURT_RENTAL" ? "court" : "class"}
+      alt={session.title}
+      className={styles.sessionPhoto}
+      sizes="(max-width: 720px) 100vw, 280px"
+    />
+  );
+}
+
+function MembershipPhoto({
+  packageId,
+  name,
+}: {
+  packageId: number;
+  name: string;
+}) {
+  const gallery = useServiceGallery("membership", packageId);
+  return (
+    <ServiceCover
+      gallery={gallery.data}
+      kind="gym"
+      alt={name}
+      className={styles.membershipPhoto}
+      sizes="(max-width: 900px) 100vw, 360px"
+    />
+  );
+}
 
 interface UnactivatedPaymentDto {
   invoiceId: string;
@@ -58,7 +96,7 @@ function sessionHref(session: MemberEvent) {
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(session.startAtUtc));
-  return `/member/schedule?date=${date}${session.type === "COURT_RENTAL" ? `&rental=${encodeURIComponent(session.id)}` : ""}`;
+  return `/member/schedule?date=${date}${session.type === "COURT_RENTAL" ? `&rental=${encodeURIComponent(session.id)}` : `&event=${encodeURIComponent(session.id)}`}`;
 }
 
 function vietnamDate(value: string) {
@@ -483,18 +521,6 @@ export default function MemberDashboardPage() {
                 : "ready"
           }
         />
-        <nav className={styles.quickActions} aria-label={l.quickActions}>
-          <strong>{l.quickActions}</strong>
-          <Link href="/member/services?section=courts&view=explore">
-            {l.quickCourt}
-          </Link>
-          <Link href="/member/services?section=courses&view=explore">
-            {l.quickClass}
-          </Link>
-          <Link href="/member/services?section=gym&view=explore">
-            {l.quickRenew}
-          </Link>
-        </nav>
         <div className={styles.primaryGrid}>
           <div className={styles.main}>
             <section
@@ -503,9 +529,14 @@ export default function MemberDashboardPage() {
             >
               <div className={styles.sectionHeading}>
                 <div>
-                  <h2 id="next-session-title">{t.memberPages.schedule}</h2>
+                  <h2 id="next-session-title">
+                    {language === "vi" ? "Buổi tiếp theo" : "Next session"}
+                  </h2>
                 </div>
-                <IconCalendar size={24} aria-hidden="true" />
+                <Link href="/member/schedule">
+                  {language === "vi" ? "Xem lịch của tôi" : "View my schedule"}
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
               </div>
               <AsyncSection state={schedule}>
                 {(classRows) => {
@@ -543,49 +574,55 @@ export default function MemberDashboardPage() {
                         <>
                           <div
                             className={styles.nextSession}
-                            data-surface="inverse"
                             data-sport={sportTone(sportOf(next))}
                           >
-                            <div className={styles.nextTop}>
-                              <span className={styles.activity}>
-                                {sportOf(next) ?? t.refactor.courses}
-                              </span>
-                              <KindTag session={next} />
-                              <CheckInTag session={next} now={now} />
-                              <ExceptionChip value={next.status} />
-                            </div>
-                            {countdown && (
-                              <p className={styles.startsIn}>{countdown}</p>
-                            )}
-                            <div className={styles.nextBody}>
-                              <DateTile value={next.startAtUtc} />
-                              <div className={styles.nextInfo}>
-                                <h3>{next.title}</h3>
-                                <p>
-                                  <IconClock size={18} aria-hidden="true" />
-                                  {formatTime(next.startAtUtc)} –{" "}
-                                  {formatTime(next.endAtUtc)}
-                                </p>
-                                {(next.roomName ||
-                                  next.type !== "COURT_RENTAL") && (
-                                  <p>
-                                    <IconLocation
-                                      size={18}
-                                      aria-hidden="true"
-                                    />
-                                    {next.roomName || l.notAssigned}
-                                  </p>
-                                )}
-                                {next.coachName && <p>{next.coachName}</p>}
-                                {next.isMakeup && <p>{t.memberPages.makeup}</p>}
+                            <ActivityPhoto session={next} />
+                            <div className={styles.sessionContent}>
+                              <div className={styles.nextTop}>
+                                <span className={styles.activity}>
+                                  {sportOf(next) ?? t.refactor.courses}
+                                </span>
+                                <KindTag session={next} />
+                                <CheckInTag session={next} now={now} />
+                                <ExceptionChip value={next.status} />
                               </div>
+                              {countdown && (
+                                <p className={styles.startsIn}>{countdown}</p>
+                              )}
+                              <div className={styles.nextBody}>
+                                <DateTile value={next.startAtUtc} />
+                                <div className={styles.nextInfo}>
+                                  <h3>{next.title}</h3>
+                                  <p>
+                                    <IconClock size={18} aria-hidden="true" />
+                                    {formatTime(next.startAtUtc)} –{" "}
+                                    {formatTime(next.endAtUtc)}
+                                  </p>
+                                  {(next.roomName ||
+                                    next.type !== "COURT_RENTAL") && (
+                                    <p>
+                                      <IconLocation
+                                        size={18}
+                                        aria-hidden="true"
+                                      />
+                                      {next.roomName || l.notAssigned}
+                                    </p>
+                                  )}
+                                  {next.coachName && <p>{next.coachName}</p>}
+                                  {next.isMakeup && (
+                                    <p>{t.memberPages.makeup}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <Link
+                                href={sessionHref(next)}
+                                className={buttonClass()}
+                              >
+                                {language === "vi"
+                                  ? "Xem chi tiết"
+                                  : "View details"}
+                              </Link>
                             </div>
-                            <Link
-                              href={sessionHref(next)}
-                              className={buttonClass()}
-                            >
-                              {l.openSchedule}
-                            </Link>
                           </div>
                           {upcoming.length > 1 && (
                             <div className={styles.upcoming}>
@@ -629,10 +666,7 @@ export default function MemberDashboardPage() {
                           )}
                         </>
                       ) : (
-                        <div
-                          className={styles.emptySchedule}
-                          data-surface="inverse"
-                        >
+                        <div className={styles.emptySchedule}>
                           <IconCalendar size={32} aria-hidden="true" />
                           <h3>{l.noScheduleTitle}</h3>
                           <p>{l.noScheduleBody}</p>
@@ -706,6 +740,10 @@ export default function MemberDashboardPage() {
                     )[0];
                     return current ? (
                       <>
+                        <MembershipPhoto
+                          packageId={current.packageId}
+                          name={current.packageName}
+                        />
                         <div className={styles.inlineHeading}>
                           <strong>{current.packageName}</strong>
                           <ExceptionChip value={current.status} />
@@ -730,6 +768,14 @@ export default function MemberDashboardPage() {
                               ),
                             )}`}
                         </p>
+                        <Link
+                          className={buttonClass()}
+                          href="/member/services?section=gym&view=owned"
+                        >
+                          {language === "vi"
+                            ? "Xem gói tập"
+                            : "View membership"}
+                        </Link>
                       </>
                     ) : (
                       <>
@@ -747,6 +793,21 @@ export default function MemberDashboardPage() {
                 </AsyncSection>
               </section>
             </section>
+            <nav className={styles.quickActions} aria-label={l.quickActions}>
+              <h2>{language === "vi" ? "Dịch vụ của tôi" : "My services"}</h2>
+              <Link href="/member/services?section=courts&view=explore">
+                {l.quickCourt}
+                <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              <Link href="/member/services?section=courses&view=explore">
+                {l.quickClass}
+                <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              <Link href="/member/services?section=gym&view=explore">
+                {l.quickRenew}
+                <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+            </nav>
             <TrainingSummaryCard />
             <FitnessQuickCard />
           </div>

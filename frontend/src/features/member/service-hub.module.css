@@ -13,7 +13,9 @@
 .intro h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-4xl);
+  font-size: 48px;
+  text-transform: uppercase;
+  color: var(--chalk-950);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
 }

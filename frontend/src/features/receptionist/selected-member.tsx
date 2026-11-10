@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { CalendarClock } from "lucide-react";
 
-
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -60,7 +59,7 @@ export function SelectedMemberPanel({
   /** Tắt để hồ sơ hội viên tự đặt hủy/hỗ trợ trong tab Overview. */
   withExtras?: boolean;
 }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const vi = language === "vi";
   const mutation = useMutation();
   const [localCooldown, setLocalCooldown] = useState({
@@ -299,9 +298,27 @@ export function SelectedMemberPanel({
               {member.fullName || member.email}
             </h2>
             <StatusChip
-              value={deactivated ? "DEACTIVATED" : "ACTIVE"}
-              tone={deactivated ? "neutral" : "success"}
-              label={deactivated ? "Deactivated" : "Active"}
+              value={
+                deactivated
+                  ? "DEACTIVATED"
+                  : activationPending
+                    ? "PENDING_ACTIVATION"
+                    : "ACTIVE"
+              }
+              tone={
+                deactivated
+                  ? "neutral"
+                  : activationPending
+                    ? "warning"
+                    : "success"
+              }
+              label={
+                deactivated
+                  ? "Deactivated"
+                  : activationPending
+                    ? t.frontDesk.pendingActivation
+                    : "Active"
+              }
             />
           </div>
 
@@ -374,12 +391,17 @@ export function SelectedMemberPanel({
       )}
 
       <div className={styles.actions}>
-        <span className={styles.tip} title={blocked ? blockReason ?? undefined : undefined}>
+        <span
+          className={styles.tip}
+          title={blocked ? (blockReason ?? undefined) : undefined}
+        >
           <button
             type="button"
             className="btn"
             disabled={!ready || mutation.busy || blocked || cooldownSeconds > 0}
-            aria-describedby={blocked && blockReason ? "checkin-block-reason" : undefined}
+            aria-describedby={
+              blocked && blockReason ? "checkin-block-reason" : undefined
+            }
             onClick={checkIn}
           >
             {cooldownSeconds > 0
