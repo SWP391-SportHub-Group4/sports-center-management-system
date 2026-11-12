@@ -3723,6 +3723,10 @@ namespace SportHub.API.Migrations
                         .HasDefaultValue(false)
                         .HasColumnName("allow_rental");
 
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
                     b.Property<int>("Capacity")
                         .HasColumnType("integer")
                         .HasColumnName("capacity");
@@ -3753,7 +3757,8 @@ namespace SportHub.API.Migrations
 
                     b.HasIndex("Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_rooms_name");
+                        .HasDatabaseName("ix_rooms_name")
+                        .HasFilter("deleted_at_utc IS NULL");
 
                     b.HasIndex("RoomTypeId")
                         .HasDatabaseName("ix_rooms_room_type_id");

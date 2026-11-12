@@ -80,7 +80,6 @@ export function ScheduleReview({
   );
   return (
     <div className="stack">
-      <p>{t.managerOperations.previewHint}</p>
       <AsyncSection state={state}>
         {(rows) => (
           <>

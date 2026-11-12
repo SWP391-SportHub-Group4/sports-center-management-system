@@ -125,6 +125,12 @@ for (const width of [1440, 390]) {
     expect(posts).toHaveLength(2);
     expect(posts[0]).toEqual(posts[1]);
     expect(keys[0]).toBe(keys[1]);
+    await page
+      .getByRole("dialog", { name: "Success", exact: true })
+      .screenshot({
+        path: testInfo.outputPath("notice-success.png"),
+        animations: "disabled",
+      });
     expect(posts[0]).toMatchObject({
       subject: "Schedule update",
       message: "Your class schedule has changed.",
@@ -132,7 +138,10 @@ for (const width of [1440, 390]) {
       sendEmail: true,
       sendInApp: true,
     });
-    await page.getByRole("button", { name: /New notice/ }).click();
+    await page
+      .getByRole("dialog", { name: "Success", exact: true })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
     await page.screenshot({
       path: testInfo.outputPath("manual-notice-table.png"),
       animations: "disabled",

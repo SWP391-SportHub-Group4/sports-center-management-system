@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Coins, Plus } from "lucide-react";
+import { Coins, Plus } from "lucide-react";
 import { buttonClass } from "@/components/primitives";
 import { AsyncSection, PageNav } from "@/components/ui";
 import { EmptyPanel } from "@/components/EmptyPanel";
@@ -20,7 +20,7 @@ export function MemberWallet() {
   const l = t.finance;
   const w = t.wallet;
   const [page, setPage] = useState(1);
-  const [entryType, setEntryType] = useState("");
+  const [entryType, setEntryType] = useState("EARN,SPEND");
   const balance = useApi((signal) => walletApi.balance(signal), []);
   const ledger = useApi(
     (signal) => walletApi.ledger(page, signal, entryType),
@@ -35,11 +35,8 @@ export function MemberWallet() {
     }, [reloadBalance, reloadLedger]),
   );
   const events: Record<string, string> = {
-    HOLD: w.hold,
-    RELEASE: w.release,
-    SPEND: w.spend,
     EARN: w.earn,
-    ADJUSTMENT: w.adjustment,
+    SPEND: w.spend,
   };
   return (
     <div className={styles.wallet}>
@@ -90,51 +87,30 @@ export function MemberWallet() {
       <section className={styles.history} aria-labelledby="wallet-history">
         <header className={styles.historyHead}>
           <h2 id="wallet-history">{w.history}</h2>
-          {(entryType || !!ledger.data?.length) && (
-            <select
-              aria-label={w.event}
-              value={entryType}
-              onChange={(e) => {
-                setEntryType(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">{w.all}</option>
-              {Object.entries(events).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            aria-label={w.event}
+            value={entryType}
+            onChange={(e) => {
+              setEntryType(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="EARN,SPEND">{w.all}</option>
+            {Object.entries(events).map(([code, label]) => (
+              <option key={code} value={code}>
+                {label}
+              </option>
+            ))}
+          </select>
         </header>
         <AsyncSection
           state={ledger}
           isEmpty={(rows) => !rows.length}
           emptyMessage={
-            entryType ? (
-              <EmptyPanel
-                icon={<Coins size={22} />}
-                title={l.ledgerFilterEmpty}
-                action={
-                  <button type="button" onClick={() => setEntryType("")}>
-                    {l.clearFilter}
-                  </button>
-                }
-              />
-            ) : (
-              <EmptyPanel
-                icon={<Coins size={22} />}
-                title={l.ledgerEmptyTitle}
-                body={l.ledgerEmptyBody}
-                action={
-                  <Link href="/member/services">
-                    {l.ledgerEmptyAction}
-                    <ArrowRight size={16} aria-hidden="true" />
-                  </Link>
-                }
-              />
-            )
+            <EmptyPanel
+              icon={<Coins size={22} />}
+              title={l.ledgerFilterEmpty}
+            />
           }
         >
           {(rows) => (

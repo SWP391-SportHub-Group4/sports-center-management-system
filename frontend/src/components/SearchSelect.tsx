@@ -19,6 +19,7 @@ export function SearchSelect({
   required = false,
   label,
   placeholder,
+  emptyLabel,
 }: {
   items: { value: string; label: string }[];
   value: string;
@@ -26,6 +27,7 @@ export function SearchSelect({
   required?: boolean;
   label: string;
   placeholder: string;
+  emptyLabel?: string;
 }) {
   const { t } = useLanguage();
   const listId = useId();
@@ -37,7 +39,7 @@ export function SearchSelect({
     normalize(room.label).includes(normalize(query ?? "")),
   );
   const options = [
-    { value: "", label: "—" },
+    { value: "", label: emptyLabel ?? "—" },
     ...matches.map((room) => ({
       value: String(room.value),
       label: room.label,
@@ -67,8 +69,11 @@ export function SearchSelect({
         autoComplete="off"
         required={required}
         placeholder={placeholder}
-        value={query ?? selected?.label ?? ""}
+        value={
+          query ?? selected?.label ?? (value === "" ? emptyLabel : "") ?? ""
+        }
         onFocus={() => {
+          if (value === "" && emptyLabel) setQuery("");
           setOpen(true);
           setActive(-1);
         }}

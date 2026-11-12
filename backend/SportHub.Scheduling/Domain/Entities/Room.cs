@@ -19,4 +19,7 @@ public class Room
 
     public bool IsActive { get; set; } = true; // ngừng dùng thay cho xóa cứng
 
+    /// <summary>Soft deletion hides the room from the catalog while preserving historical references.</summary>
+    public DateTime? DeletedAtUtc { get; set; }
+
 }

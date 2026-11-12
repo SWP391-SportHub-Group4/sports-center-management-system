@@ -170,13 +170,6 @@ export function SportEditor({
           disabled={mutation.busy}
           onPreparingChange={setPreparingImage}
         />
-        <Field label={l.description}>
-          <textarea
-            maxLength={2000}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-        </Field>
       </CatalogFormDialog>
       {confirmDeactivation && row && (
         <SportDeactivationDialog

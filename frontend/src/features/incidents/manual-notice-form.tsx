@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import successStyles from "./notice-success.module.css";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/apiClient";
@@ -386,26 +386,6 @@ export function ManualNoticeForm({ onSent }: { onSent?: () => void } = {}) {
               </span>
               <div className={successStyles.title} role="status">
                 {t.manualNotices.sentSuccess}
-              </div>
-              <p className={successStyles.hint}>
-                {t.manualNotices.successHint}
-              </p>
-              <div className={successStyles.actions}>
-                <button
-                  type="button"
-                  className={`btn ${successStyles.newNotice}`}
-                  disabled={mutation.busy}
-                  onClick={resetAfterSuccess}
-                >
-                  {t.manualNotices.newNotice}
-                </button>
-                <Link
-                  className={successStyles.details}
-                  href={`/manager/notices/${sentId}`}
-                >
-                  {t.manualNotices.openDetails}
-                  <ArrowRight size={16} aria-hidden="true" />
-                </Link>
               </div>
             </div>
           </Dialog>,

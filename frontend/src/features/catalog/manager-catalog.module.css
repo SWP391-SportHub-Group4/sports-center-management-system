@@ -424,3 +424,11 @@
   border-bottom: 1px solid var(--border-subtle);
   overflow-wrap: anywhere;
 }
+.imageEditDialog,
+.imageEditDialog > :global(.dialog__body) {
+  scrollbar-width: none;
+}
+.imageEditDialog::-webkit-scrollbar,
+.imageEditDialog > :global(.dialog__body)::-webkit-scrollbar {
+  display: none;
+}

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, CalendarDays, Pencil, TriangleAlert } from "lucide-react";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
-import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import { MutationFeedback, useMutation } from "@/features/operations";
 import { useLanguage } from "@/lib/language";
 import type { RoomDto } from "@/lib/types";
@@ -18,11 +17,9 @@ import styles from "./room-details.module.css";
 export function RoomDetails({
   room,
   onEdit,
-  onDeleted,
 }: {
   room: RoomDto;
   onEdit: (room: RoomDto, apply: (updated: RoomDto) => void) => void;
-  onDeleted: () => void;
 }) {
   const { t } = useLanguage();
   const copy = t.managerCatalog;
@@ -80,6 +77,7 @@ export function RoomDetails({
           onClick={() => onEdit(current, setCurrent)}
         >
           <Pencil size={16} aria-hidden="true" />
+          {copy.editCourt}
         </button>
       </header>
       <nav className={styles.links} aria-label={copy.roomActions}>
@@ -158,21 +156,6 @@ export function RoomDetails({
           <RoomBlocks roomId={current.roomId} showHeading={false} />
         </section>
       </div>
-
-      <section className={styles.danger} aria-labelledby="room-delete-title">
-        <div>
-          <h2 id="room-delete-title">{t.recordActions.deleteRoom}</h2>
-          <p>{copy.roomDeleteHint}</p>
-        </div>
-        <ConfirmRecordAction
-          label={t.recordActions.deleteRoom}
-          title={t.recordActions.deleteRoom}
-          description={t.recordActions.roomDescription}
-          recordName={current.name}
-          onConfirm={() => catalogApi.deleteRoom(current.roomId)}
-          onCompleted={onDeleted}
-        />
-      </section>
     </div>
   );
 }

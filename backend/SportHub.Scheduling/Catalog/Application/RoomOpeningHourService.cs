@@ -100,7 +100,7 @@ public sealed class RoomOpeningHourService(ISportHubDbContext db, IAuditWriter a
 
     private async Task EnsureRoomAsync(int roomId, CancellationToken ct)
     {
-        if (!await db.Set<Room>().AnyAsync(r => r.RoomId == roomId, ct))
+        if (!await db.Set<Room>().AnyAsync(r => r.RoomId == roomId && r.DeletedAtUtc == null, ct))
         {
             throw new NotFoundException("room_not_found", "Room not found.");
         }

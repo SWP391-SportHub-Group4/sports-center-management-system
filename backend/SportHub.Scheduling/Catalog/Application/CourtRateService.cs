@@ -22,6 +22,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit, 
     public async Task<IReadOnlyList<CourtRateResponse>> ListAsync(int? roomTypeId, bool includeInactive, CancellationToken ct = default)
     {
         var query = db.Set<CourtRate>().AsNoTracking().Where(r => includeInactive || r.IsActive);
+        query = query.Where(r => r.RoomId == null || db.Set<Room>().Any(room => room.RoomId == r.RoomId && room.DeletedAtUtc == null));
 
         if (roomTypeId is int id)
         {
@@ -136,7 +137,7 @@ public sealed class CourtRateService(ISportHubDbContext db, IAuditWriter audit, 
         }
 
         if (request.RoomId is int roomId && !await db.Set<Room>().AnyAsync(
-                r => r.RoomId == roomId && r.RoomTypeId == request.RoomTypeId, ct))
+                r => r.RoomId == roomId && r.RoomTypeId == request.RoomTypeId && r.DeletedAtUtc == null, ct))
             throw new BadRequestException("rental_room_incompatible", "Choose a court belonging to this room type.");
 
         if (request.RoomId is int pricedRoomId)

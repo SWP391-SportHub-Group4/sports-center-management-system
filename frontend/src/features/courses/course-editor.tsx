@@ -330,12 +330,14 @@ export function CourseEditor({
     scheduleRules: schedule.scheduleRules,
   });
   const inputIssue = scheduleInputIssue(schedule, minutes, now);
+  const capacityValid =
+    Number.isInteger(schedule.capacity) && schedule.capacity >= 1;
   const canCheckSchedule =
     step >= 1 &&
     !catalog.loading &&
     !catalog.error &&
     !inputIssue &&
-    Number(form.capacity) >= 1 &&
+    capacityValid &&
     !capacityInvalid &&
     !outsideCenter;
   const availability = useApi(
@@ -356,13 +358,11 @@ export function CourseEditor({
     availability.data.rows.every((row) => row.available);
   const checkingSchedule =
     catalog.loading ||
-    (!outsideCenter &&
-      !inputIssue &&
-      !catalog.error &&
+    (canCheckSchedule &&
       !availability.error &&
       (!currentCheck || availability.loading));
   const incompleteCheck =
-    !inputIssue &&
+    canCheckSchedule &&
     currentCheck &&
     !availability.loading &&
     availability.data?.rows.length !== form.numSessions;
@@ -380,18 +380,22 @@ export function CourseEditor({
         ? feedback.checking
         : inputIssue
           ? feedback.issues[inputIssue]
-          : availability.error
-            ? (availabilityErrors[availability.error.code] ??
-              feedback.checkFailed)
-            : checkingSchedule
-              ? feedback.checking
-              : incompleteCheck
-                ? feedback.incomplete
-                : scheduleReady
-                  ? feedback.ready
-                  : feedback.unavailable;
+          : !capacityValid
+            ? inputCopy.capacity
+            : capacityInvalid
+              ? m.capacityExceeded
+              : availability.error
+                ? (availabilityErrors[availability.error.code] ??
+                  feedback.checkFailed)
+                : checkingSchedule
+                  ? feedback.checking
+                  : incompleteCheck
+                    ? feedback.incomplete
+                    : scheduleReady
+                      ? feedback.ready
+                      : feedback.unavailable;
   const scheduleReasons =
-    !inputIssue &&
+    canCheckSchedule &&
     currentCheck &&
     !availability.loading &&
     !availability.error &&
@@ -635,8 +639,6 @@ export function CourseEditor({
               </Field>
 
               <SportSelector
-                allowCreate
-                onCatalogChanged={catalog.reload}
                 groupOnly
                 value={form.sportId}
                 onChange={(sportId) =>
@@ -698,6 +700,7 @@ export function CourseEditor({
               >
                 <CoachSelector
                   required
+                  searchable
                   sportId={Number(form.sportId)}
                   value={form.coachId}
                   onChange={(coachId) =>
@@ -711,6 +714,7 @@ export function CourseEditor({
 
                 <RoomSelector
                   required
+                  searchable
                   onCatalogChanged={catalog.reload}
                   onCourtCreated={(court) =>
                     setForm((current) => ({
@@ -774,13 +778,22 @@ export function CourseEditor({
                     min={todayIso()}
                     max={oneYearFromToday(now)}
                     value={form.startDate}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-
-                        startDate: event.target.value,
-                      })
-                    }
+                    onChange={(event) => {
+                      const startDate = event.target.value;
+                      const dayOfWeek = new Date(
+                        `${startDate}T12:00:00Z`,
+                      ).getUTCDay();
+                      setForm((current) => ({
+                        ...current,
+                        startDate,
+                        scheduleRules: current.scheduleRules.map(
+                          (rule, index) =>
+                            index === 0 && Number.isFinite(dayOfWeek)
+                              ? { ...rule, dayOfWeek }
+                              : rule,
+                        ),
+                      }));
+                    }}
                   />
                 </Field>
 
@@ -991,7 +1004,6 @@ export function CourseEditor({
                 roomName={room?.name}
               />
 
-              <p>{m.draftHint}</p>
             </>
           )}
         </fieldset>
