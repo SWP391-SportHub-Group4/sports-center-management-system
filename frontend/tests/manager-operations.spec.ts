@@ -322,9 +322,19 @@ async function fillDraft(page: Page, proceed = true) {
     .getByRole("button", { name: en.operations.next, exact: true })
     .click();
   await page
-    .getByLabel(en.operations.coach, { exact: true })
-    .selectOption(coachId);
-  await page.getByLabel(en.operations.room, { exact: true }).selectOption("7");
+    .getByRole("combobox", { name: en.operations.coach, exact: true })
+    .fill(coach.fullName);
+  await page
+    .getByRole("listbox", { name: en.operations.coach, exact: true })
+    .getByRole("option", { name: coach.fullName, exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: en.operations.room, exact: true })
+    .fill(rooms[0].name);
+  await page
+    .getByRole("listbox", { name: en.operations.room, exact: true })
+    .getByRole("option", { name: rooms[0].name, exact: true })
+    .click();
   await page.getByLabel(en.operations.capacity, { exact: true }).fill("12");
   await page.getByLabel(en.operations.numSessions, { exact: true }).fill("2");
   await page
@@ -1353,7 +1363,8 @@ test(
     await page.reload();
     await expect(
       page.getByLabel(en.operations.room, { exact: true }),
-    ).toHaveValue("7");
+    ).toHaveValue(rooms[0].name);
+    await expect(page).toHaveURL(/[?&]roomId=7(?:&|$)/);
     await expect(page.getByLabel(en.managerOperations.source)).toHaveValue(
       "COURT_RENTAL",
     );
@@ -2444,7 +2455,9 @@ test(
       .getByRole("button", { name: en.mSchedule.prevWeek, exact: true })
       .click();
     await expect(page).toHaveURL(/\/manager\/schedule$/);
-    await expect(page.getByLabel(en.operations.date, {exact: true})).toHaveValue("2030-09-30");
+    await expect(
+      page.getByLabel(en.operations.date, { exact: true }),
+    ).toHaveValue("2030-09-30");
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(
       page.getByRole("button", { name: en.calendar.week, exact: true }),
@@ -2605,10 +2618,10 @@ test(
     await expect(panel).toBeVisible();
     await expect(
       page.getByLabel(en.operations.coach, { exact: true }),
-    ).toHaveValue(coachId);
+    ).toHaveValue(coach.fullName);
     await expect(
       page.getByLabel(en.operations.room, { exact: true }),
-    ).toHaveValue("7");
+    ).toHaveValue(rooms[0].name);
     await expect(
       page.getByLabel(en.operations.startDate, { exact: true }),
     ).toHaveValue("2030-10-03");
