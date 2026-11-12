@@ -791,10 +791,15 @@ test(
     await page
       .getByRole("button", { name: en.operations.previous, exact: true })
       .click();
-    await page.getByLabel(en.operations.capacity, { exact: true }).fill("17");
+    const capacity = page.getByLabel(en.operations.capacity, { exact: true });
+    await capacity.fill("17");
+    await expect(capacity).toHaveAttribute("aria-invalid", "true");
+    await expect(capacity).toHaveAccessibleDescription(
+      en.managerOperations.capacityExceeded,
+    );
     await expect(
-      page.getByText(en.managerOperations.capacityExceeded),
-    ).toBeVisible();
+      page.getByRole("button", { name: en.operations.next, exact: true }),
+    ).toBeDisabled();
   },
 );
 test(
