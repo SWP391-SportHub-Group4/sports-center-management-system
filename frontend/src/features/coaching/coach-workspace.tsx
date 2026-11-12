@@ -39,7 +39,6 @@ import { ClassStudents } from "./class-students";
 import { StudentPhysicalProfile } from "./student-physical-profile";
 import { ClassDirectory } from "./class-directory";
 import { useCoachAccess } from "./use-coach-access";
-import { CoachSessionMedia } from "./coach-class-media";
 
 export type WorkspaceMode = "schedule" | "classes" | "students";
 type Selection = {
@@ -84,19 +83,15 @@ export function CoachWorkspace({
         await Promise.all(
           classes.map((c) => ptApi.classSessions(c.classId, signal)),
         )
-      ).flat();
-      const visibleClasses =
-        mode === "schedule"
-          ? classes
-          : classes.filter((c) => c.coachId === user?.userId);
-      const visibleIds = new Set(visibleClasses.map((c) => c.classId));
+      )
+        .flat()
+        .filter((s) => s.coachId === user?.userId);
       return {
-        classes: visibleClasses,
-        sessions: sessions.filter((s) =>
+        classes:
           mode === "schedule"
-            ? s.coachId === user?.userId
-            : visibleIds.has(s.classId),
-        ),
+            ? classes
+            : classes.filter((c) => c.coachId === user?.userId),
+        sessions,
       };
     },
     [user?.userId, mode],
@@ -615,9 +610,6 @@ export function TeachingDetail({
       }}
     >
       <div className={styles.detail}>
-        {session && !member && (
-          <CoachSessionMedia course={course} session={session} />
-        )}
         {substitute && (
           <p className={styles.muted}>
             Substitute · Access is limited to this session.

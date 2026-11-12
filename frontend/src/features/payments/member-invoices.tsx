@@ -115,87 +115,72 @@ export function MemberInvoices() {
       >
         {(data) => (
           <>
-            <div className={styles.invoiceTable}>
-              <div className={styles.invoiceColumns} aria-hidden="true">
-                <span>Invoice</span>
-                <span>Date</span>
-                <span>Status</span>
-                <span>Amount</span>
-                <span>Action</span>
-              </div>
-              <ul className={styles.invoices}>
-                {[...pagedItems(data)]
-                  .sort(
-                    (a, b) =>
-                      Number(b.status === "ISSUED") -
-                      Number(a.status === "ISSUED"),
-                  )
-                  .map((invoice) => {
-                    const open =
-                      invoice.status === "ISSUED" && invoice.outstanding > 0;
-                    const hold =
-                      open &&
-                      invoice.checkoutExpiresAtUtc &&
-                      new Date(invoice.checkoutExpiresAtUtc).getTime() >
-                        Date.now();
-                    return (
-                      <li key={invoice.invoiceId} data-status={invoice.status}>
-                        <div className={styles.invoiceMain}>
-                          <a
-                            className={styles.invoiceLink}
-                            href={`/member/finance?tab=invoices&invoice=${invoice.invoiceId}`}
-                          >
-                            {invoice.invoiceNumber}
-                          </a>
-                          {hold && (
-                            <small className={styles.hold}>
-                              {t.memberDashboardV2.heldUntil.replace(
-                                "{time}",
-                                formatTime(invoice.checkoutExpiresAtUtc),
-                              )}
-                            </small>
-                          )}
-                        </div>
-                        <time
-                          className={styles.invoiceDate}
-                          dateTime={invoice.issuedAt}
+            <ul className={styles.invoices}>
+              {[...pagedItems(data)]
+                .sort(
+                  (a, b) =>
+                    Number(b.status === "ISSUED") -
+                    Number(a.status === "ISSUED"),
+                )
+                .map((invoice) => {
+                  const open =
+                    invoice.status === "ISSUED" && invoice.outstanding > 0;
+                  const hold =
+                    open &&
+                    invoice.checkoutExpiresAtUtc &&
+                    new Date(invoice.checkoutExpiresAtUtc).getTime() >
+                      Date.now();
+                  return (
+                    <li key={invoice.invoiceId} data-status={invoice.status}>
+                      <div className={styles.invoiceMain}>
+                        <a
+                          className={styles.invoiceLink}
+                          href={`/member/finance?tab=invoices&invoice=${invoice.invoiceId}`}
                         >
+                          {invoice.invoiceNumber}
+                        </a>
+                        <time dateTime={invoice.issuedAt}>
                           {formatDateTime(invoice.issuedAt)}
                         </time>
-                        <div className={styles.invoiceStatus}>
-                          <StatusChip value={invoice.status} />
-                        </div>
-                        <div className={styles.invoiceMoney}>
-                          <strong>{formatMoney(invoice.totalAmount)}</strong>
-                          {open && (
-                            <small>
-                              {l.invoiceOwed.replace(
-                                "{amount}",
-                                formatMoney(invoice.outstanding),
-                              )}
-                            </small>
-                          )}
-                        </div>
-                        {open ? (
-                          <Link
-                            className={`${buttonClass({ size: "sm" })} ${styles.payAction}`}
-                            href={`/checkout/${invoice.invoiceId}`}
-                          >
-                            {t.memberDashboardV2.payNow}
-                          </Link>
-                        ) : (
-                          <Link
-                            className={`${buttonClass({ size: "sm", variant: "secondary" })} ${styles.payAction}`}
-                            href={`/member/finance?tab=invoices&invoice=${invoice.invoiceId}`}
-                          >
-                            View invoice
-                          </Link>
+                        {hold && (
+                          <small className={styles.hold}>
+                            {t.memberDashboardV2.heldUntil.replace(
+                              "{time}",
+                              formatTime(invoice.checkoutExpiresAtUtc),
+                            )}
+                          </small>
                         )}
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
+                      </div>
+                      <StatusChip value={invoice.status} />
+                      <div className={styles.invoiceMoney}>
+                        <strong>{formatMoney(invoice.totalAmount)}</strong>
+                        {open && (
+                          <small>
+                            {l.invoiceOwed.replace(
+                              "{amount}",
+                              formatMoney(invoice.outstanding),
+                            )}
+                          </small>
+                        )}
+                      </div>
+                      {open ? (
+                        <Link
+                          className={`${buttonClass({ size: "sm" })} ${styles.payAction}`}
+                          href={`/checkout/${invoice.invoiceId}`}
+                        >
+                          {t.memberDashboardV2.payNow}
+                        </Link>
+                      ) : (
+                        <ArrowRight
+                          className={styles.chevron}
+                          size={18}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+            </ul>
             <PageNav
               page={data.page}
               totalPages={Math.ceil(data.totalCount / data.pageSize)}

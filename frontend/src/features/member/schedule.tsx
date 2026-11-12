@@ -6,9 +6,9 @@ import { ScheduleRentalPage } from "./schedule-rental-page";
 import { BookOpen, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { MemberMonthCalendar } from "./month-calendar";
 import { CalendarSticker } from "./calendar-sticker";
-import { AsyncSection, Dialog, StatusChip } from "@/components/ui";
-import { ServiceCover, useServiceGallery } from "@/features/service-media";
-import { teachingApi } from "@/features/coaching";
+import { CourseSticker } from "@/features/courses";
+import { Drawer } from "@/components/primitives";
+import { AsyncSection, StatusChip } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -32,53 +32,6 @@ type Item = MemberEvent & {
   preview?: boolean;
   fading?: boolean;
 };
-
-function EventPhoto({ item }: { item: Item }) {
-  const gallery = useServiceGallery(
-    item.kind === "rental" ? "room" : "class",
-    item.kind === "rental" ? item.rental?.roomId : item.classId,
-  );
-  return (
-    <ServiceCover
-      gallery={gallery.data}
-      kind={item.kind === "rental" ? "court" : "class"}
-      sportName={item.sport}
-      alt={item.title}
-      className={styles.eventPhoto}
-      sizes="(max-width: 560px) 100vw, 280px"
-    />
-  );
-}
-
-function EventLessonPlan({ item }: { item: Item }) {
-  const state = useApi(
-    (signal) =>
-      item.kind === "class" && !item.preview && item.classId
-        ? teachingApi.records(item.classId, signal, true)
-        : Promise.resolve([]),
-    [item.kind, item.preview, item.classId],
-  );
-  const plan = [...(state.data ?? [])]
-    .filter(
-      (record) =>
-        record.kind === "PLAN" &&
-        (!record.sessionId || record.sessionId === item.refId),
-    )
-    .sort(
-      (a, b) =>
-        Number(b.sessionId === item.refId) -
-          Number(a.sessionId === item.refId) ||
-        b.updatedAtUtc.localeCompare(a.updatedAtUtc),
-    )[0];
-  if (!plan) return null;
-  return (
-    <section className={styles.lessonPlan} aria-label="Lesson plan">
-      <h3>{plan.title}</h3>
-      <span>{plan.memberId ? "Individual plan" : "Entire class"}</span>
-      <p>{plan.content}</p>
-    </section>
-  );
-}
 
 const ROUTINE = new Set(["scheduled", "confirmed", "active"]);
 const exceptional = (status?: string | null) =>
@@ -377,7 +330,7 @@ export function MemberSchedule({
     );
   }
 
-  const renderEvent = (item: Item, onActivate?: () => void) => {
+  const renderEvent = (item: Item) => {
     const cancelled = /CANCEL/i.test(item.status ?? "");
     const absent = item.attendanceStatus?.toUpperCase() === "ABSENT";
     // Một nhãn duy nhất cho buổi đã diễn ra: buổi lớp có mặt hoặc lượt thuê đã xong đều là "Hoàn thành".
@@ -395,10 +348,7 @@ export function MemberSchedule({
         }
         data-state={cancelled ? "cancelled" : undefined}
         data-fading={item.fading ? "true" : undefined}
-        onClick={() => {
-          onActivate?.();
-          setSelected(item);
-        }}
+        onClick={() => setSelected(item)}
       >
         <span className={styles.eventHeading}>
           <CalendarSticker sport={item.sport} kind={item.kind} />
@@ -725,42 +675,23 @@ export function MemberSchedule({
       </AsyncSection>
 
       {selected && (
-        <Dialog
-          title={
-            selected.kind === "class"
-              ? vi
-                ? "Chi tiết buổi học"
-                : "Lesson details"
-              : vi
-                ? "Chi tiết lượt đặt sân"
-                : "Booking details"
-          }
+        <Drawer
+          title={selected.title}
           onClose={() => setSelected(null)}
-          size="lg"
-          className={styles.eventDialog}
-          closeIconOnly
+          size="md"
         >
           <div className={styles.detail}>
-            <div className={styles.eventIntro}>
-              <EventPhoto item={selected} />
-              <div>
-                <p className={styles.eventTags}>
-                  {selected.sport && (
-                    <span
-                      className={tags.sport}
-                      data-sport={sportTone(selected.sport)}
-                    >
-                      {selected.sport}
-                    </span>
-                  )}
-                  <span className={tags.kind}>{kindLabel[selected.kind]}</span>
-                </p>
-                <h3 className={styles.eventTitle}>{selected.title}</h3>
-                <p className={styles.hint}>
-                  {selected.preview ? previewLabel : kindLabel[selected.kind]}
-                </p>
-              </div>
-            </div>
+            <p className={styles.eventTags}>
+              {selected.sport && (
+                <span
+                  className={tags.sport}
+                  data-sport={sportTone(selected.sport)}
+                >
+                  {selected.sport}
+                </span>
+              )}
+              <span className={tags.kind}>{kindLabel[selected.kind]}</span>
+            </p>
             <dl>
               <dt>{m.when}</dt>
               <dd>
@@ -804,7 +735,6 @@ export function MemberSchedule({
                 </>
               )}
             </dl>
-            <EventLessonPlan item={selected} />
             {selected.isMakeup && <p>{m.makeup}</p>}
             {selected.preview && (
               <p className={styles.hint}>
@@ -814,13 +744,6 @@ export function MemberSchedule({
               </p>
             )}
             <div className={styles.actions}>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() => setSelected(null)}
-              >
-                {vi ? "Đóng" : "Close"}
-              </button>
               {selected.preview ? (
                 <button
                   type="button"
@@ -913,8 +836,13 @@ export function MemberSchedule({
                 </>
               )}
             </div>
+            <div className={styles.drawerSticker} aria-hidden="true">
+              <CourseSticker
+                sport={selected.sport || kindLabel[selected.kind]}
+              />
+            </div>
           </div>
-        </Dialog>
+        </Drawer>
       )}
       {cancellingClass && classEnrollment(cancellingClass.classId) && (
         <RefundCancelDialog

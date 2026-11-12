@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ChevronDown, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { AsyncSection, Feedback, Field } from "@/components/ui";
 import { api } from "@/lib/apiClient";
 import { useAction, useApi } from "@/lib/useApi";
 import type { MemberTrainingProfileDto } from "@/lib/types";
-import { BmiCard, MeasurementHistory } from "./health-profile-summary";
+import { BmiCard } from "./health-profile-summary";
 import {
   ACTIVITY_LEVELS,
   DIETARY_PREFERENCES,
@@ -18,19 +18,8 @@ import {
   previewBmi,
   type Option,
 } from "./health-profile-options";
-import baseStyles from "./health-profile.module.css";
-import viewStyles from "./training-profile.module.css";
+import styles from "./health-profile.module.css";
 import { BodyBuildSelector } from "./body-build-selector";
-
-const styles = {
-  ...baseStyles,
-  ...Object.fromEntries(
-    Object.entries(viewStyles).map(([name, value]) => [
-      name,
-      `${baseStyles[name] ?? ""} ${value}`,
-    ]),
-  ),
-};
 
 type FormState = {
   bodyBuild: string;
@@ -74,6 +63,64 @@ const fromProfile = (p: MemberTrainingProfileDto | null): FormState => ({
 
 const oneDecimal = (value: number) => Math.round(value * 10) / 10 === value;
 
+function ChoiceGroup({
+  name,
+  legend,
+  options,
+  value,
+  onChange,
+  vi,
+  error,
+}: {
+  name: string;
+  legend: string;
+  options: Option[];
+  value: string;
+  onChange: (value: string) => void;
+  vi: boolean;
+  error?: string;
+}) {
+  const legendId = useId();
+  const errorId = useId();
+  return (
+    <fieldset className={styles.choiceGroup}>
+      <legend id={legendId} className={styles.choiceLegend}>
+        <strong>{legend}</strong> *
+      </legend>
+      <div
+        role="radiogroup"
+        aria-labelledby={legendId}
+        aria-required="true"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={styles.choices}
+        data-count={options.length}
+      >
+        {options.map((option) => (
+          <label key={option.value} className={styles.choice}>
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={value === option.value}
+              onChange={() => onChange(option.value)}
+            />
+            <strong>{vi ? option.vi : option.en}</strong>
+            {(vi ? option.hintVi : option.hintEn) && (
+              <span>{vi ? option.hintVi : option.hintEn}</span>
+            )}
+          </label>
+        ))}
+      </div>
+      {error && (
+        <p id={errorId} className="field__error" role="alert">
+          {error}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
 function SelectField({
   label,
   options,
@@ -95,11 +142,7 @@ function SelectField({
 }) {
   return (
     <Field label={label} required={required} error={error} hint={hint}>
-      <select
-        value={value}
-        required={required}
-        onChange={(e) => onChange(e.target.value)}
-      >
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">{vi ? "Chọn…" : "Select…"}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -262,31 +305,33 @@ function ProfileForm({
         }}
       >
         <fieldset className={styles.section}>
-          <legend>{vi ? "Mục tiêu tập luyện" : "Training goals"}</legend>
-          <div className={styles.grid}>
-            <SelectField
-              label={vi ? "Mục tiêu chính" : "Main goal"}
-              options={GOAL_TYPES}
-              value={form.goalType}
-              onChange={(v) => set("goalType", v)}
-              vi={vi}
-              error={show("goalType")}
-              required
-            />
-            <SelectField
-              label={vi ? "Kinh nghiệm tập luyện" : "Training experience"}
-              options={EXPERIENCE_LEVELS}
-              value={form.experienceLevel}
-              onChange={(v) => set("experienceLevel", v)}
-              vi={vi}
-              error={show("experienceLevel")}
-              required
-            />
-          </div>
+          <legend>{vi ? "1. Mục tiêu của bạn" : "1. Your goal"}</legend>
+          <ChoiceGroup
+            name="goalType"
+            legend={vi ? "Mục tiêu chính" : "Main goal"}
+            options={GOAL_TYPES}
+            value={form.goalType}
+            onChange={(v) => set("goalType", v)}
+            vi={vi}
+            error={show("goalType")}
+          />
+          <ChoiceGroup
+            name="experienceLevel"
+            legend={vi ? "Kinh nghiệm tập luyện" : "Training experience"}
+            options={EXPERIENCE_LEVELS}
+            value={form.experienceLevel}
+            onChange={(v) => set("experienceLevel", v)}
+            vi={vi}
+            error={show("experienceLevel")}
+          />
         </fieldset>
 
         <fieldset className={styles.section}>
-          <legend>{vi ? "Số đo cơ thể" : "Measurements"}</legend>
+          <legend>{vi ? "2. Thông tin cơ thể" : "2. Your body"}</legend>
+          <BodyBuildSelector
+            value={form.bodyBuild}
+            onChange={(value) => set("bodyBuild", value)}
+          />
           <p className={styles.sectionHint}>
             {vi
               ? "Bạn tự nhập số đo. Dùng số liệu gần đây nhất để kế hoạch sát thực tế; có thể cập nhật bất cứ lúc nào."
@@ -352,7 +397,7 @@ function ProfileForm({
         </fieldset>
 
         <fieldset className={styles.section}>
-          <legend>{vi ? "Thói quen tập luyện" : "Training routine"}</legend>
+          <legend>{vi ? "3. Thói quen vận động" : "3. Your routine"}</legend>
           <div className={styles.grid}>
             <div className={styles.span2}>
               <SelectField
@@ -391,7 +436,9 @@ function ProfileForm({
         </fieldset>
 
         <fieldset className={styles.section}>
-          <legend>{vi ? "Ăn uống và sức khỏe" : "Nutrition and health"}</legend>
+          <legend>
+            {vi ? "4. Ăn uống và sức khỏe" : "4. Nutrition and health"}
+          </legend>
           <div className={styles.grid}>
             <Field
               label={
@@ -449,10 +496,6 @@ function ProfileForm({
             <ChevronDown size={18} aria-hidden="true" />
           </summary>
           <div className={styles.detailsBody}>
-            <BodyBuildSelector
-              value={form.bodyBuild}
-              onChange={(value) => set("bodyBuild", value)}
-            />
             <div className={styles.grid3}>
               <Field
                 label={vi ? "Cân nặng mục tiêu (kg)" : "Target weight (kg)"}
@@ -563,23 +606,6 @@ function ProfileForm({
         className={styles.aside}
         aria-label={vi ? "Tóm tắt hồ sơ" : "Profile summary"}
       >
-        <h2 className={viewStyles.summaryTitle}>Latest measurements</h2>
-        {preview && (
-          <dl className={viewStyles.measurements}>
-            <div>
-              <dt>Height</dt>
-              <dd>
-                {preview.heightCm != null ? `${preview.heightCm} cm` : "—"}
-              </dd>
-            </div>
-            <div>
-              <dt>Weight</dt>
-              <dd>
-                {preview.weightKg != null ? `${preview.weightKg} kg` : "—"}
-              </dd>
-            </div>
-          </dl>
-        )}
         {preview ? (
           <BmiCard profile={preview} />
         ) : (
@@ -590,16 +616,6 @@ function ProfileForm({
                 : "Enter your height and weight to see your BMI as you type."}
             </p>
           </section>
-        )}
-        {preview && <MeasurementHistory profile={preview} />}
-        {profile?.isComplete && (
-          <div className={viewStyles.suggestions}>
-            <Link href="/member/workout-suggestions">
-              <Sparkles size={18} aria-hidden="true" /> Get AI workout
-              suggestions <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-            <p>Save profile changes before requesting a new suggestion.</p>
-          </div>
         )}
       </aside>
     </div>
@@ -640,6 +656,20 @@ export function TrainingProfile() {
                     ? "Bạn chưa có hồ sơ. Mất khoảng 2 phút để hoàn thành."
                     : "You have no profile yet. It takes about 2 minutes."}
               </p>
+            )}
+            {profile?.isComplete && (
+              <section className={styles.card} aria-label="AI Workout Suggestions" style={{ marginBottom: 20 }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Sparkles size={18} aria-hidden="true" /> AI Workout Suggestions
+                </h3>
+                <p className={styles.note}>
+                  Generate personalized workouts using your saved fitness profile and recent activity.
+                  Save any profile changes below before requesting suggestions.
+                </p>
+                <Link href="/member/workout-suggestions" className="btn btn--secondary">
+                  Get AI Workout Suggestions <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              </section>
             )}
             <ProfileForm profile={profile} onSaved={() => state.reload()} />
           </>

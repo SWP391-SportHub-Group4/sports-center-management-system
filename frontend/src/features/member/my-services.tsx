@@ -30,11 +30,6 @@ import { RentalCancelConfirm } from "./rental-cancel";
 import { ServiceEmblem } from "./service-emblem";
 import { GymPackageDetails } from "./gym-package-details";
 import {
-  ServiceCover,
-  useServiceGalleries,
-  type ServiceGallery,
-} from "@/features/service-media";
-import {
   daysUntil,
   emblemForSport,
   monthsOf,
@@ -43,7 +38,12 @@ import {
   type EmblemKind,
   type ServiceKind,
 } from "./service-kinds";
-import { KindBadge, TypeFilter, type FilterValue } from "./service-ui";
+import {
+  KindBadge,
+  KindTile,
+  TypeFilter,
+  type FilterValue,
+} from "./service-ui";
 import styles from "./my-services.module.css";
 
 type Tone = "active" | "soon" | "ended" | "pending" | "scheduled";
@@ -59,12 +59,6 @@ interface Owned {
 
 /** Quầy: xem dịch vụ của Member đang chọn, không có thao tác (hủy, xem chi tiết) vì thuộc khu Member. */
 const ReadOnlyContext = createContext(false);
-const MediaContext = createContext<{
-  gym: Map<number, ServiceGallery>;
-  class: Map<number, ServiceGallery>;
-  court: Map<number, ServiceGallery>;
-  sports: SportDto[];
-}>({ gym: new Map(), class: new Map(), court: new Map(), sports: [] });
 
 const SOON_GYM_DAYS = 14;
 const SOON_CLASS_SESSIONS = 2;
@@ -148,18 +142,6 @@ export function MyServices({
   );
 
   const sources = [packages, enrollments, rentals];
-  const gymPhotos = useServiceGalleries(
-    "membership",
-    (packages.data ?? []).map((pkg) => pkg.packageId),
-  );
-  const classPhotos = useServiceGalleries(
-    "class",
-    (enrollments.data ?? []).map((course) => course.classId),
-  );
-  const courtPhotos = useServiceGalleries(
-    "room",
-    (rentals.data ?? []).map((rental) => rental.roomId),
-  );
   const loading = sources.some((s) => s.loading && s.data === null);
   const failed = sources.find((s) => s.error);
 
@@ -385,88 +367,71 @@ export function MyServices({
     : undefined;
   return (
     <ReadOnlyContext.Provider value={!!staffId}>
-      <MediaContext.Provider
-        value={{
-          gym: gymPhotos.galleries,
-          class: classPhotos.galleries,
-          court: courtPhotos.galleries,
-          sports: sports.data ?? [],
-        }}
-      >
-        <div className={styles.page}>
-          <div className={styles.toolbar}>
-            <TypeFilter
-              value={filter}
-              onChange={onFilter}
-              counts={counts}
-              vi={vi}
-              label={tx("Lọc theo loại dịch vụ", "Filter by service type")}
-            />
-          </div>
+      <div className={styles.page}>
+        <div className={styles.toolbar}>
+          <TypeFilter
+            value={filter}
+            onChange={onFilter}
+            counts={counts}
+            vi={vi}
+            label={tx("Lọc theo loại dịch vụ", "Filter by service type")}
+          />
+        </div>
 
-          {selectedGym && selectedItem ? (
-            <>
-              <div className={styles.selectedHeader}>
-                {selectedItem.node(0)}
-              </div>
-              <GymPackageDetails pkg={selectedGym} />
-            </>
-          ) : gymPackageId ? (
-            <p className={styles.status} role="alert">
+        {selectedGym && selectedItem ? (
+          <>
+            <div className={styles.list}>{selectedItem.node(0)}</div>
+            <GymPackageDetails pkg={selectedGym} />
+          </>
+        ) : gymPackageId ? (
+          <p className={styles.status} role="alert">
+            {tx(
+              "Không tìm thấy gói Gym này.",
+              "This Gym membership could not be found.",
+            )}
+          </p>
+        ) : !visible.length ? (
+          <section className={styles.emptyFilter}>
+            <p>
               {tx(
-                "Không tìm thấy gói Gym này.",
-                "This Gym membership could not be found.",
+                "Bạn chưa có dịch vụ nào thuộc loại này.",
+                "You have no services of this type yet.",
               )}
             </p>
-          ) : !visible.length ? (
-            <section className={styles.emptyFilter}>
-              <p>
-                {tx(
-                  "Bạn chưa có dịch vụ nào thuộc loại này.",
-                  "You have no services of this type yet.",
-                )}
-              </p>
-              {!staffId && (
-                <Link
-                  className="btn btn--secondary"
-                  href={
-                    filter === "all"
-                      ? "/member/services?view=explore"
-                      : exploreHref(filter)
-                  }
-                >
-                  {tx("Khám phá gói dịch vụ", "Explore packages")}
-                </Link>
-              )}
-            </section>
-          ) : (
-            <>
-              {live.length > 0 && (
-                <section
-                  aria-label={tx("Dịch vụ đang hoạt động", "Active services")}
-                  className={styles.activeSection}
-                >
-                  <h2>{tx("Dịch vụ đang hoạt động", "Active services")}</h2>
-                  <div className={styles.list}>
-                    {live.map((row) => row.node(order++))}
-                  </div>
-                </section>
-              )}
-              {ended.length > 0 && (
-                <details className={styles.endedBox}>
-                  <summary>
-                    {tx("Lịch sử", "History")}
-                    <span className={styles.groupCount}>{ended.length}</span>
-                  </summary>
-                  <div className={styles.list}>
-                    {ended.map((row) => row.node(order++))}
-                  </div>
-                </details>
-              )}
-            </>
-          )}
-        </div>
-      </MediaContext.Provider>
+            {!staffId && (
+              <Link
+                className="btn btn--secondary"
+                href={
+                  filter === "all"
+                    ? "/member/services?view=explore"
+                    : exploreHref(filter)
+                }
+              >
+                {tx("Khám phá gói dịch vụ", "Explore packages")}
+              </Link>
+            )}
+          </section>
+        ) : (
+          <>
+            {live.length > 0 && (
+              <div className={styles.list}>
+                {live.map((row) => row.node(order++))}
+              </div>
+            )}
+            {ended.length > 0 && (
+              <details className={styles.endedBox}>
+                <summary>
+                  {tx("Đã hết hạn", "Ended")}
+                  <span className={styles.groupCount}>{ended.length}</span>
+                </summary>
+                <div className={styles.list}>
+                  {ended.map((row) => row.node(order++))}
+                </div>
+              </details>
+            )}
+          </>
+        )}
+      </div>
     </ReadOnlyContext.Provider>
   );
 }
@@ -481,8 +446,7 @@ const TONE_TEXT: Record<Tone, { vi: string; en: string }> = {
 
 function Shell({
   kind,
-  mediaId,
-  sportName,
+  emblem,
   tone,
   index,
   title,
@@ -492,8 +456,6 @@ function Shell({
   actions,
 }: {
   kind: ServiceKind;
-  mediaId: number;
-  sportName?: string | null;
   emblem: EmblemKind;
   tone: Tone;
   index: number;
@@ -506,12 +468,6 @@ function Shell({
   const { language } = useLanguage();
   const vi = language === "vi";
   const readOnly = useContext(ReadOnlyContext);
-  const media = useContext(MediaContext);
-  const sport = media.sports.find((row) =>
-    kind === "gym"
-      ? /gym|fitness/i.test(`${row.code} ${row.name}`)
-      : row.name === sportName,
-  );
   return (
     <article
       className={styles.card}
@@ -519,15 +475,7 @@ function Shell({
       data-tone={tone}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
-      <ServiceCover
-        kind={kind}
-        gallery={media[kind].get(mediaId)}
-        sportName={sportName}
-        sportImageUrl={sport?.imageUrl}
-        alt={title}
-        className={styles.thumbnail}
-        sizes="(max-width: 540px) 100vw, 220px"
-      />
+      <KindTile kind={kind} emblem={emblem} size={56} delay={index * 140} />
       <div className={styles.main}>
         <div className={styles.head}>
           <KindBadge kind={kind} vi={vi} />
@@ -615,7 +563,6 @@ function GymCard({
   return (
     <Shell
       kind="gym"
-      mediaId={pkg.packageId}
       emblem="gym"
       tone={tone}
       index={index}
@@ -665,11 +612,9 @@ function GymCard({
                 />
                 <p className={styles.fine}>
                   {tx("Hết hạn", "Expires")}{" "}
-                  <b>
-                    {dayPass && pkg.expiresAtUtc
-                      ? formatDateTime(pkg.expiresAtUtc)
-                      : formatDate(endDate)}
-                  </b>
+                  <b>{dayPass && pkg.expiresAtUtc
+                    ? formatDateTime(pkg.expiresAtUtc)
+                    : formatDate(endDate)}</b>
                 </p>
               </>
             )}
@@ -750,8 +695,6 @@ function ClassCard({
   return (
     <Shell
       kind="class"
-      mediaId={row.classId}
-      sportName={row.sportName}
       emblem={emblemForSport(row.sportName)}
       tone={tone}
       index={index}
@@ -902,8 +845,6 @@ function CourtCard({
   return (
     <Shell
       kind="court"
-      mediaId={row.roomId}
-      sportName={sportName}
       emblem="court"
       tone={tone}
       index={index}

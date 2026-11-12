@@ -379,8 +379,6 @@ export interface InvoiceSummaryDto {
 }
 
 export interface InvoiceItemDto {
-  serviceImageKind?: "membership" | "class" | "room" | null;
-  serviceImageId?: number | null;
   classId: number | null;
   courtRentalId: string | null;
   ptEntitlementId: string | null;
