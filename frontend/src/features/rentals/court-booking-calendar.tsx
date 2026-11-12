@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -9,12 +9,7 @@ import {
   ChevronRight,
   MapPin,
 } from "lucide-react";
-import { AsyncSection, Dialog } from "@/components/ui";
-import {
-  ServiceCover,
-  ServicePhotoGallery,
-  useServiceGalleries,
-} from "@/features/service-media";
+import { AsyncSection } from "@/components/ui";
 import { CheckoutPanel, useStartCheckout } from "@/features/payments";
 import { CourtIcon } from "@/components/brand/CourtIcon";
 import { api } from "@/lib/apiClient";
@@ -74,10 +69,6 @@ export function CourtBookingCalendar({
   const [monthPick, setMonth] = useState<string | null>(null);
   const [picked, setPicked] = useState<Picked | null>(null);
   const [paid, setPaid] = useState<CheckoutDto | null>(null);
-  const [photoRoom, setPhotoRoom] = useState<{
-    roomId: number;
-    name: string;
-  } | null>(null);
   const policy = useRentalPolicy();
   const sports = useApi(
     (signal) =>
@@ -143,17 +134,6 @@ export function CourtBookingCalendar({
     [sport?.sportId, date, policy.data, memberId],
   );
   const reload = day.reload;
-  const roomPhotos = useServiceGalleries(
-    "room",
-    (day.data?.rooms ?? []).map((room) => room.roomId),
-  );
-  const calendarSlots = [
-    ...new Map(
-      (day.data?.rooms ?? [])
-        .flatMap((room) => room.slots)
-        .map((slot) => [slot.startUtc, slot]),
-    ).values(),
-  ].sort((a, b) => a.startUtc.localeCompare(b.startUtc));
   const onPaid = useCallback(
     (checkout: CheckoutDto) => {
       if (checkout.kind !== "COURT_RENTAL") return;
@@ -212,14 +192,6 @@ export function CourtBookingCalendar({
   const reviewSection =
     selected && selected.totalPrice !== null ? (
       <section className={styles.review}>
-        <ServiceCover
-          gallery={roomPhotos.galleries.get(selected.roomId)}
-          sportImageUrl={sport?.imageUrl}
-          sportName={selected.sportName}
-          kind="court"
-          alt={selected.roomName}
-          sizes="350px"
-        />
         <div className={styles.reviewHeading}>
           <div>
             <h2>{text("Lượt thuê đã chọn", "Your selected booking")}</h2>
@@ -231,32 +203,6 @@ export function CourtBookingCalendar({
           </div>
           <strong>{formatMoney(selected.totalPrice)}</strong>
         </div>
-        <dl className={styles.bookingFacts}>
-          <div>
-            <dt>{text("Sân", "Court")}</dt>
-            <dd>{selected.roomName}</dd>
-          </div>
-          <div>
-            <dt>{text("Môn", "Sport")}</dt>
-            <dd>{selected.sportName}</dd>
-          </div>
-          <div>
-            <dt>{text("Ngày", "Date")}</dt>
-            <dd>{formatDate(selected.date)}</dd>
-          </div>
-          <div>
-            <dt>{text("Giờ", "Time")}</dt>
-            <dd>
-              {formatTime(selected.startUtc)}–{formatTime(selected.endUtc)}
-            </dd>
-          </div>
-          <div>
-            <dt>{text("Thời lượng", "Duration")}</dt>
-            <dd>
-              {picked?.slots.length} {text("giờ", "hours")}
-            </dd>
-          </div>
-        </dl>
         {memberId ? (
           <CheckoutPanel
             modal
@@ -339,7 +285,6 @@ export function CourtBookingCalendar({
     ) : null;
   return (
     <div className={styles.booking}>
-      <h2 className={styles.pageTitle}>{text("Đặt sân", "Book a court")}</h2>
       {paid && (
         <section className={styles.success} role="status" aria-live="polite">
           <CheckCircle2 size={30} aria-hidden="true" />
@@ -530,25 +475,6 @@ export function CourtBookingCalendar({
                   {(data) =>
                     data && (
                       <div className={styles.rooms}>
-                        {!!data.rooms.length && (
-                          <div
-                            className={styles.timeHeader}
-                            style={
-                              {
-                                "--slot-count": calendarSlots.length,
-                              } as CSSProperties
-                            }
-                          >
-                            <strong>{text("Sân", "Court")}</strong>
-                            <div>
-                              {calendarSlots.map((slot) => (
-                                <span key={slot.startUtc}>
-                                  {formatTime(slot.startUtc)}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                         {!data.rooms.length && (
                           <p role="status">
                             {text(
@@ -558,81 +484,44 @@ export function CourtBookingCalendar({
                           </p>
                         )}
                         {data.rooms.map((room) => (
-                          <section
-                            key={room.roomId}
-                            className={styles.room}
-                            style={
-                              {
-                                "--slot-count": calendarSlots.length,
-                              } as CSSProperties
-                            }
-                          >
-                            <button
-                              type="button"
-                              className={styles.roomPreview}
-                              onClick={() => setPhotoRoom(room)}
-                              aria-label={`${text("Xem ảnh", "View photos")}: ${room.name}`}
-                            >
-                              <ServiceCover
-                                gallery={roomPhotos.galleries.get(room.roomId)}
-                                sportImageUrl={sport.imageUrl}
-                                sportName={sport.name}
-                                kind="court"
-                                alt={room.name}
-                                sizes="160px"
-                              />
-                              <span>
-                                <MapPin size={16} aria-hidden="true" />
-                                {room.name}
-                              </span>
-                            </button>
+                          <section key={room.roomId} className={styles.room}>
+                            <h3>
+                              <MapPin size={16} aria-hidden="true" />
+                              {room.name}
+                            </h3>
                             {room.slots.length ? (
                               <div className={styles.slots}>
-                                {calendarSlots.map((calendarSlot) => {
-                                  const slot = room.slots.find(
-                                    (candidate) =>
-                                      candidate.startUtc ===
-                                      calendarSlot.startUtc,
-                                  );
-                                  return slot ? (
-                                    <button
-                                      type="button"
-                                      key={slot.startUtc}
-                                      disabled={
-                                        slot.status !== "AVAILABLE" ||
-                                        slot.totalPrice === null
-                                      }
-                                      data-state={slot.status}
-                                      aria-pressed={
-                                        picked?.roomId === room.roomId &&
-                                        picked.date === date &&
-                                        picked.slots.some(
-                                          (item) =>
-                                            item.startUtc === slot.startUtc,
-                                        )
-                                      }
-                                      onClick={() => toggleSlot(room, slot)}
-                                    >
-                                      <strong>
-                                        {formatTime(slot.startUtc)}–
-                                        {formatTime(slot.endUtc)}
-                                      </strong>
-                                      <span>{statusLabel[slot.status]}</span>
-                                      {slot.totalPrice !== null && (
-                                        <small>
-                                          {formatMoney(slot.totalPrice)}
-                                        </small>
-                                      )}
-                                    </button>
-                                  ) : (
-                                    <div
-                                      key={calendarSlot.startUtc}
-                                      className={styles.unavailableSlot}
-                                    >
-                                      {text("Không thể đặt", "Unavailable")}
-                                    </div>
-                                  );
-                                })}
+                                {room.slots.map((slot) => (
+                                  <button
+                                    type="button"
+                                    key={slot.startUtc}
+                                    disabled={
+                                      slot.status !== "AVAILABLE" ||
+                                      slot.totalPrice === null
+                                    }
+                                    data-state={slot.status}
+                                    aria-pressed={
+                                      picked?.roomId === room.roomId &&
+                                      picked.date === date &&
+                                      picked.slots.some(
+                                        (item) =>
+                                          item.startUtc === slot.startUtc,
+                                      )
+                                    }
+                                    onClick={() => toggleSlot(room, slot)}
+                                  >
+                                    <strong>
+                                      {formatTime(slot.startUtc)}–
+                                      {formatTime(slot.endUtc)}
+                                    </strong>
+                                    <span>{statusLabel[slot.status]}</span>
+                                    {slot.totalPrice !== null && (
+                                      <small>
+                                        {formatMoney(slot.totalPrice)}
+                                      </small>
+                                    )}
+                                  </button>
+                                ))}
                               </div>
                             ) : (
                               <p>
@@ -652,23 +541,6 @@ export function CourtBookingCalendar({
             </div>
           )}
         </AsyncSection>
-      )}
-      {photoRoom && (
-        <Dialog
-          title={photoRoom.name}
-          size="lg"
-          onClose={() => setPhotoRoom(null)}
-        >
-          <ServicePhotoGallery
-            gallery={roomPhotos.galleries.get(photoRoom.roomId)}
-            sportImageUrl={sport?.imageUrl}
-            sportName={sport?.name}
-            kind="court"
-            alt={photoRoom.name}
-            error={roomPhotos.error?.message}
-            onRetry={roomPhotos.reload}
-          />
-        </Dialog>
       )}
     </div>
   );

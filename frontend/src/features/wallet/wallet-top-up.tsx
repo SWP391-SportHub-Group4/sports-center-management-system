@@ -10,9 +10,12 @@ import {
   CreditCard,
   Info,
   Repeat,
+  ShieldCheck,
+  ShoppingCart,
   Wallet,
+  Zap,
 } from "lucide-react";
-import { Button } from "@/components/primitives";
+import { Button, buttonClass } from "@/components/primitives";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi, useNow } from "@/lib/useApi";
 import { formatMoney, formatPoints } from "@/lib/format";
@@ -225,12 +228,6 @@ export function WalletTopUp({
   const step = checkout ? 2 : 1;
   return (
     <div className={styles.page}>
-      {!memberId && (
-        <Link className={styles.back} href="/member/finance?tab=wallet">
-          <ArrowLeft size={17} aria-hidden="true" />
-          Back to point wallet
-        </Link>
-      )}
       {memberId && (
         <p className={styles.staffMember}>
           Adding points for <strong>{memberName || "this member"}</strong>
@@ -320,6 +317,71 @@ export function WalletTopUp({
           />
         )}
       </section>
+
+      <section className={styles.perks} aria-label="Top-up benefits">
+        <div>
+          <Zap size={18} aria-hidden="true" />
+          <p>
+            <strong>Instant</strong>
+            <span>
+              Checkout is created at once; points are added automatically.
+            </span>
+          </p>
+        </div>
+        <div>
+          <ShieldCheck size={18} aria-hidden="true" />
+          <p>
+            <strong>Secure</strong>
+            <span>Paid on VNPay, confirmed by the SportHub server.</span>
+          </p>
+        </div>
+        <div>
+          <Coins size={18} aria-hidden="true" />
+          <p>
+            <strong>Automatic</strong>
+            <span>No manual approval. Points never expire.</span>
+          </p>
+        </div>
+      </section>
+
+      {!memberId && (
+        <section className={styles.promo} aria-labelledby="top-up-membership">
+          <span className={styles.promoIcon} aria-hidden="true">
+            <ShoppingCart size={20} />
+          </span>
+          <div>
+            <h3 id="top-up-membership">Buy a membership</h3>
+            <p>
+              <strong>Step 1:</strong> Add SportHub Points →{" "}
+              <strong>Step 2:</strong> Pay for your plan
+            </p>
+            <Link
+              href="/member/services"
+              className={buttonClass({ size: "sm" })}
+            >
+              View services
+              <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      )}
+
+      <section className={styles.notes} aria-labelledby="top-up-notes">
+        <span className={styles.promoIcon} aria-hidden="true">
+          <Info size={20} />
+        </span>
+        <div>
+          <h3 id="top-up-notes">Important notes</h3>
+          <ul>
+            <li>Pay the exact amount</li>
+            <li>Finish before the timer ends</li>
+            <li>Paid but no points? Check Invoices</li>
+            <li>
+              Support: <strong className={styles.support}>Soicodoc</strong>
+            </li>
+          </ul>
+        </div>
+      </section>
     </div>
   );
 }
@@ -355,99 +417,88 @@ function AmountStep({
         onSubmit();
       }}
     >
-      <div className={styles.amountForm}>
-        <h3 className={styles.question}>Amount to add (VND)</h3>
-        <p className={styles.sub}>
-          Enter an amount and receive SportHub Points right after payment.
-          {balance !== undefined && (
-            <>
-              {" "}
-              {staffMemberName
-                ? `${staffMemberName} currently has`
-                : "You now have"}{" "}
-              {formatPoints(balance)} points.
-            </>
-          )}
-        </p>
-        <label className={styles.amountBox} data-invalid={invalid || undefined}>
-          <span className={styles.srOnly}>Amount in VND</span>
-          <input
-            inputMode="numeric"
-            autoComplete="off"
-            autoFocus
-            placeholder="0"
-            value={digits ? new Intl.NumberFormat("en-GB").format(amount) : ""}
-            onChange={(event) =>
-              onDigits(parseAmount(event.target.value).digits)
-            }
-            aria-invalid={invalid}
-            aria-describedby="top-up-hint"
-          />
-          <span className={styles.unit} aria-hidden="true">
-            ₫
-          </span>
-        </label>
-        <p
-          id="top-up-hint"
-          className={styles.hint}
-          data-tone={tone}
-          role={invalid ? "alert" : "status"}
-        >
-          <Info size={14} aria-hidden="true" />
-          {check.message ||
-            `Minimum ${formatMoney(MIN_VND)} • Maximum ${formatMoney(MAX_VND)}`}
-        </p>
-        <div className={styles.presets} role="group" aria-label="Quick amounts">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              aria-pressed={amount === preset.value}
-              onClick={() => onDigits(String(preset.value))}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <aside className={styles.amountSummary} aria-label="Payment summary">
-        <h3>Payment summary</h3>
-        <dl className={styles.quote}>
-          <div>
-            <dt>You pay</dt>
-            <dd>{formatMoney(check.ok ? amount : 0)}</dd>
-          </div>
-          <div className={styles.quoteGet}>
-            <dt>
-              <Coins size={14} aria-hidden="true" /> You receive
-            </dt>
-            <dd>
-              {formatPoints(check.ok ? amount / VND_PER_POINT : 0)}{" "}
-              <small>points</small>
-            </dd>
-          </div>
-        </dl>
-        <p className={styles.method}>
-          <CreditCard size={21} aria-hidden="true" />
-          VNPay<span>Payment method</span>
-        </p>
-        {error && (
-          <p role="alert" className={styles.error}>
-            {error}
-          </p>
+      <h3 className={styles.question}>How much do you want to add?</h3>
+      <p className={styles.sub}>
+        Enter an amount and receive SportHub Points right after payment.
+        {balance !== undefined && (
+          <>
+            {" "}
+            {staffMemberName
+              ? `${staffMemberName} currently has`
+              : "You now have"}{" "}
+            {formatPoints(balance)} points.
+          </>
         )}
-        <Button
-          type="submit"
-          size="lg"
-          block
-          loading={busy}
-          disabled={!check.ok}
-          icon={<CreditCard size={18} aria-hidden="true" />}
-        >
-          Continue to payment
-          <ArrowRight size={18} aria-hidden="true" />
-        </Button>
-      </aside>
+      </p>
+      <label className={styles.amountBox} data-invalid={invalid || undefined}>
+        <span className={styles.srOnly}>Amount in VND</span>
+        <input
+          inputMode="numeric"
+          autoComplete="off"
+          autoFocus
+          placeholder="0"
+          value={digits ? new Intl.NumberFormat("en-GB").format(amount) : ""}
+          onChange={(event) => onDigits(parseAmount(event.target.value).digits)}
+          aria-invalid={invalid}
+          aria-describedby="top-up-hint"
+        />
+        <span className={styles.unit} aria-hidden="true">
+          ₫
+        </span>
+      </label>
+      <p
+        id="top-up-hint"
+        className={styles.hint}
+        data-tone={tone}
+        role={invalid ? "alert" : "status"}
+      >
+        <Info size={14} aria-hidden="true" />
+        {check.message ||
+          `Minimum ${formatMoney(MIN_VND)} • Maximum ${formatMoney(MAX_VND)}`}
+      </p>
+      <div className={styles.presets} role="group" aria-label="Quick amounts">
+        {PRESETS.map((preset) => (
+          <button
+            key={preset.label}
+            type="button"
+            aria-pressed={amount === preset.value}
+            onClick={() => onDigits(String(preset.value))}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <dl className={styles.quote}>
+        <div>
+          <dt>You pay</dt>
+          <dd>{formatMoney(check.ok ? amount : 0)}</dd>
+        </div>
+        <div className={styles.quoteGet}>
+          <dt>
+            <Coins size={14} aria-hidden="true" /> You receive
+          </dt>
+          <dd>
+            {formatPoints(check.ok ? amount / VND_PER_POINT : 0)}{" "}
+            <small>points</small>
+          </dd>
+        </div>
+      </dl>
+      {error && (
+        <p role="alert" className={styles.error}>
+          {error}
+        </p>
+      )}
+      <Button
+        type="submit"
+        size="lg"
+        block
+        loading={busy}
+        disabled={!check.ok}
+        icon={<CreditCard size={18} aria-hidden="true" />}
+      >
+        Continue to payment
+        <ArrowRight size={18} aria-hidden="true" />
+      </Button>
     </form>
   );
 }

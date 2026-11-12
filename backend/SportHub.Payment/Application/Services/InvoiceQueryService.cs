@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SportHub.BuildingBlocks.Abstractions.Persistence;
-using SportHub.BuildingBlocks.Abstractions.Payment;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
 using SportHub.BuildingBlocks.SharedKernel.Pagination;
 using SportHub.Payment.Application.DTOs;
@@ -9,8 +8,7 @@ using SportHub.Payment.Domain.Rules;
 
 namespace SportHub.Payment.Application.Services;
 
-public sealed class InvoiceQueryService(ISportHubDbContext db, IInvoiceClassNameReader classNames,
-    IInvoiceServiceImageReader serviceImages) : IInvoiceQueryService
+public sealed class InvoiceQueryService(ISportHubDbContext db, IInvoiceClassNameReader classNames) : IInvoiceQueryService
 {
     public async Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct)
         => await db.Set<InvoiceItem>().AsNoTracking().Where(i => i.ItemId == itemId).Select(i => (Guid?)i.InvoiceId).SingleOrDefaultAsync(ct)
@@ -123,21 +121,6 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IInvoiceClassName
                         : item)
                 .ToList();
         }
-
-        var memberPackageIds = items.Where(x => x.ItemType == InvoiceItemType.Membership.ToString() && x.MemberPackageId.HasValue)
-            .Select(x => x.MemberPackageId!.Value).Distinct().ToArray();
-        var rentalIds = items.Where(x => x.ItemType == InvoiceItemType.Rental.ToString() && x.CourtRentalId.HasValue)
-            .Select(x => x.CourtRentalId!.Value).Distinct().ToArray();
-        var references = await serviceImages.GetReferencesAsync(row.MemberId, memberPackageIds, rentalIds, ct);
-        items = items.Select(item => item.ItemType == InvoiceItemType.ClassPackage.ToString() && item.ClassId is > 0
-            ? item with { ServiceImageKind = "class", ServiceImageId = item.ClassId }
-            : item.ItemType == InvoiceItemType.Membership.ToString() && item.MemberPackageId is Guid packageId
-                && references.MembershipPackages.TryGetValue(packageId, out var membershipId)
-                    ? item with { ServiceImageKind = "membership", ServiceImageId = membershipId }
-                    : item.ItemType == InvoiceItemType.Rental.ToString() && item.CourtRentalId is Guid rentalId
-                        && references.RentalRooms.TryGetValue(rentalId, out var roomId)
-                            ? item with { ServiceImageKind = "room", ServiceImageId = roomId }
-                            : item).ToList();
 
         var payments = await db.Set<Domain.Entities.Payment>()
             .AsNoTracking()

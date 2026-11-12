@@ -1,4 +1,5 @@
-.card {
+.card,
+.recommended {
   min-width: 0;
   padding: var(--space-5);
   border: 1px solid var(--border-subtle);
@@ -12,7 +13,6 @@
 .recommended {
   display: grid;
   gap: var(--space-4);
-  min-width: 0;
 }
 .head {
   display: flex;
@@ -22,18 +22,14 @@
 }
 .head h2 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 800;
+  font-size: var(--text-lg, 18px);
 }
 .head a,
 .link {
   color: var(--color-primary);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  min-height: 40px;
-  display: inline-flex;
-  align-items: center;
+  white-space: nowrap;
 }
 .muted {
   margin: 0;
@@ -57,7 +53,9 @@
 .metric {
   display: grid;
   gap: 2px;
-  padding-block: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle, #f1f5f9);
 }
 .metric strong {
   font-size: 26px;
@@ -79,7 +77,6 @@
   justify-content: space-between;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  flex-wrap: wrap;
 }
 .goalRow strong {
   color: var(--text-strong);
@@ -172,33 +169,15 @@
 }
 .reco {
   display: grid;
-  grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1fr);
   gap: var(--space-2);
   align-content: start;
-  padding: 9px;
+  padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
-.recoPhoto {
-  min-height: 180px;
-  height: 100%;
-  border-radius: 7px;
-  overflow: hidden;
-}
-.recoContent {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 5px;
-  min-width: 0;
-}
 .reco h3 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 23px;
-  font-weight: 800;
-  overflow-wrap: anywhere;
+  font-size: var(--text-md);
 }
 .reco p {
   margin: 0;
@@ -218,7 +197,6 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--space-2);
-  flex-wrap: wrap;
 }
 .recoFoot strong {
   font-size: var(--text-md);
@@ -226,24 +204,5 @@
 @media (max-width: 640px) {
   .recoList {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-@media (min-width: 641px) and (max-width: 1150px) {
-  .recoList {
-    grid-template-columns: 1fr;
-  }
-}
-@media (max-width: 380px) {
-  .reco {
-    grid-template-columns: 1fr;
-  }
-  .recoPhoto {
-    height: 150px;
-    min-height: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bar span {
-    transition: none;
   }
 }

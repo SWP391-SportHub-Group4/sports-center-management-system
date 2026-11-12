@@ -11,7 +11,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { AsyncSection, StatusChip } from "@/components/ui";
-import { CoachClassGallery, CoachSessionMedia } from "./coach-class-media";
+import { CourseSticker } from "@/features/courses";
 import { useLanguage } from "@/lib/language";
 import { useApi } from "@/lib/useApi";
 import {
@@ -115,7 +115,6 @@ function SubstituteSessions({
       >
         <ArrowLeft size={18} aria-hidden="true" /> Back to schedule
       </Link>
-      {!selected && <CoachSessionMedia course={course} />}
       <AsyncSection state={state}>
         {(sessions) => {
           const session = sessions.find((item) => item.sessionId === selected);
@@ -214,81 +213,77 @@ function ClassContent({
         data-sport={classSportTone(course.sportName)}
         aria-label={vi ? "Thông tin lớp học" : "Class information"}
       >
-        <div className={styles.mediaLayout}>
-          <div className={styles.gallery}>
-            <CoachClassGallery course={course} />
-          </div>
-          <div className={styles.overviewContent}>
-            <div className={styles.identity}>
-              <div className={styles.identityTags}>
-                <span className={styles.sport}>{course.sportName}</span>
-                <span className={styles.code}>{course.code}</span>
-              </div>
-              <StatusChip value={course.status} />
+        <div className={styles.identity}>
+          <div className={styles.identityTags}>
+            <div className={styles.sportMark} aria-hidden="true">
+              <CourseSticker sport={course.sportName} compact small />
             </div>
-            <dl className={styles.classFacts}>
-              <div>
-                <dt>
-                  <UserRound size={20} aria-hidden="true" />
-                  {vi ? "Huấn luyện viên" : "Coach"}
-                </dt>
-                <dd>{course.coachName ?? "—"}</dd>
-              </div>
-              <div>
-                <dt>
-                  <MapPin size={20} aria-hidden="true" />
-                  {vi ? "Sân / phòng tập" : "Court / room"}
-                </dt>
-                <dd>{course.roomName || "—"}</dd>
-              </div>
-              <div>
-                <dt>
-                  <CalendarDays size={20} aria-hidden="true" />
-                  {vi ? "Ngày bắt đầu" : "Start date"}
-                </dt>
-                <dd>{formatDate(course.startDate)}</dd>
-              </div>
-              <div>
-                <dt>
-                  <Users size={20} aria-hidden="true" />
-                  {vi ? "Quy mô lớp" : "Class size"}
-                </dt>
-                <dd>
-                  {course.capacity} {vi ? "học viên" : "students"} ·{" "}
-                  {course.numSessions} {vi ? "buổi" : "sessions"}
-                </dd>
-              </div>
-            </dl>
-            <details className={styles.enrollment}>
-              <summary>
-                {vi ? "Thông tin đăng ký & học phí" : "Enrollment & course fee"}
-                <ChevronDown size={16} aria-hidden="true" />
-              </summary>
-              <dl className={styles.enrollmentFacts}>
-                <div>
-                  <dt>{vi ? "Chỗ còn lại" : "Available seats"}</dt>
-                  <dd>{course.availableSeats}</dd>
-                </div>
-                <div>
-                  <dt>{vi ? "Học phí" : "Course fee"}</dt>
-                  <dd>{formatMoney(course.price)}</dd>
-                </div>
-                <div>
-                  <dt>{vi ? "Đăng ký" : "Registration"}</dt>
-                  <dd>
-                    {course.enrollmentOpen
-                      ? vi
-                        ? "Đang mở"
-                        : "Open"
-                      : vi
-                        ? "Đã đóng"
-                        : "Closed"}
-                  </dd>
-                </div>
-              </dl>
-            </details>
+            <span className={styles.sport}>{course.sportName}</span>
+            <span className={styles.code}>{course.code}</span>
           </div>
+          <StatusChip value={course.status} />
         </div>
+        <dl className={styles.classFacts}>
+          <div>
+            <UserRound size={20} aria-hidden="true" />
+            <div>
+              <dt>{vi ? "Huấn luyện viên" : "Coach"}</dt>
+              <dd>{course.coachName ?? "—"}</dd>
+            </div>
+          </div>
+          <div>
+            <MapPin size={20} aria-hidden="true" />
+            <div>
+              <dt>{vi ? "Sân / phòng tập" : "Court / room"}</dt>
+              <dd>{course.roomName || "—"}</dd>
+            </div>
+          </div>
+          <div>
+            <CalendarDays size={20} aria-hidden="true" />
+            <div>
+              <dt>{vi ? "Ngày bắt đầu" : "Start date"}</dt>
+              <dd>{formatDate(course.startDate)}</dd>
+            </div>
+          </div>
+          <div>
+            <Users size={20} aria-hidden="true" />
+            <div>
+              <dt>{vi ? "Quy mô lớp" : "Class size"}</dt>
+              <dd>
+                {course.capacity} {vi ? "học viên" : "students"} ·{" "}
+                {course.numSessions} {vi ? "buổi" : "sessions"}
+              </dd>
+            </div>
+          </div>
+        </dl>
+        <details className={styles.enrollment}>
+          <summary>
+            {vi ? "Thông tin đăng ký & học phí" : "Enrollment & course fee"}
+            <ChevronDown size={16} aria-hidden="true" />
+          </summary>
+          <dl className={styles.enrollmentFacts}>
+            <div>
+              <dt>{vi ? "Chỗ còn lại" : "Available seats"}</dt>
+              <dd>{course.availableSeats}</dd>
+            </div>
+            <div>
+              <dt>{vi ? "Học phí" : "Course fee"}</dt>
+              <dd>{formatMoney(course.price)}</dd>
+            </div>
+            <div>
+              <dt>{vi ? "Đăng ký" : "Registration"}</dt>
+              <dd>
+                {course.enrollmentOpen
+                  ? vi
+                    ? "Đang mở"
+                    : "Open"
+                  : vi
+                    ? "Đã đóng"
+                    : "Closed"}
+              </dd>
+            </div>
+          </dl>
+        </details>
       </section>
       <div className={styles.teachingSurface}>
         <TeachingDetail

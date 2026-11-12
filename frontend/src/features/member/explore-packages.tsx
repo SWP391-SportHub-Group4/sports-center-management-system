@@ -22,7 +22,6 @@ import {
 import { useLanguage } from "@/lib/language";
 import { hasService } from "@/lib/sports";
 import { useApi } from "@/lib/useApi";
-import { useUrlQuery } from "@/lib/useUrlQuery";
 import { useRentalPolicy } from "@/features/rentals";
 import type {
   CourseDto,
@@ -36,6 +35,7 @@ import type {
   UserAdminDto,
 } from "@/lib/types";
 import {
+  emblemForSport,
   membershipEnd,
   monthsOf,
   sportLabel,
@@ -45,12 +45,6 @@ import { KindTile, TypeFilter, type FilterValue } from "./service-ui";
 import { useStartCheckout } from "./use-start-checkout";
 import { memberEnrollments } from "./api";
 import { BmiRequiredDialog, useBmiGate } from "./bmi-gate";
-import {
-  ServiceCover,
-  ServicePhotoGallery,
-  useServiceGalleries,
-  type ServiceGallery,
-} from "@/features/service-media";
 import styles from "./explore-packages.module.css";
 
 const WEEKDAY = {
@@ -90,12 +84,6 @@ export function ExplorePackages({
   const vi = language === "vi";
   const tx = (v: string, e: string) => (vi ? v : e);
   const [query, setQuery] = useState("");
-  const [staffSportId, setStaffSportId] = useState<number | null>(sportId);
-  const { setValues: setSportQuery } = useUrlQuery({ sport: "" });
-  const selectedSportId = staffMember ? staffSportId : sportId;
-  const [selectedPlan, setSelectedPlan] = useState<MembershipPackageDto | null>(
-    null,
-  );
   const checkout = useStartCheckout();
   const staffMemberId = staffMember?.userId;
   const [staffSale, setStaffSale] = useState<StaffSale | null>(null);
@@ -121,10 +109,7 @@ export function ExplorePackages({
     [staffMemberId],
   );
   const enrolledClassIds = new Set(
-    (staffMemberId
-      ? (staffEnrollments.data ?? [])
-      : (ownEnrollments.data ?? [])
-    )
+    (staffMemberId ? (staffEnrollments.data ?? []) : (ownEnrollments.data ?? []))
       .filter((row) => row.status === "CONFIRMED")
       .map((row) => row.classId),
   );
@@ -210,21 +195,10 @@ export function ExplorePackages({
     gymPlans.find((p) => p.durationDays >= 28 && p.durationDays <= 31)?.price ??
     null;
   const classRows = (courses.data ?? []).filter(
-    (c) => !selectedSportId || c.sportId === selectedSportId,
+    (c) => !sportId || c.sportId === sportId,
   );
   const courtSports = (sports.data ?? []).filter(
     (s) => s.isActive && hasService(s, "COURT_RENTAL"),
-  );
-  const gymPhotos = useServiceGalleries(
-    "membership",
-    gymPlans.map((plan) => plan.packageId),
-  );
-  const classPhotos = useServiceGalleries(
-    "class",
-    classRows.map((course) => course.classId),
-  );
-  const gymSport = sports.data?.find((sport) =>
-    /gym|fitness/i.test(`${sport.code} ${sport.name}`),
   );
 
   // Gói dài hạn xếp tăng dần theo thời hạn; vé 1 ngày luôn đứng cuối nên gói mới thêm vào trước nó.
@@ -261,39 +235,6 @@ export function ExplorePackages({
 
   const loadingAll = catalog.loading && courses.loading && sports.loading;
   const nothing = !loadingAll && counts.all === 0;
-  const selectedOwnership = selectedPlan
-    ? membershipPurchaseState(
-        owned.data ?? [],
-        selectedPlan.packageId,
-        today,
-        now,
-      )
-    : null;
-  const selectedDayPassOwned =
-    selectedPlan?.durationDays === 1 &&
-    !!selectedOwnership?.active &&
-    selectedOwnership.active.startDate.slice(0, 10) <= today;
-  function choosePlan(plan: MembershipPackageDto) {
-    setSelectedPlan(null);
-    if (staffMember)
-      setStaffSale({
-        title: plan.name,
-        price: plan.price,
-        intent: {
-          kind: "membership",
-          body: {
-            packageId: plan.packageId,
-            targetMemberId: staffMember.userId,
-            allowStacking: false,
-          },
-        },
-      });
-    else
-      void checkout.start(`gym:${plan.packageId}`, {
-        kind: "membership",
-        body: { packageId: plan.packageId, allowStacking: false },
-      });
-  }
   let order = 0;
 
   return (
@@ -318,34 +259,6 @@ export function ExplorePackages({
             )}
           />
         </label>
-        {(filter === "class" || filter === "all") && (
-          <label className={styles.sportSelect}>
-            <span className="sr-only">{tx("Lọc môn", "Filter by sport")}</span>
-            <select
-              aria-label={tx("Lọc môn", "Filter by sport")}
-              value={selectedSportId ?? ""}
-              onChange={(event) =>
-                staffMember
-                  ? setStaffSportId(
-                      event.target.value ? Number(event.target.value) : null,
-                    )
-                  : setSportQuery({ sport: event.target.value })
-              }
-            >
-              <option value="">{tx("Tất cả môn", "All sports")}</option>
-              {(sports.data ?? [])
-                .filter(
-                  (sport) =>
-                    sport.isActive && hasService(sport, "GROUP_COURSE"),
-                )
-                .map((sport) => (
-                  <option key={sport.sportId} value={sport.sportId}>
-                    {sportLabel(sport.name, vi)}
-                  </option>
-                ))}
-            </select>
-          </label>
-        )}
       </div>
 
       {nothing && (
@@ -387,14 +300,12 @@ export function ExplorePackages({
                 className={styles.tiers}
                 role="region"
                 aria-label={tx("Các gói Gym", "Gym plans")}
+                tabIndex={0}
               >
                 {gymVisible.map((p) => (
                   <GymTier
                     key={p.packageId}
                     plan={p}
-                    gallery={gymPhotos.galleries.get(p.packageId)}
-                    sportImageUrl={gymSport?.imageUrl}
-                    onDetails={() => setSelectedPlan(p)}
                     baseMonthly={baseMonthly}
                     ownership={membershipPurchaseState(
                       owned.data ?? [],
@@ -446,7 +357,7 @@ export function ExplorePackages({
           <Section
             kind="class"
             emblem="whistle"
-            title={tx("Lớp nhóm", "Classes")}
+            title={tx("Lớp nhóm", "Group classes")}
           >
             {courses.loading && !courses.data ? (
               <p className={styles.note} role="status">
@@ -467,30 +378,24 @@ export function ExplorePackages({
                   <ClassRow
                     key={c.classId}
                     course={c}
-                    staffMode={!!staffMember}
-                    gallery={classPhotos.galleries.get(c.classId)}
-                    sportImageUrl={
-                      sports.data?.find((sport) => sport.sportId === c.sportId)
-                        ?.imageUrl
-                    }
                     unavailableReason={
                       !staffMember && enrolledClassIds.has(c.classId)
                         ? tx("Đã đăng ký", "Already enrolled")
                         : staffMember
-                          ? enrolledClassIds.has(c.classId)
-                            ? tx("Đã đăng ký", "Already enrolled")
-                            : staffEnrollments.error
+                        ? enrolledClassIds.has(c.classId)
+                          ? tx("Đã đăng ký", "Already enrolled")
+                          : staffEnrollments.error
+                            ? tx(
+                                "Không thể kiểm tra ghi danh",
+                                "Cannot check enrollment",
+                              )
+                            : !staffEnrollments.data
                               ? tx(
-                                  "Không thể kiểm tra ghi danh",
-                                  "Cannot check enrollment",
+                                  "Đang kiểm tra ghi danh",
+                                  "Checking enrollment",
                                 )
-                              : !staffEnrollments.data
-                                ? tx(
-                                    "Đang kiểm tra ghi danh",
-                                    "Checking enrollment",
-                                  )
-                                : null
-                          : null
+                              : null
+                        : null
                     }
                     busy={checkout.busyId === `class:${c.classId}`}
                     error={
@@ -507,21 +412,21 @@ export function ExplorePackages({
                         : !staffMember && bmiGate.missing
                           ? setBmiPrompt(true)
                           : staffMember
-                            ? setStaffSale({
-                                title: c.name,
-                                price: c.price,
-                                intent: {
-                                  kind: "class",
-                                  body: {
-                                    classId: c.classId,
-                                    targetMemberId: staffMember.userId,
-                                  },
-                                },
-                              })
-                            : checkout.start(`class:${c.classId}`, {
+                          ? setStaffSale({
+                              title: c.name,
+                              price: c.price,
+                              intent: {
                                 kind: "class",
-                                body: { classId: c.classId },
-                              })
+                                body: {
+                                  classId: c.classId,
+                                  targetMemberId: staffMember.userId,
+                                },
+                              },
+                            })
+                          : checkout.start(`class:${c.classId}`, {
+                              kind: "class",
+                              body: { classId: c.classId },
+                            })
                     }
                   />
                 ))}
@@ -550,76 +455,6 @@ export function ExplorePackages({
             ))}
           </div>
         </Section>
-      )}
-      {selectedPlan && (
-        <Dialog
-          title={selectedPlan.name}
-          size="lg"
-          onClose={() => setSelectedPlan(null)}
-        >
-          <div className={styles.planDetail}>
-            <ServicePhotoGallery
-              kind="gym"
-              gallery={gymPhotos.galleries.get(selectedPlan.packageId)}
-              sportImageUrl={gymSport?.imageUrl}
-              alt={selectedPlan.name}
-              error={gymPhotos.error?.message}
-              onRetry={gymPhotos.reload}
-            />
-            <div className={styles.planSummary}>
-              <h2>{selectedPlan.name}</h2>
-              <p className={styles.price}>
-                <strong>{formatMoney(selectedPlan.price)}</strong>
-                {selectedPlan.originalPrice &&
-                selectedPlan.originalPrice > selectedPlan.price ? (
-                  <s>{formatMoney(selectedPlan.originalPrice)}</s>
-                ) : null}
-              </p>
-              <p>
-                {selectedPlan.durationDays === 1
-                  ? tx(
-                      "Vé Gym một ngày, có hiệu lực đến 22:00 giờ Việt Nam trong ngày mua.",
-                      "One-day gym access, valid until 22:00 Vietnam time on the purchase day.",
-                    )
-                  : tx(
-                      `Thời hạn: ${monthsOf(selectedPlan.durationDays)} tháng.`,
-                      `Duration: ${monthsOf(selectedPlan.durationDays)} months.`,
-                    )}
-              </p>
-              {selectedPlan.description && <p>{selectedPlan.description}</p>}
-              {selectedOwnership?.active && selectedPlan.durationDays !== 1 && (
-                <p>
-                  {tx(
-                    "Gói gia hạn bắt đầu sau gói hiện tại:",
-                    "Your renewal starts after your current membership:",
-                  )}{" "}
-                  {formatDate(membershipStart)}.
-                </p>
-              )}
-              <button
-                type="button"
-                className={styles.cta}
-                disabled={
-                  owned.loading ||
-                  !!owned.error ||
-                  checkout.busyId !== null ||
-                  selectedDayPassOwned
-                }
-                onClick={() => choosePlan(selectedPlan)}
-              >
-                {selectedDayPassOwned
-                  ? tx("Đã mua", "Purchased")
-                  : selectedOwnership?.pending
-                    ? tx("Tiếp tục thanh toán", "Continue payment")
-                    : selectedOwnership?.previouslyPurchased
-                      ? tx("Gia hạn gói", "Renew plan")
-                      : selectedPlan.durationDays === 1
-                        ? tx("Mua vé ngày", "Buy day pass")
-                        : tx("Chọn gói", "Choose plan")}
-              </button>
-            </div>
-          </div>
-        </Dialog>
       )}
       {bmiPrompt && <BmiRequiredDialog onClose={() => setBmiPrompt(false)} />}
       {staffMember && staffSale && (
@@ -668,6 +503,8 @@ export function ExplorePackages({
 }
 
 function Section({
+  kind,
+  emblem,
   title,
   children,
 }: {
@@ -679,6 +516,7 @@ function Section({
   return (
     <section className={styles.section} aria-label={title}>
       <header className={styles.sectionHead}>
+        <KindTile kind={kind} emblem={emblem} size={32} />
         <h2>{title}</h2>
       </header>
       {children}
@@ -707,9 +545,6 @@ function Retry({
 
 function GymTier({
   plan,
-  gallery,
-  sportImageUrl,
-  onDetails,
   baseMonthly,
   ownership,
   ownershipLoading,
@@ -721,9 +556,6 @@ function GymTier({
   onChoose,
 }: {
   plan: MembershipPackageDto;
-  gallery?: ServiceGallery;
-  sportImageUrl?: string | null;
-  onDetails: () => void;
   baseMonthly: number | null;
   ownership: ReturnType<typeof membershipPurchaseState>;
   ownershipLoading: boolean;
@@ -748,21 +580,8 @@ function GymTier({
   return (
     <article
       className={styles.tier}
-      data-day-pass={dayPass || undefined}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
-      <ServiceCover
-        gallery={gallery}
-        sportImageUrl={sportImageUrl}
-        kind="gym"
-        alt={plan.name}
-        className={dayPass ? styles.dayPassPhoto : styles.planPhoto}
-        sizes={
-          dayPass
-            ? "160px"
-            : "(max-width: 640px) 100vw, (max-width: 1100px) 50vw, 33vw"
-        }
-      />
       <p className={styles.tags}>
         {active && (
           <span className={styles.current}>
@@ -796,11 +615,6 @@ function GymTier({
           </s>
         )}
       </p>
-      {original > plan.price && (
-        <span className={styles.saving}>
-          {tx("Tiết kiệm", "Save")} {formatMoney(original - plan.price)}
-        </span>
-      )}
       <p className={styles.meta}>
         {dayPass ? (
           "Valid until 22:00 Vietnam time on the purchase day"
@@ -812,17 +626,6 @@ function GymTier({
           </>
         )}
       </p>
-      {!dayPass && (
-        <p className={styles.meta}>
-          {tx(
-            "Sử dụng Gym trong giờ mở cửa",
-            "Gym access during opening hours",
-          )}
-        </p>
-      )}
-      <button type="button" className={styles.detailsLink} onClick={onDetails}>
-        {tx("Xem gói", "View plan")}
-      </button>
       <button
         type="button"
         className={styles.cta}
@@ -852,9 +655,6 @@ function GymTier({
 
 function ClassRow({
   course,
-  staffMode,
-  gallery,
-  sportImageUrl,
   unavailableReason,
   busy,
   error,
@@ -862,9 +662,6 @@ function ClassRow({
   onChoose,
 }: {
   course: CourseDto;
-  staffMode: boolean;
-  gallery?: ServiceGallery;
-  sportImageUrl?: string | null;
   unavailableReason: string | null;
   busy: boolean;
   error: string | null;
@@ -889,46 +686,19 @@ function ClassRow({
       ((course.sessionsPassed ?? 0) / (course.numSessions || 1)) * 100,
     ),
   );
-  const photo = (
-    <>
-      <ServiceCover
-        gallery={gallery}
-        sportImageUrl={sportImageUrl}
-        sportName={course.sportName}
-        kind="class"
-        alt={course.name}
-      />
-      <span className={styles.sportLabel}>{sport}</span>
-    </>
-  );
   return (
     <li
       className={styles.row}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
-      {staffMode ? (
-        <div className={styles.classPhoto}>{photo}</div>
-      ) : (
-        <Link
-          className={styles.classPhoto}
-          href={`/member/services?view=explore&type=class&course=${course.classId}`}
-          aria-label={`${tx("Xem lớp", "View class")}: ${course.name}`}
-        >
-          {photo}
-        </Link>
-      )}
+      <KindTile
+        kind="class"
+        emblem={emblemForSport(course.sportName)}
+        size={44}
+        delay={index * 160}
+      />
       <div className={styles.rowMain}>
-        <h3>
-          {staffMode ? (
-            course.name
-          ) : (
-            <Link
-              href={`/member/services?view=explore&type=class&course=${course.classId}`}
-            >
-              {course.name}
-            </Link>
-          )}
-        </h3>
+        <h3>{course.name}</h3>
         <p className={styles.meta}>
           {sport}
           {" · "}
@@ -1051,11 +821,11 @@ function CourtOffer({
       className={styles.court}
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
     >
-      <ServiceCover
-        sportImageUrl={sport.imageUrl}
-        sportName={sport.name}
+      <KindTile
         kind="court"
-        alt={`${name} court category`}
+        emblem={emblemForSport(sport.name, "court")}
+        size={44}
+        delay={index * 160}
       />
       <h3>{tx(`Sân ${name}`, `${name} court`)}</h3>
       <p className={styles.price}>
@@ -1085,14 +855,14 @@ function CourtOffer({
           className={styles.cta}
           onClick={() => onBook(sport.sportId)}
         >
-          {tx("Tìm sân trống", "Find courts")}
+          {tx("Chọn gói", "Select")}
         </button>
       ) : (
         <Link
           className={styles.cta}
           href={`/member/services?section=courts&view=explore&sport=${sport.sportId}`}
         >
-          {tx("Tìm sân trống", "Find courts")}
+          {tx("Chọn gói", "Select")}
         </Link>
       )}
     </article>

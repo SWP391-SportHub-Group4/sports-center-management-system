@@ -4,7 +4,6 @@ import { HelpRequestForm } from "./help-request-form";
 import { MyRequests } from "./help-my-requests";
 import { needsMemberConfirmation, useMySupportRequests } from "./support-api";
 import styles from "./help-center.module.css";
-import { Info } from "lucide-react";
 
 export type HelpTab = "new" | "requests";
 
@@ -70,25 +69,16 @@ export function HelpCenter({
         aria-labelledby={tab === "new" ? "help-tab-new" : "help-tab-requests"}
       >
         {tab === "new" ? (
-          <div className={styles.newRequest}>
-            <div className={styles.formWrap}>
-              <HelpRequestForm
-                initialTopic={initialTopic}
-                initialInvoiceId={invoiceId}
-                initialInvoiceItemId={invoiceItemId}
-                onSent={mine.reload}
-                onViewRequests={(id) =>
-                  onChange({ tab: "requests", requestId: id })
-                }
-              />
-            </div>
-            <aside className={styles.reviewNote}>
-              <Info size={24} aria-hidden="true" />
-              <p>
-                Your request will be reviewed. Track updates in{" "}
-                <strong>My requests</strong>.
-              </p>
-            </aside>
+          <div className={styles.formWrap}>
+            <HelpRequestForm
+              initialTopic={initialTopic}
+              initialInvoiceId={invoiceId}
+              initialInvoiceItemId={invoiceItemId}
+              onSent={mine.reload}
+              onViewRequests={(id) =>
+                onChange({ tab: "requests", requestId: id })
+              }
+            />
           </div>
         ) : (
           <MyRequests

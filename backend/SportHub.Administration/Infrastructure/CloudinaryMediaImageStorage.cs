@@ -55,10 +55,6 @@ public sealed class CloudinaryMediaImageStorage(IConfiguration configuration, Ht
         using var response = await SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
             throw new AppException(503, "media_cleanup_failed", "Cloudinary could not remove the unused upload.");
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(ct));
-        if (!json.RootElement.TryGetProperty("result", out var result)
-            || result.GetString() is not ("ok" or "not found"))
-            throw new AppException(503, "media_cleanup_failed", "Cloudinary could not remove the unused upload.");
     }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)

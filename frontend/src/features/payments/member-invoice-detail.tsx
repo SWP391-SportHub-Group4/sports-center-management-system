@@ -43,9 +43,7 @@ function UnactivatedChoice({
         { idempotencyKey: key.current },
       );
       setConfirming(false);
-      onResolved(
-        `${formatPoints(done.points)} points were added to your wallet.`,
-      );
+      onResolved(`${formatPoints(done.points)} points were added to your wallet.`);
     } catch (error) {
       setConfirming(false);
       const resolved =
@@ -67,10 +65,10 @@ function UnactivatedChoice({
   return (
     <Card title="Paid, but your service was not activated">
       <p>
-        We received your VNPay payment of{" "}
-        <strong>{formatMoney(cashAmount)}</strong>, but we could not activate
-        the service (for example the seat or time slot was no longer available).
-        Choose one option. You can only choose once.
+        We received your VNPay payment of <strong>{formatMoney(cashAmount)}</strong>
+        , but we could not activate the service (for example the seat or time
+        slot was no longer available). Choose one option. You can only choose
+        once.
       </p>
       <ul>
         <li>
@@ -83,11 +81,7 @@ function UnactivatedChoice({
         </li>
       </ul>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
-        <Button
-          type="button"
-          onClick={() => setConfirming(true)}
-          disabled={busy}
-        >
+        <Button type="button" onClick={() => setConfirming(true)} disabled={busy}>
           Receive points now
         </Button>
         <Link
@@ -98,33 +92,21 @@ function UnactivatedChoice({
         </Link>
       </div>
       {result && (
-        <p
-          role={result.ok ? "status" : "alert"}
-          style={{ color: result.ok ? undefined : "var(--danger-text)" }}
-        >
+        <p role={result.ok ? "status" : "alert"} style={{ color: result.ok ? undefined : "var(--danger-text)" }}>
           {result.text}
         </p>
       )}
       {confirming && (
-        <Dialog
-          title="Receive points instead?"
-          onClose={() => setConfirming(false)}
-        >
+        <Dialog title="Receive points instead?" onClose={() => setConfirming(false)}>
           <p>
-            The paid amount becomes points in your wallet. After this you cannot
-            ask for a bank refund for this payment.
+            The paid amount becomes points in your wallet. After this you
+            cannot ask for a bank refund for this payment.
           </p>
-          <div
-            style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}
-          >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
             <Button type="button" loading={busy} onClick={() => void convert()}>
               Yes, receive points
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setConfirming(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setConfirming(false)}>
               Cancel
             </Button>
           </div>
@@ -306,63 +288,61 @@ export function MemberInvoiceDetail({ invoiceId }: { invoiceId: string }) {
                   <strong>{t.refactor.compensated}</strong>
                 </p>
               )}
-              <div className={styles.invoiceColumns}>
-                <Card title={f.items} bodyless>
-                  <Table
-                    headers={[
-                      f.description2,
-                      { text: f.quantity, numeric: true },
-                      { text: f.unitPrice, numeric: true },
-                      { text: f.lineAmount, numeric: true },
-                    ]}
-                  >
-                    {d.items.map((item) => (
-                      <tr key={item.itemId}>
-                        <td>{item.description}</td>
-                        <td className="num">{item.quantity}</td>
-                        <td className="num">{formatMoney(item.unitPrice)}</td>
-                        <td className="num">{formatMoney(item.lineAmount)}</td>
-                      </tr>
-                    ))}
-                  </Table>
-                </Card>
-                <Card title={t.checkout.summary}>
-                  <dl className={styles.rows}>
-                    {d.payments.some((p) => p.status === "SUCCESS") && (
-                      <div>
-                        <dt>{f.paidAt}</dt>
-                        <dd>
-                          {formatDateTime(
-                            d.payments.find((p) => p.status === "SUCCESS")!
-                              .paidAt,
-                          )}
-                        </dd>
-                      </div>
-                    )}
+              <Card title={f.items} bodyless>
+                <Table
+                  headers={[
+                    f.description2,
+                    { text: f.quantity, numeric: true },
+                    { text: f.unitPrice, numeric: true },
+                    { text: f.lineAmount, numeric: true },
+                  ]}
+                >
+                  {d.items.map((item) => (
+                    <tr key={item.itemId}>
+                      <td>{item.description}</td>
+                      <td className="num">{item.quantity}</td>
+                      <td className="num">{formatMoney(item.unitPrice)}</td>
+                      <td className="num">{formatMoney(item.lineAmount)}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </Card>
+              <Card title={t.checkout.summary}>
+                <dl className={styles.rows}>
+                  {d.payments.some((p) => p.status === "SUCCESS") && (
                     <div>
-                      <dt>{t.checkout.totalLine}</dt>
-                      <dd>{formatMoney(s.totalAmount)}</dd>
-                    </div>
-                    <div>
-                      <dt>{f.pointsPaid}</dt>
+                      <dt>{f.paidAt}</dt>
                       <dd>
-                        {formatPoints(s.pointsSpent ?? 0)}{" "}
-                        {t.refactor.points.toLowerCase()}
+                        {formatDateTime(
+                          d.payments.find((p) => p.status === "SUCCESS")!
+                            .paidAt,
+                        )}
                       </dd>
                     </div>
-                    <div>
-                      <dt>{f.cashPaid}</dt>
-                      <dd>{formatMoney(s.cashAmount ?? 0)}</dd>
+                  )}
+                  <div>
+                    <dt>{t.checkout.totalLine}</dt>
+                    <dd>{formatMoney(s.totalAmount)}</dd>
+                  </div>
+                  <div>
+                    <dt>{f.pointsPaid}</dt>
+                    <dd>
+                      {formatPoints(s.pointsSpent ?? 0)}{" "}
+                      {t.refactor.points.toLowerCase()}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{f.cashPaid}</dt>
+                    <dd>{formatMoney(s.cashAmount ?? 0)}</dd>
+                  </div>
+                  {s.status === "ISSUED" && (
+                    <div className={styles.rowsTotal}>
+                      <dt>{f.outstanding}</dt>
+                      <dd>{formatMoney(s.outstanding)}</dd>
                     </div>
-                    {s.status === "ISSUED" && (
-                      <div className={styles.rowsTotal}>
-                        <dt>{f.outstanding}</dt>
-                        <dd>{formatMoney(s.outstanding)}</dd>
-                      </div>
-                    )}
-                  </dl>
-                </Card>
-              </div>
+                  )}
+                </dl>
+              </Card>
               <Card title={f.payments} bodyless>
                 {d.payments.length ? (
                   <Table

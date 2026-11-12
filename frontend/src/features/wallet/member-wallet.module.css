@@ -1,32 +1,30 @@
 .wallet {
   display: grid;
   gap: var(--space-7);
-  min-width: 0;
+  max-width: 960px;
 }
 .balance {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   gap: var(--space-5);
   align-items: stretch;
 }
 .balance[data-split="false"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 .primary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   align-content: start;
   gap: var(--space-1);
-  padding: 24px;
+  padding: var(--space-6);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
 }
 .label {
-  color: var(--text-strong);
-  font-size: 17px;
-  font-weight: 700;
-  grid-column: 1;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
 }
 .hero {
   color: var(--text-strong);
@@ -35,53 +33,44 @@
   font-weight: var(--weight-semibold);
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  grid-column: 1;
-  margin-block: 8px;
 }
 .worth {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.65;
-  grid-column: 1 / -1;
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
 .addPoints {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  justify-self: end;
-  margin-left: 12px;
+  justify-self: start;
+  margin-top: var(--space-3);
 }
 .secondary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
   margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-sunken);
 }
 .secondary > div {
   display: grid;
   align-content: center;
   gap: 2px;
-  padding: 24px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: var(--bg-surface);
+  padding: var(--space-4) var(--space-5);
 }
 .secondary > div + div {
   border-top: 1px solid var(--border-subtle);
 }
 .secondary dt {
-  color: var(--text-strong);
-  font-size: 16px;
-  font-weight: 700;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 .secondary dd {
   display: grid;
-  gap: 8px;
+  gap: 2px;
   margin: 0;
   color: var(--text-strong);
   font-family: var(--font-display);
-  font-size: 38px;
+  font-size: var(--text-3xl);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -89,8 +78,6 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
   line-height: normal;
-  font-family: var(--font-body);
-  font-weight: 400;
 }
 .history {
   display: grid;
@@ -105,51 +92,27 @@
 }
 .historyHead h2 {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 800;
+  font-size: var(--text-xl);
 }
 .historyHead select {
   min-height: 44px;
   width: auto;
   min-width: 180px;
 }
-.ledgerTable {
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: var(--bg-surface);
-  overflow: hidden;
-}
-.ledgerHead {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(130px, 1fr) minmax(150px, 1fr);
-  gap: 20px;
-  padding: 16px 22px;
-  color: var(--text-strong);
-  background: var(--bg-surface-sunken);
-  font-size: 13px;
-  font-weight: 700;
-}
-.ledgerHead > :last-child {
-  text-align: right;
-}
-.ledgerDate {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.6;
-  font-variant-numeric: tabular-nums;
-}
 .list {
   margin: 0;
   padding: 0;
   list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
 }
 .list li {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(130px, 1fr) minmax(150px, 1fr);
+  display: flex;
+  justify-content: space-between;
   align-items: flex-start;
-  gap: 20px;
-  padding: 20px 22px;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
 }
 .list li + li {
   border-top: 1px solid var(--border-subtle);
@@ -192,73 +155,23 @@
   color: var(--success-text);
 }
 .out {
-  color: var(--danger-text);
+  color: var(--text-strong);
 }
 .amount span[data-held="true"] {
   color: var(--text-muted);
 }
 @media (max-width: 720px) {
-  .balance,
-  .balance[data-split="false"] {
+  .balance {
     grid-template-columns: minmax(0, 1fr);
   }
   .secondary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .secondary > div + div {
-    border-top: 1px solid var(--border-subtle);
+    border-top: 0;
+    border-left: 1px solid var(--border-subtle);
   }
   .primary {
     padding: var(--space-5);
-  }
-  .secondary > div {
-    padding: 18px;
-  }
-  .ledgerHead {
-    display: none;
-  }
-  .list li {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 18px;
-  }
-  .ledgerDate {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  .amount {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-  }
-}
-@media (max-width: 400px) {
-  .primary {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .addPoints {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: stretch;
-    margin: 14px 0 0;
-  }
-  .secondary {
-    gap: 12px;
-  }
-  .secondary > div {
-    padding: 14px;
-  }
-  .secondary dt {
-    font-size: 13px;
-  }
-  .secondary dd {
-    font-size: 32px;
-  }
-  .list li {
-    grid-template-columns: 1fr;
-  }
-  .amount {
-    grid-column: 1;
-    grid-row: 3;
-    justify-items: start;
   }
 }

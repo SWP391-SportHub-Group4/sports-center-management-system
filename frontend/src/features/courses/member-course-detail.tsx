@@ -7,12 +7,7 @@ import {
   MemberSchedule,
   useBmiGate,
 } from "@/features/member";
-import {
-  ServicePhotoGallery,
-  useServiceGallery,
-} from "@/features/service-media";
-import { api } from "@/lib/apiClient";
-import type { SportDto } from "@/lib/types";
+import { CourseSticker } from "./course-sticker";
 import { CheckoutPanel } from "@/features/payments";
 import { StatusChip } from "@/components/ui";
 import { CoachProfilePreview } from "@/components/CoachProfilePreview";
@@ -73,11 +68,6 @@ export function CourseDetail({
     [classId],
   );
   const bmiGate = useBmiGate(user?.role === "Member");
-  const gallery = useServiceGallery("class", classId);
-  const sports = useApi(
-    (signal) => api.get<SportDto[]>("/api/sports", { anonymous: true, signal }),
-    [],
-  );
   const [bmiPrompt, setBmiPrompt] = useState(false);
 
   if (state.loading)
@@ -150,20 +140,7 @@ export function CourseDetail({
           <Heading>{course.name}</Heading>
           <CourseOpeningStatus course={course} />
         </header>
-        <ServicePhotoGallery
-          gallery={gallery.data}
-          loading={gallery.loading}
-          error={gallery.error?.message}
-          onRetry={gallery.reload}
-          sportImageUrl={
-            sports.data?.find((sport) => sport.sportId === course.sportId)
-              ?.imageUrl
-          }
-          sportName={course.sportName}
-          kind="class"
-          alt={course.name}
-          priority
-        />
+        <CourseSticker sport={course.sportName} compact />
         <dl className={styles.facts}>
           {facts.map(([label, value]) => (
             <div key={label}>
@@ -243,9 +220,9 @@ export function CourseDetail({
             )}
           </>
         ) : user?.role === "Member" &&
-          (resumeId ||
-            checkoutCompleted ||
-            (canRegister && !enrollments.loading && !enrollments.error)) ? (
+        (resumeId ||
+          checkoutCompleted ||
+          (canRegister && !enrollments.loading && !enrollments.error)) ? (
           <div className={styles.payment}>
             <CheckoutPanel
               modal
