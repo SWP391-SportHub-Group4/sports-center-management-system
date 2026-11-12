@@ -440,7 +440,13 @@ export function TeachingEditor({
                 Date.parse(homeworkSession.startAtUtc) <= now) && (
                 <small>AI session suggestions are available only before a scheduled session begins. You can still edit this saved plan manually.</small>
               )}
-              <Feedback error={planIssue ?? ai.error} />
+              {(planIssue || ai.error) && (
+                <div role="status" aria-live="polite" className={styles.suggestion}>
+                  <strong>AI plan assessment</strong>
+                  <p>{planIssue ?? ai.error}</p>
+                  <small>No plan has been applied. Adjust the goal or context before regenerating.</small>
+                </div>
+              )}
               {existing && <small>AI generates a new draft. Your saved plan stays unchanged until you apply the suggestion and save your edits.</small>}
               {suggestion && (
                 <div className={styles.suggestion}>
