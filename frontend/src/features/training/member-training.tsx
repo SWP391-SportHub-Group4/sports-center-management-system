@@ -11,7 +11,11 @@ import {
 import { Tabs } from "@/components/primitives";
 import { Dialog } from "@/components/ui";
 import { memberEnrollments } from "@/features/member";
-import { teachingApi, type TeachingRecord } from "@/features/coaching";
+import {
+  TeachingRecords,
+  teachingApi,
+  type TeachingRecord,
+} from "@/features/coaching";
 import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -25,12 +29,6 @@ import {
   type WorkoutSuggestionSourceType,
 } from "@/lib/types";
 import { TrainingProfile } from "./training-profile";
-import { formatDate } from "@/lib/format";
-import {
-  ServiceCover,
-  useServiceGalleries,
-  type ServiceGallery,
-} from "@/features/service-media";
 import styles from "./training.module.css";
 
 const AI_PLANS_KEY = "sporthub:member:ai-workout-plans:v1";
@@ -59,76 +57,9 @@ function readPlansSnapshot() {
 
 type FeedEntry = { key: string; time: string; node: ReactNode };
 
-function CoachRecordCard({
-  enrollment,
-  record,
-  gallery,
-}: {
-  enrollment: CourseEnrollmentDto;
-  record: TeachingRecord;
-  gallery?: ServiceGallery;
-}) {
-  const labels = {
-    PLAN: "Lesson plan",
-    HOMEWORK: "Homework",
-    RESULT: "Assessment",
-    NOTICE: "Notice",
-  };
-  return (
-    <article className={styles.recordCard} data-record-kind={record.kind}>
-      <ServiceCover
-        gallery={gallery}
-        sportName={enrollment.sportName}
-        kind="class"
-        alt={enrollment.className}
-        className={styles.recordPhoto}
-        sizes="(max-width: 640px) 100vw, 280px"
-      />
-      <div className={styles.recordBody}>
-        <div className={styles.recordMeta}>
-          <span className={styles.coachBadge}>
-            {labels[record.kind]} · Coach
-          </span>
-          <Link href={`/member/schedule?course=${enrollment.classId}`}>
-            {enrollment.className}
-          </Link>
-          <time dateTime={record.updatedAtUtc}>
-            {formatDate(record.updatedAtUtc)}
-          </time>
-          <span className={styles.scopeBadge}>
-            {record.memberId ? "Individual" : "Entire class"}
-          </span>
-        </div>
-        <h3>{record.title}</h3>
-        {enrollment.coachName && (
-          <p className={styles.recordCoach}>{enrollment.coachName}</p>
-        )}
-        <p className={styles.recordContent}>{record.content}</p>
-        {record.score != null && (
-          <p className={styles.score}>
-            Skill assessment <strong>{record.score}/5</strong>
-          </p>
-        )}
-        {record.kind === "HOMEWORK" && (
-          <p className={styles.recordNote}>
-            Aim to complete before the next lesson · Optional
-          </p>
-        )}
-        {record.kind !== "HOMEWORK" && record.dueAtUtc && (
-          <p className={styles.recordNote}>Due {formatDate(record.dueAtUtc)}</p>
-        )}
-      </div>
-    </article>
-  );
-}
-
 /** Plans saved locally from the AI assistant, as feed entries plus the delete confirmation dialog. */
 function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
-  const raw = useSyncExternalStore(
-    subscribeToPlans,
-    readPlansSnapshot,
-    () => "[]",
-  );
+  const raw = useSyncExternalStore(subscribeToPlans, readPlansSnapshot, () => "[]");
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   let saved: SavedAiPlan[] = [];
   try {
@@ -145,117 +76,63 @@ function useSavedAiPlans(activity: string, date: string, enabled: boolean) {
           Array.isArray(p.suggestion.items),
       );
     }
-  } catch {
-    /* Treat corrupt storage as empty. */
-  }
+  } catch { /* Treat corrupt storage as empty. */ }
 
   function removePlan(id: string) {
     setPendingDelete(null);
     try {
-      const current: unknown = JSON.parse(
-        localStorage.getItem(AI_PLANS_KEY) ?? "[]",
-      );
+      const current: unknown = JSON.parse(localStorage.getItem(AI_PLANS_KEY) ?? "[]");
       if (!Array.isArray(current)) return;
-      localStorage.setItem(
-        AI_PLANS_KEY,
-        JSON.stringify(current.filter((p) => p?.id !== id)),
-      );
+      localStorage.setItem(AI_PLANS_KEY, JSON.stringify(current.filter((p) => p?.id !== id)));
       window.dispatchEvent(new Event(AI_PLANS_EVENT));
-    } catch {
-      /* Local storage may be unavailable. */
-    }
+    } catch { /* Local storage may be unavailable. */ }
   }
 
-  const entries: FeedEntry[] = !enabled
-    ? []
-    : saved
-        .filter(
-          ({ suggestion, savedAt }) =>
-            (!activity || suggestion.sport === activity) &&
-            (!date || vietnamDate(savedAt) === date),
-        )
-        .map(({ id, suggestion: plan, savedAt }) => ({
-          key: `saved-${id}`,
-          time: savedAt,
-          node: (
-            <article className={styles.aiPlanCard}>
-              <ServiceCover
-                sportName={plan.sport}
-                kind={plan.sport === "Gym" ? "gym" : "class"}
-                alt={`${plan.sport} workout`}
-                className={styles.recordPhoto}
-                sizes="(max-width: 640px) 100vw, 280px"
-              />
-              <div className={styles.aiPlanAccent}>
-                <div className={styles.aiPlanTop}>
-                  <span className={styles.aiPlanKind}>
-                    <ClipboardList size={15} aria-hidden="true" /> Lesson plan
-                    <span className={styles.aiPlanDraftTag}>AI suggestion</span>
-                  </span>
-                  <button
-                    className={styles.aiPlanRemove}
-                    type="button"
-                    onClick={() => setPendingDelete(id)}
-                  >
-                    Delete plan
-                  </button>
-                </div>
-                <h3 className={styles.aiPlanTitle}>
-                  {plan.sport} workout - {plan.goal}
-                </h3>
-                <p className={styles.aiPlanMeta}>
-                  Individual {" · "} {plan.level} {" · "} Saved{" "}
-                  {new Date(savedAt).toLocaleDateString("en-GB")} {" · "} Not
-                  coach-approved
+  const entries: FeedEntry[] = !enabled ? [] : saved
+    .filter(({ suggestion, savedAt }) =>
+      (!activity || suggestion.sport === activity) &&
+      (!date || vietnamDate(savedAt) === date))
+    .map(({ id, suggestion: plan, savedAt }) => ({
+      key: `saved-${id}`,
+      time: savedAt,
+      node: (
+        <article className={styles.aiPlanCard}>
+          <div className={styles.aiPlanAccent}>
+            <div className={styles.aiPlanTop}>
+              <span className={styles.aiPlanKind}>
+                <ClipboardList size={15} aria-hidden="true" /> Lesson plan
+                <span className={styles.aiPlanDraftTag}>AI suggestion</span>
+              </span>
+              <button className={styles.aiPlanRemove} type="button" onClick={() => setPendingDelete(id)}>Delete plan</button>
+            </div>
+            <h3 className={styles.aiPlanTitle}>{plan.sport} workout - {plan.goal}</h3>
+            <p className={styles.aiPlanMeta}>
+              Individual {" · "} {plan.level} {" · "} Saved {new Date(savedAt).toLocaleDateString("en-GB")} {" · "} Not coach-approved
+            </p>
+            <div className={styles.aiPlanContent}>
+              <p><strong>Goal</strong> {" · "} {plan.goal}</p>
+              {(plan.items ?? []).map((item, index) => (
+                <p key={`${index}-${item.exercise}`}>
+                  <strong>{index + 1}. {item.exercise}</strong> {" · "} {item.sets} {item.sets === 1 ? "set" : "sets"} {" × "} {item.reps} {item.reps === 1 ? "rep" : "reps"}
+                  {item.notes ? ` ${String.fromCharCode(183)} ${item.notes}` : ""}
                 </p>
-                <div className={styles.aiPlanContent}>
-                  <p>
-                    <strong>Goal</strong> {" · "} {plan.goal}
-                  </p>
-                  {(plan.items ?? []).map((item, index) => (
-                    <p key={`${index}-${item.exercise}`}>
-                      <strong>
-                        {index + 1}. {item.exercise}
-                      </strong>{" "}
-                      {" · "} {item.sets} {item.sets === 1 ? "set" : "sets"}{" "}
-                      {" × "} {item.reps} {item.reps === 1 ? "rep" : "reps"}
-                      {item.notes
-                        ? ` ${String.fromCharCode(183)} ${item.notes}`
-                        : ""}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </article>
-          ),
-        }));
+              ))}
+            </div>
+          </div>
+        </article>
+      ),
+    }));
   const dialog = pendingDelete ? (
     <Dialog
       title="Delete this AI workout plan?"
       description="This plan will be removed from your Training page. This cannot be undone."
       size="sm"
       onClose={() => setPendingDelete(null)}
-      footer={
-        <>
-          <button
-            type="button"
-            className="btn btn--secondary"
-            onClick={() => setPendingDelete(null)}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn--danger"
-            onClick={() => removePlan(pendingDelete)}
-          >
-            Delete
-          </button>
-        </>
-      }
-    >
-      {null}
-    </Dialog>
+      footer={<>
+        <button type="button" className="btn btn--secondary" onClick={() => setPendingDelete(null)}>Cancel</button>
+        <button type="button" className="btn btn--danger" onClick={() => removePlan(pendingDelete)}>Delete</button>
+      </>}
+    >{null}</Dialog>
   ) : null;
   return { entries, dialog };
 }
@@ -265,13 +142,9 @@ type Tab = (typeof TABS)[number];
 type ClassRecord = { enrollment: CourseEnrollmentDto; record: TeachingRecord };
 const vietnamDate = (value: string) => {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(new Date(value));
-  const part = (type: string) =>
-    parts.find((item) => item.type === type)?.value ?? "";
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
 
@@ -308,14 +181,11 @@ async function loadCoachingFeed(signal: AbortSignal): Promise<ClassRecord[]> {
 }
 
 function CoachingTab({ kind }: { kind: "plans" | "results" }) {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const vi = language === "vi";
   const state = useApi(loadCoachingFeed, []);
   const aiState = useApi(
-    (signal) =>
-      api.get<SavedWorkoutSuggestionDto[]>("/api/ai/workout-suggestions/me", {
-        signal,
-      }),
+    (signal) => api.get<SavedWorkoutSuggestionDto[]>("/api/ai/workout-suggestions/me", { signal }),
     [],
   );
   const [source, setSource] = useState("");
@@ -328,56 +198,29 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
       ? record.kind === "PLAN" || record.kind === "HOMEWORK"
       : record.kind === "RESULT" || record.kind === "NOTICE",
   );
-  const galleries = useServiceGalleries(
-    "class",
-    rows.map(({ enrollment }) => enrollment.classId),
-  );
   const aiPlans = aiState.data ?? [];
-  const coachOptions = [
-    ...new Map(
-      rows.map(({ enrollment, record }) => [
-        record.coachId,
-        { id: record.coachId, name: enrollment.coachName || "Coach" },
-      ]),
-    ).values(),
-  ];
-  const activities = [
-    ...new Set(
-      [
-        ...rows.map(({ enrollment }) => enrollment.sportName),
-        ...(kind === "plans" ? aiPlans.map((plan) => plan.sport) : []),
-      ].filter(Boolean),
-    ),
-  ].sort();
-  const visibleAi =
-    kind === "plans" &&
-    source !== "coach" &&
-    !coach &&
+  const coachOptions = [...new Map(rows.map(({ enrollment, record }) => [
+    record.coachId,
+    { id: record.coachId, name: enrollment.coachName || "Coach" },
+  ])).values()];
+  const activities = [...new Set([
+    ...rows.map(({ enrollment }) => enrollment.sportName),
+    ...(kind === "plans" ? aiPlans.map((plan) => plan.sport) : []),
+  ].filter(Boolean))].sort();
+  const visibleAi = kind === "plans" && source !== "coach" && !coach &&
     (scope === "" || scope === "personal")
-      ? aiPlans.filter(
-          (plan) =>
-            (plan.type == null || plan.type === WORKOUT_SUGGESTION_TYPE) &&
-            (!activity || plan.sport === activity) &&
-            (!date || vietnamDate(plan.generatedAt) === date),
-        )
-      : [];
-  const visibleRows = rows.filter(
-    ({ enrollment, record }) =>
-      (kind !== "plans" || source !== "ai") &&
-      (!coach || record.coachId === coach) &&
-      (!activity || enrollment.sportName === activity) &&
-      (!scope ||
-        (scope === "personal" ? Boolean(record.memberId) : !record.memberId)) &&
-      (!date || vietnamDate(record.createdAtUtc) === date),
+    ? aiPlans.filter((plan) => (!activity || plan.sport === activity) &&
+      (!date || vietnamDate(plan.generatedAt) === date))
+    : [];
+  const visibleRows = rows.filter(({ enrollment, record }) =>
+    (kind !== "plans" || source !== "ai") &&
+    (!coach || record.coachId === coach) &&
+    (!activity || enrollment.sportName === activity) &&
+    (!scope || (scope === "personal" ? Boolean(record.memberId) : !record.memberId)) &&
+    (!date || vietnamDate(record.createdAtUtc) === date)
   );
-  const local = useSavedAiPlans(
-    activity,
-    date,
-    kind === "plans" &&
-      source !== "coach" &&
-      !coach &&
-      (scope === "" || scope === "personal"),
-  );
+  const local = useSavedAiPlans(activity, date, kind === "plans" && source !== "coach" && !coach &&
+    (scope === "" || scope === "personal"));
   // One feed, newest first, regardless of whether an AI suggestion or a coach created the plan.
   const feed: FeedEntry[] = [
     ...local.entries,
@@ -385,39 +228,21 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
       key: `ai-${plan.id}`,
       time: plan.generatedAt,
       node: (
-        <article className={styles.recordCard}>
-          <ServiceCover
-            sportName={plan.sport}
-            kind={plan.sport === "Gym" ? "gym" : "class"}
-            alt={`${plan.sport} workout`}
-            className={styles.recordPhoto}
-            sizes="(max-width: 640px) 100vw, 280px"
-          />
-          <div className={styles.recordBody}>
-            <div className={styles.planHeading}>
-              <strong>
-                {plan.sport} · {plan.goal}
-              </strong>
-              <span className={styles.aiBadge}>{WORKOUT_SUGGESTION_LABEL}</span>
-              <span className={styles.scopeBadge}>
-                Individual · Not coach-approved
-              </span>
-            </div>
-            <small>
-              {new Date(plan.generatedAt).toLocaleString(
-                vi ? "vi-VN" : "en-US",
-              )}
-            </small>
-            <ol className={styles.aiExercises}>
-              {plan.items.map((item, index) => (
-                <li key={`${plan.id}-${index}`}>
-                  <strong>{item.exercise}</strong> · {item.sets} × {item.reps}
-                  {item.notes && <p>{item.notes}</p>}
-                </li>
-              ))}
-            </ol>
-            {plan.rationale && <p>{plan.rationale}</p>}
+        <article className={styles.panel}>
+          <div className={styles.planHeading}>
+            <strong>{plan.sport} · {plan.goal}</strong>
+            <span className={styles.aiBadge}>{vi ? "AI tạo" : "Created by AI"}</span>
           </div>
+          <small>{new Date(plan.generatedAt).toLocaleString(vi ? "vi-VN" : "en-US")}</small>
+          <ol className={styles.aiExercises}>
+            {plan.items.map((item, index) => (
+              <li key={`${plan.id}-${index}`}>
+                <strong>{item.exercise}</strong> · {item.sets} × {item.reps}
+                {item.notes && <p>{item.notes}</p>}
+              </li>
+            ))}
+          </ol>
+          {plan.rationale && <p>{plan.rationale}</p>}
         </article>
       ),
     })),
@@ -425,78 +250,42 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
       key: `coach-${record.recordId}`,
       time: record.createdAtUtc,
       node: (
-        <CoachRecordCard
-          enrollment={enrollment}
-          record={record}
-          gallery={galleries.galleries.get(enrollment.classId)}
-        />
+        <article className={styles.panel}>
+          {kind === "plans" && <span className={styles.coachBadge}>{vi ? "Coach tạo" : "Created by Coach"}</span>}
+          <Link href={`/member/schedule?course=${enrollment.classId}`}>
+            {enrollment.className}
+          </Link>
+          <TeachingRecords records={[record]} />
+        </article>
       ),
     })),
   ].sort((x, y) => Date.parse(y.time) - Date.parse(x.time));
 
   return (
     <section className={styles.section}>
-      <div
-        className={styles.filters}
-        data-kind={kind}
-        aria-label={kind === "plans" ? "Plan filters" : "Result filters"}
-      >
-        {kind === "plans" && (
-          <label>
-            <span>{vi ? "Nguồn" : "Source"}</span>
-            <select value={source} onChange={(e) => setSource(e.target.value)}>
-              <option value="">{vi ? "Tất cả" : "All sources"}</option>
-              <option value="ai">AI suggestion</option>
-              <option value="coach">Coach</option>
-            </select>
-          </label>
-        )}
-        <label>
-          Coach
-          <select value={coach} onChange={(e) => setCoach(e.target.value)}>
+      {kind === "results" && <h2>{t.ptOps.tabResults}</h2>}
+      <div className={styles.filters} data-kind={kind} aria-label={kind === "plans" ? "Plan filters" : "Result filters"}>
+          {kind === "plans" && <label><span className={styles.visuallyHidden}>{vi ? "Nguồn" : "Source"}</span><select value={source} onChange={(e) => setSource(e.target.value)}>
+            <option value="">{vi ? "Tất cả" : "All sources"}</option>
+            <option value="ai">AI suggestion</option><option value="coach">Coach</option>
+          </select></label>}
+          <label>Coach<select value={coach} onChange={(e) => setCoach(e.target.value)}>
             <option value="">{vi ? "Tất cả Coach" : "All coaches"}</option>
-            {coachOptions.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {vi ? "Môn tập / Gym" : "Sport / Gym"}
-          <select
-            value={activity}
-            onChange={(e) => setActivity(e.target.value)}
-          >
+            {coachOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select></label>
+          <label>{vi ? "Môn tập / Gym" : "Sport / Gym"}<select value={activity} onChange={(e) => setActivity(e.target.value)}>
             <option value="">{vi ? "Tất cả" : "All activities"}</option>
-            {activities.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {vi ? "Phạm vi" : "Scope"}
-          <select value={scope} onChange={(e) => setScope(e.target.value)}>
+            {activities.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select></label>
+          <label>{vi ? "Phạm vi" : "Scope"}<select value={scope} onChange={(e) => setScope(e.target.value)}>
             <option value="">{vi ? "Tất cả" : "All scopes"}</option>
             <option value="personal">{vi ? "Cá nhân" : "Personal"}</option>
             <option value="class">{vi ? "Cả lớp" : "Whole class"}</option>
-          </select>
-        </label>
-        <label>
-          {vi ? "Ngày tạo" : "Created date"}
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </label>
+          </select></label>
+          <label>{vi ? "Ngày tạo" : "Created date"}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
       </div>
       {kind === "plans" && aiState.loading && source !== "coach" && (
-        <p role="status">
-          {vi ? "Đang tải gợi ý AI…" : "Loading AI suggestions…"}
-        </p>
+        <p role="status">{vi ? "Đang tải gợi ý AI…" : "Loading AI suggestions…"}</p>
       )}
       {state.loading ? (
         <p role="status">
@@ -519,24 +308,14 @@ function CoachingTab({ kind }: { kind: "plans" | "results" }) {
             <div key={entry.key}>{entry.node}</div>
           ))}
         </div>
-      ) : kind === "plans" &&
-        source === "ai" &&
-        (aiState.loading || aiState.error) ? null : (
+      ) : kind === "plans" && source === "ai" && (aiState.loading || aiState.error) ? null : (
         <p className={styles.muted}>
-          {kind === "plans"
-            ? source || coach || activity || scope || date
-              ? vi
-                ? "Không có plan phù hợp với bộ lọc."
-                : "No plans match these filters."
-              : vi
-                ? "Chưa có nội dung từ huấn luyện viên ở các lớp bạn đang học."
-                : "No coach content is available in your current classes yet."
+          {kind === "plans" ? source || coach || activity || scope || date
+            ? (vi ? "Không có plan phù hợp với bộ lọc." : "No plans match these filters.")
+            : (vi ? "Chưa có nội dung từ huấn luyện viên ở các lớp bạn đang học." : "No coach content is available in your current classes yet.")
             : coach || activity || scope || date
-              ? vi
-                ? "Không có kết quả phù hợp với bộ lọc."
-                : "No results match these filters."
-              : vi
-                ? "Chưa có nội dung từ huấn luyện viên ở các lớp bạn đang học."
+              ? (vi ? "Không có kết quả phù hợp với bộ lọc." : "No results match these filters.")
+              : vi ? "Chưa có nội dung từ huấn luyện viên ở các lớp bạn đang học."
                 : "No coach content is available in your current classes yet."}
         </p>
       )}
@@ -556,13 +335,7 @@ export function MemberTraining() {
         choiceQuery(
           TABS,
           "plans",
-        )(
-          value === "progress"
-            ? "results"
-            : value === "sessions"
-              ? "plans"
-              : value,
-        ),
+        )(value === "progress" ? "results" : value === "sessions" ? "plans" : value),
     },
   );
   const tab = values.tab as Tab;

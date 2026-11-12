@@ -37,13 +37,11 @@ export function MediaImageCropper({
   spec,
   onConfirm,
   onCancel,
-  description,
 }: {
   image: ImageBitmap;
   spec: HomepageImageSpec;
   onConfirm: (blob: Blob) => Promise<void>;
   onCancel: () => void;
-  description?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -81,10 +79,7 @@ export function MediaImageCropper({
   return (
     <Dialog
       title="Frame your image"
-      description={
-        description ??
-        `${spec.label}. Position your image, then apply it to the Media preview. The homepage changes only after you save.`
-      }
+      description={`${spec.label}. Position your image, then apply it to the Media preview. The homepage changes only after you save.`}
       size="lg"
       onClose={() => {
         if (!busy) onCancel();

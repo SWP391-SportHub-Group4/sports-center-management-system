@@ -83,9 +83,6 @@ export function RoomDetails({
         </button>
       </header>
       <nav className={styles.links} aria-label={copy.roomActions}>
-        <Link href={`/manager/service-images/room/${current.roomId}`}>
-          Images
-        </Link>
         <Link href={`/manager/schedule?roomId=${current.roomId}`}>
           <CalendarDays size={16} aria-hidden="true" />
           {copy.roomViewSchedule}

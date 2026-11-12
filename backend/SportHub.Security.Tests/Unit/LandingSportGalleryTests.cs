@@ -12,7 +12,7 @@ public sealed class LandingSportGalleryTests
     public async Task Media_cannot_override_catalog_sport_names(string key)
     {
         // Invalid editorial writes must fail before any database or audit work.
-        var controller = new LandingPageController(null!, null!, null!, null!);
+        var controller = new LandingPageController(null!, null!, null!);
         var values = new Dictionary<string, string>
         {
             ["bookmarks.coachIds"] = string.Join(',', Enumerable.Range(0, 3).Select(_ => Guid.NewGuid())),

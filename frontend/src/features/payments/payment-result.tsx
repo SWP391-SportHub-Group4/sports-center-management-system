@@ -17,8 +17,6 @@ import type { CheckoutDto, InvoiceDetailDto } from "@/lib/types";
 import { derivePhase } from "./checkout.contract";
 import { DownloadInvoiceButton } from "./download-invoice-button";
 import styles from "./payment-result.module.css";
-import { ServiceCover } from "@/features/service-media";
-import { useInvoiceGalleries } from "./use-invoice-galleries";
 
 export function PaymentResult({
   checkout,
@@ -115,7 +113,6 @@ export function PaymentResult({
         : checkout.kind === "CLASS"
           ? "Class registration"
           : "Gym membership";
-  const itemGallery = useInvoiceGalleries(detail?.items ?? []);
 
   return (
     <section
@@ -123,7 +120,7 @@ export function PaymentResult({
       aria-label="Payment result"
       data-payment-state={complete ? "success" : "pending"}
     >
-      <div className={styles.message}>
+      <div className={styles.message} data-surface="inverse">
         <div
           className={`${styles.symbol} ${!complete ? styles.neutral : ""}`}
           aria-hidden="true"
@@ -214,22 +211,6 @@ export function PaymentResult({
           <ul className={styles.items}>
             {detail.items.map((item) => (
               <li key={item.itemId}>
-                {!/wallet_?top_?up/i.test(item.itemType) && (
-                  <ServiceCover
-                    gallery={itemGallery(item)}
-                    kind={
-                      /membership/i.test(item.itemType)
-                        ? "gym"
-                        : /rental/i.test(item.itemType)
-                          ? "court"
-                          : "class"
-                    }
-                    sportName={item.sportName}
-                    alt={item.description}
-                    className={styles.itemPhoto}
-                    sizes="100px"
-                  />
-                )}
                 <span>{item.description}</span>
                 <strong>{formatMoney(item.lineAmount)}</strong>
               </li>

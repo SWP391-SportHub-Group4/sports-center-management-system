@@ -56,18 +56,18 @@
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--space-4);
 }
 .card {
-  --sport-bg: var(--court-50);
-  --sport-ink: var(--court-700);
+  --sport-bg: var(--color-primary-soft);
+  --sport-ink: var(--color-primary-soft-text);
   display: flex;
   flex-direction: column;
   min-width: 0;
   padding: var(--space-5);
   border: 1px solid var(--border-subtle);
-  background: var(--white);
+  background: var(--bg-surface);
   color: var(--text-strong);
   border-radius: var(--radius-lg);
   text-decoration: none;
@@ -76,60 +76,12 @@
     transform 180ms ease-out;
 }
 .card[data-sport="badminton"] {
-  --sport-bg: var(--court-50);
-  --sport-ink: var(--court-700);
+  --sport-bg: var(--info-bg);
+  --sport-ink: var(--info-text);
 }
 .card[data-sport="basketball"] {
-  --sport-bg: var(--court-50);
-  --sport-ink: var(--court-700);
-}
-.cover {
-  margin-bottom: var(--space-4);
-  flex-shrink: 0;
-}
-.photoNotice {
-  margin: 0;
-  color: var(--text-body);
-  font-size: var(--text-sm);
-}
-.progressBlock {
-  display: grid;
-  gap: 10px;
-  padding-top: var(--space-3);
-  margin-top: auto;
-}
-.progressBlock > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: var(--text-sm);
-  color: var(--text-body);
-}
-.progressBlock strong {
-  color: var(--court-700);
-  font-variant-numeric: tabular-nums;
-}
-.progressBlock progress {
-  display: block;
-  width: 100%;
-  height: 7px;
-  border: 0;
-  border-radius: 4px;
-  overflow: hidden;
-  background: var(--court-100);
-  color: var(--court-600);
-  accent-color: var(--court-600);
-}
-.progressBlock progress::-webkit-progress-bar {
-  background: var(--court-100);
-}
-.progressBlock progress::-webkit-progress-value {
-  background: var(--court-600);
-  border-radius: 4px;
-}
-.progressBlock progress::-moz-progress-bar {
-  background: var(--court-600);
-  border-radius: 4px;
+  --sport-bg: var(--warning-bg);
+  --sport-ink: var(--warning-text);
 }
 .card:hover {
   border-color: var(--sport-ink);
@@ -170,15 +122,15 @@
   align-items: center;
   gap: var(--space-3);
   padding-block: var(--space-4);
-  min-height: 0;
+  min-height: 112px;
 }
 .identity h3 {
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: 28px;
+  font-size: var(--text-xl);
   line-height: 1.35;
-  font-family: var(--font-display);
+  font-family: inherit;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
@@ -228,11 +180,7 @@
   align-items: flex-start;
   gap: var(--space-3);
   padding-block: var(--space-4);
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding-inline: var(--space-3);
-  background: var(--court-50);
-  border-radius: var(--radius-md);
+  margin-top: auto;
 }
 .nextSession > svg {
   color: var(--sport-ink);
@@ -271,16 +219,6 @@
   gap: var(--space-1);
   color: var(--sport-ink);
   font-size: var(--text-sm);
-}
-@media (max-width: 1100px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 640px) {
-  .grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 .empty {
   margin: 0;

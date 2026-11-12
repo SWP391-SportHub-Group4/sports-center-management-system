@@ -7,7 +7,6 @@ import type { EventKind } from "./event-meta";
 import styles from "./month-calendar.module.css";
 import { CalendarSticker } from "./calendar-sticker";
 import { BookOpen, MapPin } from "lucide-react";
-import { Dialog } from "@/components/ui";
 
 type MonthEvent = {
   id: string;
@@ -18,7 +17,6 @@ type MonthEvent = {
   status?: string | null;
   preview?: boolean;
   fading?: boolean;
-  attendanceStatus?: string | null;
   sport?: string | null;
 };
 
@@ -35,7 +33,7 @@ export function MemberMonthCalendar<T extends MonthEvent>({
   weekdays: string[];
   kindLabels: Record<EventKind, string>;
   onSelect: (event: T) => void;
-  renderEvent: (event: T, onActivate?: () => void) => ReactNode;
+  renderEvent: (event: T) => ReactNode;
 }) {
   const { language } = useLanguage();
   const vi = language === "vi";
@@ -142,32 +140,14 @@ export function MemberMonthCalendar<T extends MonthEvent>({
                     data-cancelled={/CANCEL/i.test(event.status ?? "")}
                     data-fading={event.fading ? "true" : undefined}
                     title={`${kindLabels[event.kind]} · ${event.sport ?? ""} · ${formatTime(event.startAtUtc)}–${formatTime(event.endAtUtc)} · ${event.title}`}
-                    data-state={
-                      event.attendanceStatus?.toUpperCase() === "ABSENT"
-                        ? "absent"
-                        : event.attendanceStatus?.toUpperCase() === "PRESENT" ||
-                            event.status?.toUpperCase() === "COMPLETED"
-                          ? "completed"
-                          : undefined
-                    }
-                    onClick={() => {
-                      setChosenDay(day);
-                      onSelect(event);
-                    }}
+                    onClick={() => onSelect(event)}
                   >
                     <CalendarSticker sport={event.sport} kind={event.kind} />
                     <time dateTime={event.startAtUtc}>
-                      {formatTime(event.startAtUtc)}–
-                      {formatTime(event.endAtUtc)}
+                      {formatTime(event.startAtUtc)}
                     </time>
                     <span>{event.title}</span>
                     {/CANCEL/i.test(event.status ?? "") && <b>Cancelled</b>}
-                    {event.attendanceStatus?.toUpperCase() === "ABSENT" ? (
-                      <b>{vi ? "Vắng" : "Absent"}</b>
-                    ) : event.attendanceStatus?.toUpperCase() === "PRESENT" ||
-                      event.status?.toUpperCase() === "COMPLETED" ? (
-                      <b>{vi ? "Hoàn thành" : "Completed"}</b>
-                    ) : null}
                   </button>
                 ))}
                 {events.length > 3 && (
@@ -201,43 +181,33 @@ export function MemberMonthCalendar<T extends MonthEvent>({
           ))}
         </div>
       </div>
-      {showAgenda && (
-        <Dialog
-          title={new Intl.DateTimeFormat(vi ? "vi-VN" : "en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-            timeZone: "UTC",
-          }).format(new Date(`${chosenDay}T12:00:00Z`))}
-          onClose={() => setShowAgenda(false)}
-          closeIconOnly
-        >
-          <section
-            className={styles.agenda}
-            aria-label={vi ? "Hoạt động trong ngày" : "Day agenda"}
-          >
-            <p>
-              {selectedEvents.length} {vi ? "hoạt động" : "events"}
-            </p>
-            {selectedEvents.length ? (
-              <ul>
-                {selectedEvents.map((event) => (
-                  <li key={event.id} data-kind={event.kind}>
-                    {renderEvent(event, () => setShowAgenda(false))}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>
-                {vi
-                  ? "Bạn chưa có lịch trong ngày này."
-                  : "No activities scheduled for this day."}
-              </p>
-            )}
-          </section>
-        </Dialog>
-      )}
+      <section
+        className={styles.agenda}
+        data-expanded={showAgenda}
+        aria-label={vi ? "Hoạt động trong ngày" : "Day agenda"}
+      >
+        <h3>
+          {formatDate(chosenDay)}{" "}
+          <span>
+            {selectedEvents.length} {vi ? "hoạt động" : "events"}
+          </span>
+        </h3>
+        {selectedEvents.length ? (
+          <ul>
+            {selectedEvents.map((event) => (
+              <li key={event.id} data-kind={event.kind}>
+                {renderEvent(event)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>
+            {vi
+              ? "Bạn chưa có lịch trong ngày này."
+              : "No activities scheduled for this day."}
+          </p>
+        )}
+      </section>
     </div>
   );
 }

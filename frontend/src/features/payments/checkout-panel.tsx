@@ -27,8 +27,6 @@ import { Card, Dialog } from "@/components/ui";
 import { Button } from "@/components/primitives";
 import { toCheckoutViewModel } from "./checkout.contract";
 import styles from "./checkout-panel.module.css";
-import { ServiceCover } from "@/features/service-media";
-import { useInvoiceGalleries } from "./use-invoice-galleries";
 
 type CheckoutReview = {
   title: string;
@@ -113,22 +111,22 @@ function CheckoutFlow({
     : error?.cause instanceof ApiError &&
         error.cause.code === paymentSupportErrorCodes.dayPassOutsideHours
       ? "Gym day passes can be purchased only from 06:00 until 22:00 Vietnam time."
+    : error?.cause instanceof ApiError &&
+        error.cause.code === "duplicate_active_package"
+      ? t.apiErrors.duplicateActivePackage
       : error?.cause instanceof ApiError &&
-          error.cause.code === "duplicate_active_package"
-        ? t.apiErrors.duplicateActivePackage
+          error.cause.code === "member_schedule_conflict"
+        ? t.apiErrors.memberScheduleConflict
         : error?.cause instanceof ApiError &&
-            error.cause.code === "member_schedule_conflict"
-          ? t.apiErrors.memberScheduleConflict
-          : error?.cause instanceof ApiError &&
-              error.cause.code === "payment_already_started"
-            ? vi
-              ? "Đã chuyển sang cổng thanh toán nên không thể đổi điểm. Hãy hủy checkout nếu muốn chọn lại."
-              : "Payment has already started, so points cannot be changed. Cancel the checkout to choose again."
-            : error?.cause instanceof Error
-              ? error.cause.message
-              : error
-                ? t.apiErrors.generic
-                : "";
+            error.cause.code === "payment_already_started"
+          ? vi
+            ? "Đã chuyển sang cổng thanh toán nên không thể đổi điểm. Hãy hủy checkout nếu muốn chọn lại."
+            : "Payment has already started, so points cannot be changed. Cancel the checkout to choose again."
+          : error?.cause instanceof Error
+            ? error.cause.message
+            : error
+              ? t.apiErrors.generic
+              : "";
   // Đã chuyển sang cổng VNPay: server chặn đổi điểm (payment_already_started) tới khi hủy/hết hạn.
   // Khóa theo checkoutSessionId nên checkout mới (retry) tự mở khóa.
   const [lockedSessionId, setLockedSessionId] = useState<string | null>(null);
@@ -185,7 +183,6 @@ function CheckoutFlow({
         : Promise.resolve(null),
     [checkout?.invoiceId],
   );
-  const itemGallery = useInvoiceGalleries(detail.data?.items ?? []);
   const id = checkout?.invoiceId;
   const status = checkout?.invoiceStatus;
   useEffect(() => {
@@ -556,25 +553,7 @@ function CheckoutFlow({
             <ul className={styles.items}>
               {detail.data.items.map((item) => (
                 <li key={item.itemId}>
-                  {!/wallet_?top_?up/i.test(item.itemType) && (
-                    <ServiceCover
-                      gallery={itemGallery(item)}
-                      kind={
-                        /membership/i.test(item.itemType)
-                          ? "gym"
-                          : /rental/i.test(item.itemType)
-                            ? "court"
-                            : "class"
-                      }
-                      sportName={item.sportName}
-                      alt={item.description}
-                      className={styles.orderPhoto}
-                      sizes="(max-width: 560px) 100vw, 160px"
-                    />
-                  )}
-                  <span className={styles.orderDescription}>
-                    {item.description}
-                  </span>
+                  <span>{item.description}</span>
                   <span className={styles.money}>
                     {formatMoney(item.lineAmount)}
                   </span>
@@ -882,6 +861,7 @@ function CheckoutFlow({
                 {l.cancel}
               </Button>
             </div>
+
           </section>
         )}
         {showExpiredRetry && (
