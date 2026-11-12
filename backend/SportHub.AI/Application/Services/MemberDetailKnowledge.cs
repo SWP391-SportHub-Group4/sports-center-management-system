@@ -46,7 +46,10 @@ internal static class MemberDetailKnowledge
     {
         var q = N(question);
         if (H(q, "thong bao", "notification", "chuong", "unread", "da doc")) return "notifications";
-        if (H(q, "help", "request", "yeu cau", "ho tro", "khieu nai", "topic", "gui tin", "gui anh", "upload anh", "nhac ho", "reply", "phan hoi")) return "support";
+        // "help" can be a verb (e.g. "help develop skills"), not a Help/Support request.
+        if (q.Trim() == "help" || H(q, "help center", "help page", "help desk", "contact support",
+            "request", "yeu cau", "ho tro", "khieu nai", "topic", "gui tin", "gui anh",
+            "upload anh", "nhac ho", "reply", "phan hoi")) return "support";
         if (H(q, "mat khau", "password", "avatar", "anh dai dien", "tai khoan", "account", "email", "so dien thoai", "phone", "joined", "ngay tham gia", "trang thai tai khoan", "ho so ca nhan")) return "account";
         if (H(q, "fitness profile", "bmi", "chieu cao", "can nang", "goal", "muc tieu tap", "training experience", "body build", "than hinh", "sinh nhat", "ngay sinh", "gioi tinh", "sex", "daily activity", "so ngay tap", "dinh duong", "di ung", "chan thuong", "suc khoe", "workout suggestion", "ai workout", "save fitness", "luu fitness")) return "fitness";
         if (H(q, "lop", "class", "khoa", "course", "enrollment", "ghi danh", "tham gia", "join")) return "my-classes";

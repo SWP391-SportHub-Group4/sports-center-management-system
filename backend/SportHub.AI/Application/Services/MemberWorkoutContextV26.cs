@@ -76,9 +76,17 @@ internal static class MemberWorkoutContextV26
             reasonable exercise restrictions. DO NOT require this field to be empty.
             If limitations contains only a clearly described workout goal (e.g. 'gain 5kg muscle
             as a beginner'), choose WRONG_FIELD limitations; explain to put it under goal details.
-            If limitations contains a real condition AND a goal, assess potential safety and avoid
-            incorrectly treating the goal as the condition. If a medically concerning restriction
-            makes generic workouts unsafe, choose POTENTIAL_RISK, never claim medical clearance.
+            Distinguish CURRENT symptoms/injury from PAST injury history. A statement such
+            as "broken left leg before" does not establish ongoing injury, recovery,
+            clearance, or safe ability to perform impact exercises. Never automatically
+            label every historical injury POTENTIAL_RISK. If recovery, current symptoms,
+            restrictions, and clearance are unspecified, return NEEDS_CLARIFICATION with
+            field limitations and a specific question asking about those facts.
+            If active injury, pain, restricted movement, or explicit medical contraindications
+            make workouts potentially unsafe, return POTENTIAL_RISK. Never infer medical
+            clearance or assert that any exercise is safe based only on past history.
+            A documented fully recovered injury without current restrictions can be VALID
+            when the other profile facts are consistent. Do not recommend exercises here.
             When the selectedGoal conflicts with explicit goalDescription, choose NEEDS_CLARIFICATION.
             If goal or food information is incomprehensible or placeholder text,
             choose NEEDS_CLARIFICATION and name the field. Never judge food as invalid
@@ -124,8 +132,8 @@ internal static class MemberWorkoutContextV26
         var instruction = decision switch
         {
             "WRONG_FIELD" => "A meaningful detail was entered in the wrong field. Move the goal to Your goal > Add details; keep actual injuries/limitations in their own field.",
-            "POTENTIAL_RISK" => "The self-reported limitation needs professional review before suggesting a workout.",
-            _ => "Please clarify the information in " + label + " before generating a workout."
+            "POTENTIAL_RISK" => "Current symptoms or restrictions may make training unsafe. Obtain professional guidance before requesting a workout.",
+            _ => "Please clarify the information in " + label + " before generating a workout. For an old injury, state whether it has healed, whether there is current pain or restricted movement, and whether exercise has been cleared."
         };
         Reject(instruction + " Save your profile and try again.");
     }
