@@ -255,6 +255,8 @@ export function ManagerSchedule({
                     {
                       id: "roomId",
                       label: l.room,
+                      searchable: true,
+                      placeholder: t.managerCatalog.searchRooms,
                       kind: "select" as const,
                       options: [
                         { value: "", label: l.all },
@@ -271,6 +273,8 @@ export function ManagerSchedule({
                     {
                       id: "coachId",
                       label: l.coach,
+                      searchable: true,
+                      placeholder: t.managerCatalog.searchCoaches,
                       kind: "select" as const,
                       options: [
                         { value: "", label: l.all },
@@ -282,6 +286,7 @@ export function ManagerSchedule({
               {
                 id: "classId",
                 label: t.classWorkspace.classLabel,
+                searchable: true,
                 kind: "select",
                 options: [
                   { value: "", label: l.all },

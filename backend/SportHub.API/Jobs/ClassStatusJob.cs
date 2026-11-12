@@ -4,6 +4,7 @@ using SportHub.BuildingBlocks.SharedKernel.Time;
 using SportHub.BuildingBlocks.Abstractions.Training;
 using SportHub.Scheduling.Domain.Entities;
 using SportHub.Scheduling.Domain.Enums;
+using SportHub.Scheduling.Application.Services;
 using SportHub.Scheduling.Threshold.Application;
 using SportHub.Scheduling.Threshold.Domain;
 
@@ -53,6 +54,9 @@ public sealed class ClassStatusJob(IServiceProvider services, ILogger<ClassStatu
                         && c.Sessions.Any(s => s.Status == ClassSessionStatus.Completed)
                         && !c.Sessions.Any(s => s.Status == ClassSessionStatus.Scheduled))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ClassStatus.Completed), ct);
+
+        // Includes legacy completed classes; repeat runs do not append another suffix.
+        await db.Database.ExecuteSqlRawAsync(CompletedClassCodes.ArchiveSql, ct);
 
         // Also repairs old manual/class assignments with no remaining confirmed class.
         await scopedServices.GetRequiredService<ICoachRelationshipRegistrar>().ReconcileAsync(null, null, null,

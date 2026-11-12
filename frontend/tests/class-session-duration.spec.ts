@@ -156,8 +156,10 @@ async function information(page: Page, minutes = "120") {
 
 async function schedule(page: Page, start = "18:00") {
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByLabel("Coach", { exact: true }).selectOption(coach);
-  await page.getByLabel("Room", { exact: true }).selectOption("7");
+  await page.getByRole("combobox", { name: "Coach", exact: true }).fill("alex");
+  await page.getByRole("option", { name: "Alex", exact: true }).click();
+  await page.getByRole("combobox", { name: "Room", exact: true }).fill("court");
+  await page.getByRole("option", { name: "Court A", exact: true }).click();
   await page.getByLabel("Capacity", { exact: true }).fill("12");
   await page.getByLabel("Course start date", { exact: true }).fill(date);
   await page.getByLabel("Number of sessions", { exact: true }).fill("2");
@@ -289,6 +291,90 @@ for (const value of ["", "0", "-1", "721", "90.5"]) {
   });
 }
 
+test("invalid capacity after changing the date shows a validation error instead of checking forever", async ({
+  page,
+}) => {
+  const { slots } = await setup(page);
+  await information(page);
+  await schedule(page);
+  const next = page.getByRole("button", { name: "Next", exact: true });
+  await expect(next).toBeEnabled();
+  const feedback = page
+    .locator("[id][data-state]")
+    .filter({ has: page.locator("strong") });
+  const capacity = page.getByLabel("Capacity", { exact: true });
+  for (const value of ["0", "", "-1", "1.5", "13"]) {
+    await capacity.fill(value);
+    await page
+      .getByLabel("Course start date", { exact: true })
+      .fill("2030-10-06");
+    await expect(feedback).toHaveAttribute("data-state", "blocked");
+    await expect(feedback).toContainText(
+      value === "13"
+        ? "Class capacity exceeds the room or sport limit."
+        : "Enter a whole number of members, at least 1.",
+    );
+    await expect(next).toBeDisabled();
+  }
+  const previousChecks = slots.length;
+  await capacity.fill("12");
+  await expect(next).toBeEnabled();
+  expect(slots.length).toBeGreaterThan(previousChecks);
+  await expect(feedback).toHaveAttribute("data-state", "ready");
+});
+
+test("changing the start date aligns only the first weekly day and preserves times", async ({
+  page,
+}) => {
+  await setup(page);
+  await information(page);
+  await schedule(page);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const days = page.getByLabel("Day", { exact: true });
+  const times = page.getByLabel("Start", { exact: true });
+  await days.nth(1).selectOption("3");
+  await times.nth(1).fill("10:00");
+  const startDate = page.getByLabel("Course start date", { exact: true });
+  await startDate.fill("2030-10-06");
+  await expect(days.first()).toHaveValue("0");
+  await expect(days.nth(1)).toHaveValue("3");
+  await expect(times.first()).toHaveValue("18:00");
+  await expect(times.nth(1)).toHaveValue("10:00");
+  await startDate.fill("2030-10-07");
+  await expect(days.first()).toHaveValue("1");
+  await startDate.fill("");
+  await expect(days.first()).toHaveValue("1");
+  await expect(days.nth(1)).toHaveValue("3");
+});
+
+test("coach and room can be searched and selected with the keyboard", async ({
+  page,
+}) => {
+  await setup(page);
+  await information(page);
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  const coachInput = page.getByRole("combobox", { name: "Coach", exact: true });
+  await coachInput.fill("no matching coach");
+  await expect(
+    page.getByRole("option", { name: "Alex", exact: true }),
+  ).toHaveCount(0);
+  await coachInput.fill("ALEX");
+  await coachInput.press("Enter");
+  await expect(coachInput).toHaveValue("Alex");
+  await expect(coachInput).toHaveAttribute("aria-expanded", "false");
+  const roomInput = page.getByRole("combobox", { name: "Room", exact: true });
+  await roomInput.fill("no matching room");
+  await expect(
+    page.getByRole("option", { name: "Court A", exact: true }),
+  ).toHaveCount(0);
+  await roomInput.fill("COURT");
+  await roomInput.press("ArrowDown");
+  await roomInput.press("ArrowDown");
+  await roomInput.press("Enter");
+  await expect(roomInput).toHaveValue("Court A");
+  await expect(roomInput).toHaveAttribute("aria-expanded", "false");
+});
+
 test("custom duration drives availability, review, and save with an exact closing boundary", async ({
   page,
 }) => {
@@ -359,7 +445,11 @@ for (const start of ["07:59", "18:01", "23:00"]) {
     await expect(
       page.getByRole("dialog", { name: "Outside center opening hours" }),
     ).toBeVisible();
+    const time = page.getByLabel("Start", { exact: true });
+    await expect(time).toBeDisabled();
+    await expect(time).not.toBeFocused();
     await page.getByRole("button", { name: "Choose another time" }).click();
+    await expect(time).toBeEnabled();
     await expect(
       page.getByRole("button", { name: "Next", exact: true }),
     ).toBeDisabled();

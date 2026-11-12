@@ -5,6 +5,7 @@ import { useId } from "react";
 import { Search, Trash2 } from "lucide-react";
 import type { FilterBarProps } from "@/components/contracts/table";
 import { Field } from "@/components/ui";
+import { SearchSelect } from "@/components/SearchSelect";
 import { Input, Select } from "@/components/primitives/Controls";
 import { useLanguage } from "@/lib/language";
 import styles from "./FilterBar.module.css";
@@ -98,6 +99,17 @@ export function FilterBar({
                       </Field>
                     </div>
                   </fieldset>
+                ) : inline && field.kind === "select" && field.searchable ? (
+                  <SearchSelect
+                    items={(field.options ?? []).filter(
+                      (option) => option.value !== "",
+                    )}
+                    label={field.label}
+                    placeholder={field.placeholder ?? field.label}
+                    emptyLabel={`${field.label}: ${field.options?.find((option) => option.value === "")?.label ?? t.operations.all}`}
+                    value={values[field.id] ?? ""}
+                    onChange={(value) => setValue(field.id, value)}
+                  />
                 ) : inline &&
                   !field.render &&
                   (field.kind === "select" || field.kind === "search") ? (

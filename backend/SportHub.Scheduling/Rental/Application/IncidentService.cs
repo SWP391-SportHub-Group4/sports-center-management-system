@@ -641,7 +641,7 @@ public sealed partial class IncidentService(ISportHubDbContext db, IOccupancySer
         int? roomId = request.RoomId;
         if (scope == IncidentScope.Room)
         {
-            if (roomId is null || !await db.Set<Room>().AnyAsync(x => x.RoomId == roomId, ct))
+            if (roomId is null || !await db.Set<Room>().AnyAsync(x => x.RoomId == roomId && x.DeletedAtUtc == null, ct))
                 throw new NotFoundException("incident_room_not_found", "Incident room not found.");
             roomIds = [roomId.Value];
         }

@@ -3,6 +3,7 @@ import { PackageMembers } from "./package-members";
 import { DAY_PASS_PACKAGE_ID } from "@/lib/day-pass";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { useState } from "react";
+import styles from "./manager-catalog.module.css";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
@@ -34,6 +35,7 @@ export function MembershipManager() {
   const state = useApi((s) => catalogApi.packages(s), []);
   const filters = useCatalogFilters();
   const mutation = useMutation();
+  const busy = mutation.busy;
   const [form, setForm] = useState(empty);
   const [editor, setEditor] = useState<{ id: number | null } | null>(null);
   const [buyers, setBuyers] = useState<MembershipPackageDto | null>(null);
@@ -72,7 +74,7 @@ export function MembershipManager() {
       >
         <CatalogTable
           state={state}
-          visibleRowActions={3}
+          visibleRowActions={2}
           filters={filters}
           caption={c.gymPackages}
           rows={(state.data ?? []).filter((p) =>
@@ -120,19 +122,21 @@ export function MembershipManager() {
       {editor && (
         <CatalogFormDialog
           title={editor.id === null ? c.createPackage : c.editPackage}
-          busy={mutation.busy}
+          className={styles.imageEditDialog}
+          busy={busy}
           mutation={mutation}
           onClose={() => setEditor(null)}
           onSubmit={async (e) => {
             e.preventDefault();
+            if (busy) return;
             if (
-              await mutation.run(() =>
-                catalogApi.savePackage(editor.id, {
+              await mutation.run(async () => {
+                await catalogApi.savePackage(editor.id, {
                   ...form,
                   price: Number(form.price),
                   name: form.name.trim(),
-                }),
-              )
+                });
+              })
             ) {
               setEditor(null);
               state.reload();
@@ -172,7 +176,10 @@ export function MembershipManager() {
               />
             </Field>
             <Field
-              label={t.refactor.days.charAt(0).toUpperCase() + t.refactor.days.slice(1)}
+              label={
+                t.refactor.days.charAt(0).toUpperCase() +
+                t.refactor.days.slice(1)
+              }
               required
             >
               <input
@@ -188,15 +195,6 @@ export function MembershipManager() {
               />
             </Field>
           </div>
-          <Field label={l.description}>
-            <textarea
-              maxLength={1000}
-              value={form.description ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
-              }
-            />
-          </Field>
         </CatalogFormDialog>
       )}
     </>

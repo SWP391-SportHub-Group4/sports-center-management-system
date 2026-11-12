@@ -176,6 +176,20 @@
   display: grid;
   gap: var(--space-4);
 }
+.deleteAction {
+  margin-right: auto;
+}
+.editDialog :global(.dialog__foot) {
+  flex-wrap: wrap;
+}
+.editDialog,
+.editDialog > :global(.dialog__body) {
+  scrollbar-width: none;
+}
+.editDialog::-webkit-scrollbar,
+.editDialog > :global(.dialog__body)::-webkit-scrollbar {
+  display: none;
+}
 .editFields.editFields {
   display: grid;
   gap: var(--space-5);
@@ -201,6 +215,9 @@
   border-top: 1px solid var(--border-subtle);
 }
 @media (max-width: 640px) {
+  .deleteAction {
+    flex-basis: 100%;
+  }
   .summary {
     flex-direction: column;
   }

@@ -17,13 +17,10 @@ export function WalletLedger({
 }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
-  const [entryType, setEntryType] = useState("");
+  const [entryType, setEntryType] = useState("EARN,SPEND");
   const events: Record<string, string> = {
-    HOLD: t.wallet.hold,
-    RELEASE: t.wallet.release,
-    SPEND: t.wallet.spend,
     EARN: t.wallet.earn,
-    ADJUSTMENT: t.wallet.adjustment,
+    SPEND: t.wallet.spend,
   };
   const state = useApi(
     (signal) =>
@@ -55,7 +52,7 @@ export function WalletLedger({
             setPage(1);
           }}
         >
-          <option value="">{t.wallet.all}</option>
+          <option value="EARN,SPEND">{t.wallet.all}</option>
           {Object.entries(events).map(([code, label]) => (
             <option key={code} value={code}>
               {label}

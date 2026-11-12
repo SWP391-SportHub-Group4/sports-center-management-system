@@ -26,9 +26,14 @@ public sealed class WalletQueryService(ISportHubDbContext db, IUserAccessReader 
                     select entry;
         if (!string.IsNullOrWhiteSpace(entryType))
         {
-            if (!Enum.TryParse<PointEntryType>(entryType, true, out var filter) || !Enum.IsDefined(filter))
-                throw new BadRequestException("invalid_ledger_filter", "Invalid ledger filter.");
-            query = query.Where(x => x.EntryType == filter);
+            var filters = new List<PointEntryType>();
+            foreach (var value in entryType.Split(','))
+            {
+                if (!Enum.TryParse<PointEntryType>(value.Trim(), true, out var filter) || !Enum.IsDefined(filter))
+                    throw new BadRequestException("invalid_ledger_filter", "Invalid ledger filter.");
+                filters.Add(filter);
+            }
+            query = query.Where(x => filters.Contains(x.EntryType));
         }
         var rows = await query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.LedgerEntryId)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);

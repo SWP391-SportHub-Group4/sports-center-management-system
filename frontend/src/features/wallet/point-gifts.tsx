@@ -18,7 +18,7 @@ import { api, ApiError } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
-import { formatDateTime, formatMoney, formatPoints } from "@/lib/format";
+import { formatDateTime, formatPoints } from "@/lib/format";
 import type { Paged, WalletBalanceDto } from "@/lib/types";
 
 type Recipient = {
@@ -273,7 +273,7 @@ function GiftComposer({
   const [sportId, setSportId] = useState("");
   const [classId, setClassId] = useState("");
   const [selected, setSelected] = useState<Record<string, Selected>>({});
-  const [points, setPoints] = useState("1");
+  const [points, setPoints] = useState("");
   const [reason, setReason] = useState("");
   const [revision, setRevision] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
@@ -455,6 +455,7 @@ function GiftComposer({
       setReview(null);
       setShowComposer(false);
       setSelected({});
+      setPoints("");
       setReason("");
       setRevision((r) => r + 1);
       onGifted?.();
@@ -842,19 +843,9 @@ function GiftComposer({
                           </button>
                         </div>
                       )}
-                      {limits.data && (
-                        <p className="small muted">
-                          {vi ? "Giới hạn mỗi người" : "Maximum per recipient"}:{" "}
-                          {formatPoints(limits.data.maxPoints)}{" "}
-                          {vi ? "điểm" : "points"} ·{" "}
-                          {vi ? "Mỗi lần tặng" : "Per submission"} · 1{" "}
-                          {vi ? "điểm" : "point"} ={" "}
-                          {formatMoney(limits.data.vndPerPoint)}
-                        </p>
-                      )}
                       <Field
                         label={vi ? "Số điểm chung" : "Common points amount"}
-                        error={pointError(points)}
+                        error={points ? pointError(points) : undefined}
                         hint={
                           vi
                             ? "Áp dụng cùng số điểm cho tất cả người nhận đã chọn."
@@ -865,6 +856,11 @@ function GiftComposer({
                           type="text"
                           inputMode="numeric"
                           autoComplete="off"
+                          placeholder={
+                            limits.data
+                              ? `maximum: ${limits.data.maxPoints}`
+                              : undefined
+                          }
                           disabled={limits.loading || !limits.data}
                           value={points}
                           onChange={(e) => changeCommonPoints(e.target.value)}

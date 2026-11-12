@@ -59,9 +59,10 @@ export function CreateRoomForm({
     (sport) => sport.sportId === Number(sportId),
   );
   const mutation = useMutation();
+  const busy = mutation.busy;
   useEffect(() => {
-    onBusyChange?.(mutation.busy);
-  }, [mutation.busy, onBusyChange]);
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
   const opens = center.data
     ? minutesToTime(
         Math.ceil(Math.max(6 * 60, center.data.openingMinute) / 60) * 60,
@@ -116,6 +117,7 @@ export function CreateRoomForm({
       className={styles.form}
       onSubmit={async (event) => {
         event.preventDefault();
+        if (busy) return;
         setValidation("");
         if (
           allowRental &&
@@ -156,7 +158,7 @@ export function CreateRoomForm({
         }
       }}
     >
-      <fieldset disabled={mutation.busy} className={styles.fields}>
+      <fieldset disabled={busy} className={styles.fields}>
         <legend className="sr-only">{copy.createRoom}</legend>
         <div className={styles.details}>
           <Field label={t.operations.name} required>
@@ -333,7 +335,7 @@ export function CreateRoomForm({
           type="submit"
           className="btn"
           disabled={
-            mutation.busy ||
+            busy ||
             (allowRental &&
               (center.loading ||
                 !center.data ||
@@ -347,7 +349,7 @@ export function CreateRoomForm({
         <button
           type="button"
           className="btn btn--secondary"
-          disabled={mutation.busy}
+          disabled={busy}
           onClick={onCancel}
         >
           {t.operations.cancel}

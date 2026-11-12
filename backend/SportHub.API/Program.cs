@@ -319,6 +319,7 @@ builder.Services.AddScoped<SportHub.Scheduling.Catalog.Application.CourtRateServ
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.CourtRentalOperationsService>();
 builder.Services.AddScoped<SportHub.Scheduling.Rental.Application.IncidentService>();
+builder.Services.AddScoped<SportHub.Scheduling.Occupancy.Application.RoomOccupancyExpiryService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Wallet.IIncidentPointGiftService, SportHub.API.Services.IncidentPointGiftService>();
 builder.Services.AddScoped<SportHub.BuildingBlocks.Abstractions.Scheduling.ICourtRentalFulfillment>(
     sp => sp.GetRequiredService<SportHub.Scheduling.Rental.Application.CourtRentalService>());
@@ -471,6 +472,7 @@ if (!sharedDatabase) builder.Services.AddHostedService<ClassThresholdEvaluationJ
 if (!sharedDatabase) builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
 if (!sharedDatabase) builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
 if (!sharedDatabase) builder.Services.AddHostedService<RentalStatusJob>();
+if (!sharedDatabase) builder.Services.AddHostedService<RoomOccupancyExpiryJob>();
 if (!sharedDatabase) builder.Services.AddHostedService<SeatHoldExpiryJob>();
 if (!sharedDatabase) builder.Services.AddHostedService<CheckoutExpiryJob>();
 if (!sharedDatabase) builder.Services.AddHostedService<DayPassClosingJob>();
