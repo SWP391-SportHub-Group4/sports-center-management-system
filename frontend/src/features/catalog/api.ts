@@ -65,8 +65,8 @@ export const catalogApi = {
     }),
   savePackage: (id: number | null, body: SavePackage) =>
     id === null
-      ? api.post("/api/membership-packages", body)
-      : api.put(`/api/membership-packages/${id}`, body),
+      ? api.post<MembershipPackageDto>("/api/membership-packages", body)
+      : api.put<MembershipPackageDto>(`/api/membership-packages/${id}`, body),
   setPackageActive: (row: MembershipPackageDto) =>
     api.post(
       `/api/membership-packages/${row.packageId}/${row.isActive ? "discontinue" : "reactivate"}`,

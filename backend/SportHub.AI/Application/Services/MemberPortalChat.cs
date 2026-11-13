@@ -88,7 +88,9 @@ internal static class MemberPortalChat
         if (Has("lich cua toi", "lich hoc", "my schedule", "next session", "buoi hoc tiep theo")) return "schedule-nav";
         if (Has("hoa don", "thanh toan", "billing", "invoice")) return "billing-nav";
         if (Has("diem", "point", "wallet", "vi diem")) return "points-nav";
-        if (Has("tro giup", "ho tro", "help", "support request")) return "help-nav";
+        // Never treat generic verbs such as "help develop" as navigation to Help.
+        if (q.Trim() == "help" || Has("tro giup", "ho tro", "help center", "help page",
+            "help desk", "contact support", "support request")) return "help-nav";
         if (Has("thong bao", "notification")) return "notifications-nav";
         if (Has("overview", "tong quan", "quick actions", "thao tac nhanh", "training summary", "tong quan luyen tap", "needs your attention")) return "overview-nav";
         if (Has("training", "tap luyen", "results", "progress", "ke hoach tap")) return "training-nav";

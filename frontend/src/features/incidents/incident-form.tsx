@@ -37,11 +37,14 @@ import type { StepStatus } from "./incident-progress";
 // Navigation timing stays fixed for this document. The server snapshot keeps
 // hydration consistent before the client initializes a fresh form on reload.
 const subscribeToNavigation = () => () => {};
-const isReload = () =>
-  (
-    performance.getEntriesByType("navigation")[0] as
-      PerformanceNavigationTiming | undefined
-  )?.type === "reload";
+const isReload = () => {
+  const navigation = performance.getEntriesByType("navigation")[0] as
+    PerformanceNavigationTiming | undefined;
+  return (
+    navigation?.type === "reload" &&
+    new URL(navigation.name).pathname === "/manager/incidents"
+  );
+};
 
 export function IncidentForm() {
   const resetOnReload = useSyncExternalStore(

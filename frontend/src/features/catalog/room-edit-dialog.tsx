@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
+import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
+import { catalogApi } from "./api";
 import { ActivitySwitch } from "@/components/ActivitySwitch";
 import { Dialog, Field } from "@/components/ui";
 import { MutationFeedback, useMutation } from "@/features/operations";
@@ -13,10 +15,12 @@ export function RoomEditDialog({
   room,
   onClose,
   onSaved,
+  onDeleted,
 }: {
   room: RoomDto;
   onClose: () => void;
   onSaved: (room: RoomDto) => void;
+  onDeleted: () => void;
 }) {
   const { t } = useLanguage();
   const copy = t.managerCatalog;
@@ -26,6 +30,7 @@ export function RoomEditDialog({
   const [active, setActive] = useState(room.isActive);
   const [touched, setTouched] = useState({ name: false, capacity: false });
   const mutation = useMutation();
+  const busy = mutation.busy;
   const validName = name.trim().length > 0 && name.trim().length <= 100;
   const validCapacity =
     capacity.trim() !== "" &&
@@ -48,18 +53,29 @@ export function RoomEditDialog({
   return (
     <Dialog
       title={copy.editCourt}
-      description={copy.roomEditDescription}
-      size="md"
+      className={styles.editDialog}
+      size="lg"
       closeIconOnly
       onClose={() => {
-        if (!mutation.busy) onClose();
+        if (!busy) onClose();
       }}
       footer={
         <>
+          <div className={styles.deleteAction}>
+            <ConfirmRecordAction
+              label={t.recordActions.deleteRoom}
+              title={t.recordActions.deleteRoom}
+              description={t.recordActions.roomDescription}
+              recordName={room.name}
+              disabled={busy}
+              onConfirm={() => catalogApi.deleteRoom(room.roomId)}
+              onCompleted={onDeleted}
+            />
+          </div>
           <button
             type="button"
             className="btn btn--secondary"
-            disabled={mutation.busy}
+            disabled={busy}
             onClick={onClose}
           >
             {t.operations.cancel}
@@ -68,7 +84,7 @@ export function RoomEditDialog({
             type="submit"
             form={formId}
             className="btn"
-            disabled={mutation.busy || !changed || !validName || !validCapacity}
+            disabled={busy || !changed || !validName || !validCapacity}
           >
             {mutation.busy ? t.common.loading : copy.roomSaveChanges}
           </button>
@@ -80,7 +96,7 @@ export function RoomEditDialog({
         className={styles.editForm}
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!changed || !validName || !validCapacity || mutation.busy) return;
+          if (!changed || !validName || !validCapacity || busy) return;
           let updated: RoomDto | undefined;
           if (
             (await mutation.run(async () => {

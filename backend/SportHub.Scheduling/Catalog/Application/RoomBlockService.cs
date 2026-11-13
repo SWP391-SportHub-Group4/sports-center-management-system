@@ -62,7 +62,7 @@ public sealed class RoomBlockService(ISportHubDbContext db, IOccupancyService oc
             throw new BadRequestException("block_in_the_past", "Block in the past.");
         }
 
-        if (!await db.Set<Room>().AnyAsync(r => r.RoomId == request.RoomId, ct))
+        if (!await db.Set<Room>().AnyAsync(r => r.RoomId == request.RoomId && r.DeletedAtUtc == null, ct))
         {
             throw new NotFoundException("room_not_found", "Room not found.");
         }

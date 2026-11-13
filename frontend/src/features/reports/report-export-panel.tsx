@@ -3,7 +3,7 @@ import { ConfirmRecordAction } from "@/components/ConfirmRecordAction";
 import { Trash2 } from "lucide-react";
 import { pagedItems } from "@/lib/paged";
 import { useState } from "react";
-import { AsyncSection, Card, Field, Pager, StatusChip } from "@/components/ui";
+import { AsyncSection, Card, Field, Pager } from "@/components/ui";
 import { api, downloadFile } from "@/lib/apiClient";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
@@ -302,8 +302,6 @@ export function ReportExportPanel({
                       )}
                     </div>
                     <div className="btn-row">
-                      <StatusChip value={r.status} />
-
                       {r.status === "COMPLETED" && (
                         <button
                           className="btn btn--secondary"

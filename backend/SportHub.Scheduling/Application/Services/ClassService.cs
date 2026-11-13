@@ -593,6 +593,8 @@ public sealed class ClassService(
         var normalized = code.Trim().ToUpperInvariant();
         if (System.Text.RegularExpressions.Regex.IsMatch(normalized, "_CANCEL_[0-9]+$"))
             throw new BadRequestException("class_code_reserved", "The _Cancel_<class ID> suffix is reserved for cancelled classes.");
+        if (System.Text.RegularExpressions.Regex.IsMatch(normalized, @" COMPLETE [0-9]{2}/[0-9]{2}/[0-9]{2}$"))
+            throw new BadRequestException("class_code_reserved", "The Complete dd/mm/yy suffix is reserved for completed classes.");
         return normalized;
     }
 

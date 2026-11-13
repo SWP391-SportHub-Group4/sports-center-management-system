@@ -28,6 +28,7 @@ public class SharedDatabaseStartupTests
         Assert.Contains(typeof(CenterCancellationAutoRefundJob), workers);
         Assert.Contains(typeof(NotificationDispatchJob), workers);
         Assert.Contains(typeof(CoachCredentialCleanupJob), workers);
+        Assert.Contains(typeof(RoomOccupancyExpiryJob), workers);
         Assert.Contains(typeof(AvatarDeletionJob), workers);
     }
 

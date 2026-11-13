@@ -23,6 +23,7 @@ public static class BackgroundJobExtensions
         services.AddHostedService<ClassThresholdResponseExpiryJob>();
         services.AddHostedService<CenterCancellationAutoRefundJob>();
         services.AddHostedService<RentalStatusJob>();
+        services.AddHostedService<RoomOccupancyExpiryJob>();
         services.AddHostedService<SeatHoldExpiryJob>();
         services.AddHostedService<CheckoutExpiryJob>();
         services.AddHostedService<DayPassClosingJob>();

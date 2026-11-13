@@ -54,7 +54,7 @@ export const en = {
     deleteRate: "Delete court rate",
     deleteExport: "Delete exported report",
     roomDescription:
-      "Permanently delete this room. Rooms referenced by classes, bookings or blocks cannot be deleted; deactivate them instead.",
+      "Remove this room from the catalog and future room selections. Past classes, bookings and incident history will be kept. Resolve active classes, ongoing or upcoming bookings, blocks and incidents before deleting.",
     roomTypeDescription:
       "Permanently delete this room type. Remove its room and court rate references first.",
     rateDescription:
@@ -68,7 +68,7 @@ export const en = {
     reason: "Reason",
     processing: "Processing...",
     roomInUse:
-      "This room is referenced by classes, bookings or blocks. Deactivate it instead of deleting it.",
+      "This room still has an active class, an ongoing or upcoming booking, a block, or an incident. Resolve these before deleting it.",
     roomTypeInUse:
       "This room type is used by rooms or court rates. Remove those references before deleting it.",
     rentalNotCancellable:
@@ -318,7 +318,7 @@ export const en = {
     empty: "No sent notices found",
     emptyHint: "Write a notice or adjust your filters.",
     subject: "Subject",
-    recorded: "Submitted at",
+    recorded: "Sent at",
     recipientCount: "Recipients",
     channels: "Channels",
     inApp: "In-app",
@@ -813,7 +813,7 @@ export const en = {
     roomBlockedDescription:
       "Block a time range for maintenance or other unavailable periods. These blocks prevent overlapping reservations.",
     roomDeleteHint:
-      "Delete a room only when it is no longer needed and has no schedule or booking references. This action cannot be undone.",
+      "Delete a room once its active classes, ongoing or upcoming bookings, blocks and incidents are resolved. Its history will be kept.",
     roomActions: "Room operations",
     roomNoBlockedTimes: "No blocked times.",
     viewIncident: "View incident",

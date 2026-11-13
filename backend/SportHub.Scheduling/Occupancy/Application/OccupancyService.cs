@@ -65,6 +65,15 @@ public sealed class OccupancyService(ISportHubDbContext db, IClock clock) : IOcc
             throw new ArgumentException("The occupancy must reserve a room or a coach.", nameof(request));
         }
 
+        if (request.RoomId is int targetRoomId)
+        {
+            var targetRoom = await db.Set<Room>().FromSqlInterpolated(
+                $"SELECT * FROM rooms WHERE room_id = {targetRoomId} FOR SHARE")
+                .AsNoTracking().SingleOrDefaultAsync(ct);
+            if (targetRoom is null || targetRoom.DeletedAtUtc is not null)
+                throw new NotFoundException("room_not_found", "Room not found.");
+        }
+
         // A room under incident review accepts no new booking in the affected window. Blocks are how the incident
         // itself is applied, so they are exempt.
         if (request.RoomId is int fencedRoomId && type != OccupancySourceType.RoomBlock)

@@ -22,6 +22,7 @@ import {
 } from "./manager-shared";
 
 import roomStyles from "./rooms-manager.module.css";
+import catalogStyles from "./manager-catalog.module.css";
 
 import { CreateRoomForm } from "./create-room-form";
 import type { RoomDto } from "@/lib/types";
@@ -50,6 +51,7 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
       {creating && (
         <Dialog
           title={t.managerCatalog.createRoom}
+          className={catalogStyles.imageEditDialog}
           size="lg"
           closeIconOnly
           onClose={() => {
@@ -74,6 +76,11 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           key={`edit-room-${editingRoom.room.roomId}`}
           room={editingRoom.room}
           onClose={() => setEditingRoom(null)}
+          onDeleted={() => {
+            setEditingRoom(null);
+            state.reload();
+            if (detailId) router.push("/manager/facilities");
+          }}
           onSaved={(updated) => {
             editingRoom.apply(updated);
             setEditingRoom(null);
@@ -248,7 +255,6 @@ export function RoomsManager({ detailId }: { detailId?: number } = {}) {
           key={`room-details-${selectedRoom.roomId}`}
           room={selectedRoom}
           onEdit={openEditor}
-          onDeleted={() => router.push("/manager/facilities")}
         />
       )}
     </>

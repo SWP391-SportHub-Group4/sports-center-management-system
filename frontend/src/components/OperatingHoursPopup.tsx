@@ -1,12 +1,23 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { Dialog } from "@/components/ui";
 
 export function useOperatingHoursPopup() {
   const [message, setMessage] = useState("");
-  const dismiss = () => setMessage("");
+  const picker = useRef<HTMLInputElement | null>(null);
+  const restorePicker = () => {
+    if (picker.current) {
+      picker.current.disabled = false;
+      picker.current = null;
+    }
+  };
+  useEffect(() => restorePicker, []);
+  const dismiss = () => {
+    restorePicker();
+    setMessage("");
+  };
   const checkTime = (event: FormEvent<HTMLElement>, explanation: string) => {
     const input = event.target;
     if (
@@ -16,6 +27,12 @@ export function useOperatingHoursPopup() {
       (input.validity.rangeUnderflow || input.validity.rangeOverflow)
     ) {
       if (event.type === "invalid") event.preventDefault();
+      // Native time pickers render above dialogs. Close the picker before
+      // opening the notice and prevent it reopening until the notice closes.
+      restorePicker();
+      input.blur();
+      input.disabled = true;
+      picker.current = input;
       setMessage(explanation);
     }
   };

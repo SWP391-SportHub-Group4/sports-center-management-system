@@ -33,7 +33,7 @@ public sealed partial class RoomService
             $"SELECT room_type_id FROM room_types WHERE room_type_id = {request.RoomTypeId} FOR UPDATE", ct);
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT sport_id FROM sports WHERE sport_id = {request.SportId} FOR UPDATE", ct);
-        if (await db.Set<Room>().AnyAsync(r => r.Name == name, ct))
+        if (await db.Set<Room>().AnyAsync(r => r.Name == name && r.DeletedAtUtc == null, ct))
             throw new ConflictException("room_name_taken", "This court name is already used. Choose another name.");
         if (!await db.Set<RoomType>().AnyAsync(t => t.RoomTypeId == request.RoomTypeId && t.IsActive, ct)
             || !await db.Set<Sport>().AnyAsync(s => s.SportId == request.SportId && s.IsActive, ct)

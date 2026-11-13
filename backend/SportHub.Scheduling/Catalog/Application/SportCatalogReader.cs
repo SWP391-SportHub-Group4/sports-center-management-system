@@ -53,9 +53,9 @@ public sealed class SportCatalogReader(ISportHubDbContext db, ISystemSettingProv
     }
 
     public async Task<RoomInfo?> GetRoomAsync(int roomId, CancellationToken cancellationToken = default)
-        => await db.Set<Room>()
+        => await db.Set<Room>().FromSqlInterpolated($"SELECT * FROM rooms WHERE room_id = {roomId} FOR SHARE")
             .AsNoTracking()
-            .Where(r => r.RoomId == roomId)
+            .Where(r => r.DeletedAtUtc == null)
             .Select(r => new RoomInfo(r.RoomId, r.Name, r.RoomTypeId,
                 r.IsActive && (r.RoomTypeId == null || db.Set<RoomType>().Any(t => t.RoomTypeId == r.RoomTypeId && t.IsActive)), r.Capacity))
             .SingleOrDefaultAsync(cancellationToken);

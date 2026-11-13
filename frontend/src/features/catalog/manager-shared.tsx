@@ -232,6 +232,7 @@ export function CatalogFormDialog({
   children,
   mutation,
   canSubmit = true,
+  className,
 }: {
   title: string;
   busy: boolean;
@@ -240,6 +241,7 @@ export function CatalogFormDialog({
   children: ReactNode;
   mutation: ReturnType<typeof useMutation>;
   canSubmit?: boolean;
+  className?: string;
 }) {
   const { t } = useLanguage();
   const formId = useId();
@@ -247,6 +249,7 @@ export function CatalogFormDialog({
     <Dialog
       showCloseButton={false}
       title={title}
+      className={className}
       size="lg"
       onClose={() => {
         if (!busy) onClose();

@@ -66,6 +66,7 @@ export interface FilterField {
   label: string;
   kind: "search" | "select" | "date" | "dateRange" | "toggle";
   options?: { value: string; label: string }[];
+  searchable?: boolean;
   placeholder?: string;
   /** Custom control inside the shared Field, keeping its label and filter layout. */
   render?: (props: {
