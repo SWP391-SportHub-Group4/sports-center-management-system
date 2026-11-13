@@ -187,14 +187,19 @@ export default function MemberWorkoutSuggestionsPage() {
           are guidance only.
         </p>
         {error && (
-          <div role="alert" className={styles.error}>
-            <Info size={18} aria-hidden="true" />
-            <div><strong>Unable to generate workout</strong><p>{error}</p></div>
-          </div>
+          <section role="status" aria-live="polite" className={styles.emptyState} aria-label="Workout assessment">
+            <ShieldCheck size={23} aria-hidden="true" />
+            <div>
+              <h2>Workout assessment</h2>
+              <p>{error}</p>
+              <p>No unverified exercise plan was created. Update your Fitness profile if clarification is needed.</p>
+              <Link href="/member/training?tab=profile">Review fitness profile</Link>
+            </div>
+          </section>
         )}
       </section>
 
-      {!result && !busy && (
+      {!result && !busy && !error && (
         <section className={styles.emptyState} aria-label="Before you start">
           <div className={styles.emptyIcon}><ClipboardList size={25} aria-hidden="true" /></div>
           <h2>Your workout will appear here</h2>
