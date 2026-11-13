@@ -8,6 +8,9 @@ x-logging: &logging
 
 services:
   postgres:
+    extends:
+      file: postgres-${POSTGRES_ACCESS:-private}.yml
+      service: access
     image: postgres:18-bookworm
     restart: unless-stopped
     environment:

@@ -83,8 +83,8 @@ def validate_transition(old, new, revision):
     for name in ("postgres_data", "backend_data"):
         require(old["volumes"][name] == new["volumes"][name], "Persistent volume identity changed.")
     before, after = old["services"], new["services"]
-    for key in ("image", "environment", "volumes"):
-        require(before["postgres"][key] == after["postgres"][key], "Database configuration changed; deploy manually.")
+    for key in ("image", "environment", "volumes", "ports", "command"):
+        require(before["postgres"].get(key) == after["postgres"].get(key), "Database configuration changed; deploy manually.")
     require(before["backend"]["volumes"] == after["backend"]["volumes"], "Runtime mounts changed.")
     for key in ("DataProtection__KeysPath", "Reports__StorageRoot", "ConnectionStrings__Default", "Frontend__BaseUrl"):
         require(before["backend"]["environment"][key] == after["backend"]["environment"][key], "Runtime paths changed.")

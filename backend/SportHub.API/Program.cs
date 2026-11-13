@@ -61,6 +61,8 @@ LoadRootEnvIfPresent();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// A local API can use the website database through an SSH tunnel. Keep schema
+// changes and scheduled work on the deployed API when this mode is selected.
 var sharedDatabase = builder.Configuration.GetValue<bool>("SharedDatabase:Enabled");
 if (sharedDatabase && (!builder.Environment.IsDevelopment()
     || args.Any(a => a.StartsWith("--seed-", StringComparison.Ordinal)
@@ -242,7 +244,6 @@ builder.Services.AddScoped<CoachCredentialService>();
 builder.Services.AddSingleton<CoachCredentialPdfCache>();
 builder.Services.AddHttpClient<ICoachCredentialStorage, CloudinaryCoachCredentialStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(120));
-if (!sharedDatabase) builder.Services.AddHostedService<CoachCredentialCleanupJob>();
 builder.Services.AddHttpClient<IAvatarStorage, CloudinaryAvatarStorage>(client =>
     client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<IMediaImageStorage, CloudinaryMediaImageStorage>(client =>
@@ -460,29 +461,7 @@ builder.Services.AddHttpClient(
     });
 
 // Tác vụ nền: BR-11/BR-33 (hạn gói), BR-34 (phát thông báo).
-builder.Services.AddSingleton<SportHub.API.Jobs.JobHealthRegistry>();
-if (!sharedDatabase) builder.Services.AddHostedService<MemberPackageExpiryJob>();
-builder.Services.AddScoped<MemberCourseNotificationService>();
-if (!sharedDatabase) builder.Services.AddHostedService<MemberCourseNotificationsJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<CoachAttendanceReminderJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<StaffInvitationExpiryJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<MemberInvitationExpiryJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<ClassStatusJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<ClassThresholdEvaluationJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<ClassThresholdResponseExpiryJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<CenterCancellationAutoRefundJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<RentalStatusJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<RoomOccupancyExpiryJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<SeatHoldExpiryJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<CheckoutExpiryJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<DayPassClosingJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<PaymentReconciliationJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<SupportSlaReminderJob>();
-builder.Services.AddScoped<SupportPayoutMaintenance>();
-if (!sharedDatabase) builder.Services.AddHostedService<SupportPayoutAutoConfirmJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<PointHoldExpiryJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<NotificationDispatchJob>();
-if (!sharedDatabase) builder.Services.AddHostedService<AvatarDeletionJob>();
+builder.Services.AddSportHubBackgroundJobs(enabled: !sharedDatabase);
 
 builder.Services.AddControllers()
     .AddApplicationPart(typeof(IdentityModuleMarker).Assembly)
@@ -518,98 +497,96 @@ if (sharedDatabase)
 {
     app.Logger.LogWarning("Shared database mode: automatic migrations, seeding, and background jobs are disabled. API requests can still change website data.");
 }
-else
+
+if (!bootstrapInitialAdmin && seedCommands.Length == 0)
 {
-    if (!bootstrapInitialAdmin && seedCommands.Length == 0)
-    {
-        app.Logger.LogInformation(
-            "Email startup: provider {EmailProvider}; DataProtectionKeysPath {KeysPath}; RailwayVolumeMountPath {VolumePath}; application {Application}; instance {Instance}.",
-            builder.Configuration["Email:Provider"]?.Trim() ?? "Smtp",
-            dataProtectionKeysPath ?? "(default key store)",
-            Environment.GetEnvironmentVariable("RAILWAY_VOLUME_MOUNT_PATH") ?? "(not mounted)",
-            app.Services.GetRequiredService<IOptions<DataProtectionOptions>>().Value.ApplicationDiscriminator ?? "(default)",
-            Environment.MachineName);
-    }
+    app.Logger.LogInformation(
+        "Email startup: provider {EmailProvider}; DataProtectionKeysPath {KeysPath}; RailwayVolumeMountPath {VolumePath}; application {Application}; instance {Instance}.",
+        builder.Configuration["Email:Provider"]?.Trim() ?? "Smtp",
+        dataProtectionKeysPath ?? "(default key store)",
+        Environment.GetEnvironmentVariable("RAILWAY_VOLUME_MOUNT_PATH") ?? "(not mounted)",
+        app.Services.GetRequiredService<IOptions<DataProtectionOptions>>().Value.ApplicationDiscriminator ?? "(default)",
+        Environment.MachineName);
+}
 
-    if (bootstrapInitialAdmin)
+if (bootstrapInitialAdmin)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+    try
     {
-        await using var scope = app.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-        try
-        {
-            if ((await db.Database.GetPendingMigrationsAsync()).Any())
-                throw new InvalidOperationException("Apply all migrations before bootstrapping the initial administrator.");
-            await scope.ServiceProvider.GetRequiredService<InitialAdminBootstrapper>().BootstrapAsync(
-                app.Configuration["InitialAdmin:Email"], Environment.GetEnvironmentVariable("InitialAdmin__Password"));
-            app.Logger.LogInformation("Initial administrator created; password change required on first sign-in.");
-        }
-        catch (Exception ex)
-        {
-            app.Logger.LogError("Initial administrator bootstrap failed: {Reason}", ex.Message);
-            Environment.ExitCode = 1;
-        }
-        return;
-    }
-
-    if (seedCommands.Length > 0)
-    {
-        var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
-        app.Logger.LogInformation("Seed target: database '{Database}' on '{Host}:{Port}'.", target.Database, target.Host, target.Port);
-        await using var scope = app.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
         if ((await db.Database.GetPendingMigrationsAsync()).Any())
-        {
-            app.Logger.LogError("Apply pending migrations before seeding. The seed command never changes the database schema.");
-            Environment.ExitCode = 1;
-            return;
-        }
-        await db.Database.OpenConnectionAsync();
-        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(2026101301)");
-        try {
-            var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
-            var cmd = seedCommands[0];
-            if (cmd is "--seed-local-demo-staff=true") await scope.ServiceProvider.GetRequiredService<LocalDemoStaffSeeder>().SeedAsync();
-            else if (cmd is "--seed-local-demo=true") await scope.ServiceProvider.GetRequiredService<LocalDemoSeeder>().SeedAsync();
-            else if (cmd is "--seed-scenarios=true" or "--seed-scenarios") await scope.ServiceProvider.GetRequiredService<SystemScenarioSeeder>().SeedAsync();
-            else if (cmd is "--seed-support=true" or "--seed-support") await scope.ServiceProvider.GetRequiredService<SupportScenarioSeeder>().SeedAsync();
-            else if (cmd is "--seed-br141=true" or "--seed-br141") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
-            else if (cmd is "--seed-started-class=true" or "--seed-started-class") await scope.ServiceProvider.GetRequiredService<StartedClassSeeder>().SeedAsync();
-            else if (cmd is "--seed-gym-six-months=true" or "--seed-gym-six-months") await seeder.SeedGymSixMonthsAsync();
-            else await seeder.SeedAsync();
-        }
-        catch (Exception ex)
-        {
-            app.Logger.LogError("Seed failed: {Reason}", ex.Message);
-            Environment.ExitCode = 1;
-        }
-        finally {
-            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_unlock(2026101301)");
-            await db.Database.CloseConnectionAsync();
-        }
+            throw new InvalidOperationException("Apply all migrations before bootstrapping the initial administrator.");
+        await scope.ServiceProvider.GetRequiredService<InitialAdminBootstrapper>().BootstrapAsync(
+            app.Configuration["InitialAdmin:Email"], Environment.GetEnvironmentVariable("InitialAdmin__Password"));
+        app.Logger.LogInformation("Initial administrator created; password change required on first sign-in.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError("Initial administrator bootstrap failed: {Reason}", ex.Message);
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
+if (seedCommands.Length > 0)
+{
+    var target = new Npgsql.NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Default"));
+    app.Logger.LogInformation("Seed target: database '{Database}' on '{Host}:{Port}'.", target.Database, target.Host, target.Port);
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+    if ((await db.Database.GetPendingMigrationsAsync()).Any())
+    {
+        app.Logger.LogError("Apply pending migrations before seeding. The seed command never changes the database schema.");
+        Environment.ExitCode = 1;
         return;
     }
-
-    // Development migrates the schema. Keep the local demo catalog stable after replacing BR-141 fixtures.
-    if (app.Environment.IsDevelopment())
+    await db.Database.OpenConnectionAsync();
+    await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_lock(2026101301)");
+    try {
+        var seeder = scope.ServiceProvider.GetRequiredService<SystemValidationSeeder>();
+        var cmd = seedCommands[0];
+        if (cmd is "--seed-local-demo-staff=true") await scope.ServiceProvider.GetRequiredService<LocalDemoStaffSeeder>().SeedAsync();
+        else if (cmd is "--seed-local-demo=true") await scope.ServiceProvider.GetRequiredService<LocalDemoSeeder>().SeedAsync();
+        else if (cmd is "--seed-scenarios=true" or "--seed-scenarios") await scope.ServiceProvider.GetRequiredService<SystemScenarioSeeder>().SeedAsync();
+        else if (cmd is "--seed-support=true" or "--seed-support") await scope.ServiceProvider.GetRequiredService<SupportScenarioSeeder>().SeedAsync();
+        else if (cmd is "--seed-br141=true" or "--seed-br141") await scope.ServiceProvider.GetRequiredService<Br141Seeder>().SeedAsync();
+        else if (cmd is "--seed-started-class=true" or "--seed-started-class") await scope.ServiceProvider.GetRequiredService<StartedClassSeeder>().SeedAsync();
+        else if (cmd is "--seed-gym-six-months=true" or "--seed-gym-six-months") await seeder.SeedGymSixMonthsAsync();
+        else await seeder.SeedAsync();
+    }
+    catch (Exception ex)
     {
-        await using var startupScope = app.Services.CreateAsyncScope();
-        var startupDb = startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-        await startupDb.Database.MigrateAsync();
+        app.Logger.LogError("Seed failed: {Reason}", ex.Message);
+        Environment.ExitCode = 1;
+    }
+    finally {
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_unlock(2026101301)");
+        await db.Database.CloseConnectionAsync();
+    }
+    return;
+}
 
-        try
+// Development migrates the schema. Keep the local demo catalog stable after replacing BR-141 fixtures.
+if (app.Environment.IsDevelopment() && !sharedDatabase)
+{
+    await using var startupScope = app.Services.CreateAsyncScope();
+    var startupDb = startupScope.ServiceProvider.GetRequiredService<SportHubDbContext>();
+    await startupDb.Database.MigrateAsync();
+
+    try
+    {
+        var hasLocalDemoCatalog = await startupDb.Set<SportHub.Scheduling.Domain.Entities.Class>()
+            .AnyAsync(x => x.Code.StartsWith("LOCAL-DEMO-20261028-"));
+        if (!hasLocalDemoCatalog)
         {
-            var hasLocalDemoCatalog = await startupDb.Set<SportHub.Scheduling.Domain.Entities.Class>()
-                .AnyAsync(x => x.Code.StartsWith("LOCAL-DEMO-20261028-"));
-            if (!hasLocalDemoCatalog)
-            {
-                var br141Seeder = startupScope.ServiceProvider.GetRequiredService<Br141Seeder>();
-                await br141Seeder.SeedAsync();
-            }
+            var br141Seeder = startupScope.ServiceProvider.GetRequiredService<Br141Seeder>();
+            await br141Seeder.SeedAsync();
         }
-        catch (Exception ex)
-        {
-            app.Logger.LogWarning("Automatic BR-141 seeding on startup skipped or failed: {Reason}", ex.Message);
-        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning("Automatic BR-141 seeding on startup skipped or failed: {Reason}", ex.Message);
     }
 }
 

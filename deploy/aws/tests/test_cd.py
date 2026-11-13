@@ -197,6 +197,8 @@ class ValidationTests(unittest.TestCase):
         for mutate in (
             lambda c: c["volumes"]["postgres_data"].update(name="empty-new-volume"),
             lambda c: c["services"]["postgres"].update(image="postgres:19"),
+            lambda c: c["services"]["postgres"].update(ports=[{"target": 5432, "published": "15432"}]),
+            lambda c: c["services"]["postgres"].update(command=["postgres", "-c", "ssl=off"]),
             lambda c: c["services"]["backend"]["environment"].update(ConnectionStrings__Default="Host=somewhere-else"),
             lambda c: c["services"]["backend"]["environment"].update(DataProtection__KeysPath="/new-path"),
         ):

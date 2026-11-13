@@ -1,0 +1,3 @@
+# Default: PostgreSQL remains reachable only on the Docker network.
+services:
+  access: {}
