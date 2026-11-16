@@ -112,7 +112,10 @@ public sealed class WorkoutRecommendationService(
         var gymCheckIns = await db.Set<GymCheckIn>()
             .CountAsync(g => g.MemberId == memberId && g.CheckInTime >= sinceUtc, ct);
 
-        var health = BuildHealthSnapshot(profile, clock);
+        // Member self-service suggestions are exercise-only. Coach suggestions retain
+        // their existing nutrition features and saved allergy context.
+        var memberSelfService = memberId == coachId;
+        var health = BuildHealthSnapshot(profile, clock, memberSelfService);
 
         var input = new WorkoutSuggestionInput(
             memberId,
@@ -145,6 +148,7 @@ public sealed class WorkoutRecommendationService(
 
         stopwatch.Stop();
         var elapsedMs = (int)stopwatch.ElapsedMilliseconds;
+        var nutrition = memberSelfService ? null : suggestion.Nutrition;
 
         db.Set<AiLog>().Add(new AiLog
         {
@@ -156,7 +160,7 @@ public sealed class WorkoutRecommendationService(
             {
                 exercises = suggestion.Exercises,
                 items = suggestion.Items,
-                nutrition = suggestion.Nutrition,
+                nutrition,
                 rationale = suggestion.Rationale,
                 error = failure
             }),
@@ -182,10 +186,10 @@ public sealed class WorkoutRecommendationService(
             suggestion.Rationale,
             elapsedMs,
             clock.UtcNow,
-            suggestion.Items, sport, suggestion.Nutrition);
+            suggestion.Items, sport, nutrition);
     }
 
-    private static MemberHealthSnapshot BuildHealthSnapshot(MemberTrainingProfile profile, IClock clock)
+    private static MemberHealthSnapshot BuildHealthSnapshot(MemberTrainingProfile profile, IClock clock, bool exerciseOnly)
     {
         decimal? bmi = profile.HeightCm is { } h && profile.WeightKg is { } w ? BodyMetrics.Bmi(h, w) : null;
         int? age = profile.DateOfBirth is { } dob ? BodyMetrics.AgeOn(dob, VietnamTime.TodayLocal(clock)) : null;
@@ -194,6 +198,7 @@ public sealed class WorkoutRecommendationService(
         return new MemberHealthSnapshot(age, profile.Sex?.ToString(), profile.HeightCm, profile.WeightKg, bmi,
             bmi is { } b ? BodyMetrics.Category(b) : null, profile.TargetWeightKg, profile.GoalType?.ToString(),
             profile.ActivityLevel?.ToString(), profile.TrainingDaysPerWeek, profile.SessionMinutes,
-            profile.DietaryPreference.ToString(), profile.FoodAllergies, profile.Notes, complete);
+            profile.DietaryPreference.ToString(), exerciseOnly ? null : profile.FoodAllergies,
+            profile.Notes, complete);
     }
 }

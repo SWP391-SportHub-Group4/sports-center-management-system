@@ -35,7 +35,6 @@ type FormState = {
   trainingDaysPerWeek: string;
   sessionMinutes: string;
   dietaryPreference: string;
-  foodAllergies: string;
   notes: string;
 };
 
@@ -57,7 +56,6 @@ const fromProfile = (p: MemberTrainingProfileDto | null): FormState => ({
   trainingDaysPerWeek: p?.trainingDaysPerWeek?.toString() ?? "",
   sessionMinutes: p?.sessionMinutes?.toString() ?? "",
   dietaryPreference: p?.dietaryPreference ?? "NO_PREFERENCE",
-  foodAllergies: p?.foodAllergies ?? "",
   notes: p?.notes ?? "",
 });
 
@@ -266,7 +264,8 @@ function ProfileForm({
           sessionMinutes:
             form.sessionMinutes === "" ? null : Number(form.sessionMinutes),
           dietaryPreference: form.dietaryPreference || "NO_PREFERENCE",
-          foodAllergies: form.foodAllergies.trim() || null,
+          // Preserve historical allergy data; this workout-only form no longer edits it.
+          foodAllergies: profile?.foodAllergies ?? null,
           notes: form.notes.trim() || null,
         }),
       vi ? "Đã lưu hồ sơ." : "Fitness profile saved.",
@@ -437,27 +436,8 @@ function ProfileForm({
 
         <fieldset className={styles.section}>
           <legend>
-            {vi ? "4. Ăn uống và sức khỏe" : "4. Nutrition and health"}
+            {vi ? "4. Sức khỏe và giới hạn vận động" : "4. Health and physical limitations"}
           </legend>
-          <div className={styles.grid}>
-            <Field
-              label={
-                vi
-                  ? "Dị ứng / không dung nạp thực phẩm"
-                  : "Food allergies or intolerances"
-              }
-            >
-              <input
-                type="text"
-                maxLength={500}
-                value={form.foodAllergies}
-                placeholder={
-                  vi ? "Ví dụ: đậu phộng, hải sản" : "e.g. peanuts, shellfish"
-                }
-                onChange={(e) => set("foodAllergies", e.target.value)}
-              />
-            </Field>
-          </div>
           <Field
             label={
               vi
@@ -467,7 +447,7 @@ function ProfileForm({
             hint={
               vi
                 ? "Coach sẽ dựa vào đây để tránh bài tập không phù hợp."
-                : "Your coach uses this to avoid unsuitable exercises."
+                : "Your coach and AI use this to assess exercise suitability. Describe any current restrictions or relevant injury history."
             }
           >
             <textarea
