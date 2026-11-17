@@ -56,7 +56,8 @@ public sealed record WorkoutSuggestionResponse(
 public sealed class WorkoutRecommendationService(
     ISportHubDbContext db,
     IAiRecommendationService provider,
-    IClock clock) : IWorkoutRecommendationService
+    IClock clock,
+    IAiChatProvider? gemini = null) : IWorkoutRecommendationService
 {
     /// <summary>BR-26 — "lịch sử tập luyện bao gồm ít nhất 30 ngày gần nhất".</summary>
     public const int HistoryWindowDays = 30;
@@ -132,17 +133,32 @@ public sealed class WorkoutRecommendationService(
         var stopwatch = Stopwatch.StartNew();
         WorkoutSuggestion suggestion;
         string? failure = null;
+        Exception? capturedFailure = null;
 
         try
         {
-            suggestion = await provider.SuggestWorkoutAsync(
-                memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct, sport, health);
+            // Member self-service uses Gemini to compose from the complete saved fitness
+            // profile rather than simply returning the fixed level/sport exercise bank.
+            // Coach BR-26 remains deterministic until its own workflow is reviewed.
+            if (memberId == coachId)
+            {
+                if (gemini is null)
+                    throw new AppException(503, "member_workout_ai_unavailable",
+                        "Gemini workout generation is not configured.");
+                suggestion = await MemberGeminiWorkoutGeneratorV32.GenerateAsync(gemini, input, ct);
+            }
+            else
+            {
+                suggestion = await provider.SuggestWorkoutAsync(
+                    memberId, coachId, profile.Goal, profile.ExperienceLevel.ToString(), ct, sport, health);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // BR-27 nói "MỌI yêu cầu AI và phản hồi của nó" — lần gọi hỏng cũng là một yêu cầu,
             // và đó chính là loại bản ghi cần nhất khi đánh giá chất lượng. Ghi log rồi mới ném.
-            failure = ex.Message;
+            failure = ex.GetType().Name; // Error metadata only; avoid logging user medical text.
+            capturedFailure = ex;
             suggestion = new WorkoutSuggestion([], string.Empty);
         }
 
@@ -172,6 +188,7 @@ public sealed class WorkoutRecommendationService(
 
         if (failure is not null)
         {
+            if (capturedFailure is AppException appError) throw appError;
             throw new AppException(
                 502, "ai_provider_failed", "Ai provider failed.");
         }

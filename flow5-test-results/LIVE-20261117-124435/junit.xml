@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<testsuite name="SportHub.Flow5.Gemini.Live" tests="1" failures="0" skipped="1">
+  <testcase classname="BASELINE" name="LIVE-001 Normal Gym beginner flexibility" time="6.431">
+    <skipped message="INFRA_ERROR: Create an individually tailored SportHub workout from this saved profile. JSON only.: Gemini transport failure. No full functional verdict; any returned draft/output is retained in trace." />
+  </testcase>
+</testsuite>

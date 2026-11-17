@@ -1,0 +1,40 @@
+{
+  "source": "results-detailed(6).json",
+  "source_runner": "V36",
+  "actual_counts": {
+    "PASS": 21,
+    "INFRA_ERROR": 6,
+    "FAIL": 3
+  },
+  "calls": 100,
+  "http_503": 34,
+  "http_429": 4,
+  "findings": [
+    {
+      "id": "LIVE-017",
+      "status": "FAIL",
+      "assessment": "Actual list contains seated hamstring and figure-four stretches although clearance only permits seated upper-body movement and stationary ball-handling. Adapt suggestions instead of dropping the explicit restriction."
+    },
+    {
+      "id": "LIVE-023",
+      "status": "FAIL",
+      "assessment": "Judge pass=false contradicts its reason; Child's Pose technique does not specify arms beside torso, so safety is not demonstrated. Use compatible modification or alternative."
+    },
+    {
+      "id": "LIVE-030",
+      "status": "FAIL",
+      "assessment": "Judge incorrectly applies 25-minute session constraint to optional exercise list. V37 removes session minutes from all model contexts."
+    }
+  ],
+  "hypothetical_if_only_time_failure_resolved": {
+    "PASS": 22,
+    "FAIL": 2,
+    "INFRA_ERROR": 6
+  },
+  "hypothetical_if_all_three_failures_resolved": {
+    "PASS": 24,
+    "FAIL": 0,
+    "INFRA_ERROR": 6
+  },
+  "v37_results": "NOT_RUN; not a new live verdict; changed unhappy-case expectations for LIVE-027 and LIVE-028 also require retest"
+}
