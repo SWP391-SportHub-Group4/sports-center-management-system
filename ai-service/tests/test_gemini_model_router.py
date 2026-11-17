@@ -1,6 +1,6 @@
 import sys, pathlib, tempfile, json, unittest, datetime
-sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'payload'))
-from gemini_model_router import ModelRouter
+sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]))
+from app.services.gemini_model_router import ModelRouter
 class Upstream(Exception):
     def __init__(self, code): self.code=code
 class Tests(unittest.TestCase):
@@ -34,3 +34,4 @@ class Tests(unittest.TestCase):
         self.cfg.write_text('{"enabled":false}')
         self.assertEqual(self.r.run('a',True,str),('a','a')); self.assertFalse(self.r.db.exists())
 if __name__=='__main__': unittest.main()
+

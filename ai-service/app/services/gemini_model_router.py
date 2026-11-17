@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import sqlite3
+from contextlib import closing
 import time
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -23,7 +24,7 @@ class ModelRouter:
 
     def _reserve(self, scope, model, limit, threshold, enforce):
         day, _ = self._day()
-        with self.lock, sqlite3.connect(self.db, timeout=5) as c:
+        with self.lock, closing(sqlite3.connect(self.db, timeout=5)) as c, c:
             c.execute('CREATE TABLE IF NOT EXISTS quota (scope TEXT, model TEXT, day TEXT, used INTEGER, blocked REAL, PRIMARY KEY(scope,model,day))')
             c.execute('BEGIN IMMEDIATE')
             c.execute('INSERT OR IGNORE INTO quota VALUES (?,?,?,0,0)', (scope,model,day))
@@ -41,7 +42,7 @@ class ModelRouter:
         raw = str(cause or '')
         daily = 'GenerateRequestsPerDay' in raw or 'per day limit' in raw.lower()
         until = reset if daily else self.clock() + (60 if code == 'ai_quota_exceeded' else 15)
-        with self.lock, sqlite3.connect(self.db, timeout=5) as c:
+        with self.lock, closing(sqlite3.connect(self.db, timeout=5)) as c, c:
             c.execute('UPDATE quota SET blocked=MAX(blocked,?) WHERE scope=? AND model=? AND day=?',(until,scope,model,day))
 
     def run(self, primary, flow5, invoke):
