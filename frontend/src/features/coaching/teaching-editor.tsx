@@ -106,12 +106,8 @@ export function TeachingEditor({
           : resultEntry?.attendanceStatus?.toUpperCase() !== "PRESENT"
             ? "Mark this student Present in Attendance before recording or editing a result."
             : "Results can be recorded after the session starts, while the session and enrollment remain active.";
-  const [goal, setGoal] = useState(
-    members.find((m) => m.memberId === student)?.goal ?? "",
-  );
-  const [level, setLevel] = useState(
-    members.find((m) => m.memberId === student)?.experienceLevel ?? "Beginner",
-  );
+  const [goal, setGoal] = useState("");
+  const [level, setLevel] = useState("Beginner");
   const [suggestion, setSuggestion] = useState("");
   const [scope, setScope] = useState<PlanScope>(
     lockedMemberId
@@ -205,12 +201,8 @@ export function TeachingEditor({
                 setScope(next);
                 setStudent(next === "personal" ? (memberId ?? "") : "");
                 setSession(next === "course" ? "" : (sessionId ?? ""));
-                const target =
-                  next === "personal"
-                    ? members.find((m) => m.memberId === memberId)
-                    : undefined;
-                setGoal(target?.goal ?? "");
-                setLevel(target?.experienceLevel ?? "Beginner");
+                setGoal("");
+                setLevel("Beginner");
                 setSuggestion("");
               }}
             >
@@ -267,9 +259,8 @@ export function TeachingEditor({
                 }
                 onChange={(e) => {
                   setStudent(e.target.value);
-                  const m = members.find((m) => m.memberId === e.target.value);
-                  setGoal(m?.goal ?? "");
-                  setLevel(m?.experienceLevel ?? "Beginner");
+                  setGoal("");
+                  setLevel("Beginner");
                   setSuggestion("");
                 }}
               >
@@ -402,6 +393,7 @@ export function TeachingEditor({
                   : !canSuggestForSelectedSession)}
                 onClick={async () => {
                   setPlanIssue(null);
+                  setSuggestion("");
                   const data = await ai.run(() =>
                     teachingApi.suggest(
                       classId,
@@ -417,8 +409,6 @@ export function TeachingEditor({
                           setPlanIssue("I can't generate this lesson plan now because the AI provider is rate limited. Please try again later.");
                         else if (cause.code === "ai_provider_auth_failed" || cause.code === "ai_model_unavailable")
                           setPlanIssue("I can't generate a plan because the AI service configuration is unavailable. Please contact support.");
-                        else if (cause.code === "ai_plan_context_too_large")
-                          setPlanIssue("The lesson context is too large for a verified AI plan. Review the student notes or narrow the plan scope.");
                         else if (cause.status === 504)
                           setPlanIssue("I couldn't finish generating and validating the plan before the AI service timeout. No plan was saved. Please retry later.");
                         else if (cause.status === 502 || cause.status === 503)

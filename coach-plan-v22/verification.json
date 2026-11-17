@@ -1,0 +1,10 @@
+{
+  "installer_check_apply_idempotence_rollback": "PASS",
+  "conflict_refusal": "PASS",
+  "captured_CPV2_001_python_equivalent_regex": "PASS 6 rows",
+  "existing_case_matrix": 50,
+  "dotnet_build": "NOT_RUN",
+  "unit_tests": "NOT_RUN",
+  "integration_tests": "NOT_RUN",
+  "live_gemini": "NOT_RUN"
+}

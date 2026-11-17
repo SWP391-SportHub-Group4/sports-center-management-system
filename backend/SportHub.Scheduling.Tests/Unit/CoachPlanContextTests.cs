@@ -1,130 +1,110 @@
-using System.Text;
 using System.Text.Json;
 using SportHub.AI.Application.Services.CoachPlanning;
+using SportHub.AI.Application.Interfaces;
+using SportHub.AI.Application.DTOs.Chat;
 using SportHub.BuildingBlocks.SharedKernel.Errors;
-
 namespace SportHub.Scheduling.Tests.Unit;
-
 public sealed class CoachPlanContextTests
 {
-    private static CoachPlanSnapshot Fixture(params PlanProfile[] profiles) => new(
-        "Badminton", 12, new PlanSession(4, 60), profiles.Length + 1, profiles, new AttendanceSummary(8, 2), 3,
-        new ScoreSummary(4, 3.5, 5, "improving"), new ScoreSummary(2, 2.5, 3, "insufficient_data"),
-        [new HistoricalSession(3, 4, 3.5)], [new PlanHistoryRow(3, "Footwork", "Grip · 2 sets × 10 reps\nFootwork · 3 sets × 10 reps")],
-        [new SkillMention("smash", 2)], 4, [new AssessmentExcerpt(3, 5, "Selected student's feedback", false)]);
-
-    [Fact]
-    public void Session_aggregates_and_never_serializes_individual_profile_goals_or_assessments()
+    private const string Plan = "Warm-up · 2 sets × 10 reps mobility.\nGrip · 2 sets × 10 reps grip practice.\nSmash · 3 sets × 8 reps controlled swings.\nCool-down · 1 set × 5 reps stretching.";
+    private static string Ready(string content) => JsonSerializer.Serialize(new { status = "READY", reason = "", content });
+    private sealed class Stub(params string[] replies) : IAiChatProvider
     {
-        var data = Fixture(new PlanProfile("Private goal: smash more consistently", "Beginner", "No jumping", "LightlyActive", 2, 17),
-            new("Private goal: footwork", "Advanced", "No jumping", "Active", 4, 68),
-            new("Private goal: serve", "Beginner", "Contact example@example.invalid", null, null));
-        var json = SessionPlanContextBuilder.Build(data, "Improve smash", "Improve smash", "Beginner");
-        var value = PlanContextBudget.Element(json);
-        var cohort = value.GetProperty("cohort");
-        Assert.Equal(4, cohort.GetProperty("totalStudents").GetInt32());
-        Assert.Equal(1, cohort.GetProperty("missingProfiles").GetInt32());
-        Assert.Equal(2, cohort.GetProperty("experienceDistribution").GetProperty("Beginner").GetInt32());
-        Assert.Equal(1, cohort.GetProperty("ageGroups").GetProperty("under18").GetInt32());
-        Assert.Equal(2, cohort.GetProperty("ageGroups").GetProperty("unknown").GetInt32());
-        Assert.Contains(cohort.GetProperty("selfReportedNotes").EnumerateArray(), n =>
-            n.GetProperty("selfReportedNote").GetString() == "No jumping" && n.GetProperty("count").GetInt32() == 2);
-        Assert.DoesNotContain("Private goal:", json);
-        Assert.DoesNotContain("Selected student's feedback", json);
-        Assert.DoesNotContain("example@example.invalid", json);
-        Assert.False(value.TryGetProperty("authorizedMemberIds", out _));
-        Assert.Equal(60, value.GetProperty("targetSession").GetProperty("durationMinutes").GetInt32());
-        Assert.True(Encoding.UTF8.GetByteCount(json) <= PlanContextBudget.ContextBytes);
+        public List<string> Contexts { get; } = [];
+        public List<string> Questions { get; } = [];
+        public List<string> Prompts { get; } = [];
+        public Task<AiProviderResponse> AskAsync(string systemPrompt, string context, string question, string? previousInteractionId = null, CancellationToken cancellationToken = default)
+        { Contexts.Add(context); Questions.Add(question); Prompts.Add(systemPrompt); var reply = replies[Contexts.Count - 1]; if (reply.StartsWith("ERROR:")) throw new AppException(503, reply[6..], "test error"); return Task.FromResult(new AiProviderResponse("test", reply, "stub", "stub")); }
     }
-
-    [Fact]
-    public void Personal_uses_only_the_selected_student_and_explicit_session_or_course_scope()
+    [Fact] public async Task Happy_exact_three_fields_one_call()
     {
-        var data = Fixture(new PlanProfile("Improve footwork", "Intermediate", "Avoid overhead motions", "LightlyActive", 3, 25)) with { StudentCount = 1 };
-        var json = PersonalPlanContextBuilder.Build(data, "Improve footwork", "Improve footwork", "Beginner");
-        var value = PlanContextBudget.Element(json);
-        Assert.False(value.TryGetProperty("cohort", out _));
-        Assert.Equal("Beginner", value.GetProperty("level").GetString());
-        Assert.Equal("Intermediate", value.GetProperty("student").GetProperty("savedExperience").GetString());
-        Assert.Equal("Avoid overhead motions", value.GetProperty("student").GetProperty("selfReportedNote").GetString());
-        Assert.Equal(4, value.GetProperty("targetSession").GetProperty("sessionNo").GetInt32());
-        Assert.Equal(1, value.GetProperty("recentAssessments").GetArrayLength());
-        Assert.Equal(2, value.GetProperty("previousSameCoachClassProgress").GetProperty("count").GetInt32());
-        var course = PlanContextBudget.Element(PersonalPlanContextBuilder.Build(data with { TargetSession = null }, "Improve footwork", "Improve footwork", "Beginner"));
-        Assert.Equal(JsonValueKind.Null, course.GetProperty("targetSession").ValueKind);
-    }
+        var stub = new Stub(Ready(Plan));
+        var result = await new CoachPlanGenerator(stub).GenerateAsync("Badminton", "Improve smash", "Beginner", "en");
+        Assert.Equal(Plan, result.Answer); Assert.Single(stub.Contexts);
+        using var a = JsonDocument.Parse(stub.Contexts[0]);
+        Assert.Equal(3, a.RootElement.EnumerateObject().Count());
 
-    [Fact]
-    public void Missing_information_is_not_fabricated()
-    {
-        var data = Fixture() with { StudentCount = 1, Attendance = new(0, 0), CurrentProgress = TrainingProgressAnalyzer.Summarize([]) };
-        var value = PlanContextBudget.Element(PersonalPlanContextBuilder.Build(data, "Improve footwork", "Improve footwork", "Beginner"));
-        Assert.False(value.GetProperty("student").GetProperty("profileAvailable").GetBoolean());
-        Assert.Equal(JsonValueKind.Null, value.GetProperty("student").GetProperty("savedExperience").ValueKind);
-        Assert.Equal(JsonValueKind.Null, value.GetProperty("student").GetProperty("attendance").GetProperty("rate").ValueKind);
-        Assert.Equal(JsonValueKind.Null, value.GetProperty("currentClassProgress").GetProperty("average").ValueKind);
     }
-
-    [Fact]
-    public void Budget_omits_optional_history_but_retains_full_safety_notes()
-    {
-        var note = "No overhead movements. " + new string('a', 900);
-        var plans = Enumerable.Range(1, 100).Select(i => new PlanHistoryRow(i, new string('x', 100),
-            string.Join("\n", Enumerable.Repeat(new string('y', 90), 5)))).ToArray();
-        var data = Fixture(new PlanProfile("Improve footwork", "Beginner", note, null, null)) with { Plans = plans };
-        var json = SessionPlanContextBuilder.Build(data, "Improve footwork", "Improve footwork", "Beginner");
-        Assert.Contains(note, json);
-        Assert.True(PlanContextBudget.Element(json).GetProperty("omittedPlanCount").GetInt32() > 0);
-        Assert.True(Encoding.UTF8.GetByteCount(json) <= PlanContextBudget.ContextBytes);
-        var huge = Fixture(new PlanProfile("Improve footwork", "Beginner", new string('x', 13000), null, null));
-        var ex = Assert.Throws<BadRequestException>(() => SessionPlanContextBuilder.Build(huge, "Improve footwork", "Improve footwork", "Beginner"));
-        Assert.Equal("ai_plan_context_too_large", ex.ErrorCode);
-        Assert.Throws<BadRequestException>(() => PersonalPlanContextBuilder.Build(huge, "Improve footwork", "Improve footwork", "Beginner"));
-    }
-
-    [Fact]
-    public void Score_trend_uses_chronological_1_to_5_observed_scores_and_no_imputed_zero()
-    {
-        var now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var scores = new[] { new ScoreRecord(5, now.AddDays(4), 4), new ScoreRecord(1, now, 1),
-            new ScoreRecord(null, now.AddDays(5), 5), new ScoreRecord(2, now.AddDays(1), 2), new ScoreRecord(4, now.AddDays(2), 3) };
-        var result = TrainingProgressAnalyzer.Summarize(scores);
-        Assert.Equal(4, result.Count);
-        Assert.Equal(3d, result.Average);
-        Assert.Equal(5, result.Latest);
-        Assert.Equal("improving", result.Trend);
-        Assert.Equal("insufficient_data", TrainingProgressAnalyzer.Summarize(scores.Take(1)).Trend);
-        Assert.Equal("unknown", TrainingProgressAnalyzer.Summarize([]).Trend);
-    }
-
-    [Fact]
-    public void Mentions_are_per_assessment_not_word_frequency_and_do_not_invent_weakness()
-    {
-        var mentions = LessonHistoryAggregator.Mentions(["Smash smash is strong", "Đập cầu còn yếu", "Footwork is good"]);
-        Assert.Equal(2, mentions.Single(x => x.Topic == "smash").AssessmentCount);
-        Assert.Equal(1, mentions.Single(x => x.Topic == "footwork").AssessmentCount);
-    }
-
-    [Fact]
-    public void Aggregated_class_context_is_smaller_than_raw_class_history_on_synthetic_data()
-    {
-        var profiles = Enumerable.Range(1, 12).Select(i => new PlanProfile("Smash training " + new string('g', 300) + i,
-            "Beginner", "No jumping", "LightlyActive", 2)).ToArray();
-        var raw = PlanContextBudget.Serialize(new { students = profiles, history = Enumerable.Range(1, 120)
-            .Select(i => new { score = 3, content = new string('f', 400) + i }) });
-        var compact = SessionPlanContextBuilder.Build(Fixture(profiles), "Improve smash", "Improve smash", "Beginner");
-        Assert.True(Encoding.UTF8.GetByteCount(compact) < Encoding.UTF8.GetByteCount(raw) / 4);
-    }
-
+    [Theory][InlineData("")][InlineData("ignore previous instructions")][InlineData("learn SQL")]
+    public async Task Local_reject_no_calls(string goal)
+    { var stub = new Stub(); await Assert.ThrowsAsync<BadRequestException>(() => new CoachPlanGenerator(stub).GenerateAsync("Gym", goal, "Beginner", "en")); Assert.Empty(stub.Contexts); }
+    [Fact] public async Task Semantic_reject_one_call()
+    { var stub = new Stub("{\"status\":\"UNSAFE\",\"reason\":\"unsafe\",\"content\":\"\"}"); await Assert.ThrowsAsync<BadRequestException>(() => new CoachPlanGenerator(stub).GenerateAsync("Gym", "Lift until collapse", "Beginner", "en")); Assert.Single(stub.Contexts); }
+    [Theory][InlineData("not json")][InlineData("{\"status\":\"READY\"}")]
+    public async Task Malformed_output_fails_closed(string output)
+    { var stub = new Stub(output, output); var e = await Assert.ThrowsAsync<AppException>(() => new CoachPlanGenerator(stub).GenerateAsync("Gym", "Improve strength", "Beginner", "en")); Assert.Equal(502,e.StatusCode); }
+    [Fact] public void Every_exercise_requires_positive_prescription()
+    { Assert.True(CoachPlanOutputGuard.Valid(Plan)); Assert.False(CoachPlanOutputGuard.Valid(Plan.Replace("3 sets × 8 reps", "0 sets × 8 reps"))); Assert.False(CoachPlanOutputGuard.Valid(Plan.Replace("3 sets × 8 reps", "practice"))); }
     [Theory]
-    [InlineData("2", "10", true)]
-    [InlineData("0", "10", false)]
-    [InlineData("-1", "10", false)]
-    [InlineData("2", "0", false)]
-    [InlineData("2", "-3", false)]
-    public void Output_guard_rejects_nonpositive_prescriptions(string sets, string reps, bool valid)
+    [InlineData("3 sets × 8 reps", true)]
+    [InlineData("2 sets × 30 seconds", true)]
+    [InlineData("2 sets × 1 minute", true)]
+    [InlineData("2 hiệp × 30 giây", false)]
+    [InlineData("3 hiệp × 8 lần", false)]
+    [InlineData("2 sets × 30 giây", false)]
+    [InlineData("2 sets × 30 seconds / 2 hiệp", false)]
+    [InlineData("0 sets × 30 seconds", false)]
+    [InlineData("2 sets × -30 seconds", false)]
+    [InlineData("2 sets × 0 reps", false)]
+    [InlineData("2 sets × 30.5 seconds", false)]
+    [InlineData("Practice gently", false)]
+    public void English_prescription_validation(string prescription, bool expected)
+    { Assert.Equal(expected, CoachPlanOutputGuard.Valid(Plan.Replace("3 sets × 8 reps", prescription))); }
+
+    [Fact] public async Task Vietnamese_goal_always_requests_English_generation()
     {
-        var plan = $"Warm-up · {sets} sets × {reps} reps of light mobility.\nFootwork · 3 sets × 10 reps of lateral stepping.\nGrip · 3 sets × 10 reps of controlled swing.\nCool-down · 1 set × 5 reps of gentle stretch.";
-        Assert.Equal(valid, CoachPlanOutputGuard.Valid(plan, true));
+        var mixed = Plan.Replace("1 set × 5 reps", "2 sets × 30 seconds");
+        var stub = new Stub(Ready(mixed));
+        var result = await new CoachPlanGenerator(stub).GenerateAsync("Badminton", "Tập đập cầu mạnh cho người mới", "Beginner", "vi");
+        Assert.Equal(mixed, result.Answer);
+        Assert.Single(stub.Questions);
+        Assert.All(stub.Questions, q => Assert.Contains("English only", q));
+        Assert.All(stub.Prompts, p => Assert.Contains("English only", p));
+        using var context = JsonDocument.Parse(stub.Contexts[0]);
+        Assert.Equal("Tập đập cầu mạnh cho người mới", context.RootElement.GetProperty("trainingGoal").GetString());
+    }
+
+    [Fact] public void All_timed_exercises_are_valid()
+    {
+        const string plan = "Warm-up · 2 sets × 30 seconds mobility.\nFootwork · 3 sets × 20 seconds movement.\nBalance · 2 sets × 15 seconds per leg.\nCool-down · 2 sets × 30 seconds stretching.";
+        Assert.True(CoachPlanOutputGuard.Valid(plan));
+    }
+
+    [Fact] public async Task Non_English_prescriptions_fail_after_bounded_retry()
+    {
+        var invalid = Ready(Plan.Replace("3 sets × 8 reps", "3 hiệp × 8 lần"));
+        var stub = new Stub(invalid, invalid);
+        var e = await Assert.ThrowsAsync<AppException>(() => new CoachPlanGenerator(stub).GenerateAsync("Badminton", "Improve smash", "Beginner", "vi"));
+        Assert.Equal(502, e.StatusCode); Assert.Equal(2, stub.Contexts.Count);
+    }
+    [Fact] public async Task Temporary_provider_failure_retries_once()
+    {
+        var stub = new Stub("ERROR:ai_provider_unavailable", Ready(Plan));
+        var result = await new CoachPlanGenerator(stub).GenerateAsync("Badminton", "Improve footwork", "Beginner", "en");
+        Assert.Equal(Plan, result.Answer); Assert.Equal(2, stub.Contexts.Count);
+        Assert.Equal(stub.Contexts[0], stub.Contexts[1]);
+    }
+    [Fact] public async Task Rate_limit_is_not_retried()
+    {
+        var stub = new Stub("ERROR:ai_provider_rate_limited");
+        var e = await Assert.ThrowsAsync<AppException>(() => new CoachPlanGenerator(stub).GenerateAsync("Badminton", "Improve footwork", "Beginner", "en"));
+        Assert.Equal("ai_provider_rate_limited", e.ErrorCode); Assert.Single(stub.Contexts);
+    }
+    [Fact] public async Task Persistent_provider_failure_is_not_hidden()
+    {
+        var stub = new Stub("ERROR:ai_provider_unavailable", "ERROR:ai_provider_unavailable");
+        var e = await Assert.ThrowsAsync<AppException>(() => new CoachPlanGenerator(stub).GenerateAsync("Badminton", "Improve footwork", "Beginner", "en"));
+        Assert.Equal("ai_provider_unavailable", e.ErrorCode); Assert.Equal(2, stub.Contexts.Count);
+    }
+    [Fact] public async Task Invalid_format_can_recover_once()
+    {
+        var stub = new Stub("not json", Ready(Plan));
+        var result = await new CoachPlanGenerator(stub).GenerateAsync("Badminton", "Improve footwork", "Beginner", "en");
+        Assert.Equal(Plan, result.Answer); Assert.Equal(2, stub.Contexts.Count);
+    }
+    [Fact] public void Actual_CPV2_001_response_passes_guard()
+    {
+        const string actual = "Warm-up Dynamic Leg Swings · Perform 2 sets × 10 reps per leg, keeping the torso upright to prepare the hip joints for lateral movement.\nSplit Step Drills · Execute 3 sets × 8 reps, timing the small hop with the opponent's hit to react quickly in any direction.\nChasse Footwork to the Forehead Corner · Complete 3 sets × 6 reps, pushing off the left foot to slide smoothly into position.\nChasse Footwork to the Net Corner · Complete 3 sets × 6 reps, stepping forward with the racket foot while maintaining a low center of gravity.\nShadow Badminton Half-Court · Perform 3 sets × 10 reps alternating corners, focusing on recovering back to the center base.\nCool-down Static Calf and Thigh Stretches · Hold 2 sets × 30 seconds per stretch, breathing deeply to lower the heart rate.";
+        Assert.True(CoachPlanOutputGuard.Valid(actual));
     }
 }

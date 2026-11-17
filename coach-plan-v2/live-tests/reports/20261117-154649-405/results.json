@@ -1,0 +1,30 @@
+[
+  {
+    "input": {
+      "id": "CPV2-024",
+      "sport": "Gym",
+      "level": "Advanced",
+      "goal": "Improve balance",
+      "language": "en",
+      "happy": true,
+      "local": false,
+      "expectedCode": null
+    },
+    "status": "PASS",
+    "actual": "Single-Leg Romanian Deadlift \u00B7 3 sets \u00D7 8 reps per leg; keep your hips square and core engaged throughout the movement.\nPistol Squat Progression \u00B7 3 sets \u00D7 5 reps per leg; lower down slowly using a box or suspension strap for support if needed.\nBosu Ball Squat \u00B7 3 sets \u00D7 10 reps; maintain a stable center of gravity and look straight ahead.\nSingle-Leg Overhead Press \u00B7 3 sets \u00D7 8 reps per arm; engage your stabilizers to prevent torso rotation.\nFarmer\u0027s Walk on Toes \u00B7 3 sets \u00D7 30 seconds; keep your posture tall and heels elevated for ankle stability.",
+    "calls": [
+      {
+        "context": "{\u0022sport\u0022:\u0022Gym\u0022,\u0022trainingGoal\u0022:\u0022Improve balance\u0022,\u0022experience\u0022:\u0022Advanced\u0022}",
+        "stage": "generation",
+        "question": "Answer in English only, regardless of input language. JSON only.",
+        "answer": "{\n  \u0022status\u0022: \u0022READY\u0022,\n  \u0022reason\u0022: \u0022\u0022,\n  \u0022content\u0022: \u0022Single-Leg Romanian Deadlift \u00B7 3 sets \u00D7 8 reps per leg; keep your hips square and core engaged throughout the movement.\\nPistol Squat Progression \u00B7 3 sets \u00D7 5 reps per leg; lower down slowly using a box or suspension strap for support if needed.\\nBosu Ball Squat \u00B7 3 sets \u00D7 10 reps; maintain a stable center of gravity and look straight ahead.\\nSingle-Leg Overhead Press \u00B7 3 sets \u00D7 8 reps per arm; engage your stabilizers to prevent torso rotation.\\nFarmer\u0027s Walk on Toes \u00B7 3 sets \u00D7 30 seconds; keep your posture tall and heels elevated for ankle stability.\u0022\n}",
+        "model": "gemini-3.5-flash-lite",
+        "error": null
+      }
+    ],
+    "elapsedMs": 9141,
+    "transport": [
+      "POST /coach/plan: HTTP 200"
+    ]
+  }
+]

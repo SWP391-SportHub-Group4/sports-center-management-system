@@ -1,20 +1,33 @@
 using System.Text.RegularExpressions;
-using SportHub.AI.Api;
-
 namespace SportHub.AI.Application.Services.CoachPlanning;
-
 public static class CoachPlanOutputGuard
 {
-    private static readonly Regex Prescription = new(@"(?<![\w\d+-])(?<sets>[+-]?\d+)\s*(?:hiệp|hiep|sets?|set)\s*(?:[x×*]|by)\s*(?<reps>[+-]?\d+)\s*(?:lần|lan|reps?|rep)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    public static bool Valid(string? plan, bool sessionScope)
+    private static readonly Regex Prescription = new(
+        @"(?<![\w\d+.,-])(?<sets>[+-]?\d+)\s*sets?\s*(?:[x×*]|by)\s*(?<amount>[+-]?\d+)\s*(?:reps?|seconds?|secs?|minutes?|mins?)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    // Reject Vietnamese prescription units even if an English prescription also appears.
+    private static readonly Regex VietnameseUnits = new(
+        @"\b\d+\s*(?:hiệp|hiep|lần|lan|giây|giay|phút|phut)\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    public static bool Valid(string? plan, bool sessionScope = true)
     {
-        if (plan is null || plan.Length > 8000 || !AiPlanGoalGuard.LooksLikeExercisePlan(plan, sessionScope)) return false;
+        if (string.IsNullOrWhiteSpace(plan) || plan.Trim().Length < 75 || plan.Length > 8000 || VietnameseUnits.IsMatch(plan)) return false;
         var rows = plan.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (rows.Any(row => row.IndexOf('·') <= 0 || row.IndexOf('·') == row.Length - 1)) return false;
-        // Preserve separate non-exercise adaptation/advice lines, but reject any zero/overflow prescription.
-        // Internal review must verify that every actual exercise contains positive sets and reps.
-        return Prescription.Matches(plan).Cast<Match>().All(m =>
-            int.TryParse(m.Groups["sets"].Value, out var sets) && sets > 0 &&
-            int.TryParse(m.Groups["reps"].Value, out var reps) && reps > 0);
+        if (rows.Length is < 4 or > 10) return false;
+        foreach (var row in rows)
+        {
+            if (row.Length > 400) return false;
+            var separator = row.IndexOf('·');
+            if (separator <= 0 || separator >= row.Length - 1 || string.IsNullOrWhiteSpace(row[..separator])) return false;
+            var matches = Prescription.Matches(row[(separator + 1)..]);
+            if (matches.Count == 0) return false;
+            foreach (Match match in matches)
+            {
+                if (!int.TryParse(match.Groups["sets"].Value, out var sets) || sets <= 0 ||
+                    !int.TryParse(match.Groups["amount"].Value, out var amount) || amount <= 0) return false;
+            }
+        }
+        // Natural-language English is requested in the generation prompt; this guard checks prescription format.
+        return true;
     }
 }

@@ -25,7 +25,7 @@ namespace SportHub.Scheduling.Tests.Integration;
 public sealed class CoachPlanContextIntegrationTests(SchedulingApiFactory factory)
 {
     [Fact]
-    public async Task Real_database_scope_and_review_context_are_correct_without_external_Gemini_calls()
+    public async Task Real_database_scope_and_single_generation_context_are_correct_without_external_Gemini_calls()
     {
         var course = await CourseTestData.CreateAsync(factory, capacity: 4);
         var selected = await factory.SeedUserAsync(UserRole.Member);
@@ -74,26 +74,6 @@ public sealed class CoachPlanContextIntegrationTests(SchedulingApiFactory factor
         });
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SportHubDbContext>();
-        var cls = await db.Classes.AsNoTracking().Include(c => c.Sport).SingleAsync(c => c.ClassId == course.Id);
-        var reader = new CoachPlanContextReader(db);
-        var sessionSnapshot = await reader.ReadAsync(cls, course.CoachId, null, future, now, default);
-        Assert.Equal(2, sessionSnapshot.StudentCount);
-        Assert.Equal(1, sessionSnapshot.Attendance.Present);
-        Assert.Equal(1, sessionSnapshot.Attendance.Absent);
-        Assert.Equal(1, sessionSnapshot.CurrentProgress.Count);
-        Assert.Equal(4d, sessionSnapshot.CurrentProgress.Average);
-        var sessionJson = SessionPlanContextBuilder.Build(sessionSnapshot, "Improve smash", "Improve smash", "Beginner");
-        Assert.Contains("No jumping", sessionJson);
-        Assert.Contains("OTHER_RESTRICTION", sessionJson); // authorized anonymous cohort restriction
-        foreach (var secret in new[] { "OTHER_PRIVATE_GOAL", "OTHER_PERSONAL_PLAN", "OUTSIDE_RESTRICTION", "ENDED_RESTRICTION", "FUTURE_RESULT", "ABSENT_RESULT", selected.UserId.ToString(), other.UserId.ToString() })
-            Assert.DoesNotContain(secret, sessionJson);
-        var personal = await reader.ReadAsync(cls, course.CoachId, selected.UserId, future, now, default);
-        var personalJson = PersonalPlanContextBuilder.Build(personal, "Improve smash", "Improve smash", "Beginner");
-        Assert.Equal(1, personal.StudentCount);
-        Assert.Contains("Smash contact needs practice", personalJson);
-        Assert.DoesNotContain("OTHER_RESTRICTION", personalJson);
-        Assert.DoesNotContain("OTHER_PERSONAL_PLAN", personalJson);
-        await Assert.ThrowsAsync<SportHub.BuildingBlocks.SharedKernel.Errors.ForbiddenException>(() => reader.ReadAsync(cls, course.CoachId, outsider.UserId, future, now, default));
         // Exercise real controller/provider serialization, but inject a deterministic HTTP stub. No upstream calls or plan writes.
         using var fake = new PlanGatewayStub();
         using var http = new HttpClient(fake) { BaseAddress = new Uri("http://coach-plan-stub.invalid") };
@@ -105,13 +85,17 @@ public sealed class CoachPlanContextIntegrationTests(SchedulingApiFactory factor
         };
         var count = await db.Set<ClassTeachingRecord>().CountAsync();
         Assert.IsType<OkObjectResult>(await controller.Suggest(course.Id, new ClassSuggestionRequest(selected.UserId, "Improve smash", "Beginner", "en", "personal", future.SessionId), default));
-        Assert.Equal(3, fake.Contexts.Count);
-        var generated = PlanContextBudget.Element(fake.Contexts[1]);
-        var review = PlanContextBudget.Element(fake.Contexts[2]).GetProperty("context");
-        Assert.Equal(generated.GetRawText(), review.GetRawText());
-        Assert.Equal(future.SessionNo, generated.GetProperty("targetSession").GetProperty("sessionNo").GetInt32());
-        Assert.Contains("No jumping", review.GetRawText());
-        Assert.DoesNotContain("OTHER_RESTRICTION", review.GetRawText());
+        Assert.Single(fake.Contexts);
+        using var generation = JsonDocument.Parse(fake.Contexts[0]);
+        var generated = generation.RootElement;
+        Assert.Equal(3, generated.EnumerateObject().Count());
+        Assert.Equal("Improve smash", generated.GetProperty("trainingGoal").GetString());
+        foreach (var value in fake.Contexts)
+            foreach (var secret in new[] { "No jumping", "OTHER_RESTRICTION", "OTHER_PRIVATE_GOAL", "OUTSIDE_PROFILE", "ENDED_PROFILE", "Smash contact needs practice", selected.UserId.ToString(), future.SessionId.ToString() })
+                Assert.DoesNotContain(secret, value);
+        fake.Contexts.Clear();
+        Assert.IsType<OkObjectResult>(await controller.Suggest(course.Id, new ClassSuggestionRequest(null, "Improve smash", "Beginner", "en", "session", future.SessionId), default));
+        Assert.Equal(generated.GetRawText(), fake.Contexts[0]);
         Assert.Equal(count, await db.Set<ClassTeachingRecord>().CountAsync());
         // Negative calls use HTTP endpoint / authorization middleware, all rejected before Gemini.
         using var coach = factory.CreateApiClient(course.CoachId, UserRole.Coach);
@@ -138,9 +122,7 @@ public sealed class CoachPlanContextIntegrationTests(SchedulingApiFactory factor
             Contexts.Add(doc.RootElement.GetProperty("context").GetString()!);
             var answer = Contexts.Count switch
             {
-                1 => "{\"status\":\"VALID\",\"reason\":\"Sport related\",\"normalizedGoal\":\"Improve smash\"}",
-                2 => "Warm-up · 2 sets × 10 reps of seated mobility.\nGrip · 2 sets × 10 reps of grip practice.\nTechnique · 3 sets × 10 reps of controlled standing swings without jumping.\nCool-down · 1 set × 5 reps of gentle stretching.",
-                3 => "{\"status\":\"PASS\",\"reason\":\"Consistent\"}",
+                1 => JsonSerializer.Serialize(new { status = "READY", reason = "", content = "Warm-up · 2 sets × 10 reps of shoulder mobility.\nGrip · 2 sets × 10 reps of grip practice.\nTechnique · 3 sets × 10 reps of controlled swings.\nCool-down · 1 set × 5 reps of gentle stretching." }),
                 _ => throw new InvalidOperationException("Unexpected model call")
             };
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { interactionId = "stub", answer, provider = "TEST ONLY", model = "stub" }) };

@@ -1889,11 +1889,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "d:\\sports-center-management-system\\sports-center-management-system\\flow5-tests\\Flow5.LiveTests.csproj",
+      "projectUniqueName": "D:\\sports-center-management-system\\sports-center-management-system\\flow5-tests\\Flow5.LiveTests.csproj",
       "projectName": "Flow5.LiveTests",
-      "projectPath": "d:\\sports-center-management-system\\sports-center-management-system\\flow5-tests\\Flow5.LiveTests.csproj",
+      "projectPath": "D:\\sports-center-management-system\\sports-center-management-system\\flow5-tests\\Flow5.LiveTests.csproj",
       "packagesPath": "C:\\Users\\ACER\\.nuget\\packages\\",
-      "outputPath": "d:\\sports-center-management-system\\sports-center-management-system\\flow5-tests\\obj\\",
+      "outputPath": "D:\\sports-center-management-system\\sports-center-management-system\\flow5-tests\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\ACER\\AppData\\Roaming\\NuGet\\NuGet.Config"
