@@ -34,7 +34,8 @@ public record MemberHealthSnapshot(
     string DietaryPreference,
     string? FoodAllergies,
     string? Limitations,
-    bool ProfileComplete);
+    bool ProfileComplete,
+    string? BodyBuild = null);
 
 /// <summary>Gợi ý dinh dưỡng ước tính theo công thức, để Coach xem lại; không phải thực đơn hay lời khuyên y tế.</summary>
 public record NutritionGuidance(
