@@ -161,7 +161,7 @@ export const teachingApi = {
     goal: string,
     level: string,
     language: string,
-    scope: "course" | "session" | "personal" = "session",
+    scope: "session" | "personal" = "session",
     sessionId: string | null = null,
   ) =>
     api.post<{ content: string; provider: string; model: string }>(

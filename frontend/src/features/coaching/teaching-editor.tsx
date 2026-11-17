@@ -69,7 +69,7 @@ export function TeachingEditor({
   const homeworkSession = sessions.find((item) => item.sessionId === session);
   const canSuggestForSelectedSession =
     !!homeworkSession &&
-    !/complet|cancel/i.test(homeworkSession.status) &&
+    homeworkSession.status.toUpperCase() === "SCHEDULED" &&
     Date.parse(homeworkSession.startAtUtc) > now;
   const homeworkAllowed =
     kind !== "HOMEWORK" ||
@@ -397,26 +397,28 @@ export function TeachingEditor({
               <button
                 type="button"
                 className="btn btn--secondary btn--sm"
-                disabled={busy || goal.trim().length < 5 || (scope === "personal" ? !student :
-                  !session || !homeworkSession || /completed|cancelled/i.test(homeworkSession.status) ||
-                  Date.parse(homeworkSession.startAtUtc) <= now)}
+                disabled={busy || goal.trim().length < 5 || (scope === "personal"
+                  ? !student || (!!session && !canSuggestForSelectedSession)
+                  : !canSuggestForSelectedSession)}
                 onClick={async () => {
                   setPlanIssue(null);
                   const data = await ai.run(() =>
                     teachingApi.suggest(
                       classId,
-                      student || null,
+                      scope === "personal" ? (student || null) : null,
                       goal,
                       level,
                       language,
                       scope === "personal" ? "personal" : "session",
-                      scope === "personal" ? null : (session || null),
+                      session || null,
                     ).catch((cause: unknown) => {
                       if (cause instanceof ApiError) {
                         if (cause.code === "ai_provider_rate_limited")
                           setPlanIssue("I can't generate this lesson plan now because the AI provider is rate limited. Please try again later.");
                         else if (cause.code === "ai_provider_auth_failed" || cause.code === "ai_model_unavailable")
                           setPlanIssue("I can't generate a plan because the AI service configuration is unavailable. Please contact support.");
+                        else if (cause.code === "ai_plan_context_too_large")
+                          setPlanIssue("The lesson context is too large for a verified AI plan. Review the student notes or narrow the plan scope.");
                         else if (cause.status === 504)
                           setPlanIssue("I couldn't finish generating and validating the plan before the AI service timeout. No plan was saved. Please retry later.");
                         else if (cause.status === 502 || cause.status === 503)
@@ -591,4 +593,3 @@ export function TeachingEditor({
     </section>
   );
 }
-

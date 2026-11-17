@@ -1,0 +1,50 @@
+{
+  "backend/SportHub.AI/Api/ClassTeachingAiController.cs": {
+    "before": "77eac5f6e79856006b18c61d17f34600892b351622c37430e17d7cb46037ff22",
+    "after": "bb684953bf73e2d996d3a1551a4cfedf7970d977f254604f09bb9231a07f0dc7"
+  },
+  "backend/SportHub.AI/Application/Services/CoachPlanning/CoachPlanContextReader.cs": {
+    "before": null,
+    "after": "ee1593a63537f51124dfe6414d1f6f51f90fed194d2a3d0e19a7356cd511b9bb"
+  },
+  "backend/SportHub.AI/Application/Services/CoachPlanning/CoachPlanOutputGuard.cs": {
+    "before": null,
+    "after": "caebc25396cd48ae92eee6111f5cef66c9a72ec110114715e4e502af92981ad7"
+  },
+  "backend/SportHub.AI/Application/Services/CoachPlanning/LessonHistoryAggregator.cs": {
+    "before": null,
+    "after": "c4ac512d0ae95c5648e56cc63ce799cbb8ece00b8b422c21d23055538c7eaff1"
+  },
+  "backend/SportHub.AI/Application/Services/CoachPlanning/PersonalPlanContextBuilder.cs": {
+    "before": null,
+    "after": "96997270125596892897eba83c009e975ae5c7d5e930fa1db1961580f36094dc"
+  },
+  "backend/SportHub.AI/Application/Services/CoachPlanning/PlanContextBudget.cs": {
+    "before": null,
+    "after": "06594dbd2d9a169654968f056179aac5b529491cbbeb536219bb8fa46fb21597"
+  },
+  "backend/SportHub.AI/Application/Services/CoachPlanning/SessionPlanContextBuilder.cs": {
+    "before": null,
+    "after": "13196778742779f929a04393ef5f679b9e89dc3bebfc9402d8342065bea985e1"
+  },
+  "backend/SportHub.AI/Application/Services/CoachPlanning/TrainingProgressAnalyzer.cs": {
+    "before": null,
+    "after": "00526a49fdca1164a3000645c9c8c87ac3caa9e7b70e23860c268602ddb1a8ea"
+  },
+  "backend/SportHub.Scheduling.Tests/Integration/CoachPlanContextIntegrationTests.cs": {
+    "before": null,
+    "after": "639ab4b50dfd1d7ec8c47ccc386e3f7d5eac01aaf02803e0ba663fc748733395"
+  },
+  "backend/SportHub.Scheduling.Tests/Unit/CoachPlanContextTests.cs": {
+    "before": null,
+    "after": "a4c2672fbd56e36074bbb7d5332c69306bc03c07e84f55f35ce617d4e3605e52"
+  },
+  "frontend/src/features/coaching/teaching-api.ts": {
+    "before": "67471a88e7c947d4f3e756840309b41b806629661b4e29e4e279d0b82d0ae6b2",
+    "after": "e8227d32b68f16af6a5c71cc7b985d02fad0e66c10f3b55bd1cc9db390f1c489"
+  },
+  "frontend/src/features/coaching/teaching-editor.tsx": {
+    "before": "7c50ceb743e674a8e8b072e8dbb585b4ef6151b457b713b701cbb4321ea947d8",
+    "after": "4171c6d340ea3c812ff1553889dbe602bf3e4a917522c86fd2fec05db2a1bf4f"
+  }
+}
