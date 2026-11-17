@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "project_scope": "REPLACE_WITH_GOOGLE_PROJECT_ID",
+  "threshold_percent": 90,
+  "daily_limits": {"gemini-3.5-flash-lite": 500},
+  "fallback_models": []
+}

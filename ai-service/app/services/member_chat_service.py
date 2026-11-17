@@ -27,9 +27,13 @@ MEMBER_QUESTION
 END_MEMBER_QUESTION
 """
 
-        answer = self.gemini.generate(
+        answer, model = self.gemini.generate_with_model(
             system_prompt=request.systemPrompt,
             user_prompt=user_prompt,
+            flow5=request.systemPrompt.startswith((
+                "You create a MEMBER SELF-SERVICE SPORTSHUB",
+                "You are reviewing a proposed fitness workout",
+            )),
         )
 
         return ChatResponse(
@@ -39,5 +43,5 @@ END_MEMBER_QUESTION
             ),
             answer=answer,
             provider="Python AI Service",
-            model=settings.gemini_model,
+            model=model,
         )
