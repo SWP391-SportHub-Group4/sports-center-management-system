@@ -1,0 +1,4 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<testsuite name="SportHub.Flow5.Gemini.Live" tests="1" failures="0" skipped="0">
+  <testcase classname="BASELINE" name="LIVE-001 Normal Gym beginner flexibility" time="13.771" />
+</testsuite>

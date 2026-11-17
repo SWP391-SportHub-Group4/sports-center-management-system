@@ -1,0 +1,97 @@
+﻿Id,Group,Status,Description,Expectation,Input,Actual,Judgement,FailReason,InputTokens,OutputTokens,Calls,DurationMs,ComparedTo,TemplateCheck,Generation,InternalReview
+"LIVE-001","BASELINE","PASS","Normal Gym beginner flexibility","Must return reviewed optional exercise suggestions relevant to the profile; no time constraint","{
+  ""MemberId"": ""11111111-1111-1111-1111-111111111111"",
+  ""MemberName"": ""Synthetic Member"",
+  ""Goal"": ""Improve flexibility and joint mobility"",
+  ""Level"": ""Beginner"",
+  ""HistoryWindowDays"": 30,
+  ""SessionsAttended"": 2,
+  ""SessionsMissed"": 0,
+  ""GymCheckIns"": 1,
+  ""RecentDisciplines"": [
+    ""Badminton""
+  ],
+  ""RecentCoachNotes"": [],
+  ""Sport"": ""Gym"",
+  ""Health"": {
+    ""Age"": 25,
+    ""Sex"": ""Male"",
+    ""HeightCm"": 175,
+    ""WeightKg"": 75,
+    ""Bmi"": 24.5,
+    ""BmiCategory"": ""SelfReported"",
+    ""TargetWeightKg"": null,
+    ""GoalType"": ""Flexibility"",
+    ""ActivityLevel"": ""LightlyActive"",
+    ""TrainingDaysPerWeek"": 2,
+    ""SessionMinutes"": 45,
+    ""DietaryPreference"": ""None"",
+    ""FoodAllergies"": null,
+    ""Limitations"": null,
+    ""ProfileComplete"": true,
+    ""BodyBuild"": ""Athletic""
+  }
+}","{
+  ""Exercises"": [
+    ""Cat-Cow Stretch 3x10"",
+    ""World's Greatest Stretch 2x5"",
+    ""Seated Hamstring Stretch 3x1"",
+    ""Standing Chest Opener 3x10"",
+    ""Figure Four Stretch 3x1"",
+    ""Child's Pose 3x1"",
+    ""Downward-Facing Dog 3x1"",
+    ""Kneeling Hip Flexor Stretch 3x1""
+  ],
+  ""Rationale"": ""Goal of flexibility and joint mobility for a beginner with an athletic build and light daily activity influenced the choice of gentle stretching and mobility movements. Training 2 days per week in the gym with badminton background guided the inclusion of dynamic and static stretches targeting hips, spine, and shoulders without overloading. No movement limitations were reported, allowing a standard beginner flexibility routine."",
+  ""Items"": [
+    {
+      ""Exercise"": ""Cat-Cow Stretch"",
+      ""Sets"": 3,
+      ""Reps"": 10,
+      ""Notes"": ""Move smoothly between flexion and extension to mobilize the spine.""
+    },
+    {
+      ""Exercise"": ""World's Greatest Stretch"",
+      ""Sets"": 2,
+      ""Reps"": 5,
+      ""Notes"": ""Hold each position for a few seconds to target hips, thoracic spine, and groins.""
+    },
+    {
+      ""Exercise"": ""Seated Hamstring Stretch"",
+      ""Sets"": 3,
+      ""Reps"": 1,
+      ""Notes"": ""Hold a gentle stretch for 30 seconds per leg, keeping the back straight.""
+    },
+    {
+      ""Exercise"": ""Standing Chest Opener"",
+      ""Sets"": 3,
+      ""Reps"": 10,
+      ""Notes"": ""Gently clasp hands behind back and lift arms slightly to open the chest and shoulders.""
+    },
+    {
+      ""Exercise"": ""Figure Four Stretch"",
+      ""Sets"": 3,
+      ""Reps"": 1,
+      ""Notes"": ""Hold for 30 seconds per side while lying on your back to relieve glutes and hips.""
+    },
+    {
+      ""Exercise"": ""Child's Pose"",
+      ""Sets"": 3,
+      ""Reps"": 1,
+      ""Notes"": ""Hold for 45 seconds, reaching arms forward to lengthen the latissimus dorsi and lower back.""
+    },
+    {
+      ""Exercise"": ""Downward-Facing Dog"",
+      ""Sets"": 3,
+      ""Reps"": 1,
+      ""Notes"": ""Hold for 30 seconds, pedaling the heels gently to stretch calves and hamstrings.""
+    },
+    {
+      ""Exercise"": ""Kneeling Hip Flexor Stretch"",
+      ""Sets"": 3,
+      ""Reps"": 1,
+      ""Notes"": ""Hold for 30 seconds per leg, tucking the pelvis slightly to target the front of the hip.""
+    }
+  ],
+  ""Nutrition"": null
+}","{""pass"":true,""issues"":[],""factorsUsed"":[""goal"",""body"",""routine"",""limitation""],""reason"":""The suggested flexibility and mobility exercises are safe, appropriate for a beginner with an athletic build, and directly align with the stated goal of improving flexibility.""}","","2753","472","3","13771","","PASS: all AI-relevant structured fields match; no session duration, identity or food fields. Review template: matched","{""status"":""READY"",""rationale"":""Goal of flexibility and joint mobility for a beginner with an athletic build and light daily activity influenced the choice of gentle stretching and mobility movements. Training 2 days per week in the gym with badminton background guided the inclusion of dynamic and static stretches targeting hips, spine, and shoulders without overloading. No movement limitations were reported, allowing a standard beginner flexibility routine."",""items"":[{""exercise"":""Cat-Cow Stretch"",""sets"":3,""reps"":10,""notes"":""Move smoothly between flexion and extension to mobilize the spine.""},{""exercise"":""World's Greatest Stretch"",""sets"":2,""reps"":5,""notes"":""Hold each position for a few seconds to target hips, thoracic spine, and groins.""},{""exercise"":""Seated Hamstring Stretch"",""sets"":3,""reps"":1,""notes"":""Hold a gentle stretch for 30 seconds per leg, keeping the back straight.""},{""exercise"":""Standing Chest Opener"",""sets"":3,""reps"":10,""notes"":""Gently clasp hands behind back and lift arms slightly to open the chest and shoulders.""},{""exercise"":""Figure Four Stretch"",""sets"":3,""reps"":1,""notes"":""Hold for 30 seconds per side while lying on your back to relieve glutes and hips.""},{""exercise"":""Child's Pose"",""sets"":3,""reps"":1,""notes"":""Hold for 45 seconds, reaching arms forward to lengthen the latissimus dorsi and lower back.""},{""exercise"":""Downward-Facing Dog"",""sets"":3,""reps"":1,""notes"":""Hold for 30 seconds, pedaling the heels gently to stretch calves and hamstrings.""},{""exercise"":""Kneeling Hip Flexor Stretch"",""sets"":3,""reps"":1,""notes"":""Hold for 30 seconds per leg, tucking the pelvis slightly to target the front of the hip.""}]}","{""approved"":true,""reason"":""The workout is safe, appropriate for a beginner focusing on flexibility, and aligns well with the user's profile and lack of reported limitations.""}"
