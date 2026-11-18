@@ -1,7 +1,6 @@
 """Coach-only language-model runtime. No Member messages or member role selection."""
 from uuid import uuid4
 
-from app.core.config import settings
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.gemini_service import GeminiService
 
@@ -20,13 +19,16 @@ class CoachChatService:
             f"\n\nEND_SPORT_HUB_COACH_CONTEXT\n\nCOACH_QUESTION\n\n{request.question}"
             "\n\nEND_COACH_QUESTION"
         )
-        answer = self.gemini.generate(
+        answer, model = self.gemini.generate_with_model(
             system_prompt=request.systemPrompt,
             user_prompt=user_prompt,
+            flow5=plan,
+            flow6=not plan,
+            profile="plan" if plan else "coach_chat",
         )
         return ChatResponse(
             interactionId=request.previousInteractionId or str(uuid4()),
             answer=answer,
             provider="Python AI Service / Coach Plan" if plan else "Python AI Service / Coach",
-            model=settings.gemini_model,
+            model=model,
         )

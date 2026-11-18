@@ -1,0 +1,30 @@
+{
+  "ai-service/app/services/gemini_model_router.py": {
+    "before": "0c100bb106edd2b5cead4f5bf0c9e25e5ee18e89c74ca1860fe015a8afc7876b",
+    "after": "980d4e6c1f792fb49054bf2dbbc34b176b2ac3ce6d8ca968d91d8bacb1f594d4"
+  },
+  "ai-service/app/services/gemini_service.py": {
+    "before": "422d83155459e429cb198a24e75aadcecd005bd442a9c236f84d775974b99b24",
+    "after": "ba36bf0fddc80cd8e1c04db6ea25c1337220aea651f7f20f6b0b32ee77ea9d9b"
+  },
+  "ai-service/app/services/member_chat_service.py": {
+    "before": "579db93a3c53657f6693f436f1b7beea049f6b0ec35d7089ea50e8f557bf953e",
+    "after": "3b4c7af4c551bea915dace24fd2170116b4a3c9a8b0d2e3699396fd9165d425b"
+  },
+  "ai-service/app/services/coach_chat_service.py": {
+    "before": "1adbeb60d0e1d8458202060d84dafa30bae7ece73db4d9492c99d703ae8f7cdc",
+    "after": "d42090a0826f2add8bdf6c1bfb03e49b71c0987528d4daadfd6a26cae9e4973d"
+  },
+  "ai-service/tests/test_gemini_model_router.py": {
+    "before": "b0fce78690e984a282d29dff63251c8e4d30fda5ed062378382f7fe6c1b924d1",
+    "after": "ff9201c768cbdf9a3957901f15702fc3c535053fecb84b27e5249ff14bad766c"
+  },
+  "ai-service/app/services/gemini_project_profiles.py": {
+    "before": null,
+    "after": "5ab0f175270d733fad547ad96050bf7f64b9bd5c6dd5a6cf3acdc637a08dd85a"
+  },
+  "ai-service/tests/test_gemini_project_profiles.py": {
+    "before": null,
+    "after": "0df14ab05e69c1be24d5962aa2f7edf6e723aee1b0175353c77bb205b431c3b6"
+  }
+}

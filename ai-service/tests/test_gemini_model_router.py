@@ -30,6 +30,35 @@ class Tests(unittest.TestCase):
     def test_other_flow(self):
         for _ in range(10): self.assertEqual(self.r.run('a',False,str),('a','a'))
         self.assertEqual(self.r.run('a',True,str),('b','b'))
+    def test_flow6_rate_limit_uses_fallback(self):
+        attempted=[]
+        def call(model):
+            attempted.append(model)
+            if model=='a': raise Upstream('ai_quota_exceeded')
+            return model
+        self.assertEqual(self.r.run('a',False,call,flow6=True),('b','b'))
+        self.assertEqual(attempted,['a','b'])
+        self.assertEqual(self.r.run('a',False,call,flow6=True),('b','b'))
+        self.assertEqual(attempted,['a','b','b'])
+    def test_flow6_respects_local_threshold(self):
+        for _ in range(9): self.assertEqual(self.r.run('a',False,str,flow6=True),('a','a'))
+        self.assertEqual(self.r.run('a',False,str,flow6=True),('b','b'))
+    def test_flow6_does_not_mask_auth_failure(self):
+        attempted=[]
+        def call(model):
+            attempted.append(model)
+            raise Upstream('ai_provider_auth_failed')
+        with self.assertRaises(Upstream): self.r.run('a',False,call,flow6=True)
+        self.assertEqual(attempted,['a'])
+    def test_distinct_project_scopes_have_independent_counters(self):
+        for _ in range(9):
+            self.assertEqual(self.r.run('a', False, str, flow6=True, scope_override='plan-project'), ('a','a'))
+        self.assertEqual(self.r.run('a', False, str, flow6=True, scope_override='plan-project'), ('b','b'))
+        self.assertEqual(self.r.run('a', False, str, flow6=True, scope_override='coach-project'), ('a','a'))
+    def test_project_scope_requires_local_accounting(self):
+        self.cfg.write_text('{"enabled":false}')
+        with self.assertRaises(ValueError):
+            self.r.run('a', False, str, flow6=True, scope_override='plan-project')
     def test_disabled(self):
         self.cfg.write_text('{"enabled":false}')
         self.assertEqual(self.r.run('a',True,str),('a','a')); self.assertFalse(self.r.db.exists())

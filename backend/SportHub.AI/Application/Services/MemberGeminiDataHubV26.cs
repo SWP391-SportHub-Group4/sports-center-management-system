@@ -185,7 +185,7 @@ internal static class MemberGeminiDataHubV26
             (int)Math.Min(int.MaxValue, timer.ElapsedMilliseconds), clock.UtcNow);
     }
 
-    private static async Task<object> LoadAsync(ISportHubDbContext db, Guid id, string topic, DateTime utc, CancellationToken ct) => topic switch
+    internal static async Task<object> LoadAsync(ISportHubDbContext db, Guid id, string topic, DateTime utc, CancellationToken ct) => topic switch
     {
         "overview" => await MemberReadOnlyGateway.LoadEvidenceAsync(db, id, MemberEvidenceDomain.Overview, utc, ct),
         "account" => await MemberReadOnlyGateway.LoadEvidenceAsync(db, id, MemberEvidenceDomain.Account, utc, ct),
