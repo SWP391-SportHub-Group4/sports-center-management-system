@@ -1,0 +1,30 @@
+{
+  "ai-service/app/services/gemini_model_router.py": {
+    "before": "33b6f89545bb4644adedf7c5d7a24efe76a379dd6cd8fbba14a71ee6d0c3b0dd",
+    "after": "0c100bb106edd2b5cead4f5bf0c9e25e5ee18e89c74ca1860fe015a8afc7876b"
+  },
+  "ai-service/app/services/gemini_service.py": {
+    "before": "f7241a06f1dae0e794b6f59e60321f479c8b0ff81820521f29179abd58e58226",
+    "after": "422d83155459e429cb198a24e75aadcecd005bd442a9c236f84d775974b99b24"
+  },
+  "ai-service/app/services/member_chat_service.py": {
+    "before": "57a1579bac72f170ea95d5eeb7212fd4f4134e1ba63d6e10916e53972f1ff68b",
+    "after": "579db93a3c53657f6693f436f1b7beea049f6b0ec35d7089ea50e8f557bf953e"
+  },
+  "ai-service/app/services/coach_chat_service.py": {
+    "before": "0b5e4a156a9b8993e5837a23b4aaaa94f94dd4f4c3d26c9fd65f9dfcd71a34a1",
+    "after": "1adbeb60d0e1d8458202060d84dafa30bae7ece73db4d9492c99d703ae8f7cdc"
+  },
+  "ai-service/tests/test_gemini_model_router.py": {
+    "before": "6de4392c9568078e9ecaead0961cb0d13e45a0f2ccec07b84912922c53f36e7f",
+    "after": "b0fce78690e984a282d29dff63251c8e4d30fda5ed062378382f7fe6c1b924d1"
+  },
+  "backend/SportHub.AI/Application/Services/AiChatService.cs": {
+    "before": "7884b4e042369590755d222322a23c2403e60e35144d50a6e8e719ba4930c095",
+    "after": "5a0ada2732450ebd024c984fc8b1d56d3b4e056d0a831f21cdee7ac8ecb16be8"
+  },
+  "backend/SportHub.AI/Application/Services/MemberPortalChat.cs": {
+    "before": "42b7e112684d741b9377273a57168aa5349dc1498c548d38afe4e7eb93f89b2d",
+    "after": "c6def4816a2e9224e80fa18dbdb3934a0573e39b51ffe420e14faf9011608150"
+  }
+}

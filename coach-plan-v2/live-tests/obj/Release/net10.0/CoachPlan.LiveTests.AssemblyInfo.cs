@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CoachPlan.LiveTests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+74965b288c556478035950f757c0357b2b9b10d0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fcfcbb42ec052662f432367835d290cf4c9c614d")]
 [assembly: System.Reflection.AssemblyProductAttribute("CoachPlan.LiveTests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CoachPlan.LiveTests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

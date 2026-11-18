@@ -4,6 +4,7 @@ No prompt, key, SDK response body, or member/coach context is returned to caller
 """
 import logging
 from app.services.gemini_model_router import router
+from app.services.gemini_project_profiles import for_profile
 
 from google import genai
 from google.genai import errors, types
@@ -23,20 +24,31 @@ class GeminiUpstreamError(Exception):
 
 class GeminiService:
     def __init__(self) -> None:
-        self.client = genai.Client(
-            api_key=settings.gemini_api_key,
-            http_options=types.HttpOptions(timeout=settings.gemini_timeout_ms),
-        )
+        self.clients = {}
+
+    def _client(self, profile: str | None):
+        route = for_profile(profile) if profile else None
+        key = route[0] if route else settings.gemini_api_key
+        if key not in self.clients:
+            self.clients[key] = genai.Client(
+                api_key=key,
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_ms),
+            )
+        return self.clients[key]
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         return self.generate_with_model(system_prompt, user_prompt)[0]
 
-    def generate_with_model(self, system_prompt: str, user_prompt: str, *, flow5: bool = False):
-        return router.run(settings.gemini_model, flow5, lambda model: self._generate(model, system_prompt, user_prompt))
+    def generate_with_model(self, system_prompt: str, user_prompt: str, *, flow5: bool = False, flow6: bool = False, profile: str | None = None):
+        route = for_profile(profile) if profile else None
+        scope = route[1] if route else None
+        return router.run(settings.gemini_model, flow5,
+                          lambda model: self._generate(model, system_prompt, user_prompt, profile),
+                          flow6=flow6, scope_override=scope)
 
-    def _generate(self, model: str, system_prompt: str, user_prompt: str) -> str:
+    def _generate(self, model: str, system_prompt: str, user_prompt: str, profile: str | None = None) -> str:
         try:
-            response = self.client.models.generate_content(
+            response = self._client(profile).models.generate_content(
                 model=model,
                 contents=user_prompt,
                 config=types.GenerateContentConfig(

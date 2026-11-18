@@ -1,4 +1,4 @@
-"""Opt-in Flow5 routing; local SQLite counters are estimates, not Google quota telemetry."""
+"""Opt-in Flow5/Flow6 routing; SQLite counters are estimates, not Google quota telemetry."""
 import json
 import logging
 import math
@@ -45,34 +45,37 @@ class ModelRouter:
         with self.lock, closing(sqlite3.connect(self.db, timeout=5)) as c, c:
             c.execute('UPDATE quota SET blocked=MAX(blocked,?) WHERE scope=? AND model=? AND day=?',(until,scope,model,day))
 
-    def run(self, primary, flow5, invoke):
+    def run(self, primary, flow5, invoke, *, flow6=False, scope_override=None):
         cfg = json.loads(self.config.read_text(encoding='utf-8-sig')) if self.config.exists() else {}
         if not cfg.get('enabled', False):
+            if scope_override is not None:
+                raise ValueError('Four-project routing requires an enabled gemini-router.json')
             return invoke(primary), primary
-        scope = cfg['project_scope']
+        scope = scope_override or cfg['project_scope']
         threshold = int(cfg['threshold_percent'])
         limits = cfg['daily_limits']
         if not scope or not 1 <= threshold <= 100 or any(type(v) is not int or v <= 0 for v in limits.values()):
             raise ValueError('Invalid Gemini router configuration')
-        models = list(dict.fromkeys([primary]+(cfg['fallback_models'] if flow5 else [])))
+        routed = flow5 or flow6
+        models = list(dict.fromkeys([primary]+(cfg['fallback_models'] if routed else [])))
         last = None
         for model in models:
             if model not in limits:
-                if flow5: raise ValueError('Missing model quota configuration')
+                if routed: raise ValueError('Missing model quota configuration')
                 return invoke(primary), primary
             try:
-                reserved = self._reserve(scope, model, limits[model], threshold, flow5)
+                reserved = self._reserve(scope, model, limits[model], threshold, routed)
             except sqlite3.Error:
                 # Never break unrelated chat because a local accounting DB is unavailable.
-                if not flow5: return invoke(primary), primary
+                if not routed: return invoke(primary), primary
                 raise
             if not reserved: continue
             try:
                 answer = invoke(model)
-                log.info('Gemini response model=%s flow5=%s', model, flow5)
+                log.info('Gemini response model=%s flow5=%s flow6=%s', model, flow5, flow6)
                 return answer, model
             except Exception as exc:
-                if not flow5 or getattr(exc,'code',None) not in ('ai_quota_exceeded','ai_provider_unavailable','ai_provider_timeout'):
+                if not routed or getattr(exc,'code',None) not in ('ai_quota_exceeded','ai_provider_unavailable','ai_provider_timeout'):
                     raise
                 last = exc
                 self._block(scope, model, exc)
