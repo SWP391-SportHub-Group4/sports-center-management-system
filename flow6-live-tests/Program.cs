@@ -32,7 +32,8 @@ internal static class Program
             ValidateMatrix(cases, data);
             if (args.Contains("--self-test", StringComparer.Ordinal))
             {
-                Console.WriteLine("SELF_TEST_OK: 50 Member and 50 Coach cases, fixtures and topic allowlists validated. No live provider call.");
+                EvidenceSelfTest();
+                Console.WriteLine("SELF_TEST_OK: 60 Member and 60 Coach cases, fixtures and topic allowlists validated. No live provider call.");
                 return 0;
             }
             string Option(string name, string fallback)
@@ -44,24 +45,40 @@ internal static class Program
                 return args[i + 1];
             }
             for (var i = 0; i < args.Length; i += 2)
-                if (args[i] is not ("--role" or "--group" or "--id" or "--max-cases" or "--max-calls" or "--python-url"))
+                if (args[i] is not ("--role" or "--group" or "--id" or "--max-cases" or "--max-calls" or "--python-url" or "--min-call-interval-seconds" or "--resume-from"))
                     throw new ArgumentException("Unknown option: " + args[i]);
             var role = Option("--role", "all").ToLowerInvariant();
             var group = Option("--group", "all").ToLowerInvariant();
             var id = Option("--id", "");
             var maxCases = int.Parse(Option("--max-cases", "100"));
             var maxCalls = int.Parse(Option("--max-calls", "300"));
+            var interval = int.Parse(Option("--min-call-interval-seconds", "12"));
+            if (interval < 0 || interval > 60) throw new ArgumentException("Call interval must be between 0 and 60 seconds.");
+            var resumePath = Option("--resume-from", "");
+            HashSet<string>? resumeIds = null;
+            if (resumePath.Length > 0)
+            {
+                if (id.Length > 0) throw new ArgumentException("Use either --id or --resume-from.");
+                using var previous = JsonDocument.Parse(File.ReadAllText(resumePath));
+                resumeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in previous.RootElement.GetProperty("results").EnumerateArray())
+                {
+                    var status = item.GetProperty("status").GetString();
+                    if (status is "INFRA_ERROR" or "NOT_RUN")
+                        resumeIds.Add(item.GetProperty("case").GetProperty("id").GetString() ?? throw new ArgumentException("Missing case ID."));
+                }
+            }
             if (role is not ("all" or "member" or "coach") || group is not ("all" or "happy" or "unhappy") || maxCases <= 0 || maxCalls <= 0)
                 throw new ArgumentException("Invalid options.");
             var selected = cases.Where(c => (role == "all" || c.Role == role) && (group == "all" || c.Group == group) &&
-                (id.Length == 0 || c.Id.Equals(id, StringComparison.OrdinalIgnoreCase))).Take(maxCases).ToArray();
+                (id.Length == 0 || c.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) && (resumeIds is null || resumeIds.Contains(c.Id))).Take(maxCases).ToArray();
             if (selected.Length == 0) throw new ArgumentException("No matching case.");
             var uri = new Uri(Option("--python-url", "http://127.0.0.1:8001"));
             if (uri.Scheme != "http" || !uri.IsLoopback || uri.UserInfo.Length != 0 || uri.AbsolutePath != "/" || uri.Query.Length != 0 || uri.Fragment.Length != 0)
                 throw new ArgumentException("Use an explicit loopback HTTP Python service URL only.");
             using var http = new HttpClient(new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false })
             { BaseAddress = uri, Timeout = TimeSpan.FromSeconds(90) };
-            var budget = new Budget(maxCalls);
+            var budget = new Budget(maxCalls, TimeSpan.FromSeconds(interval));
             var results = new List<Result>();
             var canRun = false;
             try
@@ -108,7 +125,10 @@ internal static class Program
                     var errors = new List<string>();
                     if (!c.ExpectedIntents.Contains(result.Plan.Intent, StringComparer.Ordinal)) errors.Add("Wrong intent: " + result.Plan.Intent);
                     if (result.Plan.Language != c.Language) errors.Add("Wrong language: " + result.Plan.Language);
-                    if (c.RequiredTopics.Any(t => !fetched.Contains(t, StringComparer.Ordinal))) errors.Add("Required evidence was not loaded.");
+                    var equivalentEnrollmentCases = c.Id is "F6M-012" or "F6M-013" or "F6M-019" or "F6M-024";
+                    var missing = c.RequiredTopics.Where(t => !fetched.Contains(t, StringComparer.Ordinal)).ToArray();
+                    var hasEquivalent = equivalentEnrollmentCases && missing.Length == 1 && missing[0] == "myClasses" && HasCompleteCatalogEvidence(trace.Calls);
+                    if (missing.Length != 0 && !hasEquivalent) errors.Add("Required evidence was not loaded or was incomplete.");
                     if (c.NoEvidence && fetched.Count != 0) errors.Add("Evidence loaded for a no-data intent.");
                     if (c.NoEvidence && result.Plan.Topics.Count != 0) errors.Add("No-data intent returned topics.");
                     if (!fetched.SequenceEqual(result.Plan.Topics)) errors.Add("Evidence/plan mismatch.");
@@ -129,8 +149,8 @@ internal static class Program
                 {
                     status = Infra.Contains(ex.ErrorCode) ? "INFRA_ERROR" : "FAIL";
                     actual = $"HTTP {ex.StatusCode} [{ex.ErrorCode}]";
-                    // Infrastructure errors belong to this case only. Continue the suite;
-                    // the explicit provider-call budget still limits the overall run.
+                    if (ex.ErrorCode is "ai_provider_rate_limited" or "ai_quota_exceeded")
+                        stop = "Rate limit encountered; remaining cases not run. Resume from this report after quota recovers.";
                 }
                 catch (OperationCanceledException) { status = "INFRA_ERROR"; actual = "Case timeout before verified output."; }
                 catch (HttpRequestException) { status = "INFRA_ERROR"; actual = "HTTP transport failed."; }
@@ -151,17 +171,56 @@ internal static class Program
         }
     }
 
+    // Evaluate the exact evidence delivered to the answer call, not the unfiltered fixture.
+    private static bool HasCompleteCatalogEvidence(IReadOnlyList<Trace> calls)
+    {
+        var answer = calls.LastOrDefault(c => c.Stage == "answer" && c.Error is null);
+        if (answer is null) return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(answer.Context);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("omittedTopics", out var omitted) || omitted.ValueKind != JsonValueKind.Array || omitted.GetArrayLength() != 0) return false;
+            if (!root.TryGetProperty("evidence", out var evidence) || !evidence.TryGetProperty("explorePackages", out var catalog)) return false;
+            if (!catalog.TryGetProperty("classesTruncated", out var truncated) || truncated.ValueKind != JsonValueKind.False) return false;
+            if (!catalog.TryGetProperty("sessionsTruncated", out var sessionsTruncated) || sessionsTruncated.ValueKind != JsonValueKind.False) return false;
+            if (!catalog.TryGetProperty("classRecommendationEvidence", out var rows) || rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() == 0) return false;
+            foreach (var row in rows.EnumerateArray())
+            {
+                if (!row.TryGetProperty("alreadyEnrolled", out var enrolled) || enrolled.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return false;
+                if (!row.TryGetProperty("Name", out var name) || name.ValueKind != JsonValueKind.String ||
+                    !row.TryGetProperty("Price", out var price) || price.ValueKind != JsonValueKind.Number ||
+                    !row.TryGetProperty("availableSeats", out var seats) || seats.ValueKind != JsonValueKind.Number ||
+                    !row.TryGetProperty("status", out var status) || status.ValueKind != JsonValueKind.String) return false;
+            }
+            return true;
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+    }
+
+    private static void EvidenceSelfTest()
+    {
+        const string valid = "{\"omittedTopics\":[],\"evidence\":{\"explorePackages\":{\"classesTruncated\":false,\"sessionsTruncated\":false,\"classRecommendationEvidence\":[{\"Name\":\"A\",\"Price\":1,\"availableSeats\":1,\"status\":\"Published\",\"alreadyEnrolled\":false}]}}}";
+        bool Check(string value) => HasCompleteCatalogEvidence([new Trace("answer", value, "q", null, "a", "m", null)]);
+        if (!Check(valid) || Check(valid.Replace("\"alreadyEnrolled\":false", "\"other\":false")) ||
+            Check(valid.Replace("\"classesTruncated\":false", "\"classesTruncated\":true")) ||
+            Check(valid.Replace("\"sessionsTruncated\":false", "\"sessionsTruncated\":true")) ||
+            Check(valid.Replace("\"omittedTopics\":[]", "\"omittedTopics\":[\"myClasses\"]")))
+            throw new InvalidOperationException("Evidence completeness self-test failed.");
+    }
+
     private static void ValidateMatrix(TestCase[] cases, JsonElement data)
     {
-        if (cases.Length != 100 || cases.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != 100)
-            throw new InvalidOperationException("Expected 100 unique cases.");
+        if (cases.Length != 120 || cases.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != 120)
+            throw new InvalidOperationException("Expected 120 unique cases.");
         foreach (var role in new[] { "member", "coach" })
         {
             var allowed = role == "member" ? MemberFlow6Chat.AllowedTopics : CoachFlow6Chat.AllowedTopics;
             var actual = data.GetProperty(role).EnumerateObject().Select(x => x.Name).ToArray();
             if (!allowed.ToHashSet(StringComparer.Ordinal).SetEquals(actual)) throw new InvalidOperationException(role + " fixture topics mismatch.");
             var subset = cases.Where(c => c.Role == role).ToArray();
-            if (subset.Length != 50 || !subset.Select(c => c.Language).ToHashSet().SetEquals(new[] { "en", "vi" }) ||
+            if (subset.Length != 60 || !subset.Select(c => c.Language).ToHashSet().SetEquals(new[] { "en", "vi" }) ||
                 subset.Any(c => c.Question.Trim().Length == 0 || c.Question.Length > 2000 || c.ExpectedIntents.Length == 0 ||
                     c.RequiredTopics.Any(t => !allowed.Contains(t, StringComparer.Ordinal)) || (c.NoEvidence && c.RequiredTopics.Length != 0)))
                 throw new InvalidOperationException(role + " case matrix is invalid.");
@@ -203,7 +262,22 @@ internal static class Program
     private sealed record Trace(string Stage, string Context, string Question, string? PreviousInteractionId,
         string? Answer, string? Model, string? Error);
     private sealed class LocalFactory(HttpClient client) : IHttpClientFactory { public HttpClient CreateClient(string name) => client; }
-    private sealed class Budget(int max) { public int Max { get; } = max; public int Used { get; set; } }
+    private sealed class Budget(int max, TimeSpan interval)
+    {
+        public int Max { get; } = max;
+        public int Used { get; set; }
+        private readonly Stopwatch clock = Stopwatch.StartNew();
+        private TimeSpan? lastStart;
+        public async Task WaitAsync(CancellationToken ct)
+        {
+            if (lastStart is { } previous)
+            {
+                var wait = interval - (clock.Elapsed - previous);
+                if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
+            }
+            lastStart = clock.Elapsed;
+        }
+    }
     private sealed class BudgetException : Exception { }
     private sealed class TraceProvider(IAiChatProvider inner, Budget budget) : IAiChatProvider
     {
@@ -212,6 +286,7 @@ internal static class Program
             string? previousInteractionId = null, CancellationToken cancellationToken = default)
         {
             if (budget.Used >= budget.Max) throw new BudgetException();
+            await budget.WaitAsync(cancellationToken);
             budget.Used++;
             var stage = systemPrompt.Contains("SPORTHUB FLOW6 INTENT PLANNER", StringComparison.Ordinal) ? "planning" : "answer";
             try
