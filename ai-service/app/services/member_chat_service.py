@@ -27,9 +27,17 @@ MEMBER_QUESTION
 END_MEMBER_QUESTION
 """
 
-        answer = self.gemini.generate(
+        is_flow5 = request.systemPrompt.startswith((
+            "You create a MEMBER SELF-SERVICE SPORTSHUB",
+            "You are reviewing a proposed fitness workout",
+            "You validate a MEMBER SELF-SERVICE SportHub workout profile",
+        ))
+        answer, model = self.gemini.generate_with_model(
             system_prompt=request.systemPrompt,
             user_prompt=user_prompt,
+            flow5=is_flow5,
+            flow6=not is_flow5,
+            profile="suggestion" if is_flow5 else "member_chat",
         )
 
         return ChatResponse(
@@ -39,5 +47,5 @@ END_MEMBER_QUESTION
             ),
             answer=answer,
             provider="Python AI Service",
-            model=settings.gemini_model,
+            model=model,
         )

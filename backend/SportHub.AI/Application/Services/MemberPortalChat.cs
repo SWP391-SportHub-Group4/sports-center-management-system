@@ -20,6 +20,15 @@ namespace SportHub.AI.Application.Services;
 /// </summary>
 internal static class MemberPortalChat
 {
+    internal static bool IsNavigationQuestion(string question)
+    {
+        var q = Normalize(question);
+        return UiNavigationKnowledge.IsNavigationQuestion(question) ||
+            q.Contains("tham gia lop", StringComparison.Ordinal) ||
+            q.Contains("join a class", StringComparison.Ordinal) ||
+            q.Contains("dang ky lop", StringComparison.Ordinal);
+    }
+
     public static async Task<AiChatResponse?> TryAnswerAsync(
         ISportHubDbContext db, IClock clock, Guid authenticatedUserId,
         string question, CancellationToken ct)

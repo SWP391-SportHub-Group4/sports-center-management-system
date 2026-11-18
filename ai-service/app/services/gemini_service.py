@@ -3,6 +3,8 @@
 No prompt, key, SDK response body, or member/coach context is returned to callers.
 """
 import logging
+from app.services.gemini_model_router import router
+from app.services.gemini_project_profiles import for_profile
 
 from google import genai
 from google.genai import errors, types
@@ -22,15 +24,32 @@ class GeminiUpstreamError(Exception):
 
 class GeminiService:
     def __init__(self) -> None:
-        self.client = genai.Client(
-            api_key=settings.gemini_api_key,
-            http_options=types.HttpOptions(timeout=settings.gemini_timeout_ms),
-        )
+        self.clients = {}
+
+    def _client(self, profile: str | None):
+        route = for_profile(profile) if profile else None
+        key = route[0] if route else settings.gemini_api_key
+        if key not in self.clients:
+            self.clients[key] = genai.Client(
+                api_key=key,
+                http_options=types.HttpOptions(timeout=settings.gemini_timeout_ms),
+            )
+        return self.clients[key]
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
+        return self.generate_with_model(system_prompt, user_prompt)[0]
+
+    def generate_with_model(self, system_prompt: str, user_prompt: str, *, flow5: bool = False, flow6: bool = False, profile: str | None = None):
+        route = for_profile(profile) if profile else None
+        scope = route[1] if route else None
+        return router.run(settings.gemini_model, flow5,
+                          lambda model: self._generate(model, system_prompt, user_prompt, profile),
+                          flow6=flow6, scope_override=scope)
+
+    def _generate(self, model: str, system_prompt: str, user_prompt: str, profile: str | None = None) -> str:
         try:
-            response = self.client.models.generate_content(
-                model=settings.gemini_model,
+            response = self._client(profile).models.generate_content(
+                model=model,
                 contents=user_prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=system_prompt,
@@ -40,7 +59,7 @@ class GeminiService:
         except errors.APIError as exc:
             # The SDK status is diagnostic. Never log or return its raw body.
             code = int(getattr(exc, "code", 0) or 0)
-            logger.warning("Gemini API failed: http_status=%s model=%s", code, settings.gemini_model)
+            logger.warning("Gemini API failed: http_status=%s model=%s", code, model)
             if code == 429:
                 raise GeminiUpstreamError(429, "ai_quota_exceeded", "The AI provider is rate limited. Please try again later.") from exc
             if code in (401, 403):
@@ -53,7 +72,7 @@ class GeminiService:
                 raise GeminiUpstreamError(503, "ai_provider_unavailable", "The AI provider is temporarily unavailable.") from exc
             raise GeminiUpstreamError(502, "ai_provider_generation_failed", "The AI provider could not complete this request.") from exc
         except TimeoutError as exc:
-            logger.warning("Gemini request exceeded its time budget: model=%s", settings.gemini_model)
+            logger.warning("Gemini request exceeded its time budget: model=%s", model)
             raise GeminiUpstreamError(504, "ai_provider_timeout", "The AI provider did not respond in time.") from exc
         except (ConnectionError, OSError) as exc:
             logger.warning("Gemini network connection failed: type=%s", type(exc).__name__)
@@ -61,11 +80,11 @@ class GeminiService:
         except Exception as exc:
             # A controlled response for malformed SDK output / transport failures,
             # with the precise exception type retained in server diagnostics only.
-            logger.error("Unexpected Gemini failure: type=%s model=%s", type(exc).__name__, settings.gemini_model)
+            logger.error("Unexpected Gemini failure: type=%s model=%s", type(exc).__name__, model)
             raise GeminiUpstreamError(502, "ai_provider_generation_failed", "The AI provider could not complete this request.") from exc
 
         text = (getattr(response, "text", None) or "").strip()
         if not text:
-            logger.warning("Gemini returned no text: model=%s", settings.gemini_model)
+            logger.warning("Gemini returned no text: model=%s", model)
             raise GeminiUpstreamError(502, "ai_provider_empty_answer", "The AI provider returned no usable answer.")
         return text

@@ -1,0 +1,1025 @@
+{
+  "member": {
+    "overview": {
+      "confirmedEnrollments": 2,
+      "activeMembershipStatusRecords": 1,
+      "upcomingConfirmedCourtBookings": 1,
+      "unreadNotifications": 2,
+      "unclosedSupportRequests": 1
+    },
+    "account": {
+      "account": {
+        "fullName": "Synthetic Member",
+        "Email": "member@example.invalid",
+        "phone": null
+      }
+    },
+    "fitness": {
+      "profile": {
+        "Goal": "Improve badminton technique",
+        "ExperienceLevel": "Beginner",
+        "HeightCm": 165,
+        "WeightKg": 60,
+        "TrainingDaysPerWeek": 3
+      },
+      "computedBmi": 22.04,
+      "measurementHistory": [],
+      "note": "Self-reported measurements"
+    },
+    "membership": {
+      "total": 1,
+      "records": [
+        {
+          "packageName": "Gym Monthly",
+          "Status": "Active",
+          "StartDate": "2026-11-01",
+          "EndDate": "2026-11-30",
+          "RemainingSessions": 5
+        }
+      ],
+      "truncated": false
+    },
+    "sports": {
+      "exactActiveSportCount": 3,
+      "exactTotalSportCount": 4,
+      "activeSports": [
+        {
+          "Name": "Badminton",
+          "IsActive": true,
+          "enabledServices": [
+            "Class",
+            "CourtRental"
+          ]
+        },
+        {
+          "Name": "Basketball",
+          "IsActive": true,
+          "enabledServices": [
+            "Class",
+            "CourtRental"
+          ]
+        },
+        {
+          "Name": "Gym",
+          "IsActive": true,
+          "enabledServices": [
+            "Membership"
+          ]
+        },
+        {
+          "Name": "Old Tennis",
+          "IsActive": false,
+          "enabledServices": []
+        }
+      ]
+    },
+    "myClasses": {
+      "enrolledClasses": [
+        {
+          "name": "Badminton Foundation",
+          "code": "BAD00",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Completed",
+          "startDate": "2026-11-10",
+          "sessions": 2
+        },
+        {
+          "name": "Badminton 01",
+          "code": "BAD01",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Published",
+          "startDate": "2026-11-30",
+          "sessions": 12
+        }
+      ],
+      "count": 2,
+      "note": "Only own confirmed enrollments, including historical completed class."
+    },
+    "classSchedule": {
+      "enrolledClasses": [
+        {
+          "name": "Badminton Foundation",
+          "code": "BAD00",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Completed",
+          "startDate": "2026-11-10",
+          "sessions": 2
+        },
+        {
+          "name": "Badminton 01",
+          "code": "BAD01",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Published",
+          "startDate": "2026-11-30",
+          "sessions": 12
+        }
+      ],
+      "sessions": [
+        {
+          "ClassName": "Badminton Foundation",
+          "SessionNo": 1,
+          "Room": "Court A",
+          "StartsAtVietnam": "2026-11-10 15:00",
+          "EndsAtVietnam": "2026-11-10 17:00",
+          "SessionStatus": "Completed",
+          "AttendanceStatus": "Present",
+          "AttendanceMeaning": "Recorded present",
+          "TemporalPhase": "Past"
+        },
+        {
+          "ClassName": "Badminton Foundation",
+          "SessionNo": 2,
+          "Room": "Court A",
+          "StartsAtVietnam": "2026-11-12 15:00",
+          "EndsAtVietnam": "2026-11-12 17:00",
+          "SessionStatus": "Completed",
+          "AttendanceStatus": "Absent",
+          "AttendanceMeaning": "Recorded absent",
+          "TemporalPhase": "Past"
+        },
+        {
+          "ClassName": "Badminton 01",
+          "SessionNo": 1,
+          "Room": "Court B",
+          "StartsAtVietnam": "2026-11-30 15:00",
+          "EndsAtVietnam": "2026-11-30 17:00",
+          "SessionStatus": "Scheduled",
+          "AttendanceStatus": null,
+          "AttendanceMeaning": "Not yet held; no attendance recorded",
+          "TemporalPhase": "Future"
+        }
+      ],
+      "attendanceSummary": {
+        "PresentRecords": 1,
+        "AbsentRecords": 1,
+        "UnrecordedSessions": 1,
+        "PastTruncated": false,
+        "FutureTruncated": false
+      },
+      "courtBookings": [
+        {
+          "startsAtVietnam": "2026-11-21 18:00",
+          "endsAtVietnam": "2026-11-21 19:00",
+          "status": "Confirmed",
+          "TotalPrice": 120000
+        }
+      ],
+      "TimeZone": "Asia/Ho_Chi_Minh (UTC+07:00)",
+      "CurrentVietnamTime": "2026-11-17 16:00"
+    },
+    "classPlans": {
+      "enrolledClasses": [
+        {
+          "name": "Badminton Foundation",
+          "code": "BAD00",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Completed",
+          "startDate": "2026-11-10",
+          "sessions": 2
+        },
+        {
+          "name": "Badminton 01",
+          "code": "BAD01",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Published",
+          "startDate": "2026-11-30",
+          "sessions": 12
+        }
+      ],
+      "teachingRecords": [
+        {
+          "Kind": "PLAN",
+          "Title": "Footwork Foundations",
+          "content": "Split step, lunges and controlled recovery. 3 sets of 10 repetitions.",
+          "personalized": false,
+          "UpdatedAtUtc": "2026-11-10T01:00:00Z"
+        }
+      ],
+      "recordsTruncated": false
+    },
+    "myServices": {
+      "memberships": [
+        {
+          "name": "Gym Monthly",
+          "Status": "Active",
+          "RemainingSessions": 5
+        }
+      ],
+      "enrolledClasses": [
+        {
+          "name": "Badminton Foundation",
+          "code": "BAD00",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Completed",
+          "startDate": "2026-11-10",
+          "sessions": 2
+        },
+        {
+          "name": "Badminton 01",
+          "code": "BAD01",
+          "sport": "Badminton",
+          "enrollmentStatus": "Confirmed",
+          "classStatus": "Published",
+          "startDate": "2026-11-30",
+          "sessions": 12
+        }
+      ],
+      "courtRentals": [
+        {
+          "Status": "Confirmed",
+          "TotalPrice": 120000
+        }
+      ]
+    },
+    "explorePackages": {
+      "original": {
+        "catalog": {
+          "gymPackages": [
+            {
+              "Name": "Gym Monthly",
+              "Price": 500000,
+              "DurationDays": 30,
+              "SessionLimit": 12
+            },
+            {
+              "Name": "Gym Unlimited",
+              "Price": 800000,
+              "DurationDays": 30,
+              "SessionLimit": null
+            }
+          ],
+          "classCatalog": [
+            {
+              "Code": "BAD01",
+              "Name": "Badminton 01",
+              "Price": 900000,
+              "StartDate": "2026-11-30",
+              "status": "Published",
+              "sport": "Badminton",
+              "NumSessions": 12,
+              "Capacity": 12,
+              "ConfirmedCount": 2,
+              "availableSeats": 10,
+              "alreadyEnrolled": true,
+              "firstUpcomingSessions": [
+                {
+                  "startsAtVietnam": "2026-11-30 15:00",
+                  "endsAtVietnam": "2026-11-30 17:00"
+                }
+              ]
+            },
+            {
+              "Code": "BAD02",
+              "Name": "Badminton 02",
+              "Price": 300000,
+              "StartDate": "2026-11-22",
+              "status": "Published",
+              "sport": "Badminton",
+              "NumSessions": 12,
+              "Capacity": 12,
+              "ConfirmedCount": 4,
+              "availableSeats": 8,
+              "alreadyEnrolled": false,
+              "firstUpcomingSessions": [
+                {
+                  "startsAtVietnam": "2026-11-22 09:00",
+                  "endsAtVietnam": "2026-11-22 11:00"
+                }
+              ]
+            },
+            {
+              "Code": "BAD03",
+              "Name": "Badminton 03",
+              "Price": 200000,
+              "StartDate": "2026-11-20",
+              "status": "Published",
+              "sport": "Badminton",
+              "NumSessions": 12,
+              "Capacity": 10,
+              "ConfirmedCount": 10,
+              "availableSeats": 0,
+              "alreadyEnrolled": false,
+              "firstUpcomingSessions": [
+                {
+                  "startsAtVietnam": "2026-11-20 08:00",
+                  "endsAtVietnam": "2026-11-20 10:00"
+                }
+              ]
+            },
+            {
+              "Code": "BAD04",
+              "Name": "Badminton Expert",
+              "Price": 200000,
+              "StartDate": "2026-11-06",
+              "status": "InProgress",
+              "sport": "Badminton",
+              "NumSessions": 12,
+              "Capacity": 12,
+              "ConfirmedCount": 3,
+              "availableSeats": 9,
+              "alreadyEnrolled": false,
+              "firstUpcomingSessions": [
+                {
+                  "startsAtVietnam": "2026-11-19 15:00",
+                  "endsAtVietnam": "2026-11-19 17:00"
+                }
+              ]
+            },
+            {
+              "Code": "BAS01",
+              "Name": "Basketball Skills",
+              "Price": 400000,
+              "StartDate": "2026-11-24",
+              "status": "Published",
+              "sport": "Basketball",
+              "NumSessions": 8,
+              "Capacity": 10,
+              "ConfirmedCount": 3,
+              "availableSeats": 7,
+              "alreadyEnrolled": false,
+              "firstUpcomingSessions": [
+                {
+                  "startsAtVietnam": "2026-11-24 16:00",
+                  "endsAtVietnam": "2026-11-24 18:00"
+                }
+              ]
+            }
+          ]
+        },
+        "exactClassCount": 5,
+        "maxClassPriceVnd": 900000,
+        "minClassPriceVnd": 200000,
+        "maxPriceClasses": [
+          {
+            "Name": "Badminton 01",
+            "Code": "BAD01",
+            "Price": 900000
+          }
+        ],
+        "maxPriceTies": 1,
+        "maxPriceListTruncated": false,
+        "exactActiveGymPackageCount": 2
+      },
+      "classRecommendationEvidence": [
+        {
+          "Code": "BAD01",
+          "Name": "Badminton 01",
+          "Price": 900000,
+          "StartDate": "2026-11-30",
+          "status": "Published",
+          "sport": "Badminton",
+          "NumSessions": 12,
+          "Capacity": 12,
+          "ConfirmedCount": 2,
+          "availableSeats": 10,
+          "alreadyEnrolled": true,
+          "firstUpcomingSessions": [
+            {
+              "startsAtVietnam": "2026-11-30 15:00",
+              "endsAtVietnam": "2026-11-30 17:00"
+            }
+          ]
+        },
+        {
+          "Code": "BAD02",
+          "Name": "Badminton 02",
+          "Price": 300000,
+          "StartDate": "2026-11-22",
+          "status": "Published",
+          "sport": "Badminton",
+          "NumSessions": 12,
+          "Capacity": 12,
+          "ConfirmedCount": 4,
+          "availableSeats": 8,
+          "alreadyEnrolled": false,
+          "firstUpcomingSessions": [
+            {
+              "startsAtVietnam": "2026-11-22 09:00",
+              "endsAtVietnam": "2026-11-22 11:00"
+            }
+          ]
+        },
+        {
+          "Code": "BAD03",
+          "Name": "Badminton 03",
+          "Price": 200000,
+          "StartDate": "2026-11-20",
+          "status": "Published",
+          "sport": "Badminton",
+          "NumSessions": 12,
+          "Capacity": 10,
+          "ConfirmedCount": 10,
+          "availableSeats": 0,
+          "alreadyEnrolled": false,
+          "firstUpcomingSessions": [
+            {
+              "startsAtVietnam": "2026-11-20 08:00",
+              "endsAtVietnam": "2026-11-20 10:00"
+            }
+          ]
+        },
+        {
+          "Code": "BAD04",
+          "Name": "Badminton Expert",
+          "Price": 200000,
+          "StartDate": "2026-11-06",
+          "status": "InProgress",
+          "sport": "Badminton",
+          "NumSessions": 12,
+          "Capacity": 12,
+          "ConfirmedCount": 3,
+          "availableSeats": 9,
+          "alreadyEnrolled": false,
+          "firstUpcomingSessions": [
+            {
+              "startsAtVietnam": "2026-11-19 15:00",
+              "endsAtVietnam": "2026-11-19 17:00"
+            }
+          ]
+        },
+        {
+          "Code": "BAS01",
+          "Name": "Basketball Skills",
+          "Price": 400000,
+          "StartDate": "2026-11-24",
+          "status": "Published",
+          "sport": "Basketball",
+          "NumSessions": 8,
+          "Capacity": 10,
+          "ConfirmedCount": 3,
+          "availableSeats": 7,
+          "alreadyEnrolled": false,
+          "firstUpcomingSessions": [
+            {
+              "startsAtVietnam": "2026-11-24 16:00",
+              "endsAtVietnam": "2026-11-24 18:00"
+            }
+          ]
+        }
+      ],
+      "exactOpenClassCount": 5,
+      "classesTruncated": false,
+      "sessionsTruncated": false,
+      "note": "BAD03 is full. BAD01 is already enrolled. BAD04 is in progress. No verified class-level field; upcoming times are in Vietnam time. Open catalog is not checkout guarantee."
+    },
+    "courtRental": {
+      "catalog": {
+        "sports": [
+          {
+            "Name": "Badminton"
+          },
+          {
+            "Name": "Basketball"
+          }
+        ],
+        "rentableRooms": [
+          {
+            "Name": "Court A"
+          },
+          {
+            "Name": "Court B"
+          }
+        ]
+      },
+      "sportsWithCourtRentalEnabled": [
+        "Badminton",
+        "Basketball"
+      ],
+      "note": "Live slot availability and price are unavailable from this snapshot."
+    },
+    "myCourtBookings": {
+      "total": 1,
+      "bookings": [
+        {
+          "StartAtUtc": "2026-11-21T11:00:00Z",
+          "EndAtUtc": "2026-11-21T12:00:00Z",
+          "Status": "Confirmed",
+          "TotalPrice": 120000
+        }
+      ],
+      "truncated": false
+    },
+    "billing": {
+      "total": 1,
+      "invoices": [
+        {
+          "InvoiceNumber": "INV-F6-001",
+          "TotalAmount": 500000,
+          "CashAmount": 500000,
+          "PointsApplied": 0,
+          "Status": "Paid",
+          "IssuedAt": "2026-11-01T01:00:00Z"
+        }
+      ],
+      "truncated": false
+    },
+    "points": {
+      "wallet": {
+        "wallet": {
+          "AvailablePoints": 200,
+          "HeldPoints": 50
+        }
+      },
+      "vndPerPoint": 1000,
+      "note": "Synthetic conversion example; no cash withdrawal or bank redemption."
+    },
+    "support": {
+      "total": 1,
+      "requests": [
+        {
+          "Subject": "Court receipt question",
+          "Category": "Billing",
+          "Status": "IN_PROGRESS",
+          "CreatedAt": "2026-11-16T03:00:00Z"
+        }
+      ],
+      "truncated": false
+    },
+    "notifications": {
+      "total": 3,
+      "unread": 2,
+      "records": [
+        {
+          "Message": "Your upcoming class starts on 30 November.",
+          "Status": "Unread",
+          "SentAt": "2026-11-16T03:00:00Z"
+        },
+        {
+          "Message": "Court reservation confirmed.",
+          "Status": "Unread",
+          "SentAt": "2026-11-15T04:00:00Z"
+        },
+        {
+          "Message": "Welcome to SportHub.",
+          "Status": "Read",
+          "SentAt": "2026-11-01T01:00:00Z"
+        }
+      ],
+      "truncated": false
+    },
+    "training": {
+      "exactSavedCoachPlanCount": 2,
+      "savedPlans": [
+        {
+          "Goal": "Core stability",
+          "Level": "Beginner",
+          "status": "Active",
+          "exercises": [
+            {
+              "Exercise": "Plank",
+              "Sets": 2,
+              "Reps": 1,
+              "Notes": "20 seconds"
+            },
+            {
+              "Exercise": "Bird dog",
+              "Sets": 2,
+              "Reps": 8
+            }
+          ]
+        },
+        {
+          "Goal": "Lower body strength",
+          "Level": "Intermediate",
+          "status": "Active",
+          "exercises": [
+            {
+              "Exercise": "Squat",
+              "Sets": 3,
+              "Reps": 10
+            },
+            {
+              "Exercise": "Lunge",
+              "Sets": 3,
+              "Reps": 10
+            },
+            {
+              "Exercise": "Hip bridge",
+              "Sets": 3,
+              "Reps": 12
+            }
+          ]
+        }
+      ],
+      "plansTruncated": false,
+      "recentMemberWorkoutSuggestionPreviews": [
+        {
+          "goal": "Mobility",
+          "exercises": [
+            "Cat-cow",
+            "Hip mobility"
+          ]
+        }
+      ],
+      "note": "Coach saved plans and generated suggestions differ."
+    },
+    "attendance": {
+      "TimeZone": "Asia/Ho_Chi_Minh (UTC+07:00)",
+      "CurrentVietnamTime": "2026-11-17 16:00",
+      "Sessions": [
+        {
+          "ClassName": "Badminton Foundation",
+          "SessionNo": 1,
+          "Room": "Court A",
+          "StartsAtVietnam": "2026-11-10 15:00",
+          "EndsAtVietnam": "2026-11-10 17:00",
+          "SessionStatus": "Completed",
+          "AttendanceStatus": "Present",
+          "AttendanceMeaning": "Recorded present",
+          "TemporalPhase": "Past"
+        },
+        {
+          "ClassName": "Badminton Foundation",
+          "SessionNo": 2,
+          "Room": "Court A",
+          "StartsAtVietnam": "2026-11-12 15:00",
+          "EndsAtVietnam": "2026-11-12 17:00",
+          "SessionStatus": "Completed",
+          "AttendanceStatus": "Absent",
+          "AttendanceMeaning": "Recorded absent",
+          "TemporalPhase": "Past"
+        },
+        {
+          "ClassName": "Badminton 01",
+          "SessionNo": 1,
+          "Room": "Court B",
+          "StartsAtVietnam": "2026-11-30 15:00",
+          "EndsAtVietnam": "2026-11-30 17:00",
+          "SessionStatus": "Scheduled",
+          "AttendanceStatus": null,
+          "AttendanceMeaning": "Not yet held; no attendance recorded",
+          "TemporalPhase": "Future"
+        }
+      ],
+      "PresentRecords": 1,
+      "AbsentRecords": 1,
+      "UnrecordedSessions": 1,
+      "PastTruncated": false,
+      "FutureTruncated": false
+    },
+    "gymCheckIns": {
+      "total": 2,
+      "records": [
+        {
+          "CheckedInAtUtc": "2026-11-12T10:00:00Z"
+        },
+        {
+          "CheckedInAtUtc": "2026-11-14T10:00:00Z"
+        }
+      ],
+      "truncated": false
+    }
+  },
+  "coach": {
+    "overview": {
+      "assignedClasses": 2,
+      "activeEnrollments": 7,
+      "teachingSessionsNext30Days": 1,
+      "assignedSupportRequestsByStatus": [
+        {
+          "Status": "DONE",
+          "Count": 2
+        },
+        {
+          "Status": "IN_PROGRESS",
+          "Count": 1
+        }
+      ]
+    },
+    "account": {
+      "own": {
+        "fullName": "Synthetic Coach",
+        "Email": "coach@example.invalid",
+        "phone": null
+      },
+      "coach": {
+        "Title": "Badminton Instructor",
+        "YearsExperience": 5,
+        "StudentCount": 80,
+        "Bio": "Skills instruction"
+      },
+      "note": "StudentCount is a manual career figure, not current roster."
+    },
+    "classes": {
+      "total": 2,
+      "classes": [
+        {
+          "Name": "Badminton 02",
+          "Code": "BAD02",
+          "sport": "Badminton",
+          "status": "Published",
+          "Capacity": 12,
+          "ConfirmedCount": 4,
+          "ReservedCount": 4,
+          "availableSeats": 8,
+          "NumSessions": 12,
+          "Price": 300000,
+          "StartDate": "2026-11-22",
+          "EnrollmentOpen": true
+        },
+        {
+          "Name": "Basketball Skills",
+          "Code": "BAS01",
+          "sport": "Basketball",
+          "status": "InProgress",
+          "Capacity": 10,
+          "ConfirmedCount": 3,
+          "ReservedCount": 3,
+          "availableSeats": 7,
+          "NumSessions": 8,
+          "Price": 400000,
+          "StartDate": "2026-11-10",
+          "EnrollmentOpen": false
+        }
+      ],
+      "truncated": false
+    },
+    "schedule": {
+      "totalInWindow": 3,
+      "upcomingScheduledInWindow": 1,
+      "sessions": [
+        {
+          "className": "Basketball Skills",
+          "classCode": "BAS01",
+          "SessionNo": 1,
+          "status": "Completed",
+          "startsAtVietnam": "2026-11-10 16:00",
+          "endsAtVietnam": "2026-11-10 18:00",
+          "temporalPhase": "Past",
+          "room": "Court C"
+        },
+        {
+          "className": "Basketball Skills",
+          "classCode": "BAS01",
+          "SessionNo": 2,
+          "status": "Scheduled",
+          "startsAtVietnam": "2026-11-17 15:00",
+          "endsAtVietnam": "2026-11-17 17:00",
+          "temporalPhase": "InProgress",
+          "room": "Court C"
+        },
+        {
+          "className": "Badminton 02",
+          "classCode": "BAD02",
+          "SessionNo": 1,
+          "status": "Scheduled",
+          "startsAtVietnam": "2026-11-22 09:00",
+          "endsAtVietnam": "2026-11-22 11:00",
+          "temporalPhase": "Future",
+          "room": "Court B"
+        }
+      ],
+      "pastTruncated": false,
+      "futureTruncated": false,
+      "fromVietnam": "2026-10-18 16:00",
+      "toVietnam": "2027-02-15 16:00"
+    },
+    "students": {
+      "totalEnrollments": 7,
+      "enrolledStudents": [
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Alex"
+        },
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Brooke"
+        },
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Casey"
+        },
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Drew"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Eli"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Fran"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Gray"
+        }
+      ],
+      "truncated": false
+    },
+    "attendance": {
+      "totalStudentSessionPairs": 10,
+      "recordedPresent": 2,
+      "recordedAbsent": 1,
+      "unrecordedPairs": 7,
+      "records": [
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Eli",
+          "SessionNo": 1,
+          "attendanceStatus": "Present",
+          "startsAtVietnam": "2026-11-10 16:00",
+          "endsAtVietnam": "2026-11-10 18:00",
+          "temporalPhase": "Past"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Fran",
+          "SessionNo": 1,
+          "attendanceStatus": "Absent",
+          "startsAtVietnam": "2026-11-10 16:00",
+          "endsAtVietnam": "2026-11-10 18:00",
+          "temporalPhase": "Past"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Gray",
+          "SessionNo": 1,
+          "attendanceStatus": "Present",
+          "startsAtVietnam": "2026-11-10 16:00",
+          "endsAtVietnam": "2026-11-10 18:00",
+          "temporalPhase": "Past"
+        },
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Alex",
+          "SessionNo": 1,
+          "attendanceStatus": "Unrecorded",
+          "startsAtVietnam": "2026-11-22 09:00",
+          "endsAtVietnam": "2026-11-22 11:00",
+          "temporalPhase": "Future"
+        },
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Brooke",
+          "SessionNo": 1,
+          "attendanceStatus": "Unrecorded",
+          "startsAtVietnam": "2026-11-22 09:00",
+          "endsAtVietnam": "2026-11-22 11:00",
+          "temporalPhase": "Future"
+        },
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Casey",
+          "SessionNo": 1,
+          "attendanceStatus": "Unrecorded",
+          "startsAtVietnam": "2026-11-22 09:00",
+          "endsAtVietnam": "2026-11-22 11:00",
+          "temporalPhase": "Future"
+        },
+        {
+          "className": "Badminton 02",
+          "studentName": "Synthetic Drew",
+          "SessionNo": 1,
+          "attendanceStatus": "Unrecorded",
+          "startsAtVietnam": "2026-11-22 09:00",
+          "endsAtVietnam": "2026-11-22 11:00",
+          "temporalPhase": "Future"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Eli",
+          "SessionNo": 2,
+          "attendanceStatus": "Unrecorded",
+          "startsAtVietnam": "2026-11-17 15:00",
+          "endsAtVietnam": "2026-11-17 17:00",
+          "temporalPhase": "InProgress"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Fran",
+          "SessionNo": 2,
+          "attendanceStatus": "Unrecorded",
+          "startsAtVietnam": "2026-11-17 15:00",
+          "endsAtVietnam": "2026-11-17 17:00",
+          "temporalPhase": "InProgress"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Gray",
+          "SessionNo": 2,
+          "attendanceStatus": "Unrecorded",
+          "startsAtVietnam": "2026-11-17 15:00",
+          "endsAtVietnam": "2026-11-17 17:00",
+          "temporalPhase": "InProgress"
+        }
+      ],
+      "pastTruncated": false,
+      "futureTruncated": false,
+      "note": "Only recorded marks prove attendance; unrecorded future/current is not absent."
+    },
+    "plans": {
+      "total": 2,
+      "records": [
+        {
+          "className": "Badminton 02",
+          "studentName": null,
+          "sessionNo": 1,
+          "Kind": "PLAN",
+          "Title": "Serve Accuracy",
+          "content": "Short serve target practice and recovery",
+          "updatedAtVietnam": "2026-11-16 09:00"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": null,
+          "sessionNo": 2,
+          "Kind": "PLAN",
+          "Title": "Dribble Control",
+          "content": "Low dribble and controlled crossover",
+          "updatedAtVietnam": "2026-11-15 09:00"
+        }
+      ],
+      "truncated": false
+    },
+    "progress": {
+      "total": 2,
+      "records": [
+        {
+          "className": "Basketball Skills",
+          "studentName": "Synthetic Eli",
+          "sessionNo": 1,
+          "Kind": "RESULT",
+          "Title": "Dribbling assessment",
+          "content": "Control needs practice",
+          "Score": 3,
+          "updatedAtVietnam": "2026-11-10 18:30"
+        },
+        {
+          "className": "Basketball Skills",
+          "studentName": null,
+          "sessionNo": 1,
+          "Kind": "HOMEWORK",
+          "Title": "Ball handling homework",
+          "content": "Practice static low dribbling",
+          "updatedAtVietnam": "2026-11-10 18:30"
+        }
+      ],
+      "truncated": false
+    },
+    "notifications": {
+      "total": 2,
+      "unread": 1,
+      "records": [
+        {
+          "Message": "Assigned session is on 22 November.",
+          "Status": "Unread",
+          "SentAt": "2026-11-16T01:00:00Z"
+        },
+        {
+          "Message": "Support case updated.",
+          "Status": "Read",
+          "SentAt": "2026-11-15T01:00:00Z"
+        }
+      ],
+      "truncated": false
+    },
+    "requests": {
+      "total": 3,
+      "assignedRequests": [
+        {
+          "Subject": "Schedule question",
+          "Status": "IN_PROGRESS",
+          "SlaDueAtUtc": "2026-11-18T03:00:00Z"
+        },
+        {
+          "Subject": "Equipment question",
+          "Status": "DONE"
+        },
+        {
+          "Subject": "Plan question",
+          "Status": "DONE"
+        }
+      ],
+      "truncated": false
+    },
+    "absenceRequests": {
+      "total": 1,
+      "requests": [
+        {
+          "className": "Badminton 02",
+          "SessionNo": 1,
+          "Type": "COACH_ABSENCE",
+          "Status": "PENDING",
+          "Reason": "Synthetic scheduling conflict",
+          "startsAtVietnam": "2026-11-22 09:00",
+          "endsAtVietnam": "2026-11-22 11:00",
+          "createdAtVietnam": "2026-11-16 12:00"
+        }
+      ],
+      "truncated": false
+    },
+    "studentMetrics": {
+      "backendComputedAnswer": "Mean BMI across 4 students with valid measurements in Badminton 02: 22.5. Self-reported measurements.",
+      "note": "Synthetic backend-computed aggregate. Not a clinical diagnosis."
+    }
+  }
+}

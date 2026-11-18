@@ -69,7 +69,7 @@ export function TeachingEditor({
   const homeworkSession = sessions.find((item) => item.sessionId === session);
   const canSuggestForSelectedSession =
     !!homeworkSession &&
-    !/complet|cancel/i.test(homeworkSession.status) &&
+    homeworkSession.status.toUpperCase() === "SCHEDULED" &&
     Date.parse(homeworkSession.startAtUtc) > now;
   const homeworkAllowed =
     kind !== "HOMEWORK" ||
@@ -106,12 +106,8 @@ export function TeachingEditor({
           : resultEntry?.attendanceStatus?.toUpperCase() !== "PRESENT"
             ? "Mark this student Present in Attendance before recording or editing a result."
             : "Results can be recorded after the session starts, while the session and enrollment remain active.";
-  const [goal, setGoal] = useState(
-    members.find((m) => m.memberId === student)?.goal ?? "",
-  );
-  const [level, setLevel] = useState(
-    members.find((m) => m.memberId === student)?.experienceLevel ?? "Beginner",
-  );
+  const [goal, setGoal] = useState("");
+  const [level, setLevel] = useState("Beginner");
   const [suggestion, setSuggestion] = useState("");
   const [scope, setScope] = useState<PlanScope>(
     lockedMemberId
@@ -205,12 +201,8 @@ export function TeachingEditor({
                 setScope(next);
                 setStudent(next === "personal" ? (memberId ?? "") : "");
                 setSession(next === "course" ? "" : (sessionId ?? ""));
-                const target =
-                  next === "personal"
-                    ? members.find((m) => m.memberId === memberId)
-                    : undefined;
-                setGoal(target?.goal ?? "");
-                setLevel(target?.experienceLevel ?? "Beginner");
+                setGoal("");
+                setLevel("Beginner");
                 setSuggestion("");
               }}
             >
@@ -267,9 +259,8 @@ export function TeachingEditor({
                 }
                 onChange={(e) => {
                   setStudent(e.target.value);
-                  const m = members.find((m) => m.memberId === e.target.value);
-                  setGoal(m?.goal ?? "");
-                  setLevel(m?.experienceLevel ?? "Beginner");
+                  setGoal("");
+                  setLevel("Beginner");
                   setSuggestion("");
                 }}
               >
@@ -397,20 +388,21 @@ export function TeachingEditor({
               <button
                 type="button"
                 className="btn btn--secondary btn--sm"
-                disabled={busy || goal.trim().length < 5 || (scope === "personal" ? !student :
-                  !session || !homeworkSession || /completed|cancelled/i.test(homeworkSession.status) ||
-                  Date.parse(homeworkSession.startAtUtc) <= now)}
+                disabled={busy || goal.trim().length < 5 || (scope === "personal"
+                  ? !student || (!!session && !canSuggestForSelectedSession)
+                  : !canSuggestForSelectedSession)}
                 onClick={async () => {
                   setPlanIssue(null);
+                  setSuggestion("");
                   const data = await ai.run(() =>
                     teachingApi.suggest(
                       classId,
-                      student || null,
+                      scope === "personal" ? (student || null) : null,
                       goal,
                       level,
                       language,
                       scope === "personal" ? "personal" : "session",
-                      scope === "personal" ? null : (session || null),
+                      session || null,
                     ).catch((cause: unknown) => {
                       if (cause instanceof ApiError) {
                         if (cause.code === "ai_provider_rate_limited")
@@ -591,4 +583,3 @@ export function TeachingEditor({
     </section>
   );
 }
-
