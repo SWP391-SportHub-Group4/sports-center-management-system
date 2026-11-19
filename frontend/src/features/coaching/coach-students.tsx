@@ -17,10 +17,10 @@ import { AsyncSection, Pager } from "@/components/ui";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useLanguage } from "@/lib/language";
 import { useApi } from "@/lib/useApi";
-import { teachingApi, type TeachingStudent } from "./teaching-api";
+import { teachingApi, type TeachingStudent, type StudentHistoryClass } from "./teaching-api";
 import { ptApi } from "./api";
 import { TeachingDetail } from "./coach-workspace";
-import { StudentLearningHistory } from "./student-assessment-history";
+import { ClassAssessments } from "./student-assessment-history";
 import { StudentCurrentAssessments } from "./student-current-assessments";
 import { StudentPhysicalProfile } from "./student-physical-profile";
 import { useCoachAccess } from "./use-coach-access";
@@ -334,6 +334,8 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
       </div>
       {tab === "profile" ? (
         <StudentPhysicalProfile memberId={student.memberId} />
+      ) : tab === "history" ? (
+        <StudentAssessmentsOverview student={student} />
       ) : (
         <>
           <TableFilters>
@@ -380,8 +382,6 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
             </div>
           </TableFilters>
           {selected ? (
-            <>
-              {tab === "current" ? (
                 <CurrentStudentClass
                   key={selected.classId}
                   student={student}
@@ -393,30 +393,6 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
                     editing.current = value;
                   }}
                 />
-              ) : (
-                <div className={styles.assessmentColumns}>
-                  <CurrentStudentClass
-                    key={`${selected.classId}-feedback`}
-                    student={student}
-                    classId={selected.classId}
-                    view="feedback"
-                    onClose={() => {
-                      if (canLeave()) router.push("/coach/members");
-                    }}
-                    onEditingStateChange={(value) => {
-                      editing.current = value;
-                    }}
-                  />
-                  <StudentLearningHistory
-                    compact
-                    key={selected.classId}
-                    memberId={student.memberId}
-                    classId={selected.classId}
-                    sportName={selected.sportName}
-                  />
-                </div>
-              )}
-            </>
           ) : (
             <div className={styles.empty}>
               <BookOpen size={32} aria-hidden="true" />
@@ -434,6 +410,77 @@ function StudentProfileContent({ student }: { student: TeachingStudent }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function StudentAssessmentsOverview({ student }: { student: TeachingStudent }) {
+  const { language } = useLanguage();
+  const vi = language === "vi";
+  const state = useApi(async (signal) => {
+    const history = await Promise.all(student.classes.map(async (context) => {
+      const items: StudentHistoryClass[] = [];
+      for (let page = 1; ; page++) {
+        const data = await teachingApi.studentHistoryClasses(
+          student.memberId, context.classId, page, "", signal,
+        );
+        items.push(...data.items);
+        if (!data.items.length || items.length >= data.totalCount) break;
+      }
+      return items.map((source) => ({ source, context }));
+    }));
+    const currentIds = new Set(student.classes.map((item) => item.classId));
+    const previous = new Map<number, (typeof history)[number][number]>();
+    for (const item of history.flat()) {
+      if (!currentIds.has(item.source.classId) && item.source.status === "COMPLETED") {
+        previous.set(item.source.classId, item);
+      }
+    }
+    return [...previous.values()].sort((a, b) =>
+      b.source.startDate.localeCompare(a.source.startDate),
+    );
+  }, [student.memberId]);
+
+  return (
+    <div className={styles.history}>
+      <section className={styles.history} aria-label={vi ? "Lớp đang học" : "Current classes"}>
+        <h3>{vi ? "Lớp đang học" : "Current classes"} · {student.classes.length}</h3>
+        <div className={styles.assessmentColumns}>
+          {student.classes.map((context) => (
+            <article key={context.classId} className={styles.assessment}>
+              <span className={styles.author}>{context.sportName}</span>
+              <CurrentStudentClass
+                student={student}
+                classId={context.classId}
+                view="feedback"
+                onClose={() => {}}
+                onEditingStateChange={() => {}}
+              />
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className={styles.history} aria-label={vi ? "Lớp đã học" : "Completed classes"}>
+        <h3>{vi ? "Lớp đã học" : "Completed classes"}</h3>
+        <AsyncSection state={state}>
+          {(previous) => previous.length ? (
+            <div className={styles.assessmentColumns}>
+              {previous.map(({ source, context }) => (
+                <article key={source.classId} className={styles.assessment}>
+                  <span className={styles.author}>{context.sportName}</span>
+                  <ClassAssessments
+                    memberId={student.memberId}
+                    currentClassId={context.classId}
+                    source={source}
+                  />
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p>{vi ? "Chưa có lớp đã hoàn thành trong lịch sử học tập được phép xem." : "No completed classes in the available learning history."}</p>
+          )}
+        </AsyncSection>
+      </section>
     </div>
   );
 }
