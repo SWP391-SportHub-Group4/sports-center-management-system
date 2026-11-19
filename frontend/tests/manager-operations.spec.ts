@@ -858,8 +858,11 @@ test(
     await page.goto("/manager/classes/1?tab=holds");
     await expect(
       page.getByRole("button", { name: /^Seat holds/ }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: /^Enrolled/ }),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(reads).toEqual(["/api/manager/classes/1/holds"]);
+    expect(reads).toEqual(["/api/manager/classes/1/enrollments"]);
     await page
       .getByRole("tab", { name: en.managerOperations.studentsTab, exact: true })
       .click();
