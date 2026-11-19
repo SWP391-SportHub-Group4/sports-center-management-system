@@ -76,6 +76,7 @@ export function MemberPicker({
   scanner = true,
   hideLabel = false,
   role = "Member",
+  editableSelection = false,
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
@@ -87,8 +88,9 @@ export function MemberPicker({
   /** Hiện camera quét QR cho các luồng tiếp nhận tại quầy. */
   scanner?: boolean;
   /** Ẩn nhãn phía trên ô chọn (vẫn giữ aria-label cho trình đọc màn hình). */
-  hideLabel?: boolean;
+   hideLabel?: boolean;
   role?: "Member" | "Coach";
+  editableSelection?: boolean;
 }) {
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
