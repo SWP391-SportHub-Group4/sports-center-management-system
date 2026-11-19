@@ -44,7 +44,9 @@ public sealed partial class ClassSessionService
         EnsureEditable(session, cls);
         var replacementStart = DateTime.SpecifyKind(request.Makeup.StartAtUtc, DateTimeKind.Utc);
         var replacementEnd = replacementStart + (session.EndAtUtc - session.StartAtUtc);
-        if (replacementStart < fence.EndAtUtc && replacementEnd > fence.StartAtUtc)
+        var replacementRoom = request.Makeup.RoomId ?? session.RoomId;
+        if ((fence.Scope == IncidentScope.Center || fence.RoomId == replacementRoom)
+            && replacementStart < fence.EndAtUtc && replacementEnd > fence.StartAtUtc)
             throw new BadRequestException("replacement_during_incident", "Choose a replacement outside the incident window.");
         var result = await CancelWithMakeupCoreAsync(sessionId, request, actorUserId, ct, fence.FenceId);
         if (tx is not null) await tx.CommitAsync(ct);
@@ -105,7 +107,9 @@ public sealed partial class ClassSessionService
         {
             if (request.Makeup is null)
                 throw new BadRequestException("makeup_required", "Choose a replacement for the whole session.");
-            if (request.Makeup.StartAtUtc < fence.EndAtUtc)
+            var replacementRoom = request.Makeup.RoomId ?? session.RoomId;
+            if ((fence.Scope == IncidentScope.Center || fence.RoomId == replacementRoom)
+                && request.Makeup.StartAtUtc < fence.EndAtUtc)
                 throw new BadRequestException("replacement_during_incident", "Choose a replacement after the incident ends.");
             var reopen = cls.Status == ClassStatus.Completed;
             if (reopen) cls.Status = ClassStatus.InProgress;
