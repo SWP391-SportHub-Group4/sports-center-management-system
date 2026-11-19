@@ -29,7 +29,10 @@ public sealed class MemberExperienceTests(SchedulingApiFactory factory)
             string question, string? previousInteractionId = null, CancellationToken cancellationToken = default)
         {
             Continuations.Add(previousInteractionId);
-            return Task.FromResult(new SportHub.AI.Application.DTOs.Chat.AiProviderResponse(Guid.NewGuid().ToString(), "Training advice", "Test", "Test"));
+            var answer = systemPrompt.Contains("SPORTHUB FLOW6 INTENT PLANNER", StringComparison.Ordinal)
+                ? "{\"intent\":\"GENERAL\",\"language\":\"en\",\"topics\":[]}"
+                : "{\"language\":\"en\",\"answer\":\"Training advice\"}";
+            return Task.FromResult(new SportHub.AI.Application.DTOs.Chat.AiProviderResponse(Guid.NewGuid().ToString(), answer, "Test", "Test"));
         }
     }
 

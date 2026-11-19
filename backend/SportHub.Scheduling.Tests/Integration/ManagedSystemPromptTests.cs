@@ -20,11 +20,11 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
         {
             // The Member DataHub first asks the provider to select evidence topics.
             // Give it a valid plan so this test reaches the actual answer request.
-            if (systemPrompt.Contains("SportHub MEMBER read-only evidence planner", StringComparison.Ordinal))
-                return Task.FromResult(new AiProviderResponse(Guid.NewGuid().ToString(), "{\"topics\":[\"overview\"],\"reason\":\"Integration test\"}", "Test", "Test"));
+            if (systemPrompt.Contains("SPORTHUB FLOW6 INTENT PLANNER — MEMBER", StringComparison.Ordinal))
+                return Task.FromResult(new AiProviderResponse(Guid.NewGuid().ToString(), "{\"intent\":\"GENERAL\",\"language\":\"en\",\"topics\":[]}", "Test", "Test"));
             Prompt = systemPrompt;
             Previous = previousInteractionId;
-            return Task.FromResult(new AiProviderResponse(Guid.NewGuid().ToString(), "Test reply", "Test", "Test"));
+            return Task.FromResult(new AiProviderResponse(Guid.NewGuid().ToString(), "{\"language\":\"en\",\"answer\":\"Test reply\"}", "Test", "Test"));
         }
     }
     private sealed class Context(string role) : IAiContextBuilder
@@ -75,7 +75,7 @@ public sealed class ManagedSystemPromptTests(SchedulingApiFactory factory)
 
             var after = await Ask(member.UserId, "Member", before.InteractionId);
             Assert.Contains(draftText, spy.Prompt);
-            Assert.Contains("MEMBER V26 RESPONSE RULES", spy.Prompt);
+            Assert.Contains("SPORTHUB FLOW6 FINAL ANSWER — MEMBER", spy.Prompt);
             Assert.Null(spy.Previous); // A prior interaction cannot carry the old prompt forward.
             using (var scope = factory.Services.CreateScope())
             {

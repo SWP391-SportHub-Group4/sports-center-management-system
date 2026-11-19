@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Drawer } from "@/components/primitives";
 import { api, ApiError } from "@/lib/apiClient";
+import { chatFailureMessage } from "./chat-failure.mjs";
 import { useLanguage } from "@/lib/language";
 import { formatTime } from "@/lib/format";
 import styles from "./assistant.module.css";
@@ -25,36 +26,6 @@ interface Turn {
 }
 
 const MAX = 2000;
-
-/** An upstream outage is not a misunderstanding of the user's question.
- * Never show a raw HTTP code as the assistant's answer or invent missing data.
- */
-function chatFailure(cause: unknown, failed: string, question: string): string {
-  const vi = /[À-ỹđĐ]/.test(question) ||
-    /\b(cho toi|toi co|bao nhieu|trung tam|lich hoc|lop hoc|mon the thao|diem danh|cua toi|dang mo)\b/i.test(question);
-  if (!(cause instanceof ApiError)) return vi
-    ? "Tôi chưa thể xử lý câu hỏi này do lỗi kết nối. Vui lòng thử lại sau."
-    : "I can't process that question because of a connection problem. Please try again later.";
-  const { code, status } = cause;
-  if (status === 401 || status === 403) return vi
-    ? "Tôi không thể truy cập dữ liệu của tài khoản hiện tại. Vui lòng đăng nhập lại hoặc kiểm tra quyền truy cập."
-    : "I can't access your account data. Please sign in again or check your permissions.";
-  if (code === "ai_provider_rate_limited") return vi
-    ? "Tôi chưa thể phân tích lúc này vì nhà cung cấp AI đang giới hạn số lượng yêu cầu. Vui lòng thử lại sau."
-    : "I can't analyze this right now because the AI provider is rate limited. Please try again later.";
-  if (code === "ai_provider_auth_failed" || code === "ai_model_unavailable") return vi
-    ? "Tôi chưa thể trả lời vì cấu hình dịch vụ AI chưa khả dụng. Vui lòng liên hệ bộ phận hỗ trợ."
-    : "I can't answer because the AI service configuration is unavailable. Please contact support.";
-  if (status === 504 || code === "ai_service_timeout" || code === "ai_provider_timeout") return vi
-    ? "Tôi chưa thể phân tích đầy đủ vì dịch vụ AI không phản hồi kịp thời. Tôi chưa có kết quả xác minh để trả lời chính xác."
-    : "I can't finish this analysis because the AI service did not respond in time. I don't have a verified result to share.";
-  if ([502, 503].includes(status) ||
-      ["ai_service_error", "member_ai_answer_failed", "member_ai_answer_empty",
-        "ai_provider_empty_answer", "ai_provider_unavailable", "member_gemini_data_hub_unavailable"].includes(code)) return vi
-    ? "Tôi chưa thể phân tích yêu cầu này vì dịch vụ AI đang gặp sự cố. Tôi không muốn đưa ra thông tin chưa được xác minh. Vui lòng thử lại sau."
-    : "I can't analyze this request because the AI service encountered a problem. I won't give an unverified answer. Please try again later.";
-  return failed;
-}
 
 export function AssistantDrawer({ onClose, audience = "member" }: { onClose: () => void; audience?: "member" | "coach" }) {
   const { t } = useLanguage();
@@ -129,7 +100,7 @@ export function AssistantDrawer({ onClose, audience = "member" }: { onClose: () 
       ]);
     } catch (cause) {
       if (controller.signal.aborted) return;
-      setError(chatFailure(cause, l.failed, text));
+      setError(chatFailureMessage(cause instanceof ApiError ? { status: cause.status, code: cause.code } : null, l.failed, text));
     } finally {
       if (abort.current === controller) {
         abort.current = null;

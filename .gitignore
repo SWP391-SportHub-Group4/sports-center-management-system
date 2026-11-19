@@ -53,3 +53,25 @@ frontend/test-results/
 
 # Local persistent runtime data, including Data Protection keys.
 /.sporthub-local/
+
+# AI live test build artifacts
+/flow5-live-tests/bin/
+/flow5-live-tests/obj/
+/coach-plan-v2/live-tests/bin/
+/coach-plan-v2/live-tests/obj/
+
+# Local AI testing evidence
+/flow5-test-results/
+/coach-plan-v2/live-tests/reports/
+
+# Local patch backups
+*.bak-*
+*.bak_*
+*.backup-*
+*.before-*
+*.coach-backup-*
+/.flow5-router-backup-*/
+
+# Local Gemini router accounting
+/ai-service/.gemini-router.sqlite3*
+/ai-service/gemini-router.json
