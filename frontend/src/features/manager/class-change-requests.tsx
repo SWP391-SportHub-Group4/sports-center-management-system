@@ -400,7 +400,7 @@ function ReviewDrawer({
                 <option value="" disabled>
                   Select a resolution
                 </option>
-                {(["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const)
+                {(["SUBSTITUTE", "CANCEL_WITH_MAKEUP"] as const)
                   .filter(
                     (id) =>
                       id !== "CANCEL_WITH_MAKEUP" ||
@@ -408,7 +408,11 @@ function ReviewDrawer({
                   )
                   .map((id) => (
                     <option key={id} value={id}>
-                      {changeTypeLabel(id, vi)}
+                      {id === "CANCEL_WITH_MAKEUP"
+                        ? vi
+                          ? "Đổi lịch"
+                          : "Reschedule"
+                        : changeTypeLabel(id, vi)}
                     </option>
                   ))}
                 <option value="REJECT">
@@ -492,7 +496,7 @@ function ReviewDrawer({
                       : coaches.error
                         ? "Coach availability could not be loaded. Retry before confirming."
                         : type === "SUBSTITUTE" && !alternatives.length
-                          ? "No available coaches for this session. Choose Reschedule or Cancel & makeup."
+                          ? "No available coaches for this session. Choose Reschedule."
                           : !candidates.length
                             ? "No available coaches for this time. Choose a different time or resolution."
                             : !coach &&
