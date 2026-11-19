@@ -10,6 +10,7 @@ import { Card } from "@/components/ui";
 import { Button } from "@/components/primitives/Button";
 import type { CourseDto, MemberPackageDto, Paged, SportDto } from "@/lib/types";
 import { CheckoutPanel } from "@/features/payments";
+import { membershipDuration, monthsOf } from "@/lib/membership-duration";
 import {
   catalogContentLanguage,
   parseMembershipCatalog,
@@ -54,10 +55,7 @@ export function MembershipCatalog({
   // Gói Gym theo thời hạn (1/3/6/12 tháng) gom thành một bộ chọn thay vì 4 thẻ rời.
   const gymPlans = compact
     ? activePackages
-        .filter(
-          (item) =>
-            /^\s*gym\b/i.test(item.name),
-        )
+        .filter((item) => /^\s*gym\b/i.test(item.name))
         .sort((a, b) => a.durationDays - b.durationDays)
     : [];
   const showPlanPicker = gymPlans.length >= 2;
@@ -66,7 +64,6 @@ export function MembershipCatalog({
     : activePackages;
   const plan =
     gymPlans.find((item) => item.packageId === planId) ?? gymPlans[0];
-  const monthsOf = (days: number) => Math.max(1, Math.round(days / 30.4));
   const renderAction = (p: (typeof activePackages)[number]) => {
     const have = owned.find(
       (o) =>
@@ -218,7 +215,7 @@ export function MembershipCatalog({
                 aria-labelledby="gym-plan-title"
               >
                 {gymPlans.map((item) => {
-                  const months = monthsOf(item.durationDays);
+                  const duration = membershipDuration(item.durationDays);
                   return (
                     <button
                       key={item.packageId}
@@ -227,10 +224,8 @@ export function MembershipCatalog({
                       aria-checked={item.packageId === plan.packageId}
                       onClick={() => setPlanId(item.packageId)}
                     >
-                      <strong>{months}</strong>
-                      <span>
-                        {text("tháng", months === 1 ? "month" : "months")}
-                      </span>
+                      <strong>{duration.value}</strong>
+                      <span>{duration.unit}</span>
                     </button>
                   );
                 })}
@@ -248,30 +243,35 @@ export function MembershipCatalog({
                     )}
                   <span>
                     {" "}
-                    · {plan.durationDays} {t.refactor.days}
+                    · {plan.durationDays}{" "}
+                    {plan.durationDays === 1 ? "day" : "days"}
                   </span>
                 </p>
-                <p className={styles.planMeta}>
-                  {"≈ "}
-                  {formatMoney(
-                    Math.round(plan.price / monthsOf(plan.durationDays)),
-                  )}
-                  {text("/tháng", "/month")}
-                  {(() => {
-                    const base = gymPlans[0];
-                    const months = monthsOf(plan.durationDays);
-                    const saving =
-                      months > 1 && monthsOf(base.durationDays) === 1
-                        ? base.price * months - plan.price
-                        : 0;
-                    return saving > 0 ? (
-                      <b className={styles.planSaving}>
-                        {text("Tiết kiệm ", "Save ")}
-                        {formatMoney(saving)}
-                      </b>
-                    ) : null;
-                  })()}
-                </p>
+                {monthsOf(plan.durationDays) > 0 && (
+                  <p className={styles.planMeta}>
+                    {"≈ "}
+                    {formatMoney(
+                      Math.round(plan.price / monthsOf(plan.durationDays)),
+                    )}
+                    /month
+                    {(() => {
+                      const base = gymPlans.find(
+                        (item) => monthsOf(item.durationDays) === 1,
+                      );
+                      const months = monthsOf(plan.durationDays);
+                      const saving =
+                        months > 1 && base
+                          ? base.price * months - plan.price
+                          : 0;
+                      return saving > 0 ? (
+                        <b className={styles.planSaving}>
+                          {text("Tiết kiệm ", "Save ")}
+                          {formatMoney(saving)}
+                        </b>
+                      ) : null;
+                    })()}
+                  </p>
+                )}
                 {plan.description?.trim() && (
                   <p
                     lang={catalogContentLanguage(
@@ -313,7 +313,7 @@ export function MembershipCatalog({
                     )}
                     <span>
                       {" "}
-                      · {p.durationDays} {t.refactor.days}
+                      · {p.durationDays} {p.durationDays === 1 ? "day" : "days"}
                     </span>
                   </p>
                   {compact ? (

@@ -14,7 +14,8 @@ public interface IInvoiceQueryService
     Task<Guid> FindInvoiceByItemAsync(Guid itemId, CancellationToken ct);
     Task<PagedResult<InvoiceSummaryResponse>> SearchAsync(
         Guid? memberId, string? status, string? keyword,
-        int page, int pageSize, CancellationToken ct = default, bool rentalOnly = false, bool excludeVoid = false);
+        int page, int pageSize, CancellationToken ct = default, bool rentalOnly = false, bool excludeVoid = false,
+        DateTimeOffset? issuedFrom = null, DateTimeOffset? issuedTo = null);
 
     Task<InvoiceDetailResponse> GetDetailAsync(Guid invoiceId, CancellationToken ct = default);
 
