@@ -312,7 +312,7 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                 <CourseOperations
                   key={values.tab + revision}
                   classId={classId}
-                  kind={values.tab === "holds" ? "holds" : "enrollments"}
+                  kind="enrollments"
                   toolbar={
                     <div
                       className={studentStyles.filters}
@@ -321,18 +321,11 @@ export function ManagerCourseDetail({ classId }: { classId: number }) {
                     >
                       <button
                         type="button"
-                        aria-pressed={values.tab !== "holds"}
+                        aria-pressed={true}
                         onClick={() => setValues({ tab: "students" })}
                       >
                         {t.classWorkspace.enrolledLabel}{" "}
                         <span>{c.confirmedCount}</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={values.tab === "holds"}
-                        onClick={() => setValues({ tab: "holds" })}
-                      >
-                        {m.holdsTab} <span>{c.activeHoldCount}</span>
                       </button>
                     </div>
                   }

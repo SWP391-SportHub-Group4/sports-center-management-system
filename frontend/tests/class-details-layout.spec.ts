@@ -299,15 +299,9 @@ test("class details keeps capacity readable and groups management actions", asyn
     animations: "disabled",
     fullPage: true,
   });
-  await page.getByRole("button", { name: "Seat holds 2", exact: true }).click();
-  await expect(page.getByText("Held member")).toBeVisible();
-  await page.route("**/api/manager/classes/42/holds?**", (route) =>
-    route.fulfill({ json: { items: [], totalCount: 0 } }),
-  );
-  await page.reload();
-  await page.getByRole("tab", { name: "Students", exact: true }).click();
-  await page.getByRole("button", { name: /^Seat holds/ }).click();
-  await expect(page.getByText("No active seat holds.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Seat holds/ }),
+  ).toHaveCount(0);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole("tab", { name: "Management", exact: true }).click();
   await expect(page.getByRole("combobox")).toHaveCount(0);
