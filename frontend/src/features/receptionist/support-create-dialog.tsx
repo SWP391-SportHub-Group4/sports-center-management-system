@@ -63,6 +63,8 @@ export function SupportCreateDialog({
   const { user } = useAuth();
   const isManager = workspace === "manager";
   const [member, setMember] = useState<UserAdminDto | null>(initialMember);
+  const [coach, setCoach] = useState<UserAdminDto | null>(null);
+  const requester = member ?? coach;
   const [paymentSelection, setPaymentSelection] = useState<{
     memberId: string;
     invoiceId: string;
@@ -81,11 +83,11 @@ export function SupportCreateDialog({
   const myRank = ROLE_RANK[roleKey(user?.role)];
   const escalating = !!target && ROLE_RANK[roleKey(target.role)] > myRank;
   const baseReady =
-    !!member &&
-    !member.activationPending &&
+    !!requester &&
+    !requester.activationPending &&
     category !== "" &&
     description.trim().length >= 3 &&
-    (category !== "PAYMENT" || paymentSelection?.memberId === member?.userId);
+    (category !== "PAYMENT" || (!!member && paymentSelection?.memberId === member.userId));
   const paymentToNonManager =
     category === "PAYMENT" &&
     !!handoverTo &&
@@ -99,9 +101,9 @@ export function SupportCreateDialog({
         : null;
 
   async function submit(handover: boolean) {
-    if (member?.activationPending) {
+    if (requester?.activationPending) {
       setError(
-        "Activate the member account before creating a support request.",
+        "Activate the requester account before creating a support request.",
       );
       return;
     }
@@ -115,14 +117,14 @@ export function SupportCreateDialog({
       );
       return;
     }
-    if (lock.current || !baseReady || !member || (handover && handoverBlock))
+    if (lock.current || !baseReady || !requester || (handover && handoverBlock))
       return;
     lock.current = true;
     setBusy(true);
     setError(null);
     try {
       await api.post("/api/member-support-requests", {
-        memberId: member.userId,
+        memberId: requester.userId,
         category,
         ...(category === "PAYMENT"
           ? {
@@ -160,13 +162,13 @@ export function SupportCreateDialog({
 
   return (
     <Dialog
-      title="Record a request for member"
+      title="Record a request"
       size="lg"
       closeIconOnly
       onClose={() => !busy && onClose()}
     >
       <div className={styles.dialogBody}>
-        <div>
+        <fieldset disabled={!!coach || busy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, opacity: coach ? 0.5 : 1 }}>
           <MemberPicker
             value={member}
             onChange={(nextMember) => {
@@ -175,6 +177,7 @@ export function SupportCreateDialog({
             }}
             label="Member"
             scanner={false}
+            role="Member"
             autoFocus
             placeholder="Search by name, phone or email…"
           />
@@ -187,7 +190,22 @@ export function SupportCreateDialog({
           {member && !member.activationPending && (
             <MemberPlanLine memberId={member.userId} />
           )}
-        </div>
+        </fieldset>
+
+        <fieldset disabled={!!member || busy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, opacity: member ? 0.5 : 1 }}>
+          <MemberPicker
+            value={coach}
+            onChange={(nextCoach) => {
+              setCoach(nextCoach);
+              setPaymentSelection(null);
+              if (nextCoach && category === "PAYMENT") setCategory("");
+            }}
+            role="Coach"
+            label="Coach"
+            scanner={false}
+            placeholder="Search coach by name, phone or email…"
+          />
+        </fieldset>
 
         <label className={styles.field}>
           Request type
@@ -200,7 +218,7 @@ export function SupportCreateDialog({
             }}
           >
             <option value="">Select a request type</option>
-            {SUPPORT_CATEGORIES.map((c) => (
+            {SUPPORT_CATEGORIES.filter((c) => !coach || c.value !== "PAYMENT").map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
@@ -235,7 +253,7 @@ export function SupportCreateDialog({
           <textarea
             value={description}
             maxLength={2000}
-            placeholder="What does the member need?"
+            placeholder="What does the requester need?"
             onChange={(e) => setDescription(e.target.value)}
           />
           <span className={styles.muted}>{description.length}/2000</span>

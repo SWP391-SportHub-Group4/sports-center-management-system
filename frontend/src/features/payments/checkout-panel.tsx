@@ -116,7 +116,9 @@ function CheckoutFlow({
       ? t.apiErrors.duplicateActivePackage
       : error?.cause instanceof ApiError &&
           error.cause.code === "member_schedule_conflict"
-        ? t.apiErrors.memberScheduleConflict
+          ? intent?.kind === "court-rental" || checkout?.kind === "COURT_RENTAL"
+            ? t.apiErrors.courtRentalClassConflict
+            : t.apiErrors.memberScheduleConflict
         : error?.cause instanceof ApiError &&
             error.cause.code === "payment_already_started"
           ? vi

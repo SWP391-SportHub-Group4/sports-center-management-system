@@ -75,6 +75,7 @@ export function MemberPicker({
   emptyHint,
   scanner = true,
   hideLabel = false,
+  role = "Member",
   editableSelection = false,
 }: {
   value: UserAdminDto | null;
@@ -87,7 +88,8 @@ export function MemberPicker({
   /** Hiện camera quét QR cho các luồng tiếp nhận tại quầy. */
   scanner?: boolean;
   /** Ẩn nhãn phía trên ô chọn (vẫn giữ aria-label cho trình đọc màn hình). */
-  hideLabel?: boolean;
+   hideLabel?: boolean;
+  role?: "Member" | "Coach";
   editableSelection?: boolean;
 }) {
   const { language } = useLanguage();
@@ -133,10 +135,10 @@ export function MemberPicker({
       ready
         ? api.get<Paged<UserAdminDto>>("/api/users", {
             signal,
-            query: { keyword: debounced, role: "Member", pageSize: 8 },
+            query: { keyword: debounced, role, pageSize: 8 },
           })
         : Promise.resolve(null),
-    [debounced, ready],
+    [debounced, ready, role],
   );
 
   const results = ready ? (pagedItems(search.data) ?? []) : [];
@@ -234,7 +236,7 @@ export function MemberPicker({
           style={{ color: "var(--danger-700, #c026d3)" }}
         >
           {language === "en"
-            ? "No matching members found."
+            ? `No matching ${role === "Coach" ? "coaches" : "members"} found.`
             : "Không tìm thấy hội viên phù hợp."}
         </span>
       )}

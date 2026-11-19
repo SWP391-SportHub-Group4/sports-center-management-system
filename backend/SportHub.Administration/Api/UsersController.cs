@@ -36,7 +36,9 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
         => Ok(await users.SearchAsync(keyword,
-            User.IsInRole(nameof(UserRole.Receptionist)) ? nameof(UserRole.Member) : role,
+            User.IsInRole(nameof(UserRole.Receptionist))
+                ? (string.Equals(role, nameof(UserRole.Coach), StringComparison.OrdinalIgnoreCase)
+                    ? nameof(UserRole.Coach) : nameof(UserRole.Member)) : role,
             status, page, pageSize, ct));
 
     [Authorize(Policy = SportHubPolicies.CenterManager)]
@@ -70,7 +72,8 @@ public class UsersController(IUserAdminService users, ICoachMemberAccessReader c
     public async Task<IActionResult> Get(Guid userId, CancellationToken ct)
     {
         var account = await users.GetAsync(userId, ct);
-        if (User.IsInRole(nameof(UserRole.Receptionist)) && account.Role != nameof(UserRole.Member))
+        if (User.IsInRole(nameof(UserRole.Receptionist))
+            && account.Role is not (nameof(UserRole.Member) or nameof(UserRole.Coach)))
             return NotFound();
         if (User.IsInRole(nameof(UserRole.Coach)) &&
             !await coachAccess.HasActiveRelationshipAsync(User.RequireUserId(), userId, ct))

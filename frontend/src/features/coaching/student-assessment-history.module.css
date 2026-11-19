@@ -4,16 +4,17 @@
   min-width: 0;
 }
 .compact {
-  height: 100%;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: minmax(108px, auto) minmax(80px, auto) 1fr;
+  height: auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
 }
 .compact .intro {
-  min-height: 108px;
-  grid-column: 1 / -1;
+  min-height: 0;
+  grid-column: auto;
 }
 .compact .layout {
-  display: contents;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 .compact .searchLabel {
   align-content: start;
@@ -22,16 +23,8 @@
   align-content: start;
 }
 .compact .detail {
-  height: 100%;
-  grid-column: 1 / -1;
-}
-.compact .detailHeading {
-  display: flex;
-  flex-direction: column;
-  min-height: 380px;
-}
-.compact .viewDetail {
-  margin-top: auto;
+  height: auto;
+  grid-column: auto;
 }
 .compact .summary {
   margin-bottom: var(--space-5);
@@ -251,8 +244,29 @@
   font-size: var(--text-lg);
   overflow-wrap: anywhere;
 }
-.viewDetail {
-  margin-top: var(--space-4);
+.historyDetail {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.historyAssessments {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.assessmentListHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.assessmentListHeading h5 {
+  margin: 0;
+  font-size: var(--text-base);
+}
+.assessmentListHeading span {
+  color: var(--text-body);
+  font-size: var(--text-xs);
 }
 .detailHeading > p {
   margin: var(--space-2) 0 0;

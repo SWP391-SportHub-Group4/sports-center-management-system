@@ -1,9 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { BookOpen, ChevronDown, History, Search } from "lucide-react";
-import { AsyncSection, Dialog, Pager, StatusChip } from "@/components/ui";
+import { AsyncSection, Pager, StatusChip } from "@/components/ui";
 import { useApi } from "@/lib/useApi";
 import { useLanguage } from "@/lib/language";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -189,7 +188,7 @@ export function StudentLearningHistory({
   );
 }
 
-function ClassAssessments({
+export function ClassAssessments({
   memberId,
   currentClassId,
   source,
@@ -202,7 +201,6 @@ function ClassAssessments({
   const vi = language === "vi";
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
   const state = useApi(
     (signal) =>
       teachingApi.studentHistory(
@@ -215,7 +213,7 @@ function ClassAssessments({
     [memberId, currentClassId, source.classId, page],
   );
   return (
-    <>
+    <div className={styles.historyDetail}>
       <header className={styles.detailHeading}>
         <h4>{source.className}</h4>
         <div className={styles.progressRow}>
@@ -228,8 +226,8 @@ function ClassAssessments({
         <div className={styles.classProgress}>
           <div className={styles.progressRow}>
             <strong>
-              {source.completedSessions} / {source.totalSessions} sessions
-              completed
+              {source.completedSessions} / {source.totalSessions}{" "}
+              {vi ? "buổi đã hoàn thành" : "sessions completed"}
             </strong>
             <span className={styles.progressPercent}>
               {source.totalSessions > 0
@@ -247,8 +245,9 @@ function ClassAssessments({
             aria-label="Class sessions completed"
           />
           <p>
-            Class progress reflects completed lessons. Attendance below belongs
-            to this student.
+            {vi
+              ? "Tiến độ lớp tính theo số buổi đã hoàn thành. Đánh giá bên dưới thuộc về học viên này."
+              : "Class progress reflects completed lessons. Assessments below belong to this student."}
           </p>
         </div>
         <dl className={styles.summary}>
@@ -273,116 +272,99 @@ function ClassAssessments({
             </dd>
           </div>
         </dl>
-        <button
-          type="button"
-          className={`btn btn--secondary ${styles.viewDetail}`}
-          aria-haspopup="dialog"
-          onClick={() => setDetailOpen(true)}
-        >
-          View detail
-        </button>
       </header>
-      {detailOpen &&
-        createPortal(
-          <Dialog
-            title={`${source.className} · Assessments`}
-            description="Read-only feedback for this student in this class, newest first."
-            size="lg"
-            onClose={() => setDetailOpen(false)}
-          >
-            <AsyncSection state={state}>
-              {(data) => (
-                <>
-                  <p className={styles.listHint}>
-                    {vi
-                      ? "Mới nhất trước · Nhấn vào buổi học để đọc nhận xét"
-                      : "Newest first · Select a session to read the assessment"}
-                  </p>
-                  <div className={styles.assessments}>
-                    {[...data.items]
-                      .sort((a, b) =>
-                        b.record.updatedAtUtc.localeCompare(
-                          a.record.updatedAtUtc,
-                        ),
-                      )
-                      .map((item, index) => (
-                        <details
-                          key={item.record.recordId}
-                          name="student-history-assessments"
-                          className={styles.assessment}
-                          open={
-                            expandedId === item.record.recordId ||
-                            (expandedId === null && page === 1 && index === 0)
-                          }
+      <AsyncSection state={state}>
+        {(data) => (
+          <section className={styles.historyAssessments}>
+            <div className={styles.assessmentListHeading}>
+              <h5>{vi ? "Đánh giá" : "Assessments"}</h5>
+              <span>
+                {data.totalCount} {vi ? "mục" : "entries"}
+              </span>
+            </div>
+            {data.items.length ? (
+              <div className={styles.assessments}>
+                {[...data.items]
+                  .sort((a, b) =>
+                    b.record.updatedAtUtc.localeCompare(a.record.updatedAtUtc),
+                  )
+                  .map((item, index) => {
+                    const isOpen =
+                      expandedId === item.record.recordId ||
+                      (expandedId === null && page === 1 && index === 0);
+                    return (
+                      <details
+                        key={item.record.recordId}
+                        name="student-history-assessments"
+                        className={styles.assessment}
+                        open={isOpen}
+                      >
+                        <summary
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setExpandedId(
+                              isOpen ? "" : item.record.recordId,
+                            );
+                          }}
                         >
-                          <summary
-                            onClick={(event) => {
-                              event.preventDefault();
-                              setExpandedId((current) =>
-                                current === item.record.recordId ||
-                                (current === null && page === 1 && index === 0)
-                                  ? ""
-                                  : item.record.recordId,
-                              );
-                            }}
-                          >
-                            <span className={styles.assessmentInfo}>
-                              <span className={styles.sessionHeading}>
-                                <strong>
-                                  {item.sessionNo === null
-                                    ? vi
-                                      ? "Đánh giá cả khóa"
-                                      : "Course assessment"
-                                    : `${vi ? "Đánh giá buổi" : "Lesson"} ${item.sessionNo}${vi ? "" : " assessment"}`}
-                                </strong>
-                                <time
-                                  dateTime={
-                                    item.sessionStartAtUtc ??
-                                    item.record.createdAtUtc
-                                  }
-                                >
-                                  {formatDateTime(
-                                    item.sessionStartAtUtc ??
-                                      item.record.createdAtUtc,
-                                  )}
-                                </time>
-                              </span>
-                              <span className={styles.assessmentTitle}>
-                                {item.record.title}
-                              </span>
-                              {page === 1 && index === 0 && (
-                                <span className={styles.latest}>
-                                  {vi ? "Mới nhất" : "Latest"}
-                                </span>
-                              )}
-                              <span className={styles.author}>
-                                {"Coach: "}
-                                {item.coachName ||
-                                  (vi ? "Chưa có tên" : "Name unavailable")}
-                              </span>
-                              <span className={styles.preview}>
-                                {item.record.content
-                                  .replace(/\s+/g, " ")
-                                  .slice(0, 180)}
-                                {item.record.content.replace(/\s+/g, " ")
-                                  .length > 180
-                                  ? "…"
-                                  : ""}
-                              </span>
+                          <span className={styles.assessmentInfo}>
+                            <span className={styles.sessionHeading}>
+                              <strong>
+                                {item.sessionNo === null
+                                  ? vi
+                                    ? "Đánh giá cả khóa"
+                                    : "Course assessment"
+                                  : `${vi ? "Đánh giá buổi" : "Lesson"} ${item.sessionNo}${vi ? "" : " assessment"}`}
+                              </strong>
+                              <time
+                                dateTime={
+                                  item.sessionStartAtUtc ??
+                                  item.record.createdAtUtc
+                                }
+                              >
+                                {formatDateTime(
+                                  item.sessionStartAtUtc ??
+                                    item.record.createdAtUtc,
+                                )}
+                              </time>
                             </span>
-                            <span className={styles.assessmentActions}>
-                              {item.record.score !== null && (
-                                <span className={styles.score}>
-                                  {item.record.score}/5
-                                </span>
-                              )}
-                              <ChevronDown
-                                size={18}
-                                className={styles.chevron}
-                                aria-hidden="true"
-                              />
+                            <span className={styles.assessmentTitle}>
+                              {item.record.title}
                             </span>
-                          </summary>
+                            {page === 1 && index === 0 && (
+                              <span className={styles.latest}>
+                                {vi ? "Mới nhất" : "Latest"}
+                              </span>
+                            )}
+                            <span className={styles.author}>
+              Coach:{" "}
+                              {item.coachName ||
+                                (vi ? "Chưa có tên" : "Name unavailable")}
+                            </span>
+                            <span className={styles.preview}>
+                              {item.record.content
+                                .replace(/\s+/g, " ")
+                                .slice(0, 180)}
+                              {item.record.content.replace(/\s+/g, " ")
+                                .length > 180
+                                ? "…"
+                                : ""}
+                            </span>
+                          </span>
+                          <span className={styles.assessmentActions}>
+                            {item.record.score !== null && (
+                              <span className={styles.score}>
+                                {item.record.score}/5
+                              </span>
+                            )}
+                            <ChevronDown
+                              size={18}
+                              className={styles.chevron}
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </summary>
+                        {isOpen && (
                           <div className={styles.fullAssessment}>
                             <h5>
                               {vi ? "Nhận xét đầy đủ" : "Full assessment"}
@@ -397,30 +379,32 @@ function ClassAssessments({
                               {formatDateTime(item.record.updatedAtUtc)}
                             </small>
                           </div>
-                        </details>
-                      ))}
-                  </div>
-                  {!data.items.length && (
-                    <p className={styles.listHint}>
-                      {vi
-                        ? "Lớp này chưa có đánh giá để hiển thị."
-                        : "No assessments available for this class."}
-                    </p>
-                  )}
-                  {data.totalCount > data.pageSize && (
-                    <Pager
-                      page={data.page}
-                      pageSize={data.pageSize}
-                      totalCount={data.totalCount}
-                      onChange={setPage}
-                    />
-                  )}
-                </>
-              )}
-            </AsyncSection>
-          </Dialog>,
-          document.body,
+                        )}
+                      </details>
+                    );
+                  })}
+              </div>
+            ) : (
+              <p className={styles.listHint}>
+                {vi
+                  ? "Lớp này chưa có đánh giá để hiển thị."
+                  : "No assessments available for this class."}
+              </p>
+            )}
+            {data.totalCount > data.pageSize && (
+              <Pager
+                page={data.page}
+                pageSize={data.pageSize}
+                totalCount={data.totalCount}
+                onChange={(next) => {
+                  setPage(next);
+                  setExpandedId(null);
+                }}
+              />
+            )}
+          </section>
         )}
-    </>
+      </AsyncSection>
+    </div>
   );
 }

@@ -196,11 +196,6 @@
   font-size: 20px;
   font-weight: var(--weight-semibold);
 }
-.tier .price s {
-  flex-shrink: 0;
-  font-family: var(--font-body);
-  font-size: 12px;
-}
 .months {
   display: flex;
   flex-shrink: 0;
