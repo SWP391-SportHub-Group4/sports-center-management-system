@@ -30,19 +30,14 @@ import styles from "../manager/manager-schedule.module.css";
 import { ReceptionistAvailabilityGrid } from "./receptionist-availability-grid";
 
 type View = "week" | "day" | "list";
-type TypeFilter = "ALL" | "CLASS_SESSION" | "COURT_RENTAL" | "AVAILABLE_SLOT";
+type TypeFilter = "ALL" | "CLASS_SESSION" | "COURT_RENTAL";
 type StatusFilter =
   | "ALL"
   | "OPEN"
   | "LOCKED"
   | "UPCOMING"
   | "IN_PROGRESS"
-  | "ENDED"
-  | "CANCELLED"
-  | "PENDING_PAYMENT"
-  | "CONFIRMED"
-  | "COMPLETED"
-  | "AVAILABLE";
+  | "ENDED";
 
 const OPEN_MINUTE = 6 * 60;
 
@@ -136,9 +131,7 @@ export function ReceptionistSchedule() {
 
   const availability = useApi(
     async (signal) => {
-      const member = desk.member;
-
-      if (!member || !effectiveSportId) return [];
+      if (!effectiveSportId) return [];
 
       return Promise.all(
         availabilityDates.map(async (slotDate) => {
@@ -153,7 +146,7 @@ export function ReceptionistSchedule() {
               slotDate,
               1,
               signal,
-              member.userId,
+              desk.member?.userId,
             ),
           };
         }),
@@ -208,9 +201,7 @@ export function ReceptionistSchedule() {
     return (schedule.data ?? []).filter((row) => {
       if (row.sourceType === "ROOM_BLOCK") return false;
 
-      if (type !== "ALL" && type !== "AVAILABLE_SLOT" && row.sourceType !== type)
-        return false;
-      if (type === "AVAILABLE_SLOT") return false;
+      if (type !== "ALL" && row.sourceType !== type) return false;
 
       const rowState = businessState(row);
       const timeState = temporalState(row, now);
@@ -374,7 +365,6 @@ export function ReceptionistSchedule() {
               <option value="ALL">All</option>
               <option value="CLASS_SESSION">Classes</option>
               <option value="COURT_RENTAL">Court rentals</option>
-              <option value="AVAILABLE_SLOT">Available court slots</option>
             </select>
           </label>
 
@@ -392,11 +382,6 @@ export function ReceptionistSchedule() {
               <option value="UPCOMING">Upcoming</option>
               <option value="IN_PROGRESS">In progress</option>
               <option value="ENDED">Ended</option>
-              <option value="CANCELLED">Cancelled</option>
-              <option value="PENDING_PAYMENT">Pending payment</option>
-              <option value="CONFIRMED">Rental confirmed</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="AVAILABLE">Available court slot</option>
             </select>
           </label>
 
@@ -487,13 +472,10 @@ export function ReceptionistSchedule() {
           }
         />
       )}
-      {(type === "ALL" || type === "AVAILABLE_SLOT") && (
-        <section className="card" style={{ padding: 18 }}>
+      <section className="card" style={{ padding: 18 }}>
           <h3>Available court slots · 06:00–22:00 · 3 operating days</h3>
           <p>Hourly availability by court. The last slot is 21:00–22:00; the three-day window rolls over at 06:00.</p>
-          {!desk.member ? (
-            <p>Select a member to verify bookable slots against their schedule.</p>
-          ) : availability.loading ? (
+          {availability.loading ? (
             <p>Checking court availability…</p>
           ) : availability.error ? (
             <p role="alert">{availability.error.message}</p>
@@ -505,7 +487,6 @@ export function ReceptionistSchedule() {
             />
           )}
         </section>
-      )}
 
     </div>
   );

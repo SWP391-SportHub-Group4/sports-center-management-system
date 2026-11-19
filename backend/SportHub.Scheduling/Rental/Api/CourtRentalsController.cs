@@ -22,8 +22,7 @@ public sealed class CourtRentalsController(CourtRentalOperationsService operatio
     {
         var actorId = User.RequireUserId();
         var staff = User.IsInRole(SportHubRoleNames.Receptionist) || User.IsInRole(SportHubRoleNames.CenterManager);
-        var memberId = staff ? targetMemberId ?? throw new BadRequestException(
-            "target_member_required", "Target member required.") : actorId;
+        Guid? memberId = staff ? targetMemberId : actorId;
         if (!staff && targetMemberId is Guid target && target != actorId)
             throw new ForbiddenException("target_member_forbidden", "Target member forbidden.");
         return Ok(await rentals.CalendarAsync(memberId, sportId, date, hours, ct));

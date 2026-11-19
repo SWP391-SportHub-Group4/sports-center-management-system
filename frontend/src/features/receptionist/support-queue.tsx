@@ -161,7 +161,7 @@ export function SupportQueue({
       ? linked.data
       : null
     : (items.find((x) => x.requestId === picked) ?? items[0] ?? null);
-  const openedFromLink = isManager && !!link.request && picked === link.request;
+  const openedFromLink = !!link.request && picked === link.request;
   useEffect(() => {
     if (!link.request) openedLink.current = null;
     if (
@@ -219,7 +219,7 @@ export function SupportQueue({
             onClick={() => setCreating(true)}
           >
             <Plus size={18} aria-hidden="true" />
-            Record a request for member
+            Record a request
           </button>
         </div>
       )}
@@ -448,7 +448,7 @@ export function SupportQueue({
                         </>
                       )}
                       <span className={styles.rowMember}>
-                        {request.memberName || request.memberEmail || "Member"}
+                        {request.requesterRole === "Coach" ? "Coach: " : ""}{request.memberName || request.memberEmail || "Requester"}
                       </span>
                       <span className={styles.rowMeta}>
                         <span>{supportCategoryLabel(request.category)}</span>

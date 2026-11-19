@@ -92,7 +92,7 @@ export function SupportDetail({
   );
   const packages = useApi(
     (signal) =>
-      isReceiver
+      isReceiver || request.requesterRole === "Coach"
         ? Promise.resolve([] as MemberPackageDto[])
         : api.get<MemberPackageDto[]>(
             `/api/members/${request.memberId}/packages`,
@@ -100,7 +100,7 @@ export function SupportDetail({
               signal,
             },
           ),
-    [request.memberId, isReceiver],
+    [request.memberId, isReceiver, request.requesterRole],
   );
   const events = useApi(
     (signal) =>
@@ -241,7 +241,7 @@ export function SupportDetail({
             type: "CREATED",
             note: null,
             createdAt: request.createdAt,
-            actorName: request.memberName ?? "Member",
+            actorName: request.memberName ?? "Requester",
             actorRole: null,
             targetName: null,
           },
@@ -273,18 +273,18 @@ export function SupportDetail({
       <div className={styles.banner}>
         <AvatarImage
           userId={request.memberId}
-          name={request.memberName || request.memberEmail || "Member"}
+          name={request.memberName || request.memberEmail || "Requester"}
           avatarUrl={member.data?.avatarUrl}
           size={44}
         />
         <div className={styles.bannerText}>
-          <strong>{request.memberName || "Member"}</strong>
+          <strong>{request.requesterRole === "Coach" ? "Coach: " : "Member: "}{request.memberName || "Requester"}</strong>
           <span className={styles.muted}>
             {[member.data?.phone, request.memberEmail]
               .filter(Boolean)
               .join(" · ")}
           </span>
-          {!isReceiver && (
+          {!isReceiver && request.requesterRole !== "Coach" && (
             <span className={styles.muted}>
               Plan: {planText}
               {plan && plan.packageId !== DAY_PASS_PACKAGE_ID
@@ -293,7 +293,7 @@ export function SupportDetail({
             </span>
           )}
         </div>
-        {!isReceiver && (
+        {!isReceiver && request.requesterRole !== "Coach" && (
           <Link
             className={styles.bannerLink}
             href={`/${workspace}/members/${request.memberId}`}
@@ -407,7 +407,12 @@ export function SupportDetail({
             </p>
           </section>
         )
-      ) : receptionistPayment ? null : (
+      ) : receptionistPayment ? null : workspace === "coach" && request.assignedToUserId !== user?.userId ? (
+        <section className={styles.section} aria-label="Request status">
+          <h4>Status</h4>
+          <p className={styles.message}>{request.progressNote || "Your request has been received. Our staff will update it."}</p>
+        </section>
+      ) : (
         <>
           {!isReceiver && (
             <section className={styles.box} aria-label="Routing and escalation">

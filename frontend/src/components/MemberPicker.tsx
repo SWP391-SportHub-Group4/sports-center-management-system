@@ -75,6 +75,8 @@ export function MemberPicker({
   emptyHint,
   scanner = true,
   hideLabel = false,
+  role = "Member",
+  editableSelection = false,
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
@@ -86,12 +88,15 @@ export function MemberPicker({
   /** Hiện camera quét QR cho các luồng tiếp nhận tại quầy. */
   scanner?: boolean;
   /** Ẩn nhãn phía trên ô chọn (vẫn giữ aria-label cho trình đọc màn hình). */
-  hideLabel?: boolean;
+   hideLabel?: boolean;
+  role?: "Member" | "Coach";
+  editableSelection?: boolean;
 }) {
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
   const [debounced, setDebounced] = useState("");
   const [scanError, setScanError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
 
   const handleScan = useCallback(
     async (text: string) => {
@@ -121,17 +126,19 @@ export function MemberPicker({
     return () => window.clearTimeout(timer);
   }, [keyword]);
 
-  const ready = debounced.length >= MIN_KEYWORD_LENGTH;
+  const ready =
+    debounced.length >= MIN_KEYWORD_LENGTH &&
+    (!editableSelection || (!value && focused && keyword.trim() === debounced));
 
   const search = useApi(
     (signal) =>
       ready
         ? api.get<Paged<UserAdminDto>>("/api/users", {
             signal,
-            query: { keyword: debounced, role: "Member", pageSize: 8 },
+            query: { keyword: debounced, role, pageSize: 8 },
           })
         : Promise.resolve(null),
-    [debounced, ready],
+    [debounced, ready, role],
   );
 
   const results = ready ? (pagedItems(search.data) ?? []) : [];
@@ -145,7 +152,7 @@ export function MemberPicker({
     }
   };
 
-  if (value) {
+  if (value && !editableSelection) {
     return (
       <div className="field">
         {!hideLabel && <span>{labelText}</span>}
@@ -191,14 +198,27 @@ export function MemberPicker({
   }
 
   return (
-    <div className="field" style={{ position: "relative" }}>
+    <div
+      className="field"
+      style={{ position: "relative" }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          setFocused(false);
+      }}
+    >
       {!hideLabel && <span>{labelText}</span>}
       <input
         aria-label={labelText}
         autoFocus={autoFocus}
-        value={keyword}
+        value={
+          editableSelection && value ? value.fullName || value.email : keyword
+        }
         placeholder={placeholderText}
-        onChange={(event) => setKeyword(event.target.value)}
+        onFocus={() => setFocused(true)}
+        onChange={(event) => {
+          setKeyword(event.target.value);
+          if (editableSelection && value) onChange(null);
+        }}
         onKeyDown={handleKeyDown}
         style={{ height: 44, borderRadius: 8 }}
       />
@@ -216,7 +236,7 @@ export function MemberPicker({
           style={{ color: "var(--danger-700, #c026d3)" }}
         >
           {language === "en"
-            ? "No matching members found."
+            ? `No matching ${role === "Coach" ? "coaches" : "members"} found.`
             : "Không tìm thấy hội viên phù hợp."}
         </span>
       )}

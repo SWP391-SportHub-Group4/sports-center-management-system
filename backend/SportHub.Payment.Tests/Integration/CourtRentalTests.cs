@@ -234,8 +234,15 @@ public sealed class CourtRentalTests(PaymentApiFactory factory)
         var localDate = DateOnly.FromDateTime(VietnamTime.ToLocal(rental.StartUtc.UtcDateTime));
         var calendar = await desk.GetAsync($"/api/court-rentals/calendar?sportId={rental.SportId}&date={localDate:yyyy-MM-dd}&targetMemberId={rental.MemberId}");
         Assert.Equal(HttpStatusCode.OK, calendar.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await desk.GetAsync(
-            $"/api/court-rentals/calendar?sportId={rental.SportId}&date={localDate:yyyy-MM-dd}")).StatusCode);
+        // Staff can inspect court availability without selecting a member; checkout still requires one.
+        var unassignedCalendar = await desk.GetAsync(
+            $"/api/court-rentals/calendar?sportId={rental.SportId}&date={localDate:yyyy-MM-dd}");
+        Assert.Equal(HttpStatusCode.OK, unassignedCalendar.StatusCode);
+        using (var calendarJson = System.Text.Json.JsonDocument.Parse(await unassignedCalendar.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(rental.SportId, calendarJson.RootElement.GetProperty("sportId").GetInt32());
+            Assert.Equal(System.Text.Json.JsonValueKind.Array, calendarJson.RootElement.GetProperty("rooms").ValueKind);
+        }
         Assert.Equal(HttpStatusCode.Forbidden, (await member.GetAsync(
             $"/api/court-rentals/calendar?sportId={rental.SportId}&date={localDate:yyyy-MM-dd}&targetMemberId={rental.MemberId}")).StatusCode);
 

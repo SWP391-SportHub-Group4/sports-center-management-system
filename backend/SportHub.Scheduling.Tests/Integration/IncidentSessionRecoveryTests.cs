@@ -252,6 +252,79 @@ public sealed class IncidentSessionRecoveryTests(SchedulingApiFactory factory)
         Assert.Equal(ClassSessionStatus.Scheduled, sessions.Single(s => s.SessionId == source.SessionId).Status);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Overlapping_future_makeup_requires_an_unaffected_room(bool center, bool changeRoom)
+    {
+        var course = await CourseTestData.CreateAsync(factory);
+        var source = (await CourseTestData.SessionsAsync(factory, course.Id))[0];
+        var roomId = changeRoom ? await CourseTestData.RoomAsync(factory) : source.RoomId;
+        var incident = new IncidentRequest("Room", course.RoomId,
+            source.StartAtUtc, source.EndAtUtc, "Court needs repair");
+        var fence = await Incidents(s => s.OpenFenceAsync(incident, course.ManagerId));
+        if (center)
+            await factory.QueryAsync(async db => {
+                var held = await db.Set<IncidentFence>().SingleAsync(x => x.FenceId == fence.FenceId);
+                held.Scope = IncidentScope.Center;
+                held.RoomId = null;
+                await db.SaveChangesAsync(); return true;
+            });
+        var request = new IncidentMakeupRequest { FenceId = fence.FenceId, Reason = incident.Reason,
+            Makeup = new() { StartAtUtc = source.StartAtUtc, RoomId = roomId, CoachId = source.CoachId } };
+        if (center || !changeRoom)
+        {
+            var error = await Assert.ThrowsAsync<BadRequestException>(() => Run(s =>
+                s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId)));
+            Assert.Equal("replacement_during_incident", error.ErrorCode);
+            await factory.QueryAsync(async db => {
+                var held = await db.Set<IncidentFence>().SingleAsync(x => x.FenceId == fence.FenceId);
+                held.Status = IncidentFenceStatus.Released;
+                await db.SaveChangesAsync(); return true;
+            });
+            return;
+        }
+        var result = await Run(s => s.CreateIncidentMakeupAsync(source.SessionId, request, course.ManagerId));
+        Assert.Equal(roomId, result.RoomId);
+        Assert.Equal(source.StartAtUtc, result.StartAtUtc);
+        Assert.Equal(source.EndAtUtc, result.EndAtUtc);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Overlapping_report_makeup_requires_an_unaffected_room(bool center, bool changeRoom)
+    {
+        var f = await Setup(ongoing: true);
+        var roomId = changeRoom ? await CourseTestData.RoomAsync(factory) : f.Session.RoomId;
+        if (center)
+            await factory.QueryAsync(async db => {
+                var fence = await db.Set<IncidentFence>().SingleAsync(x => x.FenceId == f.FenceId);
+                fence.Scope = IncidentScope.Center;
+                fence.RoomId = null;
+                await db.SaveChangesAsync(); return true;
+            });
+        var request = new ReportSessionIncidentRequest { FenceId = f.FenceId, Outcome = "INTERRUPTED",
+            OccurredAtUtc = f.Session.StartAtUtc.AddMinutes(10), Reason = f.Incident.Reason,
+            Makeup = new() { StartAtUtc = clock.UtcNow.AddMinutes(5), RoomId = roomId, CoachId = f.Session.CoachId } };
+        Assert.True(request.Makeup.StartAtUtc < f.Incident.EndAtUtc);
+        if (center || !changeRoom)
+        {
+            var error = await Assert.ThrowsAsync<BadRequestException>(() => Run(s =>
+                s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId)));
+            Assert.Equal("replacement_during_incident", error.ErrorCode);
+            return;
+        }
+        var result = await Run(s => s.ReportIncidentAsync(f.Session.SessionId, request, f.Course.ManagerId));
+        Assert.Equal(roomId, result.RoomId);
+        Assert.Equal(request.Makeup.StartAtUtc, result.StartAtUtc);
+        Assert.Equal(f.Session.EndAtUtc - f.Session.StartAtUtc, result.EndAtUtc - result.StartAtUtc);
+    }
+
     [Fact]
     public async Task Reports_require_matching_open_window()
     {

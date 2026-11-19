@@ -400,7 +400,7 @@ function ReviewDrawer({
                 <option value="" disabled>
                   Select a resolution
                 </option>
-                {(["SUBSTITUTE", "RESCHEDULE", "CANCEL_WITH_MAKEUP"] as const)
+                {(["SUBSTITUTE", "CANCEL_WITH_MAKEUP"] as const)
                   .filter(
                     (id) =>
                       id !== "CANCEL_WITH_MAKEUP" ||
@@ -408,7 +408,11 @@ function ReviewDrawer({
                   )
                   .map((id) => (
                     <option key={id} value={id}>
-                      {changeTypeLabel(id, vi)}
+                      {id === "CANCEL_WITH_MAKEUP"
+                        ? vi
+                          ? "Đổi lịch"
+                          : "Reschedule"
+                        : changeTypeLabel(id, vi)}
                     </option>
                   ))}
                 <option value="REJECT">
@@ -438,7 +442,6 @@ function ReviewDrawer({
                             ? "Giờ bắt đầu mới"
                             : "New start"
                       }
-                      aria-describedby="request-target-time-help"
                       required
                       value={start}
                       disabled={action.busy}
@@ -447,18 +450,12 @@ function ReviewDrawer({
                         setCoach("");
                       }}
                     />
-                    <small id="request-target-time-help">
-                      {vi
-                        ? "Giờ Việt Nam; thời lượng giữ nguyên. Buổi bù phải sau buổi cuối của khóa."
-                        : "Vietnam time; duration stays unchanged. Makeup must follow the course’s final session."}
-                    </small>
                   </label>
                 )}
                 <label>
                   {vi ? "Coach thực hiện" : "Assigned coach"}
                   <select
                     aria-label={vi ? "Coach thực hiện" : "Assigned coach"}
-                    aria-describedby="request-coach-availability-help"
                     value={validCoach ? coach : ""}
                     required={type === "SUBSTITUTE"}
                     disabled={
@@ -488,11 +485,6 @@ function ReviewDrawer({
                       </option>
                     ))}
                   </select>
-                  <small id="request-coach-availability-help">
-                    {vi
-                      ? "Chỉ HLV đang hoạt động, đúng môn và rảnh toàn bộ khung giờ. Hệ thống kiểm lại khi xác nhận."
-                      : "Active coaches available for this entire session, with matching specialty. Availability is rechecked on confirmation."}
-                  </small>
                 </label>
                 <Feedback error={coaches.error?.message} />
                 <p className={styles.hint} role="status">
@@ -504,7 +496,7 @@ function ReviewDrawer({
                       : coaches.error
                         ? "Coach availability could not be loaded. Retry before confirming."
                         : type === "SUBSTITUTE" && !alternatives.length
-                          ? "No available coaches for this session. Choose Reschedule or Cancel & makeup."
+                          ? "No available coaches for this session. Choose Reschedule."
                           : !candidates.length
                             ? "No available coaches for this time. Choose a different time or resolution."
                             : !coach &&
@@ -550,15 +542,13 @@ function ReviewDrawer({
                 onChange={(e) => setNote(e.target.value)}
               />
             </label>
-            <p className={styles.hint}>
-              {type === "REJECT"
-                ? vi
+            {type === "REJECT" && (
+              <p className={styles.hint}>
+                {vi
                   ? "Lịch học giữ nguyên khi từ chối."
-                  : "Rejecting keeps the current schedule unchanged."
-                : vi
-                  ? "Xác nhận sẽ cập nhật lịch và gửi thông báo. Nếu phương án xung đột, lịch cũ và yêu cầu được giữ nguyên."
-                  : "Confirmation updates the schedule and sends notifications. On conflict, the current schedule and request remain unchanged."}
-            </p>
+                  : "Rejecting keeps the current schedule unchanged."}
+              </p>
+            )}
             <div className={styles.actions}>
               <button
                 className="btn"

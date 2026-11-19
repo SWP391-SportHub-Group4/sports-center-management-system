@@ -217,7 +217,9 @@ test("legacy portal bookmarks land on the member routes", async ({ page }) => {
   await page.goto("/external-coach/book");
   await expect(page).toHaveURL(/\/member\/courts\/book$/);
   await page.goto("/external-coach/rentals");
-  await expect(page).toHaveURL(/\/member\/rentals$/);
+  await expect(page).toHaveURL(
+    /\/member\/services\?section=courts&view=owned$/,
+  );
   await page.goto("/external-coach/wallet");
   await expect(page).toHaveURL(/\/member\/finance\?tab=wallet$/);
   // Trang đăng ký riêng cho Coach ngoài không còn: về trang đăng ký Member.
