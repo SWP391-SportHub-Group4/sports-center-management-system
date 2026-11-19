@@ -262,8 +262,7 @@ export function CourtRateEditor({ roomId }: { roomId?: number }) {
                       : "Shared price"}
                   </td>
                   <td>
-                    {sports.data?.find((s) => s.sportId === r.sportId)?.name ??
-                      "All compatible sports"}
+                    {sports.data?.find((s) => s.sportId === r.sportId)?.name}
                   </td>
                   <td>
                     {r.daysOfWeek.split(",").length === 7
