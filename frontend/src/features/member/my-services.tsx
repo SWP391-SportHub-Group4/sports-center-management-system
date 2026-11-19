@@ -32,7 +32,7 @@ import { GymPackageDetails } from "./gym-package-details";
 import {
   daysUntil,
   emblemForSport,
-  monthsOf,
+  addMonthsIso,
   SERVICE_KINDS,
   sportLabel,
   type EmblemKind,
@@ -551,12 +551,14 @@ function GymCard({
         86_400_000,
     ) + 1,
   );
-  const months = monthsOf(
-    Math.round(
-      (new Date(pkg.endDate).getTime() - new Date(pkg.startDate).getTime()) /
-        86_400_000,
-    ) + 1,
-  );
+  const months = [1, 3, 6, 12].find((count) => {
+    const end = new Date(`${addMonthsIso(pkg.startDate, count)}T00:00:00Z`);
+    end.setUTCDate(end.getUTCDate() - 1);
+    return end.toISOString().slice(0, 10) === pkg.endDate.slice(0, 10);
+  });
+  const durationLabel = months
+    ? `${months} ${months === 1 ? "month" : "months"}`
+    : `${total} ${total === 1 ? "day" : "days"}`;
   const pending = tone === "pending";
   const dayPass = pkg.packageId === 50000;
   const renew = tone === "soon" || tone === "ended";
@@ -570,10 +572,10 @@ function GymCard({
       subtitle={tx(
         dayPass
           ? "Gym day pass · valid until 22:00"
-          : `Gym Membership · ${months} tháng`,
+          : `Gym Membership · ${durationLabel}`,
         dayPass
           ? "Gym day pass · valid until 22:00"
-          : `Gym membership · ${months} ${months === 1 ? "month" : "months"}`,
+          : `Gym membership · ${durationLabel}`,
       )}
       metric={
         pending ? (
@@ -612,9 +614,11 @@ function GymCard({
                 />
                 <p className={styles.fine}>
                   {tx("Hết hạn", "Expires")}{" "}
-                  <b>{dayPass && pkg.expiresAtUtc
-                    ? formatDateTime(pkg.expiresAtUtc)
-                    : formatDate(endDate)}</b>
+                  <b>
+                    {dayPass && pkg.expiresAtUtc
+                      ? formatDateTime(pkg.expiresAtUtc)
+                      : formatDate(endDate)}
+                  </b>
                 </p>
               </>
             )}

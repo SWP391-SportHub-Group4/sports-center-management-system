@@ -90,11 +90,13 @@ public class InvoicesController(
     public async Task<IActionResult> Search(
         [FromQuery] Guid? memberId,
         [FromQuery] string? status,
+        [FromQuery] DateTimeOffset? issuedFrom = null,
+        [FromQuery] DateTimeOffset? issuedTo = null,
         [FromQuery] string? keyword = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
-        => Ok(await invoices.SearchAsync(memberId, status, keyword, page, pageSize, ct, excludeVoid: User.IsInRole(SportHubRoleNames.SystemAdministrator)));
+        => Ok(await invoices.SearchAsync(memberId, status, keyword, page, pageSize, ct, excludeVoid: User.IsInRole(SportHubRoleNames.SystemAdministrator), issuedFrom: issuedFrom, issuedTo: issuedTo));
 
     [Authorize(Policy = SportHubPolicies.Member)]
     [HttpGet("members/me/invoices")]

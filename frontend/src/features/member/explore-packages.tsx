@@ -35,7 +35,7 @@ import type {
 } from "@/lib/types";
 import {
   emblemForSport,
-  monthsOf,
+  membershipDuration,
   sportLabel,
   type ServiceKind,
 } from "./service-kinds";
@@ -552,7 +552,7 @@ function GymTier({
   const { active, pending, previouslyPurchased } = ownership;
   const dayPassOwned =
     dayPass && !!active && active.startDate.slice(0, 10) <= today;
-  const months = monthsOf(plan.durationDays);
+  const duration = membershipDuration(plan.durationDays);
   return (
     <article
       className={styles.tier}
@@ -574,12 +574,8 @@ function GymTier({
       </p>
       <h3 className={styles.planName}>{plan.name}</h3>
       <p className={styles.months}>
-        <strong>{dayPass ? 1 : months}</strong>
-        <span>
-          {dayPass
-            ? tx("ngày", "day")
-            : tx("tháng", months === 1 ? "month" : "months")}
-        </span>
+        <strong>{duration.value}</strong>
+        <span>{duration.unit}</span>
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>

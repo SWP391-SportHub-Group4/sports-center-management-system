@@ -75,6 +75,7 @@ export function MemberPicker({
   emptyHint,
   scanner = true,
   hideLabel = false,
+  editableSelection = false,
 }: {
   value: UserAdminDto | null;
   onChange: (member: UserAdminDto | null) => void;
@@ -87,11 +88,13 @@ export function MemberPicker({
   scanner?: boolean;
   /** Ẩn nhãn phía trên ô chọn (vẫn giữ aria-label cho trình đọc màn hình). */
   hideLabel?: boolean;
+  editableSelection?: boolean;
 }) {
   const { language } = useLanguage();
   const [keyword, setKeyword] = useState("");
   const [debounced, setDebounced] = useState("");
   const [scanError, setScanError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
 
   const handleScan = useCallback(
     async (text: string) => {
@@ -121,7 +124,9 @@ export function MemberPicker({
     return () => window.clearTimeout(timer);
   }, [keyword]);
 
-  const ready = debounced.length >= MIN_KEYWORD_LENGTH;
+  const ready =
+    debounced.length >= MIN_KEYWORD_LENGTH &&
+    (!editableSelection || (!value && focused && keyword.trim() === debounced));
 
   const search = useApi(
     (signal) =>
@@ -145,7 +150,7 @@ export function MemberPicker({
     }
   };
 
-  if (value) {
+  if (value && !editableSelection) {
     return (
       <div className="field">
         {!hideLabel && <span>{labelText}</span>}
@@ -191,14 +196,27 @@ export function MemberPicker({
   }
 
   return (
-    <div className="field" style={{ position: "relative" }}>
+    <div
+      className="field"
+      style={{ position: "relative" }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          setFocused(false);
+      }}
+    >
       {!hideLabel && <span>{labelText}</span>}
       <input
         aria-label={labelText}
         autoFocus={autoFocus}
-        value={keyword}
+        value={
+          editableSelection && value ? value.fullName || value.email : keyword
+        }
         placeholder={placeholderText}
-        onChange={(event) => setKeyword(event.target.value)}
+        onFocus={() => setFocused(true)}
+        onChange={(event) => {
+          setKeyword(event.target.value);
+          if (editableSelection && value) onChange(null);
+        }}
         onKeyDown={handleKeyDown}
         style={{ height: 44, borderRadius: 8 }}
       />
