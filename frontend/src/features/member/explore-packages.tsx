@@ -14,7 +14,6 @@ import { Dialog } from "@/components/ui";
 import { CheckoutPanel, type PurchaseIntent } from "@/features/payments";
 import { api } from "@/lib/apiClient";
 import {
-  addDaysIso,
   formatDate,
   formatDateTime,
   formatMoney,
@@ -36,7 +35,6 @@ import type {
 } from "@/lib/types";
 import {
   emblemForSport,
-  membershipEnd,
   monthsOf,
   sportLabel,
   type ServiceKind,
@@ -191,9 +189,6 @@ export function ExplorePackages({
   const gymPlans = (catalog.data ?? [])
     .filter((p) => p.isActive)
     .sort((a, b) => a.durationDays - b.durationDays);
-  const baseMonthly =
-    gymPlans.find((p) => p.durationDays >= 28 && p.durationDays <= 31)?.price ??
-    null;
   const classRows = (courses.data ?? []).filter(
     (c) => !sportId || c.sportId === sportId,
   );
@@ -222,16 +217,6 @@ export function ExplorePackages({
     court: courtVisible.length,
   };
   const show = (kind: ServiceKind) => filter === "all" || filter === kind;
-
-  const latestEnd = (owned.data ?? [])
-    .filter(
-      (o) =>
-        o.status.toUpperCase() === "ACTIVE" && o.endDate.slice(0, 10) >= today,
-    )
-    .map((o) => o.endDate.slice(0, 10))
-    .sort()
-    .pop();
-  const membershipStart = latestEnd ? addDaysIso(latestEnd, 1) : today;
 
   const loadingAll = catalog.loading && courses.loading && sports.loading;
   const nothing = !loadingAll && counts.all === 0;
@@ -306,7 +291,6 @@ export function ExplorePackages({
                   <GymTier
                     key={p.packageId}
                     plan={p}
-                    baseMonthly={baseMonthly}
                     ownership={membershipPurchaseState(
                       owned.data ?? [],
                       p.packageId,
@@ -315,7 +299,6 @@ export function ExplorePackages({
                     )}
                     ownershipLoading={owned.loading}
                     today={today}
-                    start={membershipStart}
                     busy={checkout.busyId === `gym:${p.packageId}`}
                     error={
                       checkout.error?.id === `gym:${p.packageId}`
@@ -545,23 +528,18 @@ function Retry({
 
 function GymTier({
   plan,
-  baseMonthly,
   ownership,
   ownershipLoading,
   today,
-  start,
   busy,
   error,
   index,
   onChoose,
 }: {
   plan: MembershipPackageDto;
-  baseMonthly: number | null;
   ownership: ReturnType<typeof membershipPurchaseState>;
   ownershipLoading: boolean;
   today: string;
-  /** Ngày bắt đầu của gói này: hôm nay, hoặc ngay sau EndDate Membership đang dùng. */
-  start: string;
   busy: boolean;
   error: string | null;
   index: number;
@@ -575,8 +553,6 @@ function GymTier({
   const dayPassOwned =
     dayPass && !!active && active.startDate.slice(0, 10) <= today;
   const months = monthsOf(plan.durationDays);
-  const original =
-    plan.originalPrice ?? (!dayPass && baseMonthly ? baseMonthly * months : 0);
   return (
     <article
       className={styles.tier}
@@ -607,24 +583,11 @@ function GymTier({
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
-        {original > plan.price && (
-          <s
-            aria-label={`${tx("Giá gốc", "Original price")}: ${formatMoney(original)}`}
-          >
-            {formatMoney(original)}
-          </s>
-        )}
       </p>
       <p className={styles.meta}>
-        {dayPass ? (
-          "Valid until 22:00 Vietnam time on the purchase day"
-        ) : (
-          <>
-            {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
-            {" · "}≈ {formatMoney(Math.round(plan.price / months))}
-            {tx("/tháng", "/month")}
-          </>
-        )}
+        {dayPass
+          ? "Valid until 22:00 Vietnam time on the purchase day"
+          : tx("Tập Gym trong giờ mở cửa", "Gym access during opening hours")}
       </p>
       <button
         type="button"
