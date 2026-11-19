@@ -21,7 +21,7 @@ export function CoachRequestCenter() {
         onChange={(type) => setValues({ type })}
         tabs={[
           { id: "absence", label: "Absence requests" },
-          { id: "support", label: "Member support" },
+          { id: "support", label: "Support requests" },
         ]}
       >
         {values.type === "absence" ? (

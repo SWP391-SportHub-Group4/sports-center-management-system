@@ -18,11 +18,14 @@ public sealed record CourtCalendarDay(int SportId, DateOnly Date, DateTime Serve
 
 public sealed partial class CourtRentalService
 {
-    public async Task<CourtCalendarDay> CalendarAsync(Guid memberId, int sportId, DateOnly date, int hours, CancellationToken ct)
+    public async Task<CourtCalendarDay> CalendarAsync(Guid? memberId, int sportId, DateOnly date, int hours, CancellationToken ct)
     {
-        var access = await users.GetAsync(memberId, ct);
-        if (access is null || !access.IsActive || access.Role != "Member")
-            throw new ForbiddenException("member_inactive", "Member inactive.");
+        if (memberId.HasValue)
+        {
+            var access = await users.GetAsync(memberId.Value, ct);
+            if (access is null || !access.IsActive || access.Role != "Member")
+                throw new ForbiddenException("member_inactive", "Member inactive.");
+        }
         if (!await catalog.IsServiceEnabledAsync(sportId, SportServiceType.CourtRental, ct))
             throw new BadRequestException("rental_not_available", "Rental not available.");
         var step = await settings.GetIntAsync(SystemSettingKeys.RentalSlotMinutes, ct);

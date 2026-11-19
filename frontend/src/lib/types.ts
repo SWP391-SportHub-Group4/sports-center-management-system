@@ -28,6 +28,7 @@ export interface SupportRefundBreakdownDto {
 export interface MemberSupportRequestDto {
   requestId: string;
   memberId: string;
+  requesterRole?: "Member" | "Coach";
   recordedByUserId: string;
   category:
     | "GENERAL"

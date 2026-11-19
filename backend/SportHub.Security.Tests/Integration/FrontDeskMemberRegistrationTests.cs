@@ -61,19 +61,26 @@ public sealed class FrontDeskMemberRegistrationTests(SportHubApiFactory factory)
     }
 
     [Fact]
-    public async Task Receptionist_account_search_and_detail_never_expose_staff()
+    public async Task Receptionist_can_search_member_and_coach_without_exposing_other_staff()
     {
         var desk = await ReceptionistAsync();
         var coach = await factory.SeedUserAsync($"private-coach-{Guid.NewGuid():N}@example.com", null, role: UserRole.Coach);
         var member = await factory.SeedUserAsync($"visible-member-{Guid.NewGuid():N}@example.com", null, role: UserRole.Member);
+        var manager = await factory.SeedUserAsync($"private-manager-{Guid.NewGuid():N}@example.com", null, role: UserRole.CenterManager);
 
-        var list = await Json(await desk.GetAsync("api/users?role=Coach&pageSize=100"));
-        Assert.All(list.GetProperty("items").EnumerateArray(), account =>
-            Assert.Equal("MEMBER", account.GetProperty("role").GetString()));
-        var staffSearch = await Json(await desk.GetAsync($"api/users?keyword={Uri.EscapeDataString(coach.Email)}"));
-        Assert.Equal(0, staffSearch.GetProperty("totalCount").GetInt32());
-        Assert.Equal(HttpStatusCode.NotFound, (await desk.GetAsync($"api/users/{coach.UserId}")).StatusCode);
+        var coaches = await Json(await desk.GetAsync($"api/users?keyword={Uri.EscapeDataString(coach.Email)}&role=Coach"));
+        Assert.Contains(coaches.GetProperty("items").EnumerateArray(), account =>
+            account.GetProperty("userId").GetGuid() == coach.UserId && account.GetProperty("role").GetString() == "COACH");
+        var members = await Json(await desk.GetAsync($"api/users?keyword={Uri.EscapeDataString(member.Email)}&role=Member"));
+        Assert.Contains(members.GetProperty("items").EnumerateArray(), account =>
+            account.GetProperty("userId").GetGuid() == member.UserId && account.GetProperty("role").GetString() == "MEMBER");
+        var defaultSearch = await Json(await desk.GetAsync($"api/users?keyword={Uri.EscapeDataString(coach.Email)}"));
+        Assert.Equal(0, defaultSearch.GetProperty("totalCount").GetInt32());
+        var otherStaff = await Json(await desk.GetAsync($"api/users?keyword={Uri.EscapeDataString(manager.Email)}&role=CenterManager"));
+        Assert.Equal(0, otherStaff.GetProperty("totalCount").GetInt32());
+        Assert.Equal(HttpStatusCode.OK, (await desk.GetAsync($"api/users/{coach.UserId}")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await desk.GetAsync($"api/users/{member.UserId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await desk.GetAsync($"api/users/{manager.UserId}")).StatusCode);
     }
 
     [Fact]

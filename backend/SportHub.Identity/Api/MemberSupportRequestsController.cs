@@ -71,7 +71,7 @@ public sealed record MemberSupportRequestResponse(
     string Channel = "COUNTER", DateTime? SlaDueAtUtc = null,
     bool IsOverdue = false, int RemindCount = 0,
     Guid? InvoiceId = null, SupportPayoutInfo? Payout = null,
-    string? Outcome = null, Guid? InvoiceItemId = null);
+    string? Outcome = null, Guid? InvoiceItemId = null, string RequesterRole = "Member");
 
 public sealed record SupportPayoutInfo(Guid PayoutId, decimal Amount, DateTime RecordedAtUtc,
     DateTime? MemberConfirmedAtUtc, string? MemberConfirmedBy, IReadOnlyList<Guid> ProofAttachmentIds,
@@ -105,14 +105,20 @@ public sealed class MemberSupportRequestsController(
     SupportReminderService reminders,
     ISupportInvoiceGuard invoiceGuard) : ControllerBase
 {
-    private MemberSupportRequestResponse Map(MemberSupportRequest x) => new(
+    private async Task<MemberSupportRequestResponse> MapAsync(MemberSupportRequest x, CancellationToken ct)
+    {
+        var coachRequester = await db.Set<UserAccount>().AsNoTracking()
+            .AnyAsync(u => u.UserId == x.MemberId && u.Role != null && u.Role.RoleName == UserRole.Coach, ct);
+        return new MemberSupportRequestResponse(
         x.RequestId, x.MemberId, x.RecordedByUserId, x.Category, x.Subject,
         x.Description, x.Status, x.CreatedAt, x.AssignedToUserId,
         x.ProgressNote, x.UpdatedAt, x.ClosedAt, Channel: x.Channel,
         SlaDueAtUtc: x.SlaDueAtUtc,
         IsOverdue: !IsFinal(x.Status) && x.SlaDueAtUtc <= clock.UtcNow,
         RemindCount: x.RemindCount, InvoiceId: x.InvoiceId,
-        Outcome: x.Status == "CLOSED" ? "DONE" : null, InvoiceItemId: x.InvoiceItemId);
+        Outcome: x.Status == "CLOSED" ? "DONE" : null, InvoiceItemId: x.InvoiceItemId,
+        RequesterRole: coachRequester ? "Coach" : "Member");
+    }
 
     private bool IsAssignedHandler => User.IsInRole(nameof(UserRole.Coach))
         || User.IsInRole(nameof(UserRole.SystemAdministrator));
@@ -120,6 +126,12 @@ public sealed class MemberSupportRequestsController(
     private IQueryable<MemberSupportRequest> VisibleRequests()
     {
         var rows = db.Set<MemberSupportRequest>().AsNoTracking();
+        if (User.IsInRole(nameof(UserRole.Coach)))
+        {
+            var actorId = User.RequireUserId();
+            // Coaches may read requests they sent; handling still requires assignment.
+            return rows.Where(x => x.AssignedToUserId == actorId || x.MemberId == actorId);
+        }
         return IsAssignedHandler
             ? rows.Where(x => x.AssignedToUserId == User.RequireUserId()) : rows;
     }
@@ -164,7 +176,9 @@ public sealed class MemberSupportRequestsController(
                     p.MemberConfirmedAtUtc, p.MemberConfirmedBy,
                     db.Set<MemberSupportAttachment>().Where(a => canSeePayoutProof && a.PayoutId == p.PayoutId)
                         .Select(a => a.AttachmentId).ToList(), p.InvoiceItemId, p.PointsRefunded)).FirstOrDefault(),
-            x.Status == "CLOSED" ? "DONE" : null, x.InvoiceItemId));
+            x.Status == "CLOSED" ? "DONE" : null, x.InvoiceItemId,
+            db.Set<UserAccount>().Any(u => u.UserId == x.MemberId && u.Role != null
+                && u.Role.RoleName == UserRole.Coach) ? "Coach" : "Member"));
     }
 
     [HttpGet]
@@ -183,15 +197,15 @@ public sealed class MemberSupportRequestsController(
                 x =>
                     x.UserId == memberId &&
                     x.Role != null &&
-                    x.Role.RoleName == UserRole.Member,
+                    (x.Role.RoleName == UserRole.Member || x.Role.RoleName == UserRole.Coach),
                 ct);
 
         if (!memberExists)
         {
             return NotFound(new
             {
-                error = "member_not_found",
-                message = "Member was not found."
+                error = "requester_not_found",
+                message = "Member or coach was not found."
             });
         }
 
@@ -223,22 +237,22 @@ public sealed class MemberSupportRequestsController(
         if (
             member is null ||
             member.Role is null ||
-            member.Role.RoleName != UserRole.Member)
+            member.Role.RoleName is not (UserRole.Member or UserRole.Coach))
         {
             return NotFound(new
             {
-                error = "member_not_found",
-                message = "Member was not found."
+                error = "requester_not_found",
+                message = "Member or coach was not found."
             });
         }
 
-        // Newly registered members can be Active but still lack login credentials.
+        // A requester must have an active account with login credentials.
         if (!await db.Set<UserAccount>().AsNoTracking()
             .AnyAsync(u => u.UserId == request.MemberId
                 && u.Status == UserStatus.Active
                 && ((u.Credential != null && u.Credential.PasswordHash != null)
                     || u.ExternalLogins.Any()), ct))
-            throw new ConflictException("member_not_activated", "Member must activate the account before a support request can be created.");
+            throw new ConflictException("requester_not_activated", "Requester must activate the account before a support request can be created.");
 
 
         var description = request.Description.Trim();
@@ -278,6 +292,8 @@ public sealed class MemberSupportRequestsController(
         await using var createTx = await db.Database.BeginTransactionAsync(ct);
         if (category == "PAYMENT")
         {
+            if (member.Role.RoleName != UserRole.Member)
+                throw new BadRequestException("support_payment_member_only", "Payment requests require a member requester.");
             if (request.InvoiceId is null || request.InvoiceId == Guid.Empty)
                 throw new BadRequestException(PaymentSupportErrorCodes.PaymentRequestInvoiceRequired,
                     "Choose the member's paid VNPay invoice.");
@@ -346,7 +362,7 @@ public sealed class MemberSupportRequestsController(
         audit.Write(new AuditEntry(User.RequireUserId(), "CREATE_SUPPORT_REQUEST", nameof(MemberSupportRequest),
             entity.RequestId.ToString(), NewValue: JsonSerializer.Serialize(new { entity.MemberId, entity.Category, entity.Subject })));
 
-        // Acknowledge the request to the member (in-app notice + email), same as the self-service form.
+        // Acknowledge the actual requester (member or coach) through their account.
         var contact = await db.Set<UserAccount>().AsNoTracking()
             .Where(x => x.UserId == request.MemberId)
             .Select(x => new { x.Email, Name = x.Profile != null ? x.Profile.FullName : x.Email })
@@ -375,7 +391,7 @@ public sealed class MemberSupportRequestsController(
         await db.SaveChangesAsync(ct);
 
         await createTx.CommitAsync(ct);
-        return Ok(Map(entity));
+        return Ok(await MapAsync(entity, ct));
     }
 
     [HttpGet("stats")]
@@ -496,7 +512,7 @@ public sealed class MemberSupportRequestsController(
         if (old == body.AssigneeUserId)
         {
             await tx.CommitAsync(ct);
-            return Ok(Map(row));
+            return Ok(await MapAsync(row, ct));
         }
         row.AssignedToUserId = body.AssigneeUserId;
         row.Status = "ASSIGNED";
@@ -509,7 +525,7 @@ public sealed class MemberSupportRequestsController(
             NewValue: JsonSerializer.Serialize(body.AssigneeUserId)));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return Ok(Map(row));
+        return Ok(await MapAsync(row, ct));
     }
 
     [HttpPost("{requestId:guid}/progress")]
@@ -534,7 +550,7 @@ public sealed class MemberSupportRequestsController(
             requestId.ToString(), NewValue: JsonSerializer.Serialize(note)));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return Ok(Map(row));
+        return Ok(await MapAsync(row, ct));
     }
 
     private static bool IsFinal(string status) => status is "DONE" or "REJECTED" or "CLOSED";
@@ -587,7 +603,7 @@ public sealed class MemberSupportRequestsController(
             NewValue: JsonSerializer.Serialize(target), Reason: reason));
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return Ok(Map(row));
+        return Ok(await MapAsync(row, ct));
     }
 
     private static string CategoryLabel(string category) => category switch
@@ -638,7 +654,7 @@ public sealed class MemberSupportRequestsController(
         // The source identifies this assignment occurrence, allowing a later reassignment
         // back to the same administrator without colliding with the notification unique index.
         var message = $"Manager {names.GetValueOrDefault(actorId)} assigned a member support request to you.\n"
-            + $"Subject: {row.Subject}\nMember: {names.GetValueOrDefault(row.MemberId)}\n"
+            + $"Subject: {row.Subject}\nRequester: {names.GetValueOrDefault(row.MemberId)}\n"
             + $"Category: {row.Category}\n{row.Description}";
         notifications.Queue(new NotificationRequest(recipientId, NotificationEvents.SupportRequestAssigned, message, assignmentId));
         if (role == UserRole.Coach)
@@ -648,7 +664,7 @@ public sealed class MemberSupportRequestsController(
                 assignmentId, "SportHub - A support request has been assigned to you",
                 SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Paragraph($"Manager {names.GetValueOrDefault(actorId)} assigned a support request to you. Open Support requests in your Coach workspace to respond.")
                 + SportHub.BuildingBlocks.Abstractions.Email.EmailContent.Details(("Reference", row.RequestId.ToString("N")[..8].ToUpperInvariant()),
-                    ("Subject", row.Subject), ("Member", names.GetValueOrDefault(row.MemberId) ?? "Member"),
+                    ("Subject", row.Subject), ("Requester", names.GetValueOrDefault(row.MemberId) ?? "Requester"),
                     ("Category", CategoryLabel(row.Category)), ("Details", row.Description))));
         }
     }

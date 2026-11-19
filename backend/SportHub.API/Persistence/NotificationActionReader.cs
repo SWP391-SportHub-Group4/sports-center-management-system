@@ -195,10 +195,14 @@ public sealed class NotificationActionReader(SportHubDbContext db, SportHub.Buil
                         links[p.PayoutId] = $"/member/help?tab=requests&requestId={p.RequestId}";
                     break;
                 case "SupportRequestReceived":
+                    var requesterIsCoach = await db.UserAccounts.AnyAsync(u => u.UserId == userId
+                        && u.Role != null && u.Role.RoleName == SportHub.Identity.Domain.Enums.UserRole.Coach, ct);
                     foreach (var id in await db.Set<SportHub.Identity.Domain.Entities.MemberSupportRequest>()
                                  .Where(r => r.MemberId == userId && ids.Contains(r.RequestId))
                                  .Select(r => r.RequestId).ToListAsync(ct))
-                        links[id] = $"/member/help?tab=requests&requestId={id}";
+                        links[id] = requesterIsCoach
+                            ? $"/coach/support?type=support&request={id}"
+                            : $"/member/help?tab=requests&requestId={id}";
                     break;
                 case "ClassThresholdAtRisk":
                 case "ClassThresholdConfirmed":
