@@ -2689,6 +2689,8 @@ export const en = {
     renew: "See the next {sport} course",
   },
   apiErrors: {
+    courtRentalClassConflict:
+      "This court rental overlaps a class session on the member's schedule. Please choose a different time.",
     memberScheduleConflict:
       "This time overlaps a class or court booking already on the member's schedule. Choose a different time or class.",
     duplicateActivePackage:
