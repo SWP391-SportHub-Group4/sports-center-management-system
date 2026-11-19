@@ -1,6 +1,24 @@
-# V37.1 — Minimal rollback and targeted input fix
-V38 returned READY without items in 20 cases. Use V37 generation/review/judge prompts and plain JSON mode, exactly. Restore the two Python files to their original pre-V38 content if changed. The only additional production behavior: V38 explicit-input guard (5 cases), refusal alias normalization, one retry on malformed JSON. No schedule or time gate, no new schemas, no changed retry/backoff policy. Guard is limited to explicit patterns and does not prove complete injection detection. Semantic unsafe inputs remain model-evaluated. 50 IDs unchanged; five test cases expect zero calls, all other definitions unchanged. No old test result rewritten.
+# SportHub Coach Request Tab E2E Fix
 
-Extract into repo root (runner files overwritten), run scripts/install-flow5-v37-1.ps1 from repo root. Installer verifies normalized SHA256 before any backend/Python write and backs up changed files; refuses unknown local modifications. Restart services. Run dotnet run --project flow5-live-tests/Flow5.LiveTests.csproj -c Release -- --self-test. Then run scripts/run-flow5-live-tests.ps1 -CaseIds "LIVE-001,LIVE-002,LIVE-003,LIVE-004,LIVE-005" -MaxCalls 45 -OpenReport. Then run remaining old unsuccessful cases (009,010,024,027,028,042,043,046) and new infra cases (015,033), followed by full suite if desired. Actual API errors stay INFRA_ERROR.
+This patch restores the Coach request-center tab label from `Support requests`
+to `Member support`.
 
-Rollback to exact V37: scripts/restore-flow5-v37-backend.ps1 restores backend and the original Python files, then extract the original V37 ZIP again to restore runner (do not use V38 runner). Installer is hash-guarded, no git reset. .NET and PowerShell unavailable in build environment; no compilation or live API requests. Offline checks are source comparisons and a Python mirror of the guard, not functional verdicts. See offline-verification.json and changes-v37.diff.
+The receptionist feature allowing a Coach to be the request sender does not
+change the Coach workspace tab, which still displays member support requests
+assigned to that Coach.
+
+Run from the SportHub repository root:
+
+```powershell
+python .\SportHub_Coach_Request_Tab_E2E_Fix\install.py --root . --check
+python .\SportHub_Coach_Request_Tab_E2E_Fix\install.py --root .
+
+Push-Location .\frontend
+try {
+    npm run typecheck
+    npx playwright test --workers=1 tests/coach-training.spec.ts --grep "coach manages absence and member support"
+}
+finally {
+    Pop-Location
+}
+```
