@@ -245,7 +245,7 @@ public sealed partial class ClassSessionService(
         }
 
         // Ordinary makeups follow the course. Incident replacements may use any
-        // future conflict-free slot outside the incident window.
+        // future conflict-free slot unaffected by the incident.
         if (incidentFenceId is null)
         {
             var lastEnd = await db.Set<ClassSession>()
