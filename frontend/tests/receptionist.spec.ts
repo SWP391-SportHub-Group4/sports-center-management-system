@@ -218,6 +218,85 @@ test.beforeEach(async ({ page }) => {
   await receptionistFixture(page);
 });
 
+for (const selectedMember of [false, true]) {
+  test(`schedule shows court availability with ${selectedMember ? "a selected member" : "no member selected"}`, async ({
+    page,
+  }) => {
+    if (selectedMember) {
+      await page.addInitScript((userId) => {
+        sessionStorage.setItem(
+          "sporthub.desk.member",
+          JSON.stringify({
+            userId,
+            fullName: "Member A",
+            role: "MEMBER",
+            status: "ACTIVE",
+          }),
+        );
+      }, memberId);
+    }
+    await page.route("**/api/sports", (route) =>
+      route.fulfill({
+        json: [
+          {
+            sportId: 3,
+            name: "Badminton",
+            code: "badminton",
+            isActive: true,
+            services: [{ serviceType: "COURT_RENTAL", isEnabled: true }],
+          },
+        ],
+      }),
+    );
+    const requests: URL[] = [];
+    await page.route("**/api/manager/court-schedule?*", (route) =>
+      route.fulfill({ json: [] }),
+    );
+    await page.route("**/api/court-rentals/calendar?*", (route) => {
+      const url = new URL(route.request().url());
+      requests.push(url);
+      return route.fulfill({
+        json: {
+          sportId: 3,
+          date: url.searchParams.get("date"),
+          serverNowUtc: "2030-10-03T03:00:00Z",
+          rooms: [
+            {
+              roomId: 8,
+              name: "Court 8",
+              slots: [
+                {
+                  startUtc: `${url.searchParams.get("date")}T04:00:00Z`,
+                  endUtc: `${url.searchParams.get("date")}T05:00:00Z`,
+                  status: "AVAILABLE",
+                  totalPrice: 100000,
+                  blocks: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/receptionist/schedule");
+    await expect(
+      page
+        .getByRole("table")
+        .filter({
+          has: page.getByRole("columnheader", { name: "Court", exact: true }),
+        }),
+    ).toHaveCount(3);
+    await expect(page.getByText("Court 8", { exact: true })).toHaveCount(3);
+    expect(requests).toHaveLength(3);
+    expect(
+      requests.every((url) => !url.searchParams.has("targetMemberId")),
+    ).toBe(true);
+    await expect(
+      page.getByText("Target member required.", { exact: true }),
+    ).toHaveCount(0);
+  });
+}
+
 test("receptionist dashboard uses real operational links and no manual-paid workflow", async ({
   page,
 }) => {

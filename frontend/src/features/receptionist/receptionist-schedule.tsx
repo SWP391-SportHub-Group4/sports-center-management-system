@@ -146,14 +146,12 @@ export function ReceptionistSchedule() {
               slotDate,
               1,
               signal,
-              desk.member?.userId,
             ),
           };
         }),
       );
     },
     [
-      desk.member?.userId,
       effectiveSportId,
       operatingDay,
       actualToday,
