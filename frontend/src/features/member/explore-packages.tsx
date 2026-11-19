@@ -37,6 +37,7 @@ import type {
 import {
   emblemForSport,
   membershipEnd,
+  membershipDuration,
   monthsOf,
   sportLabel,
   type ServiceKind,
@@ -575,6 +576,7 @@ function GymTier({
   const dayPassOwned =
     dayPass && !!active && active.startDate.slice(0, 10) <= today;
   const months = monthsOf(plan.durationDays);
+  const duration = membershipDuration(plan.durationDays);
   const original =
     plan.originalPrice ?? (!dayPass && baseMonthly ? baseMonthly * months : 0);
   return (
@@ -598,12 +600,8 @@ function GymTier({
       </p>
       <h3 className={styles.planName}>{plan.name}</h3>
       <p className={styles.months}>
-        <strong>{dayPass ? 1 : months}</strong>
-        <span>
-          {dayPass
-            ? tx("ngày", "day")
-            : tx("tháng", months === 1 ? "month" : "months")}
-        </span>
+        <strong>{duration.value}</strong>
+        <span>{duration.unit}</span>
       </p>
       <p className={styles.price}>
         <strong>{formatMoney(plan.price)}</strong>
@@ -620,9 +618,13 @@ function GymTier({
           "Valid until 22:00 Vietnam time on the purchase day"
         ) : (
           <>
-            {tx("Đến", "Until")} {formatDate(membershipEnd(start, months))}
-            {" · "}≈ {formatMoney(Math.round(plan.price / months))}
-            {tx("/tháng", "/month")}
+            {tx("Đến", "Until")}{" "}
+            {formatDate(membershipEnd(start, plan.durationDays))}
+            {months > 0 && (
+              <>
+                {" · "}≈ {formatMoney(Math.round(plan.price / months))}/month
+              </>
+            )}
           </>
         )}
       </p>

@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/auth";
 import { TableFilters } from "@/components/data/TableFilters";
+import { MemberPicker } from "@/components/MemberPicker";
 import { pagedItems } from "@/lib/paged";
 
 import { useEffect, useState } from "react";
@@ -16,7 +17,12 @@ import { useLanguage } from "@/lib/language";
 import { formatMoney } from "@/lib/format";
 import styles from "./invoice-list.module.css";
 
-import type { InvoiceSummaryDto, InvoiceDetailDto, Paged } from "@/lib/types";
+import type {
+  InvoiceSummaryDto,
+  InvoiceDetailDto,
+  Paged,
+  UserAdminDto,
+} from "@/lib/types";
 
 import { StatusChip } from "@/components/ui";
 
@@ -214,9 +220,11 @@ export function InvoiceList({
   rental?: boolean;
   initialStatus?: string;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user } = useAuth();
   const hideVoids = user?.role === "SystemAdministrator";
+  const hideOutstanding =
+    user?.role === "CenterManager" || user?.role === "Receptionist";
 
   const [page, setPage] = useState(1);
 
@@ -228,6 +236,21 @@ export function InvoiceList({
   const [linkError, setLinkError] = useState("");
 
   const [status, setStatus] = useState(initialStatus);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [filterMember, setFilterMember] = useState<UserAdminDto | null>(null);
+  const invalidRange = !!fromDate && !!toDate && fromDate > toDate;
+  const filteredMemberId =
+    memberId || (staff ? filterMember?.userId : undefined);
+  // Use the same Vietnam timezone as the displayed invoice issue time.
+  const issuedFrom =
+    staff && fromDate && !invalidRange
+      ? new Date(`${fromDate}:00+07:00`).toISOString()
+      : undefined;
+  const issuedTo =
+    staff && toDate && !invalidRange
+      ? new Date(`${toDate}:59.999+07:00`).toISOString()
+      : undefined;
 
   const [actionError, setActionError] = useState("");
 
@@ -311,23 +334,36 @@ export function InvoiceList({
 
   const state = useApi(
     (signal) =>
-      api.get<Paged<InvoiceSummaryDto>>(
-        staff
-          ? "/api/invoices"
-          : rental
-            ? "/api/members/me/rental-invoices"
-            : "/api/members/me/invoices",
-        {
-          signal,
-          query: {
-            page,
-            pageSize: 10,
-            status,
-            memberId,
-          },
-        },
-      ),
-    [staff, rental, page, status, memberId],
+      invalidRange
+        ? Promise.resolve(null)
+        : api.get<Paged<InvoiceSummaryDto>>(
+            staff
+              ? "/api/invoices"
+              : rental
+                ? "/api/members/me/rental-invoices"
+                : "/api/members/me/invoices",
+            {
+              signal,
+              query: {
+                page,
+                pageSize: 10,
+                status,
+                memberId: filteredMemberId,
+                issuedFrom,
+                issuedTo,
+              },
+            },
+          ),
+    [
+      staff,
+      rental,
+      page,
+      status,
+      filteredMemberId,
+      issuedFrom,
+      issuedTo,
+      invalidRange,
+    ],
   );
 
   async function runInvoiceAction(invoiceId: string, action: "print" | "csv") {
@@ -376,28 +412,77 @@ export function InvoiceList({
       )}
 
       <TableFilters inline={staff}>
-        <label>
-          {t.refactor.status}
+        <div className={staff ? styles.filters : undefined}>
+          {staff && (
+            <>
+              {!memberId && (
+                <MemberPicker
+                  value={filterMember}
+                  label={language === "en" ? "Member" : "Hội viên"}
+                  placeholder={
+                    language === "en"
+                      ? "Search member by name..."
+                      : "Nhập tên hội viên..."
+                  }
+                  scanner={false}
+                  editableSelection
+                  onChange={(member) => {
+                    setFilterMember(member);
+                    setPage(1);
+                  }}
+                />
+              )}
+              <label>
+                {language === "en" ? "From date & time" : "Từ ngày giờ"}
+                <input
+                  type="datetime-local"
+                  value={fromDate}
+                  max={toDate || undefined}
+                  aria-invalid={invalidRange}
+                  onChange={(event) => {
+                    setFromDate(event.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+              <label>
+                {language === "en" ? "To date & time" : "Đến ngày giờ"}
+                <input
+                  type="datetime-local"
+                  value={toDate}
+                  min={fromDate || undefined}
+                  aria-invalid={invalidRange}
+                  onChange={(event) => {
+                    setToDate(event.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+            </>
+          )}
+          <label>
+            {t.refactor.status}
 
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
+            <select
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
 
-              setPage(1);
-            }}
-          >
-            <option value="">—</option>
+                setPage(1);
+              }}
+            >
+              <option value="">—</option>
 
-            {["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"]
-              .filter((status) => !hideVoids || status !== "VOID")
-              .map((s) => (
-                <option key={s} value={s}>
-                  {t.wireStatus[s as keyof typeof t.wireStatus]}
-                </option>
-              ))}
-          </select>
-        </label>
+              {["ISSUED", "PAID", "VOID", "PAID_AFTER_RECONCILIATION"]
+                .filter((status) => !hideVoids || status !== "VOID")
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {t.wireStatus[s as keyof typeof t.wireStatus]}
+                  </option>
+                ))}
+            </select>
+          </label>
+        </div>
       </TableFilters>
 
       {state.loading ? (
@@ -440,16 +525,18 @@ export function InvoiceList({
                   <dt>Order value</dt>
                   <dd>{formatMoney(i.totalAmount)}</dd>
                 </div>
-                <div>
-                  <dt>
-                    {isVoid
-                      ? "Payment obligation"
-                      : isPaid
-                        ? "Outstanding"
-                        : "Amount due"}
-                  </dt>
-                  <dd>{isVoid ? "Cancelled" : formatMoney(i.outstanding)}</dd>
-                </div>
+                {!hideOutstanding && (
+                  <div>
+                    <dt>
+                      {isVoid
+                        ? "Payment obligation"
+                        : isPaid
+                          ? "Outstanding"
+                          : "Amount due"}
+                    </dt>
+                    <dd>{isVoid ? "Cancelled" : formatMoney(i.outstanding)}</dd>
+                  </div>
+                )}
               </dl>
               <div className={styles.actions}>
                 <button

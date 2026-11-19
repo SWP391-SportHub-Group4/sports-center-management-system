@@ -45,6 +45,8 @@ export function InvoiceDetail({
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const hideOutstanding =
+    user?.role === "CenterManager" || user?.role === "Receptionist";
   const download = useAction();
   const l = t.refactor;
   const f = t.finOps;
@@ -111,8 +113,12 @@ export function InvoiceDetail({
                 <div><dt>Member</dt><dd>{d.summary.memberName || "Not available"}</dd></div>
                 <div><dt>Email</dt><dd>{d.summary.memberEmail || "Not available"}</dd></div>
                 <div><dt>Payment status</dt><dd><StatusChip value={d.summary.status} /></dd></div>
-                <div><dt>{voided ? "Payment obligation" : "Amount outstanding"}</dt>
-                  <dd>{voided ? "Cancelled" : formatMoney(d.summary.outstanding)}</dd></div>
+                {!hideOutstanding && (
+                  <div>
+                    <dt>{voided ? "Payment obligation" : "Amount outstanding"}</dt>
+                    <dd>{voided ? "Cancelled" : formatMoney(d.summary.outstanding)}</dd>
+                  </div>
+                )}
                 {successfulPayments.length > 0 && (
                   <>
                     <div><dt>Last payment</dt><dd>{formatDateTime(successfulPayments[successfulPayments.length - 1].paidAt)}</dd></div>

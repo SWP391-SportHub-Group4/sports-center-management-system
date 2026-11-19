@@ -38,9 +38,7 @@ export function sportLabel(name: string | null | undefined, vi: boolean) {
   return value;
 }
 
-export function monthsOf(days: number) {
-  return Math.max(1, Math.round(days / 30.4));
-}
+export { monthsOf, membershipDuration } from "@/lib/membership-duration";
 
 /** Cộng tháng lịch như .NET AddMonths: ngày cuối tháng được co lại cho vừa tháng đích. */
 export function addMonthsIso(isoDate: string, months: number) {
@@ -53,10 +51,15 @@ export function addMonthsIso(isoDate: string, months: number) {
   return target.toISOString().slice(0, 10);
 }
 
-/** BR-9: EndDate = StartDate + số tháng - 1 ngày; BR-65: gia hạn sớm bắt đầu ngay sau EndDate đang có. */
-export function membershipEnd(startIso: string, months: number) {
-  const end = new Date(`${addMonthsIso(startIso, months)}T00:00:00Z`);
-  end.setUTCDate(end.getUTCDate() - 1);
+/** Match backend ComputePeriod, independently of the display unit. */
+export function membershipEnd(startIso: string, durationDays: number) {
+  const months = durationDays >= 28 ? Math.round(durationDays / 30.4375) : 0;
+  const end = new Date(
+    `${months ? addMonthsIso(startIso, months) : startIso}T00:00:00Z`,
+  );
+  end.setUTCDate(
+    end.getUTCDate() + (months ? -1 : Math.max(durationDays, 1) - 1),
+  );
   return end.toISOString().slice(0, 10);
 }
 

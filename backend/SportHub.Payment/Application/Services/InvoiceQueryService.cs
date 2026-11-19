@@ -41,12 +41,26 @@ public sealed class InvoiceQueryService(ISportHubDbContext db, IInvoiceClassName
         string? keyword,
         int page,
         int pageSize,
-        CancellationToken ct = default, bool rentalOnly = false, bool excludeVoid = false)
+        CancellationToken ct = default, bool rentalOnly = false, bool excludeVoid = false,
+        DateTimeOffset? issuedFrom = null, DateTimeOffset? issuedTo = null)
     {
         page = page < 1 ? 1 : page;
         pageSize = Math.Clamp(pageSize <= 0 ? 20 : pageSize, 1, 100);
 
+        if (issuedFrom.HasValue && issuedTo.HasValue && issuedFrom > issuedTo)
+            throw new BadRequestException("invalid_invoice_date_range", "From date must not be after to date.");
+
         var query = db.Set<Invoice>().AsNoTracking();
+        if (issuedFrom.HasValue)
+        {
+            var fromUtc = issuedFrom.Value.UtcDateTime;
+            query = query.Where(i => i.IssuedAt >= fromUtc);
+        }
+        if (issuedTo.HasValue)
+        {
+            var toUtc = issuedTo.Value.UtcDateTime;
+            query = query.Where(i => i.IssuedAt <= toUtc);
+        }
         if (excludeVoid) query = query.Where(i => i.Status != InvoiceStatus.Void);
         if (rentalOnly)
             query = query.Where(i => i.Items.Any(item => item.ItemType == InvoiceItemType.Rental));
